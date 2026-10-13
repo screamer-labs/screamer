@@ -69,10 +69,16 @@ and helper functions such as `position_test` become `positionTest`.
 
 The function pages in this documentation describe each operator's behavior and
 parameters, which are the same in both packages, but their examples are in
-Python. A JavaScript constructor takes the parameters positionally, in the order
-the page lists them, so `EwMean(span=20)` becomes `EwMean(undefined, 20)`;
-passing `undefined` keeps a parameter's default. Helpers that take options,
-such as `positionTest`, take them as an object. The pandas
+Python. A JavaScript constructor takes the parameters by name in one options
+object, so `EwMean(span=20)` becomes `EwMean({ span: 20 })`. The names are
+camelCase, an unknown name raises `TypeError`, and each operator has a matching
+TypeScript type (`EwMeanOptions`). The options object must be the only argument.
+A constructor also takes the parameters positionally, in the order the page
+lists them: `EwMean(undefined, 20)`. In both forms, `undefined` or `null` keeps a
+parameter's default, and leaving out a parameter that has no default raises
+`TypeError`. An operator without parameters, such as `Abs`, takes no argument
+or an empty object. Helpers that take options, such as `positionTest`, take
+them as an object. The pandas
 conversions have no JavaScript counterpart. The
 JavaScript-specific parts, such as module loading, async iterables, pipelines,
 and memory management, are covered in the JavaScript guide.
@@ -168,7 +174,7 @@ const [open, high, low, close] = [2, 3, 4, 5].map(
   (i) => Float64Array.from(rows, (f) => Number(f[i])));
 
 // +1 when the 20-day EwMean is above the 100-day one, -1 below
-const spread = Sub()(EwMean(undefined, 20)(close), EwMean(undefined, 100)(close));
+const spread = Sub()(EwMean({ span: 20 })(close), EwMean({ span: 100 })(close));
 const signal = Sign()(FillNa(0)(spread));
 
 // BacktestOHLCTarget(takerFee, tickSize, minPosition, maxPosition,

@@ -17,17 +17,53 @@ const _vec = (name: string, x: any): any => {
   if (Array.isArray(x) || (ArrayBuffer.isView(x) && !(x instanceof DataView))) return Array.from(x as ArrayLike<unknown>);
   throw new TypeError(`${name} must be a number or an array of numbers, got ${_what(x)}`);
 };
+// Only a plain object (prototype Object.prototype or null) is an options
+// object; an array, a typed array or a class instance never is.
+const _isOptions = (x: unknown): boolean => {
+  if (x === null || typeof x !== "object") return false;
+  const p = Object.getPrototypeOf(x);
+  return p === Object.prototype || p === null;
+};
+// The settings in an options object, in parameter order. Only own enumerable
+// keys count, so an inherited key is never read and an own `__proto__` key
+// is an unknown option.
+const _options = (op: string, o: any, nArgs: number, names: string[]): any[] => {
+  if (nArgs > 1) throw new TypeError(`${op}: an options object must be the only argument`);
+  for (const k of Object.keys(o))
+    if (!names.includes(k))
+      throw new TypeError(`${op}: unknown option '${k}'; ` + (names.length ? `valid options are ${names.join(", ")}` : `${op} has no options`));
+  return names.map((k) => (Object.prototype.propertyIsEnumerable.call(o, k) ? o[k] : undefined));
+};
+
+/** AD has no settings: its options object is empty. */
+export type ADOptions = Record<string, never>;
 
 /**
  * Chaikin Accumulation/Distribution Line.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/AD.html for the full reference.
  */
-export function AD(): ScreamerOp {
+export function AD(options?: ADOptions): ScreamerOp {
+  if (_isOptions(options)) _options("AD", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.AD());
 }
 
+/** The settings of ADOSC by name, for `ADOSC({ ... })`. */
+export interface ADOSCOptions {
+  /** Span of the fast EMA of the AD line, in samples. Must be less than slow. */
+  fast?: number;
+  /** Span of the slow EMA of the AD line, in samples. Must be greater than fast. */
+  slow?: number;
+}
+
+/**
+ * Difference of fast and slow EMA of the Accumulation/Distribution line.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/ADOSC.html for the full reference.
+ */
+export function ADOSC(options: ADOSCOptions): ScreamerOp;
 /**
  * Difference of fast and slow EMA of the Accumulation/Distribution line.
  *
@@ -35,79 +71,158 @@ export function AD(): ScreamerOp {
  * @param slow Span of the slow EMA of the AD line, in samples. Must be greater than fast.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/ADOSC.html for the full reference.
  */
-export function ADOSC(fast: number = 3, slow: number = 10): ScreamerOp {
+export function ADOSC(fast?: number, slow?: number): ScreamerOp;
+export function ADOSC(fast?: any, slow?: any): ScreamerOp {
+  if (_isOptions(fast)) [fast, slow] = _options("ADOSC", fast, arguments.length, ["fast", "slow"]);
+  fast ??= 3;
+  slow ??= 10;
   const M = current();
   if (_isText(fast)) throw new TypeError(`fast must be a number, got a string`);
   if (_isText(slow)) throw new TypeError(`slow must be a number, got a string`);
   return wrapOp(M, () => new M.ADOSC(fast, slow));
 }
 
+/** The settings of ADX by name, for `ADX({ ... })`. */
+export interface ADXOptions {
+  /** Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value. 14 is Wilder's choice. */
+  windowSize?: number;
+}
+
+/**
+ * Wilder's ADX with +DI and -DI (3 inputs -> 3 outputs).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/ADX.html for the full reference.
+ */
+export function ADX(options: ADXOptions): ScreamerOp;
 /**
  * Wilder's ADX with +DI and -DI (3 inputs -> 3 outputs).
  *
  * @param windowSize Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value. 14 is Wilder's choice.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/ADX.html for the full reference.
  */
-export function ADX(windowSize: number = 14): ScreamerOp {
+export function ADX(windowSize?: number): ScreamerOp;
+export function ADX(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("ADX", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 14;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.ADX(windowSize));
 }
 
+/** The settings of ADXR by name, for `ADXR({ ... })`. */
+export interface ADXROptions {
+  /** Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value. It is also the lag between the two ADX values that are averaged (window_size - 1 samples). */
+  windowSize?: number;
+}
+
+/**
+ * Wilder's ADXR, the mean of ADX now and ADX one window ago.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/ADXR.html for the full reference.
+ */
+export function ADXR(options: ADXROptions): ScreamerOp;
 /**
  * Wilder's ADXR, the mean of ADX now and ADX one window ago.
  *
  * @param windowSize Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value. It is also the lag between the two ADX values that are averaged (window_size - 1 samples).
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/ADXR.html for the full reference.
  */
-export function ADXR(windowSize: number = 14): ScreamerOp {
+export function ADXR(windowSize?: number): ScreamerOp;
+export function ADXR(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("ADXR", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 14;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.ADXR(windowSize));
 }
 
+/** The settings of ATR by name, for `ATR({ ... })`. */
+export interface ATROptions {
+  /** Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value. 14 is Wilder's choice. */
+  windowSize?: number;
+}
+
+/**
+ * Wilder-smoothed average of TrueRange.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/ATR.html for the full reference.
+ */
+export function ATR(options: ATROptions): ScreamerOp;
 /**
  * Wilder-smoothed average of TrueRange.
  *
  * @param windowSize Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value. 14 is Wilder's choice.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/ATR.html for the full reference.
  */
-export function ATR(windowSize: number = 14): ScreamerOp {
+export function ATR(windowSize?: number): ScreamerOp;
+export function ATR(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("ATR", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 14;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.ATR(windowSize));
 }
+
+/** Abs has no settings: its options object is empty. */
+export type AbsOptions = Record<string, never>;
 
 /**
  * Absolute value of each element.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Abs.html for the full reference.
  */
-export function Abs(): ScreamerOp {
+export function Abs(options?: AbsOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Abs", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Abs());
 }
+
+/** Acos has no settings: its options object is empty. */
+export type AcosOptions = Record<string, never>;
 
 /**
  * Inverse cosine of each element (radians, input in [-1, 1]).
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Acos.html for the full reference.
  */
-export function Acos(): ScreamerOp {
+export function Acos(options?: AcosOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Acos", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Acos());
 }
+
+/** Add has no settings: its options object is empty. */
+export type AddOptions = Record<string, never>;
 
 /**
  * Elementwise sum of two aligned streams (x + y).
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Add.html for the full reference.
  */
-export function Add(): ScreamerOp {
+export function Add(options?: AddOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Add", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Add());
 }
 
+/** The settings of AmihudIlliquidity by name, for `AmihudIlliquidity({ ... })`. */
+export interface AmihudIlliquidityOptions {
+  /** Number of most recent valid observations averaged. */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * Rolling mean of |return| / notional (Amihud 2002 illiquidity ratio).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/AmihudIlliquidity.html for the full reference.
+ */
+export function AmihudIlliquidity(options: AmihudIlliquidityOptions): ScreamerOp;
 /**
  * Rolling mean of |return| / notional (Amihud 2002 illiquidity ratio).
  *
@@ -115,75 +230,150 @@ export function Add(): ScreamerOp {
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_micro/AmihudIlliquidity.html for the full reference.
  */
-export function AmihudIlliquidity(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
+export function AmihudIlliquidity(windowSize?: number, startPolicy?: string): ScreamerOp;
+export function AmihudIlliquidity(windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("AmihudIlliquidity", windowSize, arguments.length, ["windowSize", "startPolicy"]);
+  windowSize ??= 20;
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.AmihudIlliquidity(windowSize, startPolicy));
 }
 
+/** And has no settings: its options object is empty. */
+export type AndOptions = Record<string, never>;
+
 /**
  * Returns 1.0 if both inputs are nonzero, else 0.0. NaN in either input yields NaN.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/And.html for the full reference.
  */
-export function And(): ScreamerOp {
+export function And(options?: AndOptions): ScreamerOp {
+  if (_isOptions(options)) _options("And", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.And());
 }
+
+/** Asin has no settings: its options object is empty. */
+export type AsinOptions = Record<string, never>;
 
 /**
  * Inverse sine of each element (radians, input in [-1, 1]).
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Asin.html for the full reference.
  */
-export function Asin(): ScreamerOp {
+export function Asin(options?: AsinOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Asin", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Asin());
 }
+
+/** Atan has no settings: its options object is empty. */
+export type AtanOptions = Record<string, never>;
 
 /**
  * Inverse tangent of each element (radians).
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Atan.html for the full reference.
  */
-export function Atan(): ScreamerOp {
+export function Atan(options?: AtanOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Atan", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Atan());
 }
+
+/** Atan2 has no settings: its options object is empty. */
+export type Atan2Options = Record<string, never>;
 
 /**
  * Signed angle of (x, y) from the positive x-axis (numpy.arctan2 order).
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Atan2.html for the full reference.
  */
-export function Atan2(): ScreamerOp {
+export function Atan2(options?: Atan2Options): ScreamerOp {
+  if (_isOptions(options)) _options("Atan2", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Atan2());
 }
+
+/** BOP has no settings: its options object is empty. */
+export type BOPOptions = Record<string, never>;
 
 /**
  * (close - open) / (high - low) per bar. No smoothing.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/BOP.html for the full reference.
  */
-export function BOP(): ScreamerOp {
+export function BOP(options?: BOPOptions): ScreamerOp {
+  if (_isOptions(options)) _options("BOP", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.BOP());
 }
 
+/** The settings of BacktestCarry by name, for `BacktestCarry({ ... })`. */
+export interface BacktestCarryOptions {
+  /** Contract multiplier, as on the engine that produced the output. */
+  multiplier?: number;
+}
+
+/**
+ * Charge perpetual funding, borrow, or financing on the position of any backtest engine's output.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestCarry.html for the full reference.
+ */
+export function BacktestCarry(options: BacktestCarryOptions): ScreamerOp;
 /**
  * Charge perpetual funding, borrow, or financing on the position of any backtest engine's output.
  *
  * @param multiplier Contract multiplier, as on the engine that produced the output.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestCarry.html for the full reference.
  */
-export function BacktestCarry(multiplier: number = 1.0): ScreamerOp {
+export function BacktestCarry(multiplier?: number): ScreamerOp;
+export function BacktestCarry(multiplier?: any): ScreamerOp {
+  if (_isOptions(multiplier)) [multiplier] = _options("BacktestCarry", multiplier, arguments.length, ["multiplier"]);
+  multiplier ??= 1.0;
   const M = current();
   if (_isText(multiplier)) throw new TypeError(`multiplier must be a number, got a string`);
   return wrapOp(M, () => new M.BacktestCarry(multiplier));
 }
 
+/** The settings of BacktestL1Orders by name, for `BacktestL1Orders({ ... })`. */
+export interface BacktestL1OrdersOptions {
+  /** Fractional fee on a maker fill; negative for a rebate. */
+  makerFee?: number;
+  /** Fractional fee on a taker fill (a quote submitted already crossing the spread). */
+  takerFee?: number;
+  /** Fill rule. "breach" (conservative) fills only when the market trades through your quote; "touch" (optimistic) also fills a participation partial once per lock episode. */
+  fill?: string;
+  /** Fraction of the locked ask/bid size captured on a touch fill (front-of-queue at 1.0). */
+  participationRatio?: number;
+  /** Instrument price grid (0 = continuous). A marketable order walks one tick past the displayed quote for the size beyond it; slippage offsets round up to whole ticks. */
+  tickSize?: number;
+  /** Inventory floor; sell fills are capped so the position never falls below it. */
+  minPosition?: number;
+  /** Inventory ceiling; buy fills are capped so the position never exceeds it. */
+  maxPosition?: number;
+  /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. */
+  multiplier?: number;
+  /** Fixed fee (or rebate when negative) charged per contract on maker fills. */
+  makerFeePerContract?: number;
+  /** Fixed fee (or rebate when negative) charged per contract on taker fills. */
+  takerFeePerContract?: number;
+  /** Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip. */
+  slippage?: number;
+  /** Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount). */
+  slippageUnit?: string;
+}
+
+/**
+ * Backtest a two-sided market maker against a top-of-book (L1) quote stream.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestL1Orders.html for the full reference.
+ */
+export function BacktestL1Orders(options: BacktestL1OrdersOptions): ScreamerOp;
 /**
  * Backtest a two-sided market maker against a top-of-book (L1) quote stream.
  *
@@ -201,7 +391,21 @@ export function BacktestCarry(multiplier: number = 1.0): ScreamerOp {
  * @param slippageUnit Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestL1Orders.html for the full reference.
  */
-export function BacktestL1Orders(makerFee: number = 0.0, takerFee: number = 0.0, fill: string = "breach", participationRatio: number = 1.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, makerFeePerContract: number = 0.0, takerFeePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction"): ScreamerOp {
+export function BacktestL1Orders(makerFee?: number, takerFee?: number, fill?: string, participationRatio?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, makerFeePerContract?: number, takerFeePerContract?: number, slippage?: number, slippageUnit?: string): ScreamerOp;
+export function BacktestL1Orders(makerFee?: any, takerFee?: any, fill?: any, participationRatio?: any, tickSize?: any, minPosition?: any, maxPosition?: any, multiplier?: any, makerFeePerContract?: any, takerFeePerContract?: any, slippage?: any, slippageUnit?: any): ScreamerOp {
+  if (_isOptions(makerFee)) [makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit] = _options("BacktestL1Orders", makerFee, arguments.length, ["makerFee", "takerFee", "fill", "participationRatio", "tickSize", "minPosition", "maxPosition", "multiplier", "makerFeePerContract", "takerFeePerContract", "slippage", "slippageUnit"]);
+  makerFee ??= 0.0;
+  takerFee ??= 0.0;
+  fill ??= "breach";
+  participationRatio ??= 1.0;
+  tickSize ??= 0.0;
+  minPosition ??= -Infinity;
+  maxPosition ??= Infinity;
+  multiplier ??= 1.0;
+  makerFeePerContract ??= 0.0;
+  takerFeePerContract ??= 0.0;
+  slippage ??= 0.0;
+  slippageUnit ??= "fraction";
   const M = current();
   if (_isText(makerFee)) throw new TypeError(`makerFee must be a number, got a string`);
   if (_isText(takerFee)) throw new TypeError(`takerFee must be a number, got a string`);
@@ -218,6 +422,45 @@ export function BacktestL1Orders(makerFee: number = 0.0, takerFee: number = 0.0,
   return wrapOp(M, () => new M.BacktestL1Orders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
 }
 
+/** The settings of BacktestL1Target by name, for `BacktestL1Target({ ... })`. */
+export interface BacktestL1TargetOptions {
+  /** Fractional fee charged on each taker fill. */
+  takerFee?: number;
+  /** Instrument price grid (0 = continuous). A marketable order walks one tick past the displayed quote for the size beyond it; slippage offsets round up to whole ticks. */
+  tickSize?: number;
+  /** Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. */
+  minPosition?: number;
+  /** Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. */
+  maxPosition?: number;
+  /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. */
+  multiplier?: number;
+  /** Fixed fee (or rebate when negative) charged per contract on each fill. */
+  feePerContract?: number;
+  /** Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip. */
+  slippage?: number;
+  /** Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount). */
+  slippageUnit?: string;
+  /** Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off. */
+  stopLoss?: number;
+  /** Exit when the price moves this fraction in favor of the average entry fill. 0 turns it off. */
+  takeProfit?: number;
+  /** Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off. */
+  trailingStop?: number;
+  /** How to read the target: "units" (a position), "notional" (a currency amount), or "weight" (a fraction of initial_capital + equity). It is converted to units at the execution price. */
+  size?: string;
+  /** Starting capital for size="weight" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl. */
+  initialCapital?: number;
+  /** With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes. */
+  rebalanceBand?: number;
+}
+
+/**
+ * Backtest a target-position strategy against the L1 book, taking each quote update as a market fill to reach the target immediately.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestL1Target.html for the full reference.
+ */
+export function BacktestL1Target(options: BacktestL1TargetOptions): ScreamerOp;
 /**
  * Backtest a target-position strategy against the L1 book, taking each quote update as a market fill to reach the target immediately.
  *
@@ -237,7 +480,23 @@ export function BacktestL1Orders(makerFee: number = 0.0, takerFee: number = 0.0,
  * @param rebalanceBand With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestL1Target.html for the full reference.
  */
-export function BacktestL1Target(takerFee: number = 0.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction", stopLoss: number = 0.0, takeProfit: number = 0.0, trailingStop: number = 0.0, size: string = "units", initialCapital: number = 0.0, rebalanceBand: number = 0.0): ScreamerOp {
+export function BacktestL1Target(takerFee?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, feePerContract?: number, slippage?: number, slippageUnit?: string, stopLoss?: number, takeProfit?: number, trailingStop?: number, size?: string, initialCapital?: number, rebalanceBand?: number): ScreamerOp;
+export function BacktestL1Target(takerFee?: any, tickSize?: any, minPosition?: any, maxPosition?: any, multiplier?: any, feePerContract?: any, slippage?: any, slippageUnit?: any, stopLoss?: any, takeProfit?: any, trailingStop?: any, size?: any, initialCapital?: any, rebalanceBand?: any): ScreamerOp {
+  if (_isOptions(takerFee)) [takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand] = _options("BacktestL1Target", takerFee, arguments.length, ["takerFee", "tickSize", "minPosition", "maxPosition", "multiplier", "feePerContract", "slippage", "slippageUnit", "stopLoss", "takeProfit", "trailingStop", "size", "initialCapital", "rebalanceBand"]);
+  takerFee ??= 0.0;
+  tickSize ??= 0.0;
+  minPosition ??= -Infinity;
+  maxPosition ??= Infinity;
+  multiplier ??= 1.0;
+  feePerContract ??= 0.0;
+  slippage ??= 0.0;
+  slippageUnit ??= "fraction";
+  stopLoss ??= 0.0;
+  takeProfit ??= 0.0;
+  trailingStop ??= 0.0;
+  size ??= "units";
+  initialCapital ??= 0.0;
+  rebalanceBand ??= 0.0;
   const M = current();
   if (_isText(takerFee)) throw new TypeError(`takerFee must be a number, got a string`);
   if (_isText(tickSize)) throw new TypeError(`tickSize must be a number, got a string`);
@@ -256,6 +515,41 @@ export function BacktestL1Target(takerFee: number = 0.0, tickSize: number = 0.0,
   return wrapOp(M, () => new M.BacktestL1Target(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand));
 }
 
+/** The settings of BacktestL1TradesOrders by name, for `BacktestL1TradesOrders({ ... })`. */
+export interface BacktestL1TradesOrdersOptions {
+  /** Fractional fee on a maker fill; negative for a rebate. */
+  makerFee?: number;
+  /** Fractional fee on a taker fill (a quote submitted already crossing the spread). */
+  takerFee?: number;
+  /** Fill rule for a trade at your price. "touch" fills a participation partial; "breach" fills only on a trade through. */
+  fill?: string;
+  /** Fraction of an at-price trade's size captured (front-of-queue at 1.0). */
+  participationRatio?: number;
+  /** Instrument price grid (0 = continuous). A marketable order walks one tick past the displayed quote for the size beyond it; slippage offsets round up to whole ticks. */
+  tickSize?: number;
+  /** Inventory floor; sell fills are capped so the position never falls below it. */
+  minPosition?: number;
+  /** Inventory ceiling; buy fills are capped so the position never exceeds it. */
+  maxPosition?: number;
+  /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. */
+  multiplier?: number;
+  /** Fixed fee (or rebate when negative) charged per contract on maker fills. */
+  makerFeePerContract?: number;
+  /** Fixed fee (or rebate when negative) charged per contract on taker fills. */
+  takerFeePerContract?: number;
+  /** Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip. */
+  slippage?: number;
+  /** Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount). */
+  slippageUnit?: string;
+}
+
+/**
+ * Backtest a two-sided market maker against top-of-book quotes with a trade tape driving the fills, into a costed equity curve.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestL1TradesOrders.html for the full reference.
+ */
+export function BacktestL1TradesOrders(options: BacktestL1TradesOrdersOptions): ScreamerOp;
 /**
  * Backtest a two-sided market maker against top-of-book quotes with a trade tape driving the fills, into a costed equity curve.
  *
@@ -273,7 +567,21 @@ export function BacktestL1Target(takerFee: number = 0.0, tickSize: number = 0.0,
  * @param slippageUnit Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestL1TradesOrders.html for the full reference.
  */
-export function BacktestL1TradesOrders(makerFee: number = 0.0, takerFee: number = 0.0, fill: string = "touch", participationRatio: number = 1.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, makerFeePerContract: number = 0.0, takerFeePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction"): ScreamerOp {
+export function BacktestL1TradesOrders(makerFee?: number, takerFee?: number, fill?: string, participationRatio?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, makerFeePerContract?: number, takerFeePerContract?: number, slippage?: number, slippageUnit?: string): ScreamerOp;
+export function BacktestL1TradesOrders(makerFee?: any, takerFee?: any, fill?: any, participationRatio?: any, tickSize?: any, minPosition?: any, maxPosition?: any, multiplier?: any, makerFeePerContract?: any, takerFeePerContract?: any, slippage?: any, slippageUnit?: any): ScreamerOp {
+  if (_isOptions(makerFee)) [makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit] = _options("BacktestL1TradesOrders", makerFee, arguments.length, ["makerFee", "takerFee", "fill", "participationRatio", "tickSize", "minPosition", "maxPosition", "multiplier", "makerFeePerContract", "takerFeePerContract", "slippage", "slippageUnit"]);
+  makerFee ??= 0.0;
+  takerFee ??= 0.0;
+  fill ??= "touch";
+  participationRatio ??= 1.0;
+  tickSize ??= 0.0;
+  minPosition ??= -Infinity;
+  maxPosition ??= Infinity;
+  multiplier ??= 1.0;
+  makerFeePerContract ??= 0.0;
+  takerFeePerContract ??= 0.0;
+  slippage ??= 0.0;
+  slippageUnit ??= "fraction";
   const M = current();
   if (_isText(makerFee)) throw new TypeError(`makerFee must be a number, got a string`);
   if (_isText(takerFee)) throw new TypeError(`takerFee must be a number, got a string`);
@@ -290,6 +598,41 @@ export function BacktestL1TradesOrders(makerFee: number = 0.0, takerFee: number 
   return wrapOp(M, () => new M.BacktestL1TradesOrders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
 }
 
+/** The settings of BacktestOHLCOrders by name, for `BacktestOHLCOrders({ ... })`. */
+export interface BacktestOHLCOrdersOptions {
+  /** Fractional fee on a passive (resting) fill; negative for a rebate. */
+  makerFee?: number;
+  /** Fractional fee on a marketable (taker) fill. */
+  takerFee?: number;
+  /** Fill rule. "touch" fills when the bar's low/high reaches your quote price; "breach" requires the bar to trade through it. */
+  fill?: string;
+  /** Fraction of the quoted size captured on each fill (front-of-queue at 1.0). */
+  participationRatio?: number;
+  /** Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step. */
+  tickSize?: number;
+  /** Inventory floor; sell fills are capped so the position never falls below it. */
+  minPosition?: number;
+  /** Inventory ceiling; buy fills are capped so the position never exceeds it. */
+  maxPosition?: number;
+  /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. */
+  multiplier?: number;
+  /** Fixed fee (or rebate when negative) charged per contract on maker fills. */
+  makerFeePerContract?: number;
+  /** Fixed fee (or rebate when negative) charged per contract on taker fills. */
+  takerFeePerContract?: number;
+  /** Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip. */
+  slippage?: number;
+  /** Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount). */
+  slippageUnit?: string;
+}
+
+/**
+ * Backtest a two-sided order poster on OHLC bars, posting resting bids and asks that fill when the bar's range reaches them.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestOHLCOrders.html for the full reference.
+ */
+export function BacktestOHLCOrders(options: BacktestOHLCOrdersOptions): ScreamerOp;
 /**
  * Backtest a two-sided order poster on OHLC bars, posting resting bids and asks that fill when the bar's range reaches them.
  *
@@ -307,7 +650,21 @@ export function BacktestL1TradesOrders(makerFee: number = 0.0, takerFee: number 
  * @param slippageUnit Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestOHLCOrders.html for the full reference.
  */
-export function BacktestOHLCOrders(makerFee: number = 0.0, takerFee: number = 0.0, fill: string = "touch", participationRatio: number = 1.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, makerFeePerContract: number = 0.0, takerFeePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction"): ScreamerOp {
+export function BacktestOHLCOrders(makerFee?: number, takerFee?: number, fill?: string, participationRatio?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, makerFeePerContract?: number, takerFeePerContract?: number, slippage?: number, slippageUnit?: string): ScreamerOp;
+export function BacktestOHLCOrders(makerFee?: any, takerFee?: any, fill?: any, participationRatio?: any, tickSize?: any, minPosition?: any, maxPosition?: any, multiplier?: any, makerFeePerContract?: any, takerFeePerContract?: any, slippage?: any, slippageUnit?: any): ScreamerOp {
+  if (_isOptions(makerFee)) [makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit] = _options("BacktestOHLCOrders", makerFee, arguments.length, ["makerFee", "takerFee", "fill", "participationRatio", "tickSize", "minPosition", "maxPosition", "multiplier", "makerFeePerContract", "takerFeePerContract", "slippage", "slippageUnit"]);
+  makerFee ??= 0.0;
+  takerFee ??= 0.0;
+  fill ??= "touch";
+  participationRatio ??= 1.0;
+  tickSize ??= 0.0;
+  minPosition ??= -Infinity;
+  maxPosition ??= Infinity;
+  multiplier ??= 1.0;
+  makerFeePerContract ??= 0.0;
+  takerFeePerContract ??= 0.0;
+  slippage ??= 0.0;
+  slippageUnit ??= "fraction";
   const M = current();
   if (_isText(makerFee)) throw new TypeError(`makerFee must be a number, got a string`);
   if (_isText(takerFee)) throw new TypeError(`takerFee must be a number, got a string`);
@@ -324,6 +681,49 @@ export function BacktestOHLCOrders(makerFee: number = 0.0, takerFee: number = 0.
   return wrapOp(M, () => new M.BacktestOHLCOrders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
 }
 
+/** The settings of BacktestOHLCTarget by name, for `BacktestOHLCTarget({ ... })`. */
+export interface BacktestOHLCTargetOptions {
+  /** Fractional fee charged on a market (taker) fill at the open. */
+  takerFee?: number;
+  /** Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step. */
+  tickSize?: number;
+  /** Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. */
+  minPosition?: number;
+  /** Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. */
+  maxPosition?: number;
+  /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. */
+  multiplier?: number;
+  /** Fixed fee (or rebate when negative) charged per contract on each fill. */
+  feePerContract?: number;
+  /** Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip. */
+  slippage?: number;
+  /** Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount). */
+  slippageUnit?: string;
+  /** Reference price of the execution bar: "open", "close", "typical" (high + low + close) / 3, or "ohlc4" (open + high + low + close) / 4. */
+  fillAt?: string;
+  /** Bars between the decision and the execution. A target from bar t trades on bar t + delay. 0 is allowed only with fill_at="close" (market-on-close of the signal bar). */
+  delay?: number;
+  /** Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off. */
+  stopLoss?: number;
+  /** Exit when the price moves this fraction in favor of the average entry fill. 0 turns it off. */
+  takeProfit?: number;
+  /** Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off. */
+  trailingStop?: number;
+  /** How to read the target: "units" (a position), "notional" (a currency amount), or "weight" (a fraction of initial_capital + equity). It is converted to units at the execution price. */
+  size?: string;
+  /** Starting capital for size="weight" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl. */
+  initialCapital?: number;
+  /** With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes. */
+  rebalanceBand?: number;
+}
+
+/**
+ * Backtest a target-position strategy on OHLC bars, executing market orders at the next bar's open or another bar price, with slippage (causal, no manual lag).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestOHLCTarget.html for the full reference.
+ */
+export function BacktestOHLCTarget(options: BacktestOHLCTargetOptions): ScreamerOp;
 /**
  * Backtest a target-position strategy on OHLC bars, executing market orders at the next bar's open or another bar price, with slippage (causal, no manual lag).
  *
@@ -345,7 +745,25 @@ export function BacktestOHLCOrders(makerFee: number = 0.0, takerFee: number = 0.
  * @param rebalanceBand With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestOHLCTarget.html for the full reference.
  */
-export function BacktestOHLCTarget(takerFee: number = 0.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction", fillAt: string = "open", delay: number = 1, stopLoss: number = 0.0, takeProfit: number = 0.0, trailingStop: number = 0.0, size: string = "units", initialCapital: number = 0.0, rebalanceBand: number = 0.0): ScreamerOp {
+export function BacktestOHLCTarget(takerFee?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, feePerContract?: number, slippage?: number, slippageUnit?: string, fillAt?: string, delay?: number, stopLoss?: number, takeProfit?: number, trailingStop?: number, size?: string, initialCapital?: number, rebalanceBand?: number): ScreamerOp;
+export function BacktestOHLCTarget(takerFee?: any, tickSize?: any, minPosition?: any, maxPosition?: any, multiplier?: any, feePerContract?: any, slippage?: any, slippageUnit?: any, fillAt?: any, delay?: any, stopLoss?: any, takeProfit?: any, trailingStop?: any, size?: any, initialCapital?: any, rebalanceBand?: any): ScreamerOp {
+  if (_isOptions(takerFee)) [takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, fillAt, delay, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand] = _options("BacktestOHLCTarget", takerFee, arguments.length, ["takerFee", "tickSize", "minPosition", "maxPosition", "multiplier", "feePerContract", "slippage", "slippageUnit", "fillAt", "delay", "stopLoss", "takeProfit", "trailingStop", "size", "initialCapital", "rebalanceBand"]);
+  takerFee ??= 0.0;
+  tickSize ??= 0.0;
+  minPosition ??= -Infinity;
+  maxPosition ??= Infinity;
+  multiplier ??= 1.0;
+  feePerContract ??= 0.0;
+  slippage ??= 0.0;
+  slippageUnit ??= "fraction";
+  fillAt ??= "open";
+  delay ??= 1;
+  stopLoss ??= 0.0;
+  takeProfit ??= 0.0;
+  trailingStop ??= 0.0;
+  size ??= "units";
+  initialCapital ??= 0.0;
+  rebalanceBand ??= 0.0;
   const M = current();
   if (_isText(takerFee)) throw new TypeError(`takerFee must be a number, got a string`);
   if (_isText(tickSize)) throw new TypeError(`tickSize must be a number, got a string`);
@@ -366,6 +784,51 @@ export function BacktestOHLCTarget(takerFee: number = 0.0, tickSize: number = 0.
   return wrapOp(M, () => new M.BacktestOHLCTarget(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, fillAt, delay, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand));
 }
 
+/** The settings of BacktestOHLCVTarget by name, for `BacktestOHLCVTarget({ ... })`. */
+export interface BacktestOHLCVTargetOptions {
+  /** The most an order may trade on one bar, as a share of the bar's volume (0.1 = 10%). The rest carries to the next bars. */
+  maxParticipation?: number;
+  /** Fractional fee charged on a market (taker) fill at the open. */
+  takerFee?: number;
+  /** Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step. */
+  tickSize?: number;
+  /** Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. */
+  minPosition?: number;
+  /** Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. */
+  maxPosition?: number;
+  /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. */
+  multiplier?: number;
+  /** Fixed fee (or rebate when negative) charged per contract on each fill. */
+  feePerContract?: number;
+  /** Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip. */
+  slippage?: number;
+  /** Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount). */
+  slippageUnit?: string;
+  /** Reference price of the execution bar: "open", "close", "typical" (high + low + close) / 3, or "ohlc4" (open + high + low + close) / 4. */
+  fillAt?: string;
+  /** Bars between the decision and the execution. A target from bar t trades on bar t + delay. 0 is allowed only with fill_at="close" (market-on-close of the signal bar). */
+  delay?: number;
+  /** Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off. */
+  stopLoss?: number;
+  /** Exit when the price moves this fraction in favor of the average entry fill. 0 turns it off. */
+  takeProfit?: number;
+  /** Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off. */
+  trailingStop?: number;
+  /** How to read the target: "units" (a position), "notional" (a currency amount), or "weight" (a fraction of initial_capital + equity). It is converted to units at the execution price. */
+  size?: string;
+  /** Starting capital for size="weight" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl. */
+  initialCapital?: number;
+  /** With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes. */
+  rebalanceBand?: number;
+}
+
+/**
+ * Backtest a target-position strategy on OHLCV bars, filling each bar at most a set share of its volume.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestOHLCVTarget.html for the full reference.
+ */
+export function BacktestOHLCVTarget(options: BacktestOHLCVTargetOptions): ScreamerOp;
 /**
  * Backtest a target-position strategy on OHLCV bars, filling each bar at most a set share of its volume.
  *
@@ -388,7 +851,26 @@ export function BacktestOHLCTarget(takerFee: number = 0.0, tickSize: number = 0.
  * @param rebalanceBand With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestOHLCVTarget.html for the full reference.
  */
-export function BacktestOHLCVTarget(maxParticipation: number = 1.0, takerFee: number = 0.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction", fillAt: string = "open", delay: number = 1, stopLoss: number = 0.0, takeProfit: number = 0.0, trailingStop: number = 0.0, size: string = "units", initialCapital: number = 0.0, rebalanceBand: number = 0.0): ScreamerOp {
+export function BacktestOHLCVTarget(maxParticipation?: number, takerFee?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, feePerContract?: number, slippage?: number, slippageUnit?: string, fillAt?: string, delay?: number, stopLoss?: number, takeProfit?: number, trailingStop?: number, size?: string, initialCapital?: number, rebalanceBand?: number): ScreamerOp;
+export function BacktestOHLCVTarget(maxParticipation?: any, takerFee?: any, tickSize?: any, minPosition?: any, maxPosition?: any, multiplier?: any, feePerContract?: any, slippage?: any, slippageUnit?: any, fillAt?: any, delay?: any, stopLoss?: any, takeProfit?: any, trailingStop?: any, size?: any, initialCapital?: any, rebalanceBand?: any): ScreamerOp {
+  if (_isOptions(maxParticipation)) [maxParticipation, takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, fillAt, delay, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand] = _options("BacktestOHLCVTarget", maxParticipation, arguments.length, ["maxParticipation", "takerFee", "tickSize", "minPosition", "maxPosition", "multiplier", "feePerContract", "slippage", "slippageUnit", "fillAt", "delay", "stopLoss", "takeProfit", "trailingStop", "size", "initialCapital", "rebalanceBand"]);
+  maxParticipation ??= 1.0;
+  takerFee ??= 0.0;
+  tickSize ??= 0.0;
+  minPosition ??= -Infinity;
+  maxPosition ??= Infinity;
+  multiplier ??= 1.0;
+  feePerContract ??= 0.0;
+  slippage ??= 0.0;
+  slippageUnit ??= "fraction";
+  fillAt ??= "open";
+  delay ??= 1;
+  stopLoss ??= 0.0;
+  takeProfit ??= 0.0;
+  trailingStop ??= 0.0;
+  size ??= "units";
+  initialCapital ??= 0.0;
+  rebalanceBand ??= 0.0;
   const M = current();
   if (_isText(maxParticipation)) throw new TypeError(`maxParticipation must be a number, got a string`);
   if (_isText(takerFee)) throw new TypeError(`takerFee must be a number, got a string`);
@@ -410,6 +892,45 @@ export function BacktestOHLCVTarget(maxParticipation: number = 1.0, takerFee: nu
   return wrapOp(M, () => new M.BacktestOHLCVTarget(maxParticipation, takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, fillAt, delay, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand));
 }
 
+/** The settings of BacktestPortfolioOHLCTarget by name, for `BacktestPortfolioOHLCTarget({ ... })`. */
+export interface BacktestPortfolioOHLCTargetOptions {
+  /** Fractional fee on the traded notional, one value for all assets or one per asset. */
+  fee?: number | number[];
+  /** Adverse price offset on every fill, read in `slippage_unit`, one value for all assets or one per asset. */
+  slippage?: number | number[];
+  /** Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price". */
+  slippageUnit?: string;
+  /** Price grid per asset (0 = continuous). Slippage offsets round up to whole ticks. */
+  tickSize?: number | number[];
+  /** Contract multiplier per asset, applied to pnl, notional, and proportional fees. */
+  multiplier?: number | number[];
+  /** Fixed fee per contract traded, one value for all assets or one per asset. */
+  feePerContract?: number | number[];
+  /** What a target means: "weight" (a fraction of portfolio equity), "notional" (a currency amount), or "units" (a position). */
+  size?: string;
+  /** Starting capital. Portfolio equity is this plus the summed pnl of all assets; weights are fractions of it. */
+  initialCapital?: number;
+  /** Trade a held asset back to its target when its holding drifts from it by more than this fraction of equity (0 = never). Needs size "weight" or "notional". */
+  rebalanceBand?: number;
+  /** When the band trips: "drifted" trades only the assets beyond it, "all" rebalances every asset that has a target. */
+  rebalance?: string;
+  /** Largest gross exposure, sum of absolute position values over equity. Orders that exceed it are scaled down. */
+  maxGross?: number;
+  /** Largest absolute net exposure, sum of position values over equity. Orders that exceed it are scaled down. */
+  maxNet?: number;
+  /** Execution price on the execution bar: "open", "close", "typical" ((high + low + close) / 3), or "ohlc4". */
+  fillAt?: string;
+  /** Bars between the bar a target is decided on (at its close) and the bar it executes on. 0 needs fill_at "close". */
+  delay?: number;
+}
+
+/**
+ * Backtest K assets traded toward per-asset targets from one shared capital account on OHLC bars, executed delay bars later at a chosen bar price.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestPortfolioOHLCTarget.html for the full reference.
+ */
+export function BacktestPortfolioOHLCTarget(options: BacktestPortfolioOHLCTargetOptions): ScreamerOp;
 /**
  * Backtest K assets traded toward per-asset targets from one shared capital account on OHLC bars, executed delay bars later at a chosen bar price.
  *
@@ -429,7 +950,23 @@ export function BacktestOHLCVTarget(maxParticipation: number = 1.0, takerFee: nu
  * @param delay Bars between the bar a target is decided on (at its close) and the bar it executes on. 0 needs fill_at "close".
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestPortfolioOHLCTarget.html for the full reference.
  */
-export function BacktestPortfolioOHLCTarget(fee: number | number[] = [0.0], slippage: number | number[] = [0.0], slippageUnit: string = "fraction", tickSize: number | number[] = [0.0], multiplier: number | number[] = [1.0], feePerContract: number | number[] = [0.0], size: string = "weight", initialCapital: number = 1.0, rebalanceBand: number = 0.0, rebalance: string = "drifted", maxGross: number = Infinity, maxNet: number = Infinity, fillAt: string = "open", delay: number = 1): ScreamerOp {
+export function BacktestPortfolioOHLCTarget(fee?: number | number[], slippage?: number | number[], slippageUnit?: string, tickSize?: number | number[], multiplier?: number | number[], feePerContract?: number | number[], size?: string, initialCapital?: number, rebalanceBand?: number, rebalance?: string, maxGross?: number, maxNet?: number, fillAt?: string, delay?: number): ScreamerOp;
+export function BacktestPortfolioOHLCTarget(fee?: any, slippage?: any, slippageUnit?: any, tickSize?: any, multiplier?: any, feePerContract?: any, size?: any, initialCapital?: any, rebalanceBand?: any, rebalance?: any, maxGross?: any, maxNet?: any, fillAt?: any, delay?: any): ScreamerOp {
+  if (_isOptions(fee)) [fee, slippage, slippageUnit, tickSize, multiplier, feePerContract, size, initialCapital, rebalanceBand, rebalance, maxGross, maxNet, fillAt, delay] = _options("BacktestPortfolioOHLCTarget", fee, arguments.length, ["fee", "slippage", "slippageUnit", "tickSize", "multiplier", "feePerContract", "size", "initialCapital", "rebalanceBand", "rebalance", "maxGross", "maxNet", "fillAt", "delay"]);
+  fee ??= [0.0];
+  slippage ??= [0.0];
+  slippageUnit ??= "fraction";
+  tickSize ??= [0.0];
+  multiplier ??= [1.0];
+  feePerContract ??= [0.0];
+  size ??= "weight";
+  initialCapital ??= 1.0;
+  rebalanceBand ??= 0.0;
+  rebalance ??= "drifted";
+  maxGross ??= Infinity;
+  maxNet ??= Infinity;
+  fillAt ??= "open";
+  delay ??= 1;
   const M = current();
   if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
   if (typeof size !== "string") throw new TypeError(`size must be a string, got ${typeof size}`);
@@ -484,6 +1021,41 @@ export function BacktestPortfolioOHLCTarget(fee: number | number[] = [0.0], slip
   });
 }
 
+/** The settings of BacktestPortfolioTarget by name, for `BacktestPortfolioTarget({ ... })`. */
+export interface BacktestPortfolioTargetOptions {
+  /** Fractional fee on the traded notional, one value for all assets or one per asset. */
+  fee?: number | number[];
+  /** Adverse price offset on every fill, read in `slippage_unit`, one value for all assets or one per asset. */
+  slippage?: number | number[];
+  /** Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price". */
+  slippageUnit?: string;
+  /** Price grid per asset (0 = continuous). Slippage offsets round up to whole ticks. */
+  tickSize?: number | number[];
+  /** Contract multiplier per asset, applied to pnl, notional, and proportional fees. */
+  multiplier?: number | number[];
+  /** Fixed fee per contract traded, one value for all assets or one per asset. */
+  feePerContract?: number | number[];
+  /** What a target means: "weight" (a fraction of portfolio equity), "notional" (a currency amount), or "units" (a position). */
+  size?: string;
+  /** Starting capital. Portfolio equity is this plus the summed pnl of all assets; weights are fractions of it. */
+  initialCapital?: number;
+  /** Trade a held asset back to its target when its holding drifts from it by more than this fraction of equity (0 = never). Needs size "weight" or "notional". */
+  rebalanceBand?: number;
+  /** When the band trips: "drifted" trades only the assets beyond it, "all" rebalances every asset that has a target. */
+  rebalance?: string;
+  /** Largest gross exposure, sum of absolute position values over equity. Orders that exceed it are scaled down. */
+  maxGross?: number;
+  /** Largest absolute net exposure, sum of position values over equity. Orders that exceed it are scaled down. */
+  maxNet?: number;
+}
+
+/**
+ * Backtest K assets traded toward per-asset target weights, notionals, or positions from one shared capital account, filled at each step's price.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestPortfolioTarget.html for the full reference.
+ */
+export function BacktestPortfolioTarget(options: BacktestPortfolioTargetOptions): ScreamerOp;
 /**
  * Backtest K assets traded toward per-asset target weights, notionals, or positions from one shared capital account, filled at each step's price.
  *
@@ -501,7 +1073,21 @@ export function BacktestPortfolioOHLCTarget(fee: number | number[] = [0.0], slip
  * @param maxNet Largest absolute net exposure, sum of position values over equity. Orders that exceed it are scaled down.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestPortfolioTarget.html for the full reference.
  */
-export function BacktestPortfolioTarget(fee: number | number[] = [0.0], slippage: number | number[] = [0.0], slippageUnit: string = "fraction", tickSize: number | number[] = [0.0], multiplier: number | number[] = [1.0], feePerContract: number | number[] = [0.0], size: string = "weight", initialCapital: number = 1.0, rebalanceBand: number = 0.0, rebalance: string = "drifted", maxGross: number = Infinity, maxNet: number = Infinity): ScreamerOp {
+export function BacktestPortfolioTarget(fee?: number | number[], slippage?: number | number[], slippageUnit?: string, tickSize?: number | number[], multiplier?: number | number[], feePerContract?: number | number[], size?: string, initialCapital?: number, rebalanceBand?: number, rebalance?: string, maxGross?: number, maxNet?: number): ScreamerOp;
+export function BacktestPortfolioTarget(fee?: any, slippage?: any, slippageUnit?: any, tickSize?: any, multiplier?: any, feePerContract?: any, size?: any, initialCapital?: any, rebalanceBand?: any, rebalance?: any, maxGross?: any, maxNet?: any): ScreamerOp {
+  if (_isOptions(fee)) [fee, slippage, slippageUnit, tickSize, multiplier, feePerContract, size, initialCapital, rebalanceBand, rebalance, maxGross, maxNet] = _options("BacktestPortfolioTarget", fee, arguments.length, ["fee", "slippage", "slippageUnit", "tickSize", "multiplier", "feePerContract", "size", "initialCapital", "rebalanceBand", "rebalance", "maxGross", "maxNet"]);
+  fee ??= [0.0];
+  slippage ??= [0.0];
+  slippageUnit ??= "fraction";
+  tickSize ??= [0.0];
+  multiplier ??= [1.0];
+  feePerContract ??= [0.0];
+  size ??= "weight";
+  initialCapital ??= 1.0;
+  rebalanceBand ??= 0.0;
+  rebalance ??= "drifted";
+  maxGross ??= Infinity;
+  maxNet ??= Infinity;
   const M = current();
   if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
   if (typeof size !== "string") throw new TypeError(`size must be a string, got ${typeof size}`);
@@ -554,6 +1140,47 @@ export function BacktestPortfolioTarget(fee: number | number[] = [0.0], slippage
   });
 }
 
+/** The settings of BacktestPriceTarget by name, for `BacktestPriceTarget({ ... })`. */
+export interface BacktestPriceTargetOptions {
+  /** Fractional bid-ask spread crossed on each trade (e.g. 0.0005 = 5 bps). Default 0 is frictionless. */
+  spread?: number;
+  /** Fractional taker fee charged on the traded notional. */
+  fee?: number;
+  /** Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. */
+  minPosition?: number;
+  /** Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. */
+  maxPosition?: number;
+  /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. */
+  multiplier?: number;
+  /** Fixed fee (or rebate when negative) charged per contract on each fill. */
+  feePerContract?: number;
+  /** Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip. */
+  slippage?: number;
+  /** Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount). */
+  slippageUnit?: string;
+  /** Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the `"ticks"` slippage unit counts in this step. */
+  tickSize?: number;
+  /** Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off. */
+  stopLoss?: number;
+  /** Exit when the price moves this fraction in favor of the average entry fill. 0 turns it off. */
+  takeProfit?: number;
+  /** Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off. */
+  trailingStop?: number;
+  /** How to read the target: "units" (a position), "notional" (a currency amount), or "weight" (a fraction of initial_capital + equity). It is converted to units at the execution price. */
+  size?: string;
+  /** Starting capital for size="weight" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl. */
+  initialCapital?: number;
+  /** With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes. */
+  rebalanceBand?: number;
+}
+
+/**
+ * Backtest a target position against a value series (price/mark) into a costed mark-to-market equity curve.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestPriceTarget.html for the full reference.
+ */
+export function BacktestPriceTarget(options: BacktestPriceTargetOptions): ScreamerOp;
 /**
  * Backtest a target position against a value series (price/mark) into a costed mark-to-market equity curve.
  *
@@ -574,7 +1201,24 @@ export function BacktestPortfolioTarget(fee: number | number[] = [0.0], slippage
  * @param rebalanceBand With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestPriceTarget.html for the full reference.
  */
-export function BacktestPriceTarget(spread: number = 0.0, fee: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction", tickSize: number = 0.0, stopLoss: number = 0.0, takeProfit: number = 0.0, trailingStop: number = 0.0, size: string = "units", initialCapital: number = 0.0, rebalanceBand: number = 0.0): ScreamerOp {
+export function BacktestPriceTarget(spread?: number, fee?: number, minPosition?: number, maxPosition?: number, multiplier?: number, feePerContract?: number, slippage?: number, slippageUnit?: string, tickSize?: number, stopLoss?: number, takeProfit?: number, trailingStop?: number, size?: string, initialCapital?: number, rebalanceBand?: number): ScreamerOp;
+export function BacktestPriceTarget(spread?: any, fee?: any, minPosition?: any, maxPosition?: any, multiplier?: any, feePerContract?: any, slippage?: any, slippageUnit?: any, tickSize?: any, stopLoss?: any, takeProfit?: any, trailingStop?: any, size?: any, initialCapital?: any, rebalanceBand?: any): ScreamerOp {
+  if (_isOptions(spread)) [spread, fee, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, tickSize, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand] = _options("BacktestPriceTarget", spread, arguments.length, ["spread", "fee", "minPosition", "maxPosition", "multiplier", "feePerContract", "slippage", "slippageUnit", "tickSize", "stopLoss", "takeProfit", "trailingStop", "size", "initialCapital", "rebalanceBand"]);
+  spread ??= 0.0;
+  fee ??= 0.0;
+  minPosition ??= -Infinity;
+  maxPosition ??= Infinity;
+  multiplier ??= 1.0;
+  feePerContract ??= 0.0;
+  slippage ??= 0.0;
+  slippageUnit ??= "fraction";
+  tickSize ??= 0.0;
+  stopLoss ??= 0.0;
+  takeProfit ??= 0.0;
+  trailingStop ??= 0.0;
+  size ??= "units";
+  initialCapital ??= 0.0;
+  rebalanceBand ??= 0.0;
   const M = current();
   if (_isText(spread)) throw new TypeError(`spread must be a number, got a string`);
   if (_isText(fee)) throw new TypeError(`fee must be a number, got a string`);
@@ -594,30 +1238,97 @@ export function BacktestPriceTarget(spread: number = 0.0, fee: number = 0.0, min
   return wrapOp(M, () => new M.BacktestPriceTarget(spread, fee, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, tickSize, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand));
 }
 
+/** The settings of BacktestReport by name, for `BacktestReport({ ... })`. */
+export interface BacktestReportOptions {
+  /** Steps per year, used to annualize the Sharpe ratio (for example 252 for daily bars). The default 1 gives the per-step ratio. */
+  periodsPerYear?: number;
+}
+
+/**
+ * Turn a backtest engine's [equity, pnl, position, cost] into running drawdown, cost, turnover, trades, and Sharpe.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestReport.html for the full reference.
+ */
+export function BacktestReport(options: BacktestReportOptions): ScreamerOp;
 /**
  * Turn a backtest engine's [equity, pnl, position, cost] into running drawdown, cost, turnover, trades, and Sharpe.
  *
  * @param periodsPerYear Steps per year, used to annualize the Sharpe ratio (for example 252 for daily bars). The default 1 gives the per-step ratio.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestReport.html for the full reference.
  */
-export function BacktestReport(periodsPerYear: number = 1.0): ScreamerOp {
+export function BacktestReport(periodsPerYear?: number): ScreamerOp;
+export function BacktestReport(periodsPerYear?: any): ScreamerOp {
+  if (_isOptions(periodsPerYear)) [periodsPerYear] = _options("BacktestReport", periodsPerYear, arguments.length, ["periodsPerYear"]);
+  periodsPerYear ??= 1.0;
   const M = current();
   if (_isText(periodsPerYear)) throw new TypeError(`periodsPerYear must be a number, got a string`);
   return wrapOp(M, () => new M.BacktestReport(periodsPerYear));
 }
 
+/** The settings of BacktestStats by name, for `BacktestStats({ ... })`. */
+export interface BacktestStatsOptions {
+  /** Steps per year, used to annualize Sortino and Calmar (for example 252 for daily bars). The default 1 gives per-step ratios. */
+  periodsPerYear?: number;
+}
+
+/**
+ * Turn a backtest engine's [equity, pnl, position, cost] into running exposure, round-trip trade statistics, Sortino, and Calmar.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestStats.html for the full reference.
+ */
+export function BacktestStats(options: BacktestStatsOptions): ScreamerOp;
 /**
  * Turn a backtest engine's [equity, pnl, position, cost] into running exposure, round-trip trade statistics, Sortino, and Calmar.
  *
  * @param periodsPerYear Steps per year, used to annualize Sortino and Calmar (for example 252 for daily bars). The default 1 gives per-step ratios.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestStats.html for the full reference.
  */
-export function BacktestStats(periodsPerYear: number = 1.0): ScreamerOp {
+export function BacktestStats(periodsPerYear?: number): ScreamerOp;
+export function BacktestStats(periodsPerYear?: any): ScreamerOp {
+  if (_isOptions(periodsPerYear)) [periodsPerYear] = _options("BacktestStats", periodsPerYear, arguments.length, ["periodsPerYear"]);
+  periodsPerYear ??= 1.0;
   const M = current();
   if (_isText(periodsPerYear)) throw new TypeError(`periodsPerYear must be a number, got a string`);
   return wrapOp(M, () => new M.BacktestStats(periodsPerYear));
 }
 
+/** The settings of BacktestTradesOrders by name, for `BacktestTradesOrders({ ... })`. */
+export interface BacktestTradesOrdersOptions {
+  /** Fractional fee on a maker fill; negative for a rebate. */
+  makerFee?: number;
+  /** Fractional fee on a taker fill (a market order that sweeps any print). */
+  takerFee?: number;
+  /** Fill rule for a trade at your price. "touch" fills a participation partial; "breach" fills only on a trade through. */
+  fill?: string;
+  /** Fraction of an at-price trade's size captured (front-of-queue at 1.0). */
+  participationRatio?: number;
+  /** Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step. */
+  tickSize?: number;
+  /** Inventory floor; sell fills are capped so the position never falls below it. */
+  minPosition?: number;
+  /** Inventory ceiling; buy fills are capped so the position never exceeds it. */
+  maxPosition?: number;
+  /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. */
+  multiplier?: number;
+  /** Fixed fee (or rebate when negative) charged per contract on maker fills. */
+  makerFeePerContract?: number;
+  /** Fixed fee (or rebate when negative) charged per contract on taker fills. */
+  takerFeePerContract?: number;
+  /** Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip. */
+  slippage?: number;
+  /** Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount). */
+  slippageUnit?: string;
+}
+
+/**
+ * Backtest a two-sided order poster against the trade tape, filling resting quotes when prints cross them, into a costed equity curve.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestTradesOrders.html for the full reference.
+ */
+export function BacktestTradesOrders(options: BacktestTradesOrdersOptions): ScreamerOp;
 /**
  * Backtest a two-sided order poster against the trade tape, filling resting quotes when prints cross them, into a costed equity curve.
  *
@@ -635,7 +1346,21 @@ export function BacktestStats(periodsPerYear: number = 1.0): ScreamerOp {
  * @param slippageUnit Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount).
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestTradesOrders.html for the full reference.
  */
-export function BacktestTradesOrders(makerFee: number = 0.0, takerFee: number = 0.0, fill: string = "touch", participationRatio: number = 1.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, makerFeePerContract: number = 0.0, takerFeePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction"): ScreamerOp {
+export function BacktestTradesOrders(makerFee?: number, takerFee?: number, fill?: string, participationRatio?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, makerFeePerContract?: number, takerFeePerContract?: number, slippage?: number, slippageUnit?: string): ScreamerOp;
+export function BacktestTradesOrders(makerFee?: any, takerFee?: any, fill?: any, participationRatio?: any, tickSize?: any, minPosition?: any, maxPosition?: any, multiplier?: any, makerFeePerContract?: any, takerFeePerContract?: any, slippage?: any, slippageUnit?: any): ScreamerOp {
+  if (_isOptions(makerFee)) [makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit] = _options("BacktestTradesOrders", makerFee, arguments.length, ["makerFee", "takerFee", "fill", "participationRatio", "tickSize", "minPosition", "maxPosition", "multiplier", "makerFeePerContract", "takerFeePerContract", "slippage", "slippageUnit"]);
+  makerFee ??= 0.0;
+  takerFee ??= 0.0;
+  fill ??= "touch";
+  participationRatio ??= 1.0;
+  tickSize ??= 0.0;
+  minPosition ??= -Infinity;
+  maxPosition ??= Infinity;
+  multiplier ??= 1.0;
+  makerFeePerContract ??= 0.0;
+  takerFeePerContract ??= 0.0;
+  slippage ??= 0.0;
+  slippageUnit ??= "fraction";
   const M = current();
   if (_isText(makerFee)) throw new TypeError(`makerFee must be a number, got a string`);
   if (_isText(takerFee)) throw new TypeError(`takerFee must be a number, got a string`);
@@ -652,6 +1377,47 @@ export function BacktestTradesOrders(makerFee: number = 0.0, takerFee: number = 
   return wrapOp(M, () => new M.BacktestTradesOrders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
 }
 
+/** The settings of BacktestTradesTarget by name, for `BacktestTradesTarget({ ... })`. */
+export interface BacktestTradesTargetOptions {
+  /** Fractional fee charged on each taker fill at the print price. */
+  takerFee?: number;
+  /** Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step. */
+  tickSize?: number;
+  /** Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. */
+  minPosition?: number;
+  /** Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. */
+  maxPosition?: number;
+  /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. */
+  multiplier?: number;
+  /** Fixed fee (or rebate when negative) charged per contract on each fill. */
+  feePerContract?: number;
+  /** Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip. */
+  slippage?: number;
+  /** Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount). */
+  slippageUnit?: string;
+  /** Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off. */
+  stopLoss?: number;
+  /** Exit when the price moves this fraction in favor of the average entry fill. 0 turns it off. */
+  takeProfit?: number;
+  /** Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off. */
+  trailingStop?: number;
+  /** How to read the target: "units" (a position), "notional" (a currency amount), or "weight" (a fraction of initial_capital + equity). It is converted to units at the execution price. */
+  size?: string;
+  /** Starting capital for size="weight" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl. */
+  initialCapital?: number;
+  /** With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes. */
+  rebalanceBand?: number;
+  /** Cap each print's fill at this share of the print's size; the rest fills on later prints. The default fills the whole order on any print. */
+  maxParticipation?: number;
+}
+
+/**
+ * Backtest a target-position strategy against the trade tape, taking each print as a market fill to reach the target immediately.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestTradesTarget.html for the full reference.
+ */
+export function BacktestTradesTarget(options: BacktestTradesTargetOptions): ScreamerOp;
 /**
  * Backtest a target-position strategy against the trade tape, taking each print as a market fill to reach the target immediately.
  *
@@ -672,7 +1438,24 @@ export function BacktestTradesOrders(makerFee: number = 0.0, takerFee: number = 
  * @param maxParticipation Cap each print's fill at this share of the print's size; the rest fills on later prints. The default fills the whole order on any print.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestTradesTarget.html for the full reference.
  */
-export function BacktestTradesTarget(takerFee: number = 0.0, tickSize: number = 0.0, minPosition: number = -Infinity, maxPosition: number = Infinity, multiplier: number = 1.0, feePerContract: number = 0.0, slippage: number = 0.0, slippageUnit: string = "fraction", stopLoss: number = 0.0, takeProfit: number = 0.0, trailingStop: number = 0.0, size: string = "units", initialCapital: number = 0.0, rebalanceBand: number = 0.0, maxParticipation: number = Infinity): ScreamerOp {
+export function BacktestTradesTarget(takerFee?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, feePerContract?: number, slippage?: number, slippageUnit?: string, stopLoss?: number, takeProfit?: number, trailingStop?: number, size?: string, initialCapital?: number, rebalanceBand?: number, maxParticipation?: number): ScreamerOp;
+export function BacktestTradesTarget(takerFee?: any, tickSize?: any, minPosition?: any, maxPosition?: any, multiplier?: any, feePerContract?: any, slippage?: any, slippageUnit?: any, stopLoss?: any, takeProfit?: any, trailingStop?: any, size?: any, initialCapital?: any, rebalanceBand?: any, maxParticipation?: any): ScreamerOp {
+  if (_isOptions(takerFee)) [takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand, maxParticipation] = _options("BacktestTradesTarget", takerFee, arguments.length, ["takerFee", "tickSize", "minPosition", "maxPosition", "multiplier", "feePerContract", "slippage", "slippageUnit", "stopLoss", "takeProfit", "trailingStop", "size", "initialCapital", "rebalanceBand", "maxParticipation"]);
+  takerFee ??= 0.0;
+  tickSize ??= 0.0;
+  minPosition ??= -Infinity;
+  maxPosition ??= Infinity;
+  multiplier ??= 1.0;
+  feePerContract ??= 0.0;
+  slippage ??= 0.0;
+  slippageUnit ??= "fraction";
+  stopLoss ??= 0.0;
+  takeProfit ??= 0.0;
+  trailingStop ??= 0.0;
+  size ??= "units";
+  initialCapital ??= 0.0;
+  rebalanceBand ??= 0.0;
+  maxParticipation ??= Infinity;
   const M = current();
   if (_isText(takerFee)) throw new TypeError(`takerFee must be a number, got a string`);
   if (_isText(tickSize)) throw new TypeError(`tickSize must be a number, got a string`);
@@ -692,6 +1475,23 @@ export function BacktestTradesTarget(takerFee: number = 0.0, tickSize: number = 
   return wrapOp(M, () => new M.BacktestTradesTarget(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand, maxParticipation));
 }
 
+/** The settings of BandSignal by name, for `BandSignal({ ... })`. */
+export interface BandSignalOptions {
+  /** Entry level. A flat position goes short when the z-score reaches +entry and long when it reaches -entry. */
+  entry?: number;
+  /** Exit level, in (-entry, entry). A short exits when the z-score falls to exit, a long when it rises to -exit. */
+  exit?: number;
+  /** Stop level, above entry (inf = no stop). A short exits when the z-score reaches +stop, a long at -stop, and that side cannot re-enter until the z-score returns inside the exit level. */
+  stop?: number;
+}
+
+/**
+ * Three-state mean-reversion position from a z-score: short above +entry, long below -entry, flat again inside the exit level, with an optional stop and lockout.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/BandSignal.html for the full reference.
+ */
+export function BandSignal(options: BandSignalOptions): ScreamerOp;
 /**
  * Three-state mean-reversion position from a z-score: short above +entry, long below -entry, flat again inside the exit level, with an optional stop and lockout.
  *
@@ -700,7 +1500,12 @@ export function BacktestTradesTarget(takerFee: number = 0.0, tickSize: number = 
  * @param stop Stop level, above entry (inf = no stop). A short exits when the z-score reaches +stop, a long at -stop, and that side cannot re-enter until the z-score returns inside the exit level.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/BandSignal.html for the full reference.
  */
-export function BandSignal(entry: number = 2.0, exit: number = 0.0, stop: number = Infinity): ScreamerOp {
+export function BandSignal(entry?: number, exit?: number, stop?: number): ScreamerOp;
+export function BandSignal(entry?: any, exit?: any, stop?: any): ScreamerOp {
+  if (_isOptions(entry)) [entry, exit, stop] = _options("BandSignal", entry, arguments.length, ["entry", "exit", "stop"]);
+  entry ??= 2.0;
+  exit ??= 0.0;
+  stop ??= Infinity;
   const M = current();
   if (_isText(entry)) throw new TypeError(`entry must be a number, got a string`);
   if (_isText(exit)) throw new TypeError(`exit must be a number, got a string`);
@@ -708,6 +1513,29 @@ export function BandSignal(entry: number = 2.0, exit: number = 0.0, stop: number
   return wrapOp(M, () => new M.BandSignal(entry, exit, stop));
 }
 
+/** The settings of BayesianRegression by name, for `BayesianRegression({ ... })`. */
+export interface BayesianRegressionOptions {
+  /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  com?: number;
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  span?: number;
+  /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  halflife?: number;
+  /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
+  alpha?: number;
+  /** Prior precision of the intercept and slope, which have prior mean 0. Larger values pull the coefficients toward zero more strongly. Must be positive. */
+  priorPrecision?: number;
+  /** Prior guess of the noise standard deviation: the prior mean of the noise variance is prior_sigma^2. Must be positive. */
+  priorSigma?: number;
+}
+
+/**
+ * Online Bayesian linear regression with a forgetting factor: the current slope and intercept, and a one-step-ahead predictive mean and standard deviation.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/BayesianRegression.html for the full reference.
+ */
+export function BayesianRegression(options: BayesianRegressionOptions): ScreamerOp;
 /**
  * Online Bayesian linear regression with a forgetting factor: the current slope and intercept, and a one-step-ahead predictive mean and standard deviation.
  *
@@ -719,7 +1547,15 @@ export function BandSignal(entry: number = 2.0, exit: number = 0.0, stop: number
  * @param priorSigma Prior guess of the noise standard deviation: the prior mean of the noise variance is prior_sigma^2. Must be positive.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/BayesianRegression.html for the full reference.
  */
-export function BayesianRegression(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN, priorPrecision: number = 1.0, priorSigma: number = 1.0): ScreamerOp {
+export function BayesianRegression(com?: number, span?: number, halflife?: number, alpha?: number, priorPrecision?: number, priorSigma?: number): ScreamerOp;
+export function BayesianRegression(com?: any, span?: any, halflife?: any, alpha?: any, priorPrecision?: any, priorSigma?: any): ScreamerOp {
+  if (_isOptions(com)) [com, span, halflife, alpha, priorPrecision, priorSigma] = _options("BayesianRegression", com, arguments.length, ["com", "span", "halflife", "alpha", "priorPrecision", "priorSigma"]);
+  com ??= NaN;
+  span ??= NaN;
+  halflife ??= NaN;
+  alpha ??= NaN;
+  priorPrecision ??= 1.0;
+  priorSigma ??= 1.0;
   const M = current();
   if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
   if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
@@ -730,6 +1566,23 @@ export function BayesianRegression(com: number = NaN, span: number = NaN, halfli
   return wrapOp(M, () => new M.BayesianRegression(com, span, halflife, alpha, priorPrecision, priorSigma));
 }
 
+/** The settings of BollingerBands by name, for `BollingerBands({ ... })`. */
+export interface BollingerBandsOptions {
+  /** Number of most recent samples used for the mean and the standard deviation. */
+  windowSize?: number;
+  /** Width of the bands: the distance from the middle band to each outer band, in rolling standard deviations. */
+  numStd?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * Mean +/- num_std rolling standard deviations.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/BollingerBands.html for the full reference.
+ */
+export function BollingerBands(options: BollingerBandsOptions): ScreamerOp;
 /**
  * Mean +/- num_std rolling standard deviations.
  *
@@ -738,7 +1591,12 @@ export function BayesianRegression(com: number = NaN, span: number = NaN, halfli
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/BollingerBands.html for the full reference.
  */
-export function BollingerBands(windowSize: number = 20, numStd: number = 2.0, startPolicy: string = "strict"): ScreamerOp {
+export function BollingerBands(windowSize?: number, numStd?: number, startPolicy?: string): ScreamerOp;
+export function BollingerBands(windowSize?: any, numStd?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, numStd, startPolicy] = _options("BollingerBands", windowSize, arguments.length, ["windowSize", "numStd", "startPolicy"]);
+  windowSize ??= 20;
+  numStd ??= 2.0;
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (_isText(numStd)) throw new TypeError(`numStd must be a number, got a string`);
@@ -746,6 +1604,21 @@ export function BollingerBands(windowSize: number = 20, numStd: number = 2.0, st
   return wrapOp(M, () => new M.BollingerBands(windowSize, numStd, startPolicy));
 }
 
+/** The settings of BulkVolumeClassifier by name, for `BulkVolumeClassifier({ ... })`. */
+export interface BulkVolumeClassifierOptions {
+  /** Number of observations in the trailing standard deviation window, including the current one. */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * Buy-initiated share of a bar's volume estimated as the normal CDF of return / trailing-window volatility.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/BulkVolumeClassifier.html for the full reference.
+ */
+export function BulkVolumeClassifier(options: BulkVolumeClassifierOptions): ScreamerOp;
 /**
  * Buy-initiated share of a bar's volume estimated as the normal CDF of return / trailing-window volatility.
  *
@@ -753,13 +1626,32 @@ export function BollingerBands(windowSize: number = 20, numStd: number = 2.0, st
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_micro/BulkVolumeClassifier.html for the full reference.
  */
-export function BulkVolumeClassifier(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
+export function BulkVolumeClassifier(windowSize?: number, startPolicy?: string): ScreamerOp;
+export function BulkVolumeClassifier(windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("BulkVolumeClassifier", windowSize, arguments.length, ["windowSize", "startPolicy"]);
+  windowSize ??= 20;
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.BulkVolumeClassifier(windowSize, startPolicy));
 }
 
+/** The settings of Butter by name, for `Butter({ ... })`. */
+export interface ButterOptions {
+  /** Filter order. A higher order gives a steeper rolloff and a longer delay. */
+  order?: number;
+  /** Cutoff frequency as a fraction of the Nyquist frequency (half the sampling rate), strictly between 0 and 1. 1 is the Nyquist frequency, the scipy.signal.butter Wn convention. */
+  cutoffFreq?: number;
+}
+
+/**
+ * General-order IIR Butterworth low-pass filter.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/Butter.html for the full reference.
+ */
+export function Butter(options: ButterOptions): ScreamerOp;
 /**
  * General-order IIR Butterworth low-pass filter.
  *
@@ -767,13 +1659,34 @@ export function BulkVolumeClassifier(windowSize: number = 20, startPolicy: strin
  * @param cutoffFreq Cutoff frequency as a fraction of the Nyquist frequency (half the sampling rate), strictly between 0 and 1. 1 is the Nyquist frequency, the scipy.signal.butter Wn convention.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/Butter.html for the full reference.
  */
-export function Butter(order: number = 2, cutoffFreq: number = 0.1): ScreamerOp {
+export function Butter(order?: number, cutoffFreq?: number): ScreamerOp;
+export function Butter(order?: any, cutoffFreq?: any): ScreamerOp {
+  if (_isOptions(order)) [order, cutoffFreq] = _options("Butter", order, arguments.length, ["order", "cutoffFreq"]);
+  order ??= 2;
+  cutoffFreq ??= 0.1;
   const M = current();
   if (_isText(order)) throw new TypeError(`order must be a number, got a string`);
   if (_isText(cutoffFreq)) throw new TypeError(`cutoffFreq must be a number, got a string`);
   return wrapOp(M, () => new M.Butter(order, cutoffFreq));
 }
 
+/** The settings of ButterBandpass by name, for `ButterBandpass({ ... })`. */
+export interface ButterBandpassOptions {
+  /** Order N of the analog prototype. The digital filter has order 2N. */
+  order?: number;
+  /** Lower edge of the pass band, as a fraction of the Nyquist frequency. Must satisfy 0 < low_cutoff < high_cutoff < 1. */
+  lowCutoff?: number;
+  /** Upper edge of the pass band, as a fraction of the Nyquist frequency. Must satisfy 0 < low_cutoff < high_cutoff < 1. */
+  highCutoff?: number;
+}
+
+/**
+ * General-order IIR Butterworth band-pass filter.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/ButterBandpass.html for the full reference.
+ */
+export function ButterBandpass(options: ButterBandpassOptions): ScreamerOp;
 /**
  * General-order IIR Butterworth band-pass filter.
  *
@@ -782,7 +1695,12 @@ export function Butter(order: number = 2, cutoffFreq: number = 0.1): ScreamerOp 
  * @param highCutoff Upper edge of the pass band, as a fraction of the Nyquist frequency. Must satisfy 0 < low_cutoff < high_cutoff < 1.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/ButterBandpass.html for the full reference.
  */
-export function ButterBandpass(order: number = 2, lowCutoff: number = 0.05, highCutoff: number = 0.2): ScreamerOp {
+export function ButterBandpass(order?: number, lowCutoff?: number, highCutoff?: number): ScreamerOp;
+export function ButterBandpass(order?: any, lowCutoff?: any, highCutoff?: any): ScreamerOp {
+  if (_isOptions(order)) [order, lowCutoff, highCutoff] = _options("ButterBandpass", order, arguments.length, ["order", "lowCutoff", "highCutoff"]);
+  order ??= 2;
+  lowCutoff ??= 0.05;
+  highCutoff ??= 0.2;
   const M = current();
   if (_isText(order)) throw new TypeError(`order must be a number, got a string`);
   if (_isText(lowCutoff)) throw new TypeError(`lowCutoff must be a number, got a string`);
@@ -790,6 +1708,23 @@ export function ButterBandpass(order: number = 2, lowCutoff: number = 0.05, high
   return wrapOp(M, () => new M.ButterBandpass(order, lowCutoff, highCutoff));
 }
 
+/** The settings of ButterBandstop by name, for `ButterBandstop({ ... })`. */
+export interface ButterBandstopOptions {
+  /** Order N of the analog prototype. The digital filter has order 2N. */
+  order?: number;
+  /** Lower edge of the stop band, as a fraction of the Nyquist frequency. Must satisfy 0 < low_cutoff < high_cutoff < 1. */
+  lowCutoff?: number;
+  /** Upper edge of the stop band, as a fraction of the Nyquist frequency. Must satisfy 0 < low_cutoff < high_cutoff < 1. */
+  highCutoff?: number;
+}
+
+/**
+ * General-order IIR Butterworth band-stop (notch) filter.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/ButterBandstop.html for the full reference.
+ */
+export function ButterBandstop(options: ButterBandstopOptions): ScreamerOp;
 /**
  * General-order IIR Butterworth band-stop (notch) filter.
  *
@@ -798,7 +1733,12 @@ export function ButterBandpass(order: number = 2, lowCutoff: number = 0.05, high
  * @param highCutoff Upper edge of the stop band, as a fraction of the Nyquist frequency. Must satisfy 0 < low_cutoff < high_cutoff < 1.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/ButterBandstop.html for the full reference.
  */
-export function ButterBandstop(order: number = 2, lowCutoff: number = 0.05, highCutoff: number = 0.2): ScreamerOp {
+export function ButterBandstop(order?: number, lowCutoff?: number, highCutoff?: number): ScreamerOp;
+export function ButterBandstop(order?: any, lowCutoff?: any, highCutoff?: any): ScreamerOp {
+  if (_isOptions(order)) [order, lowCutoff, highCutoff] = _options("ButterBandstop", order, arguments.length, ["order", "lowCutoff", "highCutoff"]);
+  order ??= 2;
+  lowCutoff ??= 0.05;
+  highCutoff ??= 0.2;
   const M = current();
   if (_isText(order)) throw new TypeError(`order must be a number, got a string`);
   if (_isText(lowCutoff)) throw new TypeError(`lowCutoff must be a number, got a string`);
@@ -806,6 +1746,21 @@ export function ButterBandstop(order: number = 2, lowCutoff: number = 0.05, high
   return wrapOp(M, () => new M.ButterBandstop(order, lowCutoff, highCutoff));
 }
 
+/** The settings of ButterHighpass by name, for `ButterHighpass({ ... })`. */
+export interface ButterHighpassOptions {
+  /** Filter order. A higher order gives a steeper rolloff and a larger group delay. */
+  order?: number;
+  /** Cutoff frequency as a fraction of the Nyquist frequency, strictly between 0 and 1. 1 is the Nyquist frequency, the scipy.signal.butter Wn convention. */
+  cutoffFreq?: number;
+}
+
+/**
+ * General-order IIR Butterworth high-pass filter (rejects low frequencies).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/ButterHighpass.html for the full reference.
+ */
+export function ButterHighpass(options: ButterHighpassOptions): ScreamerOp;
 /**
  * General-order IIR Butterworth high-pass filter (rejects low frequencies).
  *
@@ -813,45 +1768,88 @@ export function ButterBandstop(order: number = 2, lowCutoff: number = 0.05, high
  * @param cutoffFreq Cutoff frequency as a fraction of the Nyquist frequency, strictly between 0 and 1. 1 is the Nyquist frequency, the scipy.signal.butter Wn convention.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/ButterHighpass.html for the full reference.
  */
-export function ButterHighpass(order: number = 2, cutoffFreq: number = 0.1): ScreamerOp {
+export function ButterHighpass(order?: number, cutoffFreq?: number): ScreamerOp;
+export function ButterHighpass(order?: any, cutoffFreq?: any): ScreamerOp {
+  if (_isOptions(order)) [order, cutoffFreq] = _options("ButterHighpass", order, arguments.length, ["order", "cutoffFreq"]);
+  order ??= 2;
+  cutoffFreq ??= 0.1;
   const M = current();
   if (_isText(order)) throw new TypeError(`order must be a number, got a string`);
   if (_isText(cutoffFreq)) throw new TypeError(`cutoffFreq must be a number, got a string`);
   return wrapOp(M, () => new M.ButterHighpass(order, cutoffFreq));
 }
 
+/** The settings of CCI by name, for `CCI({ ... })`. */
+export interface CCIOptions {
+  /** Number of most recent typical prices in the mean and mean-absolute-deviation window. Lambert used 20; TA-Lib defaults to 14. */
+  windowSize?: number;
+}
+
+/**
+ * Commodity Channel Index over typical price.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/CCI.html for the full reference.
+ */
+export function CCI(options: CCIOptions): ScreamerOp;
 /**
  * Commodity Channel Index over typical price.
  *
  * @param windowSize Number of most recent typical prices in the mean and mean-absolute-deviation window. Lambert used 20; TA-Lib defaults to 14.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/CCI.html for the full reference.
  */
-export function CCI(windowSize: number = 14): ScreamerOp {
+export function CCI(windowSize?: number): ScreamerOp;
+export function CCI(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("CCI", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 14;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.CCI(windowSize));
 }
+
+/** Cart2Polar has no settings: its options object is empty. */
+export type Cart2PolarOptions = Record<string, never>;
 
 /**
  * Convert (x, y) to (r, theta).
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Cart2Polar.html for the full reference.
  */
-export function Cart2Polar(): ScreamerOp {
+export function Cart2Polar(options?: Cart2PolarOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Cart2Polar", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Cart2Polar());
 }
+
+/** Ceil has no settings: its options object is empty. */
+export type CeilOptions = Record<string, never>;
 
 /**
  * Round each element toward positive infinity.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Ceil.html for the full reference.
  */
-export function Ceil(): ScreamerOp {
+export function Ceil(options?: CeilOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Ceil", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Ceil());
 }
 
+/** The settings of Clip by name, for `Clip({ ... })`. */
+export interface ClipOptions {
+  /** Smallest allowed value; smaller values are replaced by it. None means no lower bound. */
+  lower?: number;
+  /** Largest allowed value; larger values are replaced by it. None means no upper bound. */
+  upper?: number;
+}
+
+/**
+ * Bound each element below and/or above.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_preprocessing/Clip.html for the full reference.
+ */
+export function Clip(options: ClipOptions): ScreamerOp;
 /**
  * Bound each element below and/or above.
  *
@@ -859,43 +1857,74 @@ export function Ceil(): ScreamerOp {
  * @param upper Largest allowed value; larger values are replaced by it. None means no upper bound.
  * @see https://screamer.readthedocs.io/en/latest/functions_preprocessing/Clip.html for the full reference.
  */
-export function Clip(lower: number = NaN, upper: number = NaN): ScreamerOp {
+export function Clip(lower?: number, upper?: number): ScreamerOp;
+export function Clip(lower?: any, upper?: any): ScreamerOp {
+  if (_isOptions(lower)) [lower, upper] = _options("Clip", lower, arguments.length, ["lower", "upper"]);
+  lower ??= NaN;
+  upper ??= NaN;
   const M = current();
   if (_isText(lower)) throw new TypeError(`lower must be a number, got a string`);
   if (_isText(upper)) throw new TypeError(`upper must be a number, got a string`);
   return wrapOp(M, () => new M.Clip(lower, upper));
 }
 
+/** ContOFI has no settings: its options object is empty. */
+export type ContOFIOptions = Record<string, never>;
+
 /**
  * Cont-Kukanov-Stoikov (2014) order-flow imbalance from L1 book events.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_micro/ContOFI.html for the full reference.
  */
-export function ContOFI(): ScreamerOp {
+export function ContOFI(options?: ContOFIOptions): ScreamerOp {
+  if (_isOptions(options)) _options("ContOFI", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.ContOFI());
 }
+
+/** Cos has no settings: its options object is empty. */
+export type CosOptions = Record<string, never>;
 
 /**
  * Cosine of each element (radians).
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Cos.html for the full reference.
  */
-export function Cos(): ScreamerOp {
+export function Cos(options?: CosOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Cos", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Cos());
 }
+
+/** CrossDemean has no settings: its options object is empty. */
+export type CrossDemeanOptions = Record<string, never>;
 
 /**
  * Subtract the mean across assets at each step, removing the common component.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_cross/CrossDemean.html for the full reference.
  */
-export function CrossDemean(): ScreamerOp {
+export function CrossDemean(options?: CrossDemeanOptions): ScreamerOp {
+  if (_isOptions(options)) _options("CrossDemean", options, arguments.length, []);
   const M = current();
   return wrapRowOp(M, () => new M.CrossDemean());
 }
 
+/** The settings of CrossNormalize by name, for `CrossNormalize({ ... })`. */
+export interface CrossNormalizeOptions {
+  /** Sum of the absolute weights of each row. */
+  gross?: number;
+  /** Sum of the weights of each row, in [-gross, gross]. None (the default) keeps the signs of the scores and sets no net target. */
+  net?: number;
+}
+
+/**
+ * Scale each row of scores to portfolio weights with a chosen gross exposure, and optionally a net exposure.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_cross/CrossNormalize.html for the full reference.
+ */
+export function CrossNormalize(options: CrossNormalizeOptions): ScreamerOp;
 /**
  * Scale each row of scores to portfolio weights with a chosen gross exposure, and optionally a net exposure.
  *
@@ -903,37 +1932,88 @@ export function CrossDemean(): ScreamerOp {
  * @param net Sum of the weights of each row, in [-gross, gross]. None (the default) keeps the signs of the scores and sets no net target.
  * @see https://screamer.readthedocs.io/en/latest/functions_cross/CrossNormalize.html for the full reference.
  */
-export function CrossNormalize(gross: number = 1.0, net: number = NaN): ScreamerOp {
+export function CrossNormalize(gross?: number, net?: number): ScreamerOp;
+export function CrossNormalize(gross?: any, net?: any): ScreamerOp {
+  if (_isOptions(gross)) [gross, net] = _options("CrossNormalize", gross, arguments.length, ["gross", "net"]);
+  gross ??= 1.0;
+  net ??= NaN;
   const M = current();
   if (_isText(gross)) throw new TypeError(`gross must be a number, got a string`);
   if (_isText(net)) throw new TypeError(`net must be a number, got a string`);
   return wrapRowOp(M, () => new M.CrossNormalize(gross, net));
 }
 
+/** The settings of CrossRank by name, for `CrossRank({ ... })`. */
+export interface CrossRankOptions {
+  /** Output range: "signed" maps the lowest value to -1 and the highest to 1; "unit" maps them to 0 and 1. */
+  scale?: string;
+}
+
+/**
+ * Rank each asset against the others at the same step, scaled to [-1, 1] or [0, 1].
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_cross/CrossRank.html for the full reference.
+ */
+export function CrossRank(options: CrossRankOptions): ScreamerOp;
 /**
  * Rank each asset against the others at the same step, scaled to [-1, 1] or [0, 1].
  *
  * @param scale Output range: "signed" maps the lowest value to -1 and the highest to 1; "unit" maps them to 0 and 1.
  * @see https://screamer.readthedocs.io/en/latest/functions_cross/CrossRank.html for the full reference.
  */
-export function CrossRank(scale: string = "signed"): ScreamerOp {
+export function CrossRank(scale?: string): ScreamerOp;
+export function CrossRank(scale?: any): ScreamerOp {
+  if (_isOptions(scale)) [scale] = _options("CrossRank", scale, arguments.length, ["scale"]);
+  scale ??= "signed";
   const M = current();
   if (typeof scale !== "string") throw new TypeError(`scale must be a string, got ${typeof scale}`);
   return wrapRowOp(M, () => new M.CrossRank(scale));
 }
 
+/** The settings of CrossTopBottom by name, for `CrossTopBottom({ ... })`. */
+export interface CrossTopBottomOptions {
+  /** Number of assets on each side. */
+  count?: number;
+}
+
+/**
+ * +1 for the highest values of each row, -1 for the lowest, 0 for the rest.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_cross/CrossTopBottom.html for the full reference.
+ */
+export function CrossTopBottom(options: CrossTopBottomOptions): ScreamerOp;
 /**
  * +1 for the highest values of each row, -1 for the lowest, 0 for the rest.
  *
  * @param count Number of assets on each side.
  * @see https://screamer.readthedocs.io/en/latest/functions_cross/CrossTopBottom.html for the full reference.
  */
-export function CrossTopBottom(count: number = 1): ScreamerOp {
+export function CrossTopBottom(count?: number): ScreamerOp;
+export function CrossTopBottom(count?: any): ScreamerOp {
+  if (_isOptions(count)) [count] = _options("CrossTopBottom", count, arguments.length, ["count"]);
+  count ??= 1;
   const M = current();
   if (_isText(count)) throw new TypeError(`count must be a number, got a string`);
   return wrapRowOp(M, () => new M.CrossTopBottom(count));
 }
 
+/** The settings of CrossWinsorize by name, for `CrossWinsorize({ ... })`. */
+export interface CrossWinsorizeOptions {
+  /** Lower quantile in [0, 1]. */
+  lower?: number;
+  /** Upper quantile in [lower, 1]. */
+  upper?: number;
+}
+
+/**
+ * Clip each asset's value to the lower and upper quantiles of its row.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_cross/CrossWinsorize.html for the full reference.
+ */
+export function CrossWinsorize(options: CrossWinsorizeOptions): ScreamerOp;
 /**
  * Clip each asset's value to the lower and upper quantiles of its row.
  *
@@ -941,113 +2021,176 @@ export function CrossTopBottom(count: number = 1): ScreamerOp {
  * @param upper Upper quantile in [lower, 1].
  * @see https://screamer.readthedocs.io/en/latest/functions_cross/CrossWinsorize.html for the full reference.
  */
-export function CrossWinsorize(lower: number = 0.05, upper: number = 0.95): ScreamerOp {
+export function CrossWinsorize(lower?: number, upper?: number): ScreamerOp;
+export function CrossWinsorize(lower?: any, upper?: any): ScreamerOp {
+  if (_isOptions(lower)) [lower, upper] = _options("CrossWinsorize", lower, arguments.length, ["lower", "upper"]);
+  lower ??= 0.05;
+  upper ??= 0.95;
   const M = current();
   if (_isText(lower)) throw new TypeError(`lower must be a number, got a string`);
   if (_isText(upper)) throw new TypeError(`upper must be a number, got a string`);
   return wrapRowOp(M, () => new M.CrossWinsorize(lower, upper));
 }
 
+/** CrossZscore has no settings: its options object is empty. */
+export type CrossZscoreOptions = Record<string, never>;
+
 /**
  * Standardize each asset against the others at the same step: (x - mean) / std across the row.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_cross/CrossZscore.html for the full reference.
  */
-export function CrossZscore(): ScreamerOp {
+export function CrossZscore(options?: CrossZscoreOptions): ScreamerOp {
+  if (_isOptions(options)) _options("CrossZscore", options, arguments.length, []);
   const M = current();
   return wrapRowOp(M, () => new M.CrossZscore());
 }
+
+/** Cube has no settings: its options object is empty. */
+export type CubeOptions = Record<string, never>;
 
 /**
  * Cube of each element, computed as x * x * x.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Cube.html for the full reference.
  */
-export function Cube(): ScreamerOp {
+export function Cube(options?: CubeOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Cube", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Cube());
 }
+
+/** CumMax has no settings: its options object is empty. */
+export type CumMaxOptions = Record<string, never>;
 
 /**
  * Running maximum from t=0.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_misc/CumMax.html for the full reference.
  */
-export function CumMax(): ScreamerOp {
+export function CumMax(options?: CumMaxOptions): ScreamerOp {
+  if (_isOptions(options)) _options("CumMax", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.CumMax());
 }
+
+/** CumMin has no settings: its options object is empty. */
+export type CumMinOptions = Record<string, never>;
 
 /**
  * Running minimum from t=0.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_misc/CumMin.html for the full reference.
  */
-export function CumMin(): ScreamerOp {
+export function CumMin(options?: CumMinOptions): ScreamerOp {
+  if (_isOptions(options)) _options("CumMin", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.CumMin());
 }
+
+/** CumProd has no settings: its options object is empty. */
+export type CumProdOptions = Record<string, never>;
 
 /**
  * Running product from t=0.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_misc/CumProd.html for the full reference.
  */
-export function CumProd(): ScreamerOp {
+export function CumProd(options?: CumProdOptions): ScreamerOp {
+  if (_isOptions(options)) _options("CumProd", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.CumProd());
 }
+
+/** CumSum has no settings: its options object is empty. */
+export type CumSumOptions = Record<string, never>;
 
 /**
  * Running sum from t=0.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_misc/CumSum.html for the full reference.
  */
-export function CumSum(): ScreamerOp {
+export function CumSum(options?: CumSumOptions): ScreamerOp {
+  if (_isOptions(options)) _options("CumSum", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.CumSum());
 }
+
+/** CycleAmplitude has no settings: its options object is empty. */
+export type CycleAmplitudeOptions = Record<string, never>;
 
 /**
  * Instantaneous amplitude (envelope) of the analytic signal via Ehlers' homodyne discriminator.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/CycleAmplitude.html for the full reference.
  */
-export function CycleAmplitude(): ScreamerOp {
+export function CycleAmplitude(options?: CycleAmplitudeOptions): ScreamerOp {
+  if (_isOptions(options)) _options("CycleAmplitude", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.CycleAmplitude());
 }
+
+/** CycleFrequency has no settings: its options object is empty. */
+export type CycleFrequencyOptions = Record<string, never>;
 
 /**
  * Instantaneous frequency, in cycles per sample, via Ehlers' homodyne discriminator.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/CycleFrequency.html for the full reference.
  */
-export function CycleFrequency(): ScreamerOp {
+export function CycleFrequency(options?: CycleFrequencyOptions): ScreamerOp {
+  if (_isOptions(options)) _options("CycleFrequency", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.CycleFrequency());
 }
+
+/** CyclePhase has no settings: its options object is empty. */
+export type CyclePhaseOptions = Record<string, never>;
 
 /**
  * Instantaneous phase, in degrees, of the analytic signal via Ehlers' homodyne discriminator.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/CyclePhase.html for the full reference.
  */
-export function CyclePhase(): ScreamerOp {
+export function CyclePhase(options?: CyclePhaseOptions): ScreamerOp {
+  if (_isOptions(options)) _options("CyclePhase", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.CyclePhase());
 }
+
+/** CycleSine has no settings: its options object is empty. */
+export type CycleSineOptions = Record<string, never>;
 
 /**
  * Sinewave indicator (sine, leadsine) from the instantaneous phase of the analytic signal.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/CycleSine.html for the full reference.
  */
-export function CycleSine(): ScreamerOp {
+export function CycleSine(options?: CycleSineOptions): ScreamerOp {
+  if (_isOptions(options)) _options("CycleSine", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.CycleSine());
 }
 
+/** The settings of DEMA by name, for `DEMA({ ... })`. */
+export interface DEMAOptions {
+  /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  com?: number;
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  span?: number;
+  /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  halflife?: number;
+  /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
+  alpha?: number;
+}
+
+/**
+ * Mulloy's Double EMA: 2*EMA - EMA(EMA).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/DEMA.html for the full reference.
+ */
+export function DEMA(options: DEMAOptions): ScreamerOp;
 /**
  * Mulloy's Double EMA: 2*EMA - EMA(EMA).
  *
@@ -1057,7 +2200,13 @@ export function CycleSine(): ScreamerOp {
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/DEMA.html for the full reference.
  */
-export function DEMA(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
+export function DEMA(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function DEMA(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("DEMA", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  com ??= NaN;
+  span ??= NaN;
+  halflife ??= NaN;
+  alpha ??= NaN;
   const M = current();
   if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
   if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
@@ -1066,18 +2215,49 @@ export function DEMA(com: number = NaN, span: number = NaN, halflife: number = N
   return wrapOp(M, () => new M.DEMA(com, span, halflife, alpha));
 }
 
+/** The settings of DX by name, for `DX({ ... })`. */
+export interface DXOptions {
+  /** Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value. */
+  windowSize?: number;
+}
+
+/**
+ * Wilder directional index, the pre-average input to ADX.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/DX.html for the full reference.
+ */
+export function DX(options: DXOptions): ScreamerOp;
 /**
  * Wilder directional index, the pre-average input to ADX.
  *
  * @param windowSize Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/DX.html for the full reference.
  */
-export function DX(windowSize: number = 14): ScreamerOp {
+export function DX(windowSize?: number): ScreamerOp;
+export function DX(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("DX", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 14;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.DX(windowSize));
 }
 
+/** The settings of Decycler by name, for `Decycler({ ... })`. */
+export interface DecyclerOptions {
+  /** Cutoff as a cycle length in samples; cycles at or below this length are removed. Give exactly one of period and cutoff. The default shown is a suggested starting value; the constructor has no default. */
+  period?: number;
+  /** Cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / period. Give exactly one of period and cutoff. */
+  cutoff?: number;
+}
+
+/**
+ * Ehlers trend estimate with short cycles removed.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/Decycler.html for the full reference.
+ */
+export function Decycler(options: DecyclerOptions): ScreamerOp;
 /**
  * Ehlers trend estimate with short cycles removed.
  *
@@ -1085,13 +2265,32 @@ export function DX(windowSize: number = 14): ScreamerOp {
  * @param cutoff Cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / period. Give exactly one of period and cutoff.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/Decycler.html for the full reference.
  */
-export function Decycler(period: number = NaN, cutoff: number = NaN): ScreamerOp {
+export function Decycler(period?: number, cutoff?: number): ScreamerOp;
+export function Decycler(period?: any, cutoff?: any): ScreamerOp {
+  if (_isOptions(period)) [period, cutoff] = _options("Decycler", period, arguments.length, ["period", "cutoff"]);
+  period ??= NaN;
+  cutoff ??= NaN;
   const M = current();
   if (_isText(period)) throw new TypeError(`period must be a number, got a string`);
   if (_isText(cutoff)) throw new TypeError(`cutoff must be a number, got a string`);
   return wrapOp(M, () => new M.Decycler(period, cutoff));
 }
 
+/** The settings of Detrend by name, for `Detrend({ ... })`. */
+export interface DetrendOptions {
+  /** Number of most recent samples in the trailing rolling mean that is subtracted. */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * x[t] minus its rolling mean.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_misc/Detrend.html for the full reference.
+ */
+export function Detrend(options: DetrendOptions): ScreamerOp;
 /**
  * x[t] minus its rolling mean.
  *
@@ -1099,13 +2298,32 @@ export function Decycler(period: number = NaN, cutoff: number = NaN): ScreamerOp
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_misc/Detrend.html for the full reference.
  */
-export function Detrend(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
+export function Detrend(windowSize?: number, startPolicy?: string): ScreamerOp;
+export function Detrend(windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("Detrend", windowSize, arguments.length, ["windowSize", "startPolicy"]);
+  windowSize ??= 20;
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.Detrend(windowSize, startPolicy));
 }
 
+/** The settings of Diff by name, for `Diff({ ... })`. */
+export interface DiffOptions {
+  /** Lag k of the difference, in samples; 1 gives the difference between consecutive samples. */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * x[t] - x[t-k] (first difference at lag k).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_misc/Diff.html for the full reference.
+ */
+export function Diff(options: DiffOptions): ScreamerOp;
 /**
  * x[t] - x[t-k] (first difference at lag k).
  *
@@ -1113,117 +2331,204 @@ export function Detrend(windowSize: number = 20, startPolicy: string = "strict")
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_misc/Diff.html for the full reference.
  */
-export function Diff(windowSize: number = 1, startPolicy: string = "strict"): ScreamerOp {
+export function Diff(windowSize?: number, startPolicy?: string): ScreamerOp;
+export function Diff(windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("Diff", windowSize, arguments.length, ["windowSize", "startPolicy"]);
+  windowSize ??= 1;
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.Diff(windowSize, startPolicy));
 }
 
+/** The settings of Diff2 by name, for `Diff2({ ... })`. */
+export interface Diff2Options {
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * Second-order finite difference (discrete second derivative).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_misc/Diff2.html for the full reference.
+ */
+export function Diff2(options: Diff2Options): ScreamerOp;
 /**
  * Second-order finite difference (discrete second derivative).
  *
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_misc/Diff2.html for the full reference.
  */
-export function Diff2(startPolicy: string = "strict"): ScreamerOp {
+export function Diff2(startPolicy?: string): ScreamerOp;
+export function Diff2(startPolicy?: any): ScreamerOp {
+  if (_isOptions(startPolicy)) [startPolicy] = _options("Diff2", startPolicy, arguments.length, ["startPolicy"]);
+  startPolicy ??= "strict";
   const M = current();
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.Diff2(startPolicy));
 }
+
+/** Div has no settings: its options object is empty. */
+export type DivOptions = Record<string, never>;
 
 /**
  * Elementwise quotient of two aligned streams (x / y).
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Div.html for the full reference.
  */
-export function Div(): ScreamerOp {
+export function Div(options?: DivOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Div", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Div());
 }
+
+/** DominantCycle has no settings: its options object is empty. */
+export type DominantCycleOptions = Record<string, never>;
 
 /**
  * Dominant cycle period via Ehlers' homodyne discriminator.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/DominantCycle.html for the full reference.
  */
-export function DominantCycle(): ScreamerOp {
+export function DominantCycle(options?: DominantCycleOptions): ScreamerOp {
+  if (_isOptions(options)) _options("DominantCycle", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.DominantCycle());
 }
 
+/** The settings of DonchianChannels by name, for `DonchianChannels({ ... })`. */
+export interface DonchianChannelsOptions {
+  /** Number of most recent samples over which the maximum of high and the minimum of low are taken. */
+  windowSize?: number;
+}
+
+/**
+ * Trend-following envelope: rolling max(high), rolling min(low), and midline.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/DonchianChannels.html for the full reference.
+ */
+export function DonchianChannels(options: DonchianChannelsOptions): ScreamerOp;
 /**
  * Trend-following envelope: rolling max(high), rolling min(low), and midline.
  *
  * @param windowSize Number of most recent samples over which the maximum of high and the minimum of low are taken.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/DonchianChannels.html for the full reference.
  */
-export function DonchianChannels(windowSize: number = 20): ScreamerOp {
+export function DonchianChannels(windowSize?: number): ScreamerOp;
+export function DonchianChannels(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("DonchianChannels", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 20;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.DonchianChannels(windowSize));
 }
+
+/** Drawdown has no settings: its options object is empty. */
+export type DrawdownOptions = Record<string, never>;
 
 /**
  * Running drawdown from the cumulative peak.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/Drawdown.html for the full reference.
  */
-export function Drawdown(): ScreamerOp {
+export function Drawdown(options?: DrawdownOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Drawdown", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Drawdown());
 }
+
+/** EffectiveSpread has no settings: its options object is empty. */
+export type EffectiveSpreadOptions = Record<string, never>;
 
 /**
  * Effective spread, 2*|price - mid|: the round-trip cost paid relative to the mid.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_micro/EffectiveSpread.html for the full reference.
  */
-export function EffectiveSpread(): ScreamerOp {
+export function EffectiveSpread(options?: EffectiveSpreadOptions): ScreamerOp {
+  if (_isOptions(options)) _options("EffectiveSpread", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.EffectiveSpread());
 }
+
+/** Elu has no settings: its options object is empty. */
+export type EluOptions = Record<string, never>;
 
 /**
  * Exponential linear unit.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Elu.html for the full reference.
  */
-export function Elu(): ScreamerOp {
+export function Elu(options?: EluOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Elu", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Elu());
 }
+
+/** Equal has no settings: its options object is empty. */
+export type EqualOptions = Record<string, never>;
 
 /**
  * Returns 1.0 if a == b, else 0.0. NaN in either input yields NaN.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Equal.html for the full reference.
  */
-export function Equal(): ScreamerOp {
+export function Equal(options?: EqualOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Equal", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Equal());
 }
+
+/** Erf has no settings: its options object is empty. */
+export type ErfOptions = Record<string, never>;
 
 /**
  * Gauss error function.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Erf.html for the full reference.
  */
-export function Erf(): ScreamerOp {
+export function Erf(options?: ErfOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Erf", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Erf());
 }
+
+/** Erfc has no settings: its options object is empty. */
+export type ErfcOptions = Record<string, never>;
 
 /**
  * Complementary error function (1 - erf).
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Erfc.html for the full reference.
  */
-export function Erfc(): ScreamerOp {
+export function Erfc(options?: ErfcOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Erfc", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Erfc());
 }
 
+/** The settings of EwAlpha by name, for `EwAlpha({ ... })`. */
+export interface EwAlphaOptions {
+  /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  com?: number;
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  span?: number;
+  /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  halflife?: number;
+  /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
+  alpha?: number;
+}
+
+/**
+ * EW regression intercept, ewmean(x) - EwBeta(x,y) * ewmean(y).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwAlpha.html for the full reference.
+ */
+export function EwAlpha(options: EwAlphaOptions): ScreamerOp;
 /**
  * EW regression intercept, ewmean(x) - EwBeta(x,y) * ewmean(y).
  *
@@ -1233,7 +2538,13 @@ export function Erfc(): ScreamerOp {
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwAlpha.html for the full reference.
  */
-export function EwAlpha(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
+export function EwAlpha(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwAlpha(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwAlpha", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  com ??= NaN;
+  span ??= NaN;
+  halflife ??= NaN;
+  alpha ??= NaN;
   const M = current();
   if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
   if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
@@ -1242,6 +2553,25 @@ export function EwAlpha(com: number = NaN, span: number = NaN, halflife: number 
   return wrapOp(M, () => new M.EwAlpha(com, span, halflife, alpha));
 }
 
+/** The settings of EwBeta by name, for `EwBeta({ ... })`. */
+export interface EwBetaOptions {
+  /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  com?: number;
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  span?: number;
+  /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  halflife?: number;
+  /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
+  alpha?: number;
+}
+
+/**
+ * EW CAPM beta: cov(target, regressor) / var(regressor).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwBeta.html for the full reference.
+ */
+export function EwBeta(options: EwBetaOptions): ScreamerOp;
 /**
  * EW CAPM beta: cov(target, regressor) / var(regressor).
  *
@@ -1251,7 +2581,13 @@ export function EwAlpha(com: number = NaN, span: number = NaN, halflife: number 
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwBeta.html for the full reference.
  */
-export function EwBeta(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
+export function EwBeta(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwBeta(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwBeta", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  com ??= NaN;
+  span ??= NaN;
+  halflife ??= NaN;
+  alpha ??= NaN;
   const M = current();
   if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
   if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
@@ -1260,6 +2596,25 @@ export function EwBeta(com: number = NaN, span: number = NaN, halflife: number =
   return wrapOp(M, () => new M.EwBeta(com, span, halflife, alpha));
 }
 
+/** The settings of EwCorr by name, for `EwCorr({ ... })`. */
+export interface EwCorrOptions {
+  /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  com?: number;
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  span?: number;
+  /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  halflife?: number;
+  /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
+  alpha?: number;
+}
+
+/**
+ * EW Pearson correlation of two parallel streams.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwCorr.html for the full reference.
+ */
+export function EwCorr(options: EwCorrOptions): ScreamerOp;
 /**
  * EW Pearson correlation of two parallel streams.
  *
@@ -1269,7 +2624,13 @@ export function EwBeta(com: number = NaN, span: number = NaN, halflife: number =
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwCorr.html for the full reference.
  */
-export function EwCorr(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
+export function EwCorr(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwCorr(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwCorr", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  com ??= NaN;
+  span ??= NaN;
+  halflife ??= NaN;
+  alpha ??= NaN;
   const M = current();
   if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
   if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
@@ -1278,6 +2639,25 @@ export function EwCorr(com: number = NaN, span: number = NaN, halflife: number =
   return wrapOp(M, () => new M.EwCorr(com, span, halflife, alpha));
 }
 
+/** The settings of EwCov by name, for `EwCov({ ... })`. */
+export interface EwCovOptions {
+  /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  com?: number;
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  span?: number;
+  /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  halflife?: number;
+  /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
+  alpha?: number;
+}
+
+/**
+ * EW covariance of two parallel streams.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwCov.html for the full reference.
+ */
+export function EwCov(options: EwCovOptions): ScreamerOp;
 /**
  * EW covariance of two parallel streams.
  *
@@ -1287,7 +2667,13 @@ export function EwCorr(com: number = NaN, span: number = NaN, halflife: number =
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwCov.html for the full reference.
  */
-export function EwCov(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
+export function EwCov(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwCov(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwCov", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  com ??= NaN;
+  span ??= NaN;
+  halflife ??= NaN;
+  alpha ??= NaN;
   const M = current();
   if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
   if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
@@ -1296,6 +2682,25 @@ export function EwCov(com: number = NaN, span: number = NaN, halflife: number = 
   return wrapOp(M, () => new M.EwCov(com, span, halflife, alpha));
 }
 
+/** The settings of EwGarmanKlassVar by name, for `EwGarmanKlassVar({ ... })`. */
+export interface EwGarmanKlassVarOptions {
+  /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  com?: number;
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  span?: number;
+  /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  halflife?: number;
+  /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
+  alpha?: number;
+}
+
+/**
+ * Exponentially weighted Garman-Klass range-based variance estimator (OHLC).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwGarmanKlassVar.html for the full reference.
+ */
+export function EwGarmanKlassVar(options: EwGarmanKlassVarOptions): ScreamerOp;
 /**
  * Exponentially weighted Garman-Klass range-based variance estimator (OHLC).
  *
@@ -1305,7 +2710,13 @@ export function EwCov(com: number = NaN, span: number = NaN, halflife: number = 
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwGarmanKlassVar.html for the full reference.
  */
-export function EwGarmanKlassVar(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
+export function EwGarmanKlassVar(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwGarmanKlassVar(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwGarmanKlassVar", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  com ??= NaN;
+  span ??= NaN;
+  halflife ??= NaN;
+  alpha ??= NaN;
   const M = current();
   if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
   if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
@@ -1314,6 +2725,25 @@ export function EwGarmanKlassVar(com: number = NaN, span: number = NaN, halflife
   return wrapOp(M, () => new M.EwGarmanKlassVar(com, span, halflife, alpha));
 }
 
+/** The settings of EwGarmanKlassVol by name, for `EwGarmanKlassVol({ ... })`. */
+export interface EwGarmanKlassVolOptions {
+  /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  com?: number;
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  span?: number;
+  /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  halflife?: number;
+  /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
+  alpha?: number;
+}
+
+/**
+ * Exponentially weighted Garman-Klass range-based volatility estimator (OHLC).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwGarmanKlassVol.html for the full reference.
+ */
+export function EwGarmanKlassVol(options: EwGarmanKlassVolOptions): ScreamerOp;
 /**
  * Exponentially weighted Garman-Klass range-based volatility estimator (OHLC).
  *
@@ -1323,7 +2753,13 @@ export function EwGarmanKlassVar(com: number = NaN, span: number = NaN, halflife
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwGarmanKlassVol.html for the full reference.
  */
-export function EwGarmanKlassVol(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
+export function EwGarmanKlassVol(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwGarmanKlassVol(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwGarmanKlassVol", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  com ??= NaN;
+  span ??= NaN;
+  halflife ??= NaN;
+  alpha ??= NaN;
   const M = current();
   if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
   if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
@@ -1332,6 +2768,25 @@ export function EwGarmanKlassVol(com: number = NaN, span: number = NaN, halflife
   return wrapOp(M, () => new M.EwGarmanKlassVol(com, span, halflife, alpha));
 }
 
+/** The settings of EwKurt by name, for `EwKurt({ ... })`. */
+export interface EwKurtOptions {
+  /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  com?: number;
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  span?: number;
+  /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  halflife?: number;
+  /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
+  alpha?: number;
+}
+
+/**
+ * EW excess kurtosis.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwKurt.html for the full reference.
+ */
+export function EwKurt(options: EwKurtOptions): ScreamerOp;
 /**
  * EW excess kurtosis.
  *
@@ -1341,7 +2796,13 @@ export function EwGarmanKlassVol(com: number = NaN, span: number = NaN, halflife
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwKurt.html for the full reference.
  */
-export function EwKurt(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
+export function EwKurt(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwKurt(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwKurt", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  com ??= NaN;
+  span ??= NaN;
+  halflife ??= NaN;
+  alpha ??= NaN;
   const M = current();
   if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
   if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
@@ -1350,6 +2811,25 @@ export function EwKurt(com: number = NaN, span: number = NaN, halflife: number =
   return wrapOp(M, () => new M.EwKurt(com, span, halflife, alpha));
 }
 
+/** The settings of EwKyleLambda by name, for `EwKyleLambda({ ... })`. */
+export interface EwKyleLambdaOptions {
+  /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  com?: number;
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  span?: number;
+  /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  halflife?: number;
+  /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
+  alpha?: number;
+}
+
+/**
+ * Exponentially-weighted price-impact slope of return on signed order flow.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/EwKyleLambda.html for the full reference.
+ */
+export function EwKyleLambda(options: EwKyleLambdaOptions): ScreamerOp;
 /**
  * Exponentially-weighted price-impact slope of return on signed order flow.
  *
@@ -1359,7 +2839,13 @@ export function EwKurt(com: number = NaN, span: number = NaN, halflife: number =
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_micro/EwKyleLambda.html for the full reference.
  */
-export function EwKyleLambda(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
+export function EwKyleLambda(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwKyleLambda(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwKyleLambda", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  com ??= NaN;
+  span ??= NaN;
+  halflife ??= NaN;
+  alpha ??= NaN;
   const M = current();
   if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
   if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
@@ -1368,6 +2854,25 @@ export function EwKyleLambda(com: number = NaN, span: number = NaN, halflife: nu
   return wrapOp(M, () => new M.EwKyleLambda(com, span, halflife, alpha));
 }
 
+/** The settings of EwMean by name, for `EwMean({ ... })`. */
+export interface EwMeanOptions {
+  /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  com?: number;
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  span?: number;
+  /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  halflife?: number;
+  /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
+  alpha?: number;
+}
+
+/**
+ * Exponentially-weighted moving average (pandas adjust=True).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwMean.html for the full reference.
+ */
+export function EwMean(options: EwMeanOptions): ScreamerOp;
 /**
  * Exponentially-weighted moving average (pandas adjust=True).
  *
@@ -1377,7 +2882,13 @@ export function EwKyleLambda(com: number = NaN, span: number = NaN, halflife: nu
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwMean.html for the full reference.
  */
-export function EwMean(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
+export function EwMean(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwMean(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwMean", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  com ??= NaN;
+  span ??= NaN;
+  halflife ??= NaN;
+  alpha ??= NaN;
   const M = current();
   if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
   if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
@@ -1386,6 +2897,25 @@ export function EwMean(com: number = NaN, span: number = NaN, halflife: number =
   return wrapOp(M, () => new M.EwMean(com, span, halflife, alpha));
 }
 
+/** The settings of EwParkinsonVar by name, for `EwParkinsonVar({ ... })`. */
+export interface EwParkinsonVarOptions {
+  /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  com?: number;
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  span?: number;
+  /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  halflife?: number;
+  /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
+  alpha?: number;
+}
+
+/**
+ * Exponentially weighted Parkinson range-based variance estimator (high, low).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwParkinsonVar.html for the full reference.
+ */
+export function EwParkinsonVar(options: EwParkinsonVarOptions): ScreamerOp;
 /**
  * Exponentially weighted Parkinson range-based variance estimator (high, low).
  *
@@ -1395,7 +2925,13 @@ export function EwMean(com: number = NaN, span: number = NaN, halflife: number =
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwParkinsonVar.html for the full reference.
  */
-export function EwParkinsonVar(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
+export function EwParkinsonVar(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwParkinsonVar(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwParkinsonVar", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  com ??= NaN;
+  span ??= NaN;
+  halflife ??= NaN;
+  alpha ??= NaN;
   const M = current();
   if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
   if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
@@ -1404,6 +2940,25 @@ export function EwParkinsonVar(com: number = NaN, span: number = NaN, halflife: 
   return wrapOp(M, () => new M.EwParkinsonVar(com, span, halflife, alpha));
 }
 
+/** The settings of EwParkinsonVol by name, for `EwParkinsonVol({ ... })`. */
+export interface EwParkinsonVolOptions {
+  /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  com?: number;
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  span?: number;
+  /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  halflife?: number;
+  /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
+  alpha?: number;
+}
+
+/**
+ * Exponentially weighted Parkinson range-based volatility estimator (high, low).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwParkinsonVol.html for the full reference.
+ */
+export function EwParkinsonVol(options: EwParkinsonVolOptions): ScreamerOp;
 /**
  * Exponentially weighted Parkinson range-based volatility estimator (high, low).
  *
@@ -1413,7 +2968,13 @@ export function EwParkinsonVar(com: number = NaN, span: number = NaN, halflife: 
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwParkinsonVol.html for the full reference.
  */
-export function EwParkinsonVol(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
+export function EwParkinsonVol(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwParkinsonVol(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwParkinsonVol", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  com ??= NaN;
+  span ??= NaN;
+  halflife ??= NaN;
+  alpha ??= NaN;
   const M = current();
   if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
   if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
@@ -1422,6 +2983,25 @@ export function EwParkinsonVol(com: number = NaN, span: number = NaN, halflife: 
   return wrapOp(M, () => new M.EwParkinsonVol(com, span, halflife, alpha));
 }
 
+/** The settings of EwResidualStd by name, for `EwResidualStd({ ... })`. */
+export interface EwResidualStdOptions {
+  /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  com?: number;
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  span?: number;
+  /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  halflife?: number;
+  /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
+  alpha?: number;
+}
+
+/**
+ * EW std of the spread x - EwBeta(x, y) * y.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwResidualStd.html for the full reference.
+ */
+export function EwResidualStd(options: EwResidualStdOptions): ScreamerOp;
 /**
  * EW std of the spread x - EwBeta(x, y) * y.
  *
@@ -1431,7 +3011,13 @@ export function EwParkinsonVol(com: number = NaN, span: number = NaN, halflife: 
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwResidualStd.html for the full reference.
  */
-export function EwResidualStd(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
+export function EwResidualStd(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwResidualStd(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwResidualStd", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  com ??= NaN;
+  span ??= NaN;
+  halflife ??= NaN;
+  alpha ??= NaN;
   const M = current();
   if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
   if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
@@ -1440,6 +3026,25 @@ export function EwResidualStd(com: number = NaN, span: number = NaN, halflife: n
   return wrapOp(M, () => new M.EwResidualStd(com, span, halflife, alpha));
 }
 
+/** The settings of EwRms by name, for `EwRms({ ... })`. */
+export interface EwRmsOptions {
+  /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  com?: number;
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  span?: number;
+  /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  halflife?: number;
+  /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
+  alpha?: number;
+}
+
+/**
+ * EW root-mean-square.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwRms.html for the full reference.
+ */
+export function EwRms(options: EwRmsOptions): ScreamerOp;
 /**
  * EW root-mean-square.
  *
@@ -1449,7 +3054,13 @@ export function EwResidualStd(com: number = NaN, span: number = NaN, halflife: n
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwRms.html for the full reference.
  */
-export function EwRms(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
+export function EwRms(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwRms(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwRms", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  com ??= NaN;
+  span ??= NaN;
+  halflife ??= NaN;
+  alpha ??= NaN;
   const M = current();
   if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
   if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
@@ -1458,6 +3069,25 @@ export function EwRms(com: number = NaN, span: number = NaN, halflife: number = 
   return wrapOp(M, () => new M.EwRms(com, span, halflife, alpha));
 }
 
+/** The settings of EwRogersSatchellVar by name, for `EwRogersSatchellVar({ ... })`. */
+export interface EwRogersSatchellVarOptions {
+  /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  com?: number;
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  span?: number;
+  /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  halflife?: number;
+  /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
+  alpha?: number;
+}
+
+/**
+ * Exponentially weighted Rogers-Satchell drift-robust range-based variance estimator (OHLC).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwRogersSatchellVar.html for the full reference.
+ */
+export function EwRogersSatchellVar(options: EwRogersSatchellVarOptions): ScreamerOp;
 /**
  * Exponentially weighted Rogers-Satchell drift-robust range-based variance estimator (OHLC).
  *
@@ -1467,7 +3097,13 @@ export function EwRms(com: number = NaN, span: number = NaN, halflife: number = 
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwRogersSatchellVar.html for the full reference.
  */
-export function EwRogersSatchellVar(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
+export function EwRogersSatchellVar(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwRogersSatchellVar(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwRogersSatchellVar", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  com ??= NaN;
+  span ??= NaN;
+  halflife ??= NaN;
+  alpha ??= NaN;
   const M = current();
   if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
   if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
@@ -1476,6 +3112,25 @@ export function EwRogersSatchellVar(com: number = NaN, span: number = NaN, halfl
   return wrapOp(M, () => new M.EwRogersSatchellVar(com, span, halflife, alpha));
 }
 
+/** The settings of EwRogersSatchellVol by name, for `EwRogersSatchellVol({ ... })`. */
+export interface EwRogersSatchellVolOptions {
+  /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  com?: number;
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  span?: number;
+  /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  halflife?: number;
+  /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
+  alpha?: number;
+}
+
+/**
+ * Exponentially weighted Rogers-Satchell drift-robust range-based volatility estimator (OHLC).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwRogersSatchellVol.html for the full reference.
+ */
+export function EwRogersSatchellVol(options: EwRogersSatchellVolOptions): ScreamerOp;
 /**
  * Exponentially weighted Rogers-Satchell drift-robust range-based volatility estimator (OHLC).
  *
@@ -1485,7 +3140,13 @@ export function EwRogersSatchellVar(com: number = NaN, span: number = NaN, halfl
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwRogersSatchellVol.html for the full reference.
  */
-export function EwRogersSatchellVol(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
+export function EwRogersSatchellVol(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwRogersSatchellVol(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwRogersSatchellVol", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  com ??= NaN;
+  span ??= NaN;
+  halflife ??= NaN;
+  alpha ??= NaN;
   const M = current();
   if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
   if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
@@ -1494,6 +3155,25 @@ export function EwRogersSatchellVol(com: number = NaN, span: number = NaN, halfl
   return wrapOp(M, () => new M.EwRogersSatchellVol(com, span, halflife, alpha));
 }
 
+/** The settings of EwSkew by name, for `EwSkew({ ... })`. */
+export interface EwSkewOptions {
+  /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  com?: number;
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  span?: number;
+  /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  halflife?: number;
+  /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
+  alpha?: number;
+}
+
+/**
+ * EW skewness.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwSkew.html for the full reference.
+ */
+export function EwSkew(options: EwSkewOptions): ScreamerOp;
 /**
  * EW skewness.
  *
@@ -1503,7 +3183,13 @@ export function EwRogersSatchellVol(com: number = NaN, span: number = NaN, halfl
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwSkew.html for the full reference.
  */
-export function EwSkew(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
+export function EwSkew(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwSkew(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwSkew", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  com ??= NaN;
+  span ??= NaN;
+  halflife ??= NaN;
+  alpha ??= NaN;
   const M = current();
   if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
   if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
@@ -1512,6 +3198,25 @@ export function EwSkew(com: number = NaN, span: number = NaN, halflife: number =
   return wrapOp(M, () => new M.EwSkew(com, span, halflife, alpha));
 }
 
+/** The settings of EwSpread by name, for `EwSpread({ ... })`. */
+export interface EwSpreadOptions {
+  /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  com?: number;
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  span?: number;
+  /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  halflife?: number;
+  /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
+  alpha?: number;
+}
+
+/**
+ * EW hedge-adjusted residual x - EwBeta(x, y) * y.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwSpread.html for the full reference.
+ */
+export function EwSpread(options: EwSpreadOptions): ScreamerOp;
 /**
  * EW hedge-adjusted residual x - EwBeta(x, y) * y.
  *
@@ -1521,7 +3226,13 @@ export function EwSkew(com: number = NaN, span: number = NaN, halflife: number =
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwSpread.html for the full reference.
  */
-export function EwSpread(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
+export function EwSpread(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwSpread(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwSpread", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  com ??= NaN;
+  span ??= NaN;
+  halflife ??= NaN;
+  alpha ??= NaN;
   const M = current();
   if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
   if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
@@ -1530,6 +3241,25 @@ export function EwSpread(com: number = NaN, span: number = NaN, halflife: number
   return wrapOp(M, () => new M.EwSpread(com, span, halflife, alpha));
 }
 
+/** The settings of EwStd by name, for `EwStd({ ... })`. */
+export interface EwStdOptions {
+  /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  com?: number;
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  span?: number;
+  /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  halflife?: number;
+  /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
+  alpha?: number;
+}
+
+/**
+ * EW standard deviation.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwStd.html for the full reference.
+ */
+export function EwStd(options: EwStdOptions): ScreamerOp;
 /**
  * EW standard deviation.
  *
@@ -1539,7 +3269,13 @@ export function EwSpread(com: number = NaN, span: number = NaN, halflife: number
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwStd.html for the full reference.
  */
-export function EwStd(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
+export function EwStd(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwStd(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwStd", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  com ??= NaN;
+  span ??= NaN;
+  halflife ??= NaN;
+  alpha ??= NaN;
   const M = current();
   if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
   if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
@@ -1548,6 +3284,25 @@ export function EwStd(com: number = NaN, span: number = NaN, halflife: number = 
   return wrapOp(M, () => new M.EwStd(com, span, halflife, alpha));
 }
 
+/** The settings of EwVar by name, for `EwVar({ ... })`. */
+export interface EwVarOptions {
+  /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  com?: number;
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  span?: number;
+  /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  halflife?: number;
+  /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
+  alpha?: number;
+}
+
+/**
+ * EW variance (pandas adjust=True bias-corrected).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwVar.html for the full reference.
+ */
+export function EwVar(options: EwVarOptions): ScreamerOp;
 /**
  * EW variance (pandas adjust=True bias-corrected).
  *
@@ -1557,7 +3312,13 @@ export function EwStd(com: number = NaN, span: number = NaN, halflife: number = 
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwVar.html for the full reference.
  */
-export function EwVar(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
+export function EwVar(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwVar(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwVar", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  com ??= NaN;
+  span ??= NaN;
+  halflife ??= NaN;
+  alpha ??= NaN;
   const M = current();
   if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
   if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
@@ -1566,6 +3327,25 @@ export function EwVar(com: number = NaN, span: number = NaN, halflife: number = 
   return wrapOp(M, () => new M.EwVar(com, span, halflife, alpha));
 }
 
+/** The settings of EwYangZhangVar by name, for `EwYangZhangVar({ ... })`. */
+export interface EwYangZhangVarOptions {
+  /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  com?: number;
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  span?: number;
+  /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  halflife?: number;
+  /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
+  alpha?: number;
+}
+
+/**
+ * Exponentially weighted Yang-Zhang range-based variance estimator (OHLC).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwYangZhangVar.html for the full reference.
+ */
+export function EwYangZhangVar(options: EwYangZhangVarOptions): ScreamerOp;
 /**
  * Exponentially weighted Yang-Zhang range-based variance estimator (OHLC).
  *
@@ -1575,7 +3355,13 @@ export function EwVar(com: number = NaN, span: number = NaN, halflife: number = 
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwYangZhangVar.html for the full reference.
  */
-export function EwYangZhangVar(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
+export function EwYangZhangVar(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwYangZhangVar(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwYangZhangVar", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  com ??= NaN;
+  span ??= NaN;
+  halflife ??= NaN;
+  alpha ??= NaN;
   const M = current();
   if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
   if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
@@ -1584,6 +3370,25 @@ export function EwYangZhangVar(com: number = NaN, span: number = NaN, halflife: 
   return wrapOp(M, () => new M.EwYangZhangVar(com, span, halflife, alpha));
 }
 
+/** The settings of EwYangZhangVol by name, for `EwYangZhangVol({ ... })`. */
+export interface EwYangZhangVolOptions {
+  /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  com?: number;
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  span?: number;
+  /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  halflife?: number;
+  /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
+  alpha?: number;
+}
+
+/**
+ * Exponentially weighted Yang-Zhang range-based volatility estimator (OHLC).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwYangZhangVol.html for the full reference.
+ */
+export function EwYangZhangVol(options: EwYangZhangVolOptions): ScreamerOp;
 /**
  * Exponentially weighted Yang-Zhang range-based volatility estimator (OHLC).
  *
@@ -1593,7 +3398,13 @@ export function EwYangZhangVar(com: number = NaN, span: number = NaN, halflife: 
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwYangZhangVol.html for the full reference.
  */
-export function EwYangZhangVol(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
+export function EwYangZhangVol(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwYangZhangVol(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwYangZhangVol", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  com ??= NaN;
+  span ??= NaN;
+  halflife ??= NaN;
+  alpha ??= NaN;
   const M = current();
   if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
   if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
@@ -1602,6 +3413,25 @@ export function EwYangZhangVol(com: number = NaN, span: number = NaN, halflife: 
   return wrapOp(M, () => new M.EwYangZhangVol(com, span, halflife, alpha));
 }
 
+/** The settings of EwZscore by name, for `EwZscore({ ... })`. */
+export interface EwZscoreOptions {
+  /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  com?: number;
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  span?: number;
+  /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  halflife?: number;
+  /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
+  alpha?: number;
+}
+
+/**
+ * Latest sample standardized by the EW mean and std.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwZscore.html for the full reference.
+ */
+export function EwZscore(options: EwZscoreOptions): ScreamerOp;
 /**
  * Latest sample standardized by the EW mean and std.
  *
@@ -1611,7 +3441,13 @@ export function EwYangZhangVol(com: number = NaN, span: number = NaN, halflife: 
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwZscore.html for the full reference.
  */
-export function EwZscore(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
+export function EwZscore(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwZscore(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwZscore", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  com ??= NaN;
+  span ??= NaN;
+  halflife ??= NaN;
+  alpha ??= NaN;
   const M = current();
   if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
   if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
@@ -1620,158 +3456,249 @@ export function EwZscore(com: number = NaN, span: number = NaN, halflife: number
   return wrapOp(M, () => new M.EwZscore(com, span, halflife, alpha));
 }
 
+/** Exp has no settings: its options object is empty. */
+export type ExpOptions = Record<string, never>;
+
 /**
  * e to the power of each element.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Exp.html for the full reference.
  */
-export function Exp(): ScreamerOp {
+export function Exp(options?: ExpOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Exp", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Exp());
 }
+
+/** ExpandingKurt has no settings: its options object is empty. */
+export type ExpandingKurtOptions = Record<string, never>;
 
 /**
  * Running bias-corrected excess kurtosis (Fisher) over the whole history.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingKurt.html for the full reference.
  */
-export function ExpandingKurt(): ScreamerOp {
+export function ExpandingKurt(options?: ExpandingKurtOptions): ScreamerOp {
+  if (_isOptions(options)) _options("ExpandingKurt", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.ExpandingKurt());
 }
+
+/** ExpandingMax has no settings: its options object is empty. */
+export type ExpandingMaxOptions = Record<string, never>;
 
 /**
  * Running maximum since the start of the stream.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingMax.html for the full reference.
  */
-export function ExpandingMax(): ScreamerOp {
+export function ExpandingMax(options?: ExpandingMaxOptions): ScreamerOp {
+  if (_isOptions(options)) _options("ExpandingMax", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.ExpandingMax());
 }
+
+/** ExpandingMean has no settings: its options object is empty. */
+export type ExpandingMeanOptions = Record<string, never>;
 
 /**
  * Running mean over the whole history since the last reset.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingMean.html for the full reference.
  */
-export function ExpandingMean(): ScreamerOp {
+export function ExpandingMean(options?: ExpandingMeanOptions): ScreamerOp {
+  if (_isOptions(options)) _options("ExpandingMean", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.ExpandingMean());
 }
+
+/** ExpandingMin has no settings: its options object is empty. */
+export type ExpandingMinOptions = Record<string, never>;
 
 /**
  * Running minimum since the start of the stream.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingMin.html for the full reference.
  */
-export function ExpandingMin(): ScreamerOp {
+export function ExpandingMin(options?: ExpandingMinOptions): ScreamerOp {
+  if (_isOptions(options)) _options("ExpandingMin", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.ExpandingMin());
 }
+
+/** ExpandingProd has no settings: its options object is empty. */
+export type ExpandingProdOptions = Record<string, never>;
 
 /**
  * Running product since the start of the stream.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingProd.html for the full reference.
  */
-export function ExpandingProd(): ScreamerOp {
+export function ExpandingProd(options?: ExpandingProdOptions): ScreamerOp {
+  if (_isOptions(options)) _options("ExpandingProd", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.ExpandingProd());
 }
+
+/** ExpandingSkew has no settings: its options object is empty. */
+export type ExpandingSkewOptions = Record<string, never>;
 
 /**
  * Running bias-corrected sample skewness (G1) over the whole history.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingSkew.html for the full reference.
  */
-export function ExpandingSkew(): ScreamerOp {
+export function ExpandingSkew(options?: ExpandingSkewOptions): ScreamerOp {
+  if (_isOptions(options)) _options("ExpandingSkew", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.ExpandingSkew());
 }
+
+/** ExpandingSlope has no settings: its options object is empty. */
+export type ExpandingSlopeOptions = Record<string, never>;
 
 /**
  * Running OLS slope of the series against time over the whole history.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingSlope.html for the full reference.
  */
-export function ExpandingSlope(): ScreamerOp {
+export function ExpandingSlope(options?: ExpandingSlopeOptions): ScreamerOp {
+  if (_isOptions(options)) _options("ExpandingSlope", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.ExpandingSlope());
 }
+
+/** ExpandingStd has no settings: its options object is empty. */
+export type ExpandingStdOptions = Record<string, never>;
 
 /**
  * Running sample standard deviation (ddof=1) over the whole history.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingStd.html for the full reference.
  */
-export function ExpandingStd(): ScreamerOp {
+export function ExpandingStd(options?: ExpandingStdOptions): ScreamerOp {
+  if (_isOptions(options)) _options("ExpandingStd", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.ExpandingStd());
 }
+
+/** ExpandingSum has no settings: its options object is empty. */
+export type ExpandingSumOptions = Record<string, never>;
 
 /**
  * Running sum since the start of the stream.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingSum.html for the full reference.
  */
-export function ExpandingSum(): ScreamerOp {
+export function ExpandingSum(options?: ExpandingSumOptions): ScreamerOp {
+  if (_isOptions(options)) _options("ExpandingSum", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.ExpandingSum());
 }
+
+/** ExpandingVar has no settings: its options object is empty. */
+export type ExpandingVarOptions = Record<string, never>;
 
 /**
  * Running sample variance (ddof=1) over the whole history.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingVar.html for the full reference.
  */
-export function ExpandingVar(): ScreamerOp {
+export function ExpandingVar(options?: ExpandingVarOptions): ScreamerOp {
+  if (_isOptions(options)) _options("ExpandingVar", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.ExpandingVar());
 }
+
+/** Ffill has no settings: its options object is empty. */
+export type FfillOptions = Record<string, never>;
 
 /**
  * Replace NaN with the most recent non-NaN value.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_preprocessing/Ffill.html for the full reference.
  */
-export function Ffill(): ScreamerOp {
+export function Ffill(options?: FfillOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Ffill", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Ffill());
 }
 
+/** The settings of FillNa by name, for `FillNa({ ... })`. */
+export interface FillNaOptions {
+  /** Constant that replaces each NaN. */
+  fill?: number;
+}
+
+/**
+ * Replace NaN with a user-specified scalar.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_preprocessing/FillNa.html for the full reference.
+ */
+export function FillNa(options: FillNaOptions): ScreamerOp;
 /**
  * Replace NaN with a user-specified scalar.
  *
  * @param fill Constant that replaces each NaN.
  * @see https://screamer.readthedocs.io/en/latest/functions_preprocessing/FillNa.html for the full reference.
  */
-export function FillNa(fill: number = 0.0): ScreamerOp {
+export function FillNa(fill?: number): ScreamerOp;
+export function FillNa(fill?: any): ScreamerOp {
+  if (_isOptions(fill)) [fill] = _options("FillNa", fill, arguments.length, ["fill"]);
+  fill ??= 0.0;
   const M = current();
   if (_isText(fill)) throw new TypeError(`fill must be a number, got a string`);
   return wrapOp(M, () => new M.FillNa(fill));
 }
+
+/** First has no settings: its options object is empty. */
+export type FirstOptions = Record<string, never>;
 
 /**
  * Latch the first finite value seen since reset.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_misc/First.html for the full reference.
  */
-export function First(): ScreamerOp {
+export function First(options?: FirstOptions): ScreamerOp {
+  if (_isOptions(options)) _options("First", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.First());
 }
+
+/** Floor has no settings: its options object is empty. */
+export type FloorOptions = Record<string, never>;
 
 /**
  * Round each element toward negative infinity.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Floor.html for the full reference.
  */
-export function Floor(): ScreamerOp {
+export function Floor(options?: FloorOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Floor", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Floor());
 }
 
+/** The settings of FracDiff by name, for `FracDiff({ ... })`. */
+export interface FracDiffOptions {
+  /** Differencing order. 0 is the identity, 1 the first difference, 2 the second; negative values give fractional integration. */
+  d?: number;
+  /** Maximum number of taps, which bounds memory and per-step cost. */
+  windowSize?: number;
+  /** Truncate the weight series at the first weight smaller than this in absolute value. 0.0 keeps all window_size taps. */
+  threshold?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * Fractional differencing filter. Removes the trend while keeping more of the series' memory than an integer difference.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/FracDiff.html for the full reference.
+ */
+export function FracDiff(options: FracDiffOptions): ScreamerOp;
 /**
  * Fractional differencing filter. Removes the trend while keeping more of the series' memory than an integer difference.
  *
@@ -1781,7 +3708,13 @@ export function Floor(): ScreamerOp {
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/FracDiff.html for the full reference.
  */
-export function FracDiff(d: number = 0.4, windowSize: number = 100, threshold: number = 1e-05, startPolicy: string = "strict"): ScreamerOp {
+export function FracDiff(d?: number, windowSize?: number, threshold?: number, startPolicy?: string): ScreamerOp;
+export function FracDiff(d?: any, windowSize?: any, threshold?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(d)) [d, windowSize, threshold, startPolicy] = _options("FracDiff", d, arguments.length, ["d", "windowSize", "threshold", "startPolicy"]);
+  d ??= 0.4;
+  windowSize ??= 100;
+  threshold ??= 1e-05;
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(d)) throw new TypeError(`d must be a number, got a string`);
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
@@ -1790,26 +3723,53 @@ export function FracDiff(d: number = 0.4, windowSize: number = 100, threshold: n
   return wrapOp(M, () => new M.FracDiff(d, windowSize, threshold, startPolicy));
 }
 
+/** GreaterEqual has no settings: its options object is empty. */
+export type GreaterEqualOptions = Record<string, never>;
+
 /**
  * Returns 1.0 if a >= b, else 0.0. NaN in either input yields NaN.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/GreaterEqual.html for the full reference.
  */
-export function GreaterEqual(): ScreamerOp {
+export function GreaterEqual(options?: GreaterEqualOptions): ScreamerOp {
+  if (_isOptions(options)) _options("GreaterEqual", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.GreaterEqual());
 }
+
+/** GreaterThan has no settings: its options object is empty. */
+export type GreaterThanOptions = Record<string, never>;
 
 /**
  * Returns 1.0 if a > b, else 0.0. NaN in either input yields NaN.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/GreaterThan.html for the full reference.
  */
-export function GreaterThan(): ScreamerOp {
+export function GreaterThan(options?: GreaterThanOptions): ScreamerOp {
+  if (_isOptions(options)) _options("GreaterThan", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.GreaterThan());
 }
 
+/** The settings of Hampel by name, for `Hampel({ ... })`. */
+export interface HampelOptions {
+  /** Number of most recent samples used for the median and the MAD. */
+  windowSize?: number;
+  /** Detection threshold in robust standard deviations (1.4826 * MAD). Larger values flag fewer samples; 3.0 is typical. */
+  nSigma?: number;
+  /** What to return: "cleaned" gives the signal with outliers replaced by the median, "flag" gives 1.0 at outliers and 0.0 elsewhere, and "nan" gives the input with outliers replaced by NaN. */
+  output?: string;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * Robust Hampel despiker, replace samples far from the window median (in MAD units).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/Hampel.html for the full reference.
+ */
+export function Hampel(options: HampelOptions): ScreamerOp;
 /**
  * Robust Hampel despiker, replace samples far from the window median (in MAD units).
  *
@@ -1819,7 +3779,13 @@ export function GreaterThan(): ScreamerOp {
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/Hampel.html for the full reference.
  */
-export function Hampel(windowSize: number = 20, nSigma: number = 3.0, output: string = "cleaned", startPolicy: string = "strict"): ScreamerOp {
+export function Hampel(windowSize?: number, nSigma?: number, output?: string, startPolicy?: string): ScreamerOp;
+export function Hampel(windowSize?: any, nSigma?: any, output?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, nSigma, output, startPolicy] = _options("Hampel", windowSize, arguments.length, ["windowSize", "nSigma", "output", "startPolicy"]);
+  windowSize ??= 20;
+  nSigma ??= 3.0;
+  output ??= "cleaned";
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (_isText(nSigma)) throw new TypeError(`nSigma must be a number, got a string`);
@@ -1828,6 +3794,23 @@ export function Hampel(windowSize: number = 20, nSigma: number = 3.0, output: st
   return wrapOp(M, () => new M.Hampel(windowSize, nSigma, output, startPolicy));
 }
 
+/** The settings of HawkesIntensity by name, for `HawkesIntensity({ ... })`. */
+export interface HawkesIntensityOptions {
+  /** Fraction of the excitation kept from one step to the next, in (0, 1). Larger values make the excitation fade more slowly. */
+  decay?: number;
+  /** Excitation amplitude: each event adds alpha times its mark to the excitation. */
+  alpha?: number;
+  /** Baseline intensity, the output when there has been no recent event. */
+  mu?: number;
+}
+
+/**
+ * Conditional intensity of an exponential-kernel Hawkes process: lambda_t = mu + kappa_t.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/HawkesIntensity.html for the full reference.
+ */
+export function HawkesIntensity(options: HawkesIntensityOptions): ScreamerOp;
 /**
  * Conditional intensity of an exponential-kernel Hawkes process: lambda_t = mu + kappa_t.
  *
@@ -1836,7 +3819,12 @@ export function Hampel(windowSize: number = 20, nSigma: number = 3.0, output: st
  * @param mu Baseline intensity, the output when there has been no recent event.
  * @see https://screamer.readthedocs.io/en/latest/functions_micro/HawkesIntensity.html for the full reference.
  */
-export function HawkesIntensity(decay: number = 0.9, alpha: number = 1.0, mu: number = 0.0): ScreamerOp {
+export function HawkesIntensity(decay?: number, alpha?: number, mu?: number): ScreamerOp;
+export function HawkesIntensity(decay?: any, alpha?: any, mu?: any): ScreamerOp {
+  if (_isOptions(decay)) [decay, alpha, mu] = _options("HawkesIntensity", decay, arguments.length, ["decay", "alpha", "mu"]);
+  decay ??= 0.9;
+  alpha ??= 1.0;
+  mu ??= 0.0;
   const M = current();
   if (_isText(decay)) throw new TypeError(`decay must be a number, got a string`);
   if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
@@ -1844,16 +3832,35 @@ export function HawkesIntensity(decay: number = 0.9, alpha: number = 1.0, mu: nu
   return wrapOp(M, () => new M.HawkesIntensity(decay, alpha, mu));
 }
 
+/** HilbertPhasor has no settings: its options object is empty. */
+export type HilbertPhasorOptions = Record<string, never>;
+
 /**
  * In-phase and quadrature components of the analytic signal via Ehlers' Hilbert transform.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/HilbertPhasor.html for the full reference.
  */
-export function HilbertPhasor(): ScreamerOp {
+export function HilbertPhasor(options?: HilbertPhasorOptions): ScreamerOp {
+  if (_isOptions(options)) _options("HilbertPhasor", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.HilbertPhasor());
 }
 
+/** The settings of Hold by name, for `Hold({ ... })`. */
+export interface HoldOptions {
+  /** Number of steps the latched value is held, counting the trigger step: a nonzero input at t is output at t, t+1, ..., t+n-1. */
+  n: number;
+  /** Value returned when no hold is active and the input is zero. May be finite or NaN; inf is rejected. */
+  release?: number;
+}
+
+/**
+ * Time-latch operator. Latches a nonzero finite input and holds it for n steps; returns the release value once the hold expires.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/Hold.html for the full reference.
+ */
+export function Hold(options: HoldOptions): ScreamerOp;
 /**
  * Time-latch operator. Latches a nonzero finite input and holds it for n steps; returns the release value once the hold expires.
  *
@@ -1861,45 +3868,92 @@ export function HilbertPhasor(): ScreamerOp {
  * @param release Value returned when no hold is active and the input is zero. May be finite or NaN; inf is rejected.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/Hold.html for the full reference.
  */
-export function Hold(n: number, release: number = 0.0): ScreamerOp {
+export function Hold(n: number, release?: number): ScreamerOp;
+export function Hold(n?: any, release?: any): ScreamerOp {
+  if (_isOptions(n)) [n, release] = _options("Hold", n, arguments.length, ["n", "release"]);
+  if (n == null) throw new TypeError(`Hold: n is required`);
+  release ??= 0.0;
   const M = current();
   if (_isText(n)) throw new TypeError(`n must be a number, got a string`);
   if (_isText(release)) throw new TypeError(`release must be a number, got a string`);
   return wrapOp(M, () => new M.Hold(n, release));
 }
 
+/** The settings of HullMA by name, for `HullMA({ ... })`. */
+export interface HullMAOptions {
+  /** Main window n in samples; the inner windows are n // 2 and floor(sqrt(n)). Must be at least 4 so that both inner windows are at least 2. */
+  windowSize?: number;
+}
+
+/**
+ * Hull's responsive MA: WMA(2*WMA(n/2) - WMA(n), sqrt(n)).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/HullMA.html for the full reference.
+ */
+export function HullMA(options: HullMAOptions): ScreamerOp;
 /**
  * Hull's responsive MA: WMA(2*WMA(n/2) - WMA(n), sqrt(n)).
  *
  * @param windowSize Main window n in samples; the inner windows are n // 2 and floor(sqrt(n)). Must be at least 4 so that both inner windows are at least 2.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/HullMA.html for the full reference.
  */
-export function HullMA(windowSize: number = 20): ScreamerOp {
+export function HullMA(windowSize?: number): ScreamerOp;
+export function HullMA(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("HullMA", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 20;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.HullMA(windowSize));
 }
+
+/** Hypot has no settings: its options object is empty. */
+export type HypotOptions = Record<string, never>;
 
 /**
  * Euclidean distance sqrt(x^2 + y^2), numerically stable.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Hypot.html for the full reference.
  */
-export function Hypot(): ScreamerOp {
+export function Hypot(options?: HypotOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Hypot", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Hypot());
 }
+
+/** Identity has no settings: its options object is empty. */
+export type IdentityOptions = Record<string, never>;
 
 /**
  * Pass-through (y = x).
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_misc/Identity.html for the full reference.
  */
-export function Identity(): ScreamerOp {
+export function Identity(options?: IdentityOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Identity", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Identity());
 }
 
+/** The settings of ImpulseClip by name, for `ImpulseClip({ ... })`. */
+export interface ImpulseClipOptions {
+  /** Number of most recent first differences (and values) used for the robust scale and the replacement median. */
+  windowSize?: number;
+  /** Detection threshold in robust standard deviations of the differences (1.4826 * MAD). Larger values flag fewer samples; 4.0 is typical. */
+  nSigma?: number;
+  /** What to return: "cleaned" gives the signal with outliers replaced by the median, "flag" gives 1.0 at outliers and 0.0 elsewhere, and "nan" gives the input with outliers replaced by NaN. */
+  output?: string;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * Causal impulse remover, detects spikes on the trend-free first difference.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/ImpulseClip.html for the full reference.
+ */
+export function ImpulseClip(options: ImpulseClipOptions): ScreamerOp;
 /**
  * Causal impulse remover, detects spikes on the trend-free first difference.
  *
@@ -1909,7 +3963,13 @@ export function Identity(): ScreamerOp {
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/ImpulseClip.html for the full reference.
  */
-export function ImpulseClip(windowSize: number = 20, nSigma: number = 4.0, output: string = "cleaned", startPolicy: string = "strict"): ScreamerOp {
+export function ImpulseClip(windowSize?: number, nSigma?: number, output?: string, startPolicy?: string): ScreamerOp;
+export function ImpulseClip(windowSize?: any, nSigma?: any, output?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, nSigma, output, startPolicy] = _options("ImpulseClip", windowSize, arguments.length, ["windowSize", "nSigma", "output", "startPolicy"]);
+  windowSize ??= 20;
+  nSigma ??= 4.0;
+  output ??= "cleaned";
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (_isText(nSigma)) throw new TypeError(`nSigma must be a number, got a string`);
@@ -1918,36 +3978,65 @@ export function ImpulseClip(windowSize: number = 20, nSigma: number = 4.0, outpu
   return wrapOp(M, () => new M.ImpulseClip(windowSize, nSigma, output, startPolicy));
 }
 
+/** InstantaneousTrendline has no settings: its options object is empty. */
+export type InstantaneousTrendlineOptions = Record<string, never>;
+
 /**
  * Adaptive 2-pole trendline whose smoothing tracks the measured dominant cycle.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/InstantaneousTrendline.html for the full reference.
  */
-export function InstantaneousTrendline(): ScreamerOp {
+export function InstantaneousTrendline(options?: InstantaneousTrendlineOptions): ScreamerOp {
+  if (_isOptions(options)) _options("InstantaneousTrendline", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.InstantaneousTrendline());
 }
+
+/** IsFinite has no settings: its options object is empty. */
+export type IsFiniteOptions = Record<string, never>;
 
 /**
  * Returns 1.0 for finite values, 0.0 for NaN or inf. Does not propagate NaN.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/IsFinite.html for the full reference.
  */
-export function IsFinite(): ScreamerOp {
+export function IsFinite(options?: IsFiniteOptions): ScreamerOp {
+  if (_isOptions(options)) _options("IsFinite", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.IsFinite());
 }
+
+/** IsNan has no settings: its options object is empty. */
+export type IsNanOptions = Record<string, never>;
 
 /**
  * Returns 1.0 if the input is NaN, else 0.0. Does not propagate NaN.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/IsNan.html for the full reference.
  */
-export function IsNan(): ScreamerOp {
+export function IsNan(options?: IsNanOptions): ScreamerOp {
+  if (_isOptions(options)) _options("IsNan", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.IsNan());
 }
 
+/** The settings of KAMA by name, for `KAMA({ ... })`. */
+export interface KAMAOptions {
+  /** Efficiency-ratio lookback n in samples: the net move and the path length are measured over the last n steps. */
+  windowSize?: number;
+  /** Period of the fastest smoothing constant, alpha_fast = 2 / (fast + 1), used when the efficiency ratio is 1. TA-Lib fixes it at 2. */
+  fast?: number;
+  /** Period of the slowest smoothing constant, alpha_slow = 2 / (slow + 1), used when the efficiency ratio is 0. TA-Lib fixes it at 30. */
+  slow?: number;
+}
+
+/**
+ * Adaptive MA whose smoothing constant responds to the efficiency ratio.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/KAMA.html for the full reference.
+ */
+export function KAMA(options: KAMAOptions): ScreamerOp;
 /**
  * Adaptive MA whose smoothing constant responds to the efficiency ratio.
  *
@@ -1956,7 +4045,12 @@ export function IsNan(): ScreamerOp {
  * @param slow Period of the slowest smoothing constant, alpha_slow = 2 / (slow + 1), used when the efficiency ratio is 0. TA-Lib fixes it at 30.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/KAMA.html for the full reference.
  */
-export function KAMA(windowSize: number = 10, fast: number = 2, slow: number = 30): ScreamerOp {
+export function KAMA(windowSize?: number, fast?: number, slow?: number): ScreamerOp;
+export function KAMA(windowSize?: any, fast?: any, slow?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, fast, slow] = _options("KAMA", windowSize, arguments.length, ["windowSize", "fast", "slow"]);
+  windowSize ??= 10;
+  fast ??= 2;
+  slow ??= 30;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (_isText(fast)) throw new TypeError(`fast must be a number, got a string`);
@@ -1964,6 +4058,25 @@ export function KAMA(windowSize: number = 10, fast: number = 2, slow: number = 3
   return wrapOp(M, () => new M.KAMA(windowSize, fast, slow));
 }
 
+/** The settings of KalmanFilter by name, for `KalmanFilter({ ... })`. */
+export interface KalmanFilterOptions {
+  /** Variance of the random-walk innovation. Larger values make the filter follow new measurements more closely, with a noisier output. */
+  processVar?: number;
+  /** Variance of the measurement noise. Must be positive. */
+  observationVar?: number;
+  /** Starting state estimate x_0, used before the first observation. */
+  initialState?: number;
+  /** Variance P_0 of the starting state. A large value such as 1e9 makes the filter forget the initial state quickly. */
+  initialVariance?: number;
+}
+
+/**
+ * Scalar 1-D Kalman filter for a noisy random-walk model.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/KalmanFilter.html for the full reference.
+ */
+export function KalmanFilter(options: KalmanFilterOptions): ScreamerOp;
 /**
  * Scalar 1-D Kalman filter for a noisy random-walk model.
  *
@@ -1973,7 +4086,13 @@ export function KAMA(windowSize: number = 10, fast: number = 2, slow: number = 3
  * @param initialVariance Variance P_0 of the starting state. A large value such as 1e9 makes the filter forget the initial state quickly.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/KalmanFilter.html for the full reference.
  */
-export function KalmanFilter(processVar: number = 0.01, observationVar: number = 1.0, initialState: number = 0.0, initialVariance: number = 1.0): ScreamerOp {
+export function KalmanFilter(processVar?: number, observationVar?: number, initialState?: number, initialVariance?: number): ScreamerOp;
+export function KalmanFilter(processVar?: any, observationVar?: any, initialState?: any, initialVariance?: any): ScreamerOp {
+  if (_isOptions(processVar)) [processVar, observationVar, initialState, initialVariance] = _options("KalmanFilter", processVar, arguments.length, ["processVar", "observationVar", "initialState", "initialVariance"]);
+  processVar ??= 0.01;
+  observationVar ??= 1.0;
+  initialState ??= 0.0;
+  initialVariance ??= 1.0;
   const M = current();
   if (_isText(processVar)) throw new TypeError(`processVar must be a number, got a string`);
   if (_isText(observationVar)) throw new TypeError(`observationVar must be a number, got a string`);
@@ -1982,6 +4101,23 @@ export function KalmanFilter(processVar: number = 0.01, observationVar: number =
   return wrapOp(M, () => new M.KalmanFilter(processVar, observationVar, initialState, initialVariance));
 }
 
+/** The settings of KalmanRegression by name, for `KalmanRegression({ ... })`. */
+export interface KalmanRegressionOptions {
+  /** How fast the intercept and slope may move. The state noise variance is delta / (1 - delta) per step; smaller values give steadier estimates and a spread that keeps its mean reversion. The right value scales with the bar frequency, from about 1e-10 on one-minute log prices to 1e-8 to 1e-6 on daily ones. Must be in (0, 1). */
+  delta?: number;
+  /** Variance of the spread (the regression error), in squared units of the first input. Must be positive. */
+  obsVar?: number;
+  /** Starting variance of the intercept and slope, which both start at zero. */
+  priorVar?: number;
+}
+
+/**
+ * Regression with a random-walk intercept and slope, estimated by a Kalman filter: the dynamic hedge ratio of a pairs trade, its spread, and the spread's predicted deviation.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/KalmanRegression.html for the full reference.
+ */
+export function KalmanRegression(options: KalmanRegressionOptions): ScreamerOp;
 /**
  * Regression with a random-walk intercept and slope, estimated by a Kalman filter: the dynamic hedge ratio of a pairs trade, its spread, and the spread's predicted deviation.
  *
@@ -1990,7 +4126,12 @@ export function KalmanFilter(processVar: number = 0.01, observationVar: number =
  * @param priorVar Starting variance of the intercept and slope, which both start at zero.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/KalmanRegression.html for the full reference.
  */
-export function KalmanRegression(delta: number = 1e-06, obsVar: number = 0.001, priorVar: number = 1.0): ScreamerOp {
+export function KalmanRegression(delta?: number, obsVar?: number, priorVar?: number): ScreamerOp;
+export function KalmanRegression(delta?: any, obsVar?: any, priorVar?: any): ScreamerOp {
+  if (_isOptions(delta)) [delta, obsVar, priorVar] = _options("KalmanRegression", delta, arguments.length, ["delta", "obsVar", "priorVar"]);
+  delta ??= 1e-06;
+  obsVar ??= 0.001;
+  priorVar ??= 1.0;
   const M = current();
   if (_isText(delta)) throw new TypeError(`delta must be a number, got a string`);
   if (_isText(obsVar)) throw new TypeError(`obsVar must be a number, got a string`);
@@ -1998,6 +4139,21 @@ export function KalmanRegression(delta: number = 1e-06, obsVar: number = 0.001, 
   return wrapOp(M, () => new M.KalmanRegression(delta, obsVar, priorVar));
 }
 
+/** The settings of KeltnerChannels by name, for `KeltnerChannels({ ... })`. */
+export interface KeltnerChannelsOptions {
+  /** Period for both the EMA midline and the ATR offset. */
+  windowSize?: number;
+  /** Distance from the middle line to each outer line, in multiples of the ATR. */
+  numAtr?: number;
+}
+
+/**
+ * Volatility-adapted envelope: EMA midline plus/minus a multiple of ATR.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/KeltnerChannels.html for the full reference.
+ */
+export function KeltnerChannels(options: KeltnerChannelsOptions): ScreamerOp;
 /**
  * Volatility-adapted envelope: EMA midline plus/minus a multiple of ATR.
  *
@@ -2005,13 +4161,32 @@ export function KalmanRegression(delta: number = 1e-06, obsVar: number = 0.001, 
  * @param numAtr Distance from the middle line to each outer line, in multiples of the ATR.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/KeltnerChannels.html for the full reference.
  */
-export function KeltnerChannels(windowSize: number = 20, numAtr: number = 2.0): ScreamerOp {
+export function KeltnerChannels(windowSize?: number, numAtr?: number): ScreamerOp;
+export function KeltnerChannels(windowSize?: any, numAtr?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, numAtr] = _options("KeltnerChannels", windowSize, arguments.length, ["windowSize", "numAtr"]);
+  windowSize ??= 20;
+  numAtr ??= 2.0;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (_isText(numAtr)) throw new TypeError(`numAtr must be a number, got a string`);
   return wrapOp(M, () => new M.KeltnerChannels(windowSize, numAtr));
 }
 
+/** The settings of Lag by name, for `Lag({ ... })`. */
+export interface LagOptions {
+  /** Number of samples k to delay the input by. */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * Output is the input delayed by k samples.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_misc/Lag.html for the full reference.
+ */
+export function Lag(options: LagOptions): ScreamerOp;
 /**
  * Output is the input delayed by k samples.
  *
@@ -2019,53 +4194,88 @@ export function KeltnerChannels(windowSize: number = 20, numAtr: number = 2.0): 
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_misc/Lag.html for the full reference.
  */
-export function Lag(windowSize: number = 1, startPolicy: string = "strict"): ScreamerOp {
+export function Lag(windowSize?: number, startPolicy?: string): ScreamerOp;
+export function Lag(windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("Lag", windowSize, arguments.length, ["windowSize", "startPolicy"]);
+  windowSize ??= 1;
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.Lag(windowSize, startPolicy));
 }
 
+/** Last has no settings: its options object is empty. */
+export type LastOptions = Record<string, never>;
+
 /**
  * Return the most recent finite value seen since reset.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_misc/Last.html for the full reference.
  */
-export function Last(): ScreamerOp {
+export function Last(options?: LastOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Last", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Last());
 }
+
+/** LeeReadySign has no settings: its options object is empty. */
+export type LeeReadySignOptions = Record<string, never>;
 
 /**
  * Trade sign by the Lee-Ready (1991) rule: quote test with tick-rule fallback.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_micro/LeeReadySign.html for the full reference.
  */
-export function LeeReadySign(): ScreamerOp {
+export function LeeReadySign(options?: LeeReadySignOptions): ScreamerOp {
+  if (_isOptions(options)) _options("LeeReadySign", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.LeeReadySign());
 }
+
+/** LessEqual has no settings: its options object is empty. */
+export type LessEqualOptions = Record<string, never>;
 
 /**
  * Returns 1.0 if a <= b, else 0.0. NaN in either input yields NaN.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/LessEqual.html for the full reference.
  */
-export function LessEqual(): ScreamerOp {
+export function LessEqual(options?: LessEqualOptions): ScreamerOp {
+  if (_isOptions(options)) _options("LessEqual", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.LessEqual());
 }
+
+/** LessThan has no settings: its options object is empty. */
+export type LessThanOptions = Record<string, never>;
 
 /**
  * Returns 1.0 if a < b, else 0.0. NaN in either input yields NaN.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/LessThan.html for the full reference.
  */
-export function LessThan(): ScreamerOp {
+export function LessThan(options?: LessThanOptions): ScreamerOp {
+  if (_isOptions(options)) _options("LessThan", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.LessThan());
 }
 
+/** The settings of Linear by name, for `Linear({ ... })`. */
+export interface LinearOptions {
+  /** Factor that multiplies each input value. */
+  scale?: number;
+  /** Constant added after scaling. */
+  shift?: number;
+}
+
+/**
+ * Affine transform: scale * x + shift.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Linear.html for the full reference.
+ */
+export function Linear(options: LinearOptions): ScreamerOp;
 /**
  * Affine transform: scale * x + shift.
  *
@@ -2073,13 +4283,34 @@ export function LessThan(): ScreamerOp {
  * @param shift Constant added after scaling.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Linear.html for the full reference.
  */
-export function Linear(scale: number = 1.0, shift: number = 0.0): ScreamerOp {
+export function Linear(scale?: number, shift?: number): ScreamerOp;
+export function Linear(scale?: any, shift?: any): ScreamerOp {
+  if (_isOptions(scale)) [scale, shift] = _options("Linear", scale, arguments.length, ["scale", "shift"]);
+  scale ??= 1.0;
+  shift ??= 0.0;
   const M = current();
   if (_isText(scale)) throw new TypeError(`scale must be a number, got a string`);
   if (_isText(shift)) throw new TypeError(`shift must be a number, got a string`);
   return wrapOp(M, () => new M.Linear(scale, shift));
 }
 
+/** The settings of Linear2 by name, for `Linear2({ ... })`. */
+export interface Linear2Options {
+  /** Coefficient that multiplies the first input. */
+  a?: number;
+  /** Coefficient that multiplies the second input. */
+  b?: number;
+  /** Constant added to the weighted sum. */
+  c?: number;
+}
+
+/**
+ * Two-input affine combination: a*x + b*y + c.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Linear2.html for the full reference.
+ */
+export function Linear2(options: Linear2Options): ScreamerOp;
 /**
  * Two-input affine combination: a*x + b*y + c.
  *
@@ -2088,7 +4319,12 @@ export function Linear(scale: number = 1.0, shift: number = 0.0): ScreamerOp {
  * @param c Constant added to the weighted sum.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Linear2.html for the full reference.
  */
-export function Linear2(a: number = 1.0, b: number = 1.0, c: number = 0.0): ScreamerOp {
+export function Linear2(a?: number, b?: number, c?: number): ScreamerOp;
+export function Linear2(a?: any, b?: any, c?: any): ScreamerOp {
+  if (_isOptions(a)) [a, b, c] = _options("Linear2", a, arguments.length, ["a", "b", "c"]);
+  a ??= 1.0;
+  b ??= 1.0;
+  c ??= 0.0;
   const M = current();
   if (_isText(a)) throw new TypeError(`a must be a number, got a string`);
   if (_isText(b)) throw new TypeError(`b must be a number, got a string`);
@@ -2096,28 +4332,65 @@ export function Linear2(a: number = 1.0, b: number = 1.0, c: number = 0.0): Scre
   return wrapOp(M, () => new M.Linear2(a, b, c));
 }
 
+/** Log has no settings: its options object is empty. */
+export type LogOptions = Record<string, never>;
+
 /**
  * Natural logarithm of each element.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Log.html for the full reference.
  */
-export function Log(): ScreamerOp {
+export function Log(options?: LogOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Log", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Log());
 }
 
+/** The settings of LogReturn by name, for `LogReturn({ ... })`. */
+export interface LogReturnOptions {
+  /** Lag k: the output compares each value with the value k steps earlier. */
+  windowSize?: number;
+}
+
+/**
+ * Log return log(x[t] / x[t-k]) at lag k.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/LogReturn.html for the full reference.
+ */
+export function LogReturn(options: LogReturnOptions): ScreamerOp;
 /**
  * Log return log(x[t] / x[t-k]) at lag k.
  *
  * @param windowSize Lag k: the output compares each value with the value k steps earlier.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/LogReturn.html for the full reference.
  */
-export function LogReturn(windowSize: number = 1): ScreamerOp {
+export function LogReturn(windowSize?: number): ScreamerOp;
+export function LogReturn(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("LogReturn", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 1;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.LogReturn(windowSize));
 }
 
+/** The settings of MACD by name, for `MACD({ ... })`. */
+export interface MACDOptions {
+  /** Span of the fast EMA, in samples. Must be less than slow. */
+  fast?: number;
+  /** Span of the slow EMA, in samples. Must be greater than fast. */
+  slow?: number;
+  /** Span of the EMA applied to the MACD line to form the signal line, in samples. */
+  signal?: number;
+}
+
+/**
+ * MACD line, signal line, and histogram (3 outputs).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/MACD.html for the full reference.
+ */
+export function MACD(options: MACDOptions): ScreamerOp;
 /**
  * MACD line, signal line, and histogram (3 outputs).
  *
@@ -2126,7 +4399,12 @@ export function LogReturn(windowSize: number = 1): ScreamerOp {
  * @param signal Span of the EMA applied to the MACD line to form the signal line, in samples.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/MACD.html for the full reference.
  */
-export function MACD(fast: number = 12, slow: number = 26, signal: number = 9): ScreamerOp {
+export function MACD(fast?: number, slow?: number, signal?: number): ScreamerOp;
+export function MACD(fast?: any, slow?: any, signal?: any): ScreamerOp {
+  if (_isOptions(fast)) [fast, slow, signal] = _options("MACD", fast, arguments.length, ["fast", "slow", "signal"]);
+  fast ??= 12;
+  slow ??= 26;
+  signal ??= 9;
   const M = current();
   if (_isText(fast)) throw new TypeError(`fast must be a number, got a string`);
   if (_isText(slow)) throw new TypeError(`slow must be a number, got a string`);
@@ -2134,6 +4412,21 @@ export function MACD(fast: number = 12, slow: number = 26, signal: number = 9): 
   return wrapOp(M, () => new M.MACD(fast, slow, signal));
 }
 
+/** The settings of MAMA by name, for `MAMA({ ... })`. */
+export interface MAMAOptions {
+  /** Upper bound on the smoothing constant, applied when the phase advances quickly. */
+  fastLimit?: number;
+  /** Lower bound on the smoothing constant, applied when the phase stalls. */
+  slowLimit?: number;
+}
+
+/**
+ * Adaptive moving average pair (MAMA, FAMA) whose smoothing rate tracks the instantaneous-phase rate of change.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/MAMA.html for the full reference.
+ */
+export function MAMA(options: MAMAOptions): ScreamerOp;
 /**
  * Adaptive moving average pair (MAMA, FAMA) whose smoothing rate tracks the instantaneous-phase rate of change.
  *
@@ -2141,69 +4434,144 @@ export function MACD(fast: number = 12, slow: number = 26, signal: number = 9): 
  * @param slowLimit Lower bound on the smoothing constant, applied when the phase stalls.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/MAMA.html for the full reference.
  */
-export function MAMA(fastLimit: number = 0.5, slowLimit: number = 0.05): ScreamerOp {
+export function MAMA(fastLimit?: number, slowLimit?: number): ScreamerOp;
+export function MAMA(fastLimit?: any, slowLimit?: any): ScreamerOp {
+  if (_isOptions(fastLimit)) [fastLimit, slowLimit] = _options("MAMA", fastLimit, arguments.length, ["fastLimit", "slowLimit"]);
+  fastLimit ??= 0.5;
+  slowLimit ??= 0.05;
   const M = current();
   if (_isText(fastLimit)) throw new TypeError(`fastLimit must be a number, got a string`);
   if (_isText(slowLimit)) throw new TypeError(`slowLimit must be a number, got a string`);
   return wrapOp(M, () => new M.MAMA(fastLimit, slowLimit));
 }
 
+/** The settings of MFI by name, for `MFI({ ... })`. */
+export interface MFIOptions {
+  /** Number of most recent typical-price changes whose money flow is summed into the positive and negative totals. */
+  windowSize?: number;
+}
+
+/**
+ * Volume-weighted analogue of RSI on the typical price.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/MFI.html for the full reference.
+ */
+export function MFI(options: MFIOptions): ScreamerOp;
 /**
  * Volume-weighted analogue of RSI on the typical price.
  *
  * @param windowSize Number of most recent typical-price changes whose money flow is summed into the positive and negative totals.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/MFI.html for the full reference.
  */
-export function MFI(windowSize: number = 14): ScreamerOp {
+export function MFI(windowSize?: number): ScreamerOp;
+export function MFI(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("MFI", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 14;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.MFI(windowSize));
 }
+
+/** MaxDrawdown has no settings: its options object is empty. */
+export type MaxDrawdownOptions = Record<string, never>;
 
 /**
  * Worst drawdown experienced so far (since reset).
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/MaxDrawdown.html for the full reference.
  */
-export function MaxDrawdown(): ScreamerOp {
+export function MaxDrawdown(options?: MaxDrawdownOptions): ScreamerOp {
+  if (_isOptions(options)) _options("MaxDrawdown", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.MaxDrawdown());
 }
+
+/** MicroPrice has no settings: its options object is empty. */
+export type MicroPriceOptions = Record<string, never>;
 
 /**
  * Imbalance-weighted mid (Stoikov 2018, first-order): fair value that leans toward the thinner side of the book.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_micro/MicroPrice.html for the full reference.
  */
-export function MicroPrice(): ScreamerOp {
+export function MicroPrice(options?: MicroPriceOptions): ScreamerOp {
+  if (_isOptions(options)) _options("MicroPrice", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.MicroPrice());
 }
 
+/** The settings of MinusDI by name, for `MinusDI({ ... })`. */
+export interface MinusDIOptions {
+  /** Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value. */
+  windowSize?: number;
+}
+
+/**
+ * Wilder negative directional indicator.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/MinusDI.html for the full reference.
+ */
+export function MinusDI(options: MinusDIOptions): ScreamerOp;
 /**
  * Wilder negative directional indicator.
  *
  * @param windowSize Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/MinusDI.html for the full reference.
  */
-export function MinusDI(windowSize: number = 14): ScreamerOp {
+export function MinusDI(windowSize?: number): ScreamerOp;
+export function MinusDI(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("MinusDI", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 14;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.MinusDI(windowSize));
 }
 
+/** The settings of MinusDM by name, for `MinusDM({ ... })`. */
+export interface MinusDMOptions {
+  /** Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value. */
+  windowSize?: number;
+}
+
+/**
+ * Wilder smoothed negative directional movement.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/MinusDM.html for the full reference.
+ */
+export function MinusDM(options: MinusDMOptions): ScreamerOp;
 /**
  * Wilder smoothed negative directional movement.
  *
  * @param windowSize Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/MinusDM.html for the full reference.
  */
-export function MinusDM(windowSize: number = 14): ScreamerOp {
+export function MinusDM(windowSize?: number): ScreamerOp;
+export function MinusDM(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("MinusDM", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 14;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.MinusDM(windowSize));
 }
 
+/** The settings of Momentum by name, for `Momentum({ ... })`. */
+export interface MomentumOptions {
+  /** Lookback k, in samples. TA-Lib also defaults to 10. */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * x[t] - x[t-k], TA-Lib's MOM. Mathematically identical to Diff(k).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_misc/Momentum.html for the full reference.
+ */
+export function Momentum(options: MomentumOptions): ScreamerOp;
 /**
  * x[t] - x[t-k], TA-Lib's MOM. Mathematically identical to Diff(k).
  *
@@ -2211,20 +4579,40 @@ export function MinusDM(windowSize: number = 14): ScreamerOp {
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_misc/Momentum.html for the full reference.
  */
-export function Momentum(windowSize: number = 10, startPolicy: string = "strict"): ScreamerOp {
+export function Momentum(windowSize?: number, startPolicy?: string): ScreamerOp;
+export function Momentum(windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("Momentum", windowSize, arguments.length, ["windowSize", "startPolicy"]);
+  windowSize ??= 10;
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.Momentum(windowSize, startPolicy));
 }
 
+/** The settings of MovingAverage by name, for `MovingAverage({ ... })`. */
+export interface MovingAverageOptions {
+  /** FIR coefficients; taps[0] multiplies the current sample and taps[-1] the oldest. Must be non-empty. The default is a 3-tap triangular kernel. */
+  taps?: number | number[];
+}
+
+/**
+ * Finite-impulse-response filter with user-supplied taps.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/MovingAverage.html for the full reference.
+ */
+export function MovingAverage(options: MovingAverageOptions): ScreamerOp;
 /**
  * Finite-impulse-response filter with user-supplied taps.
  *
  * @param taps FIR coefficients; taps[0] multiplies the current sample and taps[-1] the oldest. Must be non-empty. The default is a 3-tap triangular kernel.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/MovingAverage.html for the full reference.
  */
-export function MovingAverage(taps: number | number[] = [0.25, 0.5, 0.25]): ScreamerOp {
+export function MovingAverage(taps?: number | number[]): ScreamerOp;
+export function MovingAverage(taps?: any): ScreamerOp {
+  if (_isOptions(taps)) [taps] = _options("MovingAverage", taps, arguments.length, ["taps"]);
+  taps ??= [0.25, 0.5, 0.25];
   const M = current();
   const taps_ = _vec("taps", taps);
   if (_isText(taps_) || (Array.isArray(taps_) && taps_.some(_isText))) throw new TypeError(`taps must be a number or an array of numbers, got a string`);
@@ -2242,154 +4630,275 @@ export function MovingAverage(taps: number | number[] = [0.25, 0.5, 0.25]): Scre
   });
 }
 
+/** Mul has no settings: its options object is empty. */
+export type MulOptions = Record<string, never>;
+
 /**
  * Elementwise product of two aligned streams (x * y).
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Mul.html for the full reference.
  */
-export function Mul(): ScreamerOp {
+export function Mul(options?: MulOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Mul", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Mul());
 }
 
+/** The settings of NATR by name, for `NATR({ ... })`. */
+export interface NATROptions {
+  /** Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value. */
+  windowSize?: number;
+}
+
+/**
+ * ATR scaled to a percentage of the current close.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/NATR.html for the full reference.
+ */
+export function NATR(options: NATROptions): ScreamerOp;
 /**
  * ATR scaled to a percentage of the current close.
  *
  * @param windowSize Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/NATR.html for the full reference.
  */
-export function NATR(windowSize: number = 14): ScreamerOp {
+export function NATR(windowSize?: number): ScreamerOp;
+export function NATR(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("NATR", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 14;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.NATR(windowSize));
 }
+
+/** NegPart has no settings: its options object is empty. */
+export type NegPartOptions = Record<string, never>;
 
 /**
  * Negative part of x: max(-x, 0).
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/NegPart.html for the full reference.
  */
-export function NegPart(): ScreamerOp {
+export function NegPart(options?: NegPartOptions): ScreamerOp {
+  if (_isOptions(options)) _options("NegPart", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.NegPart());
 }
+
+/** Not has no settings: its options object is empty. */
+export type NotOptions = Record<string, never>;
 
 /**
  * Returns 0.0 if input is nonzero, 1.0 if zero. NaN propagates.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Not.html for the full reference.
  */
-export function Not(): ScreamerOp {
+export function Not(options?: NotOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Not", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Not());
 }
+
+/** NotEqual has no settings: its options object is empty. */
+export type NotEqualOptions = Record<string, never>;
 
 /**
  * Returns 1.0 if a != b, else 0.0. NaN in either input yields NaN.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/NotEqual.html for the full reference.
  */
-export function NotEqual(): ScreamerOp {
+export function NotEqual(options?: NotEqualOptions): ScreamerOp {
+  if (_isOptions(options)) _options("NotEqual", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.NotEqual());
 }
+
+/** OBV has no settings: its options object is empty. */
+export type OBVOptions = Record<string, never>;
 
 /**
  * On-Balance Volume: signed cumulative volume by close-direction (Granville, 1963).
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/OBV.html for the full reference.
  */
-export function OBV(): ScreamerOp {
+export function OBV(options?: OBVOptions): ScreamerOp {
+  if (_isOptions(options)) _options("OBV", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.OBV());
 }
+
+/** OFI has no settings: its options object is empty. */
+export type OFIOptions = Record<string, never>;
 
 /**
  * Normalized signed order flow, (buy - sell) / (buy + sell).
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_micro/OFI.html for the full reference.
  */
-export function OFI(): ScreamerOp {
+export function OFI(options?: OFIOptions): ScreamerOp {
+  if (_isOptions(options)) _options("OFI", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.OFI());
 }
+
+/** Or has no settings: its options object is empty. */
+export type OrOptions = Record<string, never>;
 
 /**
  * Returns 1.0 if either input is nonzero, else 0.0. NaN in either input yields NaN.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Or.html for the full reference.
  */
-export function Or(): ScreamerOp {
+export function Or(options?: OrOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Or", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Or());
 }
 
+/** The settings of PlusDI by name, for `PlusDI({ ... })`. */
+export interface PlusDIOptions {
+  /** Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value. */
+  windowSize?: number;
+}
+
+/**
+ * Wilder positive directional indicator.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/PlusDI.html for the full reference.
+ */
+export function PlusDI(options: PlusDIOptions): ScreamerOp;
 /**
  * Wilder positive directional indicator.
  *
  * @param windowSize Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/PlusDI.html for the full reference.
  */
-export function PlusDI(windowSize: number = 14): ScreamerOp {
+export function PlusDI(windowSize?: number): ScreamerOp;
+export function PlusDI(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("PlusDI", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 14;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.PlusDI(windowSize));
 }
 
+/** The settings of PlusDM by name, for `PlusDM({ ... })`. */
+export interface PlusDMOptions {
+  /** Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value. */
+  windowSize?: number;
+}
+
+/**
+ * Wilder smoothed positive directional movement.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/PlusDM.html for the full reference.
+ */
+export function PlusDM(options: PlusDMOptions): ScreamerOp;
 /**
  * Wilder smoothed positive directional movement.
  *
  * @param windowSize Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/PlusDM.html for the full reference.
  */
-export function PlusDM(windowSize: number = 14): ScreamerOp {
+export function PlusDM(windowSize?: number): ScreamerOp;
+export function PlusDM(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("PlusDM", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 14;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.PlusDM(windowSize));
 }
+
+/** Polar2Cart has no settings: its options object is empty. */
+export type Polar2CartOptions = Record<string, never>;
 
 /**
  * Convert (r, theta) to (x, y).
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Polar2Cart.html for the full reference.
  */
-export function Polar2Cart(): ScreamerOp {
+export function Polar2Cart(options?: Polar2CartOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Polar2Cart", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Polar2Cart());
 }
+
+/** PortfolioReport has no settings: its options object is empty. */
+export type PortfolioReportOptions = Record<string, never>;
 
 /**
  * Reduce a multi-asset backtest engine output into causal portfolio-level report columns.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/PortfolioReport.html for the full reference.
  */
-export function PortfolioReport(): ScreamerOp {
+export function PortfolioReport(options?: PortfolioReportOptions): ScreamerOp {
+  if (_isOptions(options)) _options("PortfolioReport", options, arguments.length, []);
   const M = current();
   return wrapReducerOp(M, () => new M.PortfolioReport());
 }
+
+/** PosPart has no settings: its options object is empty. */
+export type PosPartOptions = Record<string, never>;
 
 /**
  * Positive part of x: max(x, 0).
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/PosPart.html for the full reference.
  */
-export function PosPart(): ScreamerOp {
+export function PosPart(options?: PosPartOptions): ScreamerOp {
+  if (_isOptions(options)) _options("PosPart", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.PosPart());
 }
 
+/** The settings of Power by name, for `Power({ ... })`. */
+export interface PowerOptions {
+  /** Exponent applied to each element. The default 2 gives the same result as Square, which computes x * x directly. */
+  p?: number;
+}
+
+/**
+ * x raised to a fixed exponent p.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_math/Power.html for the full reference.
+ */
+export function Power(options: PowerOptions): ScreamerOp;
 /**
  * x raised to a fixed exponent p.
  *
  * @param p Exponent applied to each element. The default 2 gives the same result as Square, which computes x * x directly.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Power.html for the full reference.
  */
-export function Power(p: number = 2.0): ScreamerOp {
+export function Power(p?: number): ScreamerOp;
+export function Power(p?: any): ScreamerOp {
+  if (_isOptions(p)) [p] = _options("Power", p, arguments.length, ["p"]);
+  p ??= 2.0;
   const M = current();
   if (_isText(p)) throw new TypeError(`p must be a number, got a string`);
   return wrapOp(M, () => new M.Power(p));
 }
 
+/** The settings of Propagator by name, for `Propagator({ ... })`. */
+export interface PropagatorOptions {
+  /** Number of past flow samples included in the convolution (the kernel support). */
+  windowSize?: number;
+  /** Kernel amplitude; scales the overall impact magnitude. */
+  g0?: number;
+  /** Power-law decay exponent. Larger values make the kernel decay faster. */
+  gamma?: number;
+}
+
+/**
+ * Bouchaud (2004) propagator model: price impact as a decaying-kernel convolution over past signed order flow.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/Propagator.html for the full reference.
+ */
+export function Propagator(options: PropagatorOptions): ScreamerOp;
 /**
  * Bouchaud (2004) propagator model: price impact as a decaying-kernel convolution over past signed order flow.
  *
@@ -2398,7 +4907,12 @@ export function Power(p: number = 2.0): ScreamerOp {
  * @param gamma Power-law decay exponent. Larger values make the kernel decay faster.
  * @see https://screamer.readthedocs.io/en/latest/functions_micro/Propagator.html for the full reference.
  */
-export function Propagator(windowSize: number = 20, g0: number = 1.0, gamma: number = 0.5): ScreamerOp {
+export function Propagator(windowSize?: number, g0?: number, gamma?: number): ScreamerOp;
+export function Propagator(windowSize?: any, g0?: any, gamma?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, g0, gamma] = _options("Propagator", windowSize, arguments.length, ["windowSize", "g0", "gamma"]);
+  windowSize ??= 20;
+  g0 ??= 1.0;
+  gamma ??= 0.5;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (_isText(g0)) throw new TypeError(`g0 must be a number, got a string`);
@@ -2406,86 +4920,189 @@ export function Propagator(windowSize: number = 20, g0: number = 1.0, gamma: num
   return wrapOp(M, () => new M.Propagator(windowSize, g0, gamma));
 }
 
+/** QueueImbalance has no settings: its options object is empty. */
+export type QueueImbalanceOptions = Record<string, never>;
+
 /**
  * Normalized L1 book imbalance, (bid_size - ask_size) / (bid_size + ask_size).
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_micro/QueueImbalance.html for the full reference.
  */
-export function QueueImbalance(): ScreamerOp {
+export function QueueImbalance(options?: QueueImbalanceOptions): ScreamerOp {
+  if (_isOptions(options)) _options("QueueImbalance", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.QueueImbalance());
 }
 
+/** The settings of ROC by name, for `ROC({ ... })`. */
+export interface ROCOptions {
+  /** Lookback k: the output compares each value with the value k steps earlier. TA-Lib uses 10. */
+  windowSize?: number;
+}
+
+/**
+ * Rate of change 100 * (x[t] / x[t-k] - 1), in percent (TA-Lib ROC).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/ROC.html for the full reference.
+ */
+export function ROC(options: ROCOptions): ScreamerOp;
 /**
  * Rate of change 100 * (x[t] / x[t-k] - 1), in percent (TA-Lib ROC).
  *
  * @param windowSize Lookback k: the output compares each value with the value k steps earlier. TA-Lib uses 10.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/ROC.html for the full reference.
  */
-export function ROC(windowSize: number = 10): ScreamerOp {
+export function ROC(windowSize?: number): ScreamerOp;
+export function ROC(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("ROC", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 10;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.ROC(windowSize));
 }
 
+/** The settings of ROCP by name, for `ROCP({ ... })`. */
+export interface ROCPOptions {
+  /** Lookback k: the output compares each value with the value k steps earlier. TA-Lib uses 10. */
+  windowSize?: number;
+}
+
+/**
+ * Rate of change x[t] / x[t-k] - 1, as a fraction (TA-Lib ROCP). Identical to Return.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/ROCP.html for the full reference.
+ */
+export function ROCP(options: ROCPOptions): ScreamerOp;
 /**
  * Rate of change x[t] / x[t-k] - 1, as a fraction (TA-Lib ROCP). Identical to Return.
  *
  * @param windowSize Lookback k: the output compares each value with the value k steps earlier. TA-Lib uses 10.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/ROCP.html for the full reference.
  */
-export function ROCP(windowSize: number = 10): ScreamerOp {
+export function ROCP(windowSize?: number): ScreamerOp;
+export function ROCP(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("ROCP", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 10;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.ROCP(windowSize));
 }
 
+/** The settings of ROCR by name, for `ROCR({ ... })`. */
+export interface ROCROptions {
+  /** Lookback k: the output compares each value with the value k steps earlier. TA-Lib uses 10. */
+  windowSize?: number;
+}
+
+/**
+ * Rate of change ratio x[t] / x[t-k] (TA-Lib ROCR).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/ROCR.html for the full reference.
+ */
+export function ROCR(options: ROCROptions): ScreamerOp;
 /**
  * Rate of change ratio x[t] / x[t-k] (TA-Lib ROCR).
  *
  * @param windowSize Lookback k: the output compares each value with the value k steps earlier. TA-Lib uses 10.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/ROCR.html for the full reference.
  */
-export function ROCR(windowSize: number = 10): ScreamerOp {
+export function ROCR(windowSize?: number): ScreamerOp;
+export function ROCR(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("ROCR", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 10;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.ROCR(windowSize));
 }
 
+/** The settings of RealizedSpread by name, for `RealizedSpread({ ... })`. */
+export interface RealizedSpreadOptions {
+  /** Number of steps between a trade and the mid it is compared with (the price-impact horizon). */
+  lag?: number;
+}
+
+/**
+ * Realized spread, 2*D*(trade price - mid lag steps later): the part of the effective spread the liquidity provider keeps.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/RealizedSpread.html for the full reference.
+ */
+export function RealizedSpread(options: RealizedSpreadOptions): ScreamerOp;
 /**
  * Realized spread, 2*D*(trade price - mid lag steps later): the part of the effective spread the liquidity provider keeps.
  *
  * @param lag Number of steps between a trade and the mid it is compared with (the price-impact horizon).
  * @see https://screamer.readthedocs.io/en/latest/functions_micro/RealizedSpread.html for the full reference.
  */
-export function RealizedSpread(lag: number = 1): ScreamerOp {
+export function RealizedSpread(lag?: number): ScreamerOp;
+export function RealizedSpread(lag?: any): ScreamerOp {
+  if (_isOptions(lag)) [lag] = _options("RealizedSpread", lag, arguments.length, ["lag"]);
+  lag ??= 1;
   const M = current();
   if (_isText(lag)) throw new TypeError(`lag must be a number, got a string`);
   return wrapOp(M, () => new M.RealizedSpread(lag));
 }
+
+/** Relu has no settings: its options object is empty. */
+export type ReluOptions = Record<string, never>;
 
 /**
  * Rectified linear unit: max(0, x).
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Relu.html for the full reference.
  */
-export function Relu(): ScreamerOp {
+export function Relu(options?: ReluOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Relu", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Relu());
 }
 
+/** The settings of Return by name, for `Return({ ... })`. */
+export interface ReturnOptions {
+  /** Lag k: the output compares each value with the value k steps earlier (1 compares consecutive values). */
+  windowSize?: number;
+}
+
+/**
+ * Simple return (x[t] - x[t-k]) / x[t-k] at lag k.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/Return.html for the full reference.
+ */
+export function Return(options: ReturnOptions): ScreamerOp;
 /**
  * Simple return (x[t] - x[t-k]) / x[t-k] at lag k.
  *
  * @param windowSize Lag k: the output compares each value with the value k steps earlier (1 compares consecutive values).
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/Return.html for the full reference.
  */
-export function Return(windowSize: number = 1): ScreamerOp {
+export function Return(windowSize?: number): ScreamerOp;
+export function Return(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("Return", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 1;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.Return(windowSize));
 }
 
+/** The settings of RollSpread by name, for `RollSpread({ ... })`. */
+export interface RollSpreadOptions {
+  /** Number of consecutive price-change pairs in the trailing covariance window. */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * Roll (1984) effective spread from trade prices alone: 2*sqrt(-cov(dP_t, dP_{t-1})) over a trailing window.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/RollSpread.html for the full reference.
+ */
+export function RollSpread(options: RollSpreadOptions): ScreamerOp;
 /**
  * Roll (1984) effective spread from trade prices alone: 2*sqrt(-cov(dP_t, dP_{t-1})) over a trailing window.
  *
@@ -2493,13 +5110,32 @@ export function Return(windowSize: number = 1): ScreamerOp {
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_micro/RollSpread.html for the full reference.
  */
-export function RollSpread(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
+export function RollSpread(windowSize?: number, startPolicy?: string): ScreamerOp;
+export function RollSpread(windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollSpread", windowSize, arguments.length, ["windowSize", "startPolicy"]);
+  windowSize ??= 20;
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollSpread(windowSize, startPolicy));
 }
 
+/** The settings of RollingADF by name, for `RollingADF({ ... })`. */
+export interface RollingADFOptions {
+  /** Number of regression rows in the window. Must be at least lags + 4. */
+  windowSize?: number;
+  /** Number of lagged differences in the regression (the augmentation). 0 is the plain Dickey-Fuller test. */
+  lags?: number;
+}
+
+/**
+ * Rolling augmented Dickey-Fuller t-statistic: how strongly a series, such as a pairs spread, reverts to a mean over the last window.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingADF.html for the full reference.
+ */
+export function RollingADF(options: RollingADFOptions): ScreamerOp;
 /**
  * Rolling augmented Dickey-Fuller t-statistic: how strongly a series, such as a pairs spread, reverts to a mean over the last window.
  *
@@ -2507,13 +5143,32 @@ export function RollSpread(windowSize: number = 20, startPolicy: string = "stric
  * @param lags Number of lagged differences in the regression (the augmentation). 0 is the plain Dickey-Fuller test.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingADF.html for the full reference.
  */
-export function RollingADF(windowSize: number = 100, lags: number = 1): ScreamerOp {
+export function RollingADF(windowSize?: number, lags?: number): ScreamerOp;
+export function RollingADF(windowSize?: any, lags?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, lags] = _options("RollingADF", windowSize, arguments.length, ["windowSize", "lags"]);
+  windowSize ??= 100;
+  lags ??= 1;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (_isText(lags)) throw new TypeError(`lags must be a number, got a string`);
   return wrapOp(M, () => new M.RollingADF(windowSize, lags));
 }
 
+/** The settings of RollingAlpha by name, for `RollingAlpha({ ... })`. */
+export interface RollingAlphaOptions {
+  /** Number of most recent (target, regressor) pairs in the regression window. */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * Rolling OLS intercept of a target regressed on a regressor (companion to RollingBeta).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingAlpha.html for the full reference.
+ */
+export function RollingAlpha(options: RollingAlphaOptions): ScreamerOp;
 /**
  * Rolling OLS intercept of a target regressed on a regressor (companion to RollingBeta).
  *
@@ -2521,37 +5176,88 @@ export function RollingADF(windowSize: number = 100, lags: number = 1): Screamer
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingAlpha.html for the full reference.
  */
-export function RollingAlpha(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
+export function RollingAlpha(windowSize?: number, startPolicy?: string): ScreamerOp;
+export function RollingAlpha(windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingAlpha", windowSize, arguments.length, ["windowSize", "startPolicy"]);
+  windowSize ??= 20;
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingAlpha(windowSize, startPolicy));
 }
 
+/** The settings of RollingArgmax by name, for `RollingArgmax({ ... })`. */
+export interface RollingArgmaxOptions {
+  /** Number of most recent samples searched for the maximum. */
+  windowSize?: number;
+}
+
+/**
+ * Position of the maximum within the trailing window (0 is the oldest sample).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingArgmax.html for the full reference.
+ */
+export function RollingArgmax(options: RollingArgmaxOptions): ScreamerOp;
 /**
  * Position of the maximum within the trailing window (0 is the oldest sample).
  *
  * @param windowSize Number of most recent samples searched for the maximum.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingArgmax.html for the full reference.
  */
-export function RollingArgmax(windowSize: number = 20): ScreamerOp {
+export function RollingArgmax(windowSize?: number): ScreamerOp;
+export function RollingArgmax(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingArgmax", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 20;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingArgmax(windowSize));
 }
 
+/** The settings of RollingArgmin by name, for `RollingArgmin({ ... })`. */
+export interface RollingArgminOptions {
+  /** Number of most recent samples searched for the minimum. */
+  windowSize?: number;
+}
+
+/**
+ * Position of the minimum within the trailing window (0 is the oldest sample).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingArgmin.html for the full reference.
+ */
+export function RollingArgmin(options: RollingArgminOptions): ScreamerOp;
 /**
  * Position of the minimum within the trailing window (0 is the oldest sample).
  *
  * @param windowSize Number of most recent samples searched for the minimum.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingArgmin.html for the full reference.
  */
-export function RollingArgmin(windowSize: number = 20): ScreamerOp {
+export function RollingArgmin(windowSize?: number): ScreamerOp;
+export function RollingArgmin(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingArgmin", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 20;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingArgmin(windowSize));
 }
 
+/** The settings of RollingBeta by name, for `RollingBeta({ ... })`. */
+export interface RollingBetaOptions {
+  /** Number of most recent (target, regressor) pairs in the regression window. */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * Rolling regression slope cov(x, y) / var(y) of the first input x (dependent) on the second input y (regressor).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingBeta.html for the full reference.
+ */
+export function RollingBeta(options: RollingBetaOptions): ScreamerOp;
 /**
  * Rolling regression slope cov(x, y) / var(y) of the first input x (dependent) on the second input y (regressor).
  *
@@ -2559,13 +5265,32 @@ export function RollingArgmin(windowSize: number = 20): ScreamerOp {
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingBeta.html for the full reference.
  */
-export function RollingBeta(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
+export function RollingBeta(windowSize?: number, startPolicy?: string): ScreamerOp;
+export function RollingBeta(windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingBeta", windowSize, arguments.length, ["windowSize", "startPolicy"]);
+  windowSize ??= 20;
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingBeta(windowSize, startPolicy));
 }
 
+/** The settings of RollingCVaR by name, for `RollingCVaR({ ... })`. */
+export interface RollingCVaROptions {
+  /** Number of most recent returns in the window. */
+  windowSize?: number;
+  /** Tail probability level in (0, 1); 0.05 means the 5% CVaR (average loss in the worst 5% of the window). */
+  alpha?: number;
+}
+
+/**
+ * Historical Conditional Value-at-Risk (Expected Shortfall): the mean loss in the worst alpha tail over a window.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingCVaR.html for the full reference.
+ */
+export function RollingCVaR(options: RollingCVaROptions): ScreamerOp;
 /**
  * Historical Conditional Value-at-Risk (Expected Shortfall): the mean loss in the worst alpha tail over a window.
  *
@@ -2573,13 +5298,32 @@ export function RollingBeta(windowSize: number = 20, startPolicy: string = "stri
  * @param alpha Tail probability level in (0, 1); 0.05 means the 5% CVaR (average loss in the worst 5% of the window).
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingCVaR.html for the full reference.
  */
-export function RollingCVaR(windowSize: number = 20, alpha: number = 0.05): ScreamerOp {
+export function RollingCVaR(windowSize?: number, alpha?: number): ScreamerOp;
+export function RollingCVaR(windowSize?: any, alpha?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, alpha] = _options("RollingCVaR", windowSize, arguments.length, ["windowSize", "alpha"]);
+  windowSize ??= 20;
+  alpha ??= 0.05;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
   return wrapOp(M, () => new M.RollingCVaR(windowSize, alpha));
 }
 
+/** The settings of RollingCalmar by name, for `RollingCalmar({ ... })`. */
+export interface RollingCalmarOptions {
+  /** Number of most recent returns used for the mean return and the drawdown. */
+  windowSize?: number;
+  /** Annualization factor that multiplies the mean return: 252 for daily, 52 for weekly, 12 for monthly data, 1 for no annualization. */
+  periodsPerYear?: number;
+}
+
+/**
+ * Annualized mean return divided by the worst drawdown in a trailing window.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingCalmar.html for the full reference.
+ */
+export function RollingCalmar(options: RollingCalmarOptions): ScreamerOp;
 /**
  * Annualized mean return divided by the worst drawdown in a trailing window.
  *
@@ -2587,13 +5331,32 @@ export function RollingCVaR(windowSize: number = 20, alpha: number = 0.05): Scre
  * @param periodsPerYear Annualization factor that multiplies the mean return: 252 for daily, 52 for weekly, 12 for monthly data, 1 for no annualization.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingCalmar.html for the full reference.
  */
-export function RollingCalmar(windowSize: number = 252, periodsPerYear: number = 1.0): ScreamerOp {
+export function RollingCalmar(windowSize?: number, periodsPerYear?: number): ScreamerOp;
+export function RollingCalmar(windowSize?: any, periodsPerYear?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, periodsPerYear] = _options("RollingCalmar", windowSize, arguments.length, ["windowSize", "periodsPerYear"]);
+  windowSize ??= 252;
+  periodsPerYear ??= 1.0;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (_isText(periodsPerYear)) throw new TypeError(`periodsPerYear must be a number, got a string`);
   return wrapOp(M, () => new M.RollingCalmar(windowSize, periodsPerYear));
 }
 
+/** The settings of RollingCorr by name, for `RollingCorr({ ... })`. */
+export interface RollingCorrOptions {
+  /** Number of most recent (x, y) pairs in the window. */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * Rolling Pearson correlation of two parallel streams.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingCorr.html for the full reference.
+ */
+export function RollingCorr(options: RollingCorrOptions): ScreamerOp;
 /**
  * Rolling Pearson correlation of two parallel streams.
  *
@@ -2601,13 +5364,32 @@ export function RollingCalmar(windowSize: number = 252, periodsPerYear: number =
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingCorr.html for the full reference.
  */
-export function RollingCorr(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
+export function RollingCorr(windowSize?: number, startPolicy?: string): ScreamerOp;
+export function RollingCorr(windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingCorr", windowSize, arguments.length, ["windowSize", "startPolicy"]);
+  windowSize ??= 20;
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingCorr(windowSize, startPolicy));
 }
 
+/** The settings of RollingCov by name, for `RollingCov({ ... })`. */
+export interface RollingCovOptions {
+  /** Number of most recent (x, y) pairs in the window. */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * Rolling sample covariance of two parallel streams.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingCov.html for the full reference.
+ */
+export function RollingCov(options: RollingCovOptions): ScreamerOp;
 /**
  * Rolling sample covariance of two parallel streams.
  *
@@ -2615,13 +5397,34 @@ export function RollingCorr(windowSize: number = 20, startPolicy: string = "stri
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingCov.html for the full reference.
  */
-export function RollingCov(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
+export function RollingCov(windowSize?: number, startPolicy?: string): ScreamerOp;
+export function RollingCov(windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingCov", windowSize, arguments.length, ["windowSize", "startPolicy"]);
+  windowSize ??= 20;
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingCov(windowSize, startPolicy));
 }
 
+/** The settings of RollingDownsideDeviation by name, for `RollingDownsideDeviation({ ... })`. */
+export interface RollingDownsideDeviationOptions {
+  /** Number of most recent returns in the window. */
+  windowSize?: number;
+  /** Minimum acceptable return. Only returns below it contribute to the deviation. */
+  mar?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * Trailing-window downside semideviation: the RMS of returns falling below a minimum acceptable return.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingDownsideDeviation.html for the full reference.
+ */
+export function RollingDownsideDeviation(options: RollingDownsideDeviationOptions): ScreamerOp;
 /**
  * Trailing-window downside semideviation: the RMS of returns falling below a minimum acceptable return.
  *
@@ -2630,7 +5433,12 @@ export function RollingCov(windowSize: number = 20, startPolicy: string = "stric
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingDownsideDeviation.html for the full reference.
  */
-export function RollingDownsideDeviation(windowSize: number = 20, mar: number = 0.0, startPolicy: string = "strict"): ScreamerOp {
+export function RollingDownsideDeviation(windowSize?: number, mar?: number, startPolicy?: string): ScreamerOp;
+export function RollingDownsideDeviation(windowSize?: any, mar?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, mar, startPolicy] = _options("RollingDownsideDeviation", windowSize, arguments.length, ["windowSize", "mar", "startPolicy"]);
+  windowSize ??= 20;
+  mar ??= 0.0;
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (_isText(mar)) throw new TypeError(`mar must be a number, got a string`);
@@ -2638,42 +5446,107 @@ export function RollingDownsideDeviation(windowSize: number = 20, mar: number = 
   return wrapOp(M, () => new M.RollingDownsideDeviation(windowSize, mar, startPolicy));
 }
 
+/** The settings of RollingGarmanKlassVar by name, for `RollingGarmanKlassVar({ ... })`. */
+export interface RollingGarmanKlassVarOptions {
+  /** Number of most recent bars whose per-bar Garman-Klass variances are averaged. */
+  windowSize?: number;
+}
+
+/**
+ * Var form of the Garman-Klass range-based volatility estimator (OHLC).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingGarmanKlassVar.html for the full reference.
+ */
+export function RollingGarmanKlassVar(options: RollingGarmanKlassVarOptions): ScreamerOp;
 /**
  * Var form of the Garman-Klass range-based volatility estimator (OHLC).
  *
  * @param windowSize Number of most recent bars whose per-bar Garman-Klass variances are averaged.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingGarmanKlassVar.html for the full reference.
  */
-export function RollingGarmanKlassVar(windowSize: number = 20): ScreamerOp {
+export function RollingGarmanKlassVar(windowSize?: number): ScreamerOp;
+export function RollingGarmanKlassVar(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingGarmanKlassVar", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 20;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingGarmanKlassVar(windowSize));
 }
 
+/** The settings of RollingGarmanKlassVol by name, for `RollingGarmanKlassVol({ ... })`. */
+export interface RollingGarmanKlassVolOptions {
+  /** Number of most recent bars whose per-bar Garman-Klass variances are averaged. */
+  windowSize?: number;
+}
+
+/**
+ * Vol form of the Garman-Klass range-based volatility estimator (OHLC).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingGarmanKlassVol.html for the full reference.
+ */
+export function RollingGarmanKlassVol(options: RollingGarmanKlassVolOptions): ScreamerOp;
 /**
  * Vol form of the Garman-Klass range-based volatility estimator (OHLC).
  *
  * @param windowSize Number of most recent bars whose per-bar Garman-Klass variances are averaged.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingGarmanKlassVol.html for the full reference.
  */
-export function RollingGarmanKlassVol(windowSize: number = 20): ScreamerOp {
+export function RollingGarmanKlassVol(windowSize?: number): ScreamerOp;
+export function RollingGarmanKlassVol(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingGarmanKlassVol", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 20;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingGarmanKlassVol(windowSize));
 }
 
+/** The settings of RollingHitRate by name, for `RollingHitRate({ ... })`. */
+export interface RollingHitRateOptions {
+  /** Number of most recent values counted. */
+  windowSize?: number;
+}
+
+/**
+ * Fraction of strictly positive values in a trailing window.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingHitRate.html for the full reference.
+ */
+export function RollingHitRate(options: RollingHitRateOptions): ScreamerOp;
 /**
  * Fraction of strictly positive values in a trailing window.
  *
  * @param windowSize Number of most recent values counted.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingHitRate.html for the full reference.
  */
-export function RollingHitRate(windowSize: number = 252): ScreamerOp {
+export function RollingHitRate(windowSize?: number): ScreamerOp;
+export function RollingHitRate(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingHitRate", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 252;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingHitRate(windowSize));
 }
 
+/** The settings of RollingHurst by name, for `RollingHurst({ ... })`. */
+export interface RollingHurstOptions {
+  /** Trailing-window length W in samples. Must be at least 4 * min_scale so the regression has at least three scales. */
+  windowSize?: number;
+  /** Smallest R/S block size; the scales are min_scale, 2*min_scale, ... up to window_size/2. Larger values reduce small-sample bias but leave fewer scales for the regression. */
+  minScale?: number;
+  /** Estimator family. Only "rs" (Anis-Lloyd corrected rescaled range) is available. */
+  method?: string;
+}
+
+/**
+ * Rolling-window Hurst exponent via Anis-Lloyd corrected rescaled-range analysis.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingHurst.html for the full reference.
+ */
+export function RollingHurst(options: RollingHurstOptions): ScreamerOp;
 /**
  * Rolling-window Hurst exponent via Anis-Lloyd corrected rescaled-range analysis.
  *
@@ -2682,7 +5555,12 @@ export function RollingHitRate(windowSize: number = 252): ScreamerOp {
  * @param method Estimator family. Only "rs" (Anis-Lloyd corrected rescaled range) is available.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingHurst.html for the full reference.
  */
-export function RollingHurst(windowSize: number = 256, minScale: number = 4, method: string = "rs"): ScreamerOp {
+export function RollingHurst(windowSize?: number, minScale?: number, method?: string): ScreamerOp;
+export function RollingHurst(windowSize?: any, minScale?: any, method?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, minScale, method] = _options("RollingHurst", windowSize, arguments.length, ["windowSize", "minScale", "method"]);
+  windowSize ??= 256;
+  minScale ??= 4;
+  method ??= "rs";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (_isText(minScale)) throw new TypeError(`minScale must be a number, got a string`);
@@ -2690,6 +5568,21 @@ export function RollingHurst(windowSize: number = 256, minScale: number = 4, met
   return wrapOp(M, () => new M.RollingHurst(windowSize, minScale, method));
 }
 
+/** The settings of RollingInfoRatio by name, for `RollingInfoRatio({ ... })`. */
+export interface RollingInfoRatioOptions {
+  /** Number of most recent (returns, benchmark) pairs in the window. */
+  windowSize?: number;
+  /** Annualization factor: the ratio is multiplied by sqrt(periods_per_year). Use 252 for daily, 52 for weekly, 12 for monthly data, and 1 for no annualization. */
+  periodsPerYear?: number;
+}
+
+/**
+ * Annualized information ratio: the Sharpe ratio of active returns against a benchmark.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingInfoRatio.html for the full reference.
+ */
+export function RollingInfoRatio(options: RollingInfoRatioOptions): ScreamerOp;
 /**
  * Annualized information ratio: the Sharpe ratio of active returns against a benchmark.
  *
@@ -2697,25 +5590,60 @@ export function RollingHurst(windowSize: number = 256, minScale: number = 4, met
  * @param periodsPerYear Annualization factor: the ratio is multiplied by sqrt(periods_per_year). Use 252 for daily, 52 for weekly, 12 for monthly data, and 1 for no annualization.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingInfoRatio.html for the full reference.
  */
-export function RollingInfoRatio(windowSize: number = 252, periodsPerYear: number = 1.0): ScreamerOp {
+export function RollingInfoRatio(windowSize?: number, periodsPerYear?: number): ScreamerOp;
+export function RollingInfoRatio(windowSize?: any, periodsPerYear?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, periodsPerYear] = _options("RollingInfoRatio", windowSize, arguments.length, ["windowSize", "periodsPerYear"]);
+  windowSize ??= 252;
+  periodsPerYear ??= 1.0;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (_isText(periodsPerYear)) throw new TypeError(`periodsPerYear must be a number, got a string`);
   return wrapOp(M, () => new M.RollingInfoRatio(windowSize, periodsPerYear));
 }
 
+/** The settings of RollingIqr by name, for `RollingIqr({ ... })`. */
+export interface RollingIqrOptions {
+  /** Number of most recent samples whose quartiles are taken. */
+  windowSize?: number;
+}
+
+/**
+ * Q3 minus Q1 over the trailing window.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingIqr.html for the full reference.
+ */
+export function RollingIqr(options: RollingIqrOptions): ScreamerOp;
 /**
  * Q3 minus Q1 over the trailing window.
  *
  * @param windowSize Number of most recent samples whose quartiles are taken.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingIqr.html for the full reference.
  */
-export function RollingIqr(windowSize: number = 20): ScreamerOp {
+export function RollingIqr(windowSize?: number): ScreamerOp;
+export function RollingIqr(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingIqr", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 20;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingIqr(windowSize));
 }
 
+/** The settings of RollingKurt by name, for `RollingKurt({ ... })`. */
+export interface RollingKurtOptions {
+  /** Number of most recent samples in the window. The estimator needs at least 4 samples, so smaller windows give NaN. */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * Trailing-window excess kurtosis.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingKurt.html for the full reference.
+ */
+export function RollingKurt(options: RollingKurtOptions): ScreamerOp;
 /**
  * Trailing-window excess kurtosis.
  *
@@ -2723,13 +5651,32 @@ export function RollingIqr(windowSize: number = 20): ScreamerOp {
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingKurt.html for the full reference.
  */
-export function RollingKurt(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
+export function RollingKurt(windowSize?: number, startPolicy?: string): ScreamerOp;
+export function RollingKurt(windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingKurt", windowSize, arguments.length, ["windowSize", "startPolicy"]);
+  windowSize ??= 20;
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingKurt(windowSize, startPolicy));
 }
 
+/** The settings of RollingKyleLambda by name, for `RollingKyleLambda({ ... })`. */
+export interface RollingKyleLambdaOptions {
+  /** Number of most recent observations in the regression window. */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * Rolling-window price-impact slope of return on signed order flow (Kyle 1985).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/RollingKyleLambda.html for the full reference.
+ */
+export function RollingKyleLambda(options: RollingKyleLambdaOptions): ScreamerOp;
 /**
  * Rolling-window price-impact slope of return on signed order flow (Kyle 1985).
  *
@@ -2737,13 +5684,32 @@ export function RollingKurt(windowSize: number = 20, startPolicy: string = "stri
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_micro/RollingKyleLambda.html for the full reference.
  */
-export function RollingKyleLambda(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
+export function RollingKyleLambda(windowSize?: number, startPolicy?: string): ScreamerOp;
+export function RollingKyleLambda(windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingKyleLambda", windowSize, arguments.length, ["windowSize", "startPolicy"]);
+  windowSize ??= 20;
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingKyleLambda(windowSize, startPolicy));
 }
 
+/** The settings of RollingLinearRegression by name, for `RollingLinearRegression({ ... })`. */
+export interface RollingLinearRegressionOptions {
+  /** Number of most recent (y, x) pairs in the regression window. Must be at least 3, because the standard error divides by n - 2. */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * Rolling OLS fit of y on x, returning slope, intercept, R-squared and the standard error of the fit.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingLinearRegression.html for the full reference.
+ */
+export function RollingLinearRegression(options: RollingLinearRegressionOptions): ScreamerOp;
 /**
  * Rolling OLS fit of y on x, returning slope, intercept, R-squared and the standard error of the fit.
  *
@@ -2751,13 +5717,32 @@ export function RollingKyleLambda(windowSize: number = 20, startPolicy: string =
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingLinearRegression.html for the full reference.
  */
-export function RollingLinearRegression(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
+export function RollingLinearRegression(windowSize?: number, startPolicy?: string): ScreamerOp;
+export function RollingLinearRegression(windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingLinearRegression", windowSize, arguments.length, ["windowSize", "startPolicy"]);
+  windowSize ??= 20;
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingLinearRegression(windowSize, startPolicy));
 }
 
+/** The settings of RollingMad by name, for `RollingMad({ ... })`. */
+export interface RollingMadOptions {
+  /** Number of most recent samples whose mean and absolute deviations are taken. */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * Trailing-window mean absolute deviation from the rolling mean.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingMad.html for the full reference.
+ */
+export function RollingMad(options: RollingMadOptions): ScreamerOp;
 /**
  * Trailing-window mean absolute deviation from the rolling mean.
  *
@@ -2765,37 +5750,88 @@ export function RollingLinearRegression(windowSize: number = 20, startPolicy: st
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingMad.html for the full reference.
  */
-export function RollingMad(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
+export function RollingMad(windowSize?: number, startPolicy?: string): ScreamerOp;
+export function RollingMad(windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingMad", windowSize, arguments.length, ["windowSize", "startPolicy"]);
+  windowSize ??= 20;
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingMad(windowSize, startPolicy));
 }
 
+/** The settings of RollingMax by name, for `RollingMax({ ... })`. */
+export interface RollingMaxOptions {
+  /** Number of most recent samples in the window. */
+  windowSize?: number;
+}
+
+/**
+ * Trailing-window maximum (monotonic deque).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingMax.html for the full reference.
+ */
+export function RollingMax(options: RollingMaxOptions): ScreamerOp;
 /**
  * Trailing-window maximum (monotonic deque).
  *
  * @param windowSize Number of most recent samples in the window.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingMax.html for the full reference.
  */
-export function RollingMax(windowSize: number = 20): ScreamerOp {
+export function RollingMax(windowSize?: number): ScreamerOp;
+export function RollingMax(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingMax", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 20;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingMax(windowSize));
 }
 
+/** The settings of RollingMaxDrawdown by name, for `RollingMaxDrawdown({ ... })`. */
+export interface RollingMaxDrawdownOptions {
+  /** Number of most recent prices searched for the worst peak-to-trough loss (252 is one trading year of daily data). */
+  windowSize?: number;
+}
+
+/**
+ * Worst peak-to-trough drawdown inside a trailing window.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingMaxDrawdown.html for the full reference.
+ */
+export function RollingMaxDrawdown(options: RollingMaxDrawdownOptions): ScreamerOp;
 /**
  * Worst peak-to-trough drawdown inside a trailing window.
  *
  * @param windowSize Number of most recent prices searched for the worst peak-to-trough loss (252 is one trading year of daily data).
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingMaxDrawdown.html for the full reference.
  */
-export function RollingMaxDrawdown(windowSize: number = 252): ScreamerOp {
+export function RollingMaxDrawdown(windowSize?: number): ScreamerOp;
+export function RollingMaxDrawdown(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingMaxDrawdown", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 252;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingMaxDrawdown(windowSize));
 }
 
+/** The settings of RollingMean by name, for `RollingMean({ ... })`. */
+export interface RollingMeanOptions {
+  /** Number of most recent samples in the window. */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * Trailing-window arithmetic mean (simple moving average).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingMean.html for the full reference.
+ */
+export function RollingMean(options: RollingMeanOptions): ScreamerOp;
 /**
  * Trailing-window arithmetic mean (simple moving average).
  *
@@ -2803,25 +5839,60 @@ export function RollingMaxDrawdown(windowSize: number = 252): ScreamerOp {
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingMean.html for the full reference.
  */
-export function RollingMean(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
+export function RollingMean(windowSize?: number, startPolicy?: string): ScreamerOp;
+export function RollingMean(windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingMean", windowSize, arguments.length, ["windowSize", "startPolicy"]);
+  windowSize ??= 20;
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingMean(windowSize, startPolicy));
 }
 
+/** The settings of RollingMedian by name, for `RollingMedian({ ... })`. */
+export interface RollingMedianOptions {
+  /** Number of most recent samples in the window. */
+  windowSize?: number;
+}
+
+/**
+ * Trailing-window median.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingMedian.html for the full reference.
+ */
+export function RollingMedian(options: RollingMedianOptions): ScreamerOp;
 /**
  * Trailing-window median.
  *
  * @param windowSize Number of most recent samples in the window.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingMedian.html for the full reference.
  */
-export function RollingMedian(windowSize: number = 20): ScreamerOp {
+export function RollingMedian(windowSize?: number): ScreamerOp;
+export function RollingMedian(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingMedian", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 20;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingMedian(windowSize));
 }
 
+/** The settings of RollingMedianAD by name, for `RollingMedianAD({ ... })`. */
+export interface RollingMedianADOptions {
+  /** Number of most recent samples in the window. */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * Rolling median absolute deviation, median(|x - median|), a robust scale estimate.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingMedianAD.html for the full reference.
+ */
+export function RollingMedianAD(options: RollingMedianADOptions): ScreamerOp;
 /**
  * Rolling median absolute deviation, median(|x - median|), a robust scale estimate.
  *
@@ -2829,37 +5900,90 @@ export function RollingMedian(windowSize: number = 20): ScreamerOp {
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingMedianAD.html for the full reference.
  */
-export function RollingMedianAD(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
+export function RollingMedianAD(windowSize?: number, startPolicy?: string): ScreamerOp;
+export function RollingMedianAD(windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingMedianAD", windowSize, arguments.length, ["windowSize", "startPolicy"]);
+  windowSize ??= 20;
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingMedianAD(windowSize, startPolicy));
 }
 
+/** The settings of RollingMin by name, for `RollingMin({ ... })`. */
+export interface RollingMinOptions {
+  /** Number of most recent samples in the window. */
+  windowSize?: number;
+}
+
+/**
+ * Trailing-window minimum (monotonic deque).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingMin.html for the full reference.
+ */
+export function RollingMin(options: RollingMinOptions): ScreamerOp;
 /**
  * Trailing-window minimum (monotonic deque).
  *
  * @param windowSize Number of most recent samples in the window.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingMin.html for the full reference.
  */
-export function RollingMin(windowSize: number = 20): ScreamerOp {
+export function RollingMin(windowSize?: number): ScreamerOp;
+export function RollingMin(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingMin", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 20;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingMin(windowSize));
 }
 
+/** The settings of RollingMinMax by name, for `RollingMinMax({ ... })`. */
+export interface RollingMinMaxOptions {
+  /** Number of most recent samples in the window. */
+  windowSize?: number;
+}
+
+/**
+ * Trailing-window minimum and maximum, computed in one pass.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingMinMax.html for the full reference.
+ */
+export function RollingMinMax(options: RollingMinMaxOptions): ScreamerOp;
 /**
  * Trailing-window minimum and maximum, computed in one pass.
  *
  * @param windowSize Number of most recent samples in the window.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingMinMax.html for the full reference.
  */
-export function RollingMinMax(windowSize: number = 20): ScreamerOp {
+export function RollingMinMax(windowSize?: number): ScreamerOp;
+export function RollingMinMax(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingMinMax", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 20;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingMinMax(windowSize));
 }
 
+/** The settings of RollingOU by name, for `RollingOU({ ... })`. */
+export interface RollingOUOptions {
+  /** Number of most recent samples in the window. */
+  windowSize?: number;
+  /** Which fitted parameter to return: "mrr" gives the mean-reversion rate per step, "mean" the long-run mean, "relmean" the long-run mean minus the current value, and "std" the noise standard deviation. */
+  output?: string;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * Rolling MLE fit of a mean-reverting Ornstein-Uhlenbeck process.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingOU.html for the full reference.
+ */
+export function RollingOU(options: RollingOUOptions): ScreamerOp;
 /**
  * Rolling MLE fit of a mean-reverting Ornstein-Uhlenbeck process.
  *
@@ -2868,7 +5992,12 @@ export function RollingMinMax(windowSize: number = 20): ScreamerOp {
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingOU.html for the full reference.
  */
-export function RollingOU(windowSize: number = 20, output: string = "mrr", startPolicy: string = "strict"): ScreamerOp {
+export function RollingOU(windowSize?: number, output?: string, startPolicy?: string): ScreamerOp;
+export function RollingOU(windowSize?: any, output?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, output, startPolicy] = _options("RollingOU", windowSize, arguments.length, ["windowSize", "output", "startPolicy"]);
+  windowSize ??= 20;
+  output ??= "mrr";
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof output !== "string") throw new TypeError(`output must be a string, got ${typeof output}`);
@@ -2876,6 +6005,21 @@ export function RollingOU(windowSize: number = 20, output: string = "mrr", start
   return wrapOp(M, () => new M.RollingOU(windowSize, output, startPolicy));
 }
 
+/** The settings of RollingOmega by name, for `RollingOmega({ ... })`. */
+export interface RollingOmegaOptions {
+  /** Number of most recent returns in the window. */
+  windowSize?: number;
+  /** Return level that separates gains from losses. */
+  threshold?: number;
+}
+
+/**
+ * Omega ratio over a window: total gains above a threshold divided by total losses below it.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingOmega.html for the full reference.
+ */
+export function RollingOmega(options: RollingOmegaOptions): ScreamerOp;
 /**
  * Omega ratio over a window: total gains above a threshold divided by total losses below it.
  *
@@ -2883,13 +6027,32 @@ export function RollingOU(windowSize: number = 20, output: string = "mrr", start
  * @param threshold Return level that separates gains from losses.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingOmega.html for the full reference.
  */
-export function RollingOmega(windowSize: number = 20, threshold: number = 0.0): ScreamerOp {
+export function RollingOmega(windowSize?: number, threshold?: number): ScreamerOp;
+export function RollingOmega(windowSize?: any, threshold?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, threshold] = _options("RollingOmega", windowSize, arguments.length, ["windowSize", "threshold"]);
+  windowSize ??= 20;
+  threshold ??= 0.0;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (_isText(threshold)) throw new TypeError(`threshold must be a number, got a string`);
   return wrapOp(M, () => new M.RollingOmega(windowSize, threshold));
 }
 
+/** The settings of RollingOrderImbalance by name, for `RollingOrderImbalance({ ... })`. */
+export interface RollingOrderImbalanceOptions {
+  /** Number of most recent observations summed. */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * Trailing-window sum of signed order flow (Chordia-Roll-Subrahmanyam imbalance).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/RollingOrderImbalance.html for the full reference.
+ */
+export function RollingOrderImbalance(options: RollingOrderImbalanceOptions): ScreamerOp;
 /**
  * Trailing-window sum of signed order flow (Chordia-Roll-Subrahmanyam imbalance).
  *
@@ -2897,49 +6060,118 @@ export function RollingOmega(windowSize: number = 20, threshold: number = 0.0): 
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_micro/RollingOrderImbalance.html for the full reference.
  */
-export function RollingOrderImbalance(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
+export function RollingOrderImbalance(windowSize?: number, startPolicy?: string): ScreamerOp;
+export function RollingOrderImbalance(windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingOrderImbalance", windowSize, arguments.length, ["windowSize", "startPolicy"]);
+  windowSize ??= 20;
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingOrderImbalance(windowSize, startPolicy));
 }
 
+/** The settings of RollingParkinsonVar by name, for `RollingParkinsonVar({ ... })`. */
+export interface RollingParkinsonVarOptions {
+  /** Number of most recent bars over which the per-bar estimate is averaged. */
+  windowSize?: number;
+}
+
+/**
+ * Var form of the Parkinson range-based volatility estimator (uses high & low).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingParkinsonVar.html for the full reference.
+ */
+export function RollingParkinsonVar(options: RollingParkinsonVarOptions): ScreamerOp;
 /**
  * Var form of the Parkinson range-based volatility estimator (uses high & low).
  *
  * @param windowSize Number of most recent bars over which the per-bar estimate is averaged.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingParkinsonVar.html for the full reference.
  */
-export function RollingParkinsonVar(windowSize: number = 20): ScreamerOp {
+export function RollingParkinsonVar(windowSize?: number): ScreamerOp;
+export function RollingParkinsonVar(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingParkinsonVar", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 20;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingParkinsonVar(windowSize));
 }
 
+/** The settings of RollingParkinsonVol by name, for `RollingParkinsonVol({ ... })`. */
+export interface RollingParkinsonVolOptions {
+  /** Number of most recent bars over which the per-bar estimate is averaged. */
+  windowSize?: number;
+}
+
+/**
+ * Vol form of the Parkinson range-based volatility estimator (uses high & low).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingParkinsonVol.html for the full reference.
+ */
+export function RollingParkinsonVol(options: RollingParkinsonVolOptions): ScreamerOp;
 /**
  * Vol form of the Parkinson range-based volatility estimator (uses high & low).
  *
  * @param windowSize Number of most recent bars over which the per-bar estimate is averaged.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingParkinsonVol.html for the full reference.
  */
-export function RollingParkinsonVol(windowSize: number = 20): ScreamerOp {
+export function RollingParkinsonVol(windowSize?: number): ScreamerOp;
+export function RollingParkinsonVol(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingParkinsonVol", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 20;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingParkinsonVol(windowSize));
 }
 
+/** The settings of RollingPercentile by name, for `RollingPercentile({ ... })`. */
+export interface RollingPercentileOptions {
+  /** Number of most recent values the current value is ranked against. */
+  windowSize?: number;
+}
+
+/**
+ * Percentile rank (rank / window) of the current value within the trailing window.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingPercentile.html for the full reference.
+ */
+export function RollingPercentile(options: RollingPercentileOptions): ScreamerOp;
 /**
  * Percentile rank (rank / window) of the current value within the trailing window.
  *
  * @param windowSize Number of most recent values the current value is ranked against.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingPercentile.html for the full reference.
  */
-export function RollingPercentile(windowSize: number = 20): ScreamerOp {
+export function RollingPercentile(windowSize?: number): ScreamerOp;
+export function RollingPercentile(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingPercentile", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 20;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingPercentile(windowSize));
 }
 
+/** The settings of RollingPoly1 by name, for `RollingPoly1({ ... })`. */
+export interface RollingPoly1Options {
+  /** Number of most recent samples in the window. */
+  windowSize?: number;
+  /** What to return from the fitted line: 0 gives the fitted value at the newest sample, 1 the slope per sample. */
+  derivativeOrder?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * OLS fit y = a + b*t over a trailing window. derivative_order selects value/slope/zero.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingPoly1.html for the full reference.
+ */
+export function RollingPoly1(options: RollingPoly1Options): ScreamerOp;
 /**
  * OLS fit y = a + b*t over a trailing window. derivative_order selects value/slope/zero.
  *
@@ -2948,7 +6180,12 @@ export function RollingPercentile(windowSize: number = 20): ScreamerOp {
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingPoly1.html for the full reference.
  */
-export function RollingPoly1(windowSize: number = 20, derivativeOrder: number = 0, startPolicy: string = "strict"): ScreamerOp {
+export function RollingPoly1(windowSize?: number, derivativeOrder?: number, startPolicy?: string): ScreamerOp;
+export function RollingPoly1(windowSize?: any, derivativeOrder?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, derivativeOrder, startPolicy] = _options("RollingPoly1", windowSize, arguments.length, ["windowSize", "derivativeOrder", "startPolicy"]);
+  windowSize ??= 20;
+  derivativeOrder ??= 0;
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (_isText(derivativeOrder)) throw new TypeError(`derivativeOrder must be a number, got a string`);
@@ -2956,6 +6193,23 @@ export function RollingPoly1(windowSize: number = 20, derivativeOrder: number = 
   return wrapOp(M, () => new M.RollingPoly1(windowSize, derivativeOrder, startPolicy));
 }
 
+/** The settings of RollingPoly2 by name, for `RollingPoly2({ ... })`. */
+export interface RollingPoly2Options {
+  /** Number of most recent samples in the window. */
+  windowSize?: number;
+  /** What to return from the fitted parabola at the newest sample: 0 gives the fitted value, 1 the first derivative (slope), 2 the second derivative (curvature). */
+  derivativeOrder?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * OLS fit y = a + b*t + c*t^2 over a trailing window.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingPoly2.html for the full reference.
+ */
+export function RollingPoly2(options: RollingPoly2Options): ScreamerOp;
 /**
  * OLS fit y = a + b*t + c*t^2 over a trailing window.
  *
@@ -2964,7 +6218,12 @@ export function RollingPoly1(windowSize: number = 20, derivativeOrder: number = 
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingPoly2.html for the full reference.
  */
-export function RollingPoly2(windowSize: number = 20, derivativeOrder: number = 0, startPolicy: string = "strict"): ScreamerOp {
+export function RollingPoly2(windowSize?: number, derivativeOrder?: number, startPolicy?: string): ScreamerOp;
+export function RollingPoly2(windowSize?: any, derivativeOrder?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, derivativeOrder, startPolicy] = _options("RollingPoly2", windowSize, arguments.length, ["windowSize", "derivativeOrder", "startPolicy"]);
+  windowSize ??= 20;
+  derivativeOrder ??= 0;
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (_isText(derivativeOrder)) throw new TypeError(`derivativeOrder must be a number, got a string`);
@@ -2972,6 +6231,21 @@ export function RollingPoly2(windowSize: number = 20, derivativeOrder: number = 
   return wrapOp(M, () => new M.RollingPoly2(windowSize, derivativeOrder, startPolicy));
 }
 
+/** The settings of RollingQuantile by name, for `RollingQuantile({ ... })`. */
+export interface RollingQuantileOptions {
+  /** Number of most recent samples in the window. */
+  windowSize?: number;
+  /** Quantile to return; 0.5 gives the median. Values between two order statistics are interpolated linearly. */
+  quantile?: number;
+}
+
+/**
+ * Trailing-window quantile (e.g. 0.25 = lower quartile).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingQuantile.html for the full reference.
+ */
+export function RollingQuantile(options: RollingQuantileOptions): ScreamerOp;
 /**
  * Trailing-window quantile (e.g. 0.25 = lower quartile).
  *
@@ -2979,13 +6253,34 @@ export function RollingPoly2(windowSize: number = 20, derivativeOrder: number = 
  * @param quantile Quantile to return; 0.5 gives the median. Values between two order statistics are interpolated linearly.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingQuantile.html for the full reference.
  */
-export function RollingQuantile(windowSize: number = 20, quantile: number = 0.5): ScreamerOp {
+export function RollingQuantile(windowSize?: number, quantile?: number): ScreamerOp;
+export function RollingQuantile(windowSize?: any, quantile?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, quantile] = _options("RollingQuantile", windowSize, arguments.length, ["windowSize", "quantile"]);
+  windowSize ??= 20;
+  quantile ??= 0.5;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (_isText(quantile)) throw new TypeError(`quantile must be a number, got a string`);
   return wrapOp(M, () => new M.RollingQuantile(windowSize, quantile));
 }
 
+/** The settings of RollingRSI by name, for `RollingRSI({ ... })`. */
+export interface RollingRSIOptions {
+  /** Smoothing period of the average up and down moves. Wilder's original choice is 14. */
+  windowSize?: number;
+  /** Smoothing of the up and down moves: "wilder" uses Wilder's recursive average (matches TA-Lib and pandas-ta), "cutler" uses a simple moving average. */
+  method?: string;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * Relative Strength Index. Wilder's smoothing by default; Cutler's via method='cutler'.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingRSI.html for the full reference.
+ */
+export function RollingRSI(options: RollingRSIOptions): ScreamerOp;
 /**
  * Relative Strength Index. Wilder's smoothing by default; Cutler's via method='cutler'.
  *
@@ -2994,7 +6289,12 @@ export function RollingQuantile(windowSize: number = 20, quantile: number = 0.5)
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingRSI.html for the full reference.
  */
-export function RollingRSI(windowSize: number = 14, method: string = "wilder", startPolicy: string = "strict"): ScreamerOp {
+export function RollingRSI(windowSize?: number, method?: string, startPolicy?: string): ScreamerOp;
+export function RollingRSI(windowSize?: any, method?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, method, startPolicy] = _options("RollingRSI", windowSize, arguments.length, ["windowSize", "method", "startPolicy"]);
+  windowSize ??= 14;
+  method ??= "wilder";
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof method !== "string") throw new TypeError(`method must be a string, got ${typeof method}`);
@@ -3002,30 +6302,77 @@ export function RollingRSI(windowSize: number = 14, method: string = "wilder", s
   return wrapOp(M, () => new M.RollingRSI(windowSize, method, startPolicy));
 }
 
+/** The settings of RollingRange by name, for `RollingRange({ ... })`. */
+export interface RollingRangeOptions {
+  /** Number of most recent samples in the window. */
+  windowSize?: number;
+}
+
+/**
+ * Trailing-window max minus min.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingRange.html for the full reference.
+ */
+export function RollingRange(options: RollingRangeOptions): ScreamerOp;
 /**
  * Trailing-window max minus min.
  *
  * @param windowSize Number of most recent samples in the window.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingRange.html for the full reference.
  */
-export function RollingRange(windowSize: number = 20): ScreamerOp {
+export function RollingRange(windowSize?: number): ScreamerOp;
+export function RollingRange(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingRange", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 20;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingRange(windowSize));
 }
 
+/** The settings of RollingRank by name, for `RollingRank({ ... })`. */
+export interface RollingRankOptions {
+  /** Number of most recent values the current value is ranked against. */
+  windowSize?: number;
+}
+
+/**
+ * Rank of the current value within the trailing window (1-based, average tie rule).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingRank.html for the full reference.
+ */
+export function RollingRank(options: RollingRankOptions): ScreamerOp;
 /**
  * Rank of the current value within the trailing window (1-based, average tie rule).
  *
  * @param windowSize Number of most recent values the current value is ranked against.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingRank.html for the full reference.
  */
-export function RollingRank(windowSize: number = 20): ScreamerOp {
+export function RollingRank(windowSize?: number): ScreamerOp;
+export function RollingRank(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingRank", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 20;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingRank(windowSize));
 }
 
+/** The settings of RollingResidualStd by name, for `RollingResidualStd({ ... })`. */
+export interface RollingResidualStdOptions {
+  /** Number of most recent (y, x) pairs used for both the hedge ratio and the standard deviation. */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * Standard deviation of the rolling hedge-adjusted residual y - beta * x.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingResidualStd.html for the full reference.
+ */
+export function RollingResidualStd(options: RollingResidualStdOptions): ScreamerOp;
 /**
  * Standard deviation of the rolling hedge-adjusted residual y - beta * x.
  *
@@ -3033,13 +6380,32 @@ export function RollingRank(windowSize: number = 20): ScreamerOp {
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingResidualStd.html for the full reference.
  */
-export function RollingResidualStd(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
+export function RollingResidualStd(windowSize?: number, startPolicy?: string): ScreamerOp;
+export function RollingResidualStd(windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingResidualStd", windowSize, arguments.length, ["windowSize", "startPolicy"]);
+  windowSize ??= 20;
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingResidualStd(windowSize, startPolicy));
 }
 
+/** The settings of RollingRms by name, for `RollingRms({ ... })`. */
+export interface RollingRmsOptions {
+  /** Number of most recent samples in the window. */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * Trailing-window root-mean-square.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingRms.html for the full reference.
+ */
+export function RollingRms(options: RollingRmsOptions): ScreamerOp;
 /**
  * Trailing-window root-mean-square.
  *
@@ -3047,37 +6413,88 @@ export function RollingResidualStd(windowSize: number = 20, startPolicy: string 
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingRms.html for the full reference.
  */
-export function RollingRms(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
+export function RollingRms(windowSize?: number, startPolicy?: string): ScreamerOp;
+export function RollingRms(windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingRms", windowSize, arguments.length, ["windowSize", "startPolicy"]);
+  windowSize ??= 20;
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingRms(windowSize, startPolicy));
 }
 
+/** The settings of RollingRogersSatchellVar by name, for `RollingRogersSatchellVar({ ... })`. */
+export interface RollingRogersSatchellVarOptions {
+  /** Number of most recent bars over which the per-bar estimate is averaged. */
+  windowSize?: number;
+}
+
+/**
+ * Var form of the Rogers-Satchell drift-robust range-based estimator.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingRogersSatchellVar.html for the full reference.
+ */
+export function RollingRogersSatchellVar(options: RollingRogersSatchellVarOptions): ScreamerOp;
 /**
  * Var form of the Rogers-Satchell drift-robust range-based estimator.
  *
  * @param windowSize Number of most recent bars over which the per-bar estimate is averaged.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingRogersSatchellVar.html for the full reference.
  */
-export function RollingRogersSatchellVar(windowSize: number = 20): ScreamerOp {
+export function RollingRogersSatchellVar(windowSize?: number): ScreamerOp;
+export function RollingRogersSatchellVar(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingRogersSatchellVar", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 20;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingRogersSatchellVar(windowSize));
 }
 
+/** The settings of RollingRogersSatchellVol by name, for `RollingRogersSatchellVol({ ... })`. */
+export interface RollingRogersSatchellVolOptions {
+  /** Number of most recent bars over which the per-bar estimate is averaged. */
+  windowSize?: number;
+}
+
+/**
+ * Vol form of the Rogers-Satchell drift-robust range-based estimator.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingRogersSatchellVol.html for the full reference.
+ */
+export function RollingRogersSatchellVol(options: RollingRogersSatchellVolOptions): ScreamerOp;
 /**
  * Vol form of the Rogers-Satchell drift-robust range-based estimator.
  *
  * @param windowSize Number of most recent bars over which the per-bar estimate is averaged.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingRogersSatchellVol.html for the full reference.
  */
-export function RollingRogersSatchellVol(windowSize: number = 20): ScreamerOp {
+export function RollingRogersSatchellVol(windowSize?: number): ScreamerOp;
+export function RollingRogersSatchellVol(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingRogersSatchellVol", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 20;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingRogersSatchellVol(windowSize));
 }
 
+/** The settings of RollingSharpe by name, for `RollingSharpe({ ... })`. */
+export interface RollingSharpeOptions {
+  /** Number of most recent returns in the window. */
+  windowSize?: number;
+  /** Annualization factor: the ratio is multiplied by sqrt(periods_per_year). Use 252 for daily, 52 for weekly, 12 for monthly data, and 1 for no annualization. */
+  periodsPerYear?: number;
+}
+
+/**
+ * Annualized Sharpe ratio over a trailing window of returns.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingSharpe.html for the full reference.
+ */
+export function RollingSharpe(options: RollingSharpeOptions): ScreamerOp;
 /**
  * Annualized Sharpe ratio over a trailing window of returns.
  *
@@ -3085,13 +6502,38 @@ export function RollingRogersSatchellVol(windowSize: number = 20): ScreamerOp {
  * @param periodsPerYear Annualization factor: the ratio is multiplied by sqrt(periods_per_year). Use 252 for daily, 52 for weekly, 12 for monthly data, and 1 for no annualization.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingSharpe.html for the full reference.
  */
-export function RollingSharpe(windowSize: number = 252, periodsPerYear: number = 1.0): ScreamerOp {
+export function RollingSharpe(windowSize?: number, periodsPerYear?: number): ScreamerOp;
+export function RollingSharpe(windowSize?: any, periodsPerYear?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, periodsPerYear] = _options("RollingSharpe", windowSize, arguments.length, ["windowSize", "periodsPerYear"]);
+  windowSize ??= 252;
+  periodsPerYear ??= 1.0;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (_isText(periodsPerYear)) throw new TypeError(`periodsPerYear must be a number, got a string`);
   return wrapOp(M, () => new M.RollingSharpe(windowSize, periodsPerYear));
 }
 
+/** The settings of RollingSigmaClip by name, for `RollingSigmaClip({ ... })`. */
+export interface RollingSigmaClipOptions {
+  /** Number of most recent samples in the window. */
+  windowSize?: number;
+  /** Lower clipping threshold in standard deviations from the rolling mean (for example -3). None disables lower clipping. */
+  lower?: number;
+  /** Upper clipping threshold in standard deviations from the rolling mean (for example 3). None disables upper clipping. */
+  upper?: number;
+  /** Which value to return: "clipped" gives the input with outliers clipped to the bound, "mean" the rolling mean estimate, "std" the rolling standard deviation estimate, and "nan" the input with outliers replaced by NaN. */
+  output?: string;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * Clip samples that lie beyond lower or upper standard deviations from the rolling mean, or replace them with NaN.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingSigmaClip.html for the full reference.
+ */
+export function RollingSigmaClip(options: RollingSigmaClipOptions): ScreamerOp;
 /**
  * Clip samples that lie beyond lower or upper standard deviations from the rolling mean, or replace them with NaN.
  *
@@ -3102,7 +6544,14 @@ export function RollingSharpe(windowSize: number = 252, periodsPerYear: number =
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingSigmaClip.html for the full reference.
  */
-export function RollingSigmaClip(windowSize: number = 20, lower: number = NaN, upper: number = NaN, output: string = "clipped", startPolicy: string = "strict"): ScreamerOp {
+export function RollingSigmaClip(windowSize?: number, lower?: number, upper?: number, output?: string, startPolicy?: string): ScreamerOp;
+export function RollingSigmaClip(windowSize?: any, lower?: any, upper?: any, output?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, lower, upper, output, startPolicy] = _options("RollingSigmaClip", windowSize, arguments.length, ["windowSize", "lower", "upper", "output", "startPolicy"]);
+  windowSize ??= 20;
+  lower ??= NaN;
+  upper ??= NaN;
+  output ??= "clipped";
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (_isText(lower)) throw new TypeError(`lower must be a number, got a string`);
@@ -3112,6 +6561,21 @@ export function RollingSigmaClip(windowSize: number = 20, lower: number = NaN, u
   return wrapOp(M, () => new M.RollingSigmaClip(windowSize, lower, upper, output, startPolicy));
 }
 
+/** The settings of RollingSkew by name, for `RollingSkew({ ... })`. */
+export interface RollingSkewOptions {
+  /** Number of most recent samples in the window. */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * Trailing-window skewness.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingSkew.html for the full reference.
+ */
+export function RollingSkew(options: RollingSkewOptions): ScreamerOp;
 /**
  * Trailing-window skewness.
  *
@@ -3119,13 +6583,34 @@ export function RollingSigmaClip(windowSize: number = 20, lower: number = NaN, u
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingSkew.html for the full reference.
  */
-export function RollingSkew(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
+export function RollingSkew(windowSize?: number, startPolicy?: string): ScreamerOp;
+export function RollingSkew(windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingSkew", windowSize, arguments.length, ["windowSize", "startPolicy"]);
+  windowSize ??= 20;
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingSkew(windowSize, startPolicy));
 }
 
+/** The settings of RollingSortino by name, for `RollingSortino({ ... })`. */
+export interface RollingSortinoOptions {
+  /** Number of most recent returns in the window. */
+  windowSize?: number;
+  /** Annualization factor: the ratio is multiplied by sqrt(periods_per_year). Use 252 for daily, 52 for weekly, 12 for monthly data, and 1 for no annualization. */
+  periodsPerYear?: number;
+  /** Minimum acceptable return. It is subtracted from the mean, and only returns below it contribute to the denominator. */
+  target?: number;
+}
+
+/**
+ * Annualized Sortino ratio: the Sharpe ratio with downside deviation in the denominator.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingSortino.html for the full reference.
+ */
+export function RollingSortino(options: RollingSortinoOptions): ScreamerOp;
 /**
  * Annualized Sortino ratio: the Sharpe ratio with downside deviation in the denominator.
  *
@@ -3134,7 +6619,12 @@ export function RollingSkew(windowSize: number = 20, startPolicy: string = "stri
  * @param target Minimum acceptable return. It is subtracted from the mean, and only returns below it contribute to the denominator.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingSortino.html for the full reference.
  */
-export function RollingSortino(windowSize: number = 252, periodsPerYear: number = 1.0, target: number = 0.0): ScreamerOp {
+export function RollingSortino(windowSize?: number, periodsPerYear?: number, target?: number): ScreamerOp;
+export function RollingSortino(windowSize?: any, periodsPerYear?: any, target?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, periodsPerYear, target] = _options("RollingSortino", windowSize, arguments.length, ["windowSize", "periodsPerYear", "target"]);
+  windowSize ??= 252;
+  periodsPerYear ??= 1.0;
+  target ??= 0.0;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (_isText(periodsPerYear)) throw new TypeError(`periodsPerYear must be a number, got a string`);
@@ -3142,6 +6632,21 @@ export function RollingSortino(windowSize: number = 252, periodsPerYear: number 
   return wrapOp(M, () => new M.RollingSortino(windowSize, periodsPerYear, target));
 }
 
+/** The settings of RollingSpread by name, for `RollingSpread({ ... })`. */
+export interface RollingSpreadOptions {
+  /** Number of most recent (x, y) pairs used to estimate the hedge ratio. */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * Rolling hedge-adjusted residual x - beta * y, with beta the rolling regression slope.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingSpread.html for the full reference.
+ */
+export function RollingSpread(options: RollingSpreadOptions): ScreamerOp;
 /**
  * Rolling hedge-adjusted residual x - beta * y, with beta the rolling regression slope.
  *
@@ -3149,13 +6654,32 @@ export function RollingSortino(windowSize: number = 252, periodsPerYear: number 
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingSpread.html for the full reference.
  */
-export function RollingSpread(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
+export function RollingSpread(windowSize?: number, startPolicy?: string): ScreamerOp;
+export function RollingSpread(windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingSpread", windowSize, arguments.length, ["windowSize", "startPolicy"]);
+  windowSize ??= 20;
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingSpread(windowSize, startPolicy));
 }
 
+/** The settings of RollingStd by name, for `RollingStd({ ... })`. */
+export interface RollingStdOptions {
+  /** Number of most recent samples in the window. */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * Trailing-window sample standard deviation (ddof=1).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingStd.html for the full reference.
+ */
+export function RollingStd(options: RollingStdOptions): ScreamerOp;
 /**
  * Trailing-window sample standard deviation (ddof=1).
  *
@@ -3163,13 +6687,32 @@ export function RollingSpread(windowSize: number = 20, startPolicy: string = "st
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingStd.html for the full reference.
  */
-export function RollingStd(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
+export function RollingStd(windowSize?: number, startPolicy?: string): ScreamerOp;
+export function RollingStd(windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingStd", windowSize, arguments.length, ["windowSize", "startPolicy"]);
+  windowSize ??= 20;
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingStd(windowSize, startPolicy));
 }
 
+/** The settings of RollingSum by name, for `RollingSum({ ... })`. */
+export interface RollingSumOptions {
+  /** Number of most recent samples in the window. */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * Trailing-window sum.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingSum.html for the full reference.
+ */
+export function RollingSum(options: RollingSumOptions): ScreamerOp;
 /**
  * Trailing-window sum.
  *
@@ -3177,13 +6720,32 @@ export function RollingStd(windowSize: number = 20, startPolicy: string = "stric
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingSum.html for the full reference.
  */
-export function RollingSum(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
+export function RollingSum(windowSize?: number, startPolicy?: string): ScreamerOp;
+export function RollingSum(windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingSum", windowSize, arguments.length, ["windowSize", "startPolicy"]);
+  windowSize ??= 20;
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingSum(windowSize, startPolicy));
 }
 
+/** The settings of RollingTLSBeta by name, for `RollingTLSBeta({ ... })`. */
+export interface RollingTLSBetaOptions {
+  /** Number of most recent (a, b) pairs in the regression window. */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * Rolling total least squares (orthogonal regression) slope of the first input on the second: a hedge ratio that does not depend on which leg is called dependent.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingTLSBeta.html for the full reference.
+ */
+export function RollingTLSBeta(options: RollingTLSBetaOptions): ScreamerOp;
 /**
  * Rolling total least squares (orthogonal regression) slope of the first input on the second: a hedge ratio that does not depend on which leg is called dependent.
  *
@@ -3191,37 +6753,88 @@ export function RollingSum(windowSize: number = 20, startPolicy: string = "stric
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingTLSBeta.html for the full reference.
  */
-export function RollingTLSBeta(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
+export function RollingTLSBeta(windowSize?: number, startPolicy?: string): ScreamerOp;
+export function RollingTLSBeta(windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingTLSBeta", windowSize, arguments.length, ["windowSize", "startPolicy"]);
+  windowSize ??= 20;
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingTLSBeta(windowSize, startPolicy));
 }
 
+/** The settings of RollingTSF by name, for `RollingTSF({ ... })`. */
+export interface RollingTSFOptions {
+  /** Number of most recent values in the regression on time. */
+  windowSize?: number;
+}
+
+/**
+ * Linear regression of the input on time, projected one step ahead (TA-Lib TSF).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingTSF.html for the full reference.
+ */
+export function RollingTSF(options: RollingTSFOptions): ScreamerOp;
 /**
  * Linear regression of the input on time, projected one step ahead (TA-Lib TSF).
  *
  * @param windowSize Number of most recent values in the regression on time.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingTSF.html for the full reference.
  */
-export function RollingTSF(windowSize: number = 20): ScreamerOp {
+export function RollingTSF(windowSize?: number): ScreamerOp;
+export function RollingTSF(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingTSF", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 20;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingTSF(windowSize));
 }
 
+/** The settings of RollingVWAP by name, for `RollingVWAP({ ... })`. */
+export interface RollingVWAPOptions {
+  /** Number of most recent bars in the window. */
+  windowSize?: number;
+}
+
+/**
+ * Rolling volume-weighted average price (typical-price weighted).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingVWAP.html for the full reference.
+ */
+export function RollingVWAP(options: RollingVWAPOptions): ScreamerOp;
 /**
  * Rolling volume-weighted average price (typical-price weighted).
  *
  * @param windowSize Number of most recent bars in the window.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingVWAP.html for the full reference.
  */
-export function RollingVWAP(windowSize: number = 20): ScreamerOp {
+export function RollingVWAP(windowSize?: number): ScreamerOp;
+export function RollingVWAP(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingVWAP", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 20;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingVWAP(windowSize));
 }
 
+/** The settings of RollingVar by name, for `RollingVar({ ... })`. */
+export interface RollingVarOptions {
+  /** Number of most recent samples in the window. */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * Trailing-window sample variance (ddof=1).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingVar.html for the full reference.
+ */
+export function RollingVar(options: RollingVarOptions): ScreamerOp;
 /**
  * Trailing-window sample variance (ddof=1).
  *
@@ -3229,37 +6842,88 @@ export function RollingVWAP(windowSize: number = 20): ScreamerOp {
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingVar.html for the full reference.
  */
-export function RollingVar(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
+export function RollingVar(windowSize?: number, startPolicy?: string): ScreamerOp;
+export function RollingVar(windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingVar", windowSize, arguments.length, ["windowSize", "startPolicy"]);
+  windowSize ??= 20;
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingVar(windowSize, startPolicy));
 }
 
+/** The settings of RollingYangZhangVar by name, for `RollingYangZhangVar({ ... })`. */
+export interface RollingYangZhangVarOptions {
+  /** Number of bars n in each variance component; the first estimate needs n + 1 bars. */
+  windowSize?: number;
+}
+
+/**
+ * Var form of the Yang-Zhang estimator (drift + gap robust).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingYangZhangVar.html for the full reference.
+ */
+export function RollingYangZhangVar(options: RollingYangZhangVarOptions): ScreamerOp;
 /**
  * Var form of the Yang-Zhang estimator (drift + gap robust).
  *
  * @param windowSize Number of bars n in each variance component; the first estimate needs n + 1 bars.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingYangZhangVar.html for the full reference.
  */
-export function RollingYangZhangVar(windowSize: number = 20): ScreamerOp {
+export function RollingYangZhangVar(windowSize?: number): ScreamerOp;
+export function RollingYangZhangVar(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingYangZhangVar", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 20;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingYangZhangVar(windowSize));
 }
 
+/** The settings of RollingYangZhangVol by name, for `RollingYangZhangVol({ ... })`. */
+export interface RollingYangZhangVolOptions {
+  /** Number of bars n in each variance component; the first estimate needs n + 1 bars. */
+  windowSize?: number;
+}
+
+/**
+ * Vol form of the Yang-Zhang estimator (drift + gap robust).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingYangZhangVol.html for the full reference.
+ */
+export function RollingYangZhangVol(options: RollingYangZhangVolOptions): ScreamerOp;
 /**
  * Vol form of the Yang-Zhang estimator (drift + gap robust).
  *
  * @param windowSize Number of bars n in each variance component; the first estimate needs n + 1 bars.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingYangZhangVol.html for the full reference.
  */
-export function RollingYangZhangVol(windowSize: number = 20): ScreamerOp {
+export function RollingYangZhangVol(windowSize?: number): ScreamerOp;
+export function RollingYangZhangVol(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingYangZhangVol", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 20;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.RollingYangZhangVol(windowSize));
 }
 
+/** The settings of RollingZscore by name, for `RollingZscore({ ... })`. */
+export interface RollingZscoreOptions {
+  /** Number of most recent samples in the window. */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * Latest sample standardized by the trailing-window mean and standard deviation.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingZscore.html for the full reference.
+ */
+export function RollingZscore(options: RollingZscoreOptions): ScreamerOp;
 /**
  * Latest sample standardized by the trailing-window mean and standard deviation.
  *
@@ -3267,13 +6931,36 @@ export function RollingYangZhangVol(windowSize: number = 20): ScreamerOp {
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingZscore.html for the full reference.
  */
-export function RollingZscore(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
+export function RollingZscore(windowSize?: number, startPolicy?: string): ScreamerOp;
+export function RollingZscore(windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingZscore", windowSize, arguments.length, ["windowSize", "startPolicy"]);
+  windowSize ??= 20;
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.RollingZscore(windowSize, startPolicy));
 }
 
+/** The settings of RoofingFilter by name, for `RoofingFilter({ ... })`. */
+export interface RoofingFilterOptions {
+  /** Highpass cutoff as a cycle length in samples; longer cycles (the trend) are removed. Give exactly one of hp_period and hp_cutoff. The default shown is a suggested starting value; the constructor has no default. */
+  hpPeriod?: number;
+  /** Lowpass cutoff as a cycle length in samples; shorter cycles (noise) are removed. Give exactly one of lp_period and lp_cutoff. The default shown is a suggested starting value; the constructor has no default. */
+  lpPeriod?: number;
+  /** Highpass cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / hp_period. Give exactly one of hp_period and hp_cutoff. */
+  hpCutoff?: number;
+  /** Lowpass cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / lp_period. Give exactly one of lp_period and lp_cutoff. */
+  lpCutoff?: number;
+}
+
+/**
+ * Ehlers bandpass, a highpass then a SuperSmoother.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/RoofingFilter.html for the full reference.
+ */
+export function RoofingFilter(options: RoofingFilterOptions): ScreamerOp;
 /**
  * Ehlers bandpass, a highpass then a SuperSmoother.
  *
@@ -3283,7 +6970,13 @@ export function RollingZscore(windowSize: number = 20, startPolicy: string = "st
  * @param lpCutoff Lowpass cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / lp_period. Give exactly one of lp_period and lp_cutoff.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/RoofingFilter.html for the full reference.
  */
-export function RoofingFilter(hpPeriod: number = NaN, lpPeriod: number = NaN, hpCutoff: number = NaN, lpCutoff: number = NaN): ScreamerOp {
+export function RoofingFilter(hpPeriod?: number, lpPeriod?: number, hpCutoff?: number, lpCutoff?: number): ScreamerOp;
+export function RoofingFilter(hpPeriod?: any, lpPeriod?: any, hpCutoff?: any, lpCutoff?: any): ScreamerOp {
+  if (_isOptions(hpPeriod)) [hpPeriod, lpPeriod, hpCutoff, lpCutoff] = _options("RoofingFilter", hpPeriod, arguments.length, ["hpPeriod", "lpPeriod", "hpCutoff", "lpCutoff"]);
+  hpPeriod ??= NaN;
+  lpPeriod ??= NaN;
+  hpCutoff ??= NaN;
+  lpCutoff ??= NaN;
   const M = current();
   if (_isText(hpPeriod)) throw new TypeError(`hpPeriod must be a number, got a string`);
   if (_isText(lpPeriod)) throw new TypeError(`lpPeriod must be a number, got a string`);
@@ -3292,16 +6985,37 @@ export function RoofingFilter(hpPeriod: number = NaN, lpPeriod: number = NaN, hp
   return wrapOp(M, () => new M.RoofingFilter(hpPeriod, lpPeriod, hpCutoff, lpCutoff));
 }
 
+/** Round has no settings: its options object is empty. */
+export type RoundOptions = Record<string, never>;
+
 /**
  * Round each element to the nearest integer (half-to-even).
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Round.html for the full reference.
  */
-export function Round(): ScreamerOp {
+export function Round(options?: RoundOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Round", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Round());
 }
 
+/** The settings of SchmittTrigger by name, for `SchmittTrigger({ ... })`. */
+export interface SchmittTriggerOptions {
+  /** Lower threshold, finite. The output latches to 0.0 when the input falls strictly below this value. */
+  lower: number;
+  /** Upper threshold, finite and strictly greater than lower. The output latches to 1.0 when the input rises strictly above this value. */
+  upper: number;
+  /** Latch value held before the first threshold crossing. Must be 0.0 (low), 1.0 (high), or NaN (undefined until the first crossing). Defaults to 0.0, so a signal that starts inside the dead band reads low rather than NaN. */
+  initial?: number;
+}
+
+/**
+ * Hysteresis comparator. Latches 1.0 above the upper threshold, 0.0 below the lower threshold, and retains its previous value in between.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/SchmittTrigger.html for the full reference.
+ */
+export function SchmittTrigger(options: SchmittTriggerOptions): ScreamerOp;
 /**
  * Hysteresis comparator. Latches 1.0 above the upper threshold, 0.0 below the lower threshold, and retains its previous value in between.
  *
@@ -3310,7 +7024,12 @@ export function Round(): ScreamerOp {
  * @param initial Latch value held before the first threshold crossing. Must be 0.0 (low), 1.0 (high), or NaN (undefined until the first crossing). Defaults to 0.0, so a signal that starts inside the dead band reads low rather than NaN.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/SchmittTrigger.html for the full reference.
  */
-export function SchmittTrigger(lower: number, upper: number, initial: number = 0.0): ScreamerOp {
+export function SchmittTrigger(lower: number, upper: number, initial?: number): ScreamerOp;
+export function SchmittTrigger(lower?: any, upper?: any, initial?: any): ScreamerOp {
+  if (_isOptions(lower)) [lower, upper, initial] = _options("SchmittTrigger", lower, arguments.length, ["lower", "upper", "initial"]);
+  if (lower == null) throw new TypeError(`SchmittTrigger: lower is required`);
+  if (upper == null) throw new TypeError(`SchmittTrigger: upper is required`);
+  initial ??= 0.0;
   const M = current();
   if (_isText(lower)) throw new TypeError(`lower must be a number, got a string`);
   if (_isText(upper)) throw new TypeError(`upper must be a number, got a string`);
@@ -3318,86 +7037,135 @@ export function SchmittTrigger(lower: number, upper: number, initial: number = 0
   return wrapOp(M, () => new M.SchmittTrigger(lower, upper, initial));
 }
 
+/** Selu has no settings: its options object is empty. */
+export type SeluOptions = Record<string, never>;
+
 /**
  * Scaled exponential linear unit (self-normalizing networks).
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Selu.html for the full reference.
  */
-export function Selu(): ScreamerOp {
+export function Selu(options?: SeluOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Selu", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Selu());
 }
+
+/** Sigmoid has no settings: its options object is empty. */
+export type SigmoidOptions = Record<string, never>;
 
 /**
  * Logistic sigmoid: 1 / (1 + exp(-x)).
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Sigmoid.html for the full reference.
  */
-export function Sigmoid(): ScreamerOp {
+export function Sigmoid(options?: SigmoidOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Sigmoid", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Sigmoid());
 }
+
+/** Sign has no settings: its options object is empty. */
+export type SignOptions = Record<string, never>;
 
 /**
  * Sign of each element: -1, 0, or +1.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Sign.html for the full reference.
  */
-export function Sign(): ScreamerOp {
+export function Sign(options?: SignOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Sign", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Sign());
 }
+
+/** SignedVolume has no settings: its options object is empty. */
+export type SignedVolumeOptions = Record<string, never>;
 
 /**
  * Aggressor-signed volume, sign * volume.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_micro/SignedVolume.html for the full reference.
  */
-export function SignedVolume(): ScreamerOp {
+export function SignedVolume(options?: SignedVolumeOptions): ScreamerOp {
+  if (_isOptions(options)) _options("SignedVolume", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.SignedVolume());
 }
+
+/** Sin has no settings: its options object is empty. */
+export type SinOptions = Record<string, never>;
 
 /**
  * Sine of each element (radians).
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Sin.html for the full reference.
  */
-export function Sin(): ScreamerOp {
+export function Sin(options?: SinOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Sin", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Sin());
 }
+
+/** Softsign has no settings: its options object is empty. */
+export type SoftsignOptions = Record<string, never>;
 
 /**
  * Softsign: x / (1 + |x|).
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Softsign.html for the full reference.
  */
-export function Softsign(): ScreamerOp {
+export function Softsign(options?: SoftsignOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Softsign", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Softsign());
 }
+
+/** Sqrt has no settings: its options object is empty. */
+export type SqrtOptions = Record<string, never>;
 
 /**
  * Square root of each element.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Sqrt.html for the full reference.
  */
-export function Sqrt(): ScreamerOp {
+export function Sqrt(options?: SqrtOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Sqrt", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Sqrt());
 }
+
+/** Square has no settings: its options object is empty. */
+export type SquareOptions = Record<string, never>;
 
 /**
  * Square of each element, computed as x * x.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Square.html for the full reference.
  */
-export function Square(): ScreamerOp {
+export function Square(options?: SquareOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Square", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Square());
 }
 
+/** The settings of Stoch by name, for `Stoch({ ... })`. */
+export interface StochOptions {
+  /** Number of most recent bars over which the highest high and lowest low are taken for raw %K. */
+  fastkPeriod?: number;
+  /** Period of the simple moving average applied to raw %K; 1 gives the fast stochastic, 3 the slow stochastic of TA-Lib. */
+  smoothK?: number;
+  /** Period of the simple moving average applied to %K to produce %D. */
+  d?: number;
+}
+
+/**
+ * Stochastic oscillator %K and %D from high, low and close.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/Stoch.html for the full reference.
+ */
+export function Stoch(options: StochOptions): ScreamerOp;
 /**
  * Stochastic oscillator %K and %D from high, low and close.
  *
@@ -3406,7 +7174,12 @@ export function Square(): ScreamerOp {
  * @param d Period of the simple moving average applied to %K to produce %D.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/Stoch.html for the full reference.
  */
-export function Stoch(fastkPeriod: number = 14, smoothK: number = 3, d: number = 3): ScreamerOp {
+export function Stoch(fastkPeriod?: number, smoothK?: number, d?: number): ScreamerOp;
+export function Stoch(fastkPeriod?: any, smoothK?: any, d?: any): ScreamerOp {
+  if (_isOptions(fastkPeriod)) [fastkPeriod, smoothK, d] = _options("Stoch", fastkPeriod, arguments.length, ["fastkPeriod", "smoothK", "d"]);
+  fastkPeriod ??= 14;
+  smoothK ??= 3;
+  d ??= 3;
   const M = current();
   if (_isText(fastkPeriod)) throw new TypeError(`fastkPeriod must be a number, got a string`);
   if (_isText(smoothK)) throw new TypeError(`smoothK must be a number, got a string`);
@@ -3414,6 +7187,25 @@ export function Stoch(fastkPeriod: number = 14, smoothK: number = 3, d: number =
   return wrapOp(M, () => new M.Stoch(fastkPeriod, smoothK, d));
 }
 
+/** The settings of StochRSI by name, for `StochRSI({ ... })`. */
+export interface StochRSIOptions {
+  /** Smoothing period of the Wilder RSI computed from the input. */
+  rsiPeriod?: number;
+  /** Number of most recent RSI values over which the minimum and maximum are taken. */
+  stochPeriod?: number;
+  /** Period of the simple moving average applied to raw %K; 1 gives the fast StochRSI. */
+  smoothK?: number;
+  /** Period of the simple moving average applied to %K to produce %D. */
+  d?: number;
+}
+
+/**
+ * Stochastic oscillator applied to the RSI, giving %K and %D.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/StochRSI.html for the full reference.
+ */
+export function StochRSI(options: StochRSIOptions): ScreamerOp;
 /**
  * Stochastic oscillator applied to the RSI, giving %K and %D.
  *
@@ -3423,7 +7215,13 @@ export function Stoch(fastkPeriod: number = 14, smoothK: number = 3, d: number =
  * @param d Period of the simple moving average applied to %K to produce %D.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/StochRSI.html for the full reference.
  */
-export function StochRSI(rsiPeriod: number = 14, stochPeriod: number = 14, smoothK: number = 1, d: number = 3): ScreamerOp {
+export function StochRSI(rsiPeriod?: number, stochPeriod?: number, smoothK?: number, d?: number): ScreamerOp;
+export function StochRSI(rsiPeriod?: any, stochPeriod?: any, smoothK?: any, d?: any): ScreamerOp {
+  if (_isOptions(rsiPeriod)) [rsiPeriod, stochPeriod, smoothK, d] = _options("StochRSI", rsiPeriod, arguments.length, ["rsiPeriod", "stochPeriod", "smoothK", "d"]);
+  rsiPeriod ??= 14;
+  stochPeriod ??= 14;
+  smoothK ??= 1;
+  d ??= 3;
   const M = current();
   if (_isText(rsiPeriod)) throw new TypeError(`rsiPeriod must be a number, got a string`);
   if (_isText(stochPeriod)) throw new TypeError(`stochPeriod must be a number, got a string`);
@@ -3432,16 +7230,35 @@ export function StochRSI(rsiPeriod: number = 14, stochPeriod: number = 14, smoot
   return wrapOp(M, () => new M.StochRSI(rsiPeriod, stochPeriod, smoothK, d));
 }
 
+/** Sub has no settings: its options object is empty. */
+export type SubOptions = Record<string, never>;
+
 /**
  * Elementwise difference of two aligned streams (x - y).
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Sub.html for the full reference.
  */
-export function Sub(): ScreamerOp {
+export function Sub(options?: SubOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Sub", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Sub());
 }
 
+/** The settings of SuperSmoother by name, for `SuperSmoother({ ... })`. */
+export interface SuperSmootherOptions {
+  /** Cutoff as a cycle length in samples; cycles shorter than this are attenuated. Give exactly one of period and cutoff. The default shown is a suggested starting value; the constructor has no default. */
+  period?: number;
+  /** Cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / period. Give exactly one of period and cutoff. */
+  cutoff?: number;
+}
+
+/**
+ * Ehlers 2-pole low-lag lowpass filter.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/SuperSmoother.html for the full reference.
+ */
+export function SuperSmoother(options: SuperSmootherOptions): ScreamerOp;
 /**
  * Ehlers 2-pole low-lag lowpass filter.
  *
@@ -3449,13 +7266,36 @@ export function Sub(): ScreamerOp {
  * @param cutoff Cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / period. Give exactly one of period and cutoff.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/SuperSmoother.html for the full reference.
  */
-export function SuperSmoother(period: number = NaN, cutoff: number = NaN): ScreamerOp {
+export function SuperSmoother(period?: number, cutoff?: number): ScreamerOp;
+export function SuperSmoother(period?: any, cutoff?: any): ScreamerOp {
+  if (_isOptions(period)) [period, cutoff] = _options("SuperSmoother", period, arguments.length, ["period", "cutoff"]);
+  period ??= NaN;
+  cutoff ??= NaN;
   const M = current();
   if (_isText(period)) throw new TypeError(`period must be a number, got a string`);
   if (_isText(cutoff)) throw new TypeError(`cutoff must be a number, got a string`);
   return wrapOp(M, () => new M.SuperSmoother(period, cutoff));
 }
 
+/** The settings of TEMA by name, for `TEMA({ ... })`. */
+export interface TEMAOptions {
+  /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  com?: number;
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  span?: number;
+  /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  halflife?: number;
+  /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
+  alpha?: number;
+}
+
+/**
+ * Mulloy's Triple EMA: 3*EMA - 3*EMA(EMA) + EMA(EMA(EMA)).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/TEMA.html for the full reference.
+ */
+export function TEMA(options: TEMAOptions): ScreamerOp;
 /**
  * Mulloy's Triple EMA: 3*EMA - 3*EMA(EMA) + EMA(EMA(EMA)).
  *
@@ -3465,7 +7305,13 @@ export function SuperSmoother(period: number = NaN, cutoff: number = NaN): Screa
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/TEMA.html for the full reference.
  */
-export function TEMA(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
+export function TEMA(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function TEMA(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("TEMA", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  com ??= NaN;
+  span ??= NaN;
+  halflife ??= NaN;
+  alpha ??= NaN;
   const M = current();
   if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
   if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
@@ -3474,72 +7320,149 @@ export function TEMA(com: number = NaN, span: number = NaN, halflife: number = N
   return wrapOp(M, () => new M.TEMA(com, span, halflife, alpha));
 }
 
+/** The settings of TRIMA by name, for `TRIMA({ ... })`. */
+export interface TRIMAOptions {
+  /** Total width of the triangular weighting, in samples. */
+  windowSize?: number;
+}
+
+/**
+ * Triangular moving average: a simple moving average of a simple moving average.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/TRIMA.html for the full reference.
+ */
+export function TRIMA(options: TRIMAOptions): ScreamerOp;
 /**
  * Triangular moving average: a simple moving average of a simple moving average.
  *
  * @param windowSize Total width of the triangular weighting, in samples.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/TRIMA.html for the full reference.
  */
-export function TRIMA(windowSize: number = 20): ScreamerOp {
+export function TRIMA(windowSize?: number): ScreamerOp;
+export function TRIMA(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("TRIMA", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 20;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.TRIMA(windowSize));
 }
 
+/** The settings of TRIX by name, for `TRIX({ ... })`. */
+export interface TRIXOptions {
+  /** Span of each of the three exponential moving averages, giving alpha = 2 / (span + 1). */
+  span?: number;
+}
+
+/**
+ * ROC of a triple-smoothed EMA.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/TRIX.html for the full reference.
+ */
+export function TRIX(options: TRIXOptions): ScreamerOp;
 /**
  * ROC of a triple-smoothed EMA.
  *
  * @param span Span of each of the three exponential moving averages, giving alpha = 2 / (span + 1).
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/TRIX.html for the full reference.
  */
-export function TRIX(span: number = 14): ScreamerOp {
+export function TRIX(span?: number): ScreamerOp;
+export function TRIX(span?: any): ScreamerOp {
+  if (_isOptions(span)) [span] = _options("TRIX", span, arguments.length, ["span"]);
+  span ??= 14;
   const M = current();
   if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
   return wrapOp(M, () => new M.TRIX(span));
 }
+
+/** Tanh has no settings: its options object is empty. */
+export type TanhOptions = Record<string, never>;
 
 /**
  * Hyperbolic tangent.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Tanh.html for the full reference.
  */
-export function Tanh(): ScreamerOp {
+export function Tanh(options?: TanhOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Tanh", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Tanh());
 }
+
+/** TickRuleSign has no settings: its options object is empty. */
+export type TickRuleSignOptions = Record<string, never>;
 
 /**
  * Trade sign by the tick rule (+1 up-tick, -1 down-tick, carry on unchanged).
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_micro/TickRuleSign.html for the full reference.
  */
-export function TickRuleSign(): ScreamerOp {
+export function TickRuleSign(options?: TickRuleSignOptions): ScreamerOp {
+  if (_isOptions(options)) _options("TickRuleSign", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.TickRuleSign());
 }
 
+/** The settings of TrendMode by name, for `TrendMode({ ... })`. */
+export interface TrendModeOptions {
+  /** Threshold, as a fraction of the expected per-sample phase advance for the current dominant cycle, below which a sample is classified as trending. */
+  phaseRateFrac?: number;
+}
+
+/**
+ * Classifies each sample as trending (1.0) or cycling (0.0) from the dominant-cycle phase advance.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/TrendMode.html for the full reference.
+ */
+export function TrendMode(options: TrendModeOptions): ScreamerOp;
 /**
  * Classifies each sample as trending (1.0) or cycling (0.0) from the dominant-cycle phase advance.
  *
  * @param phaseRateFrac Threshold, as a fraction of the expected per-sample phase advance for the current dominant cycle, below which a sample is classified as trending.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/TrendMode.html for the full reference.
  */
-export function TrendMode(phaseRateFrac: number = 0.5): ScreamerOp {
+export function TrendMode(phaseRateFrac?: number): ScreamerOp;
+export function TrendMode(phaseRateFrac?: any): ScreamerOp {
+  if (_isOptions(phaseRateFrac)) [phaseRateFrac] = _options("TrendMode", phaseRateFrac, arguments.length, ["phaseRateFrac"]);
+  phaseRateFrac ??= 0.5;
   const M = current();
   if (_isText(phaseRateFrac)) throw new TypeError(`phaseRateFrac must be a number, got a string`);
   return wrapOp(M, () => new M.TrendMode(phaseRateFrac));
 }
+
+/** TrueRange has no settings: its options object is empty. */
+export type TrueRangeOptions = Record<string, never>;
 
 /**
  * Per-bar true range accounting for overnight gaps (Wilder, 1978).
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/TrueRange.html for the full reference.
  */
-export function TrueRange(): ScreamerOp {
+export function TrueRange(options?: TrueRangeOptions): ScreamerOp {
+  if (_isOptions(options)) _options("TrueRange", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.TrueRange());
 }
 
+/** The settings of UltimateOscillator by name, for `UltimateOscillator({ ... })`. */
+export interface UltimateOscillatorOptions {
+  /** Shortest of the three averaging periods, in bars; weighted 4. */
+  period1?: number;
+  /** Middle averaging period, in bars; weighted 2. */
+  period2?: number;
+  /** Longest averaging period, in bars; weighted 1. Output starts once this window is full. */
+  period3?: number;
+}
+
+/**
+ * Three-period weighted oscillator (Williams, 1976).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/UltimateOscillator.html for the full reference.
+ */
+export function UltimateOscillator(options: UltimateOscillatorOptions): ScreamerOp;
 /**
  * Three-period weighted oscillator (Williams, 1976).
  *
@@ -3548,7 +7471,12 @@ export function TrueRange(): ScreamerOp {
  * @param period3 Longest averaging period, in bars; weighted 1. Output starts once this window is full.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/UltimateOscillator.html for the full reference.
  */
-export function UltimateOscillator(period1: number = 7, period2: number = 14, period3: number = 28): ScreamerOp {
+export function UltimateOscillator(period1?: number, period2?: number, period3?: number): ScreamerOp;
+export function UltimateOscillator(period1?: any, period2?: any, period3?: any): ScreamerOp {
+  if (_isOptions(period1)) [period1, period2, period3] = _options("UltimateOscillator", period1, arguments.length, ["period1", "period2", "period3"]);
+  period1 ??= 7;
+  period2 ??= 14;
+  period3 ??= 28;
   const M = current();
   if (_isText(period1)) throw new TypeError(`period1 must be a number, got a string`);
   if (_isText(period2)) throw new TypeError(`period2 must be a number, got a string`);
@@ -3556,6 +7484,21 @@ export function UltimateOscillator(period1: number = 7, period2: number = 14, pe
   return wrapOp(M, () => new M.UltimateOscillator(period1, period2, period3));
 }
 
+/** The settings of VPIN by name, for `VPIN({ ... })`. */
+export interface VPINOptions {
+  /** Volume that fills one bucket (the volume clock). Set it to your instrument's volume scale. */
+  bucketVolume?: number;
+  /** Number of most recent closed buckets averaged. */
+  nBuckets?: number;
+}
+
+/**
+ * Volume-synchronized probability of informed trading (Easley-López de Prado-O'Hara 2012): order-flow toxicity.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/VPIN.html for the full reference.
+ */
+export function VPIN(options: VPINOptions): ScreamerOp;
 /**
  * Volume-synchronized probability of informed trading (Easley-López de Prado-O'Hara 2012): order-flow toxicity.
  *
@@ -3563,13 +7506,32 @@ export function UltimateOscillator(period1: number = 7, period2: number = 14, pe
  * @param nBuckets Number of most recent closed buckets averaged.
  * @see https://screamer.readthedocs.io/en/latest/functions_micro/VPIN.html for the full reference.
  */
-export function VPIN(bucketVolume: number = 1.0, nBuckets: number = 50): ScreamerOp {
+export function VPIN(bucketVolume?: number, nBuckets?: number): ScreamerOp;
+export function VPIN(bucketVolume?: any, nBuckets?: any): ScreamerOp {
+  if (_isOptions(bucketVolume)) [bucketVolume, nBuckets] = _options("VPIN", bucketVolume, arguments.length, ["bucketVolume", "nBuckets"]);
+  bucketVolume ??= 1.0;
+  nBuckets ??= 50;
   const M = current();
   if (_isText(bucketVolume)) throw new TypeError(`bucketVolume must be a number, got a string`);
   if (_isText(nBuckets)) throw new TypeError(`nBuckets must be a number, got a string`);
   return wrapOp(M, () => new M.VPIN(bucketVolume, nBuckets));
 }
 
+/** The settings of WMA by name, for `WMA({ ... })`. */
+export interface WMAOptions {
+  /** Number of most recent samples in the window; the newest sample gets weight window_size and the oldest weight 1. */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  startPolicy?: string;
+}
+
+/**
+ * Linearly weighted moving average.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/WMA.html for the full reference.
+ */
+export function WMA(options: WMAOptions): ScreamerOp;
 /**
  * Linearly weighted moving average.
  *
@@ -3577,30 +7539,54 @@ export function VPIN(bucketVolume: number = 1.0, nBuckets: number = 50): Screame
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/WMA.html for the full reference.
  */
-export function WMA(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
+export function WMA(windowSize?: number, startPolicy?: string): ScreamerOp;
+export function WMA(windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("WMA", windowSize, arguments.length, ["windowSize", "startPolicy"]);
+  windowSize ??= 20;
+  startPolicy ??= "strict";
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
   return wrapOp(M, () => new M.WMA(windowSize, startPolicy));
 }
 
+/** Where has no settings: its options object is empty. */
+export type WhereOptions = Record<string, never>;
+
 /**
  * Returns a if mask is nonzero, b otherwise. NaN mask yields NaN.
  *
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Where.html for the full reference.
  */
-export function Where(): ScreamerOp {
+export function Where(options?: WhereOptions): ScreamerOp {
+  if (_isOptions(options)) _options("Where", options, arguments.length, []);
   const M = current();
   return wrapOp(M, () => new M.Where());
 }
 
+/** The settings of WilliamsR by name, for `WilliamsR({ ... })`. */
+export interface WilliamsROptions {
+  /** Number of most recent bars over which the highest high and lowest low are taken. */
+  windowSize?: number;
+}
+
+/**
+ * Inverse stochastic oscillator in [-100, 0].
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/WilliamsR.html for the full reference.
+ */
+export function WilliamsR(options: WilliamsROptions): ScreamerOp;
 /**
  * Inverse stochastic oscillator in [-100, 0].
  *
  * @param windowSize Number of most recent bars over which the highest high and lowest low are taken.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/WilliamsR.html for the full reference.
  */
-export function WilliamsR(windowSize: number = 14): ScreamerOp {
+export function WilliamsR(windowSize?: number): ScreamerOp;
+export function WilliamsR(windowSize?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize] = _options("WilliamsR", windowSize, arguments.length, ["windowSize"]);
+  windowSize ??= 14;
   const M = current();
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   return wrapOp(M, () => new M.WilliamsR(windowSize));

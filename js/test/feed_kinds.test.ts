@@ -127,7 +127,8 @@ test("round 3: every number[] operator setting refuses strings, found from the m
       // setting, and every element is a number, as in Python.
       const otherKinds: unknown[] = [new Set([1, 2]), (function* () { yield 1; yield 2; })(),
                                      [[1], [2]], [1, {}], [1, true], new Map(), {}];
-      for (const bad of otherKinds) {
+      // A plain object first is the options object (Task 23), never a value.
+      for (const bad of i === 0 ? otherKinds.slice(0, -1) : otherKinds) {
         const args: unknown[] = new Array(i + 1).fill(undefined);
         args[i] = bad;
         assert.throws(() => api[op.name](...args), (e: unknown) => e instanceof TypeError &&

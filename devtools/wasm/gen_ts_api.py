@@ -33,6 +33,13 @@ sentinel that the C++ side reads back as an absent value). ``std::vector<double>
 parameters are materialized into an Embind ``VectorDouble`` inside the factory,
 passed to the constructor, then freed (the ctor copies the vector).
 
+Each factory also takes one plain object as its only argument, the settings by
+camelCase name (``EwMean({ span: 20 })``), typed by an ``<Op>Options`` type and
+an overload. The object is unpacked into the parameters, and the positional
+checks then run once on the values. ``null`` and ``undefined`` mean a setting's
+default in both forms; a required setting (no default) raises TypeError. An op
+without settings takes an empty options object or nothing.
+
 Modes:
     (no args)     regenerate ops.ts and ops.d.ts
     --check       assert every manifest op has a factory + a declaration
@@ -143,17 +150,8 @@ def _build_params(op: dict):
     return out
 
 
-def _sig_ts(params: list[dict]) -> str:
-    """Parameter list for an implementation (with `= default`)."""
-    bits = []
-    for p in params:
-        d = "" if p["default"] is None else f" = {p['default']}"
-        bits.append(f"{p['name']}: {p['ts_type']}{d}")
-    return ", ".join(bits)
-
-
 def _sig_decl(params: list[dict]) -> str:
-    """Parameter list for a declaration (`?` instead of `= default`)."""
+    """Positional parameter list for an overload (`?` marks a default)."""
     bits = []
     for p in params:
         opt = "?" if p["default"] is not None else ""
@@ -161,10 +159,61 @@ def _sig_decl(params: list[dict]) -> str:
     return ", ".join(bits)
 
 
+def _sig_impl(params: list[dict]) -> str:
+    """Implementation parameter list: every value is checked in the body."""
+    return ", ".join(f"{p['name']}?: any" for p in params)
+
+
+# The TS types a value of which is never a plain object. Only an op whose first
+# parameter has one of these types takes an options object; an op whose first
+# parameter could itself be an object (an NdArray `{data, shape}`) would not,
+# decided here from the type and never from the value.
+_OPTIONS_SAFE_FIRST = {"number", "string", "number | number[]"}
+
+
+def _takes_options(params: list[dict]) -> bool:
+    return not params or params[0]["ts_type"] in _OPTIONS_SAFE_FIRST
+
+
+def _options_type(name: str, params: list[dict], help_entry: dict | None, decl: bool) -> list[str]:
+    """The `<Op>Options` type: the settings by camelCase name."""
+    if not params:
+        return [f"/** {name} has no settings: its options object is empty. */",
+                f"export type {name}Options = Record<string, never>;"]
+    param_help = {p["name"]: p.get("description") for p in (help_entry or {}).get("parameters") or []}
+    lines = [f"/** The settings of {name} by name, for `{name}({{ ... }})`. */",
+             f"export interface {name}Options {{"]
+    for p in params:
+        desc = param_help.get(p["orig_name"])
+        if desc:
+            lines.append(f"  /** {_escape_comment(desc.strip())} */")
+        opt = "?" if p["default"] is not None else ""
+        lines.append(f"  {p['name']}{opt}: {p['ts_type']};")
+    lines.append("}")
+    return lines
+
+
 def _factory_body(name: str, params: list[dict], wrapper: str = "wrapOp") -> str:
     vecs = [p for p in params if p["is_vec"]]
     call_args = [f"_v{idx}" if p["is_vec"] else p["name"] for idx, p in enumerate(params)]
-    lines = ["  const M = current();"]
+    lines = []
+    names = [p["name"] for p in params]
+    if not params:
+        lines.append(f'  if (_isOptions(options)) _options("{name}", options, arguments.length, []);')
+    elif _takes_options(params):
+        # One plain object as the only argument holds the settings by name; it
+        # is unpacked into the parameters, then checked as a positional call.
+        lst = ", ".join(f'"{n}"' for n in names)
+        lines.append(f"  if (_isOptions({names[0]})) [{', '.join(names)}] = "
+                     f'_options("{name}", {names[0]}, arguments.length, [{lst}]);')
+    # null or undefined is the default; a required setting has none.
+    for p in params:
+        n = p["name"]
+        if p["default"] is None:
+            lines.append(f"  if ({n} == null) throw new TypeError(`{name}: {n} is required`);")
+        else:
+            lines.append(f"  {n} ??= {p['default']};")
+    lines.append("  const M = current();")
     # A string parameter reaches C++ as a val and is read there; checking it here
     # keeps C++ from reading a non-string object (and running its getters).
     for p in params:
@@ -309,18 +358,68 @@ def render_ops_ts(ops: list[dict], help_map: dict) -> str:
     out.append("  if (Array.isArray(x) || (ArrayBuffer.isView(x) && !(x instanceof DataView))) return Array.from(x as ArrayLike<unknown>);")
     out.append("  throw new TypeError(`${name} must be a number or an array of numbers, got ${_what(x)}`);")
     out.append("};")
+    out.append("// Only a plain object (prototype Object.prototype or null) is an options")
+    out.append("// object; an array, a typed array or a class instance never is.")
+    out.append("const _isOptions = (x: unknown): boolean => {")
+    out.append('  if (x === null || typeof x !== "object") return false;')
+    out.append("  const p = Object.getPrototypeOf(x);")
+    out.append("  return p === Object.prototype || p === null;")
+    out.append("};")
+    out.append("// The settings in an options object, in parameter order. Only own enumerable")
+    out.append("// keys count, so an inherited key is never read and an own `__proto__` key")
+    out.append("// is an unknown option.")
+    out.append("const _options = (op: string, o: any, nArgs: number, names: string[]): any[] => {")
+    out.append("  if (nArgs > 1) throw new TypeError(`${op}: an options object must be the only argument`);")
+    out.append("  for (const k of Object.keys(o))")
+    out.append("    if (!names.includes(k))")
+    out.append("      throw new TypeError(`${op}: unknown option '${k}'; ` + (names.length ? `valid options are ${names.join(\", \")}` : `${op} has no options`));")
+    out.append("  return names.map((k) => (Object.prototype.propertyIsEnumerable.call(o, k) ? o[k] : undefined));")
+    out.append("};")
     out.append("")
     for op in ops:
-        name = op["name"]
-        params = _build_params(op)
-        out.extend(_jsdoc_lines(name, help_map.get(name), params))
-        out.append(
-            f"export function {name}({_sig_ts(params)}): ScreamerOp {{"
-        )
-        out.append(_factory_body(name, params, _wrapper_for(op)))
-        out.append("}")
+        out.extend(_render_op(op, help_map, decl=False))
         out.append("")
     return "\n".join(out)
+
+
+def _options_jsdoc(op_name: str, help_entry: dict | None) -> list[str]:
+    """JSDoc for the options-object overload."""
+    short = ((help_entry or {}).get("short") or f"{op_name} operator").strip()
+    if not short.endswith("."):
+        short += "."
+    page = (help_entry or {}).get("doc_path")
+    url = f"{PYTHON_DOCS_URL}{page}.html" if page else PYTHON_DOCS_URL
+    return ["/**", f" * {_escape_comment(short)}", " *",
+            f" * @param options The settings by name, each one optional where the positional form's is.",
+            f" * @see {url} for the full reference.", " */"]
+
+
+def _render_op(op: dict, help_map: dict, decl: bool) -> list[str]:
+    """The options type, the overloads, and (for ops.ts) the implementation."""
+    name = op["name"]
+    params = _build_params(op)
+    help_entry = help_map.get(name)
+    fn = "export declare function" if decl else "export function"
+    lines = []
+    opts = _takes_options(params)
+    if opts:
+        lines.extend(_options_type(name, params, help_entry, decl))
+        lines.append("")
+    if params:
+        if opts:
+            lines.extend(_options_jsdoc(name, help_entry))
+            lines.append(f"{fn} {name}(options: {name}Options): ScreamerOp;")
+        lines.extend(_jsdoc_lines(name, help_entry, params))
+        lines.append(f"{fn} {name}({_sig_decl(params)}): ScreamerOp;")
+        if not decl:
+            lines.append(f"export function {name}({_sig_impl(params)}): ScreamerOp {{")
+    else:
+        lines.extend(_jsdoc_lines(name, help_entry, params))
+        lines.append(f"{fn} {name}(options?: {name}Options): ScreamerOp" + (";" if decl else " {"))
+    if not decl:
+        lines.append(_factory_body(name, params, _wrapper_for(op)))
+        lines.append("}")
+    return lines
 
 
 def render_ops_dts(ops: list[dict], help_map: dict) -> str:
@@ -328,12 +427,7 @@ def render_ops_dts(ops: list[dict], help_map: dict) -> str:
     out.append('import type { ScreamerOp } from "../runtime.js";')
     out.append("")
     for op in ops:
-        name = op["name"]
-        params = _build_params(op)
-        out.extend(_jsdoc_lines(name, help_map.get(name), params))
-        out.append(
-            f"export declare function {name}({_sig_decl(params)}): ScreamerOp;"
-        )
+        out.extend(_render_op(op, help_map, decl=True))
     out.append("")
     return "\n".join(out)
 

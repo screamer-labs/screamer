@@ -20,7 +20,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const SRC = readFileSync(join(HERE, "..", "src", "generated", "ops.ts"), "utf8");
 const kindOf = (name: string) =>
   new RegExp(`export function ${name}\\(`).test(SRC)
-    ? (SRC.split(`export function ${name}(`)[1].match(/return (wrapOp|wrapRowOp|wrapReducerOp)\(/)?.[1] ?? "")
+    ? (SRC.split(`export function ${name}(`).at(-1)!.match(/return (wrapOp|wrapRowOp|wrapReducerOp)\(/)?.[1] ?? "")
     : "";
 
 const T = 40, K = 3;

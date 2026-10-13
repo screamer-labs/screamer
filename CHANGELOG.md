@@ -10,6 +10,12 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Added
 
+* JavaScript constructors also take one options object: `EwMean({ span: 20 })`.
+  The names are the camelCase parameter names, each operator has a TypeScript
+  `<Op>Options` type, and an unknown name raises `TypeError`
+  ("EwMean: unknown option 'spn'; valid options are com, span, halflife,
+  alpha"). Only a plain object counts, and it must be the only argument. An
+  operator without parameters takes an empty object.
 * JavaScript `split`.
 * `split` takes values of any rank with time first, `(T, ...)`, in Python and
   JavaScript: each event is a row, and each output keeps the row shape
@@ -96,6 +102,13 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Changed
 
+* In JavaScript, `null` for an operator parameter keeps its default, as
+  `undefined` does: `RollingMean(3, null)` is `RollingMean(3)`. 2.8.0 read
+  `null` as 0 for a number parameter (`EwMean(null, 20)` raised `RangeError`)
+  and raised `TypeError` for a string or array parameter. A parameter without
+  a default that is left out or `null` raises `TypeError` ("SchmittTrigger:
+  lower is required"), where 2.8.0 read it as 0 (`SchmittTrigger(null, 3)` ran
+  with a lower threshold of 0). Pass `0` for the 2.8.0 result.
 * `split` runs its checks and its partition in C++, shared with JavaScript's
   `split`. Results for valid inputs are unchanged. Other changes:
   * A source must be a whole number. A bool, fractional, NaN, infinite,
