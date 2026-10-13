@@ -38,6 +38,8 @@
 #include <cstdlib>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -218,6 +220,9 @@ private:
         Value v = Value::object();
         ws();
         if (p_ < t_.size() && t_[p_] == '}') { ++p_; return v; }
+        // The keys seen, to their place in v.o: a later duplicate key
+        // replaces the earlier value (as Python's json does) in linear time.
+        std::unordered_map<std::string, std::size_t> at;
         for (;;) {
             ws();
             if (p_ >= t_.size() || t_[p_] != '"') fail("expected a property name in double quotes");
@@ -226,7 +231,10 @@ private:
             if (p_ >= t_.size() || t_[p_] != ':') fail("expected ':' after a property name");
             ++p_;
             ws();
-            v.set(key, value(depth + 1));
+            Value item = value(depth + 1);
+            const auto ins = at.emplace(key, v.o.size());
+            if (ins.second) v.o.emplace_back(std::move(key), std::move(item));
+            else v.o[ins.first->second].second = std::move(item);
             ws();
             if (p_ < t_.size() && t_[p_] == ',') { ++p_; continue; }
             if (p_ < t_.size() && t_[p_] == '}') { ++p_; return v; }
@@ -614,25 +622,27 @@ inline json::Value check_graph(const json::Value& doc) {
 
     const json::Value& nodes = detail::field(doc, "nodes", "the description");
     if (nodes.kind != K::Array) graph_error("\"nodes\" must be an array");
-    std::vector<std::int64_t> ids;
-    std::vector<std::string> names;          // the input nodes' names
+    // The ids and input names seen so far, as hash sets: the check is linear
+    // in the size of the description.
+    std::unordered_set<std::int64_t> ids;
+    std::unordered_set<std::string> names;   // the input nodes' names
+    std::vector<const std::string*> name_order;   // the same, in node order
     json::Value out_nodes = json::Value::array();
     for (std::size_t k = 0; k < nodes.a.size(); ++k) {
         const json::Value& n = nodes.a[k];
         const std::string where = "node " + std::to_string(k);
         if (n.kind != K::Object) graph_error(where + " must be an object, got " + detail::json_kind(n));
         const std::int64_t id = detail::node_id(detail::field(n, "id", where), where + ": \"id\"");
-        for (std::int64_t seen : ids)
-            if (seen == id) graph_error(where + ": the id " + std::to_string(id) + " is used twice");
+        if (ids.count(id)) graph_error(where + ": the id " + std::to_string(id) + " is used twice");
         const json::Value& kind = detail::field(n, "kind", where);
         json::Value node = json::Value::object();
         node.set("id", json::Value::integer(id));
         if (kind.kind == K::String && kind.s == "input") {
             const json::Value& name = detail::field(n, "name", where);
             if (name.kind != K::String) graph_error(where + ": an input's \"name\" must be a string");
-            for (const std::string& seen : names)
-                if (seen == name.s) graph_error("the input name '" + name.s + "' is used twice");
-            names.push_back(name.s);
+            if (!names.insert(name.s).second)
+                graph_error("the input name '" + name.s + "' is used twice");
+            name_order.push_back(&name.s);
             node.set("kind", kind);
             node.set("name", name);
         } else if (kind.kind == K::String && (kind.s == "operator" || kind.s == "functor")) {
@@ -648,9 +658,7 @@ inline json::Value check_graph(const json::Value& doc) {
             json::Value in_ids = json::Value::array();
             for (const json::Value& i : in.a) {
                 const std::int64_t src = detail::node_id(i, where + ": an entry of \"in\"");
-                bool earlier = false;
-                for (std::int64_t seen : ids) earlier = earlier || seen == src;
-                if (!earlier)
+                if (!ids.count(src))
                     graph_error(where + ": input " + std::to_string(src) + " is not an earlier node");
                 in_ids.a.push_back(json::Value::integer(src));
             }
@@ -682,20 +690,17 @@ inline json::Value check_graph(const json::Value& doc) {
         } else {
             throw std::invalid_argument("unknown node kind: " + graph_text(kind));
         }
-        ids.push_back(id);
+        ids.insert(id);
         out_nodes.a.push_back(std::move(node));
     }
     // Every declared input is an input node, and the reverse.
+    std::unordered_set<std::string> declared;
     for (const json::Value& n : inputs.a) {
-        bool found = false;
-        for (const std::string& seen : names) found = found || seen == n.s;
-        if (!found) graph_error("\"inputs\" names '" + n.s + "', which is not an input node");
+        if (!names.count(n.s)) graph_error("\"inputs\" names '" + n.s + "', which is not an input node");
+        declared.insert(n.s);
     }
-    for (const std::string& seen : names) {
-        bool found = false;
-        for (const json::Value& n : inputs.a) found = found || seen == n.s;
-        if (!found) graph_error("the input node '" + seen + "' is not in \"inputs\"");
-    }
+    for (const std::string* seen : name_order)
+        if (!declared.count(*seen)) graph_error("the input node '" + *seen + "' is not in \"inputs\"");
     out.set("nodes", std::move(out_nodes));
 
     const json::Value& outputs = detail::field(doc, "outputs", "the description");
@@ -703,9 +708,7 @@ inline json::Value check_graph(const json::Value& doc) {
     json::Value out_ids = json::Value::array();
     for (const json::Value& o : outputs.a) {
         const std::int64_t id = detail::node_id(o, "an entry of \"outputs\"");
-        bool known = false;
-        for (std::int64_t seen : ids) known = known || seen == id;
-        if (!known) graph_error("output " + std::to_string(id) + " is not a node");
+        if (!ids.count(id)) graph_error("output " + std::to_string(id) + " is not a node");
         out_ids.a.push_back(json::Value::integer(id));
     }
     out.set("outputs", std::move(out_ids));

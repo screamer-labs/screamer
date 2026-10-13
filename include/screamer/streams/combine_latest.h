@@ -60,6 +60,16 @@ public:
     std::size_t total_width() const { return latest_.size(); }
     const std::vector<double>& latest() const { return latest_; }
 
+    // reset() with the source widths `widths` (as many as before). Storage
+    // is reused, so a reset to the widths of an earlier run allocates nothing.
+    void reset(const std::vector<std::size_t>& widths) {
+        if (widths != widths_) {
+            widths_.assign(widths.begin(), widths.end());
+            layout();
+        }
+        reset();
+    }
+
     void reset() {
         std::fill(latest_.begin(), latest_.end(), std::numeric_limits<double>::quiet_NaN());
         std::fill(seen_.begin(), seen_.end(), static_cast<char>(0));

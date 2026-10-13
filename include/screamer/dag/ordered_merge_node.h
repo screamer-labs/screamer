@@ -5,11 +5,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
-#include <queue>
 #include <stdexcept>
 #include <string>
 #include <vector>
 #include "screamer/dag/frame.h"
+#include "screamer/dag/reorder_heap.h"
 #include "screamer/dag/resettable.h"
 
 namespace screamer { namespace dag {
@@ -70,7 +70,7 @@ public:
         flushed_count_ = 0;
         has_gfront_ = false;
         gfront_ = kMin;
-        pending_ = Heap();
+        pending_.clear();
         next_seq_ = 0;
         last_forwarded_ = kMin;
     }
@@ -212,7 +212,7 @@ private:
             return a.seq > b.seq;
         }
     };
-    using Heap = std::priority_queue<Pending, std::vector<Pending>, PendGreater>;
+    using Heap = ReorderHeap<Pending, PendGreater>;
 
     Sink<Index>& downstream_;
     std::size_t n_;

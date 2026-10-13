@@ -582,7 +582,8 @@ static dag::json::Value to_json_value(nb::handle x, int depth = 0) {
             if (!PyUnicode_Check(kv.first.ptr()))
                 throw nb::type_error(("keys must be str, not " +
                     nb::cast<std::string>(nb::type_name(kv.first.type()))).c_str());
-            o.set(nb::cast<std::string>(kv.first), to_json_value(kv.second, depth + 1));
+            // A dict's keys are unique: append (set() would scan every key).
+            o.o.emplace_back(nb::cast<std::string>(kv.first), to_json_value(kv.second, depth + 1));
         }
         return o;
     }

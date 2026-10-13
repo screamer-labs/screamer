@@ -5,13 +5,13 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
-#include <queue>
 #include <stdexcept>
 #include <string>
 #include <vector>
 #include "screamer/common/float_info.h"
 #include "screamer/dag/frame.h"
 #include "screamer/dag/max_pending.h"
+#include "screamer/dag/reorder_heap.h"
 #include "screamer/dag/resettable.h"
 #include "screamer/streams/combine_latest.h"
 
@@ -67,7 +67,7 @@ public:
         std::fill(flushed_.begin(), flushed_.end(), false);
         flushed_count_ = 0;
         std::fill(wm_.begin(), wm_.end(), std::numeric_limits<Index>::min());
-        while (!pending_.empty()) pending_.pop();
+        pending_.clear();
         next_seq_ = 0;
         last_forwarded_wm_ = std::numeric_limits<Index>::min();
     }
@@ -217,7 +217,7 @@ private:
             return a.seq > b.seq;                              // then FIFO by arrival
         }
     };
-    std::priority_queue<Pending, std::vector<Pending>, PendGreater> pending_;
+    ReorderHeap<Pending, PendGreater> pending_;
     std::uint64_t next_seq_ = 0;   // monotonic arrival counter for pending_
 
     // Last watermark forwarded downstream: skip a redundant virtual call when the

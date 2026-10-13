@@ -295,3 +295,17 @@ def test_a_json_integer_past_int64_gives_the_range_message():
                      ("1099511627776", "must be at most 2147483647, got 1099511627776")]:
         with pytest.raises(ValueError, match="RollingMean: window_size " + msg):
             Pipeline.from_json(text.replace('"window_size": 3', '"window_size": ' + big))
+
+
+def test_a_large_description_checks_in_linear_time():
+    # 200k nodes: the old check compared every id with every earlier one
+    # (2e10 comparisons, minutes); a linear check takes about a second.
+    import time
+    n = 200_000
+    nodes = [{"id": 0, "kind": "input", "name": "x"}]
+    nodes += [{"id": i, "kind": "operator", "op": "Dropna", "in": [i - 1]} for i in range(1, n)]
+    d = {"screamer_dag": 1, "inputs": ["x"], "nodes": nodes, "outputs": [n - 1]}
+    t0 = time.perf_counter()
+    out = _b._graph_check(d)
+    assert len(out["nodes"]) == n
+    assert time.perf_counter() - t0 < 20.0
