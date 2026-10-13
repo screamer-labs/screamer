@@ -998,6 +998,17 @@ def _resample_clock_batch(vals, val_idx, clk_vals, clk_idx, *, agg, fill,
     return dag((vals_f, val_idx), (clk_f, clk_idx))
 
 
+def _lazy_resample_rows(dag, iters, agg):
+    """The C++ lazy driver of a one-output resample Pipeline. A builtin column
+    agg gives each bar in its event's shape, (*A,) or (*A, 4) for ohlc, as a
+    batch row; the driver reads and shapes the events, no Python per event."""
+    from . import screamer_bindings as _b
+    if isinstance(agg, str) and agg in _COLUMN_AGGS:
+        return _b._LazyDriver(dag._cg, iters, 1, "Pipeline", 0,
+                              [4] if agg == "ohlc" else [])
+    return _b._LazyDriver(dag._cg, iters, 1)
+
+
 def _resample_clock_lazy(values, clock_stream, *, agg, fill, origin, label,
                            max_age):
     """Lazy ByClock resample: run a 2-input Pipeline (value + clock) in lazy mode.
@@ -1005,35 +1016,16 @@ def _resample_clock_lazy(values, clock_stream, *, agg, fill, origin, label,
     Builds the same 2-input Pipeline as _resample_clock_batch but feeds it with
     lazy iterators. The C++ _LazyDriver merges the two input iterators by index
     and routes value events to port 0 and clock events to port 1 of the
-    ResampleNode(ByClock), producing a lazy output iterator.
-
-    The input iterators must yield (value, index) pairs where index is comparable.
-    Both must be consistently indexed (both positional or both (value, index) pairs).
+    ResampleNode(ByClock), producing a lazy output iterator. Array events are
+    resampled per column and each bar comes back in the event's shape.
     """
-    import itertools
     from .dag import Input, Pipeline
     val_in = Input("v")
     clk_in = Input("c")
     node = resample(val_in, clk_in, clock=True, agg=agg, fill=fill,
                     origin=origin, label=label, max_age=max_age)
     dag = Pipeline([val_in, clk_in], [node])
-    it = iter(values)
-    head = next(it, _EMPTY)
-    if head is _EMPTY:
-        yield from dag(iter(()), iter(clock_stream))
-        return
-    events = itertools.chain([head], it)
-    v0 = (_as_float64(head[0]) if isinstance(head, tuple) and len(head) == 2
-          else None)
-    if v0 is None or v0.ndim == 0 or agg not in _COLUMN_AGGS:
-        yield from dag(events, iter(clock_stream))
-        return
-    # Events of assets: each column is reduced on its own and the bars come
-    # back in the event's shape, with a last axis of 4 for ohlc (as freq=).
-    shape = _column_shape((1,) + v0.shape) + ((4,) if agg == "ohlc" else ())
-    flat = ((np.ravel(_as_float64(v)), i) for v, i in events)
-    for v, i in dag(flat, iter(clock_stream)):
-        yield _as_float64(v).reshape(shape), i
+    return _lazy_resample_rows(dag, [iter(values), iter(clock_stream)], agg)
 
 
 def _resample_validate(freq, every, count, threshold, agg, label, fill="skip",
@@ -1121,27 +1113,33 @@ def _resample_validate(freq, every, count, threshold, agg, label, fill="skip",
 
 def _resample_lazy(values, *, every, count, agg, origin, label, fill):
     """Lazy resample; events whose value is an array of assets are resampled per
-    column and come back in the same shape."""
+    column and come back in the same shape (the C++ driver reads and shapes
+    them)."""
+    if not isinstance(agg, str):
+        return _resample_lazy_functor(values, every=every, count=count, agg=agg,
+                                      origin=origin, label=label, fill=fill)
+    from .dag import Input, Pipeline
+    src = Input("x")
+    dag = Pipeline([src], [resample(src, every=every, count=count, agg=agg,
+                                    origin=origin, label=label, fill=fill)])
+    return _lazy_resample_rows(dag, [iter(values)], agg)
+
+
+def _resample_lazy_functor(values, *, every, count, agg, origin, label, fill):
+    """Lazy resample with a functor agg, which aggregates one column."""
     import itertools
     it = iter(values)
     head = next(it, _EMPTY)
     if head is _EMPTY:
         return
-    events = itertools.chain([head], it)
     v0 = _as_float64(head[0])
-    if v0.ndim > 0 and not isinstance(agg, str):
+    if v0.ndim > 0:
         raise ValueError(
             f"resample: a functor agg aggregates one column; got events of shape {v0.shape}. "
             "Resample each column with its own functor, or use a builtin agg.")
-    if v0.ndim == 0 or not (isinstance(agg, str) and agg in _COLUMN_AGGS):
-        yield from _resample_via_cpp(events, every=every, count=count, threshold=None,
-                                     agg=agg, origin=origin, label=label, fill=fill)
-        return
-    shape = _column_shape((1,) + v0.shape) + ((4,) if agg == "ohlc" else ())
-    flat = ((np.ravel(_as_float64(v)), i) for v, i in events)
-    for v, i in _resample_via_cpp(flat, every=every, count=count, threshold=None,
-                                  agg=agg, origin=origin, label=label, fill=fill):
-        yield _as_float64(v).reshape(shape), i
+    yield from _resample_via_cpp(itertools.chain([head], it), every=every, count=count,
+                                 threshold=None, agg=agg, origin=origin, label=label,
+                                 fill=fill)
 
 
 def resample(values, driver=None, index=None, *, freq=None, every=None, count=None,

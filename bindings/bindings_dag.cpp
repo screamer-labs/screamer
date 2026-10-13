@@ -104,15 +104,31 @@ static nb::object make_output_value(const double* v, std::size_t w) {
 class LazyDriver {
 public:
     // `owner` names the API in error messages (Pipeline, combine_latest).
+    //
+    // Event shape (one output only): with `shape_input` >= 0, that input's
+    // events may be float64 arrays of any rank (read in C order, as a batch
+    // call reads (T, *A) values), and every output row comes back as an array
+    // of shape A + `shape_tail`, where A is the first wide event's shape with
+    // a trailing unit axis dropped (the batch rule of a per-column resample:
+    // (T, *A) in, (T', *A, *tail) out). Scalar events keep the default rows.
     LazyDriver(nb::object cg_keepalive, dag::CompiledGraph& cg, nb::list iterators,
-               std::size_t n_out, std::string owner = "Pipeline")
-        : cg_keepalive_(std::move(cg_keepalive)), cg_(cg), n_out_(n_out), owner_(std::move(owner)) {
+               std::size_t n_out, std::string owner = "Pipeline",
+               std::ptrdiff_t shape_input = -1, std::vector<std::size_t> shape_tail = {})
+        : cg_keepalive_(std::move(cg_keepalive)), cg_(cg), n_out_(n_out), owner_(std::move(owner)),
+          shape_input_(shape_input), shape_tail_(std::move(shape_tail)) {
         unit_ = std::make_unique<TimeUnit>();
         for (nb::handle h : iterators) {
             sources_.push_back(std::make_unique<streams::PySource<std::int64_t>>(
                 nb::borrow<nb::object>(h), /*positional=*/false, sources_.size(), owner_.c_str(),
                 unit_.get()));
             child_ptrs_.push_back(sources_.back().get());
+        }
+        if (shape_input_ >= 0) {
+            if (n_out_ != 1 || static_cast<std::size_t>(shape_input_) >= sources_.size())
+                throw std::invalid_argument("_LazyDriver: shape_input needs one output and a valid input");
+            sources_[static_cast<std::size_t>(shape_input_)]->set_flatten(true);
+        } else {
+            shape_known_ = true;
         }
         merge_ = std::make_unique<streams::MergeSource<std::int64_t>>(child_ptrs_);
         cg_.reset();
@@ -125,6 +141,8 @@ public:
             if (auto e = merge_->next()) {
                 const std::size_t src = static_cast<std::size_t>(e->source);
                 const auto* py_src = sources_[src].get();
+                if (!shape_known_ && static_cast<std::ptrdiff_t>(src) == shape_input_)
+                    learn_shape(*py_src);
                 if (py_src->is_wide()) {
                     const auto& wv = py_src->wide_values();
                     cg_.push_event_wide(src, e->index, wv.data(), wv.size());
@@ -173,14 +191,38 @@ private:
         }
     }
 
-    // One output: buffer each drained frame directly as a (value, index) row.
+    // The output row shape from the first event of the shape input: A (the
+    // event's shape, a trailing unit axis dropped) + shape_tail_. A scalar
+    // event keeps the default rows (out_shape_ empty).
+    void learn_shape(const streams::PySource<std::int64_t>& src) {
+        shape_known_ = true;
+        if (!src.is_wide()) return;
+        out_shape_ = src.event_shape();
+        if (out_shape_.size() >= 2 && out_shape_.back() == 1) out_shape_.pop_back();
+        out_shape_.insert(out_shape_.end(), shape_tail_.begin(), shape_tail_.end());
+        out_size_ = 1;
+        for (std::size_t d : out_shape_) out_size_ *= d;
+    }
+
+    // One output: buffer each drained frame directly as a (value, index) row,
+    // the value an array of out_shape_ when the event shape is set.
     void collect_single() {
         const dag::OutputBuffer& b = drained_[0];
         const std::size_t w = b.width;
         const std::size_t rows = b.indices.size();
-        for (std::size_t r = 0; r < rows; ++r)
-            pending_.push_back(nb::make_tuple(make_output_value(b.values.data() + r * w, w),
-                                              nb::int_(b.indices[r])));
+        const bool shaped = !out_shape_.empty() && out_size_ == w;
+        for (std::size_t r = 0; r < rows; ++r) {
+            const double* v = b.values.data() + r * w;
+            nb::object value;
+            if (shaped) {
+                double* data = new double[w];
+                std::memcpy(data, v, w * sizeof(double));
+                value = owned_array(data, out_shape_);   // the array owns data
+            } else {
+                value = make_output_value(v, w);
+            }
+            pending_.push_back(nb::make_tuple(std::move(value), nb::int_(b.indices[r])));
+        }
     }
 
     // M>1 outputs: the rows the join settled, as (col0, ..., col_{M-1}, index).
@@ -209,6 +251,11 @@ private:
     std::deque<nb::object> pending_;
     std::vector<dag::OutputBuffer> drained_;  // reused drain storage
     bool done_ = false;
+    std::ptrdiff_t shape_input_;              // the input whose event shape shapes rows; -1 none
+    std::vector<std::size_t> shape_tail_;     // axes after the event shape (4 for ohlc)
+    bool shape_known_ = false;
+    std::vector<std::size_t> out_shape_;      // the row shape; empty = default rows
+    std::size_t out_size_ = 0;
 };
 
 // A feed's values are (T,) or (T, w): a higher rank would be read as (T,
@@ -829,11 +876,14 @@ void init_bindings_dag(nb::module_& m) {
     // Lazy driver over a compiled graph and Python-iterator feeds.
     nb::class_<LazyDriver>(m, "_LazyDriver", nb::type_slots(gc_slots<LazyDriver>))
         .def("__init__", [](LazyDriver* self, nb::object cg_obj, nb::list iterators,
-                            std::size_t n_out, std::string owner) {
+                            std::size_t n_out, std::string owner, std::ptrdiff_t shape_input,
+                            std::vector<std::size_t> shape_tail) {
                  PyCompiledGraph& pcg = nb::cast<PyCompiledGraph&>(cg_obj);
-                 new (self) LazyDriver(cg_obj, *pcg.cg, iterators, n_out, std::move(owner));
+                 new (self) LazyDriver(cg_obj, *pcg.cg, iterators, n_out, std::move(owner),
+                                       shape_input, std::move(shape_tail));
              },
-             "cg"_a, "iterators"_a, "n_out"_a, "owner"_a = "Pipeline")
+             "cg"_a, "iterators"_a, "n_out"_a, "owner"_a = "Pipeline",
+             "shape_input"_a = -1, "shape_tail"_a = std::vector<std::size_t>{})
         .def("__iter__", [](nb::object self) { return self; })
         .def("__next__", &LazyDriver::next);
 

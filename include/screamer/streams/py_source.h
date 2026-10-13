@@ -15,6 +15,7 @@
 #include "screamer/streams/py_index.h"
 #include "screamer/streams/event.h"
 #include <cstddef>
+#include <cstring>
 
 namespace nb = nanobind;
 
@@ -94,7 +95,9 @@ public:
             } else if (PyUnicode_Check(vp) || PyBytes_Check(vp) || PyByteArray_Check(vp)) {
                 bad(event, "the value of event", val_obj);   // text, not a sequence
             }
-            if (!is_scalar) {
+            if (!is_scalar && read_float64_buffer(vp, event)) {
+                ev.value = wide_values_[0];
+            } else if (!is_scalar) {
                 // Wide event: extract all values from the sequence.
                 nb::sequence seq;
                 if (nb::try_cast<nb::sequence>(val_obj, seq)) {
@@ -115,6 +118,7 @@ public:
                         wide_values_.push_back(d);
                     }
                     ev.value = wide_values_[0];
+                    event_shape_.assign(1, n);
                 } else {
                     // Last resort: try direct cast (handles numpy scalars, etc.)
                     if (!nb::try_cast<double>(val_obj, ev.value))
@@ -160,7 +164,55 @@ public:
     // Returns the wide values from the last event (valid only when is_wide()).
     const std::vector<double>& wide_values() const { return wide_values_; }
 
+    // The shape of the last wide event: (n,) for a sequence, the array's
+    // shape for a float64 buffer (valid only when is_wide()).
+    const std::vector<std::size_t>& event_shape() const { return event_shape_; }
+
+    // Lets a float64 array event of rank 2 or more be read as its values in
+    // C order (one wide event), as a batch call reads a (T, *A) array. Off by
+    // default: a Pipeline stream holds (T,) or (T, w) values.
+    void set_flatten(bool on) { flatten_ = on; }
+
 private:
+    // Reads a C-contiguous native float64 buffer of rank 1 (or more, under
+    // set_flatten) into wide_values_ with one copy. Returns false, with no
+    // error set, for any other object, which then takes the sequence path.
+    bool read_float64_buffer(PyObject* vp, std::size_t event) {
+        if (!PyObject_CheckBuffer(vp)) return false;
+        Py_buffer view;
+        if (PyObject_GetBuffer(vp, &view, PyBUF_C_CONTIGUOUS | PyBUF_FORMAT) != 0) {
+            PyErr_Clear();
+            return false;
+        }
+        const char* f = view.format ? view.format : "B";
+        if (*f == '@' || *f == '=' || (*f == '<' && little_endian())) ++f;
+        const bool ok = f[0] == 'd' && f[1] == '\0' &&
+                        view.itemsize == static_cast<Py_ssize_t>(sizeof(double)) &&
+                        (view.ndim == 1 || (view.ndim > 1 && flatten_));
+        if (ok) {
+            const std::size_t n = static_cast<std::size_t>(view.len) / sizeof(double);
+            if (n == 0) {
+                PyBuffer_Release(&view);
+                throw nb::value_error((std::string(owner_) + ": " +
+                    where(event, "the value of event") + " is empty").c_str());
+            }
+            wide_values_.resize(n);
+            std::memcpy(wide_values_.data(), view.buf, n * sizeof(double));
+            event_shape_.resize(static_cast<std::size_t>(view.ndim));
+            for (int d = 0; d < view.ndim; ++d)
+                event_shape_[static_cast<std::size_t>(d)] =
+                    static_cast<std::size_t>(view.shape[d]);
+        }
+        PyBuffer_Release(&view);
+        return ok;
+    }
+    static bool little_endian() {
+        const std::uint16_t one = 1;
+        unsigned char b;
+        std::memcpy(&b, &one, 1);
+        return b == 1;
+    }
+
     // The wrong-kind TypeError for `x`, `what` naming it ("the value of event").
     std::string where(std::size_t event, const char* what) const {
         return where_text(what, static_cast<std::ptrdiff_t>(event),
@@ -181,6 +233,8 @@ private:
     std::size_t input_;                 // this source's input position
     const char* owner_;                 // "Pipeline", "stream"
     std::vector<double> wide_values_;   // populated when last event was wide
+    std::vector<std::size_t> event_shape_;  // the last wide event's shape
+    bool flatten_ = false;              // read a rank-2+ float64 array event
     screamer::TimeUnit* unit_;          // the call's index kind, shared; may be null
     static constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 };
