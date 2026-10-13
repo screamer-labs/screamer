@@ -9267,7 +9267,7 @@
       "TRIX"
     ],
     "references": [
-      "Mulloy, P. G. (1994). Smoothing data with faster moving averages. *Technical Analysis of Stocks & Commodities*, 12(1)."
+      "Mulloy, P. G. (1994). Smoothing data with faster moving averages. *Technical Analysis of Stocks & Commodities*, 12(1), 11-19."
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\n`DEMA` (Double Exponential Moving Average, Mulloy 1994) is a low-lag smoother:\n\n$$\n\\text{DEMA}[t] = 2 \\cdot \\text{EMA}(x)[t] - \\text{EMA}(\\text{EMA}(x))[t]\n$$\n\nSubtracting the EMA of the EMA from twice the EMA removes most of the lag of a single\nEMA. The result follows the input more closely than a plain EMA of the same span while\nstill smoothing high-frequency noise. Both EMAs are [`EwMean`](../functions_ew/EwMean.md)\nwith the same decay, set by one of `com`, `span`, `halflife` or `alpha`.\n\nThere is no warmup. `EwMean` returns `x[0]` at the first sample, so `DEMA[0] = x[0]`.\nEach step costs `O(1)` time and memory.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
@@ -12119,7 +12119,7 @@
       "KAMA"
     ],
     "references": [
-      "Mulloy, P. G. (1994). Smoothing data with less lag. *Technical Analysis of Stocks & Commodities*, 12(2)."
+      "Mulloy, P. G. (1994). Smoothing data with less lag. *Technical Analysis of Stocks & Commodities*, 12(2), 72-80."
     ],
     "details": "## Description\n\n`TEMA` (triple exponential moving average, Patrick Mulloy, 1994) extends the `DEMA` construction by one more level:\n\n$$\n\\text{TEMA}[t] = 3 \\cdot \\text{EMA}(x)[t] - 3 \\cdot \\text{EMA}(\\text{EMA}(x))[t] + \\text{EMA}(\\text{EMA}(\\text{EMA}(x)))[t]\n$$\n\nThe three-term combination reduces lag further: `TEMA` typically tracks the input faster than `DEMA`, and much faster than a plain EMA of the same span, at the cost of less smoothing. The decay parameter (exactly one of `com`, `span`, `halflife` or `alpha`, as in `EwMean`) is shared by all three EMAs.\n\n## Implementation Details\n\n### Algorithm\n\n`TEMA` chains three `EwMean` stages. It has no warmup: each `EwMean` returns a valid value from t=0, so `TEMA[0] = 3*x[0] - 3*x[0] + x[0] = x[0]`.\n\n### Complexity\n\n* Time complexity: `O(1)` per step.\n* Space complexity: `O(1)`.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
     "examples": [
@@ -12209,7 +12209,7 @@
       "MACD"
     ],
     "references": [
-      "Hutson, J. K. (1983). Good TRIX. *Technical Analysis of Stocks & Commodities*, 1(5)."
+      "Hutson, J. K. (1983). Good TRIX. *Technical Analysis of Stocks & Commodities*, 1(5), 105-108."
     ],
     "details": "## Description\n\n`TRIX(span)` (Jack Hutson, 1983) is the one-step percentage rate of change of a triple-smoothed EMA. It is a momentum oscillator: the two extra layers of exponential smoothing filter out short-term noise before the change is measured.\n\n$$\n\\begin{aligned}\n\\text{ema}_1[t] &= \\text{EwMean}(\\text{span})(x)[t] \\\\\n\\text{ema}_2[t] &= \\text{EwMean}(\\text{span})(\\text{ema}_1)[t] \\\\\n\\text{ema}_3[t] &= \\text{EwMean}(\\text{span})(\\text{ema}_2)[t] \\\\\n\\text{TRIX}[t]  &= 100 \\cdot \\frac{\\text{ema}_3[t] - \\text{ema}_3[t-1]}{\\text{ema}_3[t-1]}\n\\end{aligned}\n$$\n\nAll three stages use the same `span`. Only the first output is NaN, because there is no previous `ema3` yet; each `EwMean` is defined from `t=0`, so TRIX is finite from `t=1` onward.\n\n## Implementation Details\n\n`TRIX` chains three `EwMean` stages and keeps the previous `ema3` value. Each step is O(1).\n\nThe underlying EMA follows pandas `adjust=True` (the bias-corrected weighted mean used throughout the library). TA-Lib's TRIX uses `adjust=False` with an SMA-seeded warmup, so ours differs from TA-Lib by a few percent during early samples; see [conventions](../conventions.md).\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
     "examples": [
@@ -12311,7 +12311,7 @@
       "TrueRange"
     ],
     "references": [
-      "Williams, L. (1985). The ultimate oscillator. *Technical Analysis of Stocks & Commodities*, 3(4)."
+      "Williams, L. (1985). The ultimate oscillator. *Technical Analysis of Stocks & Commodities*, 3(4), 140-141."
     ],
     "details": "## Description\n\n`UltimateOscillator` (Larry Williams, 1976) combines the ratio of buying pressure to true range over three periods into one weighted oscillator, so that short, medium and long momentum enter a single value.\n\n$$\n\\begin{aligned}\n\\text{BP}[t]   &= \\text{close} - \\min(\\text{low},\\ \\text{close}_{t-1}) \\\\\n\\text{TR}[t]   &= \\max(\\text{high},\\ \\text{close}_{t-1}) - \\min(\\text{low},\\ \\text{close}_{t-1}) \\\\\n\\text{avg}_k   &= \\frac{\\sum \\text{BP} \\text{ over } \\text{period}_k}{\\sum \\text{TR} \\text{ over } \\text{period}_k} \\\\\n\\text{UO}[t]   &= 100 \\cdot \\frac{4 \\cdot \\text{avg}_1 + 2 \\cdot \\text{avg}_2 + \\text{avg}_3}{7}\n\\end{aligned}\n$$\n\nThe 4 / 2 / 1 weighting puts the heaviest emphasis on the shortest period.\n\nThe inputs are `(high, low, close)`. The output lies in `[0, 100]` and is NaN until sample index `max(period1, period2, period3)`, following TA-Lib.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
     "examples": [
@@ -13395,7 +13395,7 @@
     ],
     "references": [
       "Ehlers, J. F. (2013). *Cycle Analytics for Traders: Advanced Technical Trading Concepts*. Wiley.",
-      "Ehlers, J. F. (2014). Predictive and successful indicators. *Technical Analysis of Stocks & Commodities*, January 2014."
+      "Ehlers, J. F. (2014). Predictive and successful indicators. *Technical Analysis of Stocks & Commodities*, 32(1), 16-25, January 2014."
     ],
     "details": "## Description\n\n`RoofingFilter` is a causal bandpass from John Ehlers. It applies a 2-pole\nhighpass at `hp_period` to remove the trend, then a `SuperSmoother` at\n`lp_period` to remove fast noise, leaving the band of cycles between the two\ncutoffs. It is the preprocessing step Ehlers applies before measuring a cycle,\nbecause a raw series carries a trend and high-frequency noise that distort the\nmeasurement.\n\nEach cutoff is a cycle length in samples (`hp_period`, `lp_period`) or a fraction\nof the Nyquist frequency (`hp_cutoff`, `lp_cutoff`), related by `cutoff = 2 / period`.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
     "examples": [

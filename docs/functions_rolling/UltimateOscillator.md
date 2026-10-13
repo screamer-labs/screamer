@@ -40,7 +40,7 @@ see_also:
 - TrueRange
 references:
 - Williams, L. (1985). The ultimate oscillator. *Technical Analysis of Stocks & Commodities*,
-  3(4).
+  3(4), 140-141.
 ---
 
 # `UltimateOscillator`

@@ -44,7 +44,7 @@ see_also:
 - TRIX
 references:
 - Mulloy, P. G. (1994). Smoothing data with faster moving averages. *Technical Analysis of
-  Stocks & Commodities*, 12(1).
+  Stocks & Commodities*, 12(1), 11-19.
 nan_policy: ignore
 ---
 

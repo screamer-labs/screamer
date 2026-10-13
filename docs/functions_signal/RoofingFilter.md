@@ -46,7 +46,7 @@ references:
 - 'Ehlers, J. F. (2013). *Cycle Analytics for Traders: Advanced Technical Trading Concepts*.
   Wiley.'
 - Ehlers, J. F. (2014). Predictive and successful indicators. *Technical Analysis of Stocks
-  & Commodities*, January 2014.
+  & Commodities*, 32(1), 16-25, January 2014.
 ---
 
 # `RoofingFilter`

@@ -46,7 +46,7 @@ see_also:
 - KAMA
 references:
 - Mulloy, P. G. (1994). Smoothing data with less lag. *Technical Analysis of Stocks & Commodities*,
-  12(2).
+  12(2), 72-80.
 ---
 
 # `TEMA`

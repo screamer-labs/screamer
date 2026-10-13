@@ -30,7 +30,7 @@ see_also:
 - ROCP
 - MACD
 references:
-- Hutson, J. K. (1983). Good TRIX. *Technical Analysis of Stocks & Commodities*, 1(5).
+- Hutson, J. K. (1983). Good TRIX. *Technical Analysis of Stocks & Commodities*, 1(5), 105-108.
 ---
 
 # `TRIX`
