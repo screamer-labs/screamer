@@ -151,13 +151,6 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   operator changed a Pipeline's state too. In JavaScript, disposing the
   operator no longer affects a Pipeline built from it. Old result: none; the
   shared results were wrong.
-* `max_pending` also caps the rows a live session holds in its output
-  alignment: while one output does not move (a silent input), the
-  other outputs' rows wait for it, and more than `max_pending` of them raise
-  `RuntimeError` (`RangeError` in JavaScript), "output alignment overflow",
-  as a `CombineLatest` reorder buffer does. In 2.8.0 they grew without
-  bound. Old result: pass a larger `max_pending`, or call `advance(now)` from
-  time to time, which releases them.
 * An operator or `Dropna` given several streams in a `Pipeline` (each a
   separate stream of events, such as `Add()(a, b)` over two 2-column inputs)
   takes their events in index order, and events at one index in the order of
@@ -940,6 +933,12 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Fixed
 
+* A live `Pipeline` with a `freq=` (`every=`), `count=` or `threshold=`
+  `Resample` beside another output held the other outputs' rows of two bars
+  (label="left"); a join fed by such a Resample held as many events. The
+  Resample now tells its consumers where its open bar starts as events
+  arrive, so they hold at most the rows of one open bar, in Python and
+  JavaScript. The rows are unchanged.
 * A 0-d NumPy array beside an array in a multi-input call raised
   `RuntimeError` ("Input array must have at least one dimension") or NumPy's
   "iteration over a 0-d array", depending on the order, and a number after

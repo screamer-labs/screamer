@@ -382,23 +382,30 @@ test("live: push and advance after flush() throw RangeError; a new session start
   } finally { p.dispose(); }
 });
 
-// The output alignment holds at most maxPending rows (the twin of
-// test_output_alignment_is_capped_by_max_pending).
-test("live: the output alignment is capped by maxPending; advance() keeps it bounded", async () => {
+
+// A long resample bar beside a fast output holds at most one open bar of the
+// other output's rows (the twin of tests/test_resample_bar_watermark.py).
+test("live: an every/count resample bar beside a fast output holds one bar", async () => {
   await ready();
-  const a = Input("a"), b = Input("b");
-  const p = new Pipeline([a, b], [RollingMean(1)(a), RollingMean(1)(b)], { maxPending: 100 });
-  try {
-    let s = p.live();
-    s.push("b", 0, 0);
-    assert.throws(() => { for (let t = 0; t < 200; t++) { s.push("a", t, t); s.result(); } },
-      (e: unknown) => e instanceof RangeError && /output alignment overflow: 101 rows wait/.test((e as Error).message));
-    s = p.live();
-    s.push("b", 0, 0);
-    for (let t = 0; t < 1000; t++) {
-      s.push("a", t, t);
-      if (t % 50 === 49) s.advance(t);
-      s.result();
-    }
-  } finally { p.dispose(); }
+  const bar = 1000, n = 20_000;
+  for (const opts of [{ every: bar }, { count: bar }, { every: bar, label: "right" }] as any[]) {
+    const x = Input("x");
+    const p = new Pipeline([x], [resample(x, { agg: "last", ...opts }), RollingMean(1)(x)]);
+    try {
+      const want = Array.from((p(Float64Array.from({ length: n }, (_, i) => i)) as Output[])[0].index as any) as number[];
+      const s = p.live();
+      let released = 0;
+      for (let t = 0; t < n; t++) {
+        s.push("x", t, t);
+        if (t % 100 === 99) {
+          released += ((s.result() as Output[])[0].index as any).length;
+          const due = want.filter((k) => k <= t).length;
+          assert.ok(due - released <= bar + 100, `${JSON.stringify(opts)}: ${due - released} rows wait at ${t}`);
+        }
+      }
+      s.flush();
+      released += ((s.result() as Output[])[0].index as any).length;
+      assert.equal(released, want.length);
+    } finally { p.dispose(); }
+  }
 });

@@ -59,8 +59,8 @@ struct GraphSpec {
     std::vector<std::size_t> input_ids;   // Input nodes, in signature order
     std::vector<std::size_t> output_ids;  // output nodes, in order
     // The join cap of the graph: the default of its CombineLatest and Filter
-    // nodes and of the input of a node with several producers, and the cap of
-    // its output alignment (OutputJoin).
+    // nodes and of the input of a node with several producers. The output
+    // alignment (OutputJoin) has no count cap: watermarks bound it.
     std::size_t max_pending = kDefaultMaxPending;
 };
 

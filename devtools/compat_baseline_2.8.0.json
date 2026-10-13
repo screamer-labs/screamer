@@ -20350,54 +20350,6 @@
   "TypeError",
   "Incompatible input type, a mix of numpy arrays and other."
  ],
- "Pipeline live alignment past max_pending": [
-  "tuple",
-  2,
-  [
-   [
-    "pair",
-    [
-     "ndarray",
-     [
-      0
-     ],
-     "f",
-     0.0,
-     "da39a3ee5e6b4b0d"
-    ],
-    [
-     "ndarray",
-     [
-      0
-     ],
-     "i",
-     0.0,
-     "da39a3ee5e6b4b0d"
-    ]
-   ],
-   [
-    "pair",
-    [
-     "ndarray",
-     [
-      0
-     ],
-     "f",
-     0.0,
-     "da39a3ee5e6b4b0d"
-    ],
-    [
-     "ndarray",
-     [
-      0
-     ],
-     "i",
-     0.0,
-     "da39a3ee5e6b4b0d"
-    ]
-   ]
-  ]
- ],
  "Pipeline operator two producers at one index": [
   "pair",
   [

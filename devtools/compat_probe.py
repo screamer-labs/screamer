@@ -711,16 +711,6 @@ def cases():
         a, b = s.Input("a"), s.Input("b")
         return s.Pipeline([a, b], [op(a, b)])(fa, fb)
 
-    def live_alignment_cap():
-        a, b = s.Input("a"), s.Input("b")
-        sess = s.Pipeline([a, b], [s.RollingMean(1)(a), s.RollingMean(1)(b)], max_pending=10).live()
-        sess.push("b", 0, 0.0)
-        for t in range(30):
-            sess.push("a", t, float(t))
-            sess.result()
-        sess.flush()
-        return sess.result()
-
     def shared_ops():
         x = s.Input("x")
         y = s.RollingSum(2)(x)
@@ -743,7 +733,6 @@ def cases():
         "2in array beside 0-d array": lambda: s.Add()(v, np.array(1.0)),
         "2in 0-d array beside array": lambda: s.Add()(np.array(1.0), v),
         "2in array beside float": lambda: s.Add()(v, 1.0),
-        "Pipeline live alignment past max_pending": live_alignment_cap,
         "Pipeline operator two producers at one index": lambda: two_producers(
             lambda a, b: s.Sub()(b, a), (np.array([[1.0, 0.0]]), np.array([5])),
             (np.array([[9.0, 0.0]]), np.array([5]))),

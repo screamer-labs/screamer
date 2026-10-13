@@ -2,10 +2,11 @@
 #define SCREAMER_DAG_MAX_PENDING_H
 
 // max_pending: the most events a join may hold while it waits for another
-// stream (the reorder buffer of CombineLatest, Filter and OrderedMerge nodes,
-// and the rows of a Pipeline's output alignment that wait for another output
-// in a live session). One default and one rule for every
-// binding.
+// stream: the reorder buffer of CombineLatest, Filter and OrderedMerge nodes.
+// One default and one rule for every binding. A Pipeline's output alignment
+// is not capped by it: the rows it holds are bounded by the outputs'
+// watermarks (an input with no events holds them until advance(now) or
+// flush()).
 
 #include <cmath>
 #include <cstddef>

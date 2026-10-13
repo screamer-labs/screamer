@@ -119,6 +119,12 @@ public:
     { reset(); }
 
     void push(const Frame<Index>& f) override {
+        push_frame(f);
+        if (p_.mode != ResampleMode::ByClock) forward_open_bar(f.index);
+    }
+
+private:
+    void push_frame(const Frame<Index>& f) {
         // OhlcvBars with deferred plan: build the plan from the first frame's width.
         if (p_.agg == ResampleAgg::OhlcvBars && p_.plan.empty()) {
             // ByCumulative: the frame is [value, driver]; value width = 1.
@@ -171,6 +177,7 @@ public:
         }
     }
 
+public:
     void flush() override {
         if (p_.mode == ResampleMode::ByIndex) {
             if (has_any()) emit(cur_label());
@@ -214,6 +221,8 @@ public:
         bucket_ = 0;
         cur_label_ = Index{};
         label_ok_ = true;
+        start_ok_ = false;
+        has_bar_wm_ = false;
         count_in_bucket_ = 0;
         first_index_ = last_index_ = Index{};
         have_emitted_ = false;
@@ -701,6 +710,28 @@ private:
         std::int64_t l;
         label_ok_ = resample_label(nb, p_, l);
         cur_label_ = static_cast<Index>(label_ok_ ? l : resample_label_bound(nb, p_));
+        start_ok_ = resample_start(nb, p_, l);
+        if (start_ok_) cur_start_ = static_cast<Index>(l);
+    }
+
+    // After an event at k: the open bar emits no row below its first index
+    // (its start for every=; the first event of a count= or threshold= bar,
+    // else k), so that is a watermark. It moves once per bar, and it is never
+    // above k, so the node stays never ahead of the input merge. A consumer
+    // (an output alignment, a join) then holds at most the rows of one open
+    // bar, not of two.
+    void forward_open_bar(Index k) {
+        Index w;
+        if (p_.mode == ResampleMode::ByIndex) {
+            if (!started_ || !start_ok_) return;
+            w = cur_start_;
+        } else {
+            w = count_in_bucket_ > 0 ? first_index_ : k;
+        }
+        if (has_bar_wm_ && w <= bar_wm_) return;
+        bar_wm_ = w;
+        has_bar_wm_ = true;
+        downstream_.on_watermark(w);
     }
     Index cur_label() const {
         if (!label_ok_) throw_resample_label(p_);
@@ -762,6 +793,10 @@ private:
     std::int64_t bucket_ = 0;
     Index cur_label_{};
     bool label_ok_ = true;       // cur_label_ is the open bar's label (not clamped)
+    Index cur_start_{};          // the open bar's start (every=), when start_ok_
+    bool start_ok_ = false;
+    Index bar_wm_{};             // the last forward_open_bar watermark
+    bool has_bar_wm_ = false;
     std::int64_t count_in_bucket_ = 0;
     Index first_index_{}, last_index_{};
     double cum_driver_ = 0.0;         // ByCumulative: running driver accumulator

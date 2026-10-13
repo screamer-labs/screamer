@@ -100,9 +100,8 @@ event by event, `pipe.live()` opens a session:
   `.advance()` raises `ValueError`; a new `live()` session starts over;
 - `.result()` collects the aligned output so far. An input that gets no events
   (a silent clock, a paused feed) holds the other outputs' aligned rows in
-  memory until `.advance(now)` or `.flush()` (at most `max_pending` rows; more
-  raises `RuntimeError`), so a long-running session calls `.advance(now)` from
-  time to time.
+  memory until `.advance(now)` or `.flush()`, so a long-running session calls
+  `.advance(now)` from time to time.
 
 An event that a node cannot take raises before any node sees it, and the session
 continues as if it had not been sent. A few rejections can only happen after part

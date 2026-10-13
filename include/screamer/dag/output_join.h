@@ -27,7 +27,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-#include "screamer/dag/max_pending.h"
 #include "screamer/dag/output_buffer.h"
 
 namespace screamer { namespace dag {
@@ -231,13 +230,10 @@ inline AlignedOutputs align_outputs(std::vector<OutputBuffer>&& bufs) {
 // lag between the outputs: an output that emits rarely (a long resample
 // window) holds the others' rows of its open window, as a batch run does. An
 // output whose rows are all dropped (a Filter, Dropna) still advances by its
-// watermarks, so it holds nothing. In a live session (take's `capped`), more
-// than `max_pending` waiting rows after a drain raise, as a join's reorder
-// buffer does: an output has stalled. A lazy call holds them as batch does.
+// watermarks, so it holds nothing.
 class OutputJoin {
 public:
-    explicit OutputJoin(std::size_t n_out = 0, std::size_t max_pending = kDefaultMaxPending)
-        : q_(n_out), max_pending_(max_pending) {
+    explicit OutputJoin(std::size_t n_out = 0) : q_(n_out) {
         out_.values.resize(n_out);
         out_.widths.assign(n_out, 1);
     }
@@ -254,7 +250,7 @@ public:
     // With `end`, every row that waits is settled too. The first drain of a
     // run that ends with it (a batch run, or one live result() after a flush)
     // is align_outputs of the buffers, which take their storage.
-    AlignedOutputs take(std::vector<OutputBuffer>& bufs, bool end, bool capped = true) {
+    AlignedOutputs take(std::vector<OutputBuffer>& bufs, bool end) {
         check_count(bufs);
         if (end && fresh()) {
             seed(bufs);
@@ -262,11 +258,6 @@ public:
         }
         push(bufs);
         if (end && pending_) settle(false, 0);
-        if (capped && pending_ > max_pending_)
-            throw std::runtime_error(
-                "output alignment overflow: " + std::to_string(pending_) +
-                " rows wait for an output that has not advanced; a stream is stalled. "
-                "Call advance(now) or check the feed.");
         AlignedOutputs rows = std::move(out_);
         out_ = AlignedOutputs{};
         out_.values.resize(q_.size());
@@ -412,7 +403,6 @@ private:
     }
 
     std::vector<Queue> q_;
-    std::size_t max_pending_;        // the most rows that may wait
     detail::AsOfRow row_;
     bool laid_out_ = false;
     std::size_t pending_ = 0;        // rows held in the queues

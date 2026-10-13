@@ -90,23 +90,3 @@ def test_a_stalled_producer_raises_at_max_pending():
             s.push("b", t, [1.0, 1.0])
             s.push("b", t, [1.0, 1.0])
 
-
-def test_output_alignment_is_capped_by_max_pending():
-    # Two outputs, one input silent: the other output's rows wait in the
-    # alignment, at most max_pending of them (final review finding 7).
-    a, b = Input("a"), Input("b")
-    p = Pipeline([a, b], [sc.RollingMean(1)(a), sc.RollingMean(1)(b)], max_pending=100)
-    s = p.live()
-    s.push("b", 0, 0.0)
-    with pytest.raises(RuntimeError, match="output alignment overflow: 101 rows wait"):
-        for t in range(200):
-            s.push("a", t, float(t))
-            s.result()
-    # advance(now) releases them, so a long session stays bounded.
-    s = p.live()
-    s.push("b", 0, 0.0)
-    for t in range(1000):
-        s.push("a", t, float(t))
-        if t % 50 == 49:
-            s.advance(t)
-        s.result()

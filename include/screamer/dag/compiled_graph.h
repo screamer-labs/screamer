@@ -181,7 +181,7 @@ public:
             case NodeKind::LagRows:       node_width[id] = node_width[nd.inputs[0]]; break;
             }
         }
-        join_ = OutputJoin(num_out, s.max_pending);
+        join_ = OutputJoin(num_out);
         output_widths_.resize(num_out);
         for (std::size_t o = 0; o < num_out; ++o)
             output_widths_[o] = node_width[s.output_ids[o]];
@@ -504,11 +504,9 @@ public:
     // latest value across drains, so the rows of repeated drains, concatenated,
     // are the rows of one drain at the end; after a flush (the end of input)
     // every row is settled. `scratch` holds the drained buffers (reuse it).
-    // `capped`: more than max_pending waiting rows raise (a live session). The
-    // lazy driver passes false: it holds the rows a batch run holds.
-    AlignedOutputs drain_aligned(std::vector<OutputBuffer>& scratch, bool capped = true) {
+    AlignedOutputs drain_aligned(std::vector<OutputBuffer>& scratch) {
         drain_into(scratch);
-        try { return join_.take(scratch, flushed_, capped); }
+        try { return join_.take(scratch, flushed_); }
         catch (...) { poisoned_ = true; throw; }   // an output changed width
     }
 

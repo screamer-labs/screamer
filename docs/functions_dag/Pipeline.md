@@ -68,11 +68,8 @@ define-once-run-anywhere guarantee), see
 - **`max_pending`**: the most events a join may hold while it waits for
   another stream: the reorder buffer of each `CombineLatest` and `Filter` node
   (also the join of a threshold `Resample` with its driver, and of an operator
-  or `Dropna` given several streams), and the rows that a live session holds
-  in its output alignment while another output has not moved (a lazy call
-  holds them as a batch call does).
-  More raises `RuntimeError` and ends the call or session, so a stalled stream
-  cannot grow memory without bound. An integer from 1 to `2**53`; another number raises
+  or `Dropna` given several streams). More raises `RuntimeError` and ends the
+  call or session, so a stalled stream cannot grow memory without bound. An integer from 1 to `2**53`; another number raises
   `ValueError`, and a value that is not an integer `TypeError`.
 
 The constructor validates the pipeline and raises a clear `ValueError` if: an
@@ -156,9 +153,11 @@ returns the session, so calls chain.
 An input that gets no events holds the aligned rows. While an input is silent,
 for example a clock that stopped ticking or a feed that paused, the outputs fed
 by it do not move, so the other outputs' rows wait in memory until
-`.advance(now)` or `.flush()`, at most `max_pending` of them (more raises
-`RuntimeError`). In a long-running session, call `.advance(now)` from time to
-time: it moves every input to `now` and releases the rows below it.
+`.advance(now)` or `.flush()`. In a long-running session, call `.advance(now)`
+from time to time: it moves every input to `now` and releases the rows below it.
+An output that emits rarely holds the others' rows the same way, but only for
+one bar: a `freq=` or `count=` `Resample` tells the alignment where its open bar
+starts, so the rows of the open bar wait until it closes.
 
 Feeding the same events in index order and then calling `.flush()` reproduces the
 batch result exactly. `.advance()` (and a clock input wired into the pipeline)

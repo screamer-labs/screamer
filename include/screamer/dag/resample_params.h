@@ -131,10 +131,15 @@ inline std::int64_t resample_bucket_bound(std::int64_t k, const ResampleParams& 
 // The label of bar nb: its start origin + nb * every (label="left") or its
 // end, one every later (label="right"). False when the label is outside the
 // int64 range.
+// The start of bar nb, origin + nb * every; false outside the int64 range.
+inline bool resample_start(std::int64_t nb, const ResampleParams& p, std::int64_t& out) {
+    std::int64_t off;
+    return screamer::checked_mul(nb, p.width, off) && screamer::checked_add(p.origin, off, out);
+}
+
 inline bool resample_label(std::int64_t nb, const ResampleParams& p, std::int64_t& out) {
-    std::int64_t off, start;
-    if (!screamer::checked_mul(nb, p.width, off) || !screamer::checked_add(p.origin, off, start))
-        return false;
+    std::int64_t start;
+    if (!resample_start(nb, p, start)) return false;
     if (p.label == ResampleLabel::Left) { out = start; return true; }
     return screamer::checked_add(start, p.width, out);
 }
