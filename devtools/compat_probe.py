@@ -721,8 +721,28 @@ def cases():
         sess.flush()
         return sess.result()
 
+    def shared_ops():
+        x = s.Input("x")
+        y = s.RollingSum(2)(x)
+        s1, s2 = s.Pipeline([x], [y]).live(), s.Pipeline([x], [y]).live()
+        for t in range(4):
+            s1.push("x", t, 1.0)
+            s2.push("x", t, 100.0)
+        s1.flush()
+        return s1.result()
+
+    def from_json_big():
+        x = s.Input("x")
+        text = s.Pipeline([x], [s.RollingMean(3)(x)]).to_json()
+        return s.Pipeline.from_json(text.replace('"window_size": 3', '"window_size": 18446744073709551616'))
+
     top = 2 ** 63 - 6
     table.update({
+        "Pipeline two sessions from the same nodes": shared_ops,
+        "Pipeline.from_json int past int64": from_json_big,
+        "2in array beside 0-d array": lambda: s.Add()(v, np.array(1.0)),
+        "2in 0-d array beside array": lambda: s.Add()(np.array(1.0), v),
+        "2in array beside float": lambda: s.Add()(v, 1.0),
         "Pipeline live alignment past max_pending": live_alignment_cap,
         "Pipeline operator two producers at one index": lambda: two_producers(
             lambda a, b: s.Sub()(b, a), (np.array([[1.0, 0.0]]), np.array([5])),

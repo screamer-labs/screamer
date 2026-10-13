@@ -64,29 +64,24 @@ for (const w of windows) {
 GC timing is not predictable either. Prefer `using` or an explicit `.dispose()` in code you
 control: both free the memory at once.
 
-## Ops inside a Pipeline are pinned
+## A Pipeline owns copies of its ops
 
-Once an op appears inside a `Pipeline` graph (as in `RollingMean(3)(x)` below), the `Pipeline`
-takes over its lifetime. It retains the op for as long as the compiled graph is alive, and
-`pipeline.dispose()` releases that retention:
+A `Pipeline` compiles its own copy of every op in its graph (as `RollingMean(3)` below), made
+by the op's factory with the same settings and a fresh state. `pipeline.dispose()` frees the
+copies with the graph:
 
 ```js
 const x = Input("x");
-const y = Diff(1)(RollingMean(3)(x));
-const pipeline = new Pipeline([x], [y]);
+const rm = RollingMean(3);
+const pipeline = new Pipeline([x], [Diff(1)(rm(x))]);
 
-// Do not call RollingMean's own .dispose() here: the Pipeline owns it now.
-
+rm.dispose();       // the Pipeline runs on its own copy: this does not affect it
 pipeline(data);
-pipeline.dispose(); // releases every op the graph retained
+pipeline.dispose(); // frees the graph and its op copies
 ```
 
-Do not call `.dispose()` on an op you have passed into a live `Pipeline`. Doing so frees state
-the compiled graph still points at, and the next call into the graph reads freed memory. Let
-`pipeline.dispose()` handle it instead.
+So two Pipelines built from the same nodes never share state, a direct call of `rm` does not
+change the Pipeline, and disposing `rm` at any time is safe.
 
-A second, independent instance of the same op kind is unaffected by this rule; the constraint
-is about the specific op instance backing a specific graph node, not about calling
-`RollingMean(3)` more than once. What is not allowed is reusing one op instance across two
-different nodes in the same graph: a graph node is stateful, so two nodes sharing one instance
-would corrupt each other's state. Construct a fresh instance per node instead.
+Reusing one op instance across two different nodes of the same graph still throws: construct
+a fresh instance per node.

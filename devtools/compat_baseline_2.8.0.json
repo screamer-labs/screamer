@@ -20308,5 +20308,221 @@
   "ERROR",
   "ValueError",
   "delay=0 requires fill_at=\"close\": a target decided at a bar's close ca"
+ ],
+ "Pipeline two sessions from the same nodes": [
+  "pair",
+  [
+   "ndarray",
+   [
+    4
+   ],
+   "f",
+   303.0,
+   "a38219aa7f13b1e3"
+  ],
+  [
+   "ndarray",
+   [
+    4
+   ],
+   "i",
+   6.0,
+   "505fb61ce33ea9b3"
+  ]
+ ],
+ "Pipeline.from_json int past int64": [
+  "ERROR",
+  "TypeError",
+  "__init__(): incompatible function arguments. The following argument ty"
+ ],
+ "2in array beside 0-d array": [
+  "ERROR",
+  "TypeError",
+  "Incompatible input numpy arrays, dimensions mismatch."
+ ],
+ "2in 0-d array beside array": [
+  "ERROR",
+  "TypeError",
+  "iteration over a 0-d array"
+ ],
+ "2in array beside float": [
+  "ERROR",
+  "TypeError",
+  "Incompatible input type, a mix of numpy arrays and other."
+ ],
+ "Pipeline live alignment past max_pending": [
+  "tuple",
+  2,
+  [
+   [
+    "pair",
+    [
+     "ndarray",
+     [
+      0
+     ],
+     "f",
+     0.0,
+     "da39a3ee5e6b4b0d"
+    ],
+    [
+     "ndarray",
+     [
+      0
+     ],
+     "i",
+     0.0,
+     "da39a3ee5e6b4b0d"
+    ]
+   ],
+   [
+    "pair",
+    [
+     "ndarray",
+     [
+      0
+     ],
+     "f",
+     0.0,
+     "da39a3ee5e6b4b0d"
+    ],
+    [
+     "ndarray",
+     [
+      0
+     ],
+     "i",
+     0.0,
+     "da39a3ee5e6b4b0d"
+    ]
+   ]
+  ]
+ ],
+ "Pipeline operator two producers at one index": [
+  "pair",
+  [
+   "ndarray",
+   [
+    2
+   ],
+   "f",
+   10.0,
+   "bd0de7fc9599cd45"
+  ],
+  [
+   "ndarray",
+   [
+    2
+   ],
+   "i",
+   10.0,
+   "23ae4f74a114eecc"
+  ]
+ ],
+ "Pipeline operator two producers delayed": [
+  "pair",
+  [
+   "ndarray",
+   [
+    4
+   ],
+   "f",
+   36.0,
+   "74d2a7664b56923a"
+  ],
+  [
+   "ndarray",
+   [
+    4
+   ],
+   "i",
+   60.0,
+   "b59c85569a2366d4"
+  ]
+ ],
+ "Pipeline live push after flush": [
+  "pair",
+  [
+   "ndarray",
+   [
+    5,
+    2
+   ],
+   "f",
+   21.0,
+   "eec9b2b35bac849e"
+  ],
+  [
+   "ndarray",
+   [
+    5
+   ],
+   "i",
+   15.0,
+   "b13278795cbcebad"
+  ]
+ ],
+ "Delay past int64": [
+  "pair",
+  [
+   "ndarray",
+   [
+    2
+   ],
+   "f",
+   2.0,
+   "cd01b3e39400da33"
+  ],
+  [
+   "ndarray",
+   [
+    2
+   ],
+   "i",
+   -9.223372036854776e+18,
+   "68475d3385a61027"
+  ]
+ ],
+ "Resample right label past int64": [
+  "pair",
+  [
+   "ndarray",
+   [
+    1
+   ],
+   "f",
+   1.0,
+   "3eafb06982d26cb8"
+  ],
+  [
+   "ndarray",
+   [
+    1
+   ],
+   "i",
+   -9.223372036854776e+18,
+   "7a83fcb90d55d8eb"
+  ]
+ ],
+ "Resample origin past int64": [
+  "pair",
+  [
+   "ndarray",
+   [
+    1
+   ],
+   "f",
+   1.0,
+   "3eafb06982d26cb8"
+  ],
+  [
+   "ndarray",
+   [
+    1
+   ],
+   "i",
+   9.223372036854776e+18,
+   "7fcf553b7b8a3bf0"
+  ]
  ]
 }

@@ -125,7 +125,10 @@ results concatenate with the others.
 `pipe(arrays)` and `pipe(generators)` both consume complete feeds. When you drive
 the pipeline yourself, one event at a time, `pipe.live()` opens a session object. It
 shares the pipeline's single engine and resets it on open, so use one
-session at a time (do not interleave it with a `pipe(...)` call). Each method
+session at a time (do not interleave it with a `pipe(...)` call). Each
+`Pipeline` runs on its own copies of its operators (the same parameters, a
+fresh state), so sessions and calls of two Pipelines built from the same
+nodes, and direct calls of the operators, never interfere. Each method
 returns the session, so calls chain.
 
 - **`.push(input, index, value)`** feeds one event. `input` is an `Input` name
