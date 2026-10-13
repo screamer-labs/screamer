@@ -103,13 +103,14 @@ static nb::object make_output_value(const double* v, std::size_t w) {
 // ---------------------------------------------------------------------------
 class LazyDriver {
 public:
+    // `owner` names the API in error messages (Pipeline, combine_latest).
     LazyDriver(nb::object cg_keepalive, dag::CompiledGraph& cg, nb::list iterators,
-               std::size_t n_out)
-        : cg_keepalive_(std::move(cg_keepalive)), cg_(cg), n_out_(n_out) {
+               std::size_t n_out, std::string owner = "Pipeline")
+        : cg_keepalive_(std::move(cg_keepalive)), cg_(cg), n_out_(n_out), owner_(std::move(owner)) {
         unit_ = std::make_unique<TimeUnit>();
         for (nb::handle h : iterators) {
             sources_.push_back(std::make_unique<streams::PySource<std::int64_t>>(
-                nb::borrow<nb::object>(h), /*positional=*/false, sources_.size(), "Pipeline",
+                nb::borrow<nb::object>(h), /*positional=*/false, sources_.size(), owner_.c_str(),
                 unit_.get()));
             child_ptrs_.push_back(sources_.back().get());
         }
@@ -200,6 +201,7 @@ private:
     nb::object cg_keepalive_;                 // keep the _CompiledGraph alive
     dag::CompiledGraph& cg_;
     std::size_t n_out_;
+    std::string owner_;                       // the sources' owner name; outlives them
     std::unique_ptr<TimeUnit> unit_;          // the index kind of every feed
     std::vector<std::unique_ptr<streams::PySource<std::int64_t>>> sources_;
     std::vector<streams::Source<std::int64_t>*> child_ptrs_;
@@ -827,11 +829,11 @@ void init_bindings_dag(nb::module_& m) {
     // Lazy driver over a compiled graph and Python-iterator feeds.
     nb::class_<LazyDriver>(m, "_LazyDriver", nb::type_slots(gc_slots<LazyDriver>))
         .def("__init__", [](LazyDriver* self, nb::object cg_obj, nb::list iterators,
-                            std::size_t n_out) {
+                            std::size_t n_out, std::string owner) {
                  PyCompiledGraph& pcg = nb::cast<PyCompiledGraph&>(cg_obj);
-                 new (self) LazyDriver(cg_obj, *pcg.cg, iterators, n_out);
+                 new (self) LazyDriver(cg_obj, *pcg.cg, iterators, n_out, std::move(owner));
              },
-             "cg"_a, "iterators"_a, "n_out"_a)
+             "cg"_a, "iterators"_a, "n_out"_a, "owner"_a = "Pipeline")
         .def("__iter__", [](nb::object self) { return self; })
         .def("__next__", &LazyDriver::next);
 

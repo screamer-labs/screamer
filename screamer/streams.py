@@ -310,7 +310,8 @@ def _combine_latest_asof_lazy(sources, emit):
     from .dag import Input, Pipeline
     ins = [Input(f"_cl{i}") for i in range(len(sources))]
     dag = Pipeline(inputs=ins, outputs=[combine_latest(*ins, emit=emit)])
-    yield from dag(*sources)
+    # The driver of a lazy Pipeline call, its errors naming combine_latest.
+    yield from _b._LazyDriver(dag._cg, [iter(s) for s in sources], 1, "combine_latest")
 
 
 def _combine_latest_lazy(values, emit, layout=None):

@@ -111,6 +111,15 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Changed
 
+* A tuple given as a stream (to `combine_latest`, `merge`, `split`,
+  `resample`, `forecast_pairs` or a `Pipeline` feed) always marks
+  `(values, index)`, as an object `{values, index}` does in JavaScript: a
+  2-tuple of a values sequence and an index sequence (a list, an array, a
+  pandas Series or Index; the index may also be `None` or a NumPy scalar).
+  Any other tuple raises `TypeError` ("a tuple marks a (values, index)
+  stream ..."). 2.8.0 read a tuple of numbers, such as `(1.0, 2.0, 3.0)`, as
+  values, and read `([1.0, 2.0], [0, 1])` as two rows of values (or raised
+  `RuntimeError` "std::bad_cast"). For values, pass a list or an array.
 * An index whose length differs from its values in `combine_latest` raises
   `ValueError` ("combine_latest: input 0 has 30 rows of values but 5 index
   values"), as JavaScript's `combineLatest` raises `RangeError`. 2.8.0 raised

@@ -142,7 +142,8 @@ are not tracked to be closed.
 
 * An indexed stream is marked, never inferred from its items. Python marks it
   with a tuple: `(values, index)` for an array, `(value, index)` for an event
-  of an iterator. JavaScript has no tuple, so it marks it with an object:
+  of an iterator; a tuple given as a stream is always such a pair, and any
+  other tuple raises `TypeError`. JavaScript has no tuple, so it marks it with an object:
   `{values, index}` for an array (as a `Pipeline` feed, `combineLatest` input
   or `split` output) and `{value, index}` for an event of an iterator (as a
   `combineLatest` source). A plain Array, a typed array or an `NdArray` is

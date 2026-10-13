@@ -242,3 +242,30 @@ def test_two_value_lists_are_rows_and_tuples_are_value_index():
     batch, idx = s.CombineLatest()([np.array([1.0, 2.0]), np.array([3.0, 4.0])], [[5.0, 6.0], [7.0, 8.0]])
     assert idx is None
     np.testing.assert_array_equal(batch, [[1, 2, 5, 6], [3, 4, 7, 8]])
+
+
+def test_a_tuple_marks_values_and_index_wherever_a_stream_is_taken():
+    import pandas as pd
+    from screamer.streams import merge
+    v, i = s.CombineLatest()(([1.0, 2.0], [0, 1]), ([3.0, 4.0], [0, 1]))
+    np.testing.assert_array_equal(v, [[1, 3], [2, 4]])
+    np.testing.assert_array_equal(i, [0, 1])
+    v2, i2 = s.CombineLatest()((np.array([1.0, 2.0]), pd.Series([0, 1])), ([3.0, 4.0], pd.Index([0, 1])))
+    np.testing.assert_array_equal(v2, v)
+    np.testing.assert_array_equal(i2, i)
+    mv, src, mi = merge(([1.0, 2.0], [0, 2]), ([3.0], [1]))
+    np.testing.assert_array_equal(mv, [1, 3, 2])
+    np.testing.assert_array_equal(mi, [0, 1, 2])
+    (a, ka), (b, kb) = s.split(([1.0, 2.0], [5, 6]), [0, 1])
+    np.testing.assert_array_equal(ka, [5])
+    x = s.Input("x")
+    out, idx = s.Pipeline([x], [s.RollingMean(1)(x)])(([1.0, 2.0], [7, 9]))
+    np.testing.assert_array_equal(idx, [7, 9])
+
+
+def test_a_tuple_that_is_not_values_and_index_raises():
+    for bad in [(1.0, 2.0, 3.0), (1.0, 2.0), ([1.0, 2.0], "ab"), ([1.0], [0], [1])]:
+        with pytest.raises(TypeError, match=r"a tuple marks a \(values, index\) stream"):
+            s.CombineLatest()(bad, [1.0, 2.0])
+    with pytest.raises(TypeError, match=r"a tuple marks a \(values, index\) stream"):
+        s.split((1.0, 2.0), [0, 1])

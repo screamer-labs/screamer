@@ -4,7 +4,8 @@ JavaScript's combineLatest. Both call the one C++ join
 (include/screamer/streams/join_plan.h), so every value matches exactly.
 
 Each case holds the inputs (values with their shape, and an index per
-input), the layout and emit settings, and the result of four forms: the
+input; `plain` cases pass them as lists, which JavaScript replays as plain
+Arrays: a list is always values, a tuple marks (values, index)), the layout and emit settings, and the result of four forms: the
 positional batch, the indexed batch, the positional iterator and the indexed
 iterator. A result is the rows (flat values, row shape, index) or the error
 (its Python class and message). NaN is written as null.
@@ -43,18 +44,23 @@ def _run(f):
     return {"values": _nums(v), "shape": list(v.shape), "index": None if i is None else _nums(i)}
 
 
-def _case(name, ins, idxs, layout, emit):
+def _case(name, ins, idxs, layout, emit, plain=False):
+    """One case. With `plain`, the inputs, their indexes and their events are
+    plain lists (JavaScript replays them as plain Arrays); else NumPy arrays."""
     cl = lambda *a: s.CombineLatest(emit=emit, layout=layout)(*a)   # noqa: E731
+    vals = [x.tolist() for x in ins] if plain else ins
+    index = [[int(t) for t in i] for i in idxs]
     return {
         "name": name,
+        "plain": plain,
         "inputs": [{"values": _nums(x), "shape": list(x.shape)} for x in ins],
-        "index": [[int(t) for t in i] for i in idxs],
+        "index": index,
         "layout": layout,
         "emit": emit,
-        "batch": _run(lambda: cl(*ins)),
-        "batch_indexed": _run(lambda: cl(*[(x, i) for x, i in zip(ins, idxs)])),
-        "iter": _run(lambda: cl(*[iter(list(x)) for x in ins])),
-        "iter_indexed": _run(lambda: cl(*[iter([(e, int(t)) for e, t in zip(x, i)]) for x, i in zip(ins, idxs)])),
+        "batch": _run(lambda: cl(*vals)),
+        "batch_indexed": _run(lambda: cl(*[(x, i if plain else np.asarray(i)) for x, i in zip(vals, index)])),
+        "iter": _run(lambda: cl(*[iter(list(x)) for x in vals])),
+        "iter_indexed": _run(lambda: cl(*[iter([(e, t) for e, t in zip(x, i)]) for x, i in zip(vals, index)])),
     }
 
 
@@ -69,6 +75,9 @@ def cases():
     sig = np.arange(T) * 10.0
     ix = np.arange(T)
     out.append(_case("two-value rows", [two, two + 100], [ix, ix + 1], None, "when_all"))
+    out.append(_case("two-value rows, plain lists", [two, two + 100], [ix, ix + 1], None, "when_all", plain=True))
+    out.append(_case("two-value rows and a signal, plain lists", [two, sig], [ix, ix * 2], None, "on_any",
+                     plain=True))
     out.append(_case("layout AT, T", [at, sig], [ix, ix], ["AT", "T"], "when_all"))
     out.append(_case("layout AT, AT", [at, at + 1], [ix, ix], "AT", "on_any"))
     out.append(_case("layout TFA, T", [tfa, sig], [ix, ix * 2], ["TFA", "T"], "when_all"))

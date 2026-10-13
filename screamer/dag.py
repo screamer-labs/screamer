@@ -1,5 +1,7 @@
 """Computational DAG definition: symbolic Node handles (DAG-1)."""
 
+import sys
+
 import numpy as np
 
 __all__ = ["Node", "Input", "Pipeline"]
@@ -142,11 +144,43 @@ def _setting(name, x):
     return x
 
 
+def _is_sequence(x):
+    """A sequence of numbers as a stream source holds it: a list, a NumPy
+    array, or a pandas Series or Index."""
+    if isinstance(x, (list, np.ndarray)):
+        return True
+    pd = sys.modules.get("pandas")
+    return pd is not None and isinstance(x, (pd.Series, pd.Index))
+
+
 def _is_vi_pair(x):
-    """The canonical concrete-stream detection: a (values, index) 2-tuple whose
-    first element is an ndarray. Defined once so every site that may receive a
-    bare array or a (values, index) pair applies the same rule."""
-    return isinstance(x, tuple) and len(x) == 2 and isinstance(x[0], np.ndarray)
+    """Whether a stream source is a (values, index) pair. A tuple marks it,
+    as an object {values, index} does in JavaScript, and is never read as
+    values: a 2-tuple of two sequences (a list, an array, a pandas Series or
+    Index; the index may also be None, or a NumPy scalar for one event) is
+    (values, index), and any other tuple raises TypeError. Defined once, so every stream source (combine_latest,
+    merge, split, resample, forecast_pairs and Pipeline feeds) applies the
+    same rule."""
+    if not isinstance(x, tuple):
+        return False
+    # A NumPy scalar index is one event, as 2.8.0 read it.
+    if len(x) == 2 and _is_sequence(x[0]) and (
+            x[1] is None or _is_sequence(x[1]) or isinstance(x[1], np.generic)):
+        return True
+    if len(x) != 2:
+        got = f"a tuple of {len(x)} items"
+    else:
+        bad = x[0] if not _is_sequence(x[0]) else x[1]
+        got = f"a tuple holding {_kind_text(bad)}"
+    raise TypeError(
+        "a tuple marks a (values, index) stream: pass a 2-tuple of values and "
+        "index (each a list, an array or a pandas Series or Index), or the values "
+        f"alone as a list or an array; got {got}")
+
+
+def _kind_text(x):
+    name = type(x).__name__
+    return ("an " if name[:1].lower() in "aeiou" else "a ") + name
 
 
 def _as_stream(feed):

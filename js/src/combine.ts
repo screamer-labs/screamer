@@ -252,6 +252,14 @@ class Joiner {
   // Returns the joined row, or null when every source has ended; the C++
   // zip raises when only some have.
   zip(items: unknown[]): CombineRow | null {
+    // One field per source and a number from each: the C++ step is the
+    // identity (out[i] = item i, each of size 1), so the row is the items,
+    // with no call into WASM. Any other step (an ended source, null, an
+    // array) goes to the C++ zip, which keeps every rule and message.
+    if (!this.wide && items.every((x) => typeof x === "number")) {
+      for (let i = 0; i < items.length; i++) this.count[i]++;
+      return { value: items as number[], index: null };
+    }
     const s = this.sizes >> 3;
     for (let i = 0; i < items.length; i++) {
       const n = items[i] === EMPTY ? -1 : this.load(i, items[i]);

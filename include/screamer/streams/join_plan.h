@@ -360,16 +360,14 @@ JoinedRows<Index> combine_latest_join(const JoinPlan& plan, std::vector<const In
                                       const std::vector<const double*>& data, bool when_all,
                                       const std::string& who = "combine_latest") {
     const std::size_t n = plan.inputs.size();
-    std::vector<std::vector<Index>> rows;
+    std::vector<Index> rows;   // positional: one row-number vector, shared by every input
     if (index.empty()) {
         index_lens.clear();
         for (const JoinInput& in : plan.inputs) index_lens.push_back(in.length);
         check_aligned_lengths(index_lens, who);
-        rows.assign(n, std::vector<Index>(index_lens[0]));
-        for (std::size_t i = 0; i < n; ++i) {
-            for (std::size_t r = 0; r < index_lens[i]; ++r) rows[i][r] = static_cast<Index>(r);
-            index.push_back(rows[i].data());
-        }
+        rows.resize(index_lens[0]);
+        for (std::size_t r = 0; r < rows.size(); ++r) rows[r] = static_cast<Index>(r);
+        index.assign(n, rows.data());
     }
     for (std::size_t i = 0; i < n; ++i) check_index_length(i, plan.inputs[i].length, index_lens[i], who);
     return combine_latest_rows<Index>(plan, index, index_lens, data, when_all);

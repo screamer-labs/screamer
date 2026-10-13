@@ -366,3 +366,37 @@ test("split: its outputs feed a Pipeline as they are, with or without an index",
   assertNanEq(pos.index, [0, 1]);
   p.dispose();
 });
+
+test("combineLatest: a step of numbers skips WASM and gives what the C++ zip gives", async () => {
+  await ready();
+  // Numbers take the JavaScript fast path; one-value Float64Arrays take the
+  // C++ zip. Rows, NaN and messages are the same.
+  const a = [1, 2, NaN, 4], b = [10, 20, 30, 40];
+  const box = (xs: number[]) => xs.map((x) => new Float64Array([x]));
+  const fast = [...cl([gen(a), gen(b)])] as Row[];
+  const slow = [...cl([gen(box(a)), gen(box(b))])] as Row[];
+  const mixed = [...cl([gen([1, 2, null, 4]), gen(b)])] as Row[];   // null steps go to C++
+  for (const rows of [slow, mixed]) {
+    assert.equal(rows.length, fast.length);
+    rows.forEach((r, t) => {
+      assert.ok(Array.isArray(r.value) && r.index === null);
+      assertNanEq(r.value, fast[t].value);
+    });
+  }
+  const message = (f: () => unknown) => { try { f(); } catch (e: any) { return [e.constructor.name, e.message]; } return null; };
+  const outOfStep = message(() => [...cl([gen([1, 2, 3]), gen([1, 2])])]);
+  assert.deepEqual(message(() => [...cl([gen(box([1, 2, 3])), gen(box([1, 2]))])]), outOfStep);
+  assert.equal(outOfStep![0], "RangeError");
+  assert.deepEqual(message(() => [...cl([gen([1, [2, 3]]), gen([1, 2])])]),
+    ["RangeError", "combineLatest: an event of input 0 has 2 values, but its first event had 1"]);
+});
+
+test("combineLatest: {values, index} takes plain Arrays and typed arrays; other objects raise", async () => {
+  await ready();
+  const { values, index } = cl([{ values: [1, 2], index: [0, 1] }, { values: [3, 4], index: new Int32Array([0, 1]) }]) as Batch;
+  assertNanEq(values.data, [1, 3, 2, 4]);
+  assertNanEq(index!, [0, 1]);
+  assert.throws(() => cl([{ values: 3, index: [0] }]), TypeError);
+  assert.throws(() => cl([{ index: [0, 1] }]), TypeError);
+  assert.throws(() => cl([{ values: [1, 2], index: [0, 1], extra: 1 }]), TypeError);
+});
