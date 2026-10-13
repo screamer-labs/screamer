@@ -111,12 +111,14 @@ inline std::int64_t resample_floordiv(std::int64_t a, std::int64_t b) {
 
 // The every= bar that holds event index k: floor((k - origin) / every). An
 // index whose distance from origin is outside the int64 range raises.
+[[noreturn]] inline void throw_resample_index(std::int64_t k, const ResampleParams& p) {
+    throw std::invalid_argument(
+        "resample: index " + std::to_string(k) + " is outside the int64 range "
+        "when measured from origin=" + std::to_string(p.origin));
+}
 inline std::int64_t resample_bucket(std::int64_t k, const ResampleParams& p) {
     std::int64_t d;
-    if (!screamer::checked_sub(k, p.origin, d))
-        throw std::invalid_argument(
-            "resample: index " + std::to_string(k) + " is outside the int64 range "
-            "when measured from origin=" + std::to_string(p.origin));
+    if (!screamer::checked_sub(k, p.origin, d)) throw_resample_index(k, p);
     return resample_floordiv(d, p.width);
 }
 

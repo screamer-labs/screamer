@@ -293,26 +293,6 @@ private:
     std::vector<double> row_;
 };
 
-// The number of distinct indexes over sorted index arrays: the most rows a
-// join of them emits. A decreasing array still ends the count (the join
-// raises for it).
-template <class Index>
-std::size_t count_distinct(const std::vector<const Index*>& index, const std::vector<std::size_t>& lens) {
-    const std::size_t n = index.size();
-    std::vector<std::size_t> pos(n, 0);
-    std::size_t count = 0;
-    for (;;) {
-        bool any = false;
-        Index m{};
-        for (std::size_t i = 0; i < n; ++i)
-            if (pos[i] < lens[i] && (!any || index[i][pos[i]] < m)) { m = index[i][pos[i]]; any = true; }
-        if (!any) return count;
-        ++count;
-        for (std::size_t i = 0; i < n; ++i)
-            while (pos[i] < lens[i] && index[i][pos[i]] == m) ++pos[i];
-    }
-}
-
 // The rows of a batch combine_latest: one per distinct index, sorted.
 template <class Index>
 struct JoinedRows {
@@ -343,9 +323,12 @@ JoinedRows<Index> combine_latest_rows(const JoinPlan& plan, const std::vector<co
         children.push_back(&sources.back());
         scratch[i].resize(plan.inputs[i].width);
     }
-    // A row per distinct index at most: reserve that, not the sum of the
-    // inputs' rows (n aligned inputs would reserve n times the output).
-    const std::size_t rows = count_distinct(index, lens);
+    // The output has a row per distinct index, at least as many as the
+    // longest input: reserve that (exact for inputs on one index) and let
+    // the rows grow past it. The sum of the inputs' rows would reserve n
+    // times the output for n aligned inputs.
+    std::size_t rows = 0;
+    for (std::size_t len : lens) rows = len > rows ? len : rows;
     JoinedRows<Index> out;
     out.index.reserve(rows);
     out.values.reserve(rows * plan.width);

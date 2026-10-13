@@ -26,9 +26,7 @@ public:
     void push(const Frame<Index>& f) override {
         std::int64_t k;
         if (!screamer::checked_add(static_cast<std::int64_t>(f.index), duration_, k))
-            throw std::invalid_argument(
-                "a delay by duration=" + std::to_string(duration_) + " moves index " +
-                std::to_string(f.index) + " outside the int64 range");
+            throw_outside(f.index);
         Frame<Index> out{ static_cast<Index>(k), f.values, f.width };
         downstream_.push(out);
     }
@@ -47,6 +45,12 @@ public:
     std::size_t n_out() const override { return 1; }
 
 private:
+    [[noreturn]] void throw_outside(Index index) const {
+        throw std::invalid_argument(
+            "a delay by duration=" + std::to_string(duration_) + " moves index " +
+            std::to_string(index) + " outside the int64 range");
+    }
+
     std::int64_t duration_;
     Sink<Index>& downstream_;
 };
