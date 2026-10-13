@@ -184,10 +184,7 @@ public:
     // Indexed: the next event of source i, `size` values in eventBuffer(i).
     // Its size is checked when the merge reaches it, as in Python.
     double offer(std::size_t i, double index, std::size_t size, bool run) {
-        // NaN has no place in the index order (the text of Python's check).
-        if (index != index)
-            throw std::invalid_argument("the index of input " + std::to_string(i) + " is NaN at event " +
-                                        std::to_string(offered_[i]) + "; an index must be a number");
+        screamer::dag::check_index_value(i, offered_[i], index);   // NaN has no place in the index order
         ++offered_[i];
         order_->offer(i, index);
         pending_size_[i] = size;
