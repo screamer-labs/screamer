@@ -678,6 +678,16 @@ def cases():
         "split short index": lambda: s.split(v[:10], np.zeros(10, dtype=int), index=short),
         "BacktestPortfolioTarget packed": lambda: s.BacktestPortfolioTarget()(np.stack([weights, prices], -1)),
         "Pipeline to_json -inf setting": pipeline_json_inf,
+        # Task 34 fix round 1.
+        "Merge 2-D index": lambda: s.Merge()((v[:3], idx[:3, None]), (v[:3], idx[:3])),
+        "CombineLatest 2-D index": lambda: s.CombineLatest()((v[:3], idx[:3]), (v[:3], idx[:3, None])),
+        "Merge bare numbers": lambda: s.Merge()(5.0, 6.0),
+        "RollingMean(-1)": lambda: s.RollingMean(-1),
+        "WMA(0)": lambda: s.WMA(0),
+        "Power p=inf": lambda: s.Power(float("inf"))(np.abs(v[:5]) / 200),
+        "Linear scale=-inf": lambda: s.Linear(float("-inf"), 0.0)(v[:5]),
+        "KalmanFilter initial_variance=inf": lambda: s.KalmanFilter(0.01, 1.0, 0.0, float("inf"))(v),
+        "Hampel n_sigma=inf": lambda: s.Hampel(5, float("inf"))(v),
     })
     return table
 

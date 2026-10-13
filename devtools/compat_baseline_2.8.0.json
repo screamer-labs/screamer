@@ -20201,5 +20201,88 @@
    435.0,
    "c6aa67295a3a2366"
   ]
+ ],
+ "Merge 2-D index": [
+  "ERROR",
+  "RuntimeError",
+  "std::bad_cast"
+ ],
+ "CombineLatest 2-D index": [
+  "ERROR",
+  "RuntimeError",
+  "std::bad_cast"
+ ],
+ "Merge bare numbers": [
+  "tuple",
+  3,
+  [
+   [
+    "ndarray",
+    [
+     2
+    ],
+    "f",
+    11.0,
+    "6cd3d8ea66ec05ca"
+   ],
+   [
+    "ndarray",
+    [
+     2
+    ],
+    "u",
+    1.0,
+    "f08571fe67493aa5"
+   ],
+   [
+    "NoneType"
+   ]
+  ]
+ ],
+ "RollingMean(-1)": [
+  "ERROR",
+  "ValueError",
+  "vector"
+ ],
+ "WMA(0)": [
+  "ERROR",
+  "ValueError",
+  "Size must be at least 1."
+ ],
+ "Power p=inf": [
+  "ndarray",
+  [
+   5
+  ],
+  "f",
+  0.0,
+  "b80de5d138758541"
+ ],
+ "Linear scale=-inf": [
+  "ndarray",
+  [
+   5
+  ],
+  "f",
+  -Infinity,
+  "a6816cd89e6f02ba"
+ ],
+ "KalmanFilter initial_variance=inf": [
+  "ndarray",
+  [
+   30
+  ],
+  "f",
+  0.0,
+  "f9b3e2846e2bb629"
+ ],
+ "Hampel n_sigma=inf": [
+  "ndarray",
+  [
+   30
+  ],
+  "f",
+  2549.463044,
+  "4c5f528475295c68"
  ]
 }

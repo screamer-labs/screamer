@@ -23,9 +23,13 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   values. JavaScript `split` returns `{values, index}` objects, so its outputs
   feed `combineLatest` and a `Pipeline` as they are.
 * JavaScript `split`.
-* JavaScript `pipeline.toJSON()`, `pipeline.toDict()`, `Pipeline.fromJSON(text)`
-  and `Pipeline.fromDict(object)`, with Python's format: a pipeline saved in
-  one language loads in the other and gives the same results. The schema, the
+* JavaScript `pipeline.toJSON()` (the description object, so
+  `JSON.stringify(pipeline)` is its JSON text), `pipeline.toDict()`,
+  `pipeline.toJSONText(indent)` (the text Python's `to_json` writes, which
+  keeps a non-finite setting that `JSON.stringify` writes as null),
+  `Pipeline.fromJSON(textOrObject)` and `Pipeline.fromDict(object)`, with
+  Python's format: a pipeline saved in one language loads in the other and
+  gives the same results. The schema, the
   JSON reader and the writer are one C++ implementation that Python's
   `to_json` and `from_json` use too; `to_json` writes the text `json.dumps`
   wrote. Settings keep their Python names in the saved form.
@@ -794,8 +798,14 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   on the bound's own side for `Clip` and `RollingSigmaClip`'s `lower` and
   `upper`; NaN for None for `CrossNormalize`'s `net`; any float for
   `FillNa`'s `fill`; NaN for `Hold`'s `release` and `SchmittTrigger`'s
-  `initial`. 2.8.0 took a non-finite value for these settings, which now
-  refuse it:
+  `initial`; inf and -inf for the elementwise coefficients `Linear`'s
+  `scale` and `shift`, `Linear2`'s `a`, `b` and `c`, and `Power`'s `p`, as
+  numpy takes them; inf for `Hampel`'s and `ImpulseClip`'s `n_sigma` (no
+  sample flagged, as `Clip`'s `upper=inf` is no bound); inf for
+  `KalmanFilter`'s `initial_variance`, a diffuse prior: the first
+  observation sets the state, with the observation variance (2.8.0 gave all
+  NaN). 2.8.0 took a non-finite value for these settings, which now refuse
+  it:
   - backtest fees: `maker_fee`, `taker_fee`, `fee`, `maker_fee_per_contract`
     and `taker_fee_per_contract`, and `BacktestPriceTarget`'s `spread`;
   - position bounds on the wrong side or NaN: `max_position=-inf` or NaN,
@@ -803,21 +813,21 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   - model and filter settings: `BayesianRegression`'s `prior_precision` and
     `prior_sigma`, `Butter`'s `cutoff_freq`, the `period` of `Decycler` and
     `SuperSmoother` and the `hp_period` and `lp_period` of `RoofingFilter`,
-    `FracDiff`'s `d` and `threshold`, `Hampel`'s and `ImpulseClip`'s
-    `n_sigma`, `HawkesIntensity`'s `alpha` and `mu`, all four `KalmanFilter`
-    settings, `KeltnerChannels`' `num_atr`, `MAMA`'s `fast_limit` and
+    `FracDiff`'s `d` and `threshold`, NaN and -inf for `Hampel`'s and
+    `ImpulseClip`'s `n_sigma`, `HawkesIntensity`'s `alpha` and `mu`,
+    `KalmanFilter`'s `process_var`, `observation_var` and `initial_state`
+    and a NaN or -inf `initial_variance`, `KeltnerChannels`' `num_atr`, `MAMA`'s `fast_limit` and
     `slow_limit`, `MovingAverage`'s `taps`, `Propagator`'s `g0` and `gamma`,
     `VPIN`'s `bucket_volume`;
-  - arithmetic: `Linear`'s `scale` and `shift`, `Linear2`'s `a`, `b` and
-    `c`, `Power`'s `p`, `Clip`'s `lower=inf` and `upper=-inf`;
+  - arithmetic: NaN for `Linear`'s `scale` and `shift`, `Linear2`'s `a`, `b`
+    and `c` and `Power`'s `p`, `Clip`'s `lower=inf` and `upper=-inf`;
   - statistics: `RollingCVaR`'s `alpha`, `RollingQuantile`'s `quantile`,
     `periods_per_year` of `RollingCalmar`, `RollingInfoRatio`,
     `RollingSharpe` and `RollingSortino`, `RollingSortino`'s `target`,
     `RollingDownsideDeviation`'s `mar` and `RollingOmega`'s `threshold`.
 
-  Their results were NaN, infinite or meaningless (`KalmanFilter(1, 1,
-  initial_variance=inf)` gave all NaN, `SuperSmoother(period=inf)` all
-  zeros). Pass a finite value; for "no position bound" or "no cap" keep the
+  Their results were NaN, infinite or meaningless (`SuperSmoother(period=inf)`
+  gave all zeros, `RollingQuantile(5, nan)` all NaN). Pass a finite value; for "no position bound" or "no cap" keep the
   infinite default.
 * `Pipeline.from_json` and `Pipeline.from_dict` check the description first
   and raise `ValueError` naming the problem ("unknown functor class:
@@ -826,6 +836,14 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   `KeyError`, `TypeError` or `json.JSONDecodeError` (a `ValueError`) from
   inside the loader for these. `from_json` takes a `str`; for a dict use
   `from_dict`.
+* An integer setting below its smallest value raises `ValueError`
+  (`RangeError` in JavaScript) in one form, "RollingMean: window_size must be
+  at least 1, got -1", for every window, period and count. 2.8.0 raised the
+  operator's own text, which for a negative window was the C++ buffer's
+  "vector" or "Size must be at least 1.". The type of the error is unchanged.
+* `Merge` of a bare number (`Merge()(5.0, 6.0)`) raises `TypeError`, as
+  JavaScript's `merge` does: a number is one event, not a stream. 2.8.0
+  merged each number as a stream of one value. Pass `[5.0]`.
 * `Merge` of lazy `(value, index)` events whose values are rows merges the
   rows: each event comes out as `(row, index, source)`. 2.8.0 kept the first
   value of each row and dropped the rest. To get that, take `row[0]`.
@@ -880,6 +898,9 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Fixed
 
+* `Butter(0, cutoff)` and a negative order crashed the process; they raise
+  `ValueError` ("Butter: order must be at least 1, got 0"), as
+  `ButterHighpass`, `ButterBandpass` and `ButterBandstop` already did.
 * An operator reads a non-contiguous float64 (or other dtype) view whose
   address is not aligned for its type, such as a strided view of
   `np.frombuffer(buf, offset=1)`, with a byte copy of each element. It read
@@ -900,7 +921,9 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   width; another width raises `ValueError` (`RangeError` in JavaScript)
   naming both widths. 2.8.0 raised `RuntimeError` ("std::bad_cast") for wide
   arrays and `ValueError` for positional row events. A text index given to
-  `Merge` raises `TypeError` (2.8.0: `ValueError` from `int()`).
+  `Merge` raises `TypeError` (2.8.0: `ValueError` from `int()`), and an index
+  that is not 1-D raises `ValueError` naming its shape from `Merge` and
+  `CombineLatest` (2.8.0: "std::bad_cast").
 * A clock `Resample` inside a `Pipeline` whose values come through a node
   that releases them late (a `Filter`, a `threshold=` or `count=` `Resample`,
   a `CombineLatest`) put a value that came out after a later clock tick into
