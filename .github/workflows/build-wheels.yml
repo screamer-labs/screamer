@@ -151,6 +151,7 @@ jobs:
           # Timing tests (perf marker) run in tests.yml only.
           pytest -q -m "not perf" \
             --ignore=tests/test_pure_headers.py \
+            --ignore=tests/test_event_counters_64bit.py \
             --ignore=tests/test_wasm_codegen_fresh.py \
             --ignore=tests/test_ts_api_fresh.py \
             --ignore=tests/test_dag_codes_sync.py

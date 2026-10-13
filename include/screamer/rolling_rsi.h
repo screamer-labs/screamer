@@ -35,6 +35,7 @@
 // See docs/conventions.md for the rationale and live alignment
 // numbers against TA-Lib and pandas-ta-classic.
 
+#include "screamer/detail/test_access.h"
 #include <cstdint>
 #include <limits>
 #include <stdexcept>
@@ -47,6 +48,7 @@
 namespace screamer {
 
 class RollingRSI : public ScreamerBase {
+    friend struct detail::TestAccess;   // tests read the event counters (test_access.h)
 public:
     enum class Method { Wilder, Cutler };
 

@@ -14,6 +14,7 @@
 // sample index `window_size` (need one prev_TP plus a full window of
 // directional money-flow values). Matches TA-Lib's MFI.
 
+#include "screamer/detail/test_access.h"
 #include <cstdint>
 #include <limits>
 #include <stdexcept>
@@ -24,6 +25,7 @@
 namespace screamer {
 
 class MFI : public FunctorBase<MFI, 4, 1> {
+    friend struct detail::TestAccess;   // tests read the event counters (test_access.h)
 public:
     explicit MFI(int window_size = 14)
         : window_size_(window_size),

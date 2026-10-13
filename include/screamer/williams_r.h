@@ -23,6 +23,7 @@
 // segment), the formula is mathematically undefined. TA-Lib returns 0
 // in that case; we follow.
 
+#include "screamer/detail/test_access.h"
 #include <array>
 #include <vector>
 #include <algorithm>
@@ -39,6 +40,7 @@
 namespace screamer {
 
 class WilliamsR : public FunctorBase<WilliamsR, 3, 1> {
+    friend struct detail::TestAccess;   // tests read the event counters (test_access.h)
 public:
     explicit WilliamsR(int window_size = 14)
         : window_size_(window_size),

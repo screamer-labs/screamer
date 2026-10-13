@@ -42,6 +42,7 @@
 //                ratio) at the approximate unit gain of the .075*Period + .54
 //                correction; dividing by the gains makes that gain exact.
 
+#include "screamer/detail/test_access.h"
 #include <cstdint>
 #include <cmath>
 #include <cstddef>
@@ -55,6 +56,7 @@ namespace screamer {
 namespace detail {
 
 class HilbertCycle {
+    friend struct TestAccess;   // tests read the event counters (test_access.h)
 public:
     HilbertCycle() { reset(); }
 

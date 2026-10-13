@@ -11,6 +11,7 @@
 // adaptive MA) is a second pass at alpha / 2. Returns (mama, fama). Reuses
 // detail::HilbertCycle for I1 and Q1.
 
+#include "screamer/detail/test_access.h"
 #include "screamer/common/finite_settings.h"
 #include <cmath>
 #include <limits>
@@ -20,6 +21,7 @@
 namespace screamer {
 
 class MAMA : public FunctorBase<MAMA, 1, 2> {
+    friend struct detail::TestAccess;   // tests read the event counters (test_access.h)
 public:
     explicit MAMA(double fast_limit = 0.5, double slow_limit = 0.05)
         : fast_(fast_limit), slow_(slow_limit) {

@@ -10,6 +10,7 @@
 // step. We just expose the front element's window offset instead of
 // its value.
 
+#include "screamer/detail/test_access.h"
 #include <cmath>
 #include <limits>
 #include "screamer/common/base.h"
@@ -20,6 +21,7 @@
 namespace screamer {
 
 class RollingArgmin : public ScreamerBase {
+    friend struct detail::TestAccess;   // tests read the event counters (test_access.h)
 public:
     explicit RollingArgmin(int window_size) : deque_(window_size) {}
 

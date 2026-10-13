@@ -11,6 +11,7 @@
 // 3 -> 1 over (high, low, close). First valid output at sample
 // index `window_size` (zero-indexed), matching TA-Lib's ATR.
 
+#include "screamer/detail/test_access.h"
 #include <cstdint>
 #include <limits>
 #include <stdexcept>
@@ -21,6 +22,7 @@
 namespace screamer {
 
 class ATR : public FunctorBase<ATR, 3, 1> {
+    friend struct detail::TestAccess;   // tests read the event counters (test_access.h)
 public:
     // The column loop runs on a local copy, its state in registers.
     static constexpr bool kColumnCopy = true;

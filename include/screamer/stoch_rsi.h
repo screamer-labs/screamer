@@ -19,6 +19,7 @@
 // Composition: RollingRSI (Wilder) + two detail::MonotonicDeque +
 // two detail::RollingMean. Amortised O(1) per step.
 
+#include "screamer/detail/test_access.h"
 #include <cstdint>
 #include <limits>
 #include <stdexcept>
@@ -32,6 +33,7 @@
 namespace screamer {
 
 class StochRSI : public FunctorBase<StochRSI, 1, 2> {
+    friend struct detail::TestAccess;   // tests read the event counters (test_access.h)
 public:
     StochRSI(int rsi_period = 14,
              int stoch_period = 14,

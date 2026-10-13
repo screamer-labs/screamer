@@ -24,6 +24,7 @@
 // mathematically undefined. We return 0 there (matching TA-Lib's
 // WILLR convention; STOCH itself uses 0 too).
 
+#include "screamer/detail/test_access.h"
 #include <cstdint>
 #include <limits>
 #include <stdexcept>
@@ -36,6 +37,7 @@
 namespace screamer {
 
 class Stoch : public FunctorBase<Stoch, 3, 2> {
+    friend struct detail::TestAccess;   // tests read the event counters (test_access.h)
 public:
     Stoch(int fastk_period = 14, int smooth_k = 3, int d = 3)
         : fastk_period_(fastk_period),

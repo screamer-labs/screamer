@@ -7,6 +7,7 @@
 // recurrence exists in exactly one place. See include/screamer/adx.h history
 // for the timeline derivation.
 
+#include "screamer/detail/test_access.h"
 #include <cstdint>
 #include <algorithm>
 #include <cmath>
@@ -27,6 +28,7 @@ struct DmiResult {
 };
 
 class DmiCore {
+    friend struct TestAccess;   // tests read the event counters (test_access.h)
 public:
     explicit DmiCore(int window_size) : w_(window_size) {
         if (window_size < 2) {

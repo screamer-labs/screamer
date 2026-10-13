@@ -25,6 +25,7 @@
 // never poison their own state with NaN; the YZ class gates the
 // final output itself.
 
+#include "screamer/detail/test_access.h"
 #include <cstdint>
 #include <cmath>
 #include <limits>
@@ -38,6 +39,7 @@
 namespace screamer {
 
 class RollingYangZhangVar : public FunctorBase<RollingYangZhangVar, 4, 1> {
+    friend struct detail::TestAccess;   // tests read the event counters (test_access.h)
 public:
     explicit RollingYangZhangVar(int window_size)
         : window_size_(window_size),

@@ -1,6 +1,7 @@
 #ifndef SCREAMER_ROLLING_MAX_H
 #define SCREAMER_ROLLING_MAX_H
 
+#include "screamer/detail/test_access.h"
 #include <cmath>
 #include <cstddef>
 #include <limits>
@@ -11,6 +12,7 @@
 namespace screamer {
 
 class RollingMax : public ScreamerBase {
+    friend struct detail::TestAccess;   // tests read the event counters (test_access.h)
 public:
     explicit RollingMax(int window_size) : deque_(window_size) {}
 

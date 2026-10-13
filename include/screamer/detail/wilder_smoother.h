@@ -10,6 +10,7 @@
 // Returns NaN during the seed-collection phase (first window_size - 1
 // values), then the SMA seed at sample w, then the recursive form.
 
+#include "screamer/detail/test_access.h"
 #include <cstdint>
 #include <limits>
 #include <stdexcept>
@@ -17,6 +18,7 @@
 namespace screamer::detail {
 
 class WilderSmoother {
+    friend struct TestAccess;   // tests read the event counters (test_access.h)
 public:
     explicit WilderSmoother(int window_size) : window_size_(window_size) {
         if (window_size < 1) {

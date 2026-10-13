@@ -27,6 +27,7 @@
 // The directional-movement math itself lives in detail::DmiCore, shared
 // with the standalone PlusDI / MinusDI / PlusDM / MinusDM / DX operators.
 
+#include "screamer/detail/test_access.h"
 #include <tuple>
 #include "screamer/common/functor_base.h"
 #include "screamer/detail/dmi_core.h"
@@ -34,6 +35,7 @@
 namespace screamer {
 
 class ADX : public FunctorBase<ADX, 3, 3> {
+    friend struct detail::TestAccess;   // tests read the event counters (test_access.h)
 public:
     // The column loop runs on a local copy, its state in registers.
     static constexpr bool kColumnCopy = true;

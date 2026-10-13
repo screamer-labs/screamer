@@ -27,6 +27,7 @@
 // algorithmic. Values and indices live in separate arrays because the pop
 // loop only ever compares values.
 
+#include "screamer/detail/test_access.h"
 #include <cstddef>
 #include <cstdint>
 #include <stdexcept>
@@ -36,6 +37,7 @@ namespace screamer::detail {
 
 template <bool IsMax>
 class MonotonicDeque {
+    friend struct TestAccess;   // tests read the event counters (test_access.h)
 public:
     explicit MonotonicDeque(int window_size)
         : window_size_(window_size),

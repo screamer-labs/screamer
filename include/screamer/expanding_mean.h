@@ -9,6 +9,7 @@
 // output is NaN at that index and the running sum / count are unchanged.
 // Matches pandas Series.expanding().mean().
 
+#include "screamer/detail/test_access.h"
 #include <cmath>
 #include <cstdint>
 #include <limits>
@@ -17,6 +18,7 @@
 namespace screamer {
 
 class ExpandingMean : public ScreamerBase {
+    friend struct detail::TestAccess;   // tests read the event counters (test_access.h)
 public:
     ExpandingMean() { reset(); }
 

@@ -25,6 +25,7 @@
 // detail::RollingSum(n) for the volatility, one prev_x_ scalar for
 // the one-step delta, and one running KAMA scalar. All O(1) per step.
 
+#include "screamer/detail/test_access.h"
 #include <cstdint>
 #include <cmath>
 #include <limits>
@@ -37,6 +38,7 @@
 namespace screamer {
 
 class KAMA : public ScreamerBase {
+    friend struct detail::TestAccess;   // tests read the event counters (test_access.h)
 public:
     KAMA(int window_size, int fast = 2, int slow = 30)
         : window_size_(window_size),
