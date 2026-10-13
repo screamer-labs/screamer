@@ -74,3 +74,30 @@ def test_select_missing_columns_raises_dag():
     """columns is a required positional argument; omitting it raises TypeError."""
     with pytest.raises(TypeError):
         Select()(np.array([[1.0, 2.0], [3.0, 4.0]]))
+
+
+def test_positional_select_equals_the_pipeline_and_never_aliases():
+    # A positional select copies columns directly; the result must equal the
+    # Pipeline's bit for bit, in its shape, and never share the input's memory.
+    from screamer import streams as S
+    rng = np.random.default_rng(7)
+    for _ in range(300):
+        T, w, one = int(rng.integers(0, 6)), int(rng.integers(1, 4)), rng.random() < 0.4
+        v = rng.normal(size=(T,) if one else (T, w))
+        v[rng.random(v.shape) < 0.3] = np.nan
+        width = 1 if one else w
+        cols = (int(rng.integers(0, width)) if rng.random() < 0.5 else
+                [int(rng.integers(0, width)) for _ in range(int(rng.integers(1, 4)))])
+        got, idx = S.select(v, cols)
+        c, scalar = S._normalize_columns(cols)
+        arg = c[0] if scalar else c
+        dag = S._one_node_pipeline(1, lambda x: S.select(x, columns=arg), "select")
+        want, _ = S._run_eager_pipeline(dag, [(v, None)], "select")
+        assert idx is None and got.shape == want.shape and got.tobytes() == want.tobytes()
+        assert not np.shares_memory(got, v)
+
+
+def test_a_scalar_index_names_the_index():
+    import screamer as s
+    with pytest.raises(TypeError, match=r"the index of a \(values, index\) stream must be a sequence"):
+        s.Select(0)(np.arange(3.0), index=5)

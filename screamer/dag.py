@@ -181,11 +181,14 @@ def _is_vi_pair(x):
     if len(x) == 2 and _is_sequence(x[0]) and (
             x[1] is None or _is_sequence(x[1]) or isinstance(x[1], np.generic)):
         return True
+    if len(x) == 2 and _is_sequence(x[0]):
+        raise TypeError(
+            "the index of a (values, index) stream must be a sequence such as a "
+            f"list, a tuple, a range or an array, or None; got {_kind_text(x[1])}")
     if len(x) != 2:
         got = f"a tuple of {len(x)} items"
     else:
-        bad = x[0] if not _is_sequence(x[0]) else x[1]
-        got = f"a tuple holding {_kind_text(bad)}"
+        got = f"a tuple holding {_kind_text(x[0])}"
     raise TypeError(
         "a tuple marks a (values, index) stream: pass a 2-tuple of values and "
         "index (each a sequence such as a list, a tuple, a range or an array), or "

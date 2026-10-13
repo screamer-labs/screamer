@@ -694,7 +694,11 @@ def select(values, columns, index=None):
                 f"select: column {c} out of range for width {width}")
     # The C++ SelectNode through a one-input Pipeline, for every width: it
     # keeps every row (equal indexes too), checks the index, and returns new
-    # arrays.
+    # arrays. A positional stream has no index to check, so its rows are a
+    # plain column copy in the same shape (a width-1 result is 1-D).
+    if idx is None and vals.ndim <= 2:
+        out = (vals[:, None] if vals.ndim == 1 else vals)[:, cols]
+        return (np.ascontiguousarray(out[:, 0] if out.shape[1] == 1 else out), None)
     columns_arg = cols[0] if scalar else cols
     dag = _one_node_pipeline(1, lambda x: select(x, columns=columns_arg), "select")
     return _run_eager_pipeline(dag, [(vals, idx)], "select")

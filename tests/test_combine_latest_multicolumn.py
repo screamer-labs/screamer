@@ -284,7 +284,7 @@ def test_a_tuple_marks_values_and_index_wherever_a_stream_is_taken():
 
 def test_a_tuple_that_is_not_values_and_index_raises():
     for bad in [(1.0, 2.0, 3.0), (1.0, 2.0), ([1.0, 2.0], "ab"), ([1.0], [0], [1])]:
-        with pytest.raises(TypeError, match=r"a tuple marks a \(values, index\) stream"):
+        with pytest.raises(TypeError, match=r"\(values, index\) stream"):
             s.CombineLatest()(bad, [1.0, 2.0])
     with pytest.raises(TypeError, match=r"a tuple marks a \(values, index\) stream"):
         s.split((1.0, 2.0), [0, 1])
