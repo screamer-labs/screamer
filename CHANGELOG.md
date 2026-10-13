@@ -1699,6 +1699,13 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   `RollingPoly2` 4.3 (was 5.4) and `RollingADF` 81 (was 87) are faster;
   `RollingOU` 4.7 (was 4.2, 1.13x), `RollingPoly1` 3.5 (was 3.3, 1.10x) and
   `RollingTSF` 3.6 (was 3.3, 1.07x) are slower.
+* Two operators are slower than in 2.8.0. On 200,000 values (ns per element,
+  Apple M3, default parameters, median of 3 runs): `TrendMode` takes 70 in
+  both shapes (2.8.0: 51, 1.38x), the cost of Ehlers' trend-mode rule (see
+  Changed), which tracks the DC phase and the trendline on every sample.
+  `RollingInfoRatio` takes 5.5 on a 1-D series (2.8.0: 5.0, 1.10x) and 6.2
+  on `(2000, 100)` (2.8.0: 6.3), the cost of the stable `RollingStd` it is
+  built on.
 
 ### Documentation
 
