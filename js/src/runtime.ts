@@ -213,6 +213,15 @@ function runAsyncStream(srcs: AsyncIterable<any>[], open: (n: number) => Stepper
   return gen;
 }
 
+// The same for a stream generator made elsewhere (combineLatest's iterator
+// forms): `held.close` frees what the stream holds, and the generator clears
+// it when it finishes. Returns `gen`.
+export type StreamHold = Held;
+export function trackStream<G extends object>(gen: G, held: Held): G {
+  STREAMS.register(gen, held);
+  return gen;
+}
+
 // The copies an op's streams run on (decision D8: every stream is an
 // independent run with its own state). A stream takes a reset copy with
 // acquire() and gives it back with release(), so the next stream reuses it

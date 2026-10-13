@@ -13,7 +13,6 @@ import numpy as np
 
 from . import screamer_bindings as _b
 from .dag import is_node, make_operator_node, _is_vi_pair, _as_float64, _setting
-from .screamer_bindings import _value
 
 __all__ = [
     "to_pandas",
@@ -212,11 +211,7 @@ def _streams_to_indexed(streams, who):
             "stream an index, or none")
     vals = [_as_float64(s[0], contiguous=True) for s in streams]
     if not any(indexed):
-        lens = {len(s[0]) for s in streams}
-        if len(lens) != 1:
-            raise ValueError(
-                f"{who}: streams have no index, so they are assumed aligned - "
-                "lengths must match, or provide an index to align different clocks")
+        _b._check_aligned_lengths([len(s[0]) for s in streams])
         idx = [np.arange(len(streams[0][0]), dtype=np.int64) for _ in streams]
         return "i64", idx, vals, True
     kind, idx, _ = _normalize_streams([(s[1], s[0]) for s in streams], who)
@@ -301,36 +296,6 @@ def merge(*values, index=None):
 
 
 
-# Sanctioned Python (input adaptation, not core logic): this pairs Python
-# iterators step by step; it does not implement the combine itself. Pure-C++ (or
-# other-binding) users do a positional combine by feeding row-number indices to
-# the C++ CombineLatest node - the alignment lives there. What stays here is the
-# iterator ergonomics plus the "stay in step" check, which is specific to Python
-# iterators. See docs/superpowers/specs/2026-07-16-lazy-path-cpp-design.md.
-def _combine_latest_zip_lazy(sources, wide=False):
-    """Positional (no-index) combine_latest over lazy sources.
-
-    The sources are paired by position: each step takes one value from every
-    source. They must therefore stay in step and end together. If one source runs
-    out while the others are still producing values, they were never aligned, and
-    this raises. Matches the eager positional path, which rejects the same case.
-    Yields ``(row_tuple, None)``, or ``(row_array, None)`` with each source's
-    fields concatenated when ``wide``.
-    """
-    import itertools
-    for tup in itertools.zip_longest(*sources, fillvalue=_EMPTY):
-        if any(x is _EMPTY for x in tup):
-            raise ValueError(
-                "combine_latest: positional (no-index) sources must stay in step "
-                "and end together; one source ran out before the others")
-        if wide:
-            yield np.concatenate([np.ravel(_as_float64(x)) for x in tup]), None
-        else:
-            # Each value follows the C++ value rule (None is NaN, a string
-            # raises); map over the C++ call is faster than float() in a generator.
-            yield tuple(map(_value, tup)), None
-
-
 def _combine_latest_asof_lazy(sources, emit):
     """Indexed combine_latest over lazy (value, index) sources: as-of alignment
     driven by the C++ combine_latest node through the Stage-2 lazy Pipeline. Yields
@@ -348,65 +313,17 @@ def _combine_latest_asof_lazy(sources, emit):
     yield from dag(*sources)
 
 
-def _as_fields(v, layout):
-    """Read one input as (T, *A, F): a 1-D or 2-D array is read as fields,
-    a 3-D or wider array as (T, *A, F); a layout states another reading."""
-    v = _as_float64(v)
-    if layout is not None:
-        from .shape import reshape_array
-        return reshape_array(v, layout)
-    return v[:, None] if v.ndim == 1 else v
-
-
-def _layouts(layout, n):
-    if layout is None or isinstance(layout, str):
-        return [layout] * n
-    layout = list(layout)
-    if len(layout) != n:
-        raise ValueError(f"combine_latest: pass one layout per input ({n}), or one string for all")
-    return layout
-
-
-def _assemble(rows, fields, assets):
-    """Split joined rows into each input's (*A_i, F_i) block, broadcast the
-    assets and concatenate the fields."""
-    T = rows.shape[0]
-    parts, start = [], 0
-    for f in fields:
-        w = int(np.prod(f.shape[1:]))
-        # Missing asset axes go in as size 1 right after time, then broadcast.
-        lead = (1,) * (len(assets) - (f.ndim - 2))
-        block = rows[:, start:start + w].reshape((T,) + lead + f.shape[1:])
-        parts.append(np.broadcast_to(block, (T,) + assets + f.shape[-1:]))
-        start += w
-    return np.concatenate(parts, axis=-1)
-
-
-def _join_spec(heads, layouts):
-    """(fields, assets, wide) from one sample per input of shape (T, ...)."""
-    fields = [_as_fields(h, lay) for h, lay in zip(heads, layouts)]
-    assets = tuple(_b._broadcast_shape([[1, *f.shape[1:-1]] for f in fields])[1:])
-    wide = bool(assets) or any(f.shape[-1] != 1 for f in fields)
-    return fields, assets, wide
-
-
-def _empty_sample(layout):
-    """A one-row sample for a source with no events: size 1 on every axis its
-    layout names (one asset, one field), or a single field without a layout."""
-    if layout is None:
-        return np.full(1, np.nan)
-    axes = [c for c in layout.split("->")[0] if c.isalpha()]
-    return np.full((1,) * len(axes), np.nan)
-
-
 def _combine_latest_lazy(values, emit, layout=None):
     """Dispatch gate for lazy combine_latest: classify sources on first next().
 
     Classification (and peeking one head per source) is deferred to the first
-    call to ``__next__``, so construction consumes nothing. Positional sources
-    route to strict-lockstep zip; indexed ((value, index)) sources route to the
-    as-of Pipeline path. The first event of each source fixes its fields and
-    asset axes, as in the eager path.
+    call to ``__next__``, so construction consumes nothing. The first event of
+    each source fixes its fields and asset axes, as in the eager path; the C++
+    join plan (``include/screamer/streams/join_plan.h``) reads the events and
+    assembles the rows. Positional sources are paired by position in C++
+    (``_CombineZip``): each step takes one event from every source, so they
+    must stay in step and end together. Indexed ((value, index)) sources take
+    the as-of Pipeline path.
     """
     import itertools
     positional, sources, _ = _classify_lazy_sources(values, "combine_latest")
@@ -418,23 +335,25 @@ def _combine_latest_lazy(values, emit, layout=None):
             sources[k] = itertools.chain([h], src)
     if all(h is _EMPTY for h in heads):
         return
-    layouts = _layouts(layout, len(heads))
-    samples = [_empty_sample(lay) if h is _EMPTY
-               else _as_float64(h if positional else h[0])[None]
-               for h, lay in zip(heads, layouts)]
-    fields, assets, wide = _join_spec(samples, layouts)
+    plan = _b._JoinPlan([None if h is _EMPTY else (1,) + np.shape(_as_float64(h if positional else h[0]))
+                         for h in heads], layout)
     if positional:
-        rows = _combine_latest_zip_lazy(sources, wide)
-    else:
-        # Wide events enter the Pipeline as flat rows; the node concatenates them.
-        rows = _combine_latest_asof_lazy(
-            [(((np.ravel(_as_float64(v)) if wide else v), i) for v, i in src)
-             for src in sources], emit)
-    for row, i in rows:
-        if wide:
-            row = _as_float64(row)
-            row = _assemble(row[None], fields, assets)[0] if assets else row
+        yield from _b._CombineZip(sources, plan, _as_float64)
+        return
+    # Wide events enter the Pipeline as flat rows; the node concatenates them.
+    if plan.wide:
+        sources = [_flat_events(src, plan, k) for k, src in enumerate(sources)]
+    for row, i in _combine_latest_asof_lazy(sources, emit):
+        if plan.wide:
+            row = plan.row(_as_float64(row)) if plan.assets else _as_float64(row)
         yield row, i
+
+
+def _flat_events(src, plan, k):
+    """The (value, index) events of source k with each value as its flat row."""
+    if plan.in_order(k):
+        return ((np.ravel(_as_float64(v)), i) for v, i in src)
+    return ((plan.flat(k, _as_float64(v)), i) for v, i in src)
 
 
 def combine_latest(*values, index=None, emit="when_all", layout=None):
@@ -474,11 +393,10 @@ def combine_latest(*values, index=None, emit="when_all", layout=None):
             "all generators or all arrays")
     streams = _to_streams(values, index)
     kind, idx, vals, positional = _streams_to_indexed(streams, "combine_latest")
-    fields, assets, wide = _join_spec(vals, _layouts(layout, len(vals)))
-    flat = [np.ascontiguousarray(f.reshape(f.shape[0], int(np.prod(f.shape[1:])))) for f in fields]
+    # The layout join, the as-of join and the assembly all run in C++
+    # (include/screamer/streams/join_plan.h).
     fn = _b._combine_latest_f64 if kind == "f64" else _b._combine_latest_i64
-    out_index, rows = fn(idx, flat, emit == "when_all")   # coalesced in C++
-    aligned = _assemble(rows, fields, assets) if assets else rows
+    out_index, aligned = fn(idx, vals, emit == "when_all", layout)
     return aligned, (None if positional else out_index)
 
 

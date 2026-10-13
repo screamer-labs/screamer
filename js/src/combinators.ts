@@ -7,6 +7,12 @@
 // the graph-node compile path in screamer/dag.py (Pipeline._compile_cpp).
 
 import { Node, isNode } from "./node.js";
+import type { NdArray } from "./ndarray.js";
+import { aKind } from "./kinds.js";
+import {
+  combineArrays, combineAsync, combineIterators,
+  type CombineInput, type CombineLayout, type CombineRow,
+} from "./combine.js";
 import {
   RESAMPLE_MODE_CODE,
   RESAMPLE_AGG_CODE,
@@ -20,23 +26,99 @@ import {
 export interface CombineLatestOpts {
   emit?: "when_all" | "on_any";
   // The node's join cap; unset, the Pipeline's maxPending (default 1,000,000).
+  // Node inputs only.
   maxPending?: number;
+  // How each input's axes read (a layout string per input, or one for all), as
+  // in reshape. Arrays and iterators only: streams inside a Pipeline carry
+  // fields only.
+  layout?: CombineLayout;
 }
 
-// As-of latest-value join over N Node streams. `emit: "when_all"` (default) emits
-// only once every input has produced a value; "on_any" emits on any input event.
-export function combineLatest(nodes: Node[], opts: CombineLatestOpts = {}): Node {
-  if (!Array.isArray(nodes) || nodes.length === 0 || !nodes.every(isNode)) {
-    throw new Error("combineLatest: pass a non-empty array of Node inputs");
+// The options as a plain object of known keys.
+function combineOptions(opts: unknown): { whenAll: boolean; maxPending?: number; layout: CombineLayout | null } {
+  const o = opts ?? {};
+  const proto = typeof o === "object" ? Object.getPrototypeOf(o) : undefined;
+  if (proto !== Object.prototype && proto !== null)
+    throw new TypeError(`combineLatest: the options are ${aKind(opts)}, expected an object such as { emit: "on_any" }`);
+  for (const key of Object.keys(o))
+    if (key !== "emit" && key !== "maxPending" && key !== "layout")
+      throw new TypeError(`combineLatest: unknown option '${key}'`);
+  const { emit, maxPending, layout } = o as CombineLatestOpts;
+  if (emit !== undefined && emit !== "when_all" && emit !== "on_any") {
+    if (typeof emit !== "string") throw new TypeError(`combineLatest: emit is ${aKind(emit)}, expected "when_all" or "on_any"`);
+    throw new RangeError('combineLatest: emit must be "when_all" or "on_any"');
   }
-  const emit = opts.emit ?? "when_all";
-  setting("combineLatest: maxPending", opts.maxPending);
-  // Unset: the Pipeline's maxPending. The engine checks the value at compile.
-  const maxPending = opts.maxPending;
-  return new Node(
-    { combinator: "combineLatest", params: { whenAll: emit === "when_all", maxPending } },
-    nodes,
-  );
+  setting("combineLatest: maxPending", maxPending);
+  if (layout !== undefined && layout !== null && typeof layout !== "string") {
+    if (!Array.isArray(layout))
+      throw new TypeError(`combineLatest: layout is ${aKind(layout)}, expected a string or an array of strings`);
+    for (const l of layout)
+      if (l !== null && typeof l !== "string")
+        throw new TypeError(`combineLatest: a layout is a string or null, got ${aKind(l)}`);
+  }
+  return { whenAll: (emit ?? "when_all") === "when_all", maxPending, layout: layout ?? null };
+}
+
+const isAsyncIterable = (x: any) => x != null && typeof x[Symbol.asyncIterator] === "function";
+const isIterator = (x: any) =>
+  x != null && typeof x !== "string" && typeof x[Symbol.iterator] === "function" &&
+  !Array.isArray(x) && !(ArrayBuffer.isView(x) && !(x instanceof DataView));
+
+/**
+ * As-of latest-value join of N streams: one row per distinct index, holding
+ * every input's latest values (same-index events coalesce). `emit: "when_all"`
+ * (default) starts once every input has a value; `"on_any"` starts at the
+ * first event, with NaN for inputs not seen yet. The fields of the inputs
+ * concatenate; with `layout`, inputs with asset axes broadcast them.
+ *
+ * - `Node` inputs build a graph node for a Pipeline (the only form that takes
+ *   `maxPending`, and the one that takes no `layout`).
+ * - Arrays (a typed array, an Array, T rows or an NdArray) are paired by
+ *   position and must have one length. `[values, index]` pairs, values a
+ *   typed array or an NdArray, join as of their indexes. Returns
+ *   `[values, index]`: values an NdArray `[rows, ...fields]` or
+ *   `[rows, ...assets, fields]`, index a Float64Array, or null without one.
+ * - Iterators, or async iterables, of events: bare events are paired by
+ *   position, `[value, index]` events join as of their indexes (so a
+ *   positional event of two values is a typed array or an NdArray). Returns
+ *   an iterator, or an async iterator, of `[row, index]`.
+ *
+ * Python's `combine_latest` gives the same values.
+ */
+export function combineLatest(nodes: Node[], opts?: CombineLatestOpts): Node;
+export function combineLatest(inputs: CombineInput[], opts?: CombineLatestOpts): [NdArray, Float64Array | null];
+export function combineLatest(inputs: AsyncIterable<unknown>[], opts?: CombineLatestOpts): AsyncGenerator<CombineRow, void, undefined>;
+export function combineLatest(inputs: Iterable<unknown>[], opts?: CombineLatestOpts): Generator<CombineRow, void, undefined>;
+export function combineLatest(inputs: unknown[], opts?: CombineLatestOpts): unknown {
+  if (!Array.isArray(inputs))
+    throw new TypeError(`combineLatest: pass an array of inputs, got ${aKind(inputs)}`);
+  if (inputs.length === 0) throw new RangeError("combineLatest: needs at least one stream");
+  const o = combineOptions(opts);
+  const nodes = inputs.filter(isNode).length;
+  if (nodes) {
+    if (nodes !== inputs.length)
+      throw new TypeError("combineLatest: pass every input as a Node, or none");
+    if (o.layout !== null)
+      throw new RangeError("combineLatest: layout applies to arrays and iterators; " +
+        "streams inside a Pipeline carry fields only");
+    // Unset: the Pipeline's maxPending. The engine checks the value at compile.
+    return new Node(
+      { combinator: "combineLatest", params: { whenAll: o.whenAll, maxPending: o.maxPending } },
+      inputs as Node[],
+    );
+  }
+  if (o.maxPending !== undefined)
+    throw new TypeError("combineLatest: maxPending applies to Node inputs, the join inside a Pipeline");
+  const direct = { whenAll: o.whenAll, layout: o.layout };
+  const nAsync = inputs.filter(isAsyncIterable).length;
+  const nSync = inputs.filter((x) => !isAsyncIterable(x) && isIterator(x)).length;
+  if (nAsync && nSync)
+    throw new TypeError("combineLatest: async and synchronous inputs cannot be mixed: pass every input as an async iterable, or none");
+  if (nAsync === inputs.length) return combineAsync(inputs as AsyncIterable<unknown>[], direct);
+  if (nSync === inputs.length) return combineIterators(inputs as Iterable<unknown>[], direct);
+  if (nAsync || nSync)
+    throw new TypeError("combineLatest: cannot mix lazy iterator and concrete inputs; pass all iterators or all arrays");
+  return combineArrays(inputs, direct);
 }
 
 // ---- merge -----------------------------------------------------------------

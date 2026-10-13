@@ -16,6 +16,7 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   ("EwMean: unknown option 'spn'; valid options are com, span, halflife,
   alpha"). Only a plain object counts, and it must be the only argument. An
   operator without parameters takes an empty object.
+* JavaScript `combineLatest` joins arrays and streams directly, with `layout`.
 * JavaScript `split`.
 * `split` takes values of any rank with time first, `(T, ...)`, in Python and
   JavaScript: each event is a row, and each output keeps the row shape
@@ -82,6 +83,9 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   `(T, A, F)`. Without a layout `from_pandas` returns what it did before.
 * `CombineLatest` concatenates multi-column streams and broadcasts assets with
   `layout=`; inside a `Pipeline` it joins an OHLC node and a signal directly.
+  The iterator forms read every event as the batch form reads a row, so a
+  positional iterator of `(1,)` rows (a `(T, 1)` array) gives the batch rows;
+  2.8.0 raised `TypeError` for it.
 * `Resample` aggregates every column of `(T, X)` data; `agg="ohlc"` gives
   `(T', X, 4)`. Inside a `Pipeline` a stream carries fields only, so
   `Resample(agg="ohlc")` there gives a flat `(T', 4 * X)` frame.
@@ -102,6 +106,11 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Changed
 
+* JavaScript `combineLatest` checks its options: an unknown option raises
+  `TypeError`, and an `emit` other than `"when_all"` or `"on_any"` raises
+  `RangeError` (`TypeError` when it is not a string). 2.8.0 ignored an
+  unknown option and read any other `emit` as `"on_any"`; pass
+  `emit: "on_any"` for that result.
 * JavaScript operator constructors check their parameters:
   * `null` means "not given" only for the parameters that Python marks
     Optional and takes `None` for (the `com`, `span`, `halflife` and `alpha`
@@ -827,6 +836,11 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Performance
 
+* The layout join of `combine_latest` (asset broadcast, field concatenation,
+  row assembly and the positional pairing of iterators) is C++, shared with
+  JavaScript. The positional iterator form is about 2.9x faster than 2.8.0
+  (2 sources of 1e5 floats: 47 ms to 16 ms); with a layout, 6x to 13x faster
+  than the Python join it replaces.
 * `split` reads, checks and counts the sources in one pass, reads a uint32
   source array (the output of `merge`) in place, and no longer builds and
   drops a row-number index in a positional call. On 1e6 events it is 5-20%

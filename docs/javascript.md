@@ -127,7 +127,6 @@ sources, asset events, and errors.
 These parts work differently in the two packages, or in one package only. Each
 is tracked to be closed.
 
-* `combineLatest` in JavaScript has no `layout` argument.
 * Error classes differ: Python raises `ValueError` for inputs or events whose
   shapes do not match, where JavaScript throws `RangeError` (lengths, event
   shapes, asset shapes that do not broadcast). A wrong kind of input throws

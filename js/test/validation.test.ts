@@ -457,7 +457,8 @@ test("validation: C++ calls JavaScript only through wasmCallbacks", async () => 
   // their object from wasmCallbacks(...).call; holders keep it inside C++.
   const takers = ["strategyTestRun", "positionTestRun", "walkForwardRun"];
   const holders = ["JsCallbacks", "JsStrategyHost", "JsEngineHost"];
-  const values = ["eventPlan", "layoutPlan", "permuteBarsInto", "permuteReturnsInto", "positions"];
+  const values = ["eventPlan", "layoutPlan", "permuteBarsInto", "permuteReturnsInto", "positions",
+    "read_heads", "read_layouts", "combineLatestBatch", "JoinStream"];
   for (const [f, src] of cpp)
     assert.ok(!/using\s+(namespace\s+emscripten|emscripten::val)\b/.test(src), `${f}: val must be spelled emscripten::val`);
   const found = cpp.flatMap(([, src]) => [...src.matchAll(

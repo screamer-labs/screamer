@@ -143,3 +143,70 @@ def test_lazy_indexed_on_any_one_empty_source_matches_eager():
 def test_lazy_all_empty_sources_give_nothing():
     assert list(s.CombineLatest()(iter([]), iter([]))) == []
     assert list(s.CombineLatest(emit="on_any")(iter([]), iter([]))) == []
+
+
+# The join plan is C++ (include/screamer/streams/join_plan.h); these call it
+# through the binding, then check that every iterator form reads events as the
+# batch join does.
+from screamer import screamer_bindings as _b
+
+
+def test_join_plan_reads_layouts_and_broadcasts_assets():
+    plan = _b._JoinPlan([(1, 3), (1,)], ("TA", None))
+    assert plan.wide and plan.assets
+    np.testing.assert_array_equal(plan.row(np.array([1.0, 2.0, 3.0, 9.0])),
+                                  [[1.0, 9.0], [2.0, 9.0], [3.0, 9.0]])
+    narrow = _b._JoinPlan([(1,), (1,)], None)
+    assert not narrow.wide and not narrow.assets
+
+
+def test_join_plan_gathers_a_reordered_event():
+    # an event of shape (F=2, A=3) read as "TFA" becomes (A, F), flat
+    plan = _b._JoinPlan([(1, 2, 3)], "TFA")
+    assert not plan.in_order(0)
+    np.testing.assert_array_equal(plan.flat(0, np.arange(6.0).reshape(2, 3)), [0, 3, 1, 4, 2, 5])
+    with pytest.raises(ValueError, match="has 4 values, but its first event had 6"):
+        plan.flat(0, np.zeros(4))
+
+
+def test_join_plan_errors():
+    with pytest.raises(ValueError, match="one layout per input"):
+        _b._JoinPlan([(1,), (1,)], ["T"])
+    with pytest.raises(ValueError, match="do not broadcast"):
+        _b._JoinPlan([(1, 3), (1, 2)], "TA")
+    with pytest.raises(ValueError, match="must start with T"):
+        _b._JoinPlan([(1, 3)], "AT")
+    with pytest.raises(TypeError, match="a layout is a string or None"):
+        _b._JoinPlan([(1, 3)], [3])
+    # a source with no events: size 1 on every axis its layout names
+    empty = _b._JoinPlan([None, (1,)], ("TA", None))
+    assert empty.wide and empty.assets
+    np.testing.assert_array_equal(empty.row(np.array([np.nan, 5.0])), [[np.nan, 5.0]])
+
+
+def test_lazy_reordering_layout_matches_batch():
+    cube = np.arange(T * 6.0).reshape(T, 2, 3)          # (T, F, A)
+    batch, _ = s.CombineLatest(layout=("TFA", "T"))(cube, sig)
+    pos = list(s.CombineLatest(layout=("TFA", "T"))(iter(cube), iter(sig)))
+    np.testing.assert_array_equal(np.array([r for r, _ in pos]), batch)
+    idx = list(s.CombineLatest(layout=("TFA", "T"))(zip(cube, range(T)), zip(sig, range(T))))
+    np.testing.assert_array_equal(np.array([r for r, _ in idx]), batch)
+
+
+def test_lazy_one_field_rows_with_an_asset_axis_match_batch():
+    col = np.arange(T * 1.0)[:, None]                    # (T, 1) read as one asset
+    batch, bidx = s.CombineLatest(layout="TA")((col, np.arange(T)))
+    lazy = list(s.CombineLatest(layout="TA")(zip(col, range(T))))
+    np.testing.assert_array_equal(np.array([r for r, _ in lazy]), batch)
+
+
+def test_lazy_positional_rows_of_one_value_match_batch():
+    col = np.arange(T * 1.0)[:, None]                    # events of shape (1,)
+    batch, _ = s.CombineLatest()(col, sig)
+    lazy = list(s.CombineLatest()(iter(col), iter(sig)))
+    np.testing.assert_array_equal(np.array([r for r, _ in lazy]), batch)
+
+
+def test_lazy_positional_event_of_another_size_raises():
+    with pytest.raises(ValueError, match="has 3 values, but its first event had 2"):
+        list(s.CombineLatest()(iter([[1.0, 2.0], [1.0, 2.0, 3.0]]), iter([1.0, 2.0])))
