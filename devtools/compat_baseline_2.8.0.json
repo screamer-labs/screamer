@@ -13025,6 +13025,158 @@
    "da39a3ee5e6b4b0d"
   ]
  ],
+ "forecast_pairs count rank-3 X": [
+  "ERROR",
+  "RuntimeError",
+  "dag::FunctorNode: frame width does not match op n_in"
+ ],
+ "forecast_pairs duration rank-3 X": [
+  "pair",
+  [
+   "ndarray",
+   [
+    29
+   ],
+   "f",
+   2921.366931,
+   "9eb5e013c778a09f"
+  ],
+  [
+   "ndarray",
+   [
+    29
+   ],
+   "f",
+   3034.078342,
+   "c31a9131ec787f7b"
+  ]
+ ],
+ "forecast_pairs count (T,0) X": [
+  "ERROR",
+  "IndexError",
+  "too many indices for array: array is 1-dimensional, but 2 were indexed"
+ ],
+ "forecast_pairs count (values,index) tuples": [
+  "pair",
+  [
+   "ndarray",
+   [
+    2,
+    30
+   ],
+   "f",
+   2950.955396,
+   "5f0c8d0bb677e1b2"
+  ],
+  [
+   "ndarray",
+   [
+    2
+   ],
+   "f",
+   98.990382,
+   "2279c582c48fa6d4"
+  ]
+ ],
+ "forecast_pairs count 2-D y": [
+  "pair",
+  [
+   "ndarray",
+   [
+    30
+   ],
+   "f",
+   2854.599991,
+   "680b77db227c8a91"
+  ],
+  [
+   "ndarray",
+   [
+    30
+   ],
+   "f",
+   2836.047969,
+   "1043eae0bf1f37ac"
+  ]
+ ],
+ "forecast_pairs duration 2-D y": [
+  "pair",
+  [
+   "ndarray",
+   [
+    29
+   ],
+   "f",
+   2854.599991,
+   "7e0f59c72b7a55c4"
+  ],
+  [
+   "ndarray",
+   [
+    29
+   ],
+   "f",
+   2736.484404,
+   "f773ba2c2c82d963"
+  ]
+ ],
+ "forecast_pairs duration negative": [
+  "pair",
+  [
+   "ndarray",
+   [
+    30
+   ],
+   "f",
+   2947.185071,
+   "73396562a8396957"
+  ],
+  [
+   "ndarray",
+   [
+    30
+   ],
+   "f",
+   3133.068724,
+   "9a8e7e0bb2c69157"
+  ]
+ ],
+ "forecast_pairs count 2**40": [
+  "ERROR",
+  "TypeError",
+  "__init__(): incompatible function arguments. The following argument ty"
+ ],
+ "forecast_pairs count 2**70": [
+  "ERROR",
+  "TypeError",
+  "__init__(): incompatible function arguments. The following argument ty"
+ ],
+ "forecast_pairs duration 2**70": [
+  "ERROR",
+  "TypeError",
+  "add_delay(): incompatible function arguments. The following argument t"
+ ],
+ "forecast_pairs dropna str": [
+  "pair",
+  [
+   "ndarray",
+   [
+    29
+   ],
+   "f",
+   2854.599991,
+   "7e0f59c72b7a55c4"
+  ],
+  [
+   "ndarray",
+   [
+    29
+   ],
+   "f",
+   3034.078342,
+   "c31a9131ec787f7b"
+  ]
+ ],
  "forecast_pairs duration lazy": [
   "_LazyDriver",
   [

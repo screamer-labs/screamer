@@ -328,6 +328,17 @@ def cases():
         "forecast_pairs duration bare arrays": lambda: fp(v, w, duration=10),
         "forecast_pairs duration empty": lambda: fp(
             (v[:0], idx[:0]), (w[:0], idx[:0]), duration=10),
+        "forecast_pairs count rank-3 X": lambda: fp(X.reshape(T, 1, K), w, count=1),
+        "forecast_pairs duration rank-3 X": lambda: fp((X.reshape(T, 1, K), idx), (w, idx), duration=10),
+        "forecast_pairs count (T,0) X": lambda: fp(X[:, :0], w, count=1),
+        "forecast_pairs count (values,index) tuples": lambda: fp((v, idx), (w, idx), count=1),
+        "forecast_pairs count 2-D y": lambda: fp(v, X[:, :2], count=1),
+        "forecast_pairs duration 2-D y": lambda: fp((v, idx), (X[:, :2], idx), duration=10),
+        "forecast_pairs duration negative": lambda: fp((v, idx), (w, idx), duration=-10),
+        "forecast_pairs count 2**40": lambda: fp(v, w, count=2**40),
+        "forecast_pairs count 2**70": lambda: fp(v, w, count=2**70),
+        "forecast_pairs duration 2**70": lambda: fp((v, idx), (w, idx), duration=2**70),
+        "forecast_pairs dropna str": lambda: fp(v, w, count=1, dropna="no"),
         "forecast_pairs duration lazy": lambda: fp(vgen(v, idx), vgen(w[:len(yidx)], yidx), duration=10),
         "forecast_pairs duration graph": lambda: fp_graph(((v, idx), (yn, idx)), duration=20, dropna=True),
     })
