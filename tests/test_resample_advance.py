@@ -99,16 +99,17 @@ def test_advance_noop_inside_current_bucket():
 # 5. On-demand flush mid-stream
 # ---------------------------------------------------------------------------
 
-def test_flush_mid_stream_emits_each_partial_once():
+def test_flush_emits_the_partial_bucket_once_and_ends_the_input():
     live = _live_last("skip")
     live.push("x", 0, 10.0)
     live.push("x", 50, 20.0)    # both in bucket 0
     live.flush()                # emit partial bucket 0 now (last=20 at label 0)
-    live.push("x", 120, 30.0)   # new bucket 1
-    live.flush()                # emit partial bucket 1 (label 100, value 30)
+    live.flush()                # a repeated flush emits nothing
     v, k = live.result()
-    np.testing.assert_array_equal(k, [0, 100])
-    np.testing.assert_array_equal(v, [20.0, 30.0])
+    np.testing.assert_array_equal(k, [0])
+    np.testing.assert_array_equal(v, [20.0])
+    with pytest.raises(ValueError, match="flush"):   # flush() ended the input
+        live.push("x", 120, 30.0)
 
 
 # ---------------------------------------------------------------------------
