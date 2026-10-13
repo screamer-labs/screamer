@@ -68,9 +68,8 @@ public:
             }
             if (rows_) {
                 read_value(item, event, ev, "event");   // a number or a row
-            } else if (!nb::try_cast<double>(item, ev.value)) {
-                if (!item.is_none()) bad(event, "event", item);
-                ev.value = kNaN;                    // a missing value (A9)
+            } else if (!read_double(item, ev.value)) {   // None is NaN (A9)
+                bad(event, "event", item);
             }
         } else {
             nb::tuple tup;
@@ -160,15 +159,19 @@ private:
         } else if (vp == Py_None) {
             ev.value = kNaN;                    // a missing value (A9)
             is_scalar = true;
-        } else if (PyUnicode_Check(vp) || PyBytes_Check(vp) || PyByteArray_Check(vp)) {
-            bad(event, what, val_obj);   // text, not a sequence
+        } else if (PyUnicode_Check(vp) || PyBytes_Check(vp) || PyByteArray_Check(vp) ||
+                   is_foreign_value(vp)) {
+            bad(event, what, val_obj);   // text, a time or a ctypes object: not numbers
         }
         if (!is_scalar && read_float64_buffer(vp, event)) {
             ev.value = wide_values_[0];
         } else if (!is_scalar && flatten_ && read_any_rank(val_obj, event)) {
             ev.value = wide_values_[0];
         } else if (!is_scalar) {
-            // Wide event: extract all values from the sequence.
+            // Wide event: extract all values from the sequence. An array of
+            // strings or times is a wrong kind as a whole (refuse_text).
+            if (!PyList_Check(vp) && !PyTuple_Check(vp))
+                refuse_text(val_obj, std::string(owner_) + ": " + where(event, what));
             nb::sequence seq;
             if (nb::try_cast<nb::sequence>(val_obj, seq)) {
                 const std::size_t n = static_cast<std::size_t>(nb::len(seq));
@@ -179,8 +182,7 @@ private:
                 for (std::size_t j = 0; j < n; ++j) {
                     nb::object x = seq[j];
                     double d;
-                    if (!nb::try_cast<double>(x, d)) {
-                        if (x.is_none()) { wide_values_.push_back(kNaN); continue; }
+                    if (!read_double(x, d)) {             // None is NaN
                         const std::string w = where(event, what);
                         throw_if_wrong_kind(owner_, val_obj, w);
                         throw_bad_shape(owner_, "item [" + std::to_string(j) + "] of " + w, x);
@@ -191,7 +193,7 @@ private:
                 event_shape_.assign(1, n);
             } else {
                 // Last resort: try direct cast (handles numpy scalars, etc.)
-                if (!nb::try_cast<double>(val_obj, ev.value))
+                if (!read_double(val_obj, ev.value))
                     bad(event, what, val_obj);
             }
         }
@@ -354,14 +356,15 @@ private:
             path_.pop_back();
             return;
         }
-        if (!text && PyObject_CheckBuffer(p) && read_strided(p, event, v, depth)) return;
+        if (!text && PyObject_CheckBuffer(p) && !is_foreign_value(p) &&
+            read_strided(p, event, v, depth))
+            return;
         // A leaf: a number, or None (NaN), at the full depth. The first leaf
         // completes the shape.
         if (depth != event_shape_.size()) ragged(event);
         shape_fixed_ = true;
         double d;
-        if (nb::try_cast<double>(v, d)) { wide_values_.push_back(d); return; }
-        if (v.is_none()) { wide_values_.push_back(kNaN); return; }
+        if (read_double(v, d)) { wide_values_.push_back(d); return; }   // None is NaN
         std::string at;
         for (std::size_t j : path_) at += "[" + std::to_string(j) + "]";
         const std::string w = "item " + at + " of " + where(event, "the value of event");

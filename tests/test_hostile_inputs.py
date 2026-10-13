@@ -99,7 +99,12 @@ MODULE_VALUES = ["None", "5", "b'x'", "'\\udc80'"]
 @pytest.mark.parametrize("case", sorted(HEADERS))
 def test_nanobind_internal_hostile_module(case, call):
     out = _run(HEADERS[case], call)
-    assert out[0] == "TypeError" and "incompatible function arguments" in out[1], out
+    if call == "s.RollingMean(2)(M(), M())":       # a wrong count, named without nanobind
+        assert out == ["ValueError", "RollingMean expects 1 input, got 2"], out
+    elif call == "s.RollingMean(2)(1.0, x=M())":   # a keyword the call does not take
+        assert out == ["TypeError", "RollingMean() got an unexpected keyword argument 'x'"], out
+    else:
+        assert out[0] == "TypeError" and "incompatible function arguments" in out[1], out
 
 
 @pytest.mark.parametrize("module", MODULE_VALUES)
@@ -258,7 +263,7 @@ def test_wrong_kind_element_hostile_module():
 
 def test_list_of_wrong_count_is_not_bad_cast():
     # A one-item list for a two-input operator was a std::bad_cast.
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError, match=r"^Add expects 2 inputs, got 1$"):
         s.Add()([M()])
 
 

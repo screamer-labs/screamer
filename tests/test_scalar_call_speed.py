@@ -85,7 +85,7 @@ def test_non_exact_numbers_keep_their_old_behavior():
         s.RollingMean(3)(10 ** 400)
     with pytest.raises(TypeError, match="event 1 of input 0 is an int too large"):
         add([1.0, 10 ** 400], [1.0, 2.0])
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError, match="^Add expects 2 inputs, got 1$"):
         add(1.0)                           # wrong count
     with pytest.raises(TypeError):
         add(1.0, "2")

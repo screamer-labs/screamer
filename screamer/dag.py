@@ -97,40 +97,42 @@ def _index_array(idx):
     return arr
 
 
-def _float_values(values):
+def _float_values(values, who=""):
     """A feed's values as contiguous float64; complex values raise TypeError, as
-    operators do (the float64 cast would drop the imaginary part)."""
+    operators do (the float64 cast would drop the imaginary part). `who` names
+    the caller in an error."""
     # A value with a dtype (an array, a pandas Series) is cast as it is, so pandas
     # maps NA to NaN; one without (a list) is read by NumPy first to find its kind.
-    if isinstance(values, (list, tuple)):
-        _refuse_text(values)       # before NumPy reads a bytearray item as numbers
+    if not hasattr(values, "dtype"):
+        _refuse_text(values, who)  # before NumPy reads a bytearray item or a ctypes array
     arr = values if hasattr(values, "dtype") else np.asarray(values)
     if getattr(arr.dtype, "kind", None) == "c":
         raise TypeError("a value must be a real number or a sequence of real "
                         "numbers, got complex values")
-    return _as_float64(arr, contiguous=True)
+    return _as_float64(arr, contiguous=True, who=who)
 
 
-def _refuse_text(x):
-    """The C++ string rule (cast_double.h refuse_text): a string, or a list or
-    array holding one, raises TypeError."""
+def _refuse_text(x, who=""):
+    """The C++ value-kind rule (cast_double.h refuse_text): a string, a time or a
+    ctypes object, or a list or array holding one, raises TypeError."""
     from . import screamer_bindings as _b
-    _b._refuse_text(x)
+    _b._refuse_text(x, who)
 
 
-def _as_float64(x, contiguous=False):
+def _as_float64(x, contiguous=False, who=""):
     """`x` as a float64 array (np.asarray, or np.ascontiguousarray when
-    `contiguous`). A string, or an array or list holding one, raises TypeError
-    (a string is never a number); None is NaN. The string check runs in C++ and
-    only for a string, object or unknown kind, so a numeric array pays nothing."""
+    `contiguous`). A string, a time (a datetime64 or timedelta64 array or scalar,
+    a pandas Timestamp) or a ctypes object, or an array or list holding one,
+    raises TypeError (none is a number); None is NaN. The check runs in C++
+    (cast_double.h refuse_text) and only for a string, object, time or unknown
+    kind, so a numeric array pays nothing. `who` names the caller in an error."""
     kind = getattr(getattr(x, "dtype", None), "kind", None)
     if kind is None and not isinstance(x, (float, int)):
-        if isinstance(x, (list, tuple)):
-            _refuse_text(x)        # before NumPy reads a bytearray item as numbers
+        _refuse_text(x, who)       # before NumPy reads a bytearray item as numbers
         x = np.asarray(x)
         kind = x.dtype.kind
-    if kind in ("U", "S", "O"):
-        _refuse_text(x)
+    if kind in ("U", "S", "O", "M", "m"):
+        _refuse_text(x, who)
     return (np.ascontiguousarray if contiguous else np.asarray)(x, dtype=np.float64)
 
 
@@ -190,7 +192,7 @@ def _kind_text(x):
     return ("an " if name[:1].lower() in "aeiou" else "a ") + name
 
 
-def _as_stream(feed):
+def _as_stream(feed, who="Pipeline"):
     """Normalize a feed to (index_array, values_array) for the compiled engine.
 
     Accepts:
@@ -200,11 +202,11 @@ def _as_stream(feed):
     """
     if _is_vi_pair(feed):
         values, index = feed   # user provides (values, index) - values-first
-        values_arr = _float_values(values)
+        values_arr = _float_values(values, who)
         if index is None:
             return (np.arange(values_arr.shape[0], dtype=np.int64), values_arr)
         return (_index_array(index), values_arr)
-    values = _float_values(feed)
+    values = _float_values(feed, who)
     return (np.arange(values.shape[0], dtype=np.int64), values)
 
 
@@ -331,7 +333,8 @@ class Pipeline:
       lengths may differ.
     - ``max_pending`` (default ``1_000_000``): the most events a join may hold
       while it waits for another stream (each ``CombineLatest`` and ``Filter``
-      node, and an operator or ``Dropna`` given several streams). More raises ``RuntimeError``. An integer from 1 to ``2**53``.
+      node, and an operator or ``Dropna`` given several streams). More raises
+      ``RuntimeError``. An integer from 1 to ``2**53``.
 
     Call ``pipe(*feeds)`` (positional) or ``pipe(**named_feeds)`` (by Input name)
     to run the pipeline. Each feed may be a bare value array (positional, index
@@ -504,7 +507,7 @@ class Pipeline:
                 "(arrays / lists / (values, index) tuples); a mix is ambiguous. "
                 "Wrap the concrete feed in a generator, or materialize the "
                 "iterator into an array.")
-        streams = [_as_stream(feeds[nm]) for nm in self._input_order]
+        streams = [_as_stream(feeds[nm], self._who) for nm in self._input_order]
         if len(self.outputs) > 1 and self.align_outputs:
             return _aligned(self._cg.run_batch(streams, True, self._who))
         return _values_first(self._cg.run_batch(streams, False, self._who))

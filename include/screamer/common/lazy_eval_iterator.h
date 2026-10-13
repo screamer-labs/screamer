@@ -167,6 +167,12 @@ private:
         current_.resize(parts_.size());
         for (std::size_t k = 0; k < parts_.size(); ++k) {
             Arr arr;
+            // A time or a ctypes object is a wrong kind, never read as numbers
+            // (nor cast: a ctypes buffer has no strides).
+            if (is_foreign_value(parts_[k].ptr())) {
+                throw_if_wrong_kind_event(items);
+                refuse_text(parts_[k], op_display_name(op_owner_));
+            }
             // A string, or a list or array of them, is a wrong kind; the
             // float64 cast below would read "3" as 3.
             if (!nb::try_cast<Arr>(parts_[k], arr, /*convert=*/false))
@@ -192,8 +198,10 @@ private:
         }
         if (copies_.empty()) start_assets();
         else if (current_ != shapes_)
-            throw nb::value_error(("every event must have the same shape; the first was " +
-                event_shapes(shapes_) + ", this one is " + event_shapes(current_)).c_str());
+            throw nb::value_error((op_display_name(op_owner_) + ": every event must have the same "
+                "shape; the first was " + event_shapes(shapes_) + ", " +
+                where_text("event", static_cast<std::ptrdiff_t>(event_ - 1)) + " is " +
+                event_shapes(current_)).c_str());
 
         const std::size_t cols = plan_.columns;
         const std::size_t total = cols * n_out_;
@@ -262,8 +270,9 @@ private:
             if (!as_number(items[i], v))
                 throw_bad_shape(who, where_text("event", event,
                     items.size() > 1 ? static_cast<std::ptrdiff_t>(i) : -1), items[i]);
-        throw nb::value_error("every event must have the same shape; the first events "
-                              "were numbers, this one is not");
+        throw nb::value_error((who + ": every event must have the same shape; the first "
+                               "events were numbers, " + where_text("event", event) +
+                               " is not").c_str());
     }
 
     static std::string event_shapes(const std::vector<shape::Shape>& shapes) {

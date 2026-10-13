@@ -19,8 +19,18 @@ nb::object make_dag_functor_node(nb::object self, nb::object args_tuple) {
     return mod.attr("make_functor_node")(self, args_tuple);
 }
 
+static nb::object screamer_route(ScreamerBase& self, nb::object obj);
+
 nb::object screamer_call(ScreamerBase& self, nb::object raw) {
     nb::object obj = normalize_input(raw, self);
+    try {
+        return screamer_route(self, std::move(obj));
+    } catch (const detail::DtypeError& e) {
+        throw nb::type_error((op_display_name(nb::find(self)) + ": " + e.what()).c_str());
+    }
+}
+
+static nb::object screamer_route(ScreamerBase& self, nb::object obj) {
     if (can_cast_to_double(obj)) {
         double value;
         // An int too large for a double fails here; name it, not a bad_cast.
@@ -70,9 +80,12 @@ nb::object screamer_call(ScreamerBase& self, nb::object raw) {
         // A numpy array whose dtype nanobind's nb::ndarray<nb::ro> cannot represent
         // (e.g. longdouble/float128). Coerce to a contiguous float64 array so
         // the normal ndarray path handles it, instead of falling through to the
-        // iterable branch below. Checked after is_ndarray so no supported dtype
-        // pays for this.
-        nb::ndarray<nb::ro> arr = nb::cast<nb::ndarray<nb::ro>>(detail::coerce_to_f64(obj));
+        // iterable branch below; a string or time dtype raises TypeError.
+        // Checked after is_ndarray so no supported dtype pays for this.
+        nb::ndarray<nb::ro> arr = nb::cast<nb::ndarray<nb::ro>>(
+            detail::coerce_to_f64(obj, op_display_name(nb::find(self))));
+        if (arr.ndim() == 0)   // a 0-d array is one number
+            return nb::float_(self.process_scalar(detail::load_elem(arr.data(), 0, arr.dtype())));
         return process_python_array(self, arr);
     }
 

@@ -68,5 +68,5 @@ def test_empty_and_one_step():
 def test_a_packed_array_of_other_fields_raises():
     with pytest.raises(ValueError, match=r"^a packed input of BacktestPortfolioTarget has shape \(T, K, 2\), got \(3, 2, 3\)\.$"):
         s.BacktestPortfolioTarget()(np.ones((3, 2, 3)))
-    with pytest.raises(TypeError, match=r"^this operator takes 5 inputs, or one packed \(T, K, 5\) array, got 2\.$"):
+    with pytest.raises(ValueError, match=r"^BacktestPortfolioOHLCTarget expects 5 inputs, or one packed \(T, K, 5\) array, got 2$"):
         s.BacktestPortfolioOHLCTarget()(TGT, PX)

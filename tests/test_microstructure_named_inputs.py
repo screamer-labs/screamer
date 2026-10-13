@@ -101,11 +101,12 @@ def test_keyword_errors(make, kernel, names):
         make()(f, r, x=f)
     with pytest.raises(TypeError, match=rf"^{who}\(\) got multiple values for argument '{ka}'$"):
         make()(f, **{ka: r})
-    with pytest.raises(TypeError, match=rf"^{who}\(\) takes 2 inputs, got 3 positional$"):
+    # A count is a ValueError (rule A4), a keyword the call cannot bind a TypeError.
+    with pytest.raises(ValueError, match=rf"^{who} expects 2 inputs, got 3$"):
         make()(f, r, f)
-    with pytest.raises(TypeError, match=rf"^{who}\(\) missing 1 required input: '{kb}'$"):
+    with pytest.raises(ValueError, match=rf"^{who}\(\) missing 1 required input: '{kb}'$"):
         make()(f)
-    with pytest.raises(TypeError, match=rf"^{who}\(\) missing 2 required inputs: '{ka}', '{kb}'$"):
+    with pytest.raises(ValueError, match=rf"^{who}\(\) missing 2 required inputs: '{ka}', '{kb}'$"):
         make()()
 
 
@@ -113,7 +114,7 @@ def test_keyword_errors(make, kernel, names):
     [1.0, 2.0], [1, 2], [np.float64(1.0), np.float32(2.0)], [], 3.0, np.arange(4.0),
 ], ids=["floats", "ints", "numpy-scalars", "empty", "number", "1-D"])
 def test_one_input_without_every_field_is_a_missing_input(one):
-    with pytest.raises(TypeError, match=r"^SignedVolume\(\) missing 1 required input: 'volume'$"):
+    with pytest.raises(ValueError, match=r"^SignedVolume\(\) missing 1 required input: 'volume'$"):
         s.SignedVolume()(one)
 
 
@@ -139,11 +140,16 @@ def test_rolling_order_imbalance_named_input(policy):
     same([op(float(x)) for x in f], kernel(f))
 
 
-def test_rolling_order_imbalance_input_errors_are_type_errors():
-    for call in [lambda op: op(f, r), lambda op: op(), lambda op: op(f, signed_flow=f),
-                 lambda op: op(extra=f)]:
-        with pytest.raises(TypeError, match="signed_flow"):
+def test_rolling_order_imbalance_input_errors():
+    # A wrong count is a ValueError (rule A4); a keyword the call cannot bind is
+    # a TypeError, as Python names it.
+    for call, got in [(lambda op: op(f, r), 2), (lambda op: op(), 0)]:
+        with pytest.raises(ValueError, match=rf"^RollingOrderImbalance expects 1 input, got {got}$"):
             call(s.RollingOrderImbalance(5))
+    with pytest.raises(TypeError, match=r"^RollingOrderImbalance\(\) got multiple values for argument 'signed_flow'$"):
+        s.RollingOrderImbalance(5)(f, signed_flow=f)
+    with pytest.raises(TypeError, match=r"^RollingOrderImbalance\(\) got an unexpected keyword argument 'extra'$"):
+        s.RollingOrderImbalance(5)(extra=f)
 
 
 def test_pipeline_nodes_by_keyword_and_packed():

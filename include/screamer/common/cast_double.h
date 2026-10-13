@@ -45,6 +45,132 @@ inline std::string op_display_name(nb::handle self) {
     return name;
 }
 
+// ---- Values that are never numbers -----------------------------------------
+//
+// A time (a NumPy datetime64 or timedelta64 scalar, NaT among them; a pandas
+// Timestamp, Timedelta or NaT; a Python datetime, date or timedelta) and a
+// ctypes object are not data, although NumPy or the buffer protocol would read
+// them as numbers: a datetime64 has __float__ (its tick count) and exports
+// its 8 bytes as a buffer, and a ctypes array exports its items. Each is a
+// wrong kind (TypeError) wherever a value is read. A ctypes buffer also has no
+// strides, which nanobind 2.13's buffer import dereferences (see
+// CMakeLists.txt), so no ctypes object may reach an ndarray cast.
+
+// numpy.datetime64 and numpy.timedelta64, looked up once numpy is loaded
+// (under the GIL; a missing numpy leaves them null and is retried).
+struct TimeScalarTypes {
+    PyTypeObject* datetime64 = nullptr;
+    PyTypeObject* timedelta64 = nullptr;
+    bool found = false;
+};
+
+inline const TimeScalarTypes& time_scalar_types() {
+    static TimeScalarTypes t;
+    if (!t.found) {
+        PyObject* name = PyUnicode_FromString("numpy");
+        PyObject* np = name ? PyImport_GetModule(name) : nullptr;   // only if loaded
+        Py_XDECREF(name);
+        if (np) {
+            PyObject* dt = PyObject_GetAttrString(np, "datetime64");
+            PyObject* td = PyObject_GetAttrString(np, "timedelta64");
+            if (dt && td && PyType_Check(dt) && PyType_Check(td)) {
+                // numpy keeps both types alive for the life of the process.
+                t.datetime64 = reinterpret_cast<PyTypeObject*>(dt);
+                t.timedelta64 = reinterpret_cast<PyTypeObject*>(td);
+                t.found = true;
+            }
+            Py_XDECREF(dt);
+            Py_XDECREF(td);
+            Py_DECREF(np);
+        }
+        PyErr_Clear();
+    }
+    return t;
+}
+
+// A NumPy datetime64 or timedelta64 scalar (NaT included): two pointer
+// compares, cheap enough for every value read.
+inline bool is_numpy_time_scalar(PyObject* o) {
+    const TimeScalarTypes& t = time_scalar_types();
+    const PyTypeObject* tp = Py_TYPE(o);
+    return t.found && (tp == t.datetime64 || tp == t.timedelta64);
+}
+
+// A ctypes object (an instance of _ctypes._CData: c_double, an array, a
+// structure). Every such class is a heap type, so callers ask only for heap
+// types. _ctypes not loaded means no ctypes object exists.
+inline bool is_ctypes_object(PyObject* o) {
+    static PyTypeObject* cdata = nullptr;   // kept for the life of the process
+    if (!cdata) {
+        PyObject* name = PyUnicode_FromString("_ctypes");
+        PyObject* m = name ? PyImport_GetModule(name) : nullptr;
+        Py_XDECREF(name);
+        if (!m) { PyErr_Clear(); return false; }
+        PyObject* arr = PyObject_GetAttrString(m, "Array");
+        Py_DECREF(m);
+        PyObject* base = arr ? PyObject_GetAttrString(arr, "__base__") : nullptr;
+        Py_XDECREF(arr);
+        if (!base || !PyType_Check(base)) { Py_XDECREF(base); PyErr_Clear(); return false; }
+        cdata = reinterpret_cast<PyTypeObject*>(base);   // the reference is kept
+    }
+    return PyObject_TypeCheck(o, cdata);
+}
+
+// A pandas object that holds no array (a Timestamp, Timedelta, NaT, Period or
+// Interval): its type's module is pandas and it has neither dtype nor dtypes.
+inline bool is_pandas_module(const char* m) {
+    return m && (std::strcmp(m, "pandas") == 0 || std::strncmp(m, "pandas.", 7) == 0);
+}
+
+// A Python datetime, date or timedelta (pandas Timestamp and Timedelta are
+// subclasses), looked up once the datetime module is loaded.
+inline bool is_python_time(PyObject* o) {
+    static PyTypeObject* date = nullptr;
+    static PyTypeObject* delta = nullptr;
+    if (!date) {
+        PyObject* name = PyUnicode_FromString("datetime");
+        PyObject* m = name ? PyImport_GetModule(name) : nullptr;
+        Py_XDECREF(name);
+        if (!m) { PyErr_Clear(); return false; }
+        PyObject* d = PyObject_GetAttrString(m, "date");
+        PyObject* t = PyObject_GetAttrString(m, "timedelta");
+        Py_DECREF(m);
+        if (!d || !t || !PyType_Check(d) || !PyType_Check(t)) {
+            Py_XDECREF(d); Py_XDECREF(t); PyErr_Clear(); return false;
+        }
+        date = reinterpret_cast<PyTypeObject*>(d);    // references kept
+        delta = reinterpret_cast<PyTypeObject*>(t);
+    }
+    return PyObject_TypeCheck(o, date) || PyObject_TypeCheck(o, delta);
+}
+
+// True for a value of any kind above (a time or a ctypes object). Off the
+// number fast paths only: it reads the type's module for a heap type.
+inline bool is_foreign_value(PyObject* o) {
+    if (is_numpy_time_scalar(o) || is_python_time(o)) return true;
+    PyTypeObject* tp = Py_TYPE(o);
+    if (!(PyType_GetFlags(tp) & Py_TPFLAGS_HEAPTYPE)) return false;
+    if (is_ctypes_object(o)) return true;
+    PyObject* mod = PyObject_GetAttrString(reinterpret_cast<PyObject*>(tp), "__module__");
+    const char* m = (mod && PyUnicode_Check(mod)) ? PyUnicode_AsUTF8AndSize(mod, nullptr) : nullptr;
+    const bool pandas_scalar = is_pandas_module(m) && !PyObject_HasAttrString(o, "dtype") &&
+                               !PyObject_HasAttrString(o, "dtypes");
+    Py_XDECREF(mod);
+    PyErr_Clear();
+    return pandas_scalar;
+}
+
+// ---- Input count (rule A4: a wrong count is a ValueError) ------------------
+
+// "RollingCorr expects 2 inputs, got 3", the text JavaScript's RangeError
+// gives too. `alt` names another accepted form, e.g. ", or one packed (T, K,
+// 5) array".
+[[noreturn]] inline void throw_input_count(const std::string& who, std::size_t n, std::size_t got,
+                                           const std::string& alt = "") {
+    throw nb::value_error((who + " expects " + std::to_string(n) + " input" + (n == 1 ? "" : "s") +
+                           alt + ", got " + std::to_string(got)).c_str());
+}
+
 // ---- Wrong-kind elements (rule A4: a wrong kind is a TypeError) ------------
 //
 // The conversions of user elements (a list item, an event, a field) are
@@ -113,7 +239,9 @@ inline nb::object find_wrong_kind(nb::handle x, WrongKindSearch& s, int depth = 
     double d;
     if (x.is_none()) return {};                       // a missing value, NaN
     const bool text = PyUnicode_Check(o) || PyBytes_Check(o) || PyByteArray_Check(o);
-    if (!text && (nb::try_cast<double>(x, d) || nb::hasattr(x, "ndim"))) return {};
+    if (!text && !is_foreign_value(o) &&
+        (nb::try_cast<double>(x, d) || nb::hasattr(x, "ndim")))
+        return {};
     return nb::borrow(x);
 }
 
@@ -226,6 +354,9 @@ inline bool is_text(nb::handle x) {
 // A number, or None as NaN. The number cast comes first, so a number pays
 // nothing extra; a string never converts (it has no __float__).
 inline bool read_double(nb::handle h, double& d) {
+    PyObject* o = h.ptr();
+    if (PyFloat_CheckExact(o)) { d = PyFloat_AsDouble(o); return true; }
+    if (is_numpy_time_scalar(o)) return false;      // a time is never a number
     if (nb::try_cast<double>(h, d)) return true;
     if (h.is_none()) { d = std::numeric_limits<double>::quiet_NaN(); return true; }
     return false;
@@ -257,6 +388,10 @@ struct TextFreeTypes {
 inline void refuse_text(nb::handle x, const std::string& who, int depth, TextFreeTypes& seen) {
     if (is_text(x)) throw_text_value(who, x, depth ? "an element" : "a value");
     PyObject* o = x.ptr();
+    // A time or a ctypes object is never a number either.
+    if (!PyList_Check(o) && !PyTuple_Check(o) && !PyFloat_Check(o) && !PyLong_Check(o) &&
+        o != Py_None && is_foreign_value(o))
+        throw_text_value(who, x, depth ? "an element" : "a value");
     if (PyList_Check(o) || PyTuple_Check(o)) {          // nested lists, read in C
         if (depth >= 32) return;
         const bool list = PyList_Check(o);
@@ -295,12 +430,37 @@ inline void refuse_text(nb::handle x, const std::string& who, int depth, TextFre
         throw nb::type_error(((who.empty() ? std::string() : who + ": ") +
             "a value must be a number, got an array of strings (dtype " +
             nb::cast<std::string>(nb::str(dtype)) + ")").c_str());
+    // A time is never a number (as a pandas object with a time dtype). The
+    // ticks are one cast away: .astype("int64").
+    if (c[0] == 'M' || c[0] == 'm')
+        throw nb::type_error(((who.empty() ? std::string() : who + ": ") +
+            "a value must be a number, got an array of times (dtype " +
+            nb::cast<std::string>(nb::str(dtype)) + "); pass .astype(\"int64\") for "
+            "its tick counts").c_str());
     if (c[0] != 'O') return;
     nb::module_ np = nb::module_::import_("numpy");
     nb::object flat = np.attr("asarray")(x, nb::arg("dtype") = nb::borrow(
         reinterpret_cast<PyObject*>(&PyBaseObject_Type))).attr("ravel")();
     for (nb::handle e : flat)
         if (is_text(e)) throw_text_value(who, e, "an element");
+}
+
+// The float64 conversion of an object array (or pandas object) failed: names
+// the first element that is not a number, "<who>: an element is a Timestamp,
+// expected a number", so no NumPy or pandas text reaches the user. Returns
+// when every element reads as a number, and the caller re-raises.
+inline void throw_first_non_number(nb::handle x, const std::string& who) {
+    nb::module_ np = nb::module_::import_("numpy");
+    nb::object obj = nb::borrow(reinterpret_cast<PyObject*>(&PyBaseObject_Type));
+    nb::object flat = nb::hasattr(x, "to_numpy")
+        ? nb::object(x.attr("to_numpy")(nb::arg("dtype") = obj).attr("ravel")())
+        : nb::object(np.attr("asarray")(x, nb::arg("dtype") = obj).attr("ravel")());
+    for (nb::handle e : flat) {
+        double d;
+        if (read_double(e, d)) continue;
+        const std::string w = "an element is " + kind_text(e) + ", expected a number";
+        throw nb::type_error((who.empty() ? w : who + ": " + w).c_str());
+    }
 }
 
 inline void refuse_text(nb::handle x, const std::string& who = "", int depth = 0) {

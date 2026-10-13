@@ -86,10 +86,15 @@ const isNd = (x: any): x is NdArray => asNd(x) !== null;
 type OpSource = RawOp | (() => RawOp);
 const resolve = (src: OpSource): RawOp => (typeof src === "function" ? (src as () => RawOp)() : src);
 
+// "RollingCorr expects 2 inputs, got 3", the text of the Python ValueError
+// (rule A4: a count is a RangeError). `alt` names another accepted form.
+export const inputCountText = (who: string, n: number, got: number, alt = ""): string =>
+  `${who} expects ${n} input${n === 1 ? "" : "s"}${alt}, got ${got}`;
+
 // Whether a call is a stream: "sync" when every argument is an iterator,
 // "async" when every argument is an async iterable, null when none is. A
 // stream takes n sources, or one source whose events hold all n fields.
-function streamKind(args: any[], n: number): "sync" | "async" | null {
+function streamKind(args: any[], n: number, who = "this op"): "sync" | "async" | null {
   let nAsync = 0, nSync = 0;
   for (const a of args) {
     if (isAsyncIter(a)) nAsync++;
@@ -101,7 +106,7 @@ function streamKind(args: any[], n: number): "sync" | "async" | null {
   if (nAsync + nSync !== args.length)
     throw new TypeError("iterator and array inputs cannot be mixed: pass every input as an iterator of events, or none");
   if (args.length !== n && args.length !== 1)
-    throw new RangeError(`this op takes ${n} inputs, got ${args.length} ${nAsync ? "async iterables" : "iterators"}`);
+    throw new RangeError(inputCountText(who, n, args.length, ", or one stream of events holding every field"));
   return nAsync ? "async" : "sync";
 }
 
@@ -406,7 +411,7 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp, finalize 
       const e = evs[t], s = shapeOf(e);
       if (s) {
         if (s.length !== s0.length || s.some((d, j) => d !== s0[j]))
-          throw new RangeError(`every event must have the same shape: the first was [${s0}], event ${t} is [${s}]`);
+          throw new RangeError(`${opName(raw)}: every event must have the same shape: the first was [${s0}], event ${t} is [${s}]`);
         data.set(isNd(e) ? e.data : e, t * per);
         continue;
       }
@@ -414,7 +419,7 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp, finalize 
       const where = whereText("event", t);
       throwIfWrongKind(opName(raw), e, where);
       const st = typeof e === "number" || e === null ? "is a number" : shapeText(e) ? `has shape ${shapeText(e)}` : "has an irregular shape";
-      throw new RangeError(`every event must have the same shape: the first was [${s0}], event ${t} ${st}`);
+      throw new RangeError(`${opName(raw)}: every event must have the same shape: the first was [${s0}], event ${t} ${st}`);
     }
     return { data, shape: [evs.length, ...s0] };
   }
@@ -533,7 +538,7 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp, finalize 
       const k = readParts(items);
       if (!plan) startAssets(k);
       else if (!sameShapes(k))
-        throw new RangeError(`every event must have the same shape: the first was ${fmtShapes(plan.shapes)}, this one is ${fmtShapes(partShape.slice(0, k))}`);
+        throw new RangeError(`${opName(raw)}: every event must have the same shape: the first was ${fmtShapes(plan.shapes)}, event ${nEv - 1} is ${fmtShapes(partShape.slice(0, k))}`);
       const { cols, offset, out } = plan!;
       const packed = k === 1 && nIn > 1;
       const view = M.viewF64(colIn, cols * nIn);
@@ -564,7 +569,7 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp, finalize 
       for (let i = 0; i < items.length; i++)
         if (typeof items[i] !== "number")
           throwBadShape(who, whereText("event", ev, items.length > 1 ? i : -1), items[i]);
-      throw new RangeError("every event must have the same shape: the first events were numbers, this one is not");
+      throw new RangeError(`${who}: every event must have the same shape: the first events were numbers, event ${ev} is not`);
     };
 
     const step = (items: any[]) => {
@@ -605,13 +610,14 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp, finalize 
     if (args.some(isNode)) {
       return new Node({ functor: raw, wrapper: op, make }, args.filter(isNode));
     }
-    const kind = streamKind(args, nIn);
+    const kind = streamKind(args, nIn, opName(raw));
     if (kind) {
       pool.check();
       raw.reset();
       return kind === "async" ? runAsyncStream(args, openStream, op) : runStream(args, openStream, op);
     }
     if (nIn === 1) {
+      if (args.length !== 1) throw new RangeError(inputCountText(opName(raw), 1, args.length));
       const a = args[0];
       if (typeof a === "number") return event([a]);
       if (isNd(a)) return shaped([a]);
@@ -648,6 +654,7 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp, finalize 
     if (args.length === 1 && Array.isArray(args[0])) {
       // A list is a sequence of events, and each event must hold every input.
       const evs = args[0] as any[];
+      if (evs.length === 0) return [];      // no events in, no results out (rule 3)
       const last = (e: any) => (isNd(e) ? e.shape[e.shape.length - 1] : -1);
       for (let i = 0; i < evs.length; i++) {
         const e = evs[i];
@@ -676,7 +683,7 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp, finalize 
           }
       }
     }
-    if (args.length !== nIn) throw new RangeError(`expected ${nIn} inputs, got ${args.length}`);
+    if (args.length !== nIn) throw new RangeError(inputCountText(opName(raw), nIn, args.length));
     // N lists: the first element that is not a number, event by event as the
     // Python binding reads them.
     if (args.every((x) => Array.isArray(x) || isTyped(x))) {
@@ -999,7 +1006,7 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
     // Anything that isn't a single reducer-shaped input -- N scalars, Node
     // composition, an arity error -- is the ordinary op contract.
     if (args.length === 2 && !args.some(isNode)) {
-      const kind = streamKind(args, 2);
+      const kind = streamKind(args, 2, opName(raw));
       if (kind) return stream(args, kind === "async");
       try { return pricedCall(args[0], args[1]); } catch (e) {
         args.forEach((a, i) => throwIfWrongKind(opName(raw), a, whereText("input", i)));
@@ -1211,7 +1218,7 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
   const dispatch = (...args: any[]): any => {
     if (disposed) throw new Error("operation used after dispose()");
     if (args.some(isNode)) throw new TypeError("row ops run on arrays and row streams, not inside a Pipeline");
-    const kind = streamKind(args, fi);
+    const kind = streamKind(args, fi, opName(raw));
     if (kind) {
       pool.check();
       raw.reset();
@@ -1221,7 +1228,7 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
     if (args.length === 1 && fi > 1 && isNd(args[0]) && args[0].shape.length === 3)
       return packedBatch(args[0]);
     if (args.length !== fi)
-      throw new RangeError(`this op takes ${fi} inputs${fi > 1 ? `, or one packed [T, K, ${fi}] array,` : ""} got ${args.length}`);
+      throw new RangeError(inputCountText(opName(raw), fi, args.length, fi > 1 ? `, or one packed [T, K, ${fi}] array` : ""));
     if (args.every((a) => isTyped(a) || isNumArr(a) || (isNd(a) && a.shape.length === 1)))
       return eventOut(args.map((a) => (isNd(a) ? a.data : a)));
     const blocks = args.map(asBlock);

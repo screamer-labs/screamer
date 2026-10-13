@@ -197,7 +197,7 @@ def test_argument_checks():
         s.BacktestPortfolioTarget(slippage=1.0, slippage_unit="ticks")
     with pytest.raises(ValueError):
         s.BacktestPortfolioTarget(multiplier=0.0)
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError, match="expects 2 inputs"):
         s.BacktestPortfolioTarget()(np.ones((5, 2)))
     with pytest.raises(ValueError):
         s.BacktestPortfolioTarget()(np.ones((5, 2)), np.ones((5, 3)))

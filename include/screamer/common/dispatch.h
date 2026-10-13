@@ -82,6 +82,20 @@ inline T read_unaligned(const void* base, int64_t idx) {
     return v;
 }
 
+// An array whose dtype holds no real numbers (complex): a TypeError. The
+// operator's call catches it and puts its name in front (functor_call,
+// screamer_call); any other caller raises it as it is.
+struct DtypeError : nb::builtin_exception {
+    explicit DtypeError(const nb::dlpack::dtype& dt)
+        : nb::builtin_exception(nb::exception_type::type_error, text(dt).c_str()) {}
+    static std::string text(const nb::dlpack::dtype& dt) {
+        using C = nb::dlpack::dtype_code;
+        const char* kind = dt.code == (uint8_t) C::Complex ? "complex" : "unsupported";
+        return std::string("an array of ") + kind + std::to_string(dt.bits) +
+               " values is not a valid input; pass real numbers";
+    }
+};
+
 inline double load_elem(const void* base, int64_t idx, const nb::dlpack::dtype& dt) {
     using C = nb::dlpack::dtype_code;
     if (dt.code == (uint8_t) C::Float) {
@@ -109,7 +123,7 @@ inline double load_elem(const void* base, int64_t idx, const nb::dlpack::dtype& 
         // it to double the same way; True/False -> 1.0/0.0.
         if (dt.bits == 8) return read_unaligned<uint8_t>(base, idx) ? 1.0 : 0.0;
     }
-    throw nb::type_error("Unsupported ndarray dtype; expected a numeric array.");
+    throw DtypeError(dt);
 }
 
 // Allocate a NEW numpy array that OWNS `data` via an owner capsule with a
@@ -145,64 +159,82 @@ inline std::unique_ptr<double[]> new_output(size_t n) {
 // never an array, so it returns false before reaching nanobind. Built-in
 // (static) types, numpy.ndarray among them, always have a str __module__ and
 // skip the lookup.
+//
+// A NumPy datetime64/timedelta64 scalar and a ctypes object export a buffer
+// but are never arrays (cast_double.h is_foreign_value); a ctypes buffer has
+// no strides, which nanobind's buffer import would dereference. Both return
+// false before any cast.
 inline bool is_ndarray(nb::handle h) {
     PyTypeObject* tp = Py_TYPE(h.ptr());
     if (PyType_GetFlags(tp) & Py_TPFLAGS_HEAPTYPE) {
         nb::object holder;
         if (!type_module_utf8(nb::handle(reinterpret_cast<PyObject*>(tp)), holder)) return false;
+        if (is_ctypes_object(h.ptr())) return false;
+    } else if (is_numpy_time_scalar(h.ptr())) {
+        return false;
     }
     nb::ndarray<nb::ro> tmp;
     return nb::try_cast<nb::ndarray<nb::ro>>(h, tmp, /*convert=*/false);
 }
 
-// True iff `h` is a rank>=1 numpy array whose dtype nanobind's `nb::ndarray<nb::ro>`
+// True iff `h` is a numpy array whose dtype nanobind's `nb::ndarray<nb::ro>`
 // cannot represent (e.g. numpy longdouble / float128, an unsupported DLPack
-// float width). Such an object is array-like (carries dtype/shape/ndim) yet
-// is_ndarray() is false because try_cast<nb::ndarray<nb::ro>> rejects the dtype, so
-// it would otherwise be mis-routed to the iterable branch. The dispatch layer
-// coerces these to float64 upstream (coerce_to_f64) so the normal ndarray path
-// handles them. A 0-d array (ndim==0) is excluded: it behaves like a scalar.
+// float width, a string, time or object dtype). Such an object is array-like
+// (carries dtype/shape/ndim) yet is_ndarray() is false because
+// try_cast<nb::ndarray<nb::ro>> rejects the dtype, so it would otherwise be
+// mis-routed to the iterable branch. The dispatch layer coerces these to
+// float64 upstream (coerce_to_f64), which refuses a string or time dtype, so
+// the normal ndarray path handles them. A 0-d array counts too: coerced, it
+// is a 0-d float64 array, read as one number like any 0-d array.
 inline bool is_unsupported_dtype_array(nb::handle h) {
     int nd = 0;
     return !is_ndarray(h)
         && nb::hasattr(h, "dtype")
         && nb::hasattr(h, "shape")
         && nb::hasattr(h, "ndim")
-        && nb::try_cast<int>(h.attr("ndim"), nd) && nd > 0;
+        && nb::try_cast<int>(h.attr("ndim"), nd) && nd >= 0;
 }
 
 // Replica of pybind11's `py::array_t<double, py::array::forcecast>`: a
-// C-contiguous float64 numpy copy of `h`. numpy raises TypeError for a
-// non-numeric dtype (e.g. object arrays), matching the old forcecast error
-// surface. (Complex arrays never reach here: nanobind's nb::ndarray<nb::ro> accepts
-// them, so they stay on the normal path where load_elem raises.)
-inline nb::object coerce_to_f64(nb::handle h) {
-    refuse_text(h);   // a string array, or an object array holding a string
+// C-contiguous float64 numpy copy of `h`. A string or time dtype, or an
+// object array holding a string, raises TypeError (refuse_text), and so does
+// an object array holding any other non-number, named by its first such
+// element (no NumPy text). `who` names the operator. (Complex arrays never
+// reach here: nanobind's nb::ndarray<nb::ro> accepts them, so they stay on
+// the normal path where load_elem raises.)
+inline nb::object coerce_to_f64(nb::handle h, const std::string& who = "") {
+    refuse_text(h, who);   // a string or time array, or an object array holding a string
     nb::module_ np = nb::module_::import_("numpy");
-    return np.attr("ascontiguousarray")(h, nb::arg("dtype") = np.attr("float64"));
+    try {
+        return np.attr("ascontiguousarray")(h, nb::arg("dtype") = np.attr("float64"));
+    } catch (nb::python_error& e) {
+        if (is_conversion_error(e)) throw_first_non_number(h, who);
+        throw;
+    }
 }
 
 // Coerce a single dispatch input: if it is an unsupported-dtype array, return
 // its float64 coercion; otherwise return it unchanged. The fast path (float64
 // and every other nb::ndarray<nb::ro>-accepted dtype, scalars, iterables) is never
 // coerced.
-inline nb::object coerce_if_unsupported_dtype_array(nb::object obj) {
-    if (is_unsupported_dtype_array(obj)) return coerce_to_f64(obj);
+inline nb::object coerce_if_unsupported_dtype_array(nb::object obj, const std::string& who) {
+    if (is_unsupported_dtype_array(obj)) return coerce_to_f64(obj, who);
     return obj;
 }
 
 // Coerce any unsupported-dtype array elements of an N-input argument pack.
 // Preserves the fast path: returns `args` untouched (no rebuild) when nothing
 // needs coercion.
-inline nb::args coerce_args_if_unsupported(const nb::args& args) {
+inline nb::args coerce_args_if_unsupported(const nb::args& args, nb::handle self) {
     bool any = false;
     for (nb::handle a : args) {
         if (is_unsupported_dtype_array(a)) { any = true; break; }
     }
     if (!any) return args;
+    const std::string who = op_display_name(self);
     nb::list lst;
     for (nb::handle a : args) {
-        lst.append(coerce_if_unsupported_dtype_array(nb::borrow<nb::object>(a)));
+        lst.append(coerce_if_unsupported_dtype_array(nb::borrow<nb::object>(a), who));
     }
     return nb::borrow<nb::args>(nb::steal(PyList_AsTuple(lst.ptr())));
 }
@@ -463,6 +495,16 @@ inline NInputs<N> read_mixed_inputs(nb::handle self, const nb::tuple& inputs) {
 
 }  // namespace detail
 
+namespace detail {
+// The mixed-kinds TypeError of an N-input call. functor_call catches it to
+// name the arguments as the caller passed them (a pandas Series, not the
+// array it was read as).
+struct MixedKinds : nb::builtin_exception {
+    explicit MixedKinds(const std::string& m)
+        : nb::builtin_exception(nb::exception_type::type_error, m.c_str()) {}
+};
+}  // namespace detail
+
 // An argument that is not data: names the operator and the argument's type.
 [[noreturn]] inline void throw_unsupported_input(nb::handle self, nb::handle x) {
     throw nb::type_error((op_display_name(self) + ": " + kind_text(x) +
@@ -483,8 +525,24 @@ inline NInputs<N> read_mixed_inputs(nb::handle self, const nb::tuple& inputs) {
         const bool zero_d = name == "ndarray" && nb::cast<int>(x.attr("ndim")) == 0;
         kinds += (kinds.empty() ? "" : ", ") + std::string(zero_d ? "0-d " : "") + name;
     }
-    throw nb::type_error((op_display_name(self) + ": cannot combine inputs of types (" + kinds +
-        "); pass all numbers, all arrays, or all sequences").c_str());
+    throw detail::MixedKinds(op_display_name(self) + ": cannot combine inputs of types (" + kinds +
+        "); pass all numbers, all arrays, or all sequences");
+}
+
+// True for an instance of collections.abc.Mapping (a heap type here: dict and
+// mappingproxy are refused by type before). The ABC is looked up once.
+inline bool is_mapping(PyObject* o) {
+    static PyObject* mapping = nullptr;   // kept for the life of the process
+    if (!mapping) {
+        PyObject* m = PyImport_ImportModule("collections.abc");
+        if (!m) { PyErr_Clear(); return false; }
+        mapping = PyObject_GetAttrString(m, "Mapping");
+        Py_DECREF(m);
+        if (!mapping) { PyErr_Clear(); return false; }
+    }
+    const int r = PyObject_IsInstance(o, mapping);
+    if (r < 0) { PyErr_Clear(); return false; }
+    return r == 1;
 }
 
 // True when a pandas Series/DataFrame holds datetime64 or timedelta64 values.
@@ -517,16 +575,38 @@ inline nb::object normalize_input(nb::handle x, const S& op) {
         PyTuple_CheckExact(o))
         return nb::borrow(x);
     const bool bad = PyUnicode_Check(o) || PyBytes_Check(o) || PyByteArray_Check(o) ||
-                     PyMemoryView_Check(o) || PyDict_Check(o) || PyAnySet_Check(o);
+                     PyDict_Check(o) || PyAnySet_Check(o) ||
+                     Py_TYPE(o) == &PyDictProxy_Type;    // a read-only dict
     if (bad) throw_unsupported_input(nb::find(op), x);
+    // A numeric memoryview is an array (np.asarray reads it); one over bytes
+    // is text, as live().push reads it.
+    if (PyMemoryView_Check(o)) {
+        nb::object base = x.attr("obj");
+        if (PyBytes_Check(base.ptr()) || PyByteArray_Check(base.ptr()) ||
+            nb::cast<std::string>(x.attr("format")) == "c")
+            throw nb::type_error((op_display_name(nb::find(op)) + ": a memoryview of bytes is "
+                                  "not a valid input; pass numbers").c_str());
+        return nb::module_::import_("numpy").attr("asarray")(x);
+    }
     // pandas classes are heap types; a built-in (static) type, numpy.ndarray
     // among them, is never pandas and leaves without a module lookup. A heap
-    // type's __module__ is read once, safely (it may be any object).
-    if (!(PyType_GetFlags(Py_TYPE(o)) & Py_TPFLAGS_HEAPTYPE)) return nb::borrow(x);
+    // type's __module__ is read once, safely (it may be any object). A NumPy
+    // time scalar (a static type) or a ctypes object is never data
+    // (cast_double.h is_foreign_value).
+    if (!(PyType_GetFlags(Py_TYPE(o)) & Py_TPFLAGS_HEAPTYPE)) {
+        if (is_numpy_time_scalar(o)) throw_unsupported_input(nb::find(op), x);
+        return nb::borrow(x);
+    }
+    if (is_ctypes_object(o)) throw_unsupported_input(nb::find(op), x);
     nb::object holder;
     const char* m = type_module_utf8(x.type(), holder);
-    if (m && (std::strcmp(m, "pandas") == 0 || std::strncmp(m, "pandas.", 7) == 0) &&
-        nb::hasattr(x, "to_numpy")) {
+    // A pandas object without a dtype (a Timestamp, Timedelta, NaT) is not data.
+    if (is_pandas_module(m) && !nb::hasattr(x, "dtype") && !nb::hasattr(x, "dtypes"))
+        throw_unsupported_input(nb::find(op), x);
+    // Any other mapping (collections.abc.Mapping) is refused as a dict is,
+    // rather than read as an iterator of its keys.
+    if (is_mapping(o)) throw_unsupported_input(nb::find(op), x);
+    if (is_pandas_module(m) && nb::hasattr(x, "to_numpy")) {
         if (is_time_dtype(x))
             throw nb::type_error((op_display_name(nb::find(op)) + ": a pandas object with a "
                 "datetime or timedelta dtype is not a valid input; pass numeric values "
@@ -545,7 +625,14 @@ inline nb::object normalize_input(nb::handle x, const S& op) {
             if (text) refuse_text(x.attr("to_numpy")(nb::arg("dtype") = nb::borrow(
                 reinterpret_cast<PyObject*>(&PyBaseObject_Type))), who);
         }
-        return x.attr("to_numpy")(nb::arg("dtype") = nb::borrow(reinterpret_cast<PyObject*>(&PyFloat_Type)));
+        try {
+            return x.attr("to_numpy")(nb::arg("dtype") = nb::borrow(reinterpret_cast<PyObject*>(&PyFloat_Type)));
+        } catch (nb::python_error& e) {
+            // An object column holding something that is not a number: name it,
+            // not pandas' conversion text.
+            if (is_conversion_error(e)) throw_first_non_number(x, who);
+            throw;
+        }
     }
     return nb::borrow(x);
 }
@@ -593,11 +680,14 @@ inline bool is_series_array(nb::handle h) {
 
 // Returns true iff h is an iterable that is NOT a list, tuple, or array.
 // Generators and iter(...) objects satisfy this; raw list/tuple do not.
+// An array nanobind cannot read (a time or string dtype) is not an iterator
+// either: it has a dtype.
 inline bool is_lazy_iterable(nb::handle h) {
     return nb::hasattr(h, "__iter__")
         && !nb::isinstance<nb::list>(h)
         && !nb::isinstance<nb::tuple>(h)
-        && !detail::is_ndarray(h);
+        && !detail::is_ndarray(h)
+        && !nb::hasattr(h, "dtype");
 }
 
 namespace detail {
@@ -704,9 +794,7 @@ struct EagerRun {
 template <class Op>
 typename Op::InputArray cast_to_array(Op& self, const nb::tuple& tuple, std::size_t event) {
     constexpr size_t N = Op::kN;
-    if (tuple.size() != N) {
-        throw nb::type_error("Tuple size does not match the number of expected inputs.");
-    }
+    if (tuple.size() != N) throw_input_count(op_display_name(nb::find(self)), N, tuple.size());
     typename Op::InputArray array;
     for (size_t i = 0; i < N; ++i) {
         if (!read_double(tuple[i], array[i])) {
@@ -719,35 +807,27 @@ typename Op::InputArray cast_to_array(Op& self, const nb::tuple& tuple, std::siz
     return array;
 }
 
+// The N inputs of a call: N arguments, or one tuple (or list) of N. Any other
+// count is a ValueError naming the operator (rule A4), the text of JavaScript's
+// RangeError.
 template <class Op>
-nb::tuple args_to_tuple_n(const nb::args& args) {
+nb::tuple args_to_tuple_n(Op& self, const nb::args& args) {
     constexpr size_t N = Op::kN;
-
-    if (args.size() == 1) { // a container of N
-
+    if (args.size() == N) return nb::cast<nb::tuple>(args);
+    if (args.size() == 1) {   // a container of N
         nb::object arg = nb::borrow<nb::object>(args[0]);
-
-        // we only support tuples and lists
-        if (!(nb::isinstance<nb::list>(arg) || nb::isinstance<nb::tuple>(arg))) {
-            throw nb::type_error("Unsupported single argument input type. Supported types are lists or tuples.");
+        if (nb::isinstance<nb::list>(arg) || nb::isinstance<nb::tuple>(arg)) {
+            // a list is copied; nb::cast<nb::tuple> would reject it
+            nb::tuple inputs = nb::tuple(arg);
+            if (inputs.size() == N) return inputs;
+            throw_input_count(op_display_name(nb::find(self)), N, inputs.size());
         }
-
-        // convert to tuple (a list is copied; nb::cast<nb::tuple> would reject it)
-        nb::tuple inputs = nb::tuple(arg);
-
-        // validate size
-        if (inputs.size() != N) {
-            throw nb::type_error("Wrong number of elements in the single argument input list / tuple.");
-        }
-
-        return inputs;
     }
-
-    if (args.size() == N) {
-        return nb::cast<nb::tuple>(args);
-    }
-
-    throw nb::type_error("Wrong number of arguments.");
+    // Iterators take N sources or one source of events (as JavaScript says).
+    bool streams = args.size() > 0;
+    for (nb::handle a : args) streams = streams && is_lazy_iterable(a);
+    throw_input_count(op_display_name(nb::find(self)), N, args.size(),
+                      streams ? ", or one stream of events holding every field" : "");
 }
 
 // Eager parallel iteration over N iterables: pull one item from each per
@@ -912,9 +992,11 @@ nb::object functor_1i_Mo(Op& self, nb::object input) {
     // Case 1b: a numpy array whose dtype nanobind's nb::ndarray<nb::ro> cannot
     // represent (e.g. longdouble/float128). Coerce to float64 and process as
     // an array. Checked after is_series_array so no supported dtype pays.
+    // A 0-d one is one number, read below.
     if (detail::is_unsupported_dtype_array(input)) {
-        return handle_input_1i_Mo_numpy(self,
-            nb::cast<nb::ndarray<nb::ro>>(detail::coerce_to_f64(input)));
+        input = detail::coerce_to_f64(input, op_display_name(nb::find(self)));
+        if (is_series_array(input))
+            return handle_input_1i_Mo_numpy(self, nb::cast<nb::ndarray<nb::ro>>(input));
     }
 
     // Case 2: Scalar input -> tuple of M floats (one streaming event)
@@ -972,9 +1054,11 @@ nb::object functor_1i_1o(Op& self, nb::object input) {
     // Case 1b: a numpy array whose dtype nanobind's nb::ndarray<nb::ro> cannot
     // represent (e.g. longdouble/float128). Coerce to float64 and process as
     // an array. Checked after is_series_array so no supported dtype pays.
+    // A 0-d one is one number, read below.
     if (detail::is_unsupported_dtype_array(input)) {
-        return handle_input_1i_1o_numpy(self,
-            nb::cast<nb::ndarray<nb::ro>>(detail::coerce_to_f64(input)));
+        input = detail::coerce_to_f64(input, op_display_name(nb::find(self)));
+        if (is_series_array(input))
+            return handle_input_1i_1o_numpy(self, nb::cast<nb::ndarray<nb::ro>>(input));
     }
 
     // Case 2: Scalar input (one streaming event)
@@ -1010,12 +1094,10 @@ nb::object functor_1i_1o(Op& self, nb::object input) {
                 results.push_back(self.call(input_array));
             } else if (nb::isinstance<nb::tuple>(item)) {
                 nb::tuple tuple = nb::borrow<nb::tuple>(item);
-                if (tuple.size() == N) {
-                    typename Op::InputArray input_array = cast_to_array<Op>(self, tuple, event);
-                    results.push_back(self.call(input_array));
-                } else {
-                    throw nb::type_error("Invalid tuple size in iterable.");
-                }
+                if (tuple.size() != N)
+                    throw_bad_shape(op_display_name(nb::find(self)), where_text("event", event), item);
+                typename Op::InputArray input_array = cast_to_array<Op>(self, tuple, event);
+                results.push_back(self.call(input_array));
             } else {
                 throw_not_a_number(op_display_name(nb::find(self)), item, where_text("event", event));
             }
@@ -1038,7 +1120,7 @@ nb::object functor_Ni_1o(Op& self, const nb::args& raw_args) {
     // Coerce any nanobind-unsupported-dtype array (e.g. longdouble/float128)
     // to float64 before the array-vs-iterable routing below, so it is
     // processed as an array. No-op (returns raw_args) for supported dtypes.
-    nb::args args = detail::coerce_args_if_unsupported(raw_args);
+    nb::args args = detail::coerce_args_if_unsupported(raw_args, nb::find(self));
 
     if (auto ins = detail::maybe_read_packed<N>(args)) {
         return handle_input_Ni_1o_numpy(self, *ins);
@@ -1092,7 +1174,7 @@ nb::object functor_Ni_1o(Op& self, const nb::args& raw_args) {
     }
 
     // after this, now we handle cases where we have N arguments
-    nb::tuple inputs = args_to_tuple_n<Op>(args);
+    nb::tuple inputs = args_to_tuple_n<Op>(self, args);
 
     // Case 2: a tuple of N numpy arrays whose asset axes broadcast (nparray, ...).
     // Checked before the scalar cast so N length-1 arrays are a series of one
@@ -1159,7 +1241,7 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
     // Coerce any nanobind-unsupported-dtype array (e.g. longdouble/float128)
     // to float64 before the array-vs-iterable routing below, so it is
     // processed as an array. No-op (returns raw_args) for supported dtypes.
-    nb::args args = detail::coerce_args_if_unsupported(raw_args);
+    nb::args args = detail::coerce_args_if_unsupported(raw_args, nb::find(self));
 
     if (auto ins = detail::maybe_read_packed<N>(args)) {
         return handle_input_Ni_Mo_numpy(self, *ins);
@@ -1212,7 +1294,7 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
         return nb::cast(LazyEvalIterator(nb::find(self), std::move(sources)));
     }
 
-    nb::tuple inputs = args_to_tuple_n<Op>(args);
+    nb::tuple inputs = args_to_tuple_n<Op>(self, args);
 
     // Case 2: tuple of N numpy arrays whose asset axes broadcast.
     if (is_series_array(inputs[0])) {
@@ -1269,23 +1351,42 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
 // Main dispatcher (entry point bound as __call__ for every FunctorBase op)
 // ---------------------------------------------------------
 template <class Op>
-nb::object functor_call(Op& self, nb::args raw) {
+nb::object functor_route(Op& self, const nb::args& args) {
     constexpr size_t N = Op::kN, M = Op::kM;
-    // One scalar event: exact numbers skip normalization and routing (D1).
-    if (typename Op::InputArray v; detail::read_scalar_args<N>(raw, v))
-        return nb::cast(self.call(v));
-    nb::args args = normalize_args(raw, self);
     for (nb::handle a : args) {
         if (screamer::is_dag_node(nb::borrow<nb::object>(a)))
             return screamer::make_dag_functor_node(nb::find(self), nb::cast<nb::tuple>(args));
     }
-    if constexpr (N == 1) { if (args.size() != 1) throw nb::type_error("Wrong number of in puts"); }
+    if constexpr (N == 1) {
+        if (args.size() != 1) throw_input_count(op_display_name(nb::find(self)), 1, args.size());
+    }
     // Async iterables, for every arity: N sources or one source of events.
     if (nb::object it = route_async(nb::find(self), args, N); it.is_valid()) return it;
     if constexpr (N == 1 && M == 1) return functor_1i_1o<Op>(self, nb::borrow<nb::object>(args[0]));
     else if constexpr (N > 1 && M == 1) return functor_Ni_1o<Op>(self, args);
     else if constexpr (N == 1 && M > 1) return functor_1i_Mo<Op>(self, nb::borrow<nb::object>(args[0]));
     else return functor_Ni_Mo<Op>(self, args);
+}
+
+template <class Op>
+nb::object functor_call(Op& self, nb::args raw) {
+    constexpr size_t N = Op::kN;
+    // One scalar event: exact numbers skip normalization and routing (D1).
+    if (typename Op::InputArray v; detail::read_scalar_args<N>(raw, v))
+        return nb::cast(self.call(v));
+    nb::args args = normalize_args(raw, self);
+    try {
+        return functor_route<Op>(self, args);
+    } catch (const detail::DtypeError& e) {
+        throw nb::type_error((op_display_name(nb::find(self)) + ": " + e.what()).c_str());
+    } catch (const detail::MixedKinds&) {
+        // Name the arguments as given, when normalization replaced one.
+        if (args.ptr() == raw.ptr()) throw;
+        nb::handle shown = raw;
+        if (raw.size() == 1 && (PyTuple_Check(raw[0].ptr()) || PyList_Check(raw[0].ptr())))
+            shown = raw[0];
+        throw_unsupported_inputs(nb::find(self), nb::tuple(nb::borrow(shown)));
+    }
 }
 
 // ---------------------------------------------------------
@@ -1358,10 +1459,7 @@ nb::args named_inputs(Op& self, const nb::args& args, PyObject* kwargs) {
                                       detail::quoted(k.c_str())).c_str());
         }
     }
-    if (given > N)
-        throw nb::type_error((who() + " takes " + std::to_string(N) + " input" +
-                              (N == 1 ? "" : "s") + ", got " + std::to_string(given) +
-                              " positional").c_str());
+    if (given > N) throw_input_count(op_display_name(nb::find(self)), N, given);
     for (std::size_t i = 0; i < given; ++i)
         if (value[i])
             throw nb::type_error((who() + " got multiple values for argument " +
@@ -1372,8 +1470,9 @@ nb::args named_inputs(Op& self, const nb::args& args, PyObject* kwargs) {
         std::size_t n_missing = 0;
         for (std::size_t i = given; i < N; ++i)
             if (!value[i]) missing += (n_missing++ ? ", " : "") + detail::quoted(names[i]);
-        throw nb::type_error((who() + " missing " + std::to_string(n_missing) + " required input" +
-                              (n_missing > 1 ? "s" : "") + ": " + missing).c_str());
+        // A count (rule A4): ValueError, naming the missing inputs.
+        throw nb::value_error((who() + " missing " + std::to_string(n_missing) + " required input" +
+                               (n_missing > 1 ? "s" : "") + ": " + missing).c_str());
     }
     nb::tuple merged = nb::steal<nb::tuple>(PyTuple_New(static_cast<Py_ssize_t>(N)));
     for (std::size_t i = 0; i < N; ++i) {

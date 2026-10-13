@@ -674,7 +674,8 @@ void init_bindings_dag(nb::module_& m) {
     m.attr("_DEFAULT_MAX_FILL") = dag::kDefaultMaxFill;
     // The string rule for values (cast_double.h refuse_text), for the Python
     // float64 conversions in screamer/dag.py and screamer/streams.py.
-    m.def("_refuse_text", [](nb::handle x) { refuse_text(x); }, "values"_a.none());
+    m.def("_refuse_text", [](nb::handle x, const std::string& who) { refuse_text(x, who); },
+          "values"_a.none(), "who"_a = "");
     // The one-kind rule of a call (py_index.h TimeUnit) over the index arrays of
     // the batch stream functions (merge, combine_latest), which build their own
     // int64 arrays: every non-empty array must be numbers, or times of one unit.
@@ -961,7 +962,7 @@ void init_bindings_dag(nb::module_& m) {
                 if (k == "c")
                     throw nb::type_error("a value must be a real number or a sequence of "
                                          "real numbers, got complex values");
-                if (k == "U" || k == "S" || k == "O") refuse_text(arr);
+                if (k == "U" || k == "S" || k == "O" || k == "M" || k == "m") refuse_text(arr);
             }
             InValues v = nb::cast<InValues>(asarray(arr, nb::arg("dtype") = float64));
             if (v.ndim() == 0) {                   // a 0-d array is a scalar
@@ -1006,6 +1007,8 @@ void init_bindings_dag(nb::module_& m) {
                 pcg->cg->push_event(src, t, std::numeric_limits<double>::quiet_NaN());
             } else if (PyUnicode_Check(p) || PyBytes_Check(p) || PyByteArray_Check(p)) {
                 throw_text_value("", value);       // a string is never a number (R-a)
+            } else if (is_foreign_value(p)) {
+                throw_text_value("", value);       // a time or a ctypes object (TypeError)
             } else if (PyMemoryView_Check(p)) {
                 // A numeric memoryview is a wide event; one over bytes is text.
                 nb::object base = value.attr("obj");

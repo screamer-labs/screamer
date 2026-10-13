@@ -27,9 +27,8 @@ nb::object route_async(nb::object op_owner, nb::handle args, std::size_t n_in) {
     if (!all_async(args)) return nb::object();
     const std::size_t n = nb::len(args);
     if (n != 1 && n != n_in)
-        throw nb::type_error(("this operator takes " + std::to_string(n_in) +
-                              " async inputs or one async input of events holding every "
-                              "field, got " + std::to_string(n)).c_str());
+        throw_input_count(op_display_name(op_owner), n_in, n,
+                          ", or one stream of events holding every field");
     std::vector<nb::object> sources;
     for (nb::handle a : args) sources.push_back(nb::borrow<nb::object>(a));
     return nb::cast(LazyAsyncIterator(std::move(op_owner), sources));

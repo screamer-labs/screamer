@@ -587,9 +587,8 @@ nb::object row_op_call(screamer::RowOp& self, nb::args raw) {
             return row_op_packed(self, a);
     }
     if (n != fi)
-        throw nb::type_error(("this operator takes " + std::to_string(fi) + " inputs" +
-                              (fi > 1 ? ", or one packed (T, K, " + std::to_string(fi) + ") array," : "") +
-                              " got " + std::to_string(n) + ".").c_str());
+        screamer::throw_input_count(screamer::op_display_name(nb::find(self)), fi, n,
+            fi > 1 ? ", or one packed (T, K, " + std::to_string(fi) + ") array" : "");
     std::vector<screamer::detail::ContigDouble> fields;
     for (std::size_t i = 0; i < n; ++i) {
         nb::handle a = args[i];

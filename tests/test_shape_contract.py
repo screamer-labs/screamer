@@ -408,9 +408,9 @@ def test_portfolio_report_streams_equal_batch():
 def test_wrong_number_of_async_inputs_raises():
     import screamer as s
     sources = [_agen([1.0]) for _ in range(3)]
-    with pytest.raises(TypeError, match="async inputs"):
+    with pytest.raises(ValueError, match="^Add expects 2 inputs, or one stream of events holding every field, got 3$"):
         s.Add()(*sources)
-    with pytest.raises(TypeError, match="takes 2 inputs"):
+    with pytest.raises(ValueError, match="^BacktestPortfolioTarget expects 2 inputs"):
         s.BacktestPortfolioTarget()(*sources)
 
 

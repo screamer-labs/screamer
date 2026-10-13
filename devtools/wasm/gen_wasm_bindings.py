@@ -63,6 +63,7 @@ EXCLUDED_HEADERS = {
     "screamer/common/dispatch.h",
     "screamer/common/functor_base.h",
     "screamer/common/async_generator.h",
+    "screamer/common/cast_double.h",  # the Python value readers (nanobind)
     "screamer/common/lazy_eval_iterator.h",
     "screamer/common/gc.h",
     "screamer/common/int_arg.h",  # the Python int-setting caster (nanobind)

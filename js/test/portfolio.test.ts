@@ -211,6 +211,6 @@ test("portfolio: a packed [T, K, F] array equals the separate arrays", () => {
   assert.throws(() => p(pack([w, close, close])), { name: "RangeError",
     message: "a packed input of BacktestPortfolioTarget has shape [T, K, 2], got [12,3,3]" });
   assert.throws(() => o(mat(w), mat(close)), { name: "RangeError",
-    message: "this op takes 5 inputs, or one packed [T, K, 5] array, got 2" });
+    message: "BacktestPortfolioOHLCTarget expects 5 inputs, or one packed [T, K, 5] array, got 2" });
   p.dispose(); o.dispose();
 });
