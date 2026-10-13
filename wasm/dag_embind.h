@@ -74,41 +74,54 @@ inline OutBufFlat marshal_flat_at(const std::vector<screamer::dag::OutputBuffer>
     return marshal_flat(outs[outIdx]);
 }
 
-// The engine's kind error for an index that is not a number; `kind` names its
-// type. JavaScript calls it only on that error path, so the message has one
-// source (checked_index.h).
-inline void throwIndexKind(std::string kind) { screamer::dag::throw_index_kind(kind); }
-// The feed-length rule (checked_index.h): one index value per row of values.
-// Returns the message, or "" (JavaScript throws the RangeError: a throw out
-// of an Embind function would leak the string argument's buffer).
-inline std::string feedLengthMessage(std::string who, int input, double rows, double len) {
+// The message of a rule's error, or "" when `f` does not throw. The bindings
+// below that take a string return the message and JavaScript throws it
+// (kinds.ts throwMessage): a throw out of an Embind function leaks its string
+// arguments' buffers. The first character gives the error's class: 'T' for
+// a kind error (TypeError), 'R' for a value error (RangeError).
+template <class F>
+inline std::string message_of(F f) {
     try {
-        screamer::dag::check_feed_length(who, input, static_cast<std::size_t>(rows),
-                                         static_cast<std::size_t>(len));
-    } catch (const std::invalid_argument& e) {
-        return e.what();
+        f();
+    } catch (const screamer::dag::IndexTypeError& e) {
+        return std::string("T") + e.what();
+    } catch (const screamer::dag::SettingTypeError& e) {
+        return std::string("T") + e.what();
+    } catch (const std::exception& e) {
+        return std::string("R") + e.what();
     }
     return std::string();
 }
 
-// maxPending under the engine's rule (max_pending.h): checkedMaxPending gives
-// the count of a number or throws; throwMaxPendingKind is the error for a
-// value that is not a number. defaultMaxPending is the engine's default.
-// `name` is "<op>: <setting>", for the message.
-inline double checkedMaxPending(double v, std::string name) {
-    screamer::dag::checked_max_pending(v, name);
-    return v;
+// The engine's kind error (a TypeError in JavaScript) for an index that is
+// not a number; `kind` names its type. The message has one source
+// (checked_index.h).
+inline std::string indexKindMessage(std::string kind) {
+    return message_of([&] { screamer::dag::throw_index_kind(kind); });
 }
-inline void throwMaxPendingKind(std::string kind, std::string name) {
-    screamer::dag::throw_max_pending_kind(kind, name);
+// The feed-length rule (checked_index.h): one index value per row of values.
+// Returns the message, or "" (JavaScript throws the RangeError: a throw out
+// of an Embind function would leak the string argument's buffer).
+inline std::string feedLengthMessage(std::string who, int input, double rows, double len) {
+    return message_of([&] {
+        screamer::dag::check_feed_length(who, input, static_cast<std::size_t>(rows),
+                                         static_cast<std::size_t>(len));
+    });
+}
+
+// maxPending under the engine's rule (max_pending.h): maxPendingMessage is
+// the range error of a number (RangeError), maxPendingKindMessage the error
+// for a value that is not a number (TypeError); "" when there is none.
+// defaultMaxPending is the engine's default. `name` is "<op>: <setting>".
+inline std::string maxPendingMessage(double v, std::string name) {
+    return message_of([&] { screamer::dag::checked_max_pending(v, name); });
+}
+inline std::string maxPendingKindMessage(std::string kind, std::string name) {
+    return message_of([&] { screamer::dag::throw_max_pending_kind(kind, name); });
 }
 // maxFill of a fill resample, under the same rule (resample_params.h).
-inline double checkedMaxFill(double v, std::string name) {
-    screamer::dag::checked_max_fill(v, name);
-    return v;
-}
-inline void throwMaxFillKind(std::string kind, std::string name) {
-    screamer::dag::throw_max_pending_kind(kind, name);
+inline std::string maxFillMessage(double v, std::string name) {
+    return message_of([&] { screamer::dag::checked_max_fill(v, name); });
 }
 inline double defaultMaxFill() { return static_cast<double>(screamer::dag::kDefaultMaxFill); }
 // forecastPairs: the input rule of an eager call (dag/forecast_pairs.h).
@@ -431,13 +444,12 @@ private:
 // Register the DAG classes, the VectorSizeT vector, and the flat output value
 // object. Call inside EMSCRIPTEN_BINDINGS(screamer_dag).
 #define SCREAMER_REGISTER_DAG()                                                 \
-    emscripten::function("throwIndexKind", &screamer_wasm::throwIndexKind);     \
+    emscripten::function("indexKindMessage", &screamer_wasm::indexKindMessage); \
     emscripten::function("feedLengthMessage", &screamer_wasm::feedLengthMessage); \
-    emscripten::function("checkedMaxPending", &screamer_wasm::checkedMaxPending); \
-    emscripten::function("throwMaxPendingKind", &screamer_wasm::throwMaxPendingKind); \
+    emscripten::function("maxPendingMessage", &screamer_wasm::maxPendingMessage); \
+    emscripten::function("maxPendingKindMessage", &screamer_wasm::maxPendingKindMessage); \
     emscripten::function("defaultMaxPending", &screamer_wasm::defaultMaxPending); \
-    emscripten::function("checkedMaxFill", &screamer_wasm::checkedMaxFill);     \
-    emscripten::function("throwMaxFillKind", &screamer_wasm::throwMaxFillKind); \
+    emscripten::function("maxFillMessage", &screamer_wasm::maxFillMessage); \
     emscripten::function("defaultMaxFill", &screamer_wasm::defaultMaxFill);     \
     emscripten::function("checkForecastPairsInputs",                           \
                          &screamer_wasm::checkForecastPairsInputs);            \

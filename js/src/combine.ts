@@ -7,7 +7,7 @@
 import { current } from "./index.js";
 import { asNd, type NdArray } from "./ndarray.js";
 import { normalizeError, wasmCall } from "./errors.js";
-import { aKind, feedValue, flattenRows, kindName, throwWrongKind, toF64Checked } from "./kinds.js";
+import { aKind, feedValue, flattenRows, throwIndexKind, throwWrongKind, toF64Checked } from "./kinds.js";
 import { trackStream, type StreamHold } from "./runtime.js";
 
 const WHO = "combineLatest";
@@ -58,9 +58,7 @@ export function block(x: unknown, where: string, who = WHO): Block {
 
 // An index that is not a number is a TypeError; the engine owns the message.
 export function badIndex(index: unknown): never {
-  const M: any = current();
-  wasmCall(() => M.throwIndexKind(kindName(index)));
-  throw new TypeError("index must be a number");   // not reached
+  throwIndexKind(current(), index);
 }
 
 // A batch index: one number per row.

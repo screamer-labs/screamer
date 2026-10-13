@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   ready, current, Input, Pipeline,
   RollingMean, BollingerBands, BacktestPriceTarget, PortfolioReport, CrossRank, backtestReport,
-  forecastPairs, split, combineLatest,
+  forecastPairs, split, combineLatest, merge, resample,
 } from "../src/index.ts";
 
 // Soak tests: a program that builds a new op per call must run for months, so
@@ -248,6 +248,34 @@ test("soak: rejected Pipeline.fromJSON calls, and toJSON round trips, leave noth
     p.toJSONText();
     try { forecastPairs({ values: [1, 2, 3], index: [0, 1] }, { values: [1, 2, 3], index: [0, 1, 2] }, { duration: 1 }); }
     catch { /* rejected */ }
+  }, N_MIXED);
+  p.dispose();
+  assert.ok(r.js < JS_BOUND, `JS heap grew by ${r.js} bytes`);
+  assert.ok(r.wasm < WASM_BOUND, `WASM heap grew by ${r.wasm} bytes`);
+});
+
+test("soak: rejected index kinds, maxPending and maxFill settings leave nothing behind", async () => {
+  const x = Input("x"), y = Input("y");
+  const p = new Pipeline([x], [RollingMean(2)(x)]);
+  const long = "k".repeat(200);
+  const r = await retained(() => {
+    const tries: Array<() => unknown> = [
+      () => split([1, 2], [0, 0], { index: [0, null] as any }),
+      () => split([1, 2], [0, 0], { index: [0, long] as any }),
+      () => merge([{ values: [1, 2], index: ["a", "b"] as any }, { values: [1, 2], index: [0, 1] }]),
+      () => combineLatest([{ values: [1, 2], index: [0, long] as any }, { values: [1, 2], index: [0, 1] }]),
+      () => p({ values: [1, 2], index: [0, "b"] as any }),
+      () => combineLatest([x, y], { maxPending: 0 }),
+      () => combineLatest([x, y], { maxPending: long as any }),
+      () => new Pipeline([x], [x], { maxPending: -1 }),
+      () => new Pipeline([x], [resample(x, { every: 2, fill: "nan", maxFill: 0 })]),
+      () => new Pipeline([x], [resample(x, { every: 2, fill: "nan", maxFill: long as any })]),
+      () => RollingMean(2 ** 32 + 2),
+      () => RollingMean(-1),
+    ];
+    for (const t of tries) {
+      try { t(); } catch { /* rejected */ }
+    }
   }, N_MIXED);
   p.dispose();
   assert.ok(r.js < JS_BOUND, `JS heap grew by ${r.js} bytes`);

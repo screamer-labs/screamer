@@ -7,7 +7,7 @@ import { asNd, type NdArray } from "./ndarray.js";
 import { Input, Node, isNode } from "./node.js";
 import { Pipeline, type Output } from "./pipeline.js";
 import { wasmCall } from "./errors.js";
-import { aKind, flattenRows, toF64Checked } from "./kinds.js";
+import { aKind, flattenRows, throwMessage, toF64Checked } from "./kinds.js";
 
 export interface ForecastPairsOptions {
   /** Lag X by this many events. Exactly one of `count` and `duration`. */
@@ -142,8 +142,7 @@ export function forecastPairs(X: unknown, y: unknown, opts: ForecastPairsOptions
     iy = y.index;
     // One index value per row (the engine's feed-length rule), before either is read.
     for (const [k, b, i] of [[0, bx, ix], [1, by, iy]] as const) {
-      const msg = i == null ? "" : M.feedLengthMessage(WHO, k, b.T, i.length) as string;
-      if (msg) throw new RangeError(msg);
+      if (i != null) throwMessage(M.feedLengthMessage(WHO, k, b.T, i.length));
     }
   } else {
     if (isStream(X) || isStream(y))

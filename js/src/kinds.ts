@@ -6,6 +6,21 @@
 // and "RollingMean: event 1 has shape (2,), expected a number".
 
 // The name of x's type: its class name, or typeof for a primitive.
+// The error a C++ rule reports as a message (wasm/dag_embind.h message_of):
+// "" for none, else its class ('T' TypeError, 'R' RangeError) and its text.
+// The bindings return messages because a throw out of an Embind function
+// leaks its string arguments.
+export function throwMessage(msg: string): void {
+  if (!msg) return;
+  throw msg[0] === "T" ? new TypeError(msg.slice(1)) : new RangeError(msg.slice(1));
+}
+
+// The engine's TypeError for an index that is not a number (checked_index.h).
+export function throwIndexKind(M: any, index: unknown): never {
+  throwMessage(M.indexKindMessage(kindName(index)));
+  throw new TypeError("index must be a number");   // not reached
+}
+
 export function kindName(x: unknown): string {
   if (x === null) return "null";
   if (typeof x === "object" || typeof x === "function")

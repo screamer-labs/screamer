@@ -474,6 +474,40 @@ test("validation: C++ calls JavaScript only through wasmCallbacks", async () => 
   assert.ok(!/export function callbackScope/.test(js), "callbackScope must stay private to errors.ts");
 });
 
+// A C++ exception thrown out of an Embind function leaks the wire buffers of
+// its std::string arguments, so a function that takes a string must not
+// throw: it returns a message ("" when there is none) and JavaScript throws.
+// Every such function is classified here, so a new one fails until it is
+// listed, and a listed one fails if its body throws.
+test("validation: Embind functions that take a string never throw", async () => {
+  const fs = await import("node:fs");
+  const path = await import("node:path");
+  const root = path.resolve(import.meta.dirname, "../..");
+  const dirs = ["wasm", "wasm/generated"];
+  const files = dirs.flatMap((d) => fs.readdirSync(path.join(root, d))
+    .filter((f) => /\.(cpp|h)$/.test(f)).map((f) => [f, fs.readFileSync(path.join(root, d, f), "utf8")] as const));
+  const allowed = ["graphFromJson", "graphToJson", "unknownFunctorMessage", "functorInputsMessage",
+    "indexKindMessage", "feedLengthMessage", "maxPendingMessage", "maxPendingKindMessage", "maxFillMessage",
+    "finiteSettingError"];
+  const found: string[] = [];
+  for (const [f, src] of files) {
+    for (const m of src.matchAll(/(\w+)\s*\(([^()]*\bstd::string\b[^()]*)\)\s*(?:const\s*)?(?::[^{;]*)?\{/g)) {
+      found.push(m[1]);
+      // The body, by brace matching from its opening brace.
+      let depth = 0, i = m.index! + m[0].length - 1, end = i;
+      for (; end < src.length; end++) {
+        if (src[end] === "{") depth++;
+        else if (src[end] === "}" && --depth === 0) break;
+      }
+      const body = src.slice(i, end)
+        .replace(/try\s*\{[\s\S]*?\}\s*catch[\s\S]*?\{[\s\S]*?\}/g, "")    // a caught throw does not escape
+        .replace(/message_of\(\[&\][\s\S]*?\}\);/g, "");                    // nor one inside message_of
+      assert.ok(!/\bthrow\b|throw_\w+\(|checked_\w+\(|check_\w+\(/.test(body), `${f}: ${m[1]} takes a string and may throw`);
+    }
+  }
+  assert.deepEqual([...found].sort(), [...allowed].sort());
+});
+
 // B6: positionTest and walkForward run in the shared C++ driver.
 test("validation: positionTest and walkForward return the user's errors unchanged", async () => {
   const { walkForward, EwMean, current } = await import("../src/index.ts");

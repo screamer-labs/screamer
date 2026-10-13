@@ -5,7 +5,7 @@
 import { current } from "./index.js";
 import { asNd, type NdArray } from "./ndarray.js";
 import { wasmCall } from "./errors.js";
-import { aKind, fillF64Checked, flattenRows, kindName, throwWrongKind } from "./kinds.js";
+import { aKind, fillF64Checked, flattenRows, throwIndexKind, throwWrongKind } from "./kinds.js";
 
 export interface SplitOptions {
   /** The index of each event, partitioned with the values. Absent, each output's index is null. */
@@ -124,7 +124,7 @@ export function split(
         const out = M.viewF64(kp, size(k)), items = k.items!;
         for (let i = 0; i < items.length; i++) {
           const x = items[i];
-          if (typeof x !== "number") wasmCall(() => (M as any).throwIndexKind(kindName(x)));
+          if (typeof x !== "number") throwIndexKind(M, x);
           out[i] = x as number;
         }
       }

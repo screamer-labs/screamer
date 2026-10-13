@@ -3,7 +3,7 @@ import { asNd, type NdArray } from "./ndarray.js";
 import { Node, isNode } from "./node.js";
 import { current } from "./index.js";
 import { normalizeError, wasmCall } from "./errors.js";
-import { aKind, feedValue, kindName, toF64Checked, whereText } from "./kinds.js";
+import { aKind, feedValue, kindName, throwIndexKind, throwMessage, toF64Checked, whereText } from "./kinds.js";
 import { releaseWith, type Owned } from "./runtime.js";
 import { build, checkDescription, describe, describeJson } from "./pipeline_io.js";
 
@@ -38,17 +38,21 @@ export interface PipelineOptions {
 // maxPending as the engine's count (an integer from 1 to 2**53); the engine
 // owns the rule and its messages (max_pending.h).
 // `who` names the op and setting for the message ("Pipeline: maxPending").
+// The bindings return the messages and the errors are thrown here: a throw out
+// of an Embind function leaks its string arguments.
 export function maxPendingCount(M: Screamer, v: unknown, who = "Pipeline: maxPending"): number {
-  if (typeof v !== "number") wasmCall(() => (M as any).throwMaxPendingKind(kindName(v), who));
-  return wasmCall(() => (M as any).checkedMaxPending(v, who));
+  if (typeof v !== "number") throwMessage((M as any).maxPendingKindMessage(kindName(v), who));
+  throwMessage((M as any).maxPendingMessage(v, who));
+  return v as number;
 }
 
 // A resample's maxFill under the same rule (resample_params.h); unset, the
 // engine's default.
 function maxFillCount(M: Screamer, v: unknown): number {
   if (v === undefined) return (M as any).defaultMaxFill();
-  if (typeof v !== "number") wasmCall(() => (M as any).throwMaxFillKind(kindName(v), "resample: maxFill"));
-  return wasmCall(() => (M as any).checkedMaxFill(v, "resample: maxFill"));
+  if (typeof v !== "number") throwMessage((M as any).maxPendingKindMessage(kindName(v), "resample: maxFill"));
+  throwMessage((M as any).maxFillMessage(v, "resample: maxFill"));
+  return v as number;
 }
 
 // Event-by-event streaming driver returned by `pipeline.live()`. Push feeds one
@@ -88,8 +92,7 @@ function isSequence(v: object): boolean {
 // An index that is not a number is a TypeError; the engine owns the message
 // (checked_index.h). A number goes to the engine's finite/whole/int64 rule.
 function badIndex(M: Screamer, index: unknown): never {
-  wasmCall(() => (M as any).throwIndexKind(kindName(index)));
-  throw new TypeError("index must be a number");   // not reached
+  throwIndexKind(M, index);
 }
 
 // A batch index as a Float64Array of numbers; the engine checks each value in
