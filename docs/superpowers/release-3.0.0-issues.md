@@ -71,7 +71,7 @@ Goal: zero open issues before `make major`. Each item is closed by a fix with a 
 |---|---|---|
 | F1 | Citations to verify: Mulloy 1994, Hutson 1983, Williams 1985, Lambert 1980, Kaufman 1995, and the RoofingFilter magazine issue. | decided: verify each reference against its source (authors, title, venue, year, and that it supports the claim); correct the pages; done (49ffaff) |
 | F2 | The CHANGELOG states WilliamsR packed input is "about 3.5x faster"; the figure was not re-measured. | decided: re-measure; state the measured figure in the CHANGELOG or drop the claim; done (1802c35) |
-| F3 | Ehlers cycle and spectral operators still want a domain review of their numerics. | decided: review pack per operator (Ehlers formula, our code, plots on synthetic signals with known period/phase: sine, chirp, trend + cycle) plus automated checks that period/phase estimates recover the known values within a tolerance; user reviews failures and odd plots; to do |
+| F3 | Ehlers cycle and spectral operators still want a domain review of their numerics. | decided: review pack per operator (Ehlers formula, our code, plots on synthetic signals with known period/phase: sine, chirp, trend + cycle) plus automated checks that period/phase estimates recover the known values within a tolerance; user reviews failures and odd plots; pack ready for user review (d7093ab) |
 | F4 | Verify the JS build in a real browser before release (standing rule). | decided: headless-Chrome check on the final JS build as the last pre-release step; to do |
 
 ## G. Robustness details
