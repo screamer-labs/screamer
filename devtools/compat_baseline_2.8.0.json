@@ -13177,6 +13177,76 @@
    "c31a9131ec787f7b"
   ]
  ],
+ "forecast_pairs count node (T,0) X": [
+  "ERROR",
+  "RuntimeError",
+  "dag::FunctorNode: frame width does not match op n_in"
+ ],
+ "forecast_pairs count node rank-3 X": [
+  "pair",
+  [
+   "ndarray",
+   [
+    30,
+    2
+   ],
+   "f",
+   6054.435655,
+   "ff56061cdececdc7"
+  ],
+  [
+   "ndarray",
+   [
+    30
+   ],
+   "i",
+   435.0,
+   "c6aa67295a3a2366"
+  ]
+ ],
+ "Pipeline rank-3 feed": [
+  "pair",
+  [
+   "ndarray",
+   [
+    30
+   ],
+   "f",
+   2925.04642,
+   "e0d3f14cfe3f464e"
+  ],
+  [
+   "ndarray",
+   [
+    30
+   ],
+   "i",
+   435.0,
+   "c6aa67295a3a2366"
+  ]
+ ],
+ "Pipeline (T,0) feed": [
+  "pair",
+  [
+   "ndarray",
+   [
+    30,
+    0
+   ],
+   "f",
+   0.0,
+   "da39a3ee5e6b4b0d"
+  ],
+  [
+   "ndarray",
+   [
+    30
+   ],
+   "i",
+   435.0,
+   "c6aa67295a3a2366"
+  ]
+ ],
  "forecast_pairs duration lazy": [
   "_LazyDriver",
   [
