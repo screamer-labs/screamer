@@ -45,6 +45,10 @@ T_LAZY = 200_000        # events of a lazy or live case
 T_OP = 200_000          # rows of a packed-versus-separate case
 WIDE = 8                # columns of a wide case
 OP_SHAPE_2D = (2000, 100)
+# An operator call slower than this is checked (packed equals separate) but
+# not timed: VPIN takes about 1 s on T_OP rows, which would take most of the
+# sweep, and its speed differs between calls by about 12% in either spelling.
+MAX_OP_S = 0.1
 # Constructor arguments tried in order (see bench_all_ops.py).
 CONSTRUCT_KWARGS = ({}, {"span": 20}, {"period": 20}, {"hp_period": 48, "lp_period": 10})
 
@@ -296,11 +300,17 @@ def packed_cases(s, np):
                             ("2d", [x.reshape(OP_SHAPE_2D) for x in xs[:n_in]])):
             packed = np.ascontiguousarray(np.stack(cols, axis=-1))
             try:
-                a, b = op(*cols), op(packed)
+                t0 = time.perf_counter()
+                a = op(*cols)
+                slow = time.perf_counter() - t0 > MAX_OP_S
+                b = op(packed)
                 if not np.array_equal(np.asarray(a), np.asarray(b), equal_nan=True):
                     print(f"{name} {shape}: packed and separate differ", file=sys.stderr)
                     continue
             except Exception:
+                continue
+            if slow:
+                print(f"{name} {shape}: values checked, not timed (over {MAX_OP_S} s a call)")
                 continue
             out[f"separate:{name}:{shape}"] = (lambda op=op, cols=cols: op(*cols))
             out[f"packed:{name}:{shape}"] = (lambda op=op, p=packed: op(p))
