@@ -10,7 +10,7 @@ tags:
 - trend
 - adaptive moving average
 - trendline
-short: Adaptive 2-pole trendline whose smoothing tracks the measured dominant cycle.
+short: Ehlers' instantaneous trendline, the mean over one measured dominant cycle.
 inputs: 1
 outputs: 1
 parameters: []
@@ -21,40 +21,40 @@ see_also:
 - SuperSmoother
 - KAMA
 references:
-- 'Ehlers, J. F. (2004). *Cybernetic Analysis for Stocks and Futures: Cutting-Edge DSP Technology
-  to Improve Your Trading*. Wiley.'
+- 'Ehlers, J. F. (2001). *Rocket Science for Traders: Digital Signal Processing Applications*.
+  Wiley.'
 ---
 
 # `InstantaneousTrendline`
 
 ## Description
 
-`InstantaneousTrendline` (John Ehlers) is an adaptive trendline: a 2-pole
-recursive filter whose smoothing factor is set, at every sample, from the
-dominant cycle period measured by the same Hilbert-transform engine as
-`DominantCycle`. Because the filter's time constant tracks the current cycle
-length, the trendline removes the dominant cycle from the output and follows
-the underlying trend rather than a fixed-period moving average.
+`InstantaneousTrendline` is John Ehlers' instantaneous trendline (*Rocket
+Science for Traders*, "The Instantaneous Trendline"), as TA-Lib implements it
+in `HT_TRENDLINE`. It averages the input over one dominant cycle, measured at
+every sample by the same Hilbert-transform engine as `DominantCycle`, then
+smooths the average with a 4-tap weighted mean. An average over exactly one
+cycle removes that cycle, so the trendline keeps the trend and drops the
+dominant cycle.
 
 $$
 \begin{aligned}
-\alpha[t] &= \frac{2}{\text{period}[t] + 1} \\
-\text{it}[t] &= \left(\alpha[t] - \frac{\alpha[t]^2}{4}\right) x[t]
-  + \frac{\alpha[t]^2}{2} x[t-1]
-  - \left(\alpha[t] - \frac{3\alpha[t]^2}{4}\right) x[t-2] \\
-  &\quad + 2(1 - \alpha[t]) \, \text{it}[t-1] - (1 - \alpha[t])^2 \, \text{it}[t-2]
+N[t] &= \lfloor \text{period}[t] + 0.5 \rfloor \\
+\text{itrend}[t] &= \frac{1}{N[t]} \sum_{k=0}^{N[t]-1} x[t-k] \\
+\text{trendline}[t] &= \frac{4\,\text{itrend}[t] + 3\,\text{itrend}[t-1]
+  + 2\,\text{itrend}[t-2] + \text{itrend}[t-3]}{10}
 \end{aligned}
 $$
 
-`period` is the dominant cycle period in samples, the same quantity
-`DominantCycle` reports, clamped to `[6, 50]`, which bounds
-`alpha` to at most `2/7`. The recursion needs two samples of input and output
-history; until that history is available (right after the dominant cycle
-first becomes measurable), `InstantaneousTrendline` seeds its output with the
-current price.
+`period` is the dominant cycle period in samples that `DominantCycle`
+reports, limited to `[6, 50]`. The average costs lag: on a steady ramp the
+trendline trails the price by `(N - 1) / 2 + 1` samples, half a cycle plus
+one. A trend also biases the period estimate (see `DominantCycle`), and an
+average over a cycle length that does not match the actual cycle leaves part
+of the cycle in the output.
 
-This is a parameterless function: the adaptation comes entirely from the
-measured cycle, with no smoothing constant to tune.
+This is a parameterless function: the averaging window comes entirely from the
+measured cycle.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling

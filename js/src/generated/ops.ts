@@ -2162,7 +2162,7 @@ export function CumSum(options?: CumSumOptions): ScreamerOp {
 export type CycleAmplitudeOptions = Record<string, never>;
 
 /**
- * Instantaneous amplitude (envelope) of the analytic signal via Ehlers' homodyne discriminator.
+ * Instantaneous amplitude (envelope) of the dominant cycle, scaled to the input amplitude.
  *
  * @param options Nothing, or an empty object: CycleAmplitude has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/CycleAmplitude.html for the full reference.
@@ -2192,7 +2192,7 @@ export function CycleFrequency(options?: CycleFrequencyOptions): ScreamerOp {
 export type CyclePhaseOptions = Record<string, never>;
 
 /**
- * Instantaneous phase, in degrees, of the analytic signal via Ehlers' homodyne discriminator.
+ * Instantaneous phase, in degrees, of Ehlers' in-phase and quadrature components.
  *
  * @param options Nothing, or an empty object: CyclePhase has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/CyclePhase.html for the full reference.
@@ -2207,7 +2207,7 @@ export function CyclePhase(options?: CyclePhaseOptions): ScreamerOp {
 export type CycleSineOptions = Record<string, never>;
 
 /**
- * Sinewave indicator (sine, leadsine) from the instantaneous phase of the analytic signal.
+ * Ehlers' sinewave indicator (sine, leadsine) from the phase of the dominant cycle.
  *
  * @param options Nothing, or an empty object: CycleSine has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/CycleSine.html for the full reference.
@@ -2293,7 +2293,7 @@ export function DX(windowSize?: any): ScreamerOp {
 
 /** The settings of Decycler by name, for `Decycler({ ... })`. */
 export interface DecyclerOptions {
-  /** Cutoff as a cycle length in samples; cycles at or below this length are removed. Give exactly one of period and cutoff. The default shown is a suggested starting value; the constructor has no default. */
+  /** Cutoff as a cycle length in samples, the half-power point; cycles well below this length are removed. Give exactly one of period and cutoff. The default shown is a suggested starting value; the constructor has no default. */
   period?: number | null;
   /** Cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / period. Give exactly one of period and cutoff. */
   cutoff?: number | null;
@@ -2309,7 +2309,7 @@ export function Decycler(options: DecyclerOptions): ScreamerOp;
 /**
  * Ehlers trend estimate with short cycles removed.
  *
- * @param period Cutoff as a cycle length in samples; cycles at or below this length are removed. Give exactly one of period and cutoff. The default shown is a suggested starting value; the constructor has no default.
+ * @param period Cutoff as a cycle length in samples, the half-power point; cycles well below this length are removed. Give exactly one of period and cutoff. The default shown is a suggested starting value; the constructor has no default.
  * @param cutoff Cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / period. Give exactly one of period and cutoff.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/Decycler.html for the full reference.
  */
@@ -3939,7 +3939,7 @@ export function HawkesIntensity(decay?: any, alpha?: any, mu?: any): ScreamerOp 
 export type HilbertPhasorOptions = Record<string, never>;
 
 /**
- * In-phase and quadrature components of the analytic signal via Ehlers' Hilbert transform.
+ * Ehlers' in-phase and quadrature components (TA-Lib HT_PHASOR), scaled to the input amplitude.
  *
  * @param options Nothing, or an empty object: HilbertPhasor has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/HilbertPhasor.html for the full reference.
@@ -4091,7 +4091,7 @@ export function ImpulseClip(windowSize?: any, nSigma?: any, output?: any, startP
 export type InstantaneousTrendlineOptions = Record<string, never>;
 
 /**
- * Adaptive 2-pole trendline whose smoothing tracks the measured dominant cycle.
+ * Ehlers' instantaneous trendline, the mean over one measured dominant cycle.
  *
  * @param options Nothing, or an empty object: InstantaneousTrendline has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/InstantaneousTrendline.html for the full reference.
@@ -4540,24 +4540,24 @@ export function MACD(fast?: any, slow?: any, signal?: any): ScreamerOp {
 
 /** The settings of MAMA by name, for `MAMA({ ... })`. */
 export interface MAMAOptions {
-  /** Upper bound on the smoothing constant, applied when the phase advances quickly. @defaultValue `0.5` */
+  /** Upper bound on the smoothing constant, reached when the phase stalls or wraps. @defaultValue `0.5` */
   fastLimit?: number;
-  /** Lower bound on the smoothing constant, applied when the phase stalls. @defaultValue `0.05` */
+  /** Lower bound on the smoothing constant, reached when the phase changes by fast_limit / slow_limit degrees or more per sample. @defaultValue `0.05` */
   slowLimit?: number;
 }
 
 /**
- * Adaptive moving average pair (MAMA, FAMA) whose smoothing rate tracks the instantaneous-phase rate of change.
+ * Ehlers' adaptive moving average pair (MAMA, FAMA), smoothing set by the rate of the cycle phase.
  *
  * @param options The settings by name, each one optional where the positional form's is.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/MAMA.html for the full reference.
  */
 export function MAMA(options: MAMAOptions): ScreamerOp;
 /**
- * Adaptive moving average pair (MAMA, FAMA) whose smoothing rate tracks the instantaneous-phase rate of change.
+ * Ehlers' adaptive moving average pair (MAMA, FAMA), smoothing set by the rate of the cycle phase.
  *
- * @param fastLimit Upper bound on the smoothing constant, applied when the phase advances quickly.
- * @param slowLimit Lower bound on the smoothing constant, applied when the phase stalls.
+ * @param fastLimit Upper bound on the smoothing constant, reached when the phase stalls or wraps.
+ * @param slowLimit Lower bound on the smoothing constant, reached when the phase changes by fast_limit / slow_limit degrees or more per sample.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/MAMA.html for the full reference.
  */
 export function MAMA(fastLimit?: number, slowLimit?: number): ScreamerOp;
@@ -7635,33 +7635,19 @@ export function TickRuleSign(options?: TickRuleSignOptions): ScreamerOp {
   return wrapOp(M, () => new M.TickRuleSign());
 }
 
-/** The settings of TrendMode by name, for `TrendMode({ ... })`. */
-export interface TrendModeOptions {
-  /** Threshold, as a fraction of the expected per-sample phase advance for the current dominant cycle, below which a sample is classified as trending. @defaultValue `0.5` */
-  phaseRateFrac?: number;
-}
+/** TrendMode has no settings: its options object is empty. */
+export type TrendModeOptions = Record<string, never>;
 
 /**
- * Classifies each sample as trending (1.0) or cycling (0.0) from the dominant-cycle phase advance.
+ * Ehlers' trend mode, 1.0 while the series trends and 0.0 while it cycles.
  *
- * @param options The settings by name, each one optional where the positional form's is.
+ * @param options Nothing, or an empty object: TrendMode has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/TrendMode.html for the full reference.
  */
-export function TrendMode(options: TrendModeOptions): ScreamerOp;
-/**
- * Classifies each sample as trending (1.0) or cycling (0.0) from the dominant-cycle phase advance.
- *
- * @param phaseRateFrac Threshold, as a fraction of the expected per-sample phase advance for the current dominant cycle, below which a sample is classified as trending.
- * @see https://screamer.readthedocs.io/en/latest/functions_signal/TrendMode.html for the full reference.
- */
-export function TrendMode(phaseRateFrac?: number): ScreamerOp;
-export function TrendMode(phaseRateFrac?: any): ScreamerOp {
-  if (_isOptions(phaseRateFrac)) [phaseRateFrac] = _options("TrendMode", phaseRateFrac, arguments.length, ["phaseRateFrac"], "phaseRateFrac must be a number");
-  else if (arguments.length > 1) _tooMany("TrendMode", 1, arguments.length);
-  if (phaseRateFrac === undefined) phaseRateFrac = 0.5;
+export function TrendMode(options?: TrendModeOptions): ScreamerOp {
+  if (arguments.length) _noSettings("TrendMode", options, arguments.length);
   const M = current();
-  if (typeof phaseRateFrac !== "number") throw new TypeError(`TrendMode: phaseRateFrac must be a number, got ${_what(phaseRateFrac)}`);
-  return wrapOp(M, () => new M.TrendMode(phaseRateFrac));
+  return wrapOp(M, () => new M.TrendMode());
 }
 
 /** TrueRange has no settings: its options object is empty. */

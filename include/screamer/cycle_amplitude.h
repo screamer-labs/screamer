@@ -1,9 +1,10 @@
 #ifndef SCREAMER_CYCLE_AMPLITUDE_H
 #define SCREAMER_CYCLE_AMPLITUDE_H
 
-// CycleAmplitude: instantaneous amplitude (envelope) of the analytic signal,
-// its magnitude sqrt(I^2 + Q^2). A general envelope detector. See
-// detail/hilbert_cycle.h.
+// CycleAmplitude: instantaneous amplitude (envelope) of the dominant cycle,
+// the magnitude of the HilbertPhasor pair. Each component is divided by its
+// filter gain at the measured period, so a sine of any period in [6, 50]
+// reads its own amplitude. See detail/hilbert_cycle.h.
 
 #include "screamer/common/functor_base.h"
 #include "screamer/detail/hilbert_cycle.h"

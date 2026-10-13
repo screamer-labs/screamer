@@ -18,7 +18,7 @@ parameters:
 - name: period
   type: float
   default: 60.0
-  description: Cutoff as a cycle length in samples; cycles at or below this length are removed.
+  description: Cutoff as a cycle length in samples, the half-power point; cycles well below this length are removed.
     Give exactly one of period and cutoff. The default shown is a suggested starting value;
     the constructor has no default.
 - name: cutoff
@@ -39,9 +39,11 @@ see_also:
 ## Description
 
 `Decycler` is a causal filter from John Ehlers that estimates the trend of a
-series by removing cycles at or below the cutoff. It is the input minus its
-1-pole highpass component, so slow movements pass through and fast cycles are
-suppressed.
+series by removing its short cycles. It is the input minus its 1-pole highpass
+component, so slow movements pass through and fast cycles are suppressed. The
+cutoff is the half-power point: a cycle of exactly `period` samples keeps
+about 71% of its amplitude (-3 dB), and cycles well below the cutoff are
+removed.
 
 The cutoff is set by a cycle length in samples (`period`) or a fraction of the
 Nyquist frequency (`cutoff`), related by `cutoff = 2 / period`.

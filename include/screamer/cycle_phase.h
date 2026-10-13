@@ -1,8 +1,9 @@
 #ifndef SCREAMER_CYCLE_PHASE_H
 #define SCREAMER_CYCLE_PHASE_H
 
-// CyclePhase: instantaneous phase (degrees, 0..360) of the analytic signal,
-// via Ehlers' homodyne discriminator. See detail/hilbert_cycle.h.
+// CyclePhase: instantaneous phase atan2(Q1, I1) in degrees, wrapped to
+// [0, 360). It decreases by about 360 / period per sample, the direction of
+// Ehlers' MAMA phase. See detail/hilbert_cycle.h.
 
 #include "screamer/common/functor_base.h"
 #include "screamer/detail/hilbert_cycle.h"

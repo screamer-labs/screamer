@@ -25,7 +25,7 @@ sys.path.insert(0, ROOT)
 
 import screamer as s  # noqa: E402
 from tests.test_ehlers_known_signals import (  # noqa: E402
-    PERIODS, SETTLE, chirp, gain_db, sine, sine_plus_trend, unwrap_deg,
+    PERIODS, SETTLE, chirp, gain_db, sine, sine_plus_trend, trendline_lag, unwrap_deg,
 )
 
 OUT = os.path.dirname(os.path.abspath(__file__))
@@ -115,7 +115,7 @@ for P, c in zip(PERIODS, (C1, C2, C3)):
     ax.plot(a, color=c, label=f"P = {P:g} (median {np.median(a[SETTLE:]):.2f})")
 expect_line(ax, 1.0, "true amplitude 1 (5% band)", band=0.05)
 settle_marker(ax)
-ax.set(title="CycleAmplitude on a unit sine (FAIL)", xlabel="sample",
+ax.set(title="CycleAmplitude on a unit sine", xlabel="sample",
        ylabel="amplitude", xlim=(0, 600), ylim=(0, 1.8))
 ax.legend(loc="center left", bbox_to_anchor=(0.35, 0.42))
 save(fig, "cycle_amplitude_sine.png")
@@ -163,7 +163,9 @@ fig, axes = plt.subplots(2, 1, figsize=(7, 4.6), sharex=True)
 w = slice(400, 441)
 axes[0].plot(t[w], cs[w, 0], color=C1, label="sine")
 axes[0].plot(t[w], cs[w, 1], color=C2, label="leadsine")
-axes[0].set(title="screamer CycleSine, P = 20 (FAIL: leadsine lags)", ylim=(-1.3, 1.3))
+axes[0].plot(t[w], x[w], color=BAND, lw=3, label="input")
+axes[0].set(title="screamer CycleSine, P = 20 (sine on the input, leadsine leads)",
+            ylim=(-1.3, 1.3))
 axes[1].plot(t[w], ts[w], color=C1, label="sine")
 axes[1].plot(t[w], tl[w], color=C2, label="leadsine")
 axes[1].set(title="TA-Lib HT_SINE, same input (leadsine leads)", xlabel="sample",
@@ -181,12 +183,16 @@ save(fig, "cycle_sine.png")
 # ------------------------------------------------ TrendMode
 fig, axes = plt.subplots(2, 1, figsize=(7, 4.6), sharex=True)
 x, _ = sine_plus_trend(20.0)
+x = 100.0 + x
 tm = s.TrendMode()(x)
 axes[0].step(t[: len(tm)], tm, color=C1, where="post", label="TrendMode")
+axes[0].step(t[: len(tm)], talib.HT_TRENDMODE(x), color=MUTED, where="post", alpha=0.5,
+             label="TA-Lib HT_TRENDMODE")
 axes[0].axhline(0.0, color=EXPECT, ls="--", lw=1)
-axes[0].set(title=f"sine (P = 20) plus a ramp: expected 0 (cycle); "
+axes[0].set(title=f"100 + sine (P = 20) plus a ramp: expected 0 (cycle); "
                   f"cycle on {np.mean(tm[SETTLE:] == 0):.0%}",
             ylim=(-0.2, 1.2))
+axes[0].legend(loc="center right", frameon=True, facecolor="white", edgecolor="white")
 ramp = 0.05 * np.arange(len(t), dtype=float)
 tm = s.TrendMode()(ramp)
 axes[1].step(t, tm, color=C2, where="post", label="TrendMode")
@@ -194,7 +200,7 @@ axes[1].step(t, talib.HT_TRENDMODE(ramp), color=MUTED, where="post", alpha=0.5,
              label="TA-Lib HT_TRENDMODE")
 axes[1].axhline(1.0, color=EXPECT, ls="--", lw=1)
 axes[1].set(title=f"pure ramp: expected 1 (trend); trend on "
-                  f"{np.mean(tm[SETTLE:] == 1):.0%} (FAIL)",
+                  f"{np.mean(tm[SETTLE:] == 1):.0%}",
             xlabel="sample", xlim=(0, 400), ylim=(-0.2, 1.2))
 axes[1].legend(loc="center right", frameon=True, facecolor="white", edgecolor="white")
 save(fig, "trend_mode.png")
@@ -203,10 +209,12 @@ save(fig, "trend_mode.png")
 fig, ax = plt.subplots(figsize=(7, 3.4))
 x, trend = sine_plus_trend(20.0)
 ax.plot(x, color=BAND, lw=2, label="input")
-ax.plot(trend, color=EXPECT, ls="--", lw=1, label="true trend (expected)")
+ax.plot(trend, color=MUTED, ls=":", lw=1, label="true trend")
+ax.plot(trend - trendline_lag(x) / 20.0, color=EXPECT, ls="--", lw=1,
+        label="true trend delayed by the published lag (expected)")
+ax.plot(talib.HT_TRENDLINE(x), color=C2, lw=3, alpha=0.5, label="TA-Lib HT_TRENDLINE")
 ax.plot(s.InstantaneousTrendline()(x), color=C1, label="InstantaneousTrendline")
-ax.plot(talib.HT_TRENDLINE(x), color=C2, lw=1, label="TA-Lib HT_TRENDLINE")
-ax.set(title="InstantaneousTrendline on sine (P = 20) plus a ramp (FAIL)",
+ax.set(title="InstantaneousTrendline on sine (P = 20) plus a ramp",
        xlabel="sample", xlim=(300, 420), ylim=(13, 22))
 ax.legend(loc="upper left")
 save(fig, "instantaneous_trendline.png")
@@ -222,7 +230,7 @@ for P_, c in zip(PERIODS, (C1, C2, C3)):
     ax.axhline(e, color=EXPECT, ls="--", lw=1)
 ax.annotate("expected clip(0.5 P / 360, 0.05, 0.5): 0.05, 0.05, 0.056", (1.0, 0.07),
             xycoords=("axes fraction", "data"), ha="right", fontsize=8, color=EXPECT)
-ax.set(title="MAMA effective alpha on a sine (spikes: one phase wrap per cycle)",
+ax.set(title="MAMA effective alpha on a sine (spikes: two phase wraps per cycle)",
        xlabel="sample", ylabel="alpha", xlim=(300, 420), yscale="log", ylim=(0.03, 0.7))
 ax.set_yticks([0.05, 0.1, 0.2, 0.5])
 ax.yaxis.set_major_formatter(matplotlib.ticker.FormatStrFormatter("%g"))

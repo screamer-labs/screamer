@@ -28,13 +28,13 @@ Track the level of a series and suppress short-term noise.
    * - :doc:`Hull MA </functions_rolling/HullMA>`
      - Hull's responsive MA: WMA(2*WMA(n/2) - WMA(n), sqrt(n)).
    * - :doc:`Instantaneous trendline </functions_signal/InstantaneousTrendline>`
-     - Adaptive 2-pole trendline whose smoothing tracks the measured dominant cycle.
+     - Ehlers' instantaneous trendline, the mean over one measured dominant cycle.
    * - :doc:`Scalar Kalman filter </functions_signal/KalmanFilter>`
      - Scalar 1-D Kalman filter for a noisy random-walk model.
    * - :doc:`Kaufman Adaptive MA (KAMA) </functions_rolling/KAMA>`
      - Adaptive MA whose smoothing constant responds to the efficiency ratio.
    * - :doc:`MESA Adaptive Moving Average (MAMA) </functions_signal/MAMA>`
-     - Adaptive moving average pair (MAMA, FAMA) whose smoothing rate tracks the instantaneous-phase rate of change.
+     - Ehlers' adaptive moving average pair (MAMA, FAMA), smoothing set by the rate of the cycle phase.
    * - :doc:`FIR moving average (arbitrary taps) </functions_signal/MovingAverage>`
      - Finite-impulse-response filter with user-supplied taps.
    * - :doc:`Rolling mean </functions_rolling/RollingMean>`

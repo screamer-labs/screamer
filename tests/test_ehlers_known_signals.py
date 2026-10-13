@@ -3,9 +3,10 @@
 Each check feeds a synthetic signal whose period, phase, amplitude or trend is
 known and compares the operator's estimate with that value. The review pack
 docs/superpowers/reviews/2026-10-ehlers-review.md shows the same checks as
-plots and explains every tolerance. A check that fails because of the operator
-is marked xfail with the reason given in the pack, so the suite stays green and
-the failure stays visible. The whole module runs in well under a second.
+plots and explains every tolerance. Where TA-Lib implements the same Rocket
+Science routine, a cross-check compares the two after the start-up transient
+(skipped when TA-Lib is not installed). The whole module runs in about a
+second.
 
 Signals are plain numpy arrays. The evaluation window starts at sample
 ``SETTLE`` (200): the shared Hilbert engine reports from sample 41, and its
@@ -90,6 +91,25 @@ def unwrap_deg(d):
     return (d + 180.0) % 360.0 - 180.0
 
 
+def random_walk(seed=3, n=3000):
+    return 100.0 + np.cumsum(np.random.default_rng(seed).normal(size=n))
+
+
+def trendline_lag(x):
+    """Published lag of the instantaneous trendline on a ramp, per sample.
+
+    ITrend is the mean of the last N prices (lag (N - 1) / 2) and the
+    trendline a 4-tap WMA of ITrend (weights .4, .3, .2, .1), so the lag at t
+    is sum_j w_j (j + (N[t - j] - 1) / 2), with N = int(DominantCycle + .5).
+    """
+    sp = np.asarray(DominantCycle()(x))
+    n = np.minimum(np.floor(sp + 0.5), 50.0)
+    lag = np.full(len(x), np.nan)
+    for j, w in enumerate((0.4, 0.3, 0.2, 0.1)):
+        lag[3:] = np.nan_to_num(lag[3:]) + w * (j + (n[3 - j: len(x) - j] - 1.0) / 2.0)
+    return lag
+
+
 # ------------------------------------------------- period and frequency
 
 @pytest.mark.parametrize("period", PERIODS)
@@ -136,15 +156,13 @@ def test_dominant_cycle_matches_talib_reference():
 
 # ------------------------------------------------------ amplitude, I/Q
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="F3 pack: CycleAmplitude reports 0.41, 1.08, 1.41 for a unit sine "
-           "of period 10, 20, 40; the magnitude of (I2, Q2) is not normalised "
-           "to the input amplitude.")
 @pytest.mark.parametrize("period", PERIODS)
-def test_cycle_amplitude_pure_sine(period):
-    est = np.asarray(CycleAmplitude()(sine(period)))[SETTLE:]
-    assert abs(np.median(est) - 1.0) <= 0.05
+@pytest.mark.parametrize("amp", (1.0, 3.0))
+def test_cycle_amplitude_pure_sine(period, amp):
+    # Each component is divided by its filter gain at the measured period,
+    # so a sine reads its own amplitude at every period.
+    est = np.asarray(CycleAmplitude()(sine(period, amp=amp)))[SETTLE:]
+    assert np.max(np.abs(est / amp - 1.0)) <= 0.05
 
 
 @pytest.mark.parametrize("period", PERIODS)
@@ -156,6 +174,18 @@ def test_hilbert_phasor_quadrature(period):
     assert abs(np.std(q[SETTLE:]) / np.std(i[SETTLE:]) - 1.0) <= 0.05
     lead = lag_of_max_xcorr(q, i, int(period) // 2)
     assert abs(lead - period / 4.0) <= 1.0
+
+
+@pytest.mark.parametrize("period", PERIODS)
+def test_hilbert_phasor_matches_talib_components(period):
+    # The pair is TA-Lib HT_PHASOR's (I1, Q1); ours divides each by a gain
+    # that is constant for a steady sine, so the two move together exactly.
+    talib = pytest.importorskip("talib")
+    x = sine(period)
+    out = np.asarray(HilbertPhasor()(x))[SETTLE:]
+    ref_i, ref_q = (r[SETTLE:] for r in talib.HT_PHASOR(x))
+    assert np.corrcoef(out[:, 0], ref_i)[0, 1] >= 0.999
+    assert np.corrcoef(out[:, 1], ref_q)[0, 1] >= 0.999
 
 
 # ---------------------------------------------------------------- phase
@@ -188,11 +218,6 @@ def test_cycle_sine_follows_input(period):
     assert abs(len(s) / cycles / period - 1.0) <= 0.05
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="F3 pack: leadsine lags sine by period/8 instead of leading it, "
-           "because CyclePhase decreases with time and CycleSine adds +45 "
-           "degrees; TA-Lib HT_SINE leads by period/8 on the same input.")
 @pytest.mark.parametrize("period", PERIODS)
 def test_cycle_sine_leadsine_leads(period):
     out = np.asarray(CycleSine()(sine(period)))
@@ -200,44 +225,93 @@ def test_cycle_sine_leadsine_leads(period):
     assert abs(lead - period / 8.0) <= 1.0
 
 
+@pytest.mark.parametrize("period", PERIODS)
+def test_cycle_sine_in_phase_with_input(period):
+    # The DC phase compensates the smoothing lag, so sine follows the cycle
+    # without delay.
+    x = sine(period)
+    out = np.asarray(CycleSine()(x))
+    assert abs(lag_of_max_xcorr(out[:, 0], x, int(period) // 2)) <= 1
+
+
+@pytest.mark.parametrize("signal", ["sine10", "sine20", "sine40", "random_walk"])
+def test_cycle_sine_matches_talib(signal):
+    talib = pytest.importorskip("talib")
+    x = random_walk() if signal == "random_walk" else 100.0 + sine(float(signal[4:]))
+    out = np.asarray(CycleSine()(x))[SETTLE:]
+    ref_sine, ref_lead = (r[SETTLE:] for r in talib.HT_SINE(x))
+    assert np.max(np.abs(out[:, 0] - ref_sine)) <= 1e-4
+    assert np.max(np.abs(out[:, 1] - ref_lead)) <= 1e-4
+
+
 # ----------------------------------------------------------- trend mode
 
 @pytest.mark.parametrize("period", PERIODS)
 def test_trend_mode_sine_plus_trend_is_cycle(period):
+    # Ehlers' rule flags trend when the smoothed price is 1.5% or more off
+    # the trendline, a relative test made for prices, so the signal sits on
+    # a price-like level of 100.
     x, _ = sine_plus_trend(period)
-    tm = np.asarray(TrendMode()(x))[SETTLE:]
+    tm = np.asarray(TrendMode()(100.0 + x))[SETTLE:]
     assert np.mean(tm == 0.0) >= 0.9
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="F3 pack: on a pure linear ramp TrendMode reports trend on only "
-           "64% of samples; the period/phase loop self-oscillates on a ramp. "
-           "TA-Lib HT_TRENDMODE reports trend on 100%.")
 def test_trend_mode_pure_ramp_is_trend():
     x = 0.05 * np.arange(N, dtype=float)
     tm = np.asarray(TrendMode()(x))[SETTLE:]
     assert np.mean(tm == 1.0) >= 0.9
 
 
+@pytest.mark.parametrize("signal", ["trend10", "trend20", "trend40", "ramp", "random_walk"])
+def test_trend_mode_matches_talib(signal):
+    talib = pytest.importorskip("talib")
+    if signal == "random_walk":
+        x = random_walk()
+    elif signal == "ramp":
+        x = 0.05 * np.arange(N, dtype=float)
+    else:
+        x = 100.0 + sine_plus_trend(float(signal[5:]))[0]
+    tm = np.asarray(TrendMode()(x))[SETTLE:]
+    assert np.array_equal(tm, talib.HT_TRENDMODE(x)[SETTLE:].astype(float))
+
+
 # ------------------------------------------------- trendline, MAMA
 
-def test_instantaneous_trendline_ramp_no_lag():
+def test_instantaneous_trendline_ramp_published_lag():
+    # Ehlers' trendline is a mean over one measured cycle, then a 4-tap WMA,
+    # so on a ramp it lags by exactly the published amount.
     x = 0.05 * np.arange(N, dtype=float)
     it = np.asarray(InstantaneousTrendline()(x))[SETTLE:]
-    assert np.max(np.abs(it - x[SETTLE:])) <= 1e-6
+    expected = (x - 0.05 * trendline_lag(x))[SETTLE:]
+    assert np.max(np.abs(it - expected)) <= 1e-9
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="F3 pack: with alpha = 2 / (period + 1) the 2-pole trendline "
-           "passes about 57% of the dominant cycle, so the trend estimate "
-           "carries most of the cycle.")
 @pytest.mark.parametrize("period", PERIODS)
-def test_instantaneous_trendline_matches_trend(period):
+def test_instantaneous_trendline_removes_cycle(period):
+    # Averaging over exactly one measured cycle removes it.
+    x = 100.0 + sine(period)
+    it = np.asarray(InstantaneousTrendline()(x))[SETTLE:]
+    assert np.max(np.abs(it - 100.0)) <= 1e-6
+
+
+@pytest.mark.parametrize("period, tol", [(10.0, 0.2), (20.0, 0.1), (40.0, 0.1)])
+def test_instantaneous_trendline_matches_trend(period, tol):
+    # The trend, delayed by the published lag. At period 10 the ramp biases
+    # the measured cycle to 12 or 13 samples (TA-Lib HT_DCPERIOD gives the
+    # same), so a mean over 12 or 13 samples leaves up to 0.15 of the
+    # 10-sample cycle; hence the wider tolerance there.
     x, trend = sine_plus_trend(period)
     it = np.asarray(InstantaneousTrendline()(x))[SETTLE:]
-    assert np.max(np.abs(it - trend[SETTLE:])) <= 0.1
+    expected = (trend - trendline_lag(x) / period)[SETTLE:]
+    assert np.max(np.abs(it - expected)) <= tol
+
+
+@pytest.mark.parametrize("signal", ["trend10", "trend20", "trend40", "random_walk"])
+def test_instantaneous_trendline_matches_talib(signal):
+    talib = pytest.importorskip("talib")
+    x = random_walk() if signal == "random_walk" else sine_plus_trend(float(signal[5:]))[0]
+    it = np.asarray(InstantaneousTrendline()(x))[SETTLE:]
+    assert np.max(np.abs(it - talib.HT_TRENDLINE(x)[SETTLE:])) <= 1e-9
 
 
 @pytest.mark.parametrize("period", PERIODS)
@@ -249,9 +323,22 @@ def test_mama_adaptation_law(period):
     expected = float(np.clip(fast / (360.0 / period), slow, fast))
     steady = alpha[alpha < 0.4]
     assert abs(np.median(steady) / expected - 1.0) <= 0.05
-    # One phase wrap, hence one fast_limit step, per cycle (atan2 phase).
+    # Ehlers' phase arctan(Q1 / I1) wraps every half cycle, so alpha steps
+    # to fast_limit twice per cycle.
     n_fast = np.count_nonzero(alpha > 0.4)
-    assert abs(n_fast / (len(alpha) / period) - 1.0) <= 0.05
+    assert abs(n_fast / (2.0 * len(alpha) / period) - 1.0) <= 0.05
+
+
+@pytest.mark.parametrize("signal", ["sine10", "sine20", "sine40", "random_walk"])
+def test_mama_matches_talib(signal):
+    # Same phase and adaptation as TA-Lib MAMA; TA-Lib starts both averages
+    # at 0, so the comparison starts once that start-up has faded.
+    talib = pytest.importorskip("talib")
+    x = random_walk() if signal == "random_walk" else 5.0 + sine(float(signal[4:]))
+    out = np.asarray(MAMA(0.5, 0.05)(x))[3 * SETTLE:]
+    ref_mama, ref_fama = (r[3 * SETTLE:] for r in talib.MAMA(x, fastlimit=0.5, slowlimit=0.05))
+    assert np.max(np.abs(out[:, 0] - ref_mama)) <= 1e-6
+    assert np.max(np.abs(out[:, 1] - ref_fama)) <= 1e-6
 
 
 # -------------------------------------------------------------- filters

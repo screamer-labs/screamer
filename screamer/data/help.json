@@ -12734,7 +12734,7 @@
       "hilbert transform",
       "analytic signal"
     ],
-    "short": "Instantaneous amplitude (envelope) of the analytic signal via Ehlers' homodyne discriminator.",
+    "short": "Instantaneous amplitude (envelope) of the dominant cycle, scaled to the input amplitude.",
     "inputs": 1,
     "outputs": 1,
     "parameters": [],
@@ -12747,7 +12747,7 @@
     "references": [
       "Ehlers, J. F. (2001). *Rocket Science for Traders: Digital Signal Processing Applications*. Wiley."
     ],
-    "details": "## Description\n\n`CycleAmplitude` reads the instantaneous amplitude, or envelope, of the\nanalytic signal formed from a series by John Ehlers' Hilbert transform. It\nshares the same in-phase and quadrature components as `HilbertPhasor` and\n`CyclePhase`: the amplitude is the magnitude of the point `(I, Q)` in the\ncomplex plane, `sqrt(I^2 + Q^2)`. It is a general envelope detector, tracking\nthe local size of any oscillation in the series regardless of its period, and\napplies to any sampled signal, not only price.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "details": "## Description\n\n`CycleAmplitude` reads the instantaneous amplitude, or envelope, of the\ndominant cycle from John Ehlers' Hilbert transform. It is the magnitude\n`sqrt(I^2 + Q^2)` of the `HilbertPhasor` pair, whose components are scaled so\nthat a sine of amplitude `A` and any period in `[6, 50]` reads `A`. Neither\nEhlers nor TA-Lib publishes an amplitude for this transform, so the scale is\nscreamer's choice, made to match the input amplitude. It is a general envelope\ndetector, tracking the local size of an oscillation in the series, and\napplies to any sampled signal, not only price.\n\nThe scaling uses the measured period, so the reading is exact for a steady\ncycle the engine can measure. A cycle shorter than 6 samples, outside the\nengine's range, is not measured correctly and its amplitude is not either.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
     "examples": [
       {
         "language": "python",
@@ -12810,7 +12810,7 @@
       "analytic signal",
       "instantaneous phase"
     ],
-    "short": "Instantaneous phase, in degrees, of the analytic signal via Ehlers' homodyne discriminator.",
+    "short": "Instantaneous phase, in degrees, of Ehlers' in-phase and quadrature components.",
     "inputs": 1,
     "outputs": 1,
     "parameters": [],
@@ -12824,12 +12824,12 @@
     "references": [
       "Ehlers, J. F. (2001). *Rocket Science for Traders: Digital Signal Processing Applications*. Wiley."
     ],
-    "details": "## Description\n\n`CyclePhase` reads the instantaneous phase of the analytic signal formed from\na series by John Ehlers' Hilbert transform, in degrees, wrapped to `[0, 360)`.\nIt shares the same in-phase and quadrature components as `HilbertPhasor` and\nthe same period estimate as `DominantCycle`: the phase is the angle of the\npoint `(I, Q)` in the complex plane, and it advances by roughly `360 /\nperiod` degrees per sample while the dominant cycle stays stable. The\nestimate is a general spectral quantity: the same measurement applies to any\nsampled signal, not only price.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "details": "## Description\n\n`CyclePhase` reads the instantaneous phase of a series from John Ehlers'\nHilbert transform, in degrees, wrapped to `[0, 360)`. It is the angle\n`atan2(Q1, I1)` of Ehlers' in-phase and quadrature components, the pair\n`HilbertPhasor` returns before its scaling, and it uses the same engine as\n`DominantCycle`. While the dominant cycle stays stable the phase\n**decreases** by about `360 / period` degrees per sample, so it steps up by\n360 once per cycle when it wraps. This is the direction of Ehlers' own phase\nin MAMA, where the phase change `Phase[t-1] - Phase[t]` is positive on a\ncycle. The estimate is a general spectral quantity: the same measurement\napplies to any sampled signal, not only price.\n\n`CycleSine` uses a different phase, the dominant cycle phase of Ehlers'\nsinewave indicator, which increases with time.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
     "examples": [
       {
         "language": "python",
         "caption": "Usage plot",
-        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import CyclePhase\n\nrng = np.random.default_rng(4)\nn = 300\ntrue_period = np.where(np.arange(n) < n // 2, 15.0, 30.0)  # period doubles halfway\nx = np.sin(np.cumsum(2 * np.pi / true_period)) + 0.05 * rng.standard_normal(n)\n\nphase = CyclePhase()(x)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.06)\nfig.add_trace(go.Scatter(y=x, name='input', line=dict(color='gray')), row=1, col=1)\nfig.add_trace(go.Scatter(y=phase, name='CyclePhase()', line=dict(color='steelblue')), row=2, col=1)\nfig.update_layout(title='CyclePhase: phase wraps every cycle, more slowly once the period doubles',\n                  yaxis=dict(title='input'),\n                  yaxis2=dict(title='phase (degrees)', range=[0, 360], tickvals=[0, 90, 180, 270, 360]),\n                  xaxis2=dict(title='sample'),\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import CyclePhase\n\nrng = np.random.default_rng(4)\nn = 300\ntrue_period = np.where(np.arange(n) < n // 2, 15.0, 30.0)  # period doubles halfway\nx = np.sin(np.cumsum(2 * np.pi / true_period)) + 0.05 * rng.standard_normal(n)\n\nphase = CyclePhase()(x)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.06)\nfig.add_trace(go.Scatter(y=x, name='input', line=dict(color='gray')), row=1, col=1)\nfig.add_trace(go.Scatter(y=phase, name='CyclePhase()', line=dict(color='steelblue')), row=2, col=1)\nfig.update_layout(title='CyclePhase: phase falls and wraps once per cycle, more slowly once the period doubles',\n                  yaxis=dict(title='input'),\n                  yaxis2=dict(title='phase (degrees)', range=[0, 360], tickvals=[0, 90, 180, 270, 360]),\n                  xaxis2=dict(title='sample'),\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
       }
     ],
     "doc_path": "functions_signal/CyclePhase"
@@ -12850,14 +12850,14 @@
       "hilbert transform",
       "analytic signal"
     ],
-    "short": "Sinewave indicator (sine, leadsine) from the instantaneous phase of the analytic signal.",
+    "short": "Ehlers' sinewave indicator (sine, leadsine) from the phase of the dominant cycle.",
     "inputs": 1,
     "outputs": 2,
     "parameters": [],
     "nan_policy": "ignore",
     "see_also": [
       "CyclePhase",
-      "HilbertPhasor",
+      "DominantCycle",
       "TrendMode"
     ],
     "references": [
@@ -12867,7 +12867,7 @@
       "sine",
       "leadsine"
     ],
-    "details": "## Description\n\n`CycleSine` computes John Ehlers' sinewave indicator from the instantaneous\nphase of the analytic signal formed from a series by the Hilbert transform.\nIt shares the same phase estimate as `CyclePhase`: given the phase in\ndegrees, `sine` is `sin(phase)` and `leadsine` is `sin(phase + 45deg)`, a\nversion of `sine` advanced by one eighth of a cycle. Because `sine` tracks\nthe phase directly, it turns at the same point in the cycle regardless of\nthe cycle's period, and the two outputs cross near the phase's turning\npoints. The estimate is a general spectral quantity: the same measurement\napplies to any sampled signal, not only price.\n\nThe two outputs are stacked along a trailing axis of size 2: `out[..., 0]`\nis `sine` and `out[..., 1]` is `leadsine`.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "details": "## Description\n\n`CycleSine` computes John Ehlers' sinewave indicator (*Rocket Science for\nTraders*, \"The Sinewave Indicator\"), as TA-Lib implements it in `HT_SINE`.\n`sine` is the sine of the dominant cycle phase, and `leadsine` is the same\ncurve advanced by 45 degrees, one eighth of a cycle. While the series cycles,\n`sine` follows the cycle in phase and `leadsine` turns first, so the two\nlines cross just before the cycle's peaks and troughs. When the series trends,\nthe phase stops rotating and the lines run apart without crossing.\n\nThe dominant cycle phase, `DCPhase`, comes from a Fourier sum over one cycle\nof the smoothed price `s` (the 4-tap weighted mean the engine uses). `period`\nis the dominant cycle period that `DominantCycle` reports, and `N` is that\nperiod rounded to whole samples:\n\n$$\n\\begin{aligned}\nN &= \\lfloor \\text{period} + 0.5 \\rfloor \\\\\nR &= \\sum_{k=0}^{N-1} \\sin(360 k / N)\\, s[t-k], \\quad\nI = \\sum_{k=0}^{N-1} \\cos(360 k / N)\\, s[t-k] \\\\\n\\text{DCPhase} &= \\arctan(R / I) + 90 + 360 / \\text{period}\n  \\;(+180 \\text{ if } I < 0) \\\\\n\\text{sine} &= \\sin(\\text{DCPhase}), \\quad\n\\text{leadsine} = \\sin(\\text{DCPhase} + 45)\n\\end{aligned}\n$$\n\nAngles are in degrees. The term `360 / period` compensates the one-sample\nlag of the smoothing. `DCPhase` increases by about `360 / period` degrees per\nsample, which is why `leadsine` leads. It is a different phase from\n`CyclePhase`, which reads the angle of the `HilbertPhasor` pair and runs the\nother way. The results agree with TA-Lib's `HT_SINE` once both have passed\ntheir start-up transients.\n\nThe two outputs are stacked along a trailing axis of size 2: `out[..., 0]`\nis `sine` and `out[..., 1]` is `leadsine`.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
     "examples": [
       {
         "language": "python",
@@ -12900,7 +12900,7 @@
         "name": "period",
         "type": "float",
         "default": 60.0,
-        "description": "Cutoff as a cycle length in samples; cycles at or below this length are removed. Give exactly one of period and cutoff. The default shown is a suggested starting value; the constructor has no default."
+        "description": "Cutoff as a cycle length in samples, the half-power point; cycles well below this length are removed. Give exactly one of period and cutoff. The default shown is a suggested starting value; the constructor has no default."
       },
       {
         "name": "cutoff",
@@ -12916,7 +12916,7 @@
       "ButterHighpass",
       "Detrend"
     ],
-    "details": "## Description\n\n`Decycler` is a causal filter from John Ehlers that estimates the trend of a\nseries by removing cycles at or below the cutoff. It is the input minus its\n1-pole highpass component, so slow movements pass through and fast cycles are\nsuppressed.\n\nThe cutoff is set by a cycle length in samples (`period`) or a fraction of the\nNyquist frequency (`cutoff`), related by `cutoff = 2 / period`.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "details": "## Description\n\n`Decycler` is a causal filter from John Ehlers that estimates the trend of a\nseries by removing its short cycles. It is the input minus its 1-pole highpass\ncomponent, so slow movements pass through and fast cycles are suppressed. The\ncutoff is the half-power point: a cycle of exactly `period` samples keeps\nabout 71% of its amplitude (-3 dB), and cycles well below the cutoff are\nremoved.\n\nThe cutoff is set by a cycle length in samples (`period`) or a fraction of the\nNyquist frequency (`cutoff`), related by `cutoff = 2 / period`.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
     "examples": [
       {
         "language": "python",
@@ -12955,7 +12955,7 @@
     "references": [
       "Ehlers, J. F. (2001). *Rocket Science for Traders: Digital Signal Processing Applications*. Wiley."
     ],
-    "details": "## Description\n\n`DominantCycle` measures the dominant cycle period of a series, in samples,\nusing John Ehlers' homodyne discriminator. It forms the analytic signal by a\nHilbert transform, then reads the cycle period from the rate of change of the\nphase between successive samples. The estimate is a general spectral quantity:\nthe same measurement applies to any sampled signal, not only price.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "details": "## Description\n\n`DominantCycle` measures the dominant cycle period of a series, in samples,\nusing John Ehlers' homodyne discriminator. It forms the analytic signal by a\nHilbert transform, then reads the cycle period from the rate of change of the\nphase between successive samples. The estimate is a general spectral quantity:\nthe same measurement applies to any sampled signal, not only price. It agrees\nwith TA-Lib's `HT_DCPERIOD`.\n\nThe period is limited to `[6, 50]` samples, as Ehlers publishes it: a longer\ncycle reads 50 and a shorter one is not measured. A trend in the input biases\nthe estimate (a sine of period 10 on a steady ramp reads about 12), so Ehlers\nmeasures cycles on detrended data. Pass a trending series through\n`RoofingFilter` first.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
     "examples": [
       {
         "language": "python",
@@ -13055,7 +13055,7 @@
       "in-phase",
       "quadrature"
     ],
-    "short": "In-phase and quadrature components of the analytic signal via Ehlers' Hilbert transform.",
+    "short": "Ehlers' in-phase and quadrature components (TA-Lib HT_PHASOR), scaled to the input amplitude.",
     "inputs": 1,
     "outputs": 2,
     "parameters": [],
@@ -13072,7 +13072,7 @@
       "inphase",
       "quadrature"
     ],
-    "details": "## Description\n\n`HilbertPhasor` computes the in-phase and quadrature components of the\nanalytic signal formed from a series by John Ehlers' Hilbert transform. The\nin-phase component is the real part of the analytic signal and the\nquadrature component is its imaginary part, a version of the input\nphase-shifted by 90 degrees. Together they describe the instantaneous phase and\namplitude of the dominant cycle in the input, the same construction used by\n`DominantCycle`. The estimate is a general spectral quantity: the same\nmeasurement applies to any sampled signal, not only price.\n\nThe two outputs are stacked along a trailing axis of size 2: `out[..., 0]`\nis the in-phase component and `out[..., 1]` the quadrature component.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "details": "## Description\n\n`HilbertPhasor` returns the in-phase and quadrature components `I1` and `Q1`\nof John Ehlers' Hilbert transform (*Rocket Science for Traders*), the pair\nTA-Lib returns from `HT_PHASOR`, from the same engine as `DominantCycle`. `I1`\nis the detrended, smoothed input delayed by three samples, and `Q1` is its\nHilbert transform. `Q1` leads `I1` by a quarter cycle, Ehlers' convention.\nTogether they describe the instantaneous phase (`CyclePhase`) and amplitude\n(`CycleAmplitude`) of the dominant cycle. The estimate is a general spectral\nquantity: the same measurement applies to any sampled signal, not only price.\n\nScale: Ehlers corrects the Hilbert filter's gain with the factor\n`0.075 * period + 0.54`, which only approximates unit gain, and TA-Lib returns\nthe components with that approximate scale (a unit sine reads between about\n0.55 and 1.04 depending on its period). Neither defines an exact amplitude, so\nscreamer divides each component by its filter gain at the measured period:\na sine of amplitude `A` and any period in `[6, 50]` gives components of\namplitude `A`. The phase relation and the shape match TA-Lib; the values\ndiffer from `HT_PHASOR` by that per-period factor. With `w = 2 pi / period`\n(the engine's period before its final smoothing) and `adj = 0.075 *\nperiod[t-1] + 0.54`, the gains are\n\n$$\n\\begin{aligned}\nW &= \\left| 0.4 + 0.3 e^{-iw} + 0.2 e^{-2iw} + 0.1 e^{-3iw} \\right| \\\\\nh &= 2\\,\\text{adj}\\,(0.0962 \\sin 3w + 0.5769 \\sin w) \\\\\ng_I &= W h, \\qquad g_Q = W h^2\n\\end{aligned}\n$$\n\nand `inphase = I1 / g_I`, `quadrature = Q1 / g_Q`: `W` is the gain of the\n4-tap price smoothing and `h` that of one pass of the Hilbert filter.\n\nThe two outputs are stacked along a trailing axis of size 2: `out[..., 0]`\nis the in-phase component and `out[..., 1]` the quadrature component.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
     "examples": [
       {
         "language": "python",
@@ -13148,7 +13148,7 @@
       "adaptive moving average",
       "trendline"
     ],
-    "short": "Adaptive 2-pole trendline whose smoothing tracks the measured dominant cycle.",
+    "short": "Ehlers' instantaneous trendline, the mean over one measured dominant cycle.",
     "inputs": 1,
     "outputs": 1,
     "parameters": [],
@@ -13160,9 +13160,9 @@
       "KAMA"
     ],
     "references": [
-      "Ehlers, J. F. (2004). *Cybernetic Analysis for Stocks and Futures: Cutting-Edge DSP Technology to Improve Your Trading*. Wiley."
+      "Ehlers, J. F. (2001). *Rocket Science for Traders: Digital Signal Processing Applications*. Wiley."
     ],
-    "details": "## Description\n\n`InstantaneousTrendline` (John Ehlers) is an adaptive trendline: a 2-pole\nrecursive filter whose smoothing factor is set, at every sample, from the\ndominant cycle period measured by the same Hilbert-transform engine as\n`DominantCycle`. Because the filter's time constant tracks the current cycle\nlength, the trendline removes the dominant cycle from the output and follows\nthe underlying trend rather than a fixed-period moving average.\n\n$$\n\\begin{aligned}\n\\alpha[t] &= \\frac{2}{\\text{period}[t] + 1} \\\\\n\\text{it}[t] &= \\left(\\alpha[t] - \\frac{\\alpha[t]^2}{4}\\right) x[t]\n  + \\frac{\\alpha[t]^2}{2} x[t-1]\n  - \\left(\\alpha[t] - \\frac{3\\alpha[t]^2}{4}\\right) x[t-2] \\\\\n  &\\quad + 2(1 - \\alpha[t]) \\, \\text{it}[t-1] - (1 - \\alpha[t])^2 \\, \\text{it}[t-2]\n\\end{aligned}\n$$\n\n`period` is the dominant cycle period in samples, the same quantity\n`DominantCycle` reports, clamped to `[6, 50]`, which bounds\n`alpha` to at most `2/7`. The recursion needs two samples of input and output\nhistory; until that history is available (right after the dominant cycle\nfirst becomes measurable), `InstantaneousTrendline` seeds its output with the\ncurrent price.\n\nThis is a parameterless function: the adaptation comes entirely from the\nmeasured cycle, with no smoothing constant to tune.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "details": "## Description\n\n`InstantaneousTrendline` is John Ehlers' instantaneous trendline (*Rocket\nScience for Traders*, \"The Instantaneous Trendline\"), as TA-Lib implements it\nin `HT_TRENDLINE`. It averages the input over one dominant cycle, measured at\nevery sample by the same Hilbert-transform engine as `DominantCycle`, then\nsmooths the average with a 4-tap weighted mean. An average over exactly one\ncycle removes that cycle, so the trendline keeps the trend and drops the\ndominant cycle.\n\n$$\n\\begin{aligned}\nN[t] &= \\lfloor \\text{period}[t] + 0.5 \\rfloor \\\\\n\\text{itrend}[t] &= \\frac{1}{N[t]} \\sum_{k=0}^{N[t]-1} x[t-k] \\\\\n\\text{trendline}[t] &= \\frac{4\\,\\text{itrend}[t] + 3\\,\\text{itrend}[t-1]\n  + 2\\,\\text{itrend}[t-2] + \\text{itrend}[t-3]}{10}\n\\end{aligned}\n$$\n\n`period` is the dominant cycle period in samples that `DominantCycle`\nreports, limited to `[6, 50]`. The average costs lag: on a steady ramp the\ntrendline trails the price by `(N - 1) / 2 + 1` samples, half a cycle plus\none. A trend also biases the period estimate (see `DominantCycle`), and an\naverage over a cycle length that does not match the actual cycle leaves part\nof the cycle in the output.\n\nThis is a parameterless function: the averaging window comes entirely from the\nmeasured cycle.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
     "examples": [
       {
         "language": "python",
@@ -13254,7 +13254,7 @@
       "adaptive moving average",
       "fama"
     ],
-    "short": "Adaptive moving average pair (MAMA, FAMA) whose smoothing rate tracks the instantaneous-phase rate of change.",
+    "short": "Ehlers' adaptive moving average pair (MAMA, FAMA), smoothing set by the rate of the cycle phase.",
     "inputs": 1,
     "outputs": 2,
     "parameters": [
@@ -13262,13 +13262,13 @@
         "name": "fast_limit",
         "type": "float",
         "default": 0.5,
-        "description": "Upper bound on the smoothing constant, applied when the phase advances quickly."
+        "description": "Upper bound on the smoothing constant, reached when the phase stalls or wraps."
       },
       {
         "name": "slow_limit",
         "type": "float",
         "default": 0.05,
-        "description": "Lower bound on the smoothing constant, applied when the phase stalls."
+        "description": "Lower bound on the smoothing constant, reached when the phase changes by fast_limit / slow_limit degrees or more per sample."
       }
     ],
     "nan_policy": "ignore",
@@ -13285,7 +13285,7 @@
       "mama",
       "fama"
     ],
-    "details": "## Description\n\n`MAMA` (MESA Adaptive Moving Average, John Ehlers) smooths the input with a\nper-step smoothing constant that adapts to the rate of change of the\ninstantaneous phase of the analytic signal formed from the series by the\nHilbert transform, the same phase estimate as `CyclePhase`. When the phase\nadvances quickly, a new cycle is underway and the smoothing constant rises\ntoward `fast_limit`; when the phase advance stalls, the smoothing constant\nfalls toward `slow_limit`. `FAMA` (following adaptive moving average) is a\nsecond pass over `MAMA` at half the smoothing constant, and lags it.\n\n$$\n\\begin{aligned}\n\\Delta\\phi[t]   &= \\max\\big(\\phi[t-1] - \\phi[t],\\ 1\\big) \\\\\n\\alpha[t]       &= \\operatorname{clip}\\!\\left(\\frac{\\text{fast\\_limit}}{\\Delta\\phi[t]},\\ \\text{slow\\_limit},\\ \\text{fast\\_limit}\\right) \\\\\n\\text{MAMA}[t]  &= \\alpha[t] \\cdot x[t] + (1 - \\alpha[t]) \\cdot \\text{MAMA}[t-1] \\\\\n\\text{FAMA}[t]  &= 0.5\\,\\alpha[t] \\cdot \\text{MAMA}[t] + (1 - 0.5\\,\\alpha[t]) \\cdot \\text{FAMA}[t-1]\n\\end{aligned}\n$$\n\n$\\phi$ is the instantaneous phase in degrees. The phase change $\\Delta\\phi$ is floored at 1\ndegree so `alpha` never exceeds `fast_limit`. `MAMA` and `FAMA` are both\nseeded with the first finite input.\n\nThe two outputs are stacked along a trailing axis of size 2: `out[..., 0]`\nis `MAMA` and `out[..., 1]` is `FAMA`.\n\nTA-Lib's `MAMA` uses the same adaptation rule over a different analytic-signal\nfront end, so the two agree in shape and turning points but not to numerical\nprecision.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "details": "## Description\n\n`MAMA` (MESA Adaptive Moving Average, John Ehlers, *Stocks & Commodities*,\nSeptember 2001, and *Rocket Science for Traders*) is an exponential moving\naverage whose smoothing constant changes every sample with the rate of the\ncycle phase, as TA-Lib implements it in `MAMA`. The constant is `fast_limit`\ndivided by the phase change per sample. While a cycle of period `P` rotates\nsteadily the phase changes by about `360 / P` degrees per sample, so the\nconstant is small, about `fast_limit * P / 360`, and `MAMA` smooths heavily.\nWhere the phase stalls or wraps, the change drops to the 1-degree floor and\nthe constant jumps to `fast_limit`, so `MAMA` moves most of the way to the\nprice in one step. `FAMA` (following adaptive moving average) is a second pass\nover `MAMA` at half the smoothing constant, and lags it.\n\n$$\n\\begin{aligned}\n\\Delta\\phi[t]   &= \\max\\big(\\phi[t-1] - \\phi[t],\\ 1\\big) \\\\\n\\alpha[t]       &= \\operatorname{clip}\\!\\left(\\frac{\\text{fast\\_limit}}{\\Delta\\phi[t]},\\ \\text{slow\\_limit},\\ \\text{fast\\_limit}\\right) \\\\\n\\text{MAMA}[t]  &= \\alpha[t] \\cdot x[t] + (1 - \\alpha[t]) \\cdot \\text{MAMA}[t-1] \\\\\n\\text{FAMA}[t]  &= 0.5\\,\\alpha[t] \\cdot \\text{MAMA}[t] + (1 - 0.5\\,\\alpha[t]) \\cdot \\text{FAMA}[t-1]\n\\end{aligned}\n$$\n\n$\\phi$ is Ehlers' phase $\\arctan(Q_1 / I_1)$ in degrees, from the in-phase and\nquadrature components of the Hilbert transform (`HilbertPhasor`), taken as 0\nwhen $I_1 = 0$. It lies in $(-90, 90)$, so it wraps every half cycle and\n`alpha` steps to `fast_limit` twice per cycle. The phase change $\\Delta\\phi$\nis floored at 1 degree so `alpha` never exceeds `fast_limit`. `MAMA` and\n`FAMA` are both seeded with the first input after the warm-up.\n\nThe two outputs are stacked along a trailing axis of size 2: `out[..., 0]`\nis `MAMA` and `out[..., 1]` is `FAMA`.\n\nThe results agree with TA-Lib's `MAMA` once its start-up has faded (TA-Lib\nstarts both averages at 0).\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
     "examples": [
       {
         "language": "python",
@@ -13535,18 +13535,10 @@
       "trend detection",
       "trend vs cycle"
     ],
-    "short": "Classifies each sample as trending (1.0) or cycling (0.0) from the dominant-cycle phase advance.",
+    "short": "Ehlers' trend mode, 1.0 while the series trends and 0.0 while it cycles.",
     "inputs": 1,
     "outputs": 1,
-    "parameters": [
-      {
-        "name": "phase_rate_frac",
-        "type": "float",
-        "default": 0.5,
-        "min": 0.0,
-        "description": "Threshold, as a fraction of the expected per-sample phase advance for the current dominant cycle, below which a sample is classified as trending."
-      }
-    ],
+    "parameters": [],
     "nan_policy": "ignore",
     "see_also": [
       "DominantCycle",
@@ -13556,12 +13548,12 @@
     "references": [
       "Ehlers, J. F. (2001). *Rocket Science for Traders: Digital Signal Processing Applications*. Wiley."
     ],
-    "details": "## Description\n\n`TrendMode` classifies each sample of a series as trending or cycling, using\nthe same instantaneous phase and dominant-cycle period as `CyclePhase` and\n`DominantCycle`. While a series oscillates at a stable dominant cycle, the\nphase advances by close to `360 / period` degrees per sample. When the phase\nadvance stalls well below that rate, the dominant cycle has effectively\nstopped rotating, which this function reads as a trending market.\n\nThe rule: at each sample, compute the phase change from the previous sample\n(unwrapped to `[-180, 180]` degrees) and compare its magnitude to\n`phase_rate_frac * (360 / period)`, the expected per-sample advance scaled\nby `phase_rate_frac`. If the phase change is smaller, the output is `1.0`\n(trending); otherwise it is `0.0` (cycling).\n\nThis threshold rule is screamer's own way to turn the phase and period\nestimates into a binary trend/cycle flag; it does not reproduce a specific\npublished formula. Lowering `phase_rate_frac` makes the classifier stricter\nabout calling a trend, and raising it makes trend mode more frequent.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "details": "## Description\n\n`TrendMode` classifies each sample of a series as trending (`1.0`) or\ncycling (`0.0`) with John Ehlers' rule from *Rocket Science for Traders*\n(\"Identifying Market Modes\"), as TA-Lib implements it in `HT_TRENDMODE`. It\ncombines three measurements of the dominant cycle: the sinewave indicator\n(`CycleSine`), the rate of its phase, and the instantaneous trendline\n(`InstantaneousTrendline`).\n\nEach sample starts as trend, then:\n\n1. A crossing of `sine` and `leadsine` marks a cycle turn. That sample reads\n   cycle, and so does every sample until half a dominant period has passed\n   since the last crossing.\n2. A phase that advances between 0.67 and 1.5 times `360 / period` degrees per\n   sample (the dominant cycle rotating at its own rate) reads cycle.\n3. A smoothed price at least 1.5% away from the trendline,\n   `|smooth - trendline| >= 0.015 |trendline|`, reads trend whatever rules\n   1 and 2 say.\n\nRule 3 compares the price with the trendline in relative terms, so it is\nmeant for price series, which stay well away from zero. On a series that\noscillates around zero, such as returns or a detrended signal, the trendline\nis close to zero and every sample reads trend. There are no settings: the\nthresholds are Ehlers'.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
     "examples": [
       {
         "language": "python",
         "caption": "Usage plot",
-        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import TrendMode\n\nrng = np.random.default_rng(20)\nc = 300\ncycle_part = np.sin(2 * np.pi * np.arange(c) / 20)          # 300 samples of a 20-sample cycle\nramp_part = cycle_part[-1] + 0.1 * np.arange(1, c + 1)        # then 300 samples of a straight ramp\nx = np.concatenate([cycle_part, ramp_part]) + 0.01 * rng.standard_normal(2 * c)\n\nmode = TrendMode(phase_rate_frac=0.5)(x)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3], vertical_spacing=0.06)\nfig.add_trace(go.Scatter(y=x, name='cycle, then ramp', line=dict(color='gray')), row=1, col=1)\nfig.add_trace(go.Scatter(y=mode, name='TrendMode(phase_rate_frac=0.5)',\n                         line=dict(color='darkorange', shape='hv')), row=2, col=1)\nfig.update_layout(title='TrendMode: no trend flags in the cycle, frequent flags in the ramp',\n                  yaxis=dict(title='input'), yaxis2=dict(title='mode', tickvals=[0, 1]),\n                  xaxis2=dict(title='sample'),\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import TrendMode\n\nrng = np.random.default_rng(20)\nc = 300\ncycle_part = 100 + np.sin(2 * np.pi * np.arange(c) / 20)    # 300 samples of a 20-sample cycle around 100\nramp_part = cycle_part[-1] + 0.1 * np.arange(1, c + 1)        # then 300 samples of a straight ramp\nx = np.concatenate([cycle_part, ramp_part]) + 0.01 * rng.standard_normal(2 * c)\n\nmode = TrendMode()(x)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3], vertical_spacing=0.06)\nfig.add_trace(go.Scatter(y=x, name='cycle, then ramp', line=dict(color='gray')), row=1, col=1)\nfig.add_trace(go.Scatter(y=mode, name='TrendMode()',\n                         line=dict(color='darkorange', shape='hv')), row=2, col=1)\nfig.update_layout(title='TrendMode: cycle (0) in the cycle, trend (1) on the ramp',\n                  yaxis=dict(title='input'), yaxis2=dict(title='mode', tickvals=[0, 1]),\n                  xaxis2=dict(title='sample'),\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
       }
     ],
     "doc_path": "functions_signal/TrendMode"

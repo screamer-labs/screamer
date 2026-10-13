@@ -677,6 +677,44 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   `window_size` below 3. A window of 2 values holds one pair, which has no
   slope, so 2.8.0 returned `NaN` at every step for every output. Use
   `window_size >= 3`, or `>= 4` for `output="std"`.
+* The Ehlers cycle operators follow Ehlers' *Rocket Science for Traders* as
+  TA-Lib implements it, so their results change. There is no setting for the
+  2.8.0 results; each one is listed below with what changed.
+* `CycleSine` computes Ehlers' sinewave indicator from the dominant cycle
+  phase (a Fourier sum over one measured cycle), as TA-Lib `HT_SINE` does.
+  `sine` follows the cycle in phase and `leadsine` leads it by 45 degrees. In
+  2.8.0 both used the `CyclePhase` angle, which runs backwards, so `leadsine`
+  lagged `sine` by one eighth of a cycle. The values match `HT_SINE` after
+  the start-up transient.
+* `TrendMode` applies Ehlers' trend-mode rule, as TA-Lib `HT_TRENDMODE` does:
+  cycle near a crossing of the sinewave lines or while the phase rotates at
+  the cycle rate, trend whenever the smoothed price is 1.5% or more away from
+  the instantaneous trendline. It has no settings; the `phase_rate_frac`
+  parameter of 2.8.0 is gone, and passing it raises `TypeError`. A steady
+  ramp now reads trend on every sample (2.8.0: 64%). The 1.5% test is
+  relative, so the rule is meant for price series: a series that oscillates
+  around zero reads trend throughout. The values match `HT_TRENDMODE` after
+  the start-up transient.
+* `InstantaneousTrendline` is Ehlers' instantaneous trendline, as TA-Lib
+  `HT_TRENDLINE` computes it: the mean over one measured dominant cycle, then
+  a 4-tap weighted mean. It removes the dominant cycle, where the 2-pole
+  filter of 2.8.0 kept about 57% of it, and in exchange lags a ramp by half a
+  cycle plus one sample (2.8.0: no lag). The values match `HT_TRENDLINE`
+  after the start-up transient.
+* `MAMA` uses Ehlers' published phase, `arctan(Q1 / I1)`, as TA-Lib `MAMA`
+  does, instead of the `atan2` phase of `CyclePhase`. The phase wraps every
+  half cycle, so the smoothing constant steps to `fast_limit` twice per cycle
+  (2.8.0: once). The values match TA-Lib `MAMA` once its start-up (both
+  averages start at 0 there) has faded.
+* `HilbertPhasor` returns Ehlers' in-phase and quadrature components `I1` and
+  `Q1`, the pair of TA-Lib `HT_PHASOR`, each divided by its filter gain at the
+  measured period, so a sine of amplitude `A` gives components of amplitude
+  `A` at every period from 6 to 50. 2.8.0 returned the smoothed homodyne pair
+  `(I2, Q2)`, whose size depended on the period. `CycleAmplitude`, the
+  magnitude of the pair, now reads 1.00 for a unit sine of period 10, 20 or
+  40 (2.8.0: 0.41, 1.08, 1.41). Neither Ehlers nor TA-Lib defines this scale;
+  screamer matches the input amplitude. To get TA-Lib's `HT_PHASOR` values,
+  multiply each component by its gain (see the `HilbertPhasor` page).
 
 ### Fixed
 
@@ -1089,6 +1127,15 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   hedge ratio estimators.
 * The sidebar is organized as Get started, User Guide, Examples, Concepts, API
   reference, and Release notes.
+* The Ehlers pages are corrected: `CyclePhase` decreases with time (it said
+  it advances); the `MAMA` page and its parameters describe the adaptation
+  the right way round (the smoothing constant reaches `fast_limit` when the
+  phase stalls or wraps); `DominantCycle` states its `[6, 50]` period range
+  and that a trending series should go through `RoofingFilter` first; the
+  cycle pages say which in-phase and quadrature pair each one uses instead of
+  "the same I and Q"; `Decycler` defines its cutoff as the half-power point;
+  `InstantaneousTrendline` cites *Rocket Science for Traders*, the source of
+  the routine it now implements.
 
 2.8.0 - 2026-10-10
 ------------------

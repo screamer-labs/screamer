@@ -12,7 +12,7 @@ tags:
 - envelope
 - hilbert transform
 - analytic signal
-short: Instantaneous amplitude (envelope) of the analytic signal via Ehlers' homodyne discriminator.
+short: Instantaneous amplitude (envelope) of the dominant cycle, scaled to the input amplitude.
 inputs: 1
 outputs: 1
 parameters: []
@@ -31,12 +31,17 @@ references:
 ## Description
 
 `CycleAmplitude` reads the instantaneous amplitude, or envelope, of the
-analytic signal formed from a series by John Ehlers' Hilbert transform. It
-shares the same in-phase and quadrature components as `HilbertPhasor` and
-`CyclePhase`: the amplitude is the magnitude of the point `(I, Q)` in the
-complex plane, `sqrt(I^2 + Q^2)`. It is a general envelope detector, tracking
-the local size of any oscillation in the series regardless of its period, and
+dominant cycle from John Ehlers' Hilbert transform. It is the magnitude
+`sqrt(I^2 + Q^2)` of the `HilbertPhasor` pair, whose components are scaled so
+that a sine of amplitude `A` and any period in `[6, 50]` reads `A`. Neither
+Ehlers nor TA-Lib publishes an amplitude for this transform, so the scale is
+screamer's choice, made to match the input amplitude. It is a general envelope
+detector, tracking the local size of an oscillation in the series, and
 applies to any sampled signal, not only price.
+
+The scaling uses the measured period, so the reading is exact for a steady
+cycle the engine can measure. A cycle shorter than 6 samples, outside the
+engine's range, is not measured correctly and its amplitude is not either.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling

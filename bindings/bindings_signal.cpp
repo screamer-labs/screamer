@@ -138,15 +138,15 @@ void init_bindings_signal(nb::module_& m) {
         .def("__call__", &screamer::functor_call<screamer::DominantCycle>)
         .def("reset", &screamer::DominantCycle::reset, "Reset to the initial state.");
 
-    // HilbertPhasor: 1->2 in-phase / quadrature components of the analytic
-    // signal via Ehlers' Hilbert transform. See detail/hilbert_cycle.h.
+    // HilbertPhasor: 1->2 Ehlers' in-phase / quadrature components (I1, Q1),
+    // scaled so a unit sine reads 1. See detail/hilbert_cycle.h.
     nb::class_<screamer::HilbertPhasor, screamer::EvalOp>(m, "HilbertPhasor")
         .def(nb::init<>())
         .def("__call__", &screamer::functor_call<screamer::HilbertPhasor>)
         .def("reset", &screamer::HilbertPhasor::reset, "Reset to the initial state.");
 
-    // CyclePhase: 1->1 instantaneous phase (degrees, 0..360) of the analytic
-    // signal via Ehlers' homodyne discriminator. See detail/hilbert_cycle.h.
+    // CyclePhase: 1->1 instantaneous phase atan2(Q1, I1) (degrees, 0..360).
+    // See detail/hilbert_cycle.h.
     nb::class_<screamer::CyclePhase, screamer::EvalOp>(m, "CyclePhase")
         .def(nb::init<>())
         .def("__call__", &screamer::functor_call<screamer::CyclePhase>)
@@ -159,44 +159,40 @@ void init_bindings_signal(nb::module_& m) {
         .def("__call__", &screamer::functor_call<screamer::CycleFrequency>)
         .def("reset", &screamer::CycleFrequency::reset, "Reset to the initial state.");
 
-    // CycleAmplitude: 1->1 instantaneous amplitude (envelope) of the analytic
-    // signal, sqrt(I^2 + Q^2). See detail/hilbert_cycle.h.
+    // CycleAmplitude: 1->1 instantaneous amplitude, the magnitude of the
+    // HilbertPhasor pair. See detail/hilbert_cycle.h.
     nb::class_<screamer::CycleAmplitude, screamer::EvalOp>(m, "CycleAmplitude")
         .def(nb::init<>())
         .def("__call__", &screamer::functor_call<screamer::CycleAmplitude>)
         .def("reset", &screamer::CycleAmplitude::reset, "Reset to the initial state.");
 
-    // CycleSine: 1->2 sinewave indicator (sine, leadsine) = sin(phase) and
-    // sin(phase + 45 degrees), from the instantaneous phase of the analytic
-    // signal. See detail/hilbert_cycle.h.
+    // CycleSine: 1->2 Ehlers' sinewave indicator (sine, leadsine) =
+    // sin(DCPhase) and sin(DCPhase + 45 degrees). See
+    // detail/ehlers_sinewave.h.
     nb::class_<screamer::CycleSine, screamer::EvalOp>(m, "CycleSine")
         .def(nb::init<>())
         .def("__call__", &screamer::functor_call<screamer::CycleSine>)
         .def("reset", &screamer::CycleSine::reset, "Reset to the initial state.");
 
-    // TrendMode: 1->1 trend-vs-cycle classifier. Outputs 1.0 when the
-    // dominant-cycle phase advance per sample is a small fraction
-    // (phase_rate_frac) of a full cycle's expected advance (trending), 0.0
-    // when the phase rotates at the cycle rate (cycling). See
-    // detail/hilbert_cycle.h.
+    // TrendMode: 1->1 Ehlers' trend-vs-cycle mode, 1.0 trend, 0.0 cycle.
+    // See trend_mode.h.
     nb::class_<screamer::TrendMode, screamer::EvalOp>(m, "TrendMode")
-        .def(nb::init<double>(), "phase_rate_frac"_a = 0.5)
+        .def(nb::init<>())
         .def("__call__", &screamer::functor_call<screamer::TrendMode>)
         .def("reset", &screamer::TrendMode::reset, "Reset to the initial state.");
 
     // MAMA: 1->2 MESA Adaptive Moving Average (mama, fama). The smoothing
-    // factor adapts to the instantaneous-phase rate of change. See
-    // detail/hilbert_cycle.h.
+    // factor adapts to the rate of change of Ehlers' arctan(Q1 / I1) phase.
+    // See mama.h.
     nb::class_<screamer::MAMA, screamer::EvalOp>(m, "MAMA")
         .def(nb::init<double, double>(),
              "fast_limit"_a = 0.5, "slow_limit"_a = 0.05)
         .def("__call__", &screamer::functor_call<screamer::MAMA>)
         .def("reset", &screamer::MAMA::reset, "Reset to the initial state.");
 
-    // InstantaneousTrendline: 1->1 Ehlers adaptive 2-pole trendline. The
-    // smoothing factor is set from the measured dominant cycle period, so
-    // the trendline follows the trend and removes the dominant cycle. See
-    // detail/hilbert_cycle.h.
+    // InstantaneousTrendline: 1->1 Ehlers' instantaneous trendline, the mean
+    // over one measured dominant cycle followed by a 4-tap WMA. See
+    // instantaneous_trendline.h.
     nb::class_<screamer::InstantaneousTrendline, screamer::EvalOp>(m, "InstantaneousTrendline")
         .def(nb::init<>())
         .def("__call__", &screamer::functor_call<screamer::InstantaneousTrendline>)

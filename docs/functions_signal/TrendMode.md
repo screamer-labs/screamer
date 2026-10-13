@@ -12,17 +12,10 @@ tags:
 - regime
 - trend detection
 - trend vs cycle
-short: Classifies each sample as trending (1.0) or cycling (0.0) from the dominant-cycle phase
-  advance.
+short: Ehlers' trend mode, 1.0 while the series trends and 0.0 while it cycles.
 inputs: 1
 outputs: 1
-parameters:
-- name: phase_rate_frac
-  type: float
-  default: 0.5
-  min: 0.0
-  description: Threshold, as a fraction of the expected per-sample phase advance for the current
-    dominant cycle, below which a sample is classified as trending.
+parameters: []
 nan_policy: ignore
 see_also:
 - DominantCycle
@@ -37,23 +30,29 @@ references:
 
 ## Description
 
-`TrendMode` classifies each sample of a series as trending or cycling, using
-the same instantaneous phase and dominant-cycle period as `CyclePhase` and
-`DominantCycle`. While a series oscillates at a stable dominant cycle, the
-phase advances by close to `360 / period` degrees per sample. When the phase
-advance stalls well below that rate, the dominant cycle has effectively
-stopped rotating, which this function reads as a trending market.
+`TrendMode` classifies each sample of a series as trending (`1.0`) or
+cycling (`0.0`) with John Ehlers' rule from *Rocket Science for Traders*
+("Identifying Market Modes"), as TA-Lib implements it in `HT_TRENDMODE`. It
+combines three measurements of the dominant cycle: the sinewave indicator
+(`CycleSine`), the rate of its phase, and the instantaneous trendline
+(`InstantaneousTrendline`).
 
-The rule: at each sample, compute the phase change from the previous sample
-(unwrapped to `[-180, 180]` degrees) and compare its magnitude to
-`phase_rate_frac * (360 / period)`, the expected per-sample advance scaled
-by `phase_rate_frac`. If the phase change is smaller, the output is `1.0`
-(trending); otherwise it is `0.0` (cycling).
+Each sample starts as trend, then:
 
-This threshold rule is screamer's own way to turn the phase and period
-estimates into a binary trend/cycle flag; it does not reproduce a specific
-published formula. Lowering `phase_rate_frac` makes the classifier stricter
-about calling a trend, and raising it makes trend mode more frequent.
+1. A crossing of `sine` and `leadsine` marks a cycle turn. That sample reads
+   cycle, and so does every sample until half a dominant period has passed
+   since the last crossing.
+2. A phase that advances between 0.67 and 1.5 times `360 / period` degrees per
+   sample (the dominant cycle rotating at its own rate) reads cycle.
+3. A smoothed price at least 1.5% away from the trendline,
+   `|smooth - trendline| >= 0.015 |trendline|`, reads trend whatever rules
+   1 and 2 say.
+
+Rule 3 compares the price with the trendline in relative terms, so it is
+meant for price series, which stay well away from zero. On a series that
+oscillates around zero, such as returns or a detrended signal, the trendline
+is close to zero and every sample reads trend. There are no settings: the
+thresholds are Ehlers'.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
@@ -76,17 +75,17 @@ about calling a trend, and raising it makes trend mode more frequent.
 
     rng = np.random.default_rng(20)
     c = 300
-    cycle_part = np.sin(2 * np.pi * np.arange(c) / 20)          # 300 samples of a 20-sample cycle
+    cycle_part = 100 + np.sin(2 * np.pi * np.arange(c) / 20)    # 300 samples of a 20-sample cycle around 100
     ramp_part = cycle_part[-1] + 0.1 * np.arange(1, c + 1)        # then 300 samples of a straight ramp
     x = np.concatenate([cycle_part, ramp_part]) + 0.01 * rng.standard_normal(2 * c)
 
-    mode = TrendMode(phase_rate_frac=0.5)(x)
+    mode = TrendMode()(x)
 
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.7, 0.3], vertical_spacing=0.06)
     fig.add_trace(go.Scatter(y=x, name='cycle, then ramp', line=dict(color='gray')), row=1, col=1)
-    fig.add_trace(go.Scatter(y=mode, name='TrendMode(phase_rate_frac=0.5)',
+    fig.add_trace(go.Scatter(y=mode, name='TrendMode()',
                              line=dict(color='darkorange', shape='hv')), row=2, col=1)
-    fig.update_layout(title='TrendMode: no trend flags in the cycle, frequent flags in the ramp',
+    fig.update_layout(title='TrendMode: cycle (0) in the cycle, trend (1) on the ramp',
                       yaxis=dict(title='input'), yaxis2=dict(title='mode', tickvals=[0, 1]),
                       xaxis2=dict(title='sample'),
                       margin=dict(l=20, r=20, t=60, b=20),

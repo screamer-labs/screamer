@@ -13,7 +13,7 @@ tags:
 - analytic signal
 - in-phase
 - quadrature
-short: In-phase and quadrature components of the analytic signal via Ehlers' Hilbert transform.
+short: Ehlers' in-phase and quadrature components (TA-Lib HT_PHASOR), scaled to the input amplitude.
 inputs: 1
 outputs: 2
 parameters: []
@@ -34,14 +34,36 @@ output_names:
 
 ## Description
 
-`HilbertPhasor` computes the in-phase and quadrature components of the
-analytic signal formed from a series by John Ehlers' Hilbert transform. The
-in-phase component is the real part of the analytic signal and the
-quadrature component is its imaginary part, a version of the input
-phase-shifted by 90 degrees. Together they describe the instantaneous phase and
-amplitude of the dominant cycle in the input, the same construction used by
-`DominantCycle`. The estimate is a general spectral quantity: the same
-measurement applies to any sampled signal, not only price.
+`HilbertPhasor` returns the in-phase and quadrature components `I1` and `Q1`
+of John Ehlers' Hilbert transform (*Rocket Science for Traders*), the pair
+TA-Lib returns from `HT_PHASOR`, from the same engine as `DominantCycle`. `I1`
+is the detrended, smoothed input delayed by three samples, and `Q1` is its
+Hilbert transform. `Q1` leads `I1` by a quarter cycle, Ehlers' convention.
+Together they describe the instantaneous phase (`CyclePhase`) and amplitude
+(`CycleAmplitude`) of the dominant cycle. The estimate is a general spectral
+quantity: the same measurement applies to any sampled signal, not only price.
+
+Scale: Ehlers corrects the Hilbert filter's gain with the factor
+`0.075 * period + 0.54`, which only approximates unit gain, and TA-Lib returns
+the components with that approximate scale (a unit sine reads between about
+0.55 and 1.04 depending on its period). Neither defines an exact amplitude, so
+screamer divides each component by its filter gain at the measured period:
+a sine of amplitude `A` and any period in `[6, 50]` gives components of
+amplitude `A`. The phase relation and the shape match TA-Lib; the values
+differ from `HT_PHASOR` by that per-period factor. With `w = 2 pi / period`
+(the engine's period before its final smoothing) and `adj = 0.075 *
+period[t-1] + 0.54`, the gains are
+
+$$
+\begin{aligned}
+W &= \left| 0.4 + 0.3 e^{-iw} + 0.2 e^{-2iw} + 0.1 e^{-3iw} \right| \\
+h &= 2\,\text{adj}\,(0.0962 \sin 3w + 0.5769 \sin w) \\
+g_I &= W h, \qquad g_Q = W h^2
+\end{aligned}
+$$
+
+and `inphase = I1 / g_I`, `quadrature = Q1 / g_Q`: `W` is the gain of the
+4-tap price smoothing and `h` that of one pass of the Hilbert filter.
 
 The two outputs are stacked along a trailing axis of size 2: `out[..., 0]`
 is the in-phase component and `out[..., 1]` the quadrature component.

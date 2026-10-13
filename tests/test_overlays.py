@@ -22,16 +22,15 @@ class TestMAMA:
         err_fama = np.mean(np.abs(fama[m] - x[m]))
         assert err_mama < err_fama  # FAMA follows MAMA with more lag.
 
-    def test_loose_talib_reference(self):
-        import talib
+    def test_matches_talib_reference(self):
+        talib = pytest.importorskip("talib")
         x = _series(800, seed=2)
-        mama = np.asarray(MAMA()(x))[:, 0]
-        ref, _ = talib.MAMA(x, fastlimit=0.5, slowlimit=0.05)
-        m = np.isfinite(mama) & np.isfinite(ref)
-        assert m.sum() > 100
-        # Different analytic-signal front end -> not identical, but correlated.
-        c = np.corrcoef(mama[m], ref[m])[0, 1]
-        assert c > 0.9, f"correlation {c:.3f}"
+        out = np.asarray(MAMA()(x))
+        ref_mama, ref_fama = talib.MAMA(x, fastlimit=0.5, slowlimit=0.05)
+        # Same arctan phase and adaptation rule; only the start-up differs
+        # (TA-Lib starts both averages at 0), and that fades by sample 300.
+        np.testing.assert_allclose(out[300:, 0], ref_mama[300:], rtol=0, atol=1e-6)
+        np.testing.assert_allclose(out[300:, 1], ref_fama[300:], rtol=0, atol=1e-6)
 
     def test_batch_equals_stream(self):
         x = _series(400, seed=3)
@@ -45,9 +44,19 @@ class TestInstantaneousTrendline:
         it = np.asarray(InstantaneousTrendline()(x))
         tail = slice(-200, None)
         m = np.isfinite(it[tail])
-        # On a steady ramp the trendline tracks price with small bounded error.
+        # On a ramp the trendline lags by (N - 1) / 2 + 1 samples, N the
+        # measured cycle length in [6, 50], so by at most 25.5 samples.
+        slope = x[1] - x[0]
         assert m.sum() > 50
-        assert np.max(np.abs(it[tail][m] - x[tail][m])) < 5.0
+        lag = (x[tail][m] - it[tail][m]) / slope
+        assert np.all(lag >= 3.5 - 1e-9) and np.all(lag <= 25.5 + 1e-9)
+
+    def test_matches_talib_reference(self):
+        talib = pytest.importorskip("talib")
+        x = _series(800, seed=4)
+        it = np.asarray(InstantaneousTrendline()(x))
+        ref = talib.HT_TRENDLINE(x)
+        np.testing.assert_allclose(it[200:], ref[200:], rtol=0, atol=1e-9)
 
     def test_batch_equals_stream(self):
         x = _series(400, seed=5)

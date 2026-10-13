@@ -55,10 +55,10 @@ CumMax, Running maximum from t=0.
 CumMin, Running minimum from t=0.
 CumProd, Running product from t=0.
 CumSum, Running sum from t=0.
-CycleAmplitude, Instantaneous amplitude (envelope) of the analytic signal via Ehlers' homodyne discriminator.
+CycleAmplitude, Instantaneous amplitude (envelope) of the dominant cycle, scaled to the input amplitude.
 CycleFrequency, Instantaneous frequency, in cycles per sample, via Ehlers' homodyne discriminator.
-CyclePhase, Instantaneous phase, in degrees, of the analytic signal via Ehlers' homodyne discriminator.
-CycleSine, Sinewave indicator (sine, leadsine) from the instantaneous phase of the analytic signal.
+CyclePhase, Instantaneous phase, in degrees, of Ehlers' in-phase and quadrature components.
+CycleSine, Ehlers' sinewave indicator (sine, leadsine) from the phase of the dominant cycle.
 DEMA, Mulloy's Double EMA: 2*EMA - EMA(EMA).
 DX, Wilder directional index, the pre-average input to ADX.
 Decycler, Ehlers trend estimate with short cycles removed.
@@ -119,14 +119,14 @@ GreaterEqual, Returns 1.0 if a >= b, else 0.0. NaN in either input yields NaN.
 GreaterThan, Returns 1.0 if a > b, else 0.0. NaN in either input yields NaN.
 Hampel, Robust Hampel despiker, replace samples far from the window median (in MAD units).
 HawkesIntensity, Conditional intensity of an exponential-kernel Hawkes process: lambda_t = mu + kappa_t.
-HilbertPhasor, In-phase and quadrature components of the analytic signal via Ehlers' Hilbert transform.
+HilbertPhasor, Ehlers' in-phase and quadrature components (TA-Lib HT_PHASOR), scaled to the input amplitude.
 Hold, Time-latch operator. Latches a nonzero finite input and holds it for n steps; returns the release value once the hold expires.
 HullMA, Hull's responsive MA: WMA(2*WMA(n/2) - WMA(n), sqrt(n)).
 Hypot, Euclidean distance sqrt(x^2 + y^2), numerically stable.
 Identity, Pass-through (y = x).
 ImpulseClip, Causal impulse remover, detects spikes on the trend-free first difference.
 Input, Create a source Node - a named placeholder for a timed stream.
-InstantaneousTrendline, Adaptive 2-pole trendline whose smoothing tracks the measured dominant cycle.
+InstantaneousTrendline, Ehlers' instantaneous trendline, the mean over one measured dominant cycle.
 IsFinite, Returns 1.0 for finite values, 0.0 for NaN or inf. Does not propagate NaN.
 IsNan, Returns 1.0 if the input is NaN, else 0.0. Does not propagate NaN.
 KAMA, Adaptive MA whose smoothing constant responds to the efficiency ratio.
@@ -143,7 +143,7 @@ Linear2, Two-input affine combination: a*x + b*y + c.
 Log, Natural logarithm of each element.
 LogReturn, Log return log(x[t] / x[t-k]) at lag k.
 MACD, MACD line, signal line, and histogram (3 outputs).
-MAMA, Adaptive moving average pair (MAMA, FAMA) whose smoothing rate tracks the instantaneous-phase rate of change.
+MAMA, Ehlers' adaptive moving average pair (MAMA, FAMA), smoothing set by the rate of the cycle phase.
 MFI, Volume-weighted analogue of RSI on the typical price.
 MaxDrawdown, Worst drawdown experienced so far (since reset).
 Merge, Merge N value streams into one index-sorted (values, sources, index).
@@ -256,7 +256,7 @@ TRIMA, Triangular moving average: a simple moving average of a simple moving ave
 TRIX, ROC of a triple-smoothed EMA.
 Tanh, Hyperbolic tangent.
 TickRuleSign, Trade sign by the tick rule (+1 up-tick, -1 down-tick, carry on unchanged).
-TrendMode, Classifies each sample as trending (1.0) or cycling (0.0) from the dominant-cycle phase advance.
+TrendMode, Ehlers' trend mode, 1.0 while the series trends and 0.0 while it cycles.
 TrueRange, Per-bar true range accounting for overnight gaps (Wilder, 1978).
 UltimateOscillator, Three-period weighted oscillator (Williams, 1976).
 VPIN, Volume-synchronized probability of informed trading (Easley-López de Prado-O'Hara 2012): order-flow toxicity.

@@ -202,19 +202,19 @@ Dominant cycle, phase, amplitude, and frequency from the analytic signal.
    * - Function
      - Description
    * - :doc:`Instantaneous cycle amplitude </functions_signal/CycleAmplitude>`
-     - Instantaneous amplitude (envelope) of the analytic signal via Ehlers' homodyne discriminator.
+     - Instantaneous amplitude (envelope) of the dominant cycle, scaled to the input amplitude.
    * - :doc:`Instantaneous cycle frequency </functions_signal/CycleFrequency>`
      - Instantaneous frequency, in cycles per sample, via Ehlers' homodyne discriminator.
    * - :doc:`Instantaneous cycle phase </functions_signal/CyclePhase>`
-     - Instantaneous phase, in degrees, of the analytic signal via Ehlers' homodyne discriminator.
+     - Instantaneous phase, in degrees, of Ehlers' in-phase and quadrature components.
    * - :doc:`Cycle sinewave indicator </functions_signal/CycleSine>`
-     - Sinewave indicator (sine, leadsine) from the instantaneous phase of the analytic signal.
+     - Ehlers' sinewave indicator (sine, leadsine) from the phase of the dominant cycle.
    * - :doc:`Dominant cycle period </functions_signal/DominantCycle>`
      - Dominant cycle period via Ehlers' homodyne discriminator.
    * - :doc:`Hilbert in-phase / quadrature components </functions_signal/HilbertPhasor>`
-     - In-phase and quadrature components of the analytic signal via Ehlers' Hilbert transform.
+     - Ehlers' in-phase and quadrature components (TA-Lib HT_PHASOR), scaled to the input amplitude.
    * - :doc:`Trend-vs-cycle classifier </functions_signal/TrendMode>`
-     - Classifies each sample as trending (1.0) or cycling (0.0) from the dominant-cycle phase advance.
+     - Ehlers' trend mode, 1.0 while the series trends and 0.0 while it cycles.
 
 .. toctree::
    :hidden:

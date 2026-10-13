@@ -126,12 +126,12 @@ the [portfolios and pairs guide](portfolio_backtesting.md) show the whole path.
 | Intent | Operator(s) | Note |
 |:-------|:------------|:-----|
 | Measure the dominant cycle period | `DominantCycle` | Ehlers' homodyne discriminator; the period in samples. |
-| Instantaneous phase, frequency, or amplitude of a cycle | `CyclePhase`, `CycleFrequency`, `CycleAmplitude` | From the analytic signal; `HilbertPhasor` gives its in-phase and quadrature parts. |
+| Instantaneous phase, frequency, or amplitude of a cycle | `CyclePhase`, `CycleFrequency`, `CycleAmplitude` | From Ehlers' Hilbert transform; `HilbertPhasor` gives its in-phase and quadrature parts. |
 | Sinewave turning-point indicator | `CycleSine` | Sine and lead-sine lines; a crossing marks a cycle turn. |
-| Classify trending versus cycling | `TrendMode` | 1.0 while trending, 0.0 while cycling. |
+| Classify trending versus cycling | `TrendMode` | Ehlers' trend mode for price series: 1.0 while trending, 0.0 while cycling. |
 | Isolate a band of cycle periods | `RoofingFilter` | A highpass then a `SuperSmoother`; feed its output to the cycle operators. |
-| Low-lag smoothing or trend | `SuperSmoother`, `Decycler`, `InstantaneousTrendline` | A 2-pole lowpass, a trend with short cycles removed, and a trendline that adapts to the measured cycle. |
-| Adaptive moving average pair | `MAMA` | MAMA and FAMA lines whose speed follows the phase rate. |
+| Low-lag smoothing or trend | `SuperSmoother`, `Decycler`, `InstantaneousTrendline` | A 2-pole lowpass, a trend with short cycles removed, and the mean over one measured cycle. |
+| Adaptive moving average pair | `MAMA` | MAMA and FAMA lines whose smoothing follows the phase rate. |
 | Turn a noisy indicator into a stable on/off state | `SchmittTrigger` | Hysteresis between two thresholds avoids flip-flopping. |
 
 For a worked example see [notebook 19](notebooks/19-cycle-and-spectral-analysis).

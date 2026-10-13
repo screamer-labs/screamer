@@ -101,7 +101,9 @@ class TestCycleSine:
 class TestTrendMode:
     def test_binary_and_finite_after_warmup(self):
         # A pure tone is a cycle, so trend mode should be mostly 0 on the tail.
-        x = _tone(20.0, n=1000)
+        # Ehlers' rule compares price and trendline in relative terms (1.5%),
+        # so the tone sits on a price-like level.
+        x = 100.0 + _tone(20.0, n=1000)
         tm = np.asarray(TrendMode()(x))
         m = np.isfinite(tm)
         assert m.sum() > 100

@@ -34,7 +34,14 @@ references:
 using John Ehlers' homodyne discriminator. It forms the analytic signal by a
 Hilbert transform, then reads the cycle period from the rate of change of the
 phase between successive samples. The estimate is a general spectral quantity:
-the same measurement applies to any sampled signal, not only price.
+the same measurement applies to any sampled signal, not only price. It agrees
+with TA-Lib's `HT_DCPERIOD`.
+
+The period is limited to `[6, 50]` samples, as Ehlers publishes it: a longer
+cycle reads 50 and a shorter one is not measured. A trend in the input biases
+the estimate (a sine of period 10 on a steady ramp reads about 12), so Ehlers
+measures cycles on detrended data. Pass a trending series through
+`RoofingFilter` first.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling

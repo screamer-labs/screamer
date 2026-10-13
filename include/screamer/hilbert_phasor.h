@@ -1,9 +1,10 @@
 #ifndef SCREAMER_HILBERT_PHASOR_H
 #define SCREAMER_HILBERT_PHASOR_H
 
-// HilbertPhasor: the in-phase and quadrature components of the analytic signal
-// (real and imaginary parts), from Ehlers' Hilbert transform. See
-// detail/hilbert_cycle.h.
+// HilbertPhasor: Ehlers' in-phase and quadrature components I1 and Q1 (the
+// pair TA-Lib HT_PHASOR returns), each divided by its filter gain at the
+// measured period so a unit sine reads 1 at every period in [6, 50]. Q leads
+// I by a quarter cycle. See detail/hilbert_cycle.h.
 
 #include "screamer/common/functor_base.h"
 #include "screamer/detail/hilbert_cycle.h"
@@ -16,7 +17,9 @@ public:
     void reset() override { engine_.reset(); }
     ResultTuple call(const InputArray& inputs) override {
         engine_.update(inputs[0]);
-        return std::make_tuple(engine_.inphase(), engine_.quadrature());
+        double i, q;
+        engine_.phasor(i, q);
+        return std::make_tuple(i, q);
     }
 private:
     detail::HilbertCycle engine_;

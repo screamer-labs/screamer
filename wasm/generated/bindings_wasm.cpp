@@ -1137,7 +1137,7 @@ EMSCRIPTEN_BINDINGS(screamer) {
     emscripten::class_<screamer::TickRuleSign, emscripten::base<screamer::EvalOp>>("TickRuleSign")
         .constructor<>();
     emscripten::class_<screamer::TrendMode, emscripten::base<screamer::EvalOp>>("TrendMode")
-        .constructor<double>();
+        .constructor<>();
     emscripten::class_<screamer::TrueRange, emscripten::base<screamer::EvalOp>>("TrueRange")
         .constructor<>();
     emscripten::class_<screamer::UltimateOscillator, emscripten::base<screamer::EvalOp>>("UltimateOscillator")

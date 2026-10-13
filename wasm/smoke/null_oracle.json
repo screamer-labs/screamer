@@ -1512,13 +1512,6 @@
  },
  {
   "accepts_none": {
-   "phase_rate_frac": false
-  },
-  "base": {},
-  "name": "TrendMode"
- },
- {
-  "accepts_none": {
    "period1": false,
    "period2": false,
    "period3": false

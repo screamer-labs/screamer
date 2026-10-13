@@ -1,20 +1,22 @@
 #ifndef SCREAMER_INSTANTANEOUS_TRENDLINE_H
 #define SCREAMER_INSTANTANEOUS_TRENDLINE_H
 
-// InstantaneousTrendline: Ehlers' adaptive trendline. A 2-pole recursion whose
-// smoothing factor alpha is set from the measured dominant cycle period, so the
-// trendline follows the trend and removes the dominant cycle. Reuses
-// detail::HilbertCycle for the period.
+// InstantaneousTrendline: Ehlers' instantaneous trendline (Rocket Science for
+// Traders, "The Instantaneous Trendline"; TA-Lib HT_TRENDLINE). The mean of
+// the raw price over one measured dominant cycle, which removes that cycle,
+// then a 4-tap WMA:
 //
-//   alpha = 2 / (period + 1)
-//   it[t] = (alpha - alpha^2/4) price[t] + 0.5 alpha^2 price[t-1]
-//           - (alpha - 0.75 alpha^2) price[t-2]
-//           + 2 (1-alpha) it[t-1] - (1-alpha)^2 it[t-2]
+//   N         = int(SmoothPeriod + .5)
+//   ITrend    = mean(price[t-N+1 .. t])
+//   trendline = (4 ITrend + 3 ITrend[1] + 2 ITrend[2] + ITrend[3]) / 10
+//
+// On a ramp it lags by (N - 1) / 2 + 1 samples. See detail/ehlers_sinewave.h.
 
 #include <cmath>
 #include <limits>
 #include "screamer/common/functor_base.h"
 #include "screamer/detail/hilbert_cycle.h"
+#include "screamer/detail/ehlers_sinewave.h"
 
 namespace screamer {
 
@@ -24,43 +26,23 @@ public:
 
     void reset() override {
         engine_.reset();
-        p1_ = p2_ = std::numeric_limits<double>::quiet_NaN();
-        it1_ = it2_ = std::numeric_limits<double>::quiet_NaN();
+        trendline_.reset();
     }
 
     ResultTuple call(const InputArray& inputs) override {
-        const double price = inputs[0];
-        engine_.update(price);
-        const double period = engine_.period();
+        const double x = inputs[0];
         const double nan = std::numeric_limits<double>::quiet_NaN();
-        if (std::isnan(period) || period <= 0.0) {
-            // nan_policy "ignore": leave p1_/p2_/it1_/it2_ untouched so the
-            // next finite sample resumes the recursion as if this sample had
-            // not occurred.
-            return nan;
-        }
-        const double a = 2.0 / (period + 1.0);
-        double it;
-        if (std::isnan(it1_) || std::isnan(p1_) || std::isnan(p2_)) {
-            it = price;  // seed the recursion once the period is available.
-        } else {
-            it = (a - a * a / 4.0) * price + 0.5 * a * a * p1_
-                 - (a - 0.75 * a * a) * p2_
-                 + 2.0 * (1.0 - a) * it1_ - (1.0 - a) * (1.0 - a) * it2_;
-        }
-        p2_ = p1_;
-        p1_ = price;
-        it2_ = it1_;
-        it1_ = it;
-        return it;
+        if (std::isnan(x)) return nan;  // nan_policy ignore: state untouched.
+        trendline_.prepare(x);
+        engine_.update(x);
+        trendline_.finish(engine_.raw_smooth_period());
+        if (!engine_.valid()) return nan;
+        return trendline_.value();
     }
 
 private:
     detail::HilbertCycle engine_;
-    double p1_ = std::numeric_limits<double>::quiet_NaN();
-    double p2_ = std::numeric_limits<double>::quiet_NaN();
-    double it1_ = std::numeric_limits<double>::quiet_NaN();
-    double it2_ = std::numeric_limits<double>::quiet_NaN();
+    detail::CycleTrendline trendline_;
 };
 
 }  // namespace screamer

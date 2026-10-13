@@ -12,7 +12,7 @@ tags:
 - hilbert transform
 - analytic signal
 - instantaneous phase
-short: Instantaneous phase, in degrees, of the analytic signal via Ehlers' homodyne discriminator.
+short: Instantaneous phase, in degrees, of Ehlers' in-phase and quadrature components.
 inputs: 1
 outputs: 1
 parameters: []
@@ -31,14 +31,19 @@ references:
 
 ## Description
 
-`CyclePhase` reads the instantaneous phase of the analytic signal formed from
-a series by John Ehlers' Hilbert transform, in degrees, wrapped to `[0, 360)`.
-It shares the same in-phase and quadrature components as `HilbertPhasor` and
-the same period estimate as `DominantCycle`: the phase is the angle of the
-point `(I, Q)` in the complex plane, and it advances by roughly `360 /
-period` degrees per sample while the dominant cycle stays stable. The
-estimate is a general spectral quantity: the same measurement applies to any
-sampled signal, not only price.
+`CyclePhase` reads the instantaneous phase of a series from John Ehlers'
+Hilbert transform, in degrees, wrapped to `[0, 360)`. It is the angle
+`atan2(Q1, I1)` of Ehlers' in-phase and quadrature components, the pair
+`HilbertPhasor` returns before its scaling, and it uses the same engine as
+`DominantCycle`. While the dominant cycle stays stable the phase
+**decreases** by about `360 / period` degrees per sample, so it steps up by
+360 once per cycle when it wraps. This is the direction of Ehlers' own phase
+in MAMA, where the phase change `Phase[t-1] - Phase[t]` is positive on a
+cycle. The estimate is a general spectral quantity: the same measurement
+applies to any sampled signal, not only price.
+
+`CycleSine` uses a different phase, the dominant cycle phase of Ehlers'
+sinewave indicator, which increases with time.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
@@ -69,7 +74,7 @@ sampled signal, not only price.
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.06)
     fig.add_trace(go.Scatter(y=x, name='input', line=dict(color='gray')), row=1, col=1)
     fig.add_trace(go.Scatter(y=phase, name='CyclePhase()', line=dict(color='steelblue')), row=2, col=1)
-    fig.update_layout(title='CyclePhase: phase wraps every cycle, more slowly once the period doubles',
+    fig.update_layout(title='CyclePhase: phase falls and wraps once per cycle, more slowly once the period doubles',
                       yaxis=dict(title='input'),
                       yaxis2=dict(title='phase (degrees)', range=[0, 360], tickvals=[0, 90, 180, 270, 360]),
                       xaxis2=dict(title='sample'),

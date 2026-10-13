@@ -12,14 +12,14 @@ tags:
 - sinewave indicator
 - hilbert transform
 - analytic signal
-short: Sinewave indicator (sine, leadsine) from the instantaneous phase of the analytic signal.
+short: Ehlers' sinewave indicator (sine, leadsine) from the phase of the dominant cycle.
 inputs: 1
 outputs: 2
 parameters: []
 nan_policy: ignore
 see_also:
 - CyclePhase
-- HilbertPhasor
+- DominantCycle
 - TrendMode
 references:
 - 'Ehlers, J. F. (2001). *Rocket Science for Traders: Digital Signal Processing Applications*.
@@ -33,15 +33,37 @@ output_names:
 
 ## Description
 
-`CycleSine` computes John Ehlers' sinewave indicator from the instantaneous
-phase of the analytic signal formed from a series by the Hilbert transform.
-It shares the same phase estimate as `CyclePhase`: given the phase in
-degrees, `sine` is `sin(phase)` and `leadsine` is `sin(phase + 45deg)`, a
-version of `sine` advanced by one eighth of a cycle. Because `sine` tracks
-the phase directly, it turns at the same point in the cycle regardless of
-the cycle's period, and the two outputs cross near the phase's turning
-points. The estimate is a general spectral quantity: the same measurement
-applies to any sampled signal, not only price.
+`CycleSine` computes John Ehlers' sinewave indicator (*Rocket Science for
+Traders*, "The Sinewave Indicator"), as TA-Lib implements it in `HT_SINE`.
+`sine` is the sine of the dominant cycle phase, and `leadsine` is the same
+curve advanced by 45 degrees, one eighth of a cycle. While the series cycles,
+`sine` follows the cycle in phase and `leadsine` turns first, so the two
+lines cross just before the cycle's peaks and troughs. When the series trends,
+the phase stops rotating and the lines run apart without crossing.
+
+The dominant cycle phase, `DCPhase`, comes from a Fourier sum over one cycle
+of the smoothed price `s` (the 4-tap weighted mean the engine uses). `period`
+is the dominant cycle period that `DominantCycle` reports, and `N` is that
+period rounded to whole samples:
+
+$$
+\begin{aligned}
+N &= \lfloor \text{period} + 0.5 \rfloor \\
+R &= \sum_{k=0}^{N-1} \sin(360 k / N)\, s[t-k], \quad
+I = \sum_{k=0}^{N-1} \cos(360 k / N)\, s[t-k] \\
+\text{DCPhase} &= \arctan(R / I) + 90 + 360 / \text{period}
+  \;(+180 \text{ if } I < 0) \\
+\text{sine} &= \sin(\text{DCPhase}), \quad
+\text{leadsine} = \sin(\text{DCPhase} + 45)
+\end{aligned}
+$$
+
+Angles are in degrees. The term `360 / period` compensates the one-sample
+lag of the smoothing. `DCPhase` increases by about `360 / period` degrees per
+sample, which is why `leadsine` leads. It is a different phase from
+`CyclePhase`, which reads the angle of the `HilbertPhasor` pair and runs the
+other way. The results agree with TA-Lib's `HT_SINE` once both have passed
+their start-up transients.
 
 The two outputs are stacked along a trailing axis of size 2: `out[..., 0]`
 is `sine` and `out[..., 1]` is `leadsine`.
