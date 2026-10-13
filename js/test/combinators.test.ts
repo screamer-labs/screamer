@@ -6,6 +6,7 @@ import {
   Pipeline,
   Sub,
   combineLatest,
+  dropna,
   resample,
   split,
 } from "../src/index.ts";
@@ -399,4 +400,36 @@ test("combineLatest: {values, index} takes plain Arrays and typed arrays; other 
   assert.throws(() => cl([{ values: 3, index: [0] }]), TypeError);
   assert.throws(() => cl([{ index: [0, 1] }]), TypeError);
   assert.throws(() => cl([{ values: [1, 2], index: [0, 1], extra: 1 }]), TypeError);
+});
+
+test("E4: emit on_any with a wide Input whose first rows are dropped raises; when_all works", async () => {
+  await ready();
+  // Dropna advances its port's watermark past the dropped rows, so a row is
+  // due before the first 4-column event reaches the node. Mirrors
+  // tests/test_combine_latest_multicolumn.py.
+  const T = 12;
+  const rows = Array.from({ length: T }, (_, k) => [4 * k, 4 * k + 1, 4 * k + 2, 4 * k + 3].map((v) => (k < 4 ? NaN : v)));
+  const sig = Array.from({ length: T }, (_, k) => 10 * k);
+  const index = Array.from({ length: T }, (_, k) => k);
+  const feeds: any = {
+    x: { values: { data: Float64Array.from(rows.flat()), shape: [T, 4] }, index },
+    y: { values: sig, index },
+  };
+  const isOnAny = (e: unknown) => e instanceof RangeError && /emit="when_all"/.test((e as Error).message);
+  const x = Input("x"), y = Input("y");
+  const p = new Pipeline([x, y], [combineLatest([dropna(x), y], { emit: "on_any" })]);
+  const q = new Pipeline([x, y], [combineLatest([dropna(x), y])]);
+  try {
+    assert.throws(() => p(feeds), isOnAny, "batch");
+    const s = p.live();
+    assert.throws(() => {
+      for (let k = 0; k < T; k++) { s.push("x", k, rows[k]); s.push("y", k, sig[k]); }
+    }, isOnAny, "live");
+    const out: any = q(feeds);
+    assert.deepEqual(out.values.shape, [8, 5]);
+    assert.deepEqual(Array.from(out.index), [4, 5, 6, 7, 8, 9, 10, 11]);
+  } finally {
+    p.dispose();
+    q.dispose();
+  }
 });

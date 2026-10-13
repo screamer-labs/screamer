@@ -103,6 +103,25 @@ def test_pipeline_on_any_wide_input_raises_clearly():
         p((gappy, np.arange(T)), (sig, np.arange(T)))
 
 
+def test_pipeline_on_any_wide_input_raises_lazy_and_live():
+    # E4: the documented error in every mode; the default when_all takes it.
+    gappy = bars.copy()
+    gappy[:4] = np.nan
+    x, y = s.Input("x"), s.Input("y")
+    p = s.Pipeline([x, y], [s.CombineLatest(emit="on_any")(s.Dropna()(x), y)])
+    with pytest.raises(ValueError, match="when_all"):
+        list(p(iter(zip(gappy, range(T))), iter(zip(sig, range(T)))))
+    live = p.live()
+    with pytest.raises(ValueError, match="when_all"):
+        for k in range(T):
+            live.push("x", k, list(gappy[k]))
+            live.push("y", k, float(sig[k]))
+    q = s.Pipeline([x, y], [s.CombineLatest()(s.Dropna()(x), y)])
+    values, index = q((gappy, np.arange(T)), (sig, np.arange(T)))
+    np.testing.assert_array_equal(index, np.arange(4, T))
+    np.testing.assert_array_equal(values, np.column_stack([bars[4:], sig[4:]]))
+
+
 def test_pipeline_rejects_layout():
     x, y = s.Input("x"), s.Input("y")
     with pytest.raises(ValueError, match="applies to arrays and iterators"):
