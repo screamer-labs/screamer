@@ -694,7 +694,13 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   clock (a `Delay`) closed the first one. A live session whose inputs come
   in a different order across inputs (each in its own order) gives the batch
   bars too. There is no setting for the 2.8.0 result, which depended on when
-  the upstream node released the value.
+  the upstream node released the value. In a live session a bar now comes
+  out once the value stream has passed its tick `t`: a value above `t`, an
+  `advance(now)` with `now > t`, or `flush()`. After a value at 50 and ticks
+  at 60 and 70, bar 60 comes out at `advance(61)` (`advance(60)` is not
+  enough, since a value at 60 still joins it). 2.8.0 emitted it at the next
+  event of either input, here the tick at 70; to get a bar at that time,
+  call `advance(now)` with the time of the event.
 * A clock `Resample` now passes watermarks on, so `advance(now)` releases the
   other outputs' aligned rows while the clock is silent, in a live session
   and a lazy call. In 2.8.0 those rows waited for the next clock tick, and

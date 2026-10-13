@@ -289,6 +289,14 @@ value resumes the join. `max_age=None` (the default) preserves unbounded carry.
   `Filter`, a `threshold=` or `count=` `Resample`, or a `CombineLatest` upstream:
   a tick emits its bar once no value at or below it can still come. Clock events
   at one index give one bar.
+- In a live session (`pipe.live()`), the bar of tick `t` comes out once the
+  value stream has passed `t`: a value event above `t`, an `advance(now)` with
+  `now > t`, or `flush()`. A value at `t` still joins the bar, so `advance(t)`
+  is not enough. After `push("v", 50, ...)`, `push("c", 60, ...)` and
+  `push("c", 70, ...)`, bar 60 comes out at `advance(61)`, not at
+  `advance(60)`. 2.8.0 emitted it at the next event of either input (here the
+  tick at 70), which put a later value into an earlier bar when the inputs
+  came in a different order. A batch or lazy call gives the same bars.
 - There is no trailing partial bucket: only explicit clock ticks trigger emission.
 - Works in eager, `Pipeline` graph, and lazy iterator regimes with identical results.
 

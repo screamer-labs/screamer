@@ -184,8 +184,7 @@ public:
                 emit_clock_bar(t);
                 ticks_.pop_front();
             }
-            buf_idx_.clear();
-            buf_vals_.clear();
+            clear_buffer();
         } else if (p_.mode == ResampleMode::ByCumulative) {
             // Emit trailing partial bucket if any events landed in it.
             if (count_in_bucket_ > 0)
@@ -221,8 +220,7 @@ public:
         cum_driver_ = 0.0;
         clock_port_flush_count_ = 0;
         ticks_.clear();
-        buf_idx_.clear();
-        buf_vals_.clear();
+        clear_buffer();
         has_vfront_ = has_cfront_ = has_gfront_ = has_fwd_ = has_last_tick_ = false;
         vfront_ = cfront_ = gfront_ = fwd_ = last_tick_ = Index{};
     }
@@ -543,15 +541,29 @@ private:
     // Moves the buffered values at or below t (a prefix: values arrive in
     // index order) into the current bar.
     void take_buffered_upto(Index t) {
-        while (!buf_idx_.empty() && buf_idx_.front() <= t) take_buffered();
+        while (buf_head_ < buf_idx_.size() && buf_idx_[buf_head_] <= t) take_buffered();
     }
     void take_buffered() {
-        const Index k = buf_idx_.front();
-        const std::size_t n = buf_width_;
-        buf_row_.assign(buf_vals_.begin(), buf_vals_.begin() + static_cast<std::ptrdiff_t>(n));
-        add_clock_value(k, buf_row_.data(), n);
-        buf_idx_.pop_front();
-        buf_vals_.erase(buf_vals_.begin(), buf_vals_.begin() + static_cast<std::ptrdiff_t>(n));
+        add_clock_value(buf_idx_[buf_head_], buf_vals_.data() + buf_head_ * buf_width_, buf_width_);
+        if (++buf_head_ == buf_idx_.size()) clear_buffer();   // drained: reuse the storage
+    }
+
+    // Empties the buffer and keeps its storage.
+    void clear_buffer() {
+        buf_idx_.clear();
+        buf_vals_.clear();
+        buf_head_ = 0;
+    }
+
+    // Before an append, drops the taken prefix once it is at least half the
+    // buffer, so a buffer that never drains fully stays within twice its
+    // waiting values.
+    void compact_buffer() {
+        if (buf_head_ == 0 || buf_head_ * 2 < buf_idx_.size()) return;
+        buf_idx_.erase(buf_idx_.begin(), buf_idx_.begin() + static_cast<std::ptrdiff_t>(buf_head_));
+        buf_vals_.erase(buf_vals_.begin(),
+                        buf_vals_.begin() + static_cast<std::ptrdiff_t>(buf_head_ * buf_width_));
+        buf_head_ = 0;
     }
 
     // Emits every pending tick that is proven complete and moves the buffered
@@ -564,7 +576,7 @@ private:
             emit_clock_bar(t);
             ticks_.pop_front();
         }
-        while (!buf_idx_.empty() && clock_reaches(buf_idx_.front())) take_buffered();
+        while (buf_head_ < buf_idx_.size() && clock_reaches(buf_idx_[buf_head_])) take_buffered();
     }
 
     // A watermark on port 0 (value) or 1 (clock): no later event below w.
@@ -610,15 +622,16 @@ private:
         const std::size_t n = std::min(nc, num_val_cols);
         note_front(0, k);
         settle_clock();                     // ticks below k are complete
-        if (buf_idx_.empty() && joins_now(k)) {
+        if (buf_head_ == buf_idx_.size() && joins_now(k)) {
             add_clock_value(k, vals, n);
             return;
         }
-        // A tick below k may still come: wait in the buffer.
+        // A tick below k may still come: wait in the buffer. (settle_clock
+        // above already emitted every tick this value could complete.)
+        compact_buffer();
         buf_width_ = n;
         buf_idx_.push_back(k);
         buf_vals_.insert(buf_vals_.end(), vals, vals + n);
-        settle_clock();
     }
 
     // ByClock: a clock event at k. Ticks at one index give one bar, and a
@@ -730,10 +743,10 @@ private:
     std::size_t clock_port_flush_count_ = 0;
     // ByClock state (see ClockPort). The current bar's values are in accums_.
     std::deque<Index> ticks_;          // pending ticks, increasing
-    std::deque<Index> buf_idx_;        // values that wait for the clock frontier
-    std::deque<double> buf_vals_;      // their values, buf_width_ each
+    std::vector<Index> buf_idx_;       // values that wait for the clock frontier,
+    std::vector<double> buf_vals_;     // their values, buf_width_ each, from
+    std::size_t buf_head_ = 0;         // buf_head_ on (the prefix is taken)
     std::size_t buf_width_ = 0;
-    std::vector<double> buf_row_;      // scratch: one buffered row
     Index vfront_{}, cfront_{}, gfront_{}, fwd_{}, last_tick_{};
     bool has_vfront_ = false, has_cfront_ = false, has_gfront_ = false, has_fwd_ = false;
     bool has_last_tick_ = false;      // a tick has emitted (last_tick_)

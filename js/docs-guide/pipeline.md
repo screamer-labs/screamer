@@ -165,7 +165,15 @@ const joined = combineLatest([a, b]); // -> a wide 2-column stream, latest a & l
 `"sum"`, `"ohlc"`, and others). With `fill: "nan"` or `"carry"`, `maxFill` (default
 1,000,000) bounds the empty bars of one gap: an event or an `advance(now)` that would close
 more empty buckets at once throws `RangeError` before it builds any bar, as Python's
-`max_fill` does.
+`max_fill` does. The limit counts one step, so a live session that advances in small steps
+fills a gap that a batch call rejects. A rejected `advance(now)` leaves the session usable, as a
+rejected event does; later events must still come at or after `now`.
+
+With `clock: true`, a bar at clock tick `t` holds the values with index in `(previous tick,
+t]`. In a live session the bar comes out once the value stream has passed `t`: a value above
+`t`, an `advance(now)` with `now > t`, or `flush()`. A value at `t` still joins the bar, so
+`advance(t)` is not enough: after values up to 50 and ticks at 60 and 70, bar 60 comes out at
+`advance(61)`, not at `advance(60)`. 2.8.0 emitted it at the next event of either input.
 
 ```js
 import { resample } from "@screamer-labs/screamer";
