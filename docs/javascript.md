@@ -112,7 +112,10 @@ The [six rules](polymorphic_api.md#the-six-rules) hold in JavaScript, with an
    `null` is a missing value and reads as `NaN`, as Python's `None` does.
 4. **Separate arguments, or one packed array, with assets broadcast.**
    `RollingCorr(20)(X, y)` with `X` of shape `[T, K]` and `y` a `Float64Array`
-   of length `T` gives `[T, K]`, and so does one packed `[T, K, 2]` `NdArray`.
+   of length `T` gives `[T, K]`, and so does one packed `[T, K, 2]` `NdArray`. In a
+   stream, a nested-array event of an `N`-input op lists the `N` fields first,
+   as a Python nested list does; an `NdArray` event of shape `[K, N]` lists
+   the assets first, as a `(K, N)` NumPy event does.
 5. **Ambiguity throws.** Inputs of different lengths and asset shapes that do
    not broadcast throw `RangeError`, and a wrong kind of input throws
    `TypeError`.
@@ -122,24 +125,15 @@ The [six rules](polymorphic_api.md#the-six-rules) hold in JavaScript, with an
 [Streams in depth](streaming.md) describes stream state, laziness, several
 sources, asset events, and errors.
 
-### Parity gaps
-
-These parts work differently in the two packages, or in one package only. Each
-is tracked to be closed.
-
-* Error classes differ: Python raises `ValueError` for inputs or events whose
-  shapes do not match, where JavaScript throws `RangeError` (lengths, event
-  shapes, asset shapes that do not broadcast). A wrong kind of input throws
-  `TypeError` in both.
-* A nested-array event for an `N`-input op lists the `N` fields first; use an
-  `NdArray` of shape `[K, N]` to list the assets first, as a `(K, N)` NumPy
-  event does.
-
 ### Intentional differences
 
 These differences follow each language's own convention. They are not gaps and
 are not tracked to be closed.
 
+* Error classes follow each language: Python raises `ValueError` for inputs
+  or events whose shapes do not match, where JavaScript throws `RangeError`
+  (lengths, event shapes, asset shapes that do not broadcast). A wrong kind of
+  input raises `TypeError` in both.
 * An indexed stream is marked, never inferred from its items. Python marks it
   with a tuple: `(values, index)` for an array, `(value, index)` for an event
   of an iterator; a tuple given as a stream is always such a pair, and any

@@ -6,7 +6,7 @@ describes what each form does with the operator's state, when it reads
 its sources, how several sources pair up, what an event may hold, and how
 errors behave. The examples are in Python. JavaScript behaves the same, apart
 from the differences listed under
-[Parity gaps](javascript.md#parity-gaps).
+[Intentional differences](javascript.md#intentional-differences).
 
 ## The running series and independent runs
 
