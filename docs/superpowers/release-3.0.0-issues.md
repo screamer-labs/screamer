@@ -73,6 +73,7 @@ Goal: zero open issues before `make major`. Each item is closed by a fix with a 
 | F2 | The CHANGELOG states WilliamsR packed input is "about 3.5x faster"; the figure was not re-measured. | decided: re-measure; state the measured figure in the CHANGELOG or drop the claim; done (1802c35) |
 | F3 | Ehlers cycle and spectral operators still want a domain review of their numerics. | decided: review pack per operator (Ehlers formula, our code, plots on synthetic signals with known period/phase: sine, chirp, trend + cycle) plus automated checks that period/phase estimates recover the known values within a tolerance; user reviews failures and odd plots; pack ready for user review (d7093ab) |
 | F4 | Verify the JS build in a real browser before release (standing rule). | decided: headless-Chrome check on the final JS build as the last pre-release step; to do |
+| F5 | The F3 review pack found doc errors in the Ehlers pages: CyclePhase direction ("advances" but the phase decreases), MAMA adaptation described backwards, the [6, 50] period clamp unmentioned, "shares the same I and Q", Decycler cutoff wording, InstantaneousTrendline citing only Cybernetic Analysis though it also uses the Rocket Science adaptive period. | decided (controller ruling, 2026-10-13): fix the pages after the user's F3 review (the fixes for the four failing ops may change the same text); to do |
 
 ## G. Robustness details
 
