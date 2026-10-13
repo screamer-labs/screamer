@@ -412,6 +412,75 @@ def cases():
         "split n 2.0": lambda: s.split(v, tags, n=2.0),
         "split n np.int64": lambda: s.split(v, tags, n=np.int64(4)),
     })
+
+    # combine_latest: the layout join, every input form, batch and iterator
+    CL = s.CombineLatest
+    P = np.arange(T * 3.0).reshape(T, 3)                    # a (T, A) panel
+    P3 = np.arange(T * 6.0).reshape(T, 3, 2)                # (T, A, F)
+    lz = lambda r: list(r)                                  # noqa: E731
+    rows = lambda a: (x for x in a)                         # noqa: E731
+    table.update({
+        "CombineLatest (T,K) + 1-D": lambda: CL()(X, v),
+        "CombineLatest one input": lambda: CL()(v),
+        "CombineLatest indexed": lambda: CL()((v, idx), (w[:10], idx[:10] * 3 + 5)),
+        "CombineLatest indexed on_any": lambda: CL(emit="on_any")((v, idx + 5), (w, idx)),
+        "CombineLatest indexed wide": lambda: CL()((X, idx), (w[:5], idx[:5] * 7)),
+        "CombineLatest index= list": lambda: CL()(v, w, index=[idx, idx + 3]),
+        "CombineLatest float index": lambda: CL()((v, idx * 0.5), (w, idx * 0.5 + 0.25)),
+        "CombineLatest int and float index": lambda: CL()((v, idx), (w, idx + 0.5)),
+        "CombineLatest bool index": lambda: CL()((v[:2], np.array([True, False])), (w[:2], idx[:2])),
+        "CombineLatest datetime index": lambda: CL()(
+            (v[:3], np.array(["2024-01-01", "2024-01-02", "2024-01-03"], dtype="M8[D]")),
+            (w[:2], np.array(["2024-01-02", "2024-01-04"], dtype="M8[D]"))),
+        "CombineLatest datetime and number": lambda: CL()(
+            (v[:2], np.array(["2024-01-01", "2024-01-02"], dtype="M8[D]")), (w[:2], idx[:2])),
+        "CombineLatest list None": lambda: CL()([1.0, None, 3.0], [4.0, 5.0, 6.0]),
+        "CombineLatest list str": lambda: CL()([1.0, "x"], [4.0, 5.0]),
+        "CombineLatest length mismatch": lambda: CL()(v, w[:5]),
+        "CombineLatest positional and indexed": lambda: CL()(v, (w, idx)),
+        "CombineLatest empty indexed on_any": lambda: CL(emit="on_any")(
+            (v, idx), (np.array([]), np.array([], dtype=np.int64))),
+        "CombineLatest 3-D": lambda: CL()(P3, v),
+        "CombineLatest 3-D indexed": lambda: CL()((P3, idx), (w[:4], idx[:4] * 5 + 1)),
+        "CombineLatest layout TA,T": lambda: CL(layout=("TA", "T"))(P, v),
+        "CombineLatest layout TA": lambda: CL(layout="TA")(P, X),
+        "CombineLatest layout list None": lambda: CL(layout=["TA", None])(P, X),
+        "CombineLatest layout AT": lambda: CL(layout=("AT", "T"))(P.T.copy(), v),
+        "CombineLatest layout AT indexed": lambda: CL(layout=("AT", "T"))((P.T.copy(), idx), (v, idx)),
+        "CombineLatest lazy layout TFA": lambda: lz(CL(layout=("TFA", "T"))(
+            rows(P3.transpose(0, 2, 1)[:3]), rows(v[:3]))),
+        "CombineLatest layout TFA": lambda: CL(layout=("TFA", "T"))(P3.transpose(0, 2, 1).copy(), v),
+        "CombineLatest layout TAF,TA": lambda: CL(layout=("TAF", "TA"))(P3, X),
+        "CombineLatest layout ->": lambda: CL(layout=("TAF->TA", "T"))(P3[:, :, :1], v),
+        "CombineLatest layout indexed": lambda: CL(layout=("TA", "T"))((P, idx), (w[:4], idx[:4] * 6)),
+        "CombineLatest layout count": lambda: CL(layout=("TA",))(P, v),
+        "CombineLatest layout bad letter": lambda: CL(layout=("TX", "T"))(P, v),
+        "CombineLatest layout wrong rank": lambda: CL(layout=("TAF", "T"))(P, v),
+        "CombineLatest assets do not broadcast": lambda: CL(layout="TA")(P, X[:, :2]),
+        "CombineLatest layout on a node": lambda: CL(layout="TA")(s.Input("a"), s.Input("b")),
+        "CombineLatest lazy positional": lambda: lz(CL()(rows(v[:5]), rows(w[:5]))),
+        "CombineLatest lazy positional None": lambda: lz(CL()(iter([1.0, None]), iter([2.0, 3.0]))),
+        "CombineLatest lazy positional str": lambda: lz(CL()(iter([1.0, "x"]), iter([2.0, 3.0]))),
+        "CombineLatest lazy positional np scalars": lambda: lz(CL()(rows(v[:3]), rows(idx[:3]))),
+        "CombineLatest lazy positional uneven": lambda: lz(CL()(rows(v[:3]), rows(w[:2]))),
+        "CombineLatest lazy positional wide": lambda: lz(CL()(rows(X[:4]), rows(v[:4]))),
+        "CombineLatest lazy positional list rows": lambda: lz(CL()(
+            iter([[1.0, 2.0], [3.0, None]]), iter([5.0, 6.0]))),
+        "CombineLatest lazy positional layout": lambda: lz(CL(layout=("TA", "T"))(rows(P[:4]), rows(v[:4]))),
+        "CombineLatest lazy positional 3-D": lambda: lz(CL()(rows(P3[:3]), rows(v[:3]))),
+        "CombineLatest lazy indexed": lambda: lz(CL()(vgen(v, idx), vgen(w[:6], idx[:6] * 4 + 3))),
+        "CombineLatest lazy indexed on_any": lambda: lz(CL(emit="on_any")(vgen(v, idx + 5), vgen(w, idx))),
+        "CombineLatest lazy indexed wide": lambda: lz(CL()(zip(X[:6], idx), vgen(w[:3], idx[:3] * 2))),
+        "CombineLatest lazy indexed layout": lambda: lz(CL(layout=("TA", "T"))(
+            zip(P[:6], idx), vgen(w[:3], idx[:3] * 2))),
+        "CombineLatest lazy indexed 3-D": lambda: lz(CL()(zip(P3[:4], idx), vgen(w[:4], idx[:4]))),
+        "CombineLatest lazy indexed float": lambda: lz(CL()(
+            iter([(1.0, 0.5), (2.0, 1.5)]), iter([(3.0, 1.0)]))),
+        "CombineLatest lazy mixed kinds": lambda: lz(CL()(vgen(v, idx), rows(w))),
+        "CombineLatest lazy one empty": lambda: lz(CL(emit="on_any")(vgen(v[:3], idx), iter([]))),
+        "CombineLatest lazy all empty": lambda: lz(CL()(iter([]), iter([]))),
+        "CombineLatest lazy and array": lambda: CL()(rows(v), w),
+    })
     return table
 
 
