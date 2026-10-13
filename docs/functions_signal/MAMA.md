@@ -31,6 +31,8 @@ see_also:
 - CyclePhase
 - EwMean
 references:
+- 'Ehlers, J. F. (2001). MESA Adaptive Moving Averages. *Technical Analysis of Stocks & Commodities*,
+  September 2001.'
 - 'Ehlers, J. F. (2001). *Rocket Science for Traders: Digital Signal Processing Applications*.
   Wiley.'
 output_names:

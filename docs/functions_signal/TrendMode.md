@@ -51,8 +51,11 @@ Each sample starts as trend, then:
 Rule 3 compares the price with the trendline in relative terms, so it is
 meant for price series, which stay well away from zero. On a series that
 oscillates around zero, such as returns or a detrended signal, the trendline
-is close to zero and every sample reads trend. There are no settings: the
-thresholds are Ehlers'.
+is close to zero and every sample reads trend. For the same reason a cycle
+whose swing exceeds about 1.5% of the price reads trend near its peaks and
+troughs, where the price runs furthest from the trendline: a cycle of
+amplitude 3 on a level of 100 reads cycle on only about half the samples.
+There are no settings: the thresholds are Ehlers'.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling

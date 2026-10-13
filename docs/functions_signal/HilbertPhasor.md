@@ -43,13 +43,17 @@ Together they describe the instantaneous phase (`CyclePhase`) and amplitude
 (`CycleAmplitude`) of the dominant cycle. The estimate is a general spectral
 quantity: the same measurement applies to any sampled signal, not only price.
 
-Scale: Ehlers corrects the Hilbert filter's gain with the factor
-`0.075 * period + 0.54`, which only approximates unit gain, and TA-Lib returns
-the components with that approximate scale (a unit sine reads between about
-0.55 and 1.04 depending on its period). Neither defines an exact amplitude, so
-screamer divides each component by its filter gain at the measured period:
-a sine of amplitude `A` and any period in `[6, 50]` gives components of
-amplitude `A`. The phase relation and the shape match TA-Lib; the values
+Scale: Ehlers treats the magnitude of `(I1, Q1)` as the cycle amplitude in
+price units (his signal-to-noise ratio uses `I1^2 + Q1^2` as the cycle
+power; known here from secondary sources) and corrects the Hilbert filter's
+gain toward 1 with the factor `0.075 * period + 0.54`. The correction is
+approximate, and TA-Lib returns the components with that approximate scale:
+the magnitude for a unit sine is between about 0.71 and 1.04 for periods 7 to
+50, and between 1.6 and 5.2 below 7. screamer keeps the convention's meaning
+and makes the unit gain exact: it divides each component by its filter gain
+at the measured period, so a sine of amplitude `A` and any period from about
+7 to 50 gives components of amplitude `A`. At period 6 the engine misreads
+the period (as about 18) and the components are too large. The phase relation and the shape match TA-Lib; the values
 differ from `HT_PHASOR` by that per-period factor. With `w = 2 pi / period`
 (the engine's period before its final smoothing) and `adj = 0.075 *
 period[t-1] + 0.54`, the gains are

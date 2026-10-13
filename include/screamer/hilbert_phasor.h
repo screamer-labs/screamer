@@ -3,7 +3,7 @@
 
 // HilbertPhasor: Ehlers' in-phase and quadrature components I1 and Q1 (the
 // pair TA-Lib HT_PHASOR returns), each divided by its filter gain at the
-// measured period so a unit sine reads 1 at every period in [6, 50]. Q leads
+// measured period so a unit sine reads 1 at periods from about 7 to 50. Q leads
 // I by a quarter cycle. See detail/hilbert_cycle.h.
 
 #include "screamer/common/functor_base.h"

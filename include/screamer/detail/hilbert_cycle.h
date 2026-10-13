@@ -35,9 +35,12 @@
 //                (I1, Q1) is the pair TA-Lib HT_PHASOR returns. gI and gQ
 //                are the steady-state gains of the smoothing WMA and of one
 //                or two passes of the Hilbert FIR (with its .075*Period + .54
-//                correction) at the current period, so a unit sine of any
-//                period in [6, 50] reads I, Q and amplitude of about 1.
-//                Neither Ehlers nor TA-Lib calibrates this scale.
+//                correction) at the current period, so a unit sine of a
+//                period from about 7 to 50 reads I, Q and amplitude of
+//                about 1. Ehlers takes |(I1, Q1)| as the cycle amplitude
+//                (I1^2 + Q1^2 is the cycle power of his signal-to-noise
+//                ratio) at the approximate unit gain of the .075*Period + .54
+//                correction; dividing by the gains makes that gain exact.
 
 #include <cmath>
 #include <cstddef>

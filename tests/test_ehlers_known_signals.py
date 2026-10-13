@@ -249,8 +249,11 @@ def test_cycle_sine_matches_talib(signal):
 @pytest.mark.parametrize("period", PERIODS)
 def test_trend_mode_sine_plus_trend_is_cycle(period):
     # Ehlers' rule flags trend when the smoothed price is 1.5% or more off
-    # the trendline, a relative test made for prices, so the signal sits on
-    # a price-like level of 100.
+    # the trendline, a relative test made for prices. On a level of 100 the
+    # unit cycle is 1% of the price, below that threshold, so the cycle rules
+    # decide. The cycle share depends on that ratio (about 0.5 on a level of
+    # 10, or for a cycle of amplitude 3 on 100); TA-Lib HT_TRENDMODE gives the
+    # same, and test_trend_mode_matches_talib pins the rule itself.
     x, _ = sine_plus_trend(period)
     tm = np.asarray(TrendMode()(100.0 + x))[SETTLE:]
     assert np.mean(tm == 0.0) >= 0.9

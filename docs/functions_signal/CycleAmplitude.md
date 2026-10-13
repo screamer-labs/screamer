@@ -32,16 +32,22 @@ references:
 
 `CycleAmplitude` reads the instantaneous amplitude, or envelope, of the
 dominant cycle from John Ehlers' Hilbert transform. It is the magnitude
-`sqrt(I^2 + Q^2)` of the `HilbertPhasor` pair, whose components are scaled so
-that a sine of amplitude `A` and any period in `[6, 50]` reads `A`. Neither
-Ehlers nor TA-Lib publishes an amplitude for this transform, so the scale is
-screamer's choice, made to match the input amplitude. It is a general envelope
-detector, tracking the local size of an oscillation in the series, and
-applies to any sampled signal, not only price.
+`sqrt(I^2 + Q^2)` of the `HilbertPhasor` pair. This follows Ehlers'
+convention: he treats the magnitude of `(I1, Q1)` as the cycle amplitude in
+price units, using `I1^2 + Q1^2` as the cycle power in the signal-to-noise
+ratio of *Rocket Science for Traders*, and his factor `0.075 * period + 0.54`
+corrects the Hilbert filter toward unit gain (the chapter is known here from
+secondary sources, not from the book). That correction is approximate, so
+screamer divides each component by its exact filter gain at the measured
+period: a sine of amplitude `A` and any period from about 7 to 50 reads `A`.
+It is a general envelope detector, tracking the local size of an oscillation
+in the series, and applies to any sampled signal, not only price.
 
 The scaling uses the measured period, so the reading is exact for a steady
-cycle the engine can measure. A cycle shorter than 6 samples, outside the
-engine's range, is not measured correctly and its amplitude is not either.
+cycle the engine measures correctly. At the short edge of the engine's range
+it is not: a unit sine of period 6 reads about 1.6, because the engine
+measures its period as about 18, and a cycle shorter than 6 samples is not
+measured at all.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling

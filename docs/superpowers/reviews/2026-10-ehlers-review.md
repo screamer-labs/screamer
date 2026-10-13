@@ -23,7 +23,7 @@ tolerance is a grey band.
 |---|---|---|
 | DominantCycle | PASS | Sine: max error 1.0% (P 10), 0.2% (P 20), 0.4% (P 40). Chirp within 10% (0.7% allowing one period of lag, 2.5% without). Matches TA-Lib `HT_DCPERIOD` to 8e-6 on a random walk. A raw ramp biases it (12.3 for P 10), as in TA-Lib; after `RoofingFilter` it passes. |
 | CycleFrequency | PASS | Reciprocal of DominantCycle, same errors. |
-| CycleAmplitude | PASS (fixed) | Unit sine reads 1.006 / 0.999 / 0.998 (P 10 / 20 / 40), max error 0.7%. Was 0.41 / 1.08 / 1.41. Scale: screamer's (no published convention), each component divided by its filter gain. |
+| CycleAmplitude | PASS (fixed) | Unit sine reads 1.006 / 0.999 / 0.998 (P 10 / 20 / 40), max error 0.7%. Was 0.41 / 1.08 / 1.41. Scale: Ehlers' |(I1, Q1)| at unit gain, made exact by dividing each component by its filter gain. Valid from period 7; period 6 reads 1.62. |
 | HilbertPhasor | PASS (changed) | Now TA-Lib `HT_PHASOR`'s pair (I1, Q1), each scaled to the input amplitude. Q/I 1.00, Q leads I by P/4. Correlation with `HT_PHASOR` 0.9999+ per component on sines. |
 | CyclePhase | PASS, doc fixed | Unchanged values. The phase decreases with time, Ehlers' MAMA direction; the page now says so. |
 | CycleSine | PASS (fixed) | Ehlers' DC phase, as TA-Lib `HT_SINE`. `leadsine` leads `sine` by 1 / 2 / 5 samples (P/8); was -1 / -2 / -5. `sine` is in phase with the input. Matches `HT_SINE` to 4e-6 after sample 200 and 2e-11 after sample 600 on a random walk. |
@@ -74,7 +74,12 @@ available):
 - Ehlers, "Predictive and successful indicators", *S&C* 32(1), 16-25, January
   2014: the roofing filter. Verified in F1.
 - Ehlers, "MESA Adaptive Moving Averages", *S&C*, September 2001: the usual
-  citation for MAMA. **Not verified.**
+  citation for MAMA. Checked in Task 33: the publisher's abstract page sits in
+  traders.com's 2001/09 abstracts folder and says the article is in the
+  September 2001 issue and adapted from Rocket Science (seen through a web
+  search; the page itself refuses scripted access). Two TradingView scripts
+  cite August 2001; the publisher's September is used. Volume and pages not
+  checked.
 
 Independent reference: TA-Lib 0.7.1 (in the dev venv) implements the Rocket
 Science routines as `HT_DCPERIOD`, `HT_DCPHASE`, `HT_PHASOR`, `HT_SINE`,
@@ -176,10 +181,16 @@ tolerance 5%. **PASS.**
 
 ## CycleAmplitude
 
-Convention: none published. Ehlers uses `I1, Q1` (and the smoothed `I2, Q2`)
-only to measure the period and the phase, and TA-Lib has no amplitude
-function. Following the user's rule, the scale is chosen for internal
-consistency: a sine of amplitude `A` reads `A` at every period in [6, 50].
+Convention: Ehlers treats the magnitude of `(I1, Q1)` as the cycle amplitude
+in price units. His `.075 Period + .54` factor is a gain correction toward
+unit amplitude, and Rocket Science's "Signal-to-Noise Ratio" chapter uses
+`I1^2 + Q1^2` as the cycle power, with 0 dB meaning the cycle amplitude equals
+half the average bar range. Source: secondary (TradingView ports of Ehlers'
+SNR, the ProRealCode SNR page); the book text was not checked. TA-Lib has no
+amplitude function. The fix keeps that meaning and makes the unit gain exact:
+a sine of amplitude `A` reads `A` at periods from about 7 to 50. (The first
+version of this section said no convention existed; the Task 33 review
+corrected that.)
 
 Formula (Task 33): `sqrt((I1 / gI)^2 + (Q1 / gQ)^2)`, with `gI = W h` and
 `gQ = W h^2` the steady-state gains of `I1` and `Q1` at the engine's period:
@@ -197,7 +208,8 @@ gains in [`detail/hilbert_cycle.h`](../../../include/screamer/detail/hilbert_cyc
 ![CycleAmplitude on sines](ehlers/cycle_amplitude_sine.png)
 
 Other periods (median, unit sine): P 8 0.998, P 15 0.999, P 30 1.000, P 50
-0.991. A sine of period 6 reads 1.53, because the engine measures its period
+0.991, P 7 0.989 (median from sample 300). A sine of period 6 reads 1.62
+(median from sample 300, up to 2.8), because the engine measures its period
 as 18 (DominantCycle on that input gives 18.4, a limit of the published
 discriminator at the edge of its range), and the gain is taken at that period.
 
@@ -207,9 +219,9 @@ Convention: TA-Lib `HT_PHASOR` returns Ehlers' `(I1, Q1)` (Rocket Science,
 "Hilbert Transforms"). The operator now returns that pair (2.8.0 returned the
 smoothed homodyne pair `(I2, Q2)`). Its scale follows CycleAmplitude: each
 component is divided by its gain, so a unit sine gives unit components. TA-Lib
-leaves them at Ehlers' approximate unit gain, which is off by up to 48% (a unit
-sine reads 0.83 to 1.04 for periods 8 to 50 and 1.48 at period 6 in
-`HT_PHASOR`), and its two components differ in size by up to 12% at period 10.
+leaves them at Ehlers' approximate unit gain: a unit sine reads 0.71 (P 7) to
+1.04 (P 15) for periods 7 to 50 in `HT_PHASOR`, 1.6 to 5.2 below 7 (P 6 1.62,
+P 6.5 5.16), and its two components differ in size by up to 12% at period 10.
 Code: [`hilbert_phasor.h`](../../../include/screamer/hilbert_phasor.h).
 
 | Check | Expected | After | Result |
@@ -357,8 +369,8 @@ identical output on that signal.
 
 ## MAMA
 
-Convention: Ehlers, "MESA Adaptive Moving Averages" (S&C, September 2001, not
-verified) and Rocket Science, as TA-Lib `MAMA` implements it (ta_MAMA.c):
+Convention: Ehlers, "MESA Adaptive Moving Averages" (S&C, September 2001, see
+Sources) and Rocket Science, as TA-Lib `MAMA` implements it (ta_MAMA.c):
 `Phase = arctan(Q1 / I1)` in degrees (0 when `I1 = 0`), `DeltaPhase =
 max(Phase[1] - Phase, 1)`, `alpha = clip(fast_limit / DeltaPhase, slow_limit,
 fast_limit)`, MAMA an EMA with `alpha`, FAMA an EMA of MAMA with `alpha / 2`.
@@ -418,6 +430,19 @@ Gain with `hp_period=48, lp_period=10`: -3.54 dB at 48, -3.33 dB at 10.
 
 ![Filter gains](ehlers/filters_gain.png)
 
+## Where TA-Lib still differs
+
+The Task 33 review cross-checked more signals (walks at level 100 and 0,
+geometric walks, sines P 7 to 48, chirps, a noisy sine, a ramp). Two cases
+differ from TA-Lib after sample 200: a pure ramp (InstantaneousTrendline 3e-2,
+MAMA 0.12) and a sine of period 48 (InstantaneousTrendline 2e-2, until about
+sample 633). Both come from DominantCycle differing from `HT_DCPERIOD` there
+(3.3 on the ramp, 0.1 on the sine), which Task 33 did not change: on a pure
+ramp the detrended input is nearly constant, the discriminator's period loop
+is chaotic, and last-bit differences between the two implementations grow.
+Everything downstream of the period follows TA-Lib exactly once the periods
+agree.
+
 ## Decisions taken (Task 33)
 
 The user's rule (2026-10-13): follow the popular convention of the papers and
@@ -425,8 +450,8 @@ other libraries; where none exists, choose for internal consistency.
 
 1. CycleSine: adopt Ehlers' DC phase, as TA-Lib `HT_SINE` (convention).
 2. CycleAmplitude and HilbertPhasor: HilbertPhasor returns TA-Lib
-   `HT_PHASOR`'s pair `(I1, Q1)` (convention); no published amplitude scale
-   exists, so both are scaled to read the input amplitude (consistency).
+   `HT_PHASOR`'s pair `(I1, Q1)` (convention); both keep Ehlers' meaning of
+   `|(I1, Q1)|` as the cycle amplitude at unit gain and make that gain exact.
 3. TrendMode: adopt Ehlers' rule, as TA-Lib `HT_TRENDMODE` (convention); the
    `phase_rate_frac` parameter is removed.
 4. InstantaneousTrendline: adopt the Rocket Science trendline, as TA-Lib

@@ -709,11 +709,12 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 * `HilbertPhasor` returns Ehlers' in-phase and quadrature components `I1` and
   `Q1`, the pair of TA-Lib `HT_PHASOR`, each divided by its filter gain at the
   measured period, so a sine of amplitude `A` gives components of amplitude
-  `A` at every period from 6 to 50. 2.8.0 returned the smoothed homodyne pair
+  `A` at periods from about 7 to 50. 2.8.0 returned the smoothed homodyne pair
   `(I2, Q2)`, whose size depended on the period. `CycleAmplitude`, the
   magnitude of the pair, now reads 1.00 for a unit sine of period 10, 20 or
-  40 (2.8.0: 0.41, 1.08, 1.41). Neither Ehlers nor TA-Lib defines this scale;
-  screamer matches the input amplitude. To get TA-Lib's `HT_PHASOR` values,
+  40 (2.8.0: 0.41, 1.08, 1.41). This keeps Ehlers' convention, the magnitude
+  of `(I1, Q1)` as the cycle amplitude at about unit gain, and makes the
+  gain exact. To get TA-Lib's `HT_PHASOR` values,
   multiply each component by its gain (see the `HilbertPhasor` page).
 
 ### Fixed

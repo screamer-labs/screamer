@@ -156,6 +156,10 @@ def cases():
     for name in ["IsNan", "Not", "IsFinite", "TrendMode", "CyclePhase", "CycleAmplitude",
                  "CycleFrequency", "DominantCycle", "InstantaneousTrendline"]:
         table[f"lazy {name} generator"] = (lambda n: lambda: getattr(s, n)()(gen(long)))(name)
+    # The Ehlers operators with two outputs, on an array past their warm-up
+    # (Task 33 changed their values; MAMA with its default limits).
+    for name in ["CycleSine", "MAMA", "HilbertPhasor"]:
+        table[f"Ehlers {name} array"] = (lambda n: lambda: getattr(s, n)()(long))(name)
     # Microstructure keywords with scalars, lists and generators.
     micro = {
         "SignedVolume": (lambda: s.SignedVolume(), ("sign", "volume"), sign, w),

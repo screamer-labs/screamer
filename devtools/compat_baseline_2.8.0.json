@@ -8820,6 +8820,36 @@
    ]
   ]
  ],
+ "Ehlers CycleSine array": [
+  "ndarray",
+  [
+   200,
+   2
+  ],
+  "f",
+  -15.324655,
+  "ed7e0bfacd4ac45b"
+ ],
+ "Ehlers MAMA array": [
+  "ndarray",
+  [
+   200,
+   2
+  ],
+  "f",
+  27870.102544,
+  "4012f048ee291b4b"
+ ],
+ "Ehlers HilbertPhasor array": [
+  "ndarray",
+  [
+   200,
+   2
+  ],
+  "f",
+  -92.803463,
+  "4f091eacd650fdd6"
+ ],
  "SignedVolume kw scalars": [
   "float",
   99.162826816
