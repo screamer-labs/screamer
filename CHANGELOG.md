@@ -23,6 +23,11 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   values. JavaScript `split` returns `{values, index}` objects, so its outputs
   feed `combineLatest` and a `Pipeline` as they are.
 * JavaScript `split`.
+* `BacktestPortfolioTarget` and `BacktestPortfolioOHLCTarget` take one packed
+  `(T, K, F)` array, the fields last in the order of the separate arguments
+  (rule 4), in Python and JavaScript (an `NdArray` `[T, K, F]`), with the
+  results of the separate arrays bit for bit. 2.8.0 raised "this operator
+  takes 2 inputs, got 1".
 * JavaScript `merge`, Python's `Merge`: `merge([a, b])` on arrays or
   `{ values, index }` streams returns `{ values, sources, index }`, and on
   iterators or async iterables of events an iterator of
@@ -859,6 +864,11 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Fixed
 
+* An operator reads a non-contiguous float64 (or other dtype) view whose
+  address is not aligned for its type, such as a strided view of
+  `np.frombuffer(buf, offset=1)`, with a byte copy of each element. It read
+  through a typed pointer before, which is undefined behaviour in C++; the
+  values are unchanged.
 * A `(values, index)` feed whose index is shorter or longer than the values
   raises `ValueError` (`RangeError` in JavaScript) naming both lengths, at
   every entry point that takes the pair: a `Pipeline` batch call, `Merge`,

@@ -276,11 +276,6 @@ def construct(cls):
     return None
 
 
-# Operators that take one array per input by design and refuse a packed
-# argument ("this operator takes N inputs, got 1"): the portfolio engines read
-# one (T, K) array per input.
-NO_PACKED = {"BacktestPortfolioTarget", "BacktestPortfolioOHLCTarget"}
-
 # Extra constructions timed besides each operator's default one (name, args).
 EXTRA_OPS = (("WilliamsR", (20,)), ("WilliamsR", (50,)))
 
@@ -305,9 +300,13 @@ def packed_cases(s, np, errors, untimed):
     if evalop is None:
         import importlib
         evalop = importlib.import_module(s.__name__ + ".screamer_bindings").EvalOp
+    # A row operator (the portfolio engines) takes (T, K) inputs, packed as
+    # (T, K, F); absent in a build without row operators.
+    rowop = getattr(evalop, "__module__", None) and getattr(
+        __import__(evalop.__module__, fromlist=["RowOp"]), "RowOp", None)
     for name in sorted(n for n in dir(s) if not n.startswith("_")):
         cls = getattr(s, name)
-        if inspect.isclass(cls) and issubclass(cls, evalop) and name not in NO_PACKED:
+        if inspect.isclass(cls) and issubclass(cls, evalop):
             ops.append((name, construct(cls)))
     for name, args in EXTRA_OPS:
         try:
@@ -327,8 +326,10 @@ def packed_cases(s, np, errors, untimed):
             break
         if n_in is None or n_in < 2:
             continue
-        for shape, cols in (("1d", xs[:n_in]),
-                            ("2d", [x.reshape(OP_SHAPE_2D) for x in xs[:n_in]])):
+        shapes = (("1d", xs[:n_in]), ("2d", [x.reshape(OP_SHAPE_2D) for x in xs[:n_in]]))
+        if rowop is not None and isinstance(op, rowop):
+            shapes = shapes[1:]                 # a row op's 1-D call is one row of assets
+        for shape, cols in shapes:
             packed = np.ascontiguousarray(np.stack(cols, axis=-1))
             key = f"{name}:{shape}"
             try:

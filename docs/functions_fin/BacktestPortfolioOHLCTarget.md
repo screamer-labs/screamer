@@ -186,6 +186,12 @@ which is how the engine runs live: call it once per step with that step's
 targets and prices. The number of assets is fixed by the first step after
 `reset()`.
 
+The inputs can also come as one packed `(T, K, 5)` array, the fields last
+in the order of the separate arguments (`target`, `open`, `high`, `low` and `close`), as for every
+multi-input operator: `np.stack([...], axis=-1)` gives the same results as
+the separate arrays, bit for bit. In JavaScript the packed form is an
+`NdArray` of shape `[T, K, 5]`.
+
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling

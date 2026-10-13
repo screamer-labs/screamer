@@ -127,14 +127,19 @@ inline void mapRowInto(Op& op, std::uintptr_t inPtr, std::uintptr_t outPtr, std:
 template <class Op> inline std::size_t fieldsIn(Op& op) { return op.fields_in(); }
 template <class Op> inline std::size_t fieldsOut(Op& op) { return op.fields_out(); }
 
+// `packed` reads each row as k assets of fieldsIn() values (a packed
+// (T, K, F) array) instead of fieldsIn() blocks of k values (RowOp::call_rows).
 template <class Op>
 inline void mapRowsInto(Op& op, std::uintptr_t inPtr, std::uintptr_t outPtr,
-                        std::size_t rows, std::size_t k) {
-    const double* in = reinterpret_cast<const double*>(inPtr);
-    double* out = reinterpret_cast<double*>(outPtr);
-    const std::size_t ni = op.fields_in() * k, no = op.fields_out() * k;
+                        std::size_t rows, std::size_t k, bool packed) {
     op.reset();
-    for (std::size_t r = 0; r < rows; ++r) op.call_row(in + r * ni, out + r * no, k);
+    try {
+        op.call_rows(reinterpret_cast<const double*>(inPtr), reinterpret_cast<double*>(outPtr),
+                     rows, k, packed);
+    } catch (...) {
+        op.reset();
+        throw;
+    }
     op.reset();
 }
 

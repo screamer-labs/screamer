@@ -188,3 +188,29 @@ test("C1: async pairs, [T, K, 1] prices, malformed pairs", async () => {
   assert.throws(() => PortfolioReport()(pricedRows.map((r, t) => [r, priceRows[t]])),
     { name: "TypeError", message: /two arguments/ });
 });
+
+// G33 (a): one packed [T, K, F] NdArray, F last in argument order, gives the
+// separate arrays' results bit for bit.
+test("portfolio: a packed [T, K, F] array equals the separate arrays", () => {
+  const pack = (fields: number[][][]) => {
+    const F = fields.length, data = new Float64Array(T * K * F);
+    for (let t = 0; t < T; t++) for (let k = 0; k < K; k++) for (let f = 0; f < F; f++)
+      data[(t * K + k) * F + f] = fields[f][t][k];
+    return { data, shape: [T, K, F] };
+  };
+  const bits = (a: { data: Float64Array }, b: { data: Float64Array }) =>
+    assert.deepEqual(new Uint8Array(a.data.buffer, a.data.byteOffset, a.data.byteLength),
+                     new Uint8Array(b.data.buffer, b.data.byteOffset, b.data.byteLength));
+  const p = BacktestPortfolioTarget({ fee: [0.001] });
+  bits(p(pack([w, close])) as any, p(mat(w), mat(close)) as any);
+  const o = BacktestPortfolioOHLCTarget({ fee: [0.001], fillAt: "ohlc4", delay: 2 });
+  const sep = o(mat(w), mat(open), mat(high), mat(low), mat(close)) as any;
+  const packed = o(pack([w, open, high, low, close])) as any;
+  assert.deepEqual(packed.shape, [T, K, 4]);
+  bits(packed, sep);
+  assert.throws(() => p(pack([w, close, close])), { name: "RangeError",
+    message: "a packed input of BacktestPortfolioTarget has shape [T, K, 2], got [12,3,3]" });
+  assert.throws(() => o(mat(w), mat(close)), { name: "RangeError",
+    message: "this op takes 5 inputs, or one packed [T, K, 5] array, got 2" });
+  p.dispose(); o.dispose();
+});

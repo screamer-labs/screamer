@@ -38,7 +38,7 @@ export interface RawOp {
   // Present only on row ops (see wrapRowOp): one event is a row of k assets
   // with fieldsIn() values each, so k travels per call.
   mapRowInto?(inPtr: number, outPtr: number, k: number): void;
-  mapRowsInto?(inPtr: number, outPtr: number, rows: number, k: number): void;
+  mapRowsInto?(inPtr: number, outPtr: number, rows: number, k: number, packed: boolean): void;
   fieldsIn?(): number;
   fieldsOut?(): number;
 }

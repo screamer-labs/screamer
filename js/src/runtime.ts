@@ -1114,7 +1114,27 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
       else for (let t = 0; t < T; t++)
         for (let f = 0; f < fi; f++)
           for (let j = 0; j < k; j++) view[(t * fi + f) * k + j] = blocks[f][t * k + j];
-      try { raw.mapRowsInto!(inP, outP, T, k); } catch (e) { throw normalizeError(e); }
+      try { raw.mapRowsInto!(inP, outP, T, k, false); } catch (e) { throw normalizeError(e); }
+      return { data: new Float64Array(M.viewF64(outP, nOut)), shape };
+    } finally {
+      M.freeBuf(inP); M.freeBuf(outP);
+    }
+  };
+
+  // T events from one packed [T, K, F] NdArray, F = fi last (rule 4): its
+  // rows go to the engine as they are, and C++ reads each asset's fields.
+  const packedBatch = (x: NdArray): NdArray => {
+    const [T, k, F] = x.shape;
+    if (F !== fi)
+      throw new RangeError(`a packed input of ${opName(raw)} has shape [T, K, ${fi}], got [${x.shape}]`);
+    if (k === 0) throw new RangeError("a row op needs at least one asset");
+    const shape = fo === 1 ? [T, k] : [T, k, fo];
+    if (T === 0) return { data: new Float64Array(0), shape };
+    const nIn = T * fi * k, nOut = T * fo * k;
+    const inP = M.allocF64(nIn), outP = M.allocF64(nOut);
+    try {
+      M.viewF64(inP, nIn).set(x.data);
+      try { raw.mapRowsInto!(inP, outP, T, k, true); } catch (e) { throw normalizeError(e); }
       return { data: new Float64Array(M.viewF64(outP, nOut)), shape };
     } finally {
       M.freeBuf(inP); M.freeBuf(outP);
@@ -1193,7 +1213,11 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
       raw.reset();
       return kind === "async" ? runAsyncStream(args, openStream, op) : runStream(args, openStream, op);
     }
-    if (args.length !== fi) throw new RangeError(`this op takes ${fi} inputs, got ${args.length}`);
+    // One packed [T, K, F] NdArray holds the fi inputs, F last (rule 4).
+    if (args.length === 1 && fi > 1 && isNd(args[0]) && args[0].shape.length === 3)
+      return packedBatch(args[0]);
+    if (args.length !== fi)
+      throw new RangeError(`this op takes ${fi} inputs${fi > 1 ? `, or one packed [T, K, ${fi}] array,` : ""} got ${args.length}`);
     if (args.every((a) => isTyped(a) || isNumArr(a) || (isNd(a) && a.shape.length === 1)))
       return eventOut(args.map((a) => (isNd(a) ? a.data : a)));
     const blocks = args.map(asBlock);

@@ -460,6 +460,33 @@ nb::object row_op_run(screamer::RowOp& self,
     return screamer::detail::make_owned_array(out, row_op_shape(time, k, fo, batch));
 }
 
+// A packed (T, K, F) array, F = fields_in: T events, one call_rows over its
+// rows. Returns (T, K) or (T, K, fields_out), as the separate inputs do.
+nb::object row_op_packed(screamer::RowOp& self, nb::object x) {
+    const screamer::detail::ContigDouble p =
+        screamer::detail::read_double_view(nb::cast<nb::ndarray<nb::ro>>(x));
+    const std::size_t fi = self.fields_in(), fo = self.fields_out();
+    if (p.shape[2] != fi)
+        throw nb::value_error(("a packed input of a row operator has shape (T, K, " +
+                               std::to_string(fi) + "), got (" + std::to_string(p.shape[0]) + ", " +
+                               std::to_string(p.shape[1]) + ", " + std::to_string(p.shape[2]) +
+                               ").").c_str());
+    const std::size_t time = p.shape[0], k = p.shape[1];
+    if (k == 0) throw nb::value_error("a row operator needs at least one asset.");
+    const std::size_t n_out = time * k * fo;
+    double* out = new double[n_out ? n_out : 1];
+    self.reset();
+    try {
+        self.call_rows(p.values(), out, time, k, /*packed=*/true);
+    } catch (...) {
+        delete[] out;
+        self.reset();
+        throw;
+    }
+    self.reset();
+    return screamer::detail::make_owned_array(out, row_op_shape(time, k, fo, true));
+}
+
 // One RowOp event per step, for the sync and async iterators alike. The items
 // are fields_in rows of K values, one per source, or with one source and
 // fields_in > 1 a tuple or list of fields_in rows. A (K, 1) row reads as (K,)
@@ -549,9 +576,19 @@ nb::object row_op_call(screamer::RowOp& self, nb::args raw) {
         if (async) return nb::cast(screamer::LazyAsyncIterator(std::move(stepper), sources));
         return nb::cast(screamer::LazyEvalIterator(std::move(stepper), sources));
     }
+    // One packed (T, K, F) array holds the fi inputs, F last (rule 4). Its
+    // rows go to the engine as they are (RowOp::call_rows reads each asset's
+    // fields), read in place when the array is float64 and C-contiguous.
+    if (n == 1 && fi > 1 && !screamer::is_lazy_iterable(args[0])) {
+        nb::object a = nb::borrow<nb::object>(args[0]);
+        if (screamer::detail::is_unsupported_dtype_array(a)) a = screamer::detail::coerce_to_f64(a);
+        if (screamer::detail::is_ndarray(a) && nb::cast<int>(a.attr("ndim")) == 3)
+            return row_op_packed(self, a);
+    }
     if (n != fi)
-        throw nb::type_error(("this operator takes " + std::to_string(fi) +
-                              " inputs, got " + std::to_string(n) + ".").c_str());
+        throw nb::type_error(("this operator takes " + std::to_string(fi) + " inputs" +
+                              (fi > 1 ? ", or one packed (T, K, " + std::to_string(fi) + ") array," : "") +
+                              " got " + std::to_string(n) + ".").c_str());
     std::vector<screamer::detail::ContigDouble> fields;
     for (std::size_t i = 0; i < n; ++i) {
         nb::handle a = args[i];

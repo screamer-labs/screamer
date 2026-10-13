@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <stdexcept>
+#include <vector>
 #include "screamer/common/eval_op.h"
 
 namespace screamer {
@@ -61,6 +62,27 @@ public:
             on_width(k);
         }
         map_row(in, out, k);
+    }
+
+    // `rows` events of k assets laid end to end, the rows of a batch call.
+    // Field-major rows (`packed` false) are fields_in blocks of k values, the
+    // rows of the separate (T, K) inputs laid end to end. Packed rows are k
+    // assets of fields_in values each, the rows of one packed (T, K, F)
+    // array, F last (rule 4): each is gathered into field-major order. Both
+    // layouts give the same events, so the same results bit for bit.
+    void call_rows(const double* in, double* out, std::size_t rows, std::size_t k, bool packed) {
+        const std::size_t fi = fields_in_, step_in = fi * k, step_out = fields_out_ * k;
+        if (!packed || fi == 1) {
+            for (std::size_t r = 0; r < rows; ++r) call_row(in + r * step_in, out + r * step_out, k);
+            return;
+        }
+        std::vector<double> event(step_in);
+        for (std::size_t r = 0; r < rows; ++r) {
+            const double* row = in + r * step_in;
+            for (std::size_t j = 0; j < k; ++j)
+                for (std::size_t f = 0; f < fi; ++f) event[f * k + j] = row[j * fi + f];
+            call_row(event.data(), out + r * step_out, k);
+        }
     }
 
 protected:
