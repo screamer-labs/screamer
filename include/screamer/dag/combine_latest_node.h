@@ -41,7 +41,6 @@ public:
         : cl_(widths, when_all), declared_(widths), when_all_(when_all),
           downstream_(downstream), n_(widths.size()),
           max_pending_(max_pending),
-          buffered_row_(cl_.total_width(), 0.0),
           learned_(widths.size(), false),
           pool_(widths.size()), free_slots_(widths.size()),
           wm_(widths.size(), std::numeric_limits<Index>::min()),
@@ -66,7 +65,6 @@ public:
         cl_ = screamer::streams::CombineLatest(declared_, when_all_);
         std::fill(learned_.begin(), learned_.end(), false);
         emitted_any_ = false;
-        buffered_row_.assign(cl_.total_width(), 0.0);
         for (std::size_t p = 0; p < n_; ++p) { pool_[p].clear(); free_slots_[p].clear(); }
         has_buffered_ = false;
         std::fill(flushed_.begin(), flushed_.end(), false);
@@ -80,20 +78,27 @@ public:
 private:
     // Unchanged as-of + coalescing logic, now fed in guaranteed global index order
     // by release(). Takes an explicit index and the port's values instead of a Frame.
+    //
+    // The buffered row is the operator's latest row itself: once a row is due,
+    // every later event makes one due too (when_all has seen every input), so
+    // while a row is buffered no event changes the latest row without
+    // re-buffering it. An event at a new index therefore emits the buffered
+    // row before it updates the latest one, and no copy is kept.
     void apply_ordered(std::size_t i, Index ev_index, const double* values) {
+        if (has_buffered_ && ev_index != buffered_index_) emit_buffered();
         if (cl_.on_event(static_cast<std::uint32_t>(i), values)) {
             emitted_any_ = true;
-            const std::vector<double>& row = cl_.latest();
-            if (has_buffered_ && ev_index != buffered_index_) {
-                // Index advanced: emit the buffered (settled) frame.
-                downstream_.push(Frame<Index>{buffered_index_,
-                                              buffered_row_.data(), buffered_row_.size()});
-            }
             // Buffer the latest row at this index (overwrites if same index).
             buffered_index_ = ev_index;
-            std::copy(row.begin(), row.end(), buffered_row_.begin());
             has_buffered_ = true;
         }
+    }
+
+    // Emits the buffered (settled) row: the latest row (see apply_ordered).
+    void emit_buffered() {
+        const std::vector<double>& row = cl_.latest();
+        downstream_.push(Frame<Index>{buffered_index_, row.data(), row.size()});
+        has_buffered_ = false;
     }
 
     void on_port(std::size_t i, const Frame<Index>& f) {
@@ -110,7 +115,6 @@ private:
                         "With emit=\"on_any\" inside a Pipeline, a row can be due before every "
                         "input has arrived; use emit=\"when_all\".");
                 cl_.set_width(i, f.width);
-                buffered_row_.assign(cl_.total_width(), 0.0);
             }
         } else if (f.width != cl_.width(i)) {
             throw std::invalid_argument(
@@ -168,11 +172,7 @@ private:
         // The coalescing buffer holds the settled row for the latest index that
         // has been applied. If the watermark is now strictly above that index,
         // no future event can share the same index, so it is safe to emit.
-        if (has_buffered_ && buffered_index_ < low) {
-            downstream_.push(Frame<Index>{buffered_index_,
-                                          buffered_row_.data(), buffered_row_.size()});
-            has_buffered_ = false;
-        }
+        if (has_buffered_ && buffered_index_ < low) emit_buffered();
         if (low != std::numeric_limits<Index>::min() && low > last_forwarded_wm_) {
             last_forwarded_wm_ = low;
             downstream_.on_watermark(low);
@@ -194,11 +194,7 @@ private:
         if (flushed_count_ < n_) return;   // not every port has flushed yet
 
         // Every port has now delivered its final event: emit the settled row once.
-        if (has_buffered_) {
-            downstream_.push(Frame<Index>{buffered_index_,
-                                          buffered_row_.data(), buffered_row_.size()});
-            has_buffered_ = false;
-        }
+        if (has_buffered_) emit_buffered();
         downstream_.flush();
 
         // Re-arm for a subsequent flush cycle (idempotent: has_buffered_ is now
@@ -229,10 +225,10 @@ private:
     std::size_t max_pending_;
     std::vector<Port> ports_;
 
-    // Coalescing buffer: holds the latest aligned row at the current index.
+    // Coalescing buffer: a row is due at buffered_index_; the row is the
+    // operator's latest row (see apply_ordered).
     bool has_buffered_ = false;
     Index buffered_index_{};
-    std::vector<double> buffered_row_;
 
     // Width learning: learned_[i] once port i's first frame fixed its width;
     // emitted_any_ once a row has gone out (after which widths cannot change).

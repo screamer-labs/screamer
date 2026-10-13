@@ -1099,6 +1099,15 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Performance
 
+* A `Pipeline` that joins inputs runs faster, in Python and JavaScript.
+  `CombineLatest` emits its settled row without copying it, a batch run of up
+  to 8 inputs merges them by a scan of their next rows instead of a heap, and
+  an output takes a one-column row without a range insert. The results are
+  unchanged. Python, 10^6 rows per input (ms, against this branch before the
+  change and 2.8.0): `Sub()(CombineLatest()(a, b))` 46.5 (was 57.2; 2.8.0
+  52.9), `forecast_pairs(X, y, count=5)` 34.9 (was 43.3; 40.2), a one-input
+  `Lag(1)` graph 5.5 (was 6.9; 10.1), a clock `Resample` 19.3 (was 22.2;
+  33.9). JavaScript, the two-input graph: 111 ms (was 135).
 * The layout join of `combine_latest` (asset broadcast, field concatenation,
   row assembly and the positional pairing of iterators) is C++, shared with
   JavaScript. The positional iterator form is about 2.9x faster than 2.8.0

@@ -53,7 +53,8 @@ public:
                 " values after frames of " + std::to_string(buf_.width));
         buf_.width = f.width;
         buf_.indices.push_back(f.index);
-        buf_.values.insert(buf_.values.end(), f.values, f.values + f.width);
+        if (f.width == 1) buf_.values.push_back(f.values[0]);   // no range insert per value
+        else buf_.values.insert(buf_.values.end(), f.values, f.values + f.width);
     }
     // The output's watermark: the output join settles on it (output_join.h).
     void on_watermark(std::int64_t w) override {
@@ -72,6 +73,10 @@ private:
 // implementation.
 class CompiledGraph {
 public:
+    // A batch run of at most this many inputs merges them by a scan
+    // (run_batch_ref), more by streams::MergeSource's heap.
+    static constexpr std::size_t kScanMergeInputs = 8;
+
     // Non-copyable: nodes/gather-sinks hold raw pointers into this object's own
     // members (outputs_, owned_). Move IS safe - std::vector move keeps element
     // addresses (heap) unchanged and shared_ptr move doesn't relocate the pointee;
@@ -577,6 +582,39 @@ public:
                 sink->push(f);
             }
             sink->flush();
+            flushed_ = true;
+            return outputs_;
+        }
+
+        // A few inputs merge by a scan of their next rows: the smallest index
+        // goes first, the lower input on a tie, as streams::MergeSource orders
+        // them. As there, an input's next row is read (and its index order
+        // checked) only after its previous row went through the graph.
+        if (num_in_ <= kScanMergeInputs) {
+            std::size_t pos[kScanMergeInputs] = {};
+            std::size_t last = num_in_;           // the input whose row went last
+            for (;;) {
+                if (last != num_in_) {
+                    const std::size_t r = pos[last];
+                    const std::int64_t* k = in_indices[last];
+                    if (r < in_lens[last] && k[r] < k[r - 1])
+                        throw_index_decreases(last, r, k[r - 1], k[r]);
+                }
+                std::size_t src = num_in_;
+                std::int64_t best = 0;
+                for (std::size_t i = 0; i < num_in_; ++i) {
+                    if (pos[i] == in_lens[i]) continue;
+                    const std::int64_t t = in_indices[i][pos[i]];
+                    if (src == num_in_ || t < best) { src = i; best = t; }
+                }
+                if (src == num_in_) break;
+                const std::size_t w = widths[src];
+                Frame<std::int64_t> f{best, in_vals[src] + pos[src] * w, w};
+                input_sinks_[src]->push(f);
+                ++pos[src];
+                last = src;
+            }
+            for (auto* s : input_sinks_) if (s) s->flush();
             flushed_ = true;
             return outputs_;
         }
