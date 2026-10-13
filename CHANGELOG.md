@@ -914,8 +914,6 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 * `position_test`, `strategy_test` and `walk_forward` no longer copy prices to
   K columns; JavaScript `positionTest` and `walkForward` run the engine once
   per chunk.
-* `WilliamsR` runs its batch fast path on packed `(T, 3)` and `(T, K)` input,
-  about 3.5x faster on a packed call.
 * nanobind 2.13.0 lowers the cost of a single-event call: `RollingMean(20)(1.0)`
   takes about 0.065 µs (was 0.077 µs) and `RollingCorr(20)(1.0, 2.0)` about
   1.0 µs (was 1.6 µs).
