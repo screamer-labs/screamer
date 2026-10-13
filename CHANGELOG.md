@@ -1123,6 +1123,13 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   (geometric mean) and the packed call 0.87, and the packed call is within
   1.05x of the separate one (was up to 1.23x; 2.8.0 up to 4x), `VPIN` aside,
   which runs at one of two speeds per process in either spelling.
+* JavaScript calls the per-event steps of a live `Pipeline` and of the
+  `combineLatest` iterators as plain WASM exports instead of Embind methods,
+  and checks the keys of a `{ value, index }` event without building a
+  message or an array. The steps are the same C++. Node 22, 10^5 events per
+  input (ms): the indexed iterator join of two sources 33 (was 86), `push`
+  of a number 4.3 (was 16.8), `push` of a two-value event 22 (was 39), the
+  positional iterator join of array events 22 (was 31).
 * The layout join of `combine_latest` (asset broadcast, field concatenation,
   row assembly and the positional pairing of iterators) is C++, shared with
   JavaScript. The positional iterator form is about 2.9x faster than 2.8.0

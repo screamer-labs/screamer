@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 #include <emscripten/bind.h>
+#include <emscripten/em_macros.h>
 #include <emscripten/val.h>
 #include "screamer/dag/checked_index.h"
 #include "screamer/dag/combine_stream.h"
@@ -131,7 +132,10 @@ emscripten::val combineLatestBatch(std::uintptr_t spec, bool whenAll, emscripten
 // rowValues()), and the source whose next event it wants, or -1 when the
 // stream is done. One number keeps a step to one call into WASM.
 //
-// JavaScript frees the object when the stream ends or is collected.
+// JavaScript frees the object when the stream ends or is collected. The calls
+// made once per event (zip, offer, end, rowIndex, rowValues) are also plain exported functions
+// below, which take the object's address(): an Embind method call costs more
+// than the step itself.
 class JoinStream {
 public:
     JoinStream(emscripten::val shapes, emscripten::val layout, bool indexed, bool whenAll) {
@@ -184,6 +188,7 @@ public:
     }
     double start() { return feed(); }
 
+    std::uintptr_t address() { return reinterpret_cast<std::uintptr_t>(this); }
     std::uintptr_t rowIndex() const { return reinterpret_cast<std::uintptr_t>(index_.data()); }
     std::uintptr_t rowValues() const { return reinterpret_cast<std::uintptr_t>(out_.data()); }
 
@@ -220,6 +225,29 @@ private:
 
 }  // namespace
 
+// The per-event steps of a JoinStream at address `s` (JoinStream::address), as
+// plain exports: JavaScript calls them as Module._screamer_join_zip(s) and so
+// on, with no Embind argument conversion. A C++ exception reaches JavaScript
+// as it does from an Embind method.
+extern "C" {
+EMSCRIPTEN_KEEPALIVE int screamer_join_zip(std::uintptr_t s) {
+    return reinterpret_cast<JoinStream*>(s)->zip();
+}
+EMSCRIPTEN_KEEPALIVE double screamer_join_offer(std::uintptr_t s, std::uint32_t i, double index,
+                                                std::uint32_t size, int run) {
+    return reinterpret_cast<JoinStream*>(s)->offer(i, index, size, run != 0);
+}
+EMSCRIPTEN_KEEPALIVE double screamer_join_end(std::uintptr_t s, std::uint32_t i, int run) {
+    return reinterpret_cast<JoinStream*>(s)->end(i, run != 0);
+}
+EMSCRIPTEN_KEEPALIVE std::uintptr_t screamer_join_row_index(std::uintptr_t s) {
+    return reinterpret_cast<JoinStream*>(s)->rowIndex();
+}
+EMSCRIPTEN_KEEPALIVE std::uintptr_t screamer_join_row_values(std::uintptr_t s) {
+    return reinterpret_cast<JoinStream*>(s)->rowValues();
+}
+}  // extern "C"
+
 EMSCRIPTEN_BINDINGS(screamer_join) {
     emscripten::function("combineLatestBatch", &combineLatestBatch);
     emscripten::class_<JoinStream>("JoinStream")
@@ -234,6 +262,7 @@ EMSCRIPTEN_BINDINGS(screamer_join) {
         .function("offer", &JoinStream::offer)
         .function("end", &JoinStream::end)
         .function("start", &JoinStream::start)
+        .function("address", &JoinStream::address)
         .function("rowIndex", &JoinStream::rowIndex)
         .function("rowValues", &JoinStream::rowValues);
 }

@@ -133,6 +133,8 @@ public:
 
     void reset() { cg_->reset(); }
     void flush() { cg_->flush(); }
+    // This object's address, for the plain exports of dag_bindings.cpp.
+    std::uintptr_t address() { return reinterpret_cast<std::uintptr_t>(this); }
     void advance(double now) { cg_->advance(screamer::dag::checked_index(now)); }
 
     void pushEvent(std::size_t inputIdx, double index, double value) {
@@ -438,6 +440,7 @@ private:
         .function("flush",        &screamer_wasm::CompiledGraphWrap::flush)     \
         .function("advance",      &screamer_wasm::CompiledGraphWrap::advance)   \
         .function("pushEvent",    &screamer_wasm::CompiledGraphWrap::pushEvent) \
+        .function("address",      &screamer_wasm::CompiledGraphWrap::address)   \
         .function("pushEventWide",                                             \
                   &screamer_wasm::CompiledGraphWrap::pushEventWide)            \
         .function("runBatchFlat", &screamer_wasm::CompiledGraphWrap::runBatchFlat) \

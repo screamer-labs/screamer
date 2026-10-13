@@ -88,10 +88,16 @@ const isPlainObject = (x: unknown): x is Record<string, unknown> => {
   return proto === Object.prototype || proto === null;
 };
 
-function checkKeys(x: Record<string, unknown>, keys: string[], where: string): void {
-  for (const key of Object.keys(x))
-    if (!keys.includes(key))
-      throw new TypeError(`${WHO}: ${where} has an unknown key '${key}'; expected { ${keys.join(", ")} }`);
+// `where` names x for the message; a function builds the text only on an
+// error (an iterator checks every event). The own keys are walked without
+// building their array, in the order Object.keys gives them.
+const hasOwn = Object.prototype.hasOwnProperty;
+function checkKeys(x: Record<string, unknown>, keys: string[], where: string | (() => string)): void {
+  for (const key in x)
+    if (hasOwn.call(x, key) && !keys.includes(key)) {
+      const w = typeof where === "string" ? where : where();
+      throw new TypeError(`${WHO}: ${w} has an unknown key '${key}'; expected { ${keys.join(", ")} }`);
+    }
 }
 
 // ---- the array form ---------------------------------------------------------
@@ -148,6 +154,7 @@ export function combineArrays(inputs: unknown[], o: DirectOptions): { values: Nd
 export interface CombineRow { value: number | number[] | Float64Array | NdArray; index: number | null }
 
 const EMPTY = Symbol("empty");
+const EVENT_KEYS = ["value", "index"];
 
 // One event as flat values and its shape: a number (null is NaN), an
 // NdArray, a typed array, or an array of numbers or of rows.
@@ -172,6 +179,9 @@ class Joiner {
   readonly indexed: boolean;
   private M: any = current();
   private js: any;
+  // The stream's address, for the plain WASM exports of the per-event steps
+  // (wasm/join_bindings.cpp); 0 once closed.
+  private addr = 0;
   private bufs: number[] = [];
   private widths: number[] = [];
   private wide = false;
@@ -196,6 +206,7 @@ class Joiner {
     held.close = () => this.close();
     const js = this.js;
     try {
+      this.addr = js.address();
       this.wide = js.wide();
       this.rowSize = js.rowSize();
       this.rowShape = js.rowShape();
@@ -214,13 +225,20 @@ class Joiner {
     if (!this.js) return;
     this.js.delete();
     this.js = null;
+    this.addr = 0;
+  }
+
+  // The stream's address for a per-event step; raises once it is closed.
+  private live(): number {
+    if (!this.addr) throw new Error(`${WHO}: the stream was closed`);
+    return this.addr;
   }
 
   // An event of an indexed source: { value, index } with a number index.
   private split(i: number, x: unknown): { value: unknown; index: number } {
     if (!isPlainObject(x) || !("value" in x))
       throwWrongKind(WHO, `event ${this.count[i]} of input ${i}`, x, "a { value, index } event");
-    checkKeys(x, ["value", "index"], `event ${this.count[i]} of input ${i}`);
+    checkKeys(x, EVENT_KEYS, () => `event ${this.count[i]} of input ${i}`);
     const t = typeof x.index === "number" ? x.index : badIndex(x.index);
     return { value: x.value, index: t };
   }
@@ -266,7 +284,7 @@ class Joiner {
       this.M.HEAPF64[s + i] = n;   // read HEAPF64 after load: an event read may grow memory
     }
     try {
-      if (!this.js.zip()) return null;
+      if (!this.M._screamer_join_zip(this.live())) return null;
       // A positional join writes its row to one fixed place: read it once.
       if (this.zipRow < 0) this.zipRow = this.js.rowValues() >> 3;
       return { value: this.rowAt(this.M.HEAPF64, this.zipRow), index: null };
@@ -278,12 +296,12 @@ class Joiner {
   offer(i: number, item: unknown, run: boolean): number {
     const { value, index } = this.split(i, item);
     const n = this.load(i, value);
-    try { return this.js.offer(i, index, n, run); } catch (e) { throw normalizeError(e); }
+    try { return this.M._screamer_join_offer(this.live(), i, index, n, run ? 1 : 0); } catch (e) { throw normalizeError(e); }
   }
 
   // Indexed: source i has ended.
   end(i: number, run: boolean): number {
-    try { return this.js.end(i, run); } catch (e) { throw normalizeError(e); }
+    try { return this.M._screamer_join_end(this.live(), i, run ? 1 : 0); } catch (e) { throw normalizeError(e); }
   }
 
   start(): number {
@@ -298,7 +316,8 @@ class Joiner {
     const rows: CombineRow[] = [];
     if (m) {
       const heap: Float64Array = this.M.HEAPF64;
-      const ix = this.js.rowIndex() >> 3, vals = this.js.rowValues() >> 3, w = this.rowSize;
+      const s = this.live(), M = this.M;
+      const ix = M._screamer_join_row_index(s) >> 3, vals = M._screamer_join_row_values(s) >> 3, w = this.rowSize;
       for (let r = 0; r < m; r++) {
         const p = vals + r * w;
         // One input of one field: a number, as Python gives a float.

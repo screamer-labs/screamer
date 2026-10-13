@@ -164,6 +164,9 @@ class PipelineImpl implements Owned {
   private M: Screamer;
   private names: string[];
   private cg: any = null;
+  // The graph's address, for the plain WASM exports of the per-event pushes
+  // (wasm/dag_bindings.cpp); 0 once released.
+  private cgAddr = 0;
   // Retained op wrappers: the Embind graph holds only non-owning EvalOp*s, so
   // the wrappers (which own the C++ ops) must stay alive for the graph lifetime.
   private ops: any[] = [];
@@ -243,6 +246,7 @@ class PipelineImpl implements Owned {
       for (const id of outIds) outVec.push_back(id);
       try { gb.setOutputs(outVec); } catch (e) { throw normalizeError(e); } finally { outVec.delete(); }
       this.cg = wasmCall(() => gb.compile());
+      this.cgAddr = this.cg.address();
     } finally {
       gb.delete();
     }
@@ -531,7 +535,7 @@ class PipelineImpl implements Owned {
           view[j] = typeof x === "number" ? x
             : feedValue(x, "Pipeline", () => `item [${j}] of the values pushed to input ${i}`);
         }
-        try { self.cg.pushEventWide(i, t, buf, width); } catch (e) { throw normalizeError(e); }
+        try { M._screamer_push_event_wide(self.cgAddr, i, t, buf, width); } catch (e) { throw normalizeError(e); }
       } finally {
         M.freeBuf(buf);
       }
@@ -551,7 +555,7 @@ class PipelineImpl implements Owned {
         // wrong kind.
         const v = typeof value === "number" ? value : feedValue(value, "Pipeline", () => `the value pushed to input ${i}`);
         const t = typeof index === "number" ? index : badIndex(M, index);
-        try { self.cg.pushEvent(i, t, v); } catch (e) { throw normalizeError(e); }
+        try { M._screamer_push_event(self.cgAddr, i, t, v); } catch (e) { throw normalizeError(e); }
       },
       pushWide(name: string, index: number, values: ArrayLike<number> | NdArray): void {
         self.checkLive();
@@ -593,6 +597,7 @@ class PipelineImpl implements Owned {
     if (this.cg) {
       this.cg.delete();
       this.cg = null;
+      this.cgAddr = 0;
     }
     // Release our retention; the wrappers' FinalizationRegistry (or an explicit
     // user dispose) frees the underlying C++ ops.
