@@ -266,8 +266,26 @@ def _factory_body(name: str, params: list[dict], wrapper: str = "wrapOp") -> str
     for p in vecs:
         n = p["name"]
         lines.append(f"  const {n}_ = _vec(\"{name}\", \"{n}\", {n});")
+    # A float setting that is not finite: the constructor's RangeError becomes
+    # the one message form (finite_settings.h), on the error path only.
+    floats = [p for p in params if not p["is_str"] and not p.get("is_int")]
+    if floats:
+        lines.append("  try {")
+        ind = "  "
+    else:
+        ind = ""
+    def close_try():
+        if floats:
+            names = ", ".join(f'"{p["name"]}"' for p in floats)
+            # An optional setting holds NaN when it is not given (embind_runtime.h
+            # opt): that is not a value the caller passed.
+            vals = ", ".join((f"{p['name']}_" if p["is_vec"] else
+                              f"(Number.isNaN({p['name']}) ? null : {p['name']})" if p["nullable"] else p["name"])
+                             for p in floats)
+            lines.append(f"  }} catch (e) {{ throw _finite(M, \"{name}\", [{names}], [{vals}], e); }}")
     if not vecs:
-        lines.append(f"  return {wrapper}(M, () => new M.{name}({', '.join(call_args)}));")
+        lines.append(f"{ind}  return {wrapper}(M, () => new M.{name}({', '.join(call_args)}));")
+        close_try()
         return "\n".join(lines)
     lines.append(f"  return {wrapper}(M, () => {{")
     # The vectors are deleted however the constructor ends, so a rejected
@@ -287,6 +305,10 @@ def _factory_body(name: str, params: list[dict], wrapper: str = "wrapOp") -> str
         lines.append(f"      {v}.delete();")
     lines.append("    }")
     lines.append("  });")
+    if floats:   # indent the block inside the try
+        start = lines.index("  try {") + 1
+        lines[start:] = [("  " + l) for l in lines[start:]]
+    close_try()
     return "\n".join(lines)
 
 
@@ -354,6 +376,19 @@ const _noSettings = (op: string, x: unknown, nArgs: number): void => {
   if (_isOptions(x)) { _options(op, x, nArgs, [], ""); return; }
   if (nArgs === 1 && x === undefined) return;
   throw new TypeError(`${op}: takes no settings, got ${nArgs > 1 ? `${nArgs} arguments` : _what(x)}`);
+};
+// A constructor's RangeError for a float setting that is not finite, as the
+// one message "<Op>: <setting> must be finite, got Infinity" (C++
+// finite_settings.h); any other error as it is.
+const _finite = (M: any, op: string, names: string[], values: unknown[], e: unknown): unknown => {
+  if (!(e instanceof RangeError)) return e;
+  const ns: string[] = [], vs: unknown[] = [];
+  names.forEach((n, i) => {
+    const v = values[i];
+    if (typeof v === "number" || Array.isArray(v)) { ns.push(n); vs.push(v); }
+  });
+  const msg = M.finiteSettingError(op, ns, vs);
+  return msg ? new RangeError(msg) : e;
 };
 const _tooMany = (op: string, n: number, nArgs: number): never => {
   throw new TypeError(`${op}: takes at most ${n} arguments, got ${nArgs}`);

@@ -750,7 +750,14 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   "RollingMean: window_size must be an integer, got 2.5". 2.8.0 raised
   nanobind's "incompatible function arguments" for these; the type of the
   error, `TypeError`, is unchanged. An integer setting says "must be an
-  integer" in both languages, also for a string or null.
+  integer" in both languages, also for a string or null, and a list given
+  for one number is a wrong kind too ("RollingMean: window_size must be an
+  integer, got list"). A setting that is not finite where the operator needs
+  a finite number raises `ValueError` (`RangeError` in JavaScript) in one
+  form, naming the setting passed: "EwMean: span must be finite, got inf"
+  (JavaScript: "got Infinity"), or "must be finite or NaN" for a setting
+  that also takes NaN. 2.8.0 gave each operator's own text, which often named
+  another setting ("Alpha must be a finite value between 0 and 1").
 * A JavaScript integer setting refuses a fraction, NaN and an infinity with
   `TypeError` ("RollingMean: windowSize must be an integer, got 2.5"), as
   Python does. 2.8.0 truncated it: `RollingMean(2.5)` had a window of 2.
@@ -764,7 +771,8 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   freq= (every=) and clock= bars; a count= bar is never empty". 2.8.0
   accepted them and ignored them. Leave `fill` out (`"skip"`) there.
 * A JavaScript `Pipeline` call takes one argument, the feed or the feeds by
-  input name; a second argument, such as an index, throws `TypeError`.
+  input name; a second argument, such as an index, throws `TypeError` (a
+  trailing `undefined` is not an argument).
   2.8.0 ignored it, so `p(values, index)` ran on the row numbers. Pass
   `p({ values, index })`.
 * `Resample(fill="carry")` carries each column on its own, under `freq=` (and

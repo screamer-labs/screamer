@@ -67,3 +67,59 @@ test("fill applies to every= and clock= bars only (Q9)", async () => {
       (e: any) => e instanceof RangeError && /a count= bar is never empty/.test(e.message));
   new Pipeline([x], [resample(x, { count: 2, fill: "skip" })]).dispose();
 });
+
+test("a setting that is not finite has one message, with the name passed (N1)", async () => {
+  await ready();
+  const { EwMean, Hold, BacktestPortfolioTarget } = await import("../src/index.ts");
+  const rangeError = (message: string) => ({ name: "RangeError", message });
+  assert.throws(() => BollingerBands(20, Infinity), rangeError("BollingerBands: numStd must be finite, got Infinity"));
+  assert.throws(() => BollingerBands({ numStd: NaN }), rangeError("BollingerBands: numStd must be finite, got NaN"));
+  assert.throws(() => EwMean({ span: Infinity }), rangeError("EwMean: span must be finite, got Infinity"));
+  assert.throws(() => SchmittTrigger(-Infinity, 3), rangeError("SchmittTrigger: lower must be finite, got -Infinity"));
+  assert.throws(() => Hold(3, Infinity), rangeError("Hold: release must be finite or NaN, got Infinity"));
+  assert.throws(() => BacktestPortfolioTarget({ fee: [0.1, Infinity] }),
+    rangeError("BacktestPortfolioTarget: fee must be finite, got Infinity"));
+  // Another error keeps its message; NaN for an unset optional is not a value.
+  assert.throws(() => EwMean(), (e: any) => e instanceof RangeError && !/must be finite/.test(e.message));
+  Hold(3, NaN).dispose();
+});
+
+test("a trailing undefined is not an argument (N3)", async () => {
+  await ready();
+  const x = Input("x");
+  const p = new Pipeline([x], [RollingMean(2)(x)]);
+  try {
+    (p as any)([1, 2, 3], undefined);
+    (p as any)([1, 2, 3], undefined, undefined);
+    assert.throws(() => (p as any)([1, 2, 3], undefined, 1), TypeError);
+  } finally { p.dispose(); }
+});
+
+test("every float setting refused as Infinity or NaN has the one message (N1)", async () => {
+  await ready();
+  const { readFileSync } = await import("node:fs");
+  const ops: any = await import("../src/generated/ops.ts");
+  const oracle: { name: string; base: Record<string, number>; bool_message: Record<string, string>;
+                  accepts_none: Record<string, boolean> }[] =
+    JSON.parse(readFileSync(new URL("../../wasm/smoke/null_oracle.json", import.meta.url), "utf8"));
+  const camel = (k: string) => k.replace(/_([a-z])/g, (_m, c) => c.toUpperCase());
+  const ew = new Set(["com", "span", "halflife", "alpha"]);
+  let refused = 0;
+  for (const { name, base, bool_message, accepts_none } of oracle)
+    for (const [k, msg] of Object.entries(bool_message)) {
+      if (!/must be a number/.test(msg)) continue;            // the float settings
+      const opts: Record<string, unknown> = {};
+      for (const [b, v] of Object.entries(base)) if (!(ew.has(k) && ew.has(b))) opts[camel(b)] = v;
+      for (const [bad, text] of [[Infinity, "Infinity"], [-Infinity, "-Infinity"], [NaN, "NaN"]] as const) {
+        if (Number.isNaN(bad) && accepts_none[k]) continue;   // NaN is "not given" for an optional setting
+        const value = /sequence/.test(msg) && name === "MovingAverage" ? [bad] : bad;
+        try { ops[name]({ ...opts, [camel(k)]: value }).dispose(); continue; }
+        catch (e) {
+          if (!(e instanceof RangeError)) throw e;
+          refused++;
+          assert.match((e as Error).message, new RegExp(`^${name}: ${camel(k)} must be finite( or [-A-Za-z]+)*, got ${text}$`), `${name}(${k}=${text})`);
+        }
+      }
+    }
+  assert.ok(refused > 200, `${refused}`);
+});

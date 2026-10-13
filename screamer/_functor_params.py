@@ -74,8 +74,11 @@ def build_docstring(cls_name):
     if not entry:
         return None
     params = entry.get("parameters") or []
+    # A required parameter (``required: true``) has no default in the binding;
+    # its frontmatter ``default`` is only the value the docs examples use.
+    has_default = lambda p: "default" in p and not p.get("required")  # noqa: E731
     signature = ", ".join(
-        f"{p['name']}={_format_default(p['default'])}" if "default" in p else p["name"]
+        f"{p['name']}={_format_default(p['default'])}" if has_default(p) else p["name"]
         for p in params)
     parts = [f"{cls_name}({signature})", "", entry.get("short", "").strip()]
     if params:
@@ -84,8 +87,10 @@ def build_docstring(cls_name):
             head = p["name"]
             if p.get("type"):
                 head += f" : {p['type']}"
-            if "default" in p:
+            if has_default(p):
                 head += f", default {_format_default(p['default'])}"
+            elif p.get("required"):
+                head += ", required"
             parts.append(head)
             desc = (p.get("description") or "").strip()
             if p.get("enum"):
@@ -155,7 +160,9 @@ def _wrong_kind(value, vector):
         return "bool"
     if isinstance(value, (str, bytes, bytearray)):
         return type(value).__name__
-    if vector and (isinstance(value, (list, tuple)) or getattr(value, "ndim", 0)):
+    if isinstance(value, (list, tuple)) or getattr(value, "ndim", 0):
+        if not vector:                # a sequence where one number belongs
+            return type(value).__name__
         for item in value:
             kind = _wrong_kind(item, False)
             if kind:
@@ -200,6 +207,34 @@ def setting_error(cls_name, args, kwargs):
     return None
 
 
+_FLOAT_TYPES = ("float", "float|null", "float|list[float]", "float[]")
+
+
+def finite_error(cls_name, args, kwargs):
+    """The message for a float setting that is not finite in a constructor
+    call, "<Op>: <setting> must be finite, got inf", or None (C++
+    finite_settings.h decides which settings must be finite)."""
+    import math
+    params = bind_params(cls_name, args, kwargs)
+    names, values = [], []
+    for p in (_load_help().get(cls_name) or {}).get("parameters", []):
+        if p.get("type") not in _FLOAT_TYPES or p["name"] not in params:
+            continue
+        value = params[p["name"]]
+        try:
+            numbers = [float(v) for v in value] if hasattr(value, "__len__") and \
+                not isinstance(value, str) else [float(value)]
+        except (TypeError, ValueError):
+            continue
+        if all(math.isfinite(v) for v in numbers):
+            continue
+        names.append(p["name"])
+        values.append(numbers)
+    if not names:
+        return None
+    return _b._finite_setting_error(cls_name, names, values) or None
+
+
 def _make_wrapper(name, base):
     """Build a same-named subclass of ``base`` that captures its init args."""
     cls = type(name, (base,), {"__doc__": build_docstring(name), "__module__": "screamer"})
@@ -213,6 +248,12 @@ def _make_wrapper(name, base):
             if msg is None:
                 raise
             raise TypeError(msg) from None
+        except ValueError:
+            # A setting that is not finite: the one message form.
+            msg = finite_error(name, args, kwargs)
+            if msg is None:
+                raise
+            raise ValueError(msg) from None
         self._screamer_params = bind_params(name, args, kwargs)
 
     def __repr__(self):

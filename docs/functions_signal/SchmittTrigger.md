@@ -22,11 +22,13 @@ parameters:
 - name: lower
   type: float
   default: -1.0
+  required: true
   description: Lower threshold, finite. The output latches to 0.0 when the input falls strictly
     below this value.
 - name: upper
   type: float
   default: 1.0
+  required: true
   description: Upper threshold, finite and strictly greater than lower. The output latches
     to 1.0 when the input rises strictly above this value.
 - name: initial

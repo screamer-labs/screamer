@@ -10,6 +10,7 @@
 #include "screamer/common/lazy_eval_iterator.h"
 #include "screamer/common/gc.h"
 #include "screamer/common/shape.h"
+#include "screamer/common/finite_settings.h"
 
 namespace nb = nanobind;
 using namespace nb::literals;
@@ -19,6 +20,13 @@ void init_bindings_core(nb::module_& m) {
     nb::class_<screamer::EvalOp>(m, "EvalOp")
         .def_prop_ro("num_inputs", &screamer::EvalOp::n_in)
         .def_prop_ro("num_outputs", &screamer::EvalOp::n_out);
+
+    // The message for a float setting that is not finite (finite_settings.h),
+    // asked by the Python class after its constructor raised ValueError.
+    m.def("_finite_setting_error", [](const std::string& op, const std::vector<std::string>& names,
+                                      const std::vector<std::vector<double>>& values) {
+        return screamer::finite_setting_error(op, names, values, false);
+    }, "op"_a, "names"_a, "values"_a);
 
     // Test/engine helper: run one event through an op.
     m.def("_eval_op", [](screamer::EvalOp& op, const std::vector<double>& in) {

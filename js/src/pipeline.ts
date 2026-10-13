@@ -622,8 +622,11 @@ export const Pipeline = function (inputs: Node[], outputs: Node[], opts?: Pipeli
   // One argument: the feed, or the feeds keyed by input name. A second
   // positional argument (an index, a second input) is a TypeError.
   const fn = (function (this: unknown, feeds: Feeds) {
-    if (arguments.length > 1)
-      throw new TypeError(`Pipeline: takes one argument, the feeds, got ${arguments.length}; ` +
+    // Trailing undefined arguments are not given (p(x, undefined) is p(x)).
+    let n = arguments.length;
+    while (n > 1 && arguments[n - 1] === undefined) n--;
+    if (n > 1)
+      throw new TypeError(`Pipeline: takes one argument, the feeds, got ${n}; ` +
         "pass an index as {values, index} and several inputs as an object keyed by input name");
     return impl.call(feeds);
   }) as Pipeline;

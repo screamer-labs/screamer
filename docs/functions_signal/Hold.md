@@ -21,6 +21,7 @@ parameters:
 - name: n
   type: int
   default: 3
+  required: true
   min: 1
   description: 'Number of steps the latched value is held, counting the trigger step: a nonzero
     input at t is output at t, t+1, ..., t+n-1.'

@@ -50,6 +50,19 @@ const _noSettings = (op: string, x: unknown, nArgs: number): void => {
   if (nArgs === 1 && x === undefined) return;
   throw new TypeError(`${op}: takes no settings, got ${nArgs > 1 ? `${nArgs} arguments` : _what(x)}`);
 };
+// A constructor's RangeError for a float setting that is not finite, as the
+// one message "<Op>: <setting> must be finite, got Infinity" (C++
+// finite_settings.h); any other error as it is.
+const _finite = (M: any, op: string, names: string[], values: unknown[], e: unknown): unknown => {
+  if (!(e instanceof RangeError)) return e;
+  const ns: string[] = [], vs: unknown[] = [];
+  names.forEach((n, i) => {
+    const v = values[i];
+    if (typeof v === "number" || Array.isArray(v)) { ns.push(n); vs.push(v); }
+  });
+  const msg = M.finiteSettingError(op, ns, vs);
+  return msg ? new RangeError(msg) : e;
+};
 const _tooMany = (op: string, n: number, nArgs: number): never => {
   throw new TypeError(`${op}: takes at most ${n} arguments, got ${nArgs}`);
 };
@@ -370,7 +383,9 @@ export function BacktestCarry(multiplier?: any): ScreamerOp {
   if (multiplier === undefined) multiplier = 1.0;
   const M = current();
   if (typeof multiplier !== "number") throw new TypeError(`BacktestCarry: multiplier must be a number, got ${_what(multiplier)}`);
-  return wrapOp(M, () => new M.BacktestCarry(multiplier));
+  try {
+    return wrapOp(M, () => new M.BacktestCarry(multiplier));
+  } catch (e) { throw _finite(M, "BacktestCarry", ["multiplier"], [multiplier], e); }
 }
 
 /** The settings of BacktestL1Orders by name, for `BacktestL1Orders({ ... })`. */
@@ -454,7 +469,9 @@ export function BacktestL1Orders(makerFee?: any, takerFee?: any, fill?: any, par
   if (typeof takerFeePerContract !== "number") throw new TypeError(`BacktestL1Orders: takerFeePerContract must be a number, got ${_what(takerFeePerContract)}`);
   if (typeof slippage !== "number") throw new TypeError(`BacktestL1Orders: slippage must be a number, got ${_what(slippage)}`);
   if (typeof slippageUnit !== "string") throw new TypeError(`BacktestL1Orders: slippageUnit must be a string, got ${slippageUnit instanceof String ? "a String object" : _what(slippageUnit)}`);
-  return wrapOp(M, () => new M.BacktestL1Orders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
+  try {
+    return wrapOp(M, () => new M.BacktestL1Orders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
+  } catch (e) { throw _finite(M, "BacktestL1Orders", ["makerFee", "takerFee", "participationRatio", "tickSize", "minPosition", "maxPosition", "multiplier", "makerFeePerContract", "takerFeePerContract", "slippage"], [makerFee, takerFee, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage], e); }
 }
 
 /** The settings of BacktestL1Target by name, for `BacktestL1Target({ ... })`. */
@@ -548,7 +565,9 @@ export function BacktestL1Target(takerFee?: any, tickSize?: any, minPosition?: a
   if (typeof size !== "string") throw new TypeError(`BacktestL1Target: size must be a string, got ${size instanceof String ? "a String object" : _what(size)}`);
   if (typeof initialCapital !== "number") throw new TypeError(`BacktestL1Target: initialCapital must be a number, got ${_what(initialCapital)}`);
   if (typeof rebalanceBand !== "number") throw new TypeError(`BacktestL1Target: rebalanceBand must be a number, got ${_what(rebalanceBand)}`);
-  return wrapOp(M, () => new M.BacktestL1Target(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand));
+  try {
+    return wrapOp(M, () => new M.BacktestL1Target(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand));
+  } catch (e) { throw _finite(M, "BacktestL1Target", ["takerFee", "tickSize", "minPosition", "maxPosition", "multiplier", "feePerContract", "slippage", "stopLoss", "takeProfit", "trailingStop", "initialCapital", "rebalanceBand"], [takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, stopLoss, takeProfit, trailingStop, initialCapital, rebalanceBand], e); }
 }
 
 /** The settings of BacktestL1TradesOrders by name, for `BacktestL1TradesOrders({ ... })`. */
@@ -632,7 +651,9 @@ export function BacktestL1TradesOrders(makerFee?: any, takerFee?: any, fill?: an
   if (typeof takerFeePerContract !== "number") throw new TypeError(`BacktestL1TradesOrders: takerFeePerContract must be a number, got ${_what(takerFeePerContract)}`);
   if (typeof slippage !== "number") throw new TypeError(`BacktestL1TradesOrders: slippage must be a number, got ${_what(slippage)}`);
   if (typeof slippageUnit !== "string") throw new TypeError(`BacktestL1TradesOrders: slippageUnit must be a string, got ${slippageUnit instanceof String ? "a String object" : _what(slippageUnit)}`);
-  return wrapOp(M, () => new M.BacktestL1TradesOrders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
+  try {
+    return wrapOp(M, () => new M.BacktestL1TradesOrders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
+  } catch (e) { throw _finite(M, "BacktestL1TradesOrders", ["makerFee", "takerFee", "participationRatio", "tickSize", "minPosition", "maxPosition", "multiplier", "makerFeePerContract", "takerFeePerContract", "slippage"], [makerFee, takerFee, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage], e); }
 }
 
 /** The settings of BacktestOHLCOrders by name, for `BacktestOHLCOrders({ ... })`. */
@@ -716,7 +737,9 @@ export function BacktestOHLCOrders(makerFee?: any, takerFee?: any, fill?: any, p
   if (typeof takerFeePerContract !== "number") throw new TypeError(`BacktestOHLCOrders: takerFeePerContract must be a number, got ${_what(takerFeePerContract)}`);
   if (typeof slippage !== "number") throw new TypeError(`BacktestOHLCOrders: slippage must be a number, got ${_what(slippage)}`);
   if (typeof slippageUnit !== "string") throw new TypeError(`BacktestOHLCOrders: slippageUnit must be a string, got ${slippageUnit instanceof String ? "a String object" : _what(slippageUnit)}`);
-  return wrapOp(M, () => new M.BacktestOHLCOrders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
+  try {
+    return wrapOp(M, () => new M.BacktestOHLCOrders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
+  } catch (e) { throw _finite(M, "BacktestOHLCOrders", ["makerFee", "takerFee", "participationRatio", "tickSize", "minPosition", "maxPosition", "multiplier", "makerFeePerContract", "takerFeePerContract", "slippage"], [makerFee, takerFee, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage], e); }
 }
 
 /** The settings of BacktestOHLCTarget by name, for `BacktestOHLCTarget({ ... })`. */
@@ -820,7 +843,9 @@ export function BacktestOHLCTarget(takerFee?: any, tickSize?: any, minPosition?:
   if (typeof size !== "string") throw new TypeError(`BacktestOHLCTarget: size must be a string, got ${size instanceof String ? "a String object" : _what(size)}`);
   if (typeof initialCapital !== "number") throw new TypeError(`BacktestOHLCTarget: initialCapital must be a number, got ${_what(initialCapital)}`);
   if (typeof rebalanceBand !== "number") throw new TypeError(`BacktestOHLCTarget: rebalanceBand must be a number, got ${_what(rebalanceBand)}`);
-  return wrapOp(M, () => new M.BacktestOHLCTarget(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, fillAt, delay, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand));
+  try {
+    return wrapOp(M, () => new M.BacktestOHLCTarget(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, fillAt, delay, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand));
+  } catch (e) { throw _finite(M, "BacktestOHLCTarget", ["takerFee", "tickSize", "minPosition", "maxPosition", "multiplier", "feePerContract", "slippage", "stopLoss", "takeProfit", "trailingStop", "initialCapital", "rebalanceBand"], [takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, stopLoss, takeProfit, trailingStop, initialCapital, rebalanceBand], e); }
 }
 
 /** The settings of BacktestOHLCVTarget by name, for `BacktestOHLCVTarget({ ... })`. */
@@ -929,7 +954,9 @@ export function BacktestOHLCVTarget(maxParticipation?: any, takerFee?: any, tick
   if (typeof size !== "string") throw new TypeError(`BacktestOHLCVTarget: size must be a string, got ${size instanceof String ? "a String object" : _what(size)}`);
   if (typeof initialCapital !== "number") throw new TypeError(`BacktestOHLCVTarget: initialCapital must be a number, got ${_what(initialCapital)}`);
   if (typeof rebalanceBand !== "number") throw new TypeError(`BacktestOHLCVTarget: rebalanceBand must be a number, got ${_what(rebalanceBand)}`);
-  return wrapOp(M, () => new M.BacktestOHLCVTarget(maxParticipation, takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, fillAt, delay, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand));
+  try {
+    return wrapOp(M, () => new M.BacktestOHLCVTarget(maxParticipation, takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, fillAt, delay, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand));
+  } catch (e) { throw _finite(M, "BacktestOHLCVTarget", ["maxParticipation", "takerFee", "tickSize", "minPosition", "maxPosition", "multiplier", "feePerContract", "slippage", "stopLoss", "takeProfit", "trailingStop", "initialCapital", "rebalanceBand"], [maxParticipation, takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, stopLoss, takeProfit, trailingStop, initialCapital, rebalanceBand], e); }
 }
 
 /** The settings of BacktestPortfolioOHLCTarget by name, for `BacktestPortfolioOHLCTarget({ ... })`. */
@@ -1023,28 +1050,30 @@ export function BacktestPortfolioOHLCTarget(fee?: any, slippage?: any, slippageU
   const tickSize_ = _vec("BacktestPortfolioOHLCTarget", "tickSize", tickSize);
   const multiplier_ = _vec("BacktestPortfolioOHLCTarget", "multiplier", multiplier);
   const feePerContract_ = _vec("BacktestPortfolioOHLCTarget", "feePerContract", feePerContract);
-  return wrapRowOp(M, () => {
-    const _v0 = new M.VectorDouble(), _v1 = new M.VectorDouble(), _v3 = new M.VectorDouble(), _v4 = new M.VectorDouble(), _v5 = new M.VectorDouble();
-    try {
-      if (typeof fee_ === "number") _v0.push_back(fee_);
-      else for (const _x of fee_) _v0.push_back(_x);
-      if (typeof slippage_ === "number") _v1.push_back(slippage_);
-      else for (const _x of slippage_) _v1.push_back(_x);
-      if (typeof tickSize_ === "number") _v3.push_back(tickSize_);
-      else for (const _x of tickSize_) _v3.push_back(_x);
-      if (typeof multiplier_ === "number") _v4.push_back(multiplier_);
-      else for (const _x of multiplier_) _v4.push_back(_x);
-      if (typeof feePerContract_ === "number") _v5.push_back(feePerContract_);
-      else for (const _x of feePerContract_) _v5.push_back(_x);
-      return new M.BacktestPortfolioOHLCTarget(_v0, _v1, slippageUnit, _v3, _v4, _v5, size, initialCapital, rebalanceBand, rebalance, maxGross, maxNet, fillAt, delay);
-    } finally {
-      _v0.delete();
-      _v1.delete();
-      _v3.delete();
-      _v4.delete();
-      _v5.delete();
-    }
-  });
+  try {
+    return wrapRowOp(M, () => {
+      const _v0 = new M.VectorDouble(), _v1 = new M.VectorDouble(), _v3 = new M.VectorDouble(), _v4 = new M.VectorDouble(), _v5 = new M.VectorDouble();
+      try {
+        if (typeof fee_ === "number") _v0.push_back(fee_);
+        else for (const _x of fee_) _v0.push_back(_x);
+        if (typeof slippage_ === "number") _v1.push_back(slippage_);
+        else for (const _x of slippage_) _v1.push_back(_x);
+        if (typeof tickSize_ === "number") _v3.push_back(tickSize_);
+        else for (const _x of tickSize_) _v3.push_back(_x);
+        if (typeof multiplier_ === "number") _v4.push_back(multiplier_);
+        else for (const _x of multiplier_) _v4.push_back(_x);
+        if (typeof feePerContract_ === "number") _v5.push_back(feePerContract_);
+        else for (const _x of feePerContract_) _v5.push_back(_x);
+        return new M.BacktestPortfolioOHLCTarget(_v0, _v1, slippageUnit, _v3, _v4, _v5, size, initialCapital, rebalanceBand, rebalance, maxGross, maxNet, fillAt, delay);
+      } finally {
+        _v0.delete();
+        _v1.delete();
+        _v3.delete();
+        _v4.delete();
+        _v5.delete();
+      }
+    });
+  } catch (e) { throw _finite(M, "BacktestPortfolioOHLCTarget", ["fee", "slippage", "tickSize", "multiplier", "feePerContract", "initialCapital", "rebalanceBand", "maxGross", "maxNet"], [fee_, slippage_, tickSize_, multiplier_, feePerContract_, initialCapital, rebalanceBand, maxGross, maxNet], e); }
 }
 
 /** The settings of BacktestPortfolioTarget by name, for `BacktestPortfolioTarget({ ... })`. */
@@ -1128,28 +1157,30 @@ export function BacktestPortfolioTarget(fee?: any, slippage?: any, slippageUnit?
   const tickSize_ = _vec("BacktestPortfolioTarget", "tickSize", tickSize);
   const multiplier_ = _vec("BacktestPortfolioTarget", "multiplier", multiplier);
   const feePerContract_ = _vec("BacktestPortfolioTarget", "feePerContract", feePerContract);
-  return wrapRowOp(M, () => {
-    const _v0 = new M.VectorDouble(), _v1 = new M.VectorDouble(), _v3 = new M.VectorDouble(), _v4 = new M.VectorDouble(), _v5 = new M.VectorDouble();
-    try {
-      if (typeof fee_ === "number") _v0.push_back(fee_);
-      else for (const _x of fee_) _v0.push_back(_x);
-      if (typeof slippage_ === "number") _v1.push_back(slippage_);
-      else for (const _x of slippage_) _v1.push_back(_x);
-      if (typeof tickSize_ === "number") _v3.push_back(tickSize_);
-      else for (const _x of tickSize_) _v3.push_back(_x);
-      if (typeof multiplier_ === "number") _v4.push_back(multiplier_);
-      else for (const _x of multiplier_) _v4.push_back(_x);
-      if (typeof feePerContract_ === "number") _v5.push_back(feePerContract_);
-      else for (const _x of feePerContract_) _v5.push_back(_x);
-      return new M.BacktestPortfolioTarget(_v0, _v1, slippageUnit, _v3, _v4, _v5, size, initialCapital, rebalanceBand, rebalance, maxGross, maxNet);
-    } finally {
-      _v0.delete();
-      _v1.delete();
-      _v3.delete();
-      _v4.delete();
-      _v5.delete();
-    }
-  });
+  try {
+    return wrapRowOp(M, () => {
+      const _v0 = new M.VectorDouble(), _v1 = new M.VectorDouble(), _v3 = new M.VectorDouble(), _v4 = new M.VectorDouble(), _v5 = new M.VectorDouble();
+      try {
+        if (typeof fee_ === "number") _v0.push_back(fee_);
+        else for (const _x of fee_) _v0.push_back(_x);
+        if (typeof slippage_ === "number") _v1.push_back(slippage_);
+        else for (const _x of slippage_) _v1.push_back(_x);
+        if (typeof tickSize_ === "number") _v3.push_back(tickSize_);
+        else for (const _x of tickSize_) _v3.push_back(_x);
+        if (typeof multiplier_ === "number") _v4.push_back(multiplier_);
+        else for (const _x of multiplier_) _v4.push_back(_x);
+        if (typeof feePerContract_ === "number") _v5.push_back(feePerContract_);
+        else for (const _x of feePerContract_) _v5.push_back(_x);
+        return new M.BacktestPortfolioTarget(_v0, _v1, slippageUnit, _v3, _v4, _v5, size, initialCapital, rebalanceBand, rebalance, maxGross, maxNet);
+      } finally {
+        _v0.delete();
+        _v1.delete();
+        _v3.delete();
+        _v4.delete();
+        _v5.delete();
+      }
+    });
+  } catch (e) { throw _finite(M, "BacktestPortfolioTarget", ["fee", "slippage", "tickSize", "multiplier", "feePerContract", "initialCapital", "rebalanceBand", "maxGross", "maxNet"], [fee_, slippage_, tickSize_, multiplier_, feePerContract_, initialCapital, rebalanceBand, maxGross, maxNet], e); }
 }
 
 /** The settings of BacktestPriceTarget by name, for `BacktestPriceTarget({ ... })`. */
@@ -1248,7 +1279,9 @@ export function BacktestPriceTarget(spread?: any, fee?: any, minPosition?: any, 
   if (typeof size !== "string") throw new TypeError(`BacktestPriceTarget: size must be a string, got ${size instanceof String ? "a String object" : _what(size)}`);
   if (typeof initialCapital !== "number") throw new TypeError(`BacktestPriceTarget: initialCapital must be a number, got ${_what(initialCapital)}`);
   if (typeof rebalanceBand !== "number") throw new TypeError(`BacktestPriceTarget: rebalanceBand must be a number, got ${_what(rebalanceBand)}`);
-  return wrapOp(M, () => new M.BacktestPriceTarget(spread, fee, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, tickSize, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand));
+  try {
+    return wrapOp(M, () => new M.BacktestPriceTarget(spread, fee, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, tickSize, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand));
+  } catch (e) { throw _finite(M, "BacktestPriceTarget", ["spread", "fee", "minPosition", "maxPosition", "multiplier", "feePerContract", "slippage", "tickSize", "stopLoss", "takeProfit", "trailingStop", "initialCapital", "rebalanceBand"], [spread, fee, minPosition, maxPosition, multiplier, feePerContract, slippage, tickSize, stopLoss, takeProfit, trailingStop, initialCapital, rebalanceBand], e); }
 }
 
 /** The settings of BacktestReport by name, for `BacktestReport({ ... })`. */
@@ -1277,7 +1310,9 @@ export function BacktestReport(periodsPerYear?: any): ScreamerOp {
   if (periodsPerYear === undefined) periodsPerYear = 1.0;
   const M = current();
   if (typeof periodsPerYear !== "number") throw new TypeError(`BacktestReport: periodsPerYear must be a number, got ${_what(periodsPerYear)}`);
-  return wrapOp(M, () => new M.BacktestReport(periodsPerYear));
+  try {
+    return wrapOp(M, () => new M.BacktestReport(periodsPerYear));
+  } catch (e) { throw _finite(M, "BacktestReport", ["periodsPerYear"], [periodsPerYear], e); }
 }
 
 /** The settings of BacktestStats by name, for `BacktestStats({ ... })`. */
@@ -1306,7 +1341,9 @@ export function BacktestStats(periodsPerYear?: any): ScreamerOp {
   if (periodsPerYear === undefined) periodsPerYear = 1.0;
   const M = current();
   if (typeof periodsPerYear !== "number") throw new TypeError(`BacktestStats: periodsPerYear must be a number, got ${_what(periodsPerYear)}`);
-  return wrapOp(M, () => new M.BacktestStats(periodsPerYear));
+  try {
+    return wrapOp(M, () => new M.BacktestStats(periodsPerYear));
+  } catch (e) { throw _finite(M, "BacktestStats", ["periodsPerYear"], [periodsPerYear], e); }
 }
 
 /** The settings of BacktestTradesOrders by name, for `BacktestTradesOrders({ ... })`. */
@@ -1390,7 +1427,9 @@ export function BacktestTradesOrders(makerFee?: any, takerFee?: any, fill?: any,
   if (typeof takerFeePerContract !== "number") throw new TypeError(`BacktestTradesOrders: takerFeePerContract must be a number, got ${_what(takerFeePerContract)}`);
   if (typeof slippage !== "number") throw new TypeError(`BacktestTradesOrders: slippage must be a number, got ${_what(slippage)}`);
   if (typeof slippageUnit !== "string") throw new TypeError(`BacktestTradesOrders: slippageUnit must be a string, got ${slippageUnit instanceof String ? "a String object" : _what(slippageUnit)}`);
-  return wrapOp(M, () => new M.BacktestTradesOrders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
+  try {
+    return wrapOp(M, () => new M.BacktestTradesOrders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
+  } catch (e) { throw _finite(M, "BacktestTradesOrders", ["makerFee", "takerFee", "participationRatio", "tickSize", "minPosition", "maxPosition", "multiplier", "makerFeePerContract", "takerFeePerContract", "slippage"], [makerFee, takerFee, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage], e); }
 }
 
 /** The settings of BacktestTradesTarget by name, for `BacktestTradesTarget({ ... })`. */
@@ -1489,7 +1528,9 @@ export function BacktestTradesTarget(takerFee?: any, tickSize?: any, minPosition
   if (typeof initialCapital !== "number") throw new TypeError(`BacktestTradesTarget: initialCapital must be a number, got ${_what(initialCapital)}`);
   if (typeof rebalanceBand !== "number") throw new TypeError(`BacktestTradesTarget: rebalanceBand must be a number, got ${_what(rebalanceBand)}`);
   if (typeof maxParticipation !== "number") throw new TypeError(`BacktestTradesTarget: maxParticipation must be a number, got ${_what(maxParticipation)}`);
-  return wrapOp(M, () => new M.BacktestTradesTarget(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand, maxParticipation));
+  try {
+    return wrapOp(M, () => new M.BacktestTradesTarget(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand, maxParticipation));
+  } catch (e) { throw _finite(M, "BacktestTradesTarget", ["takerFee", "tickSize", "minPosition", "maxPosition", "multiplier", "feePerContract", "slippage", "stopLoss", "takeProfit", "trailingStop", "initialCapital", "rebalanceBand", "maxParticipation"], [takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, stopLoss, takeProfit, trailingStop, initialCapital, rebalanceBand, maxParticipation], e); }
 }
 
 /** The settings of BandSignal by name, for `BandSignal({ ... })`. */
@@ -1528,7 +1569,9 @@ export function BandSignal(entry?: any, exit?: any, stop?: any): ScreamerOp {
   if (typeof entry !== "number") throw new TypeError(`BandSignal: entry must be a number, got ${_what(entry)}`);
   if (typeof exit !== "number") throw new TypeError(`BandSignal: exit must be a number, got ${_what(exit)}`);
   if (typeof stop !== "number") throw new TypeError(`BandSignal: stop must be a number, got ${_what(stop)}`);
-  return wrapOp(M, () => new M.BandSignal(entry, exit, stop));
+  try {
+    return wrapOp(M, () => new M.BandSignal(entry, exit, stop));
+  } catch (e) { throw _finite(M, "BandSignal", ["entry", "exit", "stop"], [entry, exit, stop], e); }
 }
 
 /** The settings of BayesianRegression by name, for `BayesianRegression({ ... })`. */
@@ -1582,7 +1625,9 @@ export function BayesianRegression(com?: any, span?: any, halflife?: any, alpha?
   if (typeof alpha !== "number") throw new TypeError(`BayesianRegression: alpha must be a number, got ${_what(alpha)}`);
   if (typeof priorPrecision !== "number") throw new TypeError(`BayesianRegression: priorPrecision must be a number, got ${_what(priorPrecision)}`);
   if (typeof priorSigma !== "number") throw new TypeError(`BayesianRegression: priorSigma must be a number, got ${_what(priorSigma)}`);
-  return wrapOp(M, () => new M.BayesianRegression(com, span, halflife, alpha, priorPrecision, priorSigma));
+  try {
+    return wrapOp(M, () => new M.BayesianRegression(com, span, halflife, alpha, priorPrecision, priorSigma));
+  } catch (e) { throw _finite(M, "BayesianRegression", ["com", "span", "halflife", "alpha", "priorPrecision", "priorSigma"], [(Number.isNaN(com) ? null : com), (Number.isNaN(span) ? null : span), (Number.isNaN(halflife) ? null : halflife), (Number.isNaN(alpha) ? null : alpha), priorPrecision, priorSigma], e); }
 }
 
 /** The settings of BollingerBands by name, for `BollingerBands({ ... })`. */
@@ -1621,7 +1666,9 @@ export function BollingerBands(windowSize?: any, numStd?: any, startPolicy?: any
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`BollingerBands: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof numStd !== "number") throw new TypeError(`BollingerBands: numStd must be a number, got ${_what(numStd)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`BollingerBands: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return wrapOp(M, () => new M.BollingerBands(windowSize, numStd, startPolicy));
+  try {
+    return wrapOp(M, () => new M.BollingerBands(windowSize, numStd, startPolicy));
+  } catch (e) { throw _finite(M, "BollingerBands", ["numStd"], [numStd], e); }
 }
 
 /** The settings of BulkVolumeClassifier by name, for `BulkVolumeClassifier({ ... })`. */
@@ -1689,7 +1736,9 @@ export function Butter(order?: any, cutoffFreq?: any): ScreamerOp {
   const M = current();
   if (typeof order !== "number" || !Number.isInteger(order)) throw new TypeError(`Butter: order must be an integer, got ${typeof order === "number" ? order : _what(order)}`);
   if (typeof cutoffFreq !== "number") throw new TypeError(`Butter: cutoffFreq must be a number, got ${_what(cutoffFreq)}`);
-  return wrapOp(M, () => new M.Butter(order, cutoffFreq));
+  try {
+    return wrapOp(M, () => new M.Butter(order, cutoffFreq));
+  } catch (e) { throw _finite(M, "Butter", ["cutoffFreq"], [cutoffFreq], e); }
 }
 
 /** The settings of ButterBandpass by name, for `ButterBandpass({ ... })`. */
@@ -1728,7 +1777,9 @@ export function ButterBandpass(order?: any, lowCutoff?: any, highCutoff?: any): 
   if (typeof order !== "number" || !Number.isInteger(order)) throw new TypeError(`ButterBandpass: order must be an integer, got ${typeof order === "number" ? order : _what(order)}`);
   if (typeof lowCutoff !== "number") throw new TypeError(`ButterBandpass: lowCutoff must be a number, got ${_what(lowCutoff)}`);
   if (typeof highCutoff !== "number") throw new TypeError(`ButterBandpass: highCutoff must be a number, got ${_what(highCutoff)}`);
-  return wrapOp(M, () => new M.ButterBandpass(order, lowCutoff, highCutoff));
+  try {
+    return wrapOp(M, () => new M.ButterBandpass(order, lowCutoff, highCutoff));
+  } catch (e) { throw _finite(M, "ButterBandpass", ["lowCutoff", "highCutoff"], [lowCutoff, highCutoff], e); }
 }
 
 /** The settings of ButterBandstop by name, for `ButterBandstop({ ... })`. */
@@ -1767,7 +1818,9 @@ export function ButterBandstop(order?: any, lowCutoff?: any, highCutoff?: any): 
   if (typeof order !== "number" || !Number.isInteger(order)) throw new TypeError(`ButterBandstop: order must be an integer, got ${typeof order === "number" ? order : _what(order)}`);
   if (typeof lowCutoff !== "number") throw new TypeError(`ButterBandstop: lowCutoff must be a number, got ${_what(lowCutoff)}`);
   if (typeof highCutoff !== "number") throw new TypeError(`ButterBandstop: highCutoff must be a number, got ${_what(highCutoff)}`);
-  return wrapOp(M, () => new M.ButterBandstop(order, lowCutoff, highCutoff));
+  try {
+    return wrapOp(M, () => new M.ButterBandstop(order, lowCutoff, highCutoff));
+  } catch (e) { throw _finite(M, "ButterBandstop", ["lowCutoff", "highCutoff"], [lowCutoff, highCutoff], e); }
 }
 
 /** The settings of ButterHighpass by name, for `ButterHighpass({ ... })`. */
@@ -1801,7 +1854,9 @@ export function ButterHighpass(order?: any, cutoffFreq?: any): ScreamerOp {
   const M = current();
   if (typeof order !== "number" || !Number.isInteger(order)) throw new TypeError(`ButterHighpass: order must be an integer, got ${typeof order === "number" ? order : _what(order)}`);
   if (typeof cutoffFreq !== "number") throw new TypeError(`ButterHighpass: cutoffFreq must be a number, got ${_what(cutoffFreq)}`);
-  return wrapOp(M, () => new M.ButterHighpass(order, cutoffFreq));
+  try {
+    return wrapOp(M, () => new M.ButterHighpass(order, cutoffFreq));
+  } catch (e) { throw _finite(M, "ButterHighpass", ["cutoffFreq"], [cutoffFreq], e); }
 }
 
 /** The settings of CCI by name, for `CCI({ ... })`. */
@@ -1894,7 +1949,9 @@ export function Clip(lower?: any, upper?: any): ScreamerOp {
   const M = current();
   if (typeof lower !== "number") throw new TypeError(`Clip: lower must be a number, got ${_what(lower)}`);
   if (typeof upper !== "number") throw new TypeError(`Clip: upper must be a number, got ${_what(upper)}`);
-  return wrapOp(M, () => new M.Clip(lower, upper));
+  try {
+    return wrapOp(M, () => new M.Clip(lower, upper));
+  } catch (e) { throw _finite(M, "Clip", ["lower", "upper"], [(Number.isNaN(lower) ? null : lower), (Number.isNaN(upper) ? null : upper)], e); }
 }
 
 /** ContOFI has no settings: its options object is empty. */
@@ -1973,7 +2030,9 @@ export function CrossNormalize(gross?: any, net?: any): ScreamerOp {
   const M = current();
   if (typeof gross !== "number") throw new TypeError(`CrossNormalize: gross must be a number, got ${_what(gross)}`);
   if (typeof net !== "number") throw new TypeError(`CrossNormalize: net must be a number, got ${_what(net)}`);
-  return wrapRowOp(M, () => new M.CrossNormalize(gross, net));
+  try {
+    return wrapRowOp(M, () => new M.CrossNormalize(gross, net));
+  } catch (e) { throw _finite(M, "CrossNormalize", ["gross", "net"], [gross, (Number.isNaN(net) ? null : net)], e); }
 }
 
 /** The settings of CrossRank by name, for `CrossRank({ ... })`. */
@@ -2065,7 +2124,9 @@ export function CrossWinsorize(lower?: any, upper?: any): ScreamerOp {
   const M = current();
   if (typeof lower !== "number") throw new TypeError(`CrossWinsorize: lower must be a number, got ${_what(lower)}`);
   if (typeof upper !== "number") throw new TypeError(`CrossWinsorize: upper must be a number, got ${_what(upper)}`);
-  return wrapRowOp(M, () => new M.CrossWinsorize(lower, upper));
+  try {
+    return wrapRowOp(M, () => new M.CrossWinsorize(lower, upper));
+  } catch (e) { throw _finite(M, "CrossWinsorize", ["lower", "upper"], [lower, upper], e); }
 }
 
 /** CrossZscore has no settings: its options object is empty. */
@@ -2259,7 +2320,9 @@ export function DEMA(com?: any, span?: any, halflife?: any, alpha?: any): Scream
   if (typeof span !== "number") throw new TypeError(`DEMA: span must be a number, got ${_what(span)}`);
   if (typeof halflife !== "number") throw new TypeError(`DEMA: halflife must be a number, got ${_what(halflife)}`);
   if (typeof alpha !== "number") throw new TypeError(`DEMA: alpha must be a number, got ${_what(alpha)}`);
-  return wrapOp(M, () => new M.DEMA(com, span, halflife, alpha));
+  try {
+    return wrapOp(M, () => new M.DEMA(com, span, halflife, alpha));
+  } catch (e) { throw _finite(M, "DEMA", ["com", "span", "halflife", "alpha"], [(Number.isNaN(com) ? null : com), (Number.isNaN(span) ? null : span), (Number.isNaN(halflife) ? null : halflife), (Number.isNaN(alpha) ? null : alpha)], e); }
 }
 
 /** The settings of DX by name, for `DX({ ... })`. */
@@ -2322,7 +2385,9 @@ export function Decycler(period?: any, cutoff?: any): ScreamerOp {
   const M = current();
   if (typeof period !== "number") throw new TypeError(`Decycler: period must be a number, got ${_what(period)}`);
   if (typeof cutoff !== "number") throw new TypeError(`Decycler: cutoff must be a number, got ${_what(cutoff)}`);
-  return wrapOp(M, () => new M.Decycler(period, cutoff));
+  try {
+    return wrapOp(M, () => new M.Decycler(period, cutoff));
+  } catch (e) { throw _finite(M, "Decycler", ["period", "cutoff"], [(Number.isNaN(period) ? null : period), (Number.isNaN(cutoff) ? null : cutoff)], e); }
 }
 
 /** The settings of Detrend by name, for `Detrend({ ... })`. */
@@ -2612,7 +2677,9 @@ export function EwAlpha(com?: any, span?: any, halflife?: any, alpha?: any): Scr
   if (typeof span !== "number") throw new TypeError(`EwAlpha: span must be a number, got ${_what(span)}`);
   if (typeof halflife !== "number") throw new TypeError(`EwAlpha: halflife must be a number, got ${_what(halflife)}`);
   if (typeof alpha !== "number") throw new TypeError(`EwAlpha: alpha must be a number, got ${_what(alpha)}`);
-  return wrapOp(M, () => new M.EwAlpha(com, span, halflife, alpha));
+  try {
+    return wrapOp(M, () => new M.EwAlpha(com, span, halflife, alpha));
+  } catch (e) { throw _finite(M, "EwAlpha", ["com", "span", "halflife", "alpha"], [(Number.isNaN(com) ? null : com), (Number.isNaN(span) ? null : span), (Number.isNaN(halflife) ? null : halflife), (Number.isNaN(alpha) ? null : alpha)], e); }
 }
 
 /** The settings of EwBeta by name, for `EwBeta({ ... })`. */
@@ -2656,7 +2723,9 @@ export function EwBeta(com?: any, span?: any, halflife?: any, alpha?: any): Scre
   if (typeof span !== "number") throw new TypeError(`EwBeta: span must be a number, got ${_what(span)}`);
   if (typeof halflife !== "number") throw new TypeError(`EwBeta: halflife must be a number, got ${_what(halflife)}`);
   if (typeof alpha !== "number") throw new TypeError(`EwBeta: alpha must be a number, got ${_what(alpha)}`);
-  return wrapOp(M, () => new M.EwBeta(com, span, halflife, alpha));
+  try {
+    return wrapOp(M, () => new M.EwBeta(com, span, halflife, alpha));
+  } catch (e) { throw _finite(M, "EwBeta", ["com", "span", "halflife", "alpha"], [(Number.isNaN(com) ? null : com), (Number.isNaN(span) ? null : span), (Number.isNaN(halflife) ? null : halflife), (Number.isNaN(alpha) ? null : alpha)], e); }
 }
 
 /** The settings of EwCorr by name, for `EwCorr({ ... })`. */
@@ -2700,7 +2769,9 @@ export function EwCorr(com?: any, span?: any, halflife?: any, alpha?: any): Scre
   if (typeof span !== "number") throw new TypeError(`EwCorr: span must be a number, got ${_what(span)}`);
   if (typeof halflife !== "number") throw new TypeError(`EwCorr: halflife must be a number, got ${_what(halflife)}`);
   if (typeof alpha !== "number") throw new TypeError(`EwCorr: alpha must be a number, got ${_what(alpha)}`);
-  return wrapOp(M, () => new M.EwCorr(com, span, halflife, alpha));
+  try {
+    return wrapOp(M, () => new M.EwCorr(com, span, halflife, alpha));
+  } catch (e) { throw _finite(M, "EwCorr", ["com", "span", "halflife", "alpha"], [(Number.isNaN(com) ? null : com), (Number.isNaN(span) ? null : span), (Number.isNaN(halflife) ? null : halflife), (Number.isNaN(alpha) ? null : alpha)], e); }
 }
 
 /** The settings of EwCov by name, for `EwCov({ ... })`. */
@@ -2744,7 +2815,9 @@ export function EwCov(com?: any, span?: any, halflife?: any, alpha?: any): Screa
   if (typeof span !== "number") throw new TypeError(`EwCov: span must be a number, got ${_what(span)}`);
   if (typeof halflife !== "number") throw new TypeError(`EwCov: halflife must be a number, got ${_what(halflife)}`);
   if (typeof alpha !== "number") throw new TypeError(`EwCov: alpha must be a number, got ${_what(alpha)}`);
-  return wrapOp(M, () => new M.EwCov(com, span, halflife, alpha));
+  try {
+    return wrapOp(M, () => new M.EwCov(com, span, halflife, alpha));
+  } catch (e) { throw _finite(M, "EwCov", ["com", "span", "halflife", "alpha"], [(Number.isNaN(com) ? null : com), (Number.isNaN(span) ? null : span), (Number.isNaN(halflife) ? null : halflife), (Number.isNaN(alpha) ? null : alpha)], e); }
 }
 
 /** The settings of EwGarmanKlassVar by name, for `EwGarmanKlassVar({ ... })`. */
@@ -2788,7 +2861,9 @@ export function EwGarmanKlassVar(com?: any, span?: any, halflife?: any, alpha?: 
   if (typeof span !== "number") throw new TypeError(`EwGarmanKlassVar: span must be a number, got ${_what(span)}`);
   if (typeof halflife !== "number") throw new TypeError(`EwGarmanKlassVar: halflife must be a number, got ${_what(halflife)}`);
   if (typeof alpha !== "number") throw new TypeError(`EwGarmanKlassVar: alpha must be a number, got ${_what(alpha)}`);
-  return wrapOp(M, () => new M.EwGarmanKlassVar(com, span, halflife, alpha));
+  try {
+    return wrapOp(M, () => new M.EwGarmanKlassVar(com, span, halflife, alpha));
+  } catch (e) { throw _finite(M, "EwGarmanKlassVar", ["com", "span", "halflife", "alpha"], [(Number.isNaN(com) ? null : com), (Number.isNaN(span) ? null : span), (Number.isNaN(halflife) ? null : halflife), (Number.isNaN(alpha) ? null : alpha)], e); }
 }
 
 /** The settings of EwGarmanKlassVol by name, for `EwGarmanKlassVol({ ... })`. */
@@ -2832,7 +2907,9 @@ export function EwGarmanKlassVol(com?: any, span?: any, halflife?: any, alpha?: 
   if (typeof span !== "number") throw new TypeError(`EwGarmanKlassVol: span must be a number, got ${_what(span)}`);
   if (typeof halflife !== "number") throw new TypeError(`EwGarmanKlassVol: halflife must be a number, got ${_what(halflife)}`);
   if (typeof alpha !== "number") throw new TypeError(`EwGarmanKlassVol: alpha must be a number, got ${_what(alpha)}`);
-  return wrapOp(M, () => new M.EwGarmanKlassVol(com, span, halflife, alpha));
+  try {
+    return wrapOp(M, () => new M.EwGarmanKlassVol(com, span, halflife, alpha));
+  } catch (e) { throw _finite(M, "EwGarmanKlassVol", ["com", "span", "halflife", "alpha"], [(Number.isNaN(com) ? null : com), (Number.isNaN(span) ? null : span), (Number.isNaN(halflife) ? null : halflife), (Number.isNaN(alpha) ? null : alpha)], e); }
 }
 
 /** The settings of EwKurt by name, for `EwKurt({ ... })`. */
@@ -2876,7 +2953,9 @@ export function EwKurt(com?: any, span?: any, halflife?: any, alpha?: any): Scre
   if (typeof span !== "number") throw new TypeError(`EwKurt: span must be a number, got ${_what(span)}`);
   if (typeof halflife !== "number") throw new TypeError(`EwKurt: halflife must be a number, got ${_what(halflife)}`);
   if (typeof alpha !== "number") throw new TypeError(`EwKurt: alpha must be a number, got ${_what(alpha)}`);
-  return wrapOp(M, () => new M.EwKurt(com, span, halflife, alpha));
+  try {
+    return wrapOp(M, () => new M.EwKurt(com, span, halflife, alpha));
+  } catch (e) { throw _finite(M, "EwKurt", ["com", "span", "halflife", "alpha"], [(Number.isNaN(com) ? null : com), (Number.isNaN(span) ? null : span), (Number.isNaN(halflife) ? null : halflife), (Number.isNaN(alpha) ? null : alpha)], e); }
 }
 
 /** The settings of EwKyleLambda by name, for `EwKyleLambda({ ... })`. */
@@ -2920,7 +2999,9 @@ export function EwKyleLambda(com?: any, span?: any, halflife?: any, alpha?: any)
   if (typeof span !== "number") throw new TypeError(`EwKyleLambda: span must be a number, got ${_what(span)}`);
   if (typeof halflife !== "number") throw new TypeError(`EwKyleLambda: halflife must be a number, got ${_what(halflife)}`);
   if (typeof alpha !== "number") throw new TypeError(`EwKyleLambda: alpha must be a number, got ${_what(alpha)}`);
-  return wrapOp(M, () => new M.EwKyleLambda(com, span, halflife, alpha));
+  try {
+    return wrapOp(M, () => new M.EwKyleLambda(com, span, halflife, alpha));
+  } catch (e) { throw _finite(M, "EwKyleLambda", ["com", "span", "halflife", "alpha"], [(Number.isNaN(com) ? null : com), (Number.isNaN(span) ? null : span), (Number.isNaN(halflife) ? null : halflife), (Number.isNaN(alpha) ? null : alpha)], e); }
 }
 
 /** The settings of EwMean by name, for `EwMean({ ... })`. */
@@ -2964,7 +3045,9 @@ export function EwMean(com?: any, span?: any, halflife?: any, alpha?: any): Scre
   if (typeof span !== "number") throw new TypeError(`EwMean: span must be a number, got ${_what(span)}`);
   if (typeof halflife !== "number") throw new TypeError(`EwMean: halflife must be a number, got ${_what(halflife)}`);
   if (typeof alpha !== "number") throw new TypeError(`EwMean: alpha must be a number, got ${_what(alpha)}`);
-  return wrapOp(M, () => new M.EwMean(com, span, halflife, alpha));
+  try {
+    return wrapOp(M, () => new M.EwMean(com, span, halflife, alpha));
+  } catch (e) { throw _finite(M, "EwMean", ["com", "span", "halflife", "alpha"], [(Number.isNaN(com) ? null : com), (Number.isNaN(span) ? null : span), (Number.isNaN(halflife) ? null : halflife), (Number.isNaN(alpha) ? null : alpha)], e); }
 }
 
 /** The settings of EwParkinsonVar by name, for `EwParkinsonVar({ ... })`. */
@@ -3008,7 +3091,9 @@ export function EwParkinsonVar(com?: any, span?: any, halflife?: any, alpha?: an
   if (typeof span !== "number") throw new TypeError(`EwParkinsonVar: span must be a number, got ${_what(span)}`);
   if (typeof halflife !== "number") throw new TypeError(`EwParkinsonVar: halflife must be a number, got ${_what(halflife)}`);
   if (typeof alpha !== "number") throw new TypeError(`EwParkinsonVar: alpha must be a number, got ${_what(alpha)}`);
-  return wrapOp(M, () => new M.EwParkinsonVar(com, span, halflife, alpha));
+  try {
+    return wrapOp(M, () => new M.EwParkinsonVar(com, span, halflife, alpha));
+  } catch (e) { throw _finite(M, "EwParkinsonVar", ["com", "span", "halflife", "alpha"], [(Number.isNaN(com) ? null : com), (Number.isNaN(span) ? null : span), (Number.isNaN(halflife) ? null : halflife), (Number.isNaN(alpha) ? null : alpha)], e); }
 }
 
 /** The settings of EwParkinsonVol by name, for `EwParkinsonVol({ ... })`. */
@@ -3052,7 +3137,9 @@ export function EwParkinsonVol(com?: any, span?: any, halflife?: any, alpha?: an
   if (typeof span !== "number") throw new TypeError(`EwParkinsonVol: span must be a number, got ${_what(span)}`);
   if (typeof halflife !== "number") throw new TypeError(`EwParkinsonVol: halflife must be a number, got ${_what(halflife)}`);
   if (typeof alpha !== "number") throw new TypeError(`EwParkinsonVol: alpha must be a number, got ${_what(alpha)}`);
-  return wrapOp(M, () => new M.EwParkinsonVol(com, span, halflife, alpha));
+  try {
+    return wrapOp(M, () => new M.EwParkinsonVol(com, span, halflife, alpha));
+  } catch (e) { throw _finite(M, "EwParkinsonVol", ["com", "span", "halflife", "alpha"], [(Number.isNaN(com) ? null : com), (Number.isNaN(span) ? null : span), (Number.isNaN(halflife) ? null : halflife), (Number.isNaN(alpha) ? null : alpha)], e); }
 }
 
 /** The settings of EwResidualStd by name, for `EwResidualStd({ ... })`. */
@@ -3096,7 +3183,9 @@ export function EwResidualStd(com?: any, span?: any, halflife?: any, alpha?: any
   if (typeof span !== "number") throw new TypeError(`EwResidualStd: span must be a number, got ${_what(span)}`);
   if (typeof halflife !== "number") throw new TypeError(`EwResidualStd: halflife must be a number, got ${_what(halflife)}`);
   if (typeof alpha !== "number") throw new TypeError(`EwResidualStd: alpha must be a number, got ${_what(alpha)}`);
-  return wrapOp(M, () => new M.EwResidualStd(com, span, halflife, alpha));
+  try {
+    return wrapOp(M, () => new M.EwResidualStd(com, span, halflife, alpha));
+  } catch (e) { throw _finite(M, "EwResidualStd", ["com", "span", "halflife", "alpha"], [(Number.isNaN(com) ? null : com), (Number.isNaN(span) ? null : span), (Number.isNaN(halflife) ? null : halflife), (Number.isNaN(alpha) ? null : alpha)], e); }
 }
 
 /** The settings of EwRms by name, for `EwRms({ ... })`. */
@@ -3140,7 +3229,9 @@ export function EwRms(com?: any, span?: any, halflife?: any, alpha?: any): Screa
   if (typeof span !== "number") throw new TypeError(`EwRms: span must be a number, got ${_what(span)}`);
   if (typeof halflife !== "number") throw new TypeError(`EwRms: halflife must be a number, got ${_what(halflife)}`);
   if (typeof alpha !== "number") throw new TypeError(`EwRms: alpha must be a number, got ${_what(alpha)}`);
-  return wrapOp(M, () => new M.EwRms(com, span, halflife, alpha));
+  try {
+    return wrapOp(M, () => new M.EwRms(com, span, halflife, alpha));
+  } catch (e) { throw _finite(M, "EwRms", ["com", "span", "halflife", "alpha"], [(Number.isNaN(com) ? null : com), (Number.isNaN(span) ? null : span), (Number.isNaN(halflife) ? null : halflife), (Number.isNaN(alpha) ? null : alpha)], e); }
 }
 
 /** The settings of EwRogersSatchellVar by name, for `EwRogersSatchellVar({ ... })`. */
@@ -3184,7 +3275,9 @@ export function EwRogersSatchellVar(com?: any, span?: any, halflife?: any, alpha
   if (typeof span !== "number") throw new TypeError(`EwRogersSatchellVar: span must be a number, got ${_what(span)}`);
   if (typeof halflife !== "number") throw new TypeError(`EwRogersSatchellVar: halflife must be a number, got ${_what(halflife)}`);
   if (typeof alpha !== "number") throw new TypeError(`EwRogersSatchellVar: alpha must be a number, got ${_what(alpha)}`);
-  return wrapOp(M, () => new M.EwRogersSatchellVar(com, span, halflife, alpha));
+  try {
+    return wrapOp(M, () => new M.EwRogersSatchellVar(com, span, halflife, alpha));
+  } catch (e) { throw _finite(M, "EwRogersSatchellVar", ["com", "span", "halflife", "alpha"], [(Number.isNaN(com) ? null : com), (Number.isNaN(span) ? null : span), (Number.isNaN(halflife) ? null : halflife), (Number.isNaN(alpha) ? null : alpha)], e); }
 }
 
 /** The settings of EwRogersSatchellVol by name, for `EwRogersSatchellVol({ ... })`. */
@@ -3228,7 +3321,9 @@ export function EwRogersSatchellVol(com?: any, span?: any, halflife?: any, alpha
   if (typeof span !== "number") throw new TypeError(`EwRogersSatchellVol: span must be a number, got ${_what(span)}`);
   if (typeof halflife !== "number") throw new TypeError(`EwRogersSatchellVol: halflife must be a number, got ${_what(halflife)}`);
   if (typeof alpha !== "number") throw new TypeError(`EwRogersSatchellVol: alpha must be a number, got ${_what(alpha)}`);
-  return wrapOp(M, () => new M.EwRogersSatchellVol(com, span, halflife, alpha));
+  try {
+    return wrapOp(M, () => new M.EwRogersSatchellVol(com, span, halflife, alpha));
+  } catch (e) { throw _finite(M, "EwRogersSatchellVol", ["com", "span", "halflife", "alpha"], [(Number.isNaN(com) ? null : com), (Number.isNaN(span) ? null : span), (Number.isNaN(halflife) ? null : halflife), (Number.isNaN(alpha) ? null : alpha)], e); }
 }
 
 /** The settings of EwSkew by name, for `EwSkew({ ... })`. */
@@ -3272,7 +3367,9 @@ export function EwSkew(com?: any, span?: any, halflife?: any, alpha?: any): Scre
   if (typeof span !== "number") throw new TypeError(`EwSkew: span must be a number, got ${_what(span)}`);
   if (typeof halflife !== "number") throw new TypeError(`EwSkew: halflife must be a number, got ${_what(halflife)}`);
   if (typeof alpha !== "number") throw new TypeError(`EwSkew: alpha must be a number, got ${_what(alpha)}`);
-  return wrapOp(M, () => new M.EwSkew(com, span, halflife, alpha));
+  try {
+    return wrapOp(M, () => new M.EwSkew(com, span, halflife, alpha));
+  } catch (e) { throw _finite(M, "EwSkew", ["com", "span", "halflife", "alpha"], [(Number.isNaN(com) ? null : com), (Number.isNaN(span) ? null : span), (Number.isNaN(halflife) ? null : halflife), (Number.isNaN(alpha) ? null : alpha)], e); }
 }
 
 /** The settings of EwSpread by name, for `EwSpread({ ... })`. */
@@ -3316,7 +3413,9 @@ export function EwSpread(com?: any, span?: any, halflife?: any, alpha?: any): Sc
   if (typeof span !== "number") throw new TypeError(`EwSpread: span must be a number, got ${_what(span)}`);
   if (typeof halflife !== "number") throw new TypeError(`EwSpread: halflife must be a number, got ${_what(halflife)}`);
   if (typeof alpha !== "number") throw new TypeError(`EwSpread: alpha must be a number, got ${_what(alpha)}`);
-  return wrapOp(M, () => new M.EwSpread(com, span, halflife, alpha));
+  try {
+    return wrapOp(M, () => new M.EwSpread(com, span, halflife, alpha));
+  } catch (e) { throw _finite(M, "EwSpread", ["com", "span", "halflife", "alpha"], [(Number.isNaN(com) ? null : com), (Number.isNaN(span) ? null : span), (Number.isNaN(halflife) ? null : halflife), (Number.isNaN(alpha) ? null : alpha)], e); }
 }
 
 /** The settings of EwStd by name, for `EwStd({ ... })`. */
@@ -3360,7 +3459,9 @@ export function EwStd(com?: any, span?: any, halflife?: any, alpha?: any): Screa
   if (typeof span !== "number") throw new TypeError(`EwStd: span must be a number, got ${_what(span)}`);
   if (typeof halflife !== "number") throw new TypeError(`EwStd: halflife must be a number, got ${_what(halflife)}`);
   if (typeof alpha !== "number") throw new TypeError(`EwStd: alpha must be a number, got ${_what(alpha)}`);
-  return wrapOp(M, () => new M.EwStd(com, span, halflife, alpha));
+  try {
+    return wrapOp(M, () => new M.EwStd(com, span, halflife, alpha));
+  } catch (e) { throw _finite(M, "EwStd", ["com", "span", "halflife", "alpha"], [(Number.isNaN(com) ? null : com), (Number.isNaN(span) ? null : span), (Number.isNaN(halflife) ? null : halflife), (Number.isNaN(alpha) ? null : alpha)], e); }
 }
 
 /** The settings of EwVar by name, for `EwVar({ ... })`. */
@@ -3404,7 +3505,9 @@ export function EwVar(com?: any, span?: any, halflife?: any, alpha?: any): Screa
   if (typeof span !== "number") throw new TypeError(`EwVar: span must be a number, got ${_what(span)}`);
   if (typeof halflife !== "number") throw new TypeError(`EwVar: halflife must be a number, got ${_what(halflife)}`);
   if (typeof alpha !== "number") throw new TypeError(`EwVar: alpha must be a number, got ${_what(alpha)}`);
-  return wrapOp(M, () => new M.EwVar(com, span, halflife, alpha));
+  try {
+    return wrapOp(M, () => new M.EwVar(com, span, halflife, alpha));
+  } catch (e) { throw _finite(M, "EwVar", ["com", "span", "halflife", "alpha"], [(Number.isNaN(com) ? null : com), (Number.isNaN(span) ? null : span), (Number.isNaN(halflife) ? null : halflife), (Number.isNaN(alpha) ? null : alpha)], e); }
 }
 
 /** The settings of EwYangZhangVar by name, for `EwYangZhangVar({ ... })`. */
@@ -3448,7 +3551,9 @@ export function EwYangZhangVar(com?: any, span?: any, halflife?: any, alpha?: an
   if (typeof span !== "number") throw new TypeError(`EwYangZhangVar: span must be a number, got ${_what(span)}`);
   if (typeof halflife !== "number") throw new TypeError(`EwYangZhangVar: halflife must be a number, got ${_what(halflife)}`);
   if (typeof alpha !== "number") throw new TypeError(`EwYangZhangVar: alpha must be a number, got ${_what(alpha)}`);
-  return wrapOp(M, () => new M.EwYangZhangVar(com, span, halflife, alpha));
+  try {
+    return wrapOp(M, () => new M.EwYangZhangVar(com, span, halflife, alpha));
+  } catch (e) { throw _finite(M, "EwYangZhangVar", ["com", "span", "halflife", "alpha"], [(Number.isNaN(com) ? null : com), (Number.isNaN(span) ? null : span), (Number.isNaN(halflife) ? null : halflife), (Number.isNaN(alpha) ? null : alpha)], e); }
 }
 
 /** The settings of EwYangZhangVol by name, for `EwYangZhangVol({ ... })`. */
@@ -3492,7 +3597,9 @@ export function EwYangZhangVol(com?: any, span?: any, halflife?: any, alpha?: an
   if (typeof span !== "number") throw new TypeError(`EwYangZhangVol: span must be a number, got ${_what(span)}`);
   if (typeof halflife !== "number") throw new TypeError(`EwYangZhangVol: halflife must be a number, got ${_what(halflife)}`);
   if (typeof alpha !== "number") throw new TypeError(`EwYangZhangVol: alpha must be a number, got ${_what(alpha)}`);
-  return wrapOp(M, () => new M.EwYangZhangVol(com, span, halflife, alpha));
+  try {
+    return wrapOp(M, () => new M.EwYangZhangVol(com, span, halflife, alpha));
+  } catch (e) { throw _finite(M, "EwYangZhangVol", ["com", "span", "halflife", "alpha"], [(Number.isNaN(com) ? null : com), (Number.isNaN(span) ? null : span), (Number.isNaN(halflife) ? null : halflife), (Number.isNaN(alpha) ? null : alpha)], e); }
 }
 
 /** The settings of EwZscore by name, for `EwZscore({ ... })`. */
@@ -3536,7 +3643,9 @@ export function EwZscore(com?: any, span?: any, halflife?: any, alpha?: any): Sc
   if (typeof span !== "number") throw new TypeError(`EwZscore: span must be a number, got ${_what(span)}`);
   if (typeof halflife !== "number") throw new TypeError(`EwZscore: halflife must be a number, got ${_what(halflife)}`);
   if (typeof alpha !== "number") throw new TypeError(`EwZscore: alpha must be a number, got ${_what(alpha)}`);
-  return wrapOp(M, () => new M.EwZscore(com, span, halflife, alpha));
+  try {
+    return wrapOp(M, () => new M.EwZscore(com, span, halflife, alpha));
+  } catch (e) { throw _finite(M, "EwZscore", ["com", "span", "halflife", "alpha"], [(Number.isNaN(com) ? null : com), (Number.isNaN(span) ? null : span), (Number.isNaN(halflife) ? null : halflife), (Number.isNaN(alpha) ? null : alpha)], e); }
 }
 
 /** Exp has no settings: its options object is empty. */
@@ -3745,7 +3854,9 @@ export function FillNa(fill?: any): ScreamerOp {
   if (fill === undefined) fill = 0.0;
   const M = current();
   if (typeof fill !== "number") throw new TypeError(`FillNa: fill must be a number, got ${_what(fill)}`);
-  return wrapOp(M, () => new M.FillNa(fill));
+  try {
+    return wrapOp(M, () => new M.FillNa(fill));
+  } catch (e) { throw _finite(M, "FillNa", ["fill"], [fill], e); }
 }
 
 /** First has no settings: its options object is empty. */
@@ -3819,7 +3930,9 @@ export function FracDiff(d?: any, windowSize?: any, threshold?: any, startPolicy
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`FracDiff: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof threshold !== "number") throw new TypeError(`FracDiff: threshold must be a number, got ${_what(threshold)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`FracDiff: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return wrapOp(M, () => new M.FracDiff(d, windowSize, threshold, startPolicy));
+  try {
+    return wrapOp(M, () => new M.FracDiff(d, windowSize, threshold, startPolicy));
+  } catch (e) { throw _finite(M, "FracDiff", ["d", "threshold"], [d, threshold], e); }
 }
 
 /** GreaterEqual has no settings: its options object is empty. */
@@ -3893,7 +4006,9 @@ export function Hampel(windowSize?: any, nSigma?: any, output?: any, startPolicy
   if (typeof nSigma !== "number") throw new TypeError(`Hampel: nSigma must be a number, got ${_what(nSigma)}`);
   if (typeof output !== "string") throw new TypeError(`Hampel: output must be a string, got ${output instanceof String ? "a String object" : _what(output)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`Hampel: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return wrapOp(M, () => new M.Hampel(windowSize, nSigma, output, startPolicy));
+  try {
+    return wrapOp(M, () => new M.Hampel(windowSize, nSigma, output, startPolicy));
+  } catch (e) { throw _finite(M, "Hampel", ["nSigma"], [nSigma], e); }
 }
 
 /** The settings of HawkesIntensity by name, for `HawkesIntensity({ ... })`. */
@@ -3932,7 +4047,9 @@ export function HawkesIntensity(decay?: any, alpha?: any, mu?: any): ScreamerOp 
   if (typeof decay !== "number") throw new TypeError(`HawkesIntensity: decay must be a number, got ${_what(decay)}`);
   if (typeof alpha !== "number") throw new TypeError(`HawkesIntensity: alpha must be a number, got ${_what(alpha)}`);
   if (typeof mu !== "number") throw new TypeError(`HawkesIntensity: mu must be a number, got ${_what(mu)}`);
-  return wrapOp(M, () => new M.HawkesIntensity(decay, alpha, mu));
+  try {
+    return wrapOp(M, () => new M.HawkesIntensity(decay, alpha, mu));
+  } catch (e) { throw _finite(M, "HawkesIntensity", ["decay", "alpha", "mu"], [decay, alpha, mu], e); }
 }
 
 /** HilbertPhasor has no settings: its options object is empty. */
@@ -3981,7 +4098,9 @@ export function Hold(n?: any, release?: any): ScreamerOp {
   const M = current();
   if (typeof n !== "number" || !Number.isInteger(n)) throw new TypeError(`Hold: n must be an integer, got ${typeof n === "number" ? n : _what(n)}`);
   if (typeof release !== "number") throw new TypeError(`Hold: release must be a number, got ${_what(release)}`);
-  return wrapOp(M, () => new M.Hold(n, release));
+  try {
+    return wrapOp(M, () => new M.Hold(n, release));
+  } catch (e) { throw _finite(M, "Hold", ["release"], [release], e); }
 }
 
 /** The settings of HullMA by name, for `HullMA({ ... })`. */
@@ -4084,7 +4203,9 @@ export function ImpulseClip(windowSize?: any, nSigma?: any, output?: any, startP
   if (typeof nSigma !== "number") throw new TypeError(`ImpulseClip: nSigma must be a number, got ${_what(nSigma)}`);
   if (typeof output !== "string") throw new TypeError(`ImpulseClip: output must be a string, got ${output instanceof String ? "a String object" : _what(output)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`ImpulseClip: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return wrapOp(M, () => new M.ImpulseClip(windowSize, nSigma, output, startPolicy));
+  try {
+    return wrapOp(M, () => new M.ImpulseClip(windowSize, nSigma, output, startPolicy));
+  } catch (e) { throw _finite(M, "ImpulseClip", ["nSigma"], [nSigma], e); }
 }
 
 /** InstantaneousTrendline has no settings: its options object is empty. */
@@ -4212,7 +4333,9 @@ export function KalmanFilter(processVar?: any, observationVar?: any, initialStat
   if (typeof observationVar !== "number") throw new TypeError(`KalmanFilter: observationVar must be a number, got ${_what(observationVar)}`);
   if (typeof initialState !== "number") throw new TypeError(`KalmanFilter: initialState must be a number, got ${_what(initialState)}`);
   if (typeof initialVariance !== "number") throw new TypeError(`KalmanFilter: initialVariance must be a number, got ${_what(initialVariance)}`);
-  return wrapOp(M, () => new M.KalmanFilter(processVar, observationVar, initialState, initialVariance));
+  try {
+    return wrapOp(M, () => new M.KalmanFilter(processVar, observationVar, initialState, initialVariance));
+  } catch (e) { throw _finite(M, "KalmanFilter", ["processVar", "observationVar", "initialState", "initialVariance"], [processVar, observationVar, initialState, initialVariance], e); }
 }
 
 /** The settings of KalmanRegression by name, for `KalmanRegression({ ... })`. */
@@ -4251,7 +4374,9 @@ export function KalmanRegression(delta?: any, obsVar?: any, priorVar?: any): Scr
   if (typeof delta !== "number") throw new TypeError(`KalmanRegression: delta must be a number, got ${_what(delta)}`);
   if (typeof obsVar !== "number") throw new TypeError(`KalmanRegression: obsVar must be a number, got ${_what(obsVar)}`);
   if (typeof priorVar !== "number") throw new TypeError(`KalmanRegression: priorVar must be a number, got ${_what(priorVar)}`);
-  return wrapOp(M, () => new M.KalmanRegression(delta, obsVar, priorVar));
+  try {
+    return wrapOp(M, () => new M.KalmanRegression(delta, obsVar, priorVar));
+  } catch (e) { throw _finite(M, "KalmanRegression", ["delta", "obsVar", "priorVar"], [delta, obsVar, priorVar], e); }
 }
 
 /** The settings of KeltnerChannels by name, for `KeltnerChannels({ ... })`. */
@@ -4285,7 +4410,9 @@ export function KeltnerChannels(windowSize?: any, numAtr?: any): ScreamerOp {
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`KeltnerChannels: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof numAtr !== "number") throw new TypeError(`KeltnerChannels: numAtr must be a number, got ${_what(numAtr)}`);
-  return wrapOp(M, () => new M.KeltnerChannels(windowSize, numAtr));
+  try {
+    return wrapOp(M, () => new M.KeltnerChannels(windowSize, numAtr));
+  } catch (e) { throw _finite(M, "KeltnerChannels", ["numAtr"], [numAtr], e); }
 }
 
 /** The settings of Lag by name, for `Lag({ ... })`. */
@@ -4413,7 +4540,9 @@ export function Linear(scale?: any, shift?: any): ScreamerOp {
   const M = current();
   if (typeof scale !== "number") throw new TypeError(`Linear: scale must be a number, got ${_what(scale)}`);
   if (typeof shift !== "number") throw new TypeError(`Linear: shift must be a number, got ${_what(shift)}`);
-  return wrapOp(M, () => new M.Linear(scale, shift));
+  try {
+    return wrapOp(M, () => new M.Linear(scale, shift));
+  } catch (e) { throw _finite(M, "Linear", ["scale", "shift"], [scale, shift], e); }
 }
 
 /** The settings of Linear2 by name, for `Linear2({ ... })`. */
@@ -4452,7 +4581,9 @@ export function Linear2(a?: any, b?: any, c?: any): ScreamerOp {
   if (typeof a !== "number") throw new TypeError(`Linear2: a must be a number, got ${_what(a)}`);
   if (typeof b !== "number") throw new TypeError(`Linear2: b must be a number, got ${_what(b)}`);
   if (typeof c !== "number") throw new TypeError(`Linear2: c must be a number, got ${_what(c)}`);
-  return wrapOp(M, () => new M.Linear2(a, b, c));
+  try {
+    return wrapOp(M, () => new M.Linear2(a, b, c));
+  } catch (e) { throw _finite(M, "Linear2", ["a", "b", "c"], [a, b, c], e); }
 }
 
 /** Log has no settings: its options object is empty. */
@@ -4569,7 +4700,9 @@ export function MAMA(fastLimit?: any, slowLimit?: any): ScreamerOp {
   const M = current();
   if (typeof fastLimit !== "number") throw new TypeError(`MAMA: fastLimit must be a number, got ${_what(fastLimit)}`);
   if (typeof slowLimit !== "number") throw new TypeError(`MAMA: slowLimit must be a number, got ${_what(slowLimit)}`);
-  return wrapOp(M, () => new M.MAMA(fastLimit, slowLimit));
+  try {
+    return wrapOp(M, () => new M.MAMA(fastLimit, slowLimit));
+  } catch (e) { throw _finite(M, "MAMA", ["fastLimit", "slowLimit"], [fastLimit, slowLimit], e); }
 }
 
 /** The settings of MFI by name, for `MFI({ ... })`. */
@@ -4749,16 +4882,18 @@ export function MovingAverage(taps?: any): ScreamerOp {
   if (taps === undefined) taps = [0.25, 0.5, 0.25];
   const M = current();
   const taps_ = _vec("MovingAverage", "taps", taps);
-  return wrapOp(M, () => {
-    const _v0 = new M.VectorDouble();
-    try {
-      if (typeof taps_ === "number") _v0.push_back(taps_);
-      else for (const _x of taps_) _v0.push_back(_x);
-      return new M.MovingAverage(_v0);
-    } finally {
-      _v0.delete();
-    }
-  });
+  try {
+    return wrapOp(M, () => {
+      const _v0 = new M.VectorDouble();
+      try {
+        if (typeof taps_ === "number") _v0.push_back(taps_);
+        else for (const _x of taps_) _v0.push_back(_x);
+        return new M.MovingAverage(_v0);
+      } finally {
+        _v0.delete();
+      }
+    });
+  } catch (e) { throw _finite(M, "MovingAverage", ["taps"], [taps_], e); }
 }
 
 /** Mul has no settings: its options object is empty. */
@@ -5024,7 +5159,9 @@ export function Power(p?: any): ScreamerOp {
   if (p === undefined) p = 2.0;
   const M = current();
   if (typeof p !== "number") throw new TypeError(`Power: p must be a number, got ${_what(p)}`);
-  return wrapOp(M, () => new M.Power(p));
+  try {
+    return wrapOp(M, () => new M.Power(p));
+  } catch (e) { throw _finite(M, "Power", ["p"], [p], e); }
 }
 
 /** The settings of Propagator by name, for `Propagator({ ... })`. */
@@ -5063,7 +5200,9 @@ export function Propagator(windowSize?: any, g0?: any, gamma?: any): ScreamerOp 
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`Propagator: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof g0 !== "number") throw new TypeError(`Propagator: g0 must be a number, got ${_what(g0)}`);
   if (typeof gamma !== "number") throw new TypeError(`Propagator: gamma must be a number, got ${_what(gamma)}`);
-  return wrapOp(M, () => new M.Propagator(windowSize, g0, gamma));
+  try {
+    return wrapOp(M, () => new M.Propagator(windowSize, g0, gamma));
+  } catch (e) { throw _finite(M, "Propagator", ["g0", "gamma"], [g0, gamma], e); }
 }
 
 /** QueueImbalance has no settings: its options object is empty. */
@@ -5466,7 +5605,9 @@ export function RollingCVaR(windowSize?: any, alpha?: any): ScreamerOp {
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingCVaR: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof alpha !== "number") throw new TypeError(`RollingCVaR: alpha must be a number, got ${_what(alpha)}`);
-  return wrapOp(M, () => new M.RollingCVaR(windowSize, alpha));
+  try {
+    return wrapOp(M, () => new M.RollingCVaR(windowSize, alpha));
+  } catch (e) { throw _finite(M, "RollingCVaR", ["alpha"], [alpha], e); }
 }
 
 /** The settings of RollingCalmar by name, for `RollingCalmar({ ... })`. */
@@ -5500,7 +5641,9 @@ export function RollingCalmar(windowSize?: any, periodsPerYear?: any): ScreamerO
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingCalmar: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof periodsPerYear !== "number") throw new TypeError(`RollingCalmar: periodsPerYear must be a number, got ${_what(periodsPerYear)}`);
-  return wrapOp(M, () => new M.RollingCalmar(windowSize, periodsPerYear));
+  try {
+    return wrapOp(M, () => new M.RollingCalmar(windowSize, periodsPerYear));
+  } catch (e) { throw _finite(M, "RollingCalmar", ["periodsPerYear"], [periodsPerYear], e); }
 }
 
 /** The settings of RollingCorr by name, for `RollingCorr({ ... })`. */
@@ -5607,7 +5750,9 @@ export function RollingDownsideDeviation(windowSize?: any, mar?: any, startPolic
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingDownsideDeviation: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof mar !== "number") throw new TypeError(`RollingDownsideDeviation: mar must be a number, got ${_what(mar)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingDownsideDeviation: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return wrapOp(M, () => new M.RollingDownsideDeviation(windowSize, mar, startPolicy));
+  try {
+    return wrapOp(M, () => new M.RollingDownsideDeviation(windowSize, mar, startPolicy));
+  } catch (e) { throw _finite(M, "RollingDownsideDeviation", ["mar"], [mar], e); }
 }
 
 /** The settings of RollingGarmanKlassVar by name, for `RollingGarmanKlassVar({ ... })`. */
@@ -5767,7 +5912,9 @@ export function RollingInfoRatio(windowSize?: any, periodsPerYear?: any): Scream
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingInfoRatio: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof periodsPerYear !== "number") throw new TypeError(`RollingInfoRatio: periodsPerYear must be a number, got ${_what(periodsPerYear)}`);
-  return wrapOp(M, () => new M.RollingInfoRatio(windowSize, periodsPerYear));
+  try {
+    return wrapOp(M, () => new M.RollingInfoRatio(windowSize, periodsPerYear));
+  } catch (e) { throw _finite(M, "RollingInfoRatio", ["periodsPerYear"], [periodsPerYear], e); }
 }
 
 /** The settings of RollingIqr by name, for `RollingIqr({ ... })`. */
@@ -6218,7 +6365,9 @@ export function RollingOmega(windowSize?: any, threshold?: any): ScreamerOp {
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingOmega: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof threshold !== "number") throw new TypeError(`RollingOmega: threshold must be a number, got ${_what(threshold)}`);
-  return wrapOp(M, () => new M.RollingOmega(windowSize, threshold));
+  try {
+    return wrapOp(M, () => new M.RollingOmega(windowSize, threshold));
+  } catch (e) { throw _finite(M, "RollingOmega", ["threshold"], [threshold], e); }
 }
 
 /** The settings of RollingOrderImbalance by name, for `RollingOrderImbalance({ ... })`. */
@@ -6451,7 +6600,9 @@ export function RollingQuantile(windowSize?: any, quantile?: any): ScreamerOp {
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingQuantile: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof quantile !== "number") throw new TypeError(`RollingQuantile: quantile must be a number, got ${_what(quantile)}`);
-  return wrapOp(M, () => new M.RollingQuantile(windowSize, quantile));
+  try {
+    return wrapOp(M, () => new M.RollingQuantile(windowSize, quantile));
+  } catch (e) { throw _finite(M, "RollingQuantile", ["quantile"], [quantile], e); }
 }
 
 /** The settings of RollingRSI by name, for `RollingRSI({ ... })`. */
@@ -6708,7 +6859,9 @@ export function RollingSharpe(windowSize?: any, periodsPerYear?: any): ScreamerO
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingSharpe: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof periodsPerYear !== "number") throw new TypeError(`RollingSharpe: periodsPerYear must be a number, got ${_what(periodsPerYear)}`);
-  return wrapOp(M, () => new M.RollingSharpe(windowSize, periodsPerYear));
+  try {
+    return wrapOp(M, () => new M.RollingSharpe(windowSize, periodsPerYear));
+  } catch (e) { throw _finite(M, "RollingSharpe", ["periodsPerYear"], [periodsPerYear], e); }
 }
 
 /** The settings of RollingSigmaClip by name, for `RollingSigmaClip({ ... })`. */
@@ -6757,7 +6910,9 @@ export function RollingSigmaClip(windowSize?: any, lower?: any, upper?: any, out
   if (typeof upper !== "number") throw new TypeError(`RollingSigmaClip: upper must be a number, got ${_what(upper)}`);
   if (typeof output !== "string") throw new TypeError(`RollingSigmaClip: output must be a string, got ${output instanceof String ? "a String object" : _what(output)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingSigmaClip: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return wrapOp(M, () => new M.RollingSigmaClip(windowSize, lower, upper, output, startPolicy));
+  try {
+    return wrapOp(M, () => new M.RollingSigmaClip(windowSize, lower, upper, output, startPolicy));
+  } catch (e) { throw _finite(M, "RollingSigmaClip", ["lower", "upper"], [(Number.isNaN(lower) ? null : lower), (Number.isNaN(upper) ? null : upper)], e); }
 }
 
 /** The settings of RollingSkew by name, for `RollingSkew({ ... })`. */
@@ -6830,7 +6985,9 @@ export function RollingSortino(windowSize?: any, periodsPerYear?: any, target?: 
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingSortino: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof periodsPerYear !== "number") throw new TypeError(`RollingSortino: periodsPerYear must be a number, got ${_what(periodsPerYear)}`);
   if (typeof target !== "number") throw new TypeError(`RollingSortino: target must be a number, got ${_what(target)}`);
-  return wrapOp(M, () => new M.RollingSortino(windowSize, periodsPerYear, target));
+  try {
+    return wrapOp(M, () => new M.RollingSortino(windowSize, periodsPerYear, target));
+  } catch (e) { throw _finite(M, "RollingSortino", ["periodsPerYear", "target"], [periodsPerYear, target], e); }
 }
 
 /** The settings of RollingSpread by name, for `RollingSpread({ ... })`. */
@@ -7194,7 +7351,9 @@ export function RoofingFilter(hpPeriod?: any, lpPeriod?: any, hpCutoff?: any, lp
   if (typeof lpPeriod !== "number") throw new TypeError(`RoofingFilter: lpPeriod must be a number, got ${_what(lpPeriod)}`);
   if (typeof hpCutoff !== "number") throw new TypeError(`RoofingFilter: hpCutoff must be a number, got ${_what(hpCutoff)}`);
   if (typeof lpCutoff !== "number") throw new TypeError(`RoofingFilter: lpCutoff must be a number, got ${_what(lpCutoff)}`);
-  return wrapOp(M, () => new M.RoofingFilter(hpPeriod, lpPeriod, hpCutoff, lpCutoff));
+  try {
+    return wrapOp(M, () => new M.RoofingFilter(hpPeriod, lpPeriod, hpCutoff, lpCutoff));
+  } catch (e) { throw _finite(M, "RoofingFilter", ["hpPeriod", "lpPeriod", "hpCutoff", "lpCutoff"], [(Number.isNaN(hpPeriod) ? null : hpPeriod), (Number.isNaN(lpPeriod) ? null : lpPeriod), (Number.isNaN(hpCutoff) ? null : hpCutoff), (Number.isNaN(lpCutoff) ? null : lpCutoff)], e); }
 }
 
 /** Round has no settings: its options object is empty. */
@@ -7248,7 +7407,9 @@ export function SchmittTrigger(lower?: any, upper?: any, initial?: any): Screame
   if (typeof lower !== "number") throw new TypeError(`SchmittTrigger: lower must be a number, got ${_what(lower)}`);
   if (typeof upper !== "number") throw new TypeError(`SchmittTrigger: upper must be a number, got ${_what(upper)}`);
   if (typeof initial !== "number") throw new TypeError(`SchmittTrigger: initial must be a number, got ${_what(initial)}`);
-  return wrapOp(M, () => new M.SchmittTrigger(lower, upper, initial));
+  try {
+    return wrapOp(M, () => new M.SchmittTrigger(lower, upper, initial));
+  } catch (e) { throw _finite(M, "SchmittTrigger", ["lower", "upper", "initial"], [lower, upper, initial], e); }
 }
 
 /** Selu has no settings: its options object is empty. */
@@ -7500,7 +7661,9 @@ export function SuperSmoother(period?: any, cutoff?: any): ScreamerOp {
   const M = current();
   if (typeof period !== "number") throw new TypeError(`SuperSmoother: period must be a number, got ${_what(period)}`);
   if (typeof cutoff !== "number") throw new TypeError(`SuperSmoother: cutoff must be a number, got ${_what(cutoff)}`);
-  return wrapOp(M, () => new M.SuperSmoother(period, cutoff));
+  try {
+    return wrapOp(M, () => new M.SuperSmoother(period, cutoff));
+  } catch (e) { throw _finite(M, "SuperSmoother", ["period", "cutoff"], [(Number.isNaN(period) ? null : period), (Number.isNaN(cutoff) ? null : cutoff)], e); }
 }
 
 /** The settings of TEMA by name, for `TEMA({ ... })`. */
@@ -7544,7 +7707,9 @@ export function TEMA(com?: any, span?: any, halflife?: any, alpha?: any): Scream
   if (typeof span !== "number") throw new TypeError(`TEMA: span must be a number, got ${_what(span)}`);
   if (typeof halflife !== "number") throw new TypeError(`TEMA: halflife must be a number, got ${_what(halflife)}`);
   if (typeof alpha !== "number") throw new TypeError(`TEMA: alpha must be a number, got ${_what(alpha)}`);
-  return wrapOp(M, () => new M.TEMA(com, span, halflife, alpha));
+  try {
+    return wrapOp(M, () => new M.TEMA(com, span, halflife, alpha));
+  } catch (e) { throw _finite(M, "TEMA", ["com", "span", "halflife", "alpha"], [(Number.isNaN(com) ? null : com), (Number.isNaN(span) ? null : span), (Number.isNaN(halflife) ? null : halflife), (Number.isNaN(alpha) ? null : alpha)], e); }
 }
 
 /** The settings of TRIMA by name, for `TRIMA({ ... })`. */
@@ -7735,7 +7900,9 @@ export function VPIN(bucketVolume?: any, nBuckets?: any): ScreamerOp {
   const M = current();
   if (typeof bucketVolume !== "number") throw new TypeError(`VPIN: bucketVolume must be a number, got ${_what(bucketVolume)}`);
   if (typeof nBuckets !== "number" || !Number.isInteger(nBuckets)) throw new TypeError(`VPIN: nBuckets must be an integer, got ${typeof nBuckets === "number" ? nBuckets : _what(nBuckets)}`);
-  return wrapOp(M, () => new M.VPIN(bucketVolume, nBuckets));
+  try {
+    return wrapOp(M, () => new M.VPIN(bucketVolume, nBuckets));
+  } catch (e) { throw _finite(M, "VPIN", ["bucketVolume"], [bucketVolume], e); }
 }
 
 /** The settings of WMA by name, for `WMA({ ... })`. */

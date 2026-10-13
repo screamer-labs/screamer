@@ -10,6 +10,9 @@
 #include <stdexcept>
 #include <tuple>
 #include "screamer/common/column_driver.h"
+#include "screamer/common/finite_settings.h"
+#include <string>
+#include <vector>
 #include "screamer/common/eval_op.h"
 #include "screamer/common/functor_base.h"
 #include "screamer/common/row_op.h"
@@ -163,6 +166,29 @@ inline std::uintptr_t opPtr(screamer::EvalOp& op) {
     return reinterpret_cast<std::uintptr_t>(&op);
 }
 
+// The message for a float setting that is not finite (finite_settings.h),
+// asked by a generated factory after its constructor threw: `names` is an
+// Array of the camelCase setting names, `values` an Array of numbers or
+// Arrays of numbers. "" when no setting is at fault.
+inline std::string finiteSettingError(std::string op, emscripten::val names, emscripten::val values) {
+    const auto n = names["length"].as<unsigned>();
+    std::vector<std::string> ns;
+    std::vector<std::vector<double>> vs;
+    for (unsigned i = 0; i < n; ++i) {
+        ns.push_back(names[i].as<std::string>());
+        emscripten::val v = values[i];
+        std::vector<double> xs;
+        if (v.isArray()) {
+            const auto m = v["length"].as<unsigned>();
+            for (unsigned j = 0; j < m; ++j) xs.push_back(v[j].as<double>());
+        } else {
+            xs.push_back(v.as<double>());
+        }
+        vs.push_back(std::move(xs));
+    }
+    return screamer::finite_setting_error(op, ns, vs, true);
+}
+
 }  // namespace screamer_wasm
 
 // Register the shared runtime on the EvalOp base class ONCE. Every op class is
@@ -178,5 +204,6 @@ inline std::uintptr_t opPtr(screamer::EvalOp& op) {
     emscripten::function("freeBuf", &screamer_wasm::freeBuf);                 \
     emscripten::function("heapInUse", &screamer_wasm::heapInUse);             \
     emscripten::function("viewF64", &screamer_wasm::viewF64);                 \
+    emscripten::function("finiteSettingError", &screamer_wasm::finiteSettingError); \
     emscripten::function("opPtr", &screamer_wasm::opPtr,                       \
                          emscripten::allow_raw_pointers())

@@ -34,6 +34,7 @@
 #include "screamer/butter_highpass.h"
 #include "screamer/cci.h"
 #include "screamer/clip.h"
+#include "screamer/common/finite_settings.h"
 #include "screamer/common/per_asset.h"
 #include "screamer/common/row_op.h"
 #include "screamer/common/shape.h"
