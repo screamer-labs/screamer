@@ -398,8 +398,8 @@ def compare(ref_spec, new_spec, gate):
     """Prints the cases of two builds; returns 1 when the gate fails: a case
     over the gate, an error of the new build (a case that raises, a packed call
     that raises or differs), a case of the reference that the new build lacks,
-    or a packed / separate ratio of the new build that is over the gate or
-    missing."""
+    a packed / separate ratio of the new build that is over the gate or
+    missing, or a pair the reference timed that the new build leaves untimed."""
     (ref, _, _), (new, new_errors, new_untimed) = load(ref_spec), load(new_spec)
     fails = [f"error: {e}" for e in new_errors]
     print(f"{'case':36s} {'ref ms':>10s} {'new ms':>10s} {'new/ref':>8s}")
@@ -426,7 +426,13 @@ def compare(ref_spec, new_spec, gate):
             p, s = d.get("packed:" + k), d.get("separate:" + k)
             return p / s if p and s else float("nan")
         if "packed:" + k in new_untimed:
-            print(f"{k:36s} {ratio(ref):10.3f} {'untimed':>10s}")
+            # Untimed in both builds is a slow operator; timed by the
+            # reference and untimed now is a slowdown past MAX_OP_S a call.
+            timed_before = ratio(ref) == ratio(ref)
+            if timed_before:
+                fails.append("packed:" + k + " untimed in the new run")
+            print(f"{k:36s} {ratio(ref):10.3f} {'untimed':>10s}"
+                  f"{' FAIL' if timed_before else ''}")
             continue
         rn = ratio(new)
         bad = not (rn <= gate)                  # a NaN ratio (a side missing) fails too
@@ -464,14 +470,18 @@ def selftest():
         "missing packed": ({**base, "ms": {k: v for k, v in base["ms"].items()
                                            if k != "packed:Op:1d"}}, 1),
         "packed slower": (case(ms={"packed:Op:1d": 1.2}), 1),
-        "untimed": ({**base, "ms": {"pipe_a": 10.0},
-                     "untimed": ["separate:Op:1d", "packed:Op:1d"]}, 0),
+        "newly untimed": ({**base, "ms": {"pipe_a": 10.0},
+                           "untimed": ["separate:Op:1d", "packed:Op:1d"]}, 1),
+        "untimed in both": ({**base, "ms": {"pipe_a": 10.0},
+                             "untimed": ["separate:Op:1d", "packed:Op:1d"]}, 0,
+                            {**base, "ms": {"pipe_a": 10.0},
+                             "untimed": ["separate:Op:1d", "packed:Op:1d"]}),
     }
     ok = True
     with tempfile.TemporaryDirectory() as d:
         ref = os.path.join(d, "ref.json")
-        json.dump(base, open(ref, "w"))
-        for name, (new, want) in scenarios.items():
+        for name, (new, want, *ref_run) in scenarios.items():
+            json.dump(ref_run[0] if ref_run else base, open(ref, "w"))
             path = os.path.join(d, "new.json")
             json.dump(new, open(path, "w"))
             with contextlib.redirect_stdout(io.StringIO()):
