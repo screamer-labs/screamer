@@ -13,6 +13,7 @@
 #include <vector>
 #include "screamer/common/shape.h"
 #include "screamer/streams/combine_latest.h"
+#include "screamer/streams/merge_rows.h"
 #include "screamer/streams/merge_source.h"
 #include "screamer/streams/vector_source.h"
 
@@ -292,6 +293,26 @@ private:
     std::vector<double> row_;
 };
 
+// The number of distinct indexes over sorted index arrays: the most rows a
+// join of them emits. A decreasing array still ends the count (the join
+// raises for it).
+template <class Index>
+std::size_t count_distinct(const std::vector<const Index*>& index, const std::vector<std::size_t>& lens) {
+    const std::size_t n = index.size();
+    std::vector<std::size_t> pos(n, 0);
+    std::size_t count = 0;
+    for (;;) {
+        bool any = false;
+        Index m{};
+        for (std::size_t i = 0; i < n; ++i)
+            if (pos[i] < lens[i] && (!any || index[i][pos[i]] < m)) { m = index[i][pos[i]]; any = true; }
+        if (!any) return count;
+        ++count;
+        for (std::size_t i = 0; i < n; ++i)
+            while (pos[i] < lens[i] && index[i][pos[i]] == m) ++pos[i];
+    }
+}
+
 // The rows of a batch combine_latest: one per distinct index, sorted.
 template <class Index>
 struct JoinedRows {
@@ -310,29 +331,24 @@ JoinedRows<Index> combine_latest_rows(const JoinPlan& plan, const std::vector<co
                                       const std::vector<std::size_t>& lens,
                                       const std::vector<const double*>& data, bool when_all) {
     const std::size_t n = plan.inputs.size();
-    // Each source's event value is its row position; the row's values are read
-    // from the input's data.
-    std::vector<std::vector<double>> positions(n);
-    std::vector<std::unique_ptr<VectorSource<Index, false>>> sources;
+    // Each source's event value is its row number (detail::RowSource, which
+    // also checks the index order); the row's values are read from the
+    // input's data.
+    std::vector<detail::RowSource<Index>> sources;
+    sources.reserve(n);
     std::vector<Source<Index>*> children;
     std::vector<std::vector<double>> scratch(n);
-    std::size_t total = 0;
     for (std::size_t i = 0; i < n; ++i) {
-        positions[i].resize(lens[i]);
-        // The row positions, and the index order (checked_index.h) in the same loop.
-        const Index* k = index[i];
-        for (std::size_t r = 0; r < lens[i]; ++r) {
-            if (r != 0 && k[r] < k[r - 1]) dag::throw_index_decreases(i, r, k[r - 1], k[r]);
-            positions[i][r] = static_cast<double>(r);
-        }
-        sources.push_back(std::make_unique<VectorSource<Index, false>>(index[i], positions[i].data(), lens[i], i));
-        children.push_back(sources.back().get());
+        sources.emplace_back(index[i], lens[i], i);
+        children.push_back(&sources.back());
         scratch[i].resize(plan.inputs[i].width);
-        total += lens[i];
     }
+    // A row per distinct index at most: reserve that, not the sum of the
+    // inputs' rows (n aligned inputs would reserve n times the output).
+    const std::size_t rows = count_distinct(index, lens);
     JoinedRows<Index> out;
-    out.index.reserve(total);
-    out.values.reserve(total * plan.width);
+    out.index.reserve(rows);
+    out.values.reserve(rows * plan.width);
     CombineLatest cl(plan.widths(), when_all);
     MergeSource<Index> merge(children);
     bool buffered = false;

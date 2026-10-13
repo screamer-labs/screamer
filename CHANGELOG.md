@@ -932,6 +932,11 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Fixed
 
+* The batch `combine_latest` reserved the sum of its inputs' rows times the
+  joined width, so n aligned inputs reserved n times the output: in
+  JavaScript, `combineLatest` of 16 inputs of 1e6 rows threw `RangeError`
+  "std::bad_alloc" on the WebAssembly heap. It reserves one row per distinct
+  index.
 * Index arithmetic that left the int64 range wrapped around: `Delay(10)` of
   an index 5 below the int64 maximum gave a large negative index, as did a
   `forecast_pairs` duration and the labels of a `freq=` (`every=`) Resample

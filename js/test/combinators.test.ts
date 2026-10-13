@@ -433,3 +433,18 @@ test("E4: emit on_any with a wide Input whose first rows are dropped raises; whe
     q.dispose();
   }
 });
+
+// combineLatest reserves its output rows (one per distinct index), not the sum
+// of the inputs' rows times the joined width: 32 aligned inputs of 2e5 rows
+// reserved 1.6 GB of the WebAssembly heap and threw std::bad_alloc.
+test("combineLatest of many aligned inputs fits the WebAssembly heap", async () => {
+  await ready();
+  const n = 32, T = 200_000;
+  const index = Float64Array.from({ length: T }, (_, i) => i);
+  const ins = Array.from({ length: n }, (_, j) => ({ values: Float64Array.from({ length: T }, (_, i) => i + j), index }));
+  const r: any = combineLatest(ins);
+  assert.equal(r.index.length, T);
+  const v = r.values.data as Float64Array;
+  assert.equal(v.length, T * n);
+  assert.equal(v[(T - 1) * n + (n - 1)], T - 1 + n - 1);
+});
