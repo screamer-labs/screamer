@@ -76,6 +76,18 @@ inline constexpr NonFiniteAllowed kNonFiniteAllowed[] = {
     {"CrossNormalize", "net", kTakesNaN},
     // The value that replaces NaN: any float (NaN leaves NaN in place).
     {"FillNa", "fill", kTakesNonFinite},
+    // Elementwise arithmetic takes any infinite coefficient, as numpy does.
+    {"Linear", "scale", kTakesPosInf | kTakesNegInf},
+    {"Linear", "shift", kTakesPosInf | kTakesNegInf},
+    {"Linear2", "a", kTakesPosInf | kTakesNegInf},
+    {"Linear2", "b", kTakesPosInf | kTakesNegInf},
+    {"Linear2", "c", kTakesPosInf | kTakesNegInf},
+    {"Power", "p", kTakesPosInf | kTakesNegInf},
+    // inf is never replace (no clipping), as Clip's upper=inf is no bound.
+    {"Hampel", "n_sigma", kTakesPosInf},
+    {"ImpulseClip", "n_sigma", kTakesPosInf},
+    // inf is a diffuse prior: the first observation sets the state.
+    {"KalmanFilter", "initial_variance", kTakesPosInf},
     // NaN is a documented output or state.
     {"Hold", "release", kTakesNaN},
     {"SchmittTrigger", "initial", kTakesNaN},

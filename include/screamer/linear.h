@@ -9,8 +9,8 @@ namespace screamer {
     class Linear : public ScreamerBase {
     public:
         Linear(double scale, double shift) : scale_(scale), shift_(shift) {
-            require_finite("scale", scale);
-            require_finite("shift", shift);
+            require_finite("scale", scale, kTakesPosInf | kTakesNegInf);
+            require_finite("shift", shift, kTakesPosInf | kTakesNegInf);
         }
 
         double process_scalar(double newValue) override {

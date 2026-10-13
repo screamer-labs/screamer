@@ -52,7 +52,9 @@ const _noSettings = (op: string, x: unknown, nArgs: number): void => {
 };
 // A constructor's RangeError for a float setting that is not finite, as the
 // one message "<Op>: <setting> must be finite, got Infinity" (C++
-// finite_settings.h); any other error as it is.
+// finite_settings.h), or for an integer setting below its smallest value,
+// "<Op>: <setting> must be at least 1, got -1" (int_settings.h); any other
+// error as it is.
 const _finite = (M: any, op: string, names: string[], values: unknown[], e: unknown): unknown => {
   if (!(e instanceof RangeError)) return e;
   const ns: string[] = [], vs: unknown[] = [];
@@ -123,7 +125,9 @@ export function ADOSC(fast?: any, slow?: any): ScreamerOp {
   const M = current();
   if (typeof fast !== "number" || !Number.isInteger(fast)) throw new TypeError(`ADOSC: fast must be an integer, got ${typeof fast === "number" ? fast : _what(fast)}`);
   if (typeof slow !== "number" || !Number.isInteger(slow)) throw new TypeError(`ADOSC: slow must be an integer, got ${typeof slow === "number" ? slow : _what(slow)}`);
-  return _params(wrapOp(M, () => new M.ADOSC(fast, slow)), "ADOSC", ["fast", "slow"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.ADOSC(fast, slow)), "ADOSC", ["fast", "slow"], _given);
+  } catch (e) { throw _finite(M, "ADOSC", ["fast", "slow"], [fast, slow], e); }
 }
 
 /** The settings of ADX by name, for `ADX({ ... })`. */
@@ -153,7 +157,9 @@ export function ADX(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 14;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`ADX: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.ADX(windowSize)), "ADX", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.ADX(windowSize)), "ADX", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "ADX", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of ADXR by name, for `ADXR({ ... })`. */
@@ -183,7 +189,9 @@ export function ADXR(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 14;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`ADXR: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.ADXR(windowSize)), "ADXR", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.ADXR(windowSize)), "ADXR", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "ADXR", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of ATR by name, for `ATR({ ... })`. */
@@ -213,7 +221,9 @@ export function ATR(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 14;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`ATR: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.ATR(windowSize)), "ATR", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.ATR(windowSize)), "ATR", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "ATR", ["windowSize"], [windowSize], e); }
 }
 
 /** Abs has no settings: its options object is empty. */
@@ -296,7 +306,9 @@ export function AmihudIlliquidity(windowSize?: any, startPolicy?: any): Screamer
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`AmihudIlliquidity: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`AmihudIlliquidity: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return _params(wrapOp(M, () => new M.AmihudIlliquidity(windowSize, startPolicy)), "AmihudIlliquidity", ["window_size", "start_policy"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.AmihudIlliquidity(windowSize, startPolicy)), "AmihudIlliquidity", ["window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "AmihudIlliquidity", ["windowSize"], [windowSize], e); }
 }
 
 /** And has no settings: its options object is empty. */
@@ -873,7 +885,7 @@ export function BacktestOHLCTarget(takerFee?: any, tickSize?: any, minPosition?:
   if (typeof rebalanceBand !== "number") throw new TypeError(`BacktestOHLCTarget: rebalanceBand must be a number, got ${_what(rebalanceBand)}`);
   try {
     return _params(wrapOp(M, () => new M.BacktestOHLCTarget(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, fillAt, delay, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand)), "BacktestOHLCTarget", ["taker_fee", "tick_size", "min_position", "max_position", "multiplier", "fee_per_contract", "slippage", "slippage_unit", "fill_at", "delay", "stop_loss", "take_profit", "trailing_stop", "size", "initial_capital", "rebalance_band"], _given);
-  } catch (e) { throw _finite(M, "BacktestOHLCTarget", ["takerFee", "tickSize", "minPosition", "maxPosition", "multiplier", "feePerContract", "slippage", "stopLoss", "takeProfit", "trailingStop", "initialCapital", "rebalanceBand"], [takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, stopLoss, takeProfit, trailingStop, initialCapital, rebalanceBand], e); }
+  } catch (e) { throw _finite(M, "BacktestOHLCTarget", ["takerFee", "tickSize", "minPosition", "maxPosition", "multiplier", "feePerContract", "slippage", "delay", "stopLoss", "takeProfit", "trailingStop", "initialCapital", "rebalanceBand"], [takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, delay, stopLoss, takeProfit, trailingStop, initialCapital, rebalanceBand], e); }
 }
 
 /** The settings of BacktestOHLCVTarget by name, for `BacktestOHLCVTarget({ ... })`. */
@@ -985,7 +997,7 @@ export function BacktestOHLCVTarget(maxParticipation?: any, takerFee?: any, tick
   if (typeof rebalanceBand !== "number") throw new TypeError(`BacktestOHLCVTarget: rebalanceBand must be a number, got ${_what(rebalanceBand)}`);
   try {
     return _params(wrapOp(M, () => new M.BacktestOHLCVTarget(maxParticipation, takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, fillAt, delay, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand)), "BacktestOHLCVTarget", ["max_participation", "taker_fee", "tick_size", "min_position", "max_position", "multiplier", "fee_per_contract", "slippage", "slippage_unit", "fill_at", "delay", "stop_loss", "take_profit", "trailing_stop", "size", "initial_capital", "rebalance_band"], _given);
-  } catch (e) { throw _finite(M, "BacktestOHLCVTarget", ["maxParticipation", "takerFee", "tickSize", "minPosition", "maxPosition", "multiplier", "feePerContract", "slippage", "stopLoss", "takeProfit", "trailingStop", "initialCapital", "rebalanceBand"], [maxParticipation, takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, stopLoss, takeProfit, trailingStop, initialCapital, rebalanceBand], e); }
+  } catch (e) { throw _finite(M, "BacktestOHLCVTarget", ["maxParticipation", "takerFee", "tickSize", "minPosition", "maxPosition", "multiplier", "feePerContract", "slippage", "delay", "stopLoss", "takeProfit", "trailingStop", "initialCapital", "rebalanceBand"], [maxParticipation, takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, delay, stopLoss, takeProfit, trailingStop, initialCapital, rebalanceBand], e); }
 }
 
 /** The settings of BacktestPortfolioOHLCTarget by name, for `BacktestPortfolioOHLCTarget({ ... })`. */
@@ -1103,7 +1115,7 @@ export function BacktestPortfolioOHLCTarget(fee?: any, slippage?: any, slippageU
         _v5.delete();
       }
     }), "BacktestPortfolioOHLCTarget", ["fee", "slippage", "slippage_unit", "tick_size", "multiplier", "fee_per_contract", "size", "initial_capital", "rebalance_band", "rebalance", "max_gross", "max_net", "fill_at", "delay"], _given);
-  } catch (e) { throw _finite(M, "BacktestPortfolioOHLCTarget", ["fee", "slippage", "tickSize", "multiplier", "feePerContract", "initialCapital", "rebalanceBand", "maxGross", "maxNet"], [fee_, slippage_, tickSize_, multiplier_, feePerContract_, initialCapital, rebalanceBand, maxGross, maxNet], e); }
+  } catch (e) { throw _finite(M, "BacktestPortfolioOHLCTarget", ["fee", "slippage", "tickSize", "multiplier", "feePerContract", "initialCapital", "rebalanceBand", "maxGross", "maxNet", "delay"], [fee_, slippage_, tickSize_, multiplier_, feePerContract_, initialCapital, rebalanceBand, maxGross, maxNet, delay], e); }
 }
 
 /** The settings of BacktestPortfolioTarget by name, for `BacktestPortfolioTarget({ ... })`. */
@@ -1707,7 +1719,7 @@ export function BollingerBands(windowSize?: any, numStd?: any, startPolicy?: any
   if (typeof startPolicy !== "string") throw new TypeError(`BollingerBands: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.BollingerBands(windowSize, numStd, startPolicy)), "BollingerBands", ["window_size", "num_std", "start_policy"], _given);
-  } catch (e) { throw _finite(M, "BollingerBands", ["numStd"], [numStd], e); }
+  } catch (e) { throw _finite(M, "BollingerBands", ["windowSize", "numStd"], [windowSize, numStd], e); }
 }
 
 /** The settings of BulkVolumeClassifier by name, for `BulkVolumeClassifier({ ... })`. */
@@ -1742,7 +1754,9 @@ export function BulkVolumeClassifier(windowSize?: any, startPolicy?: any): Screa
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`BulkVolumeClassifier: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`BulkVolumeClassifier: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return _params(wrapOp(M, () => new M.BulkVolumeClassifier(windowSize, startPolicy)), "BulkVolumeClassifier", ["window_size", "start_policy"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.BulkVolumeClassifier(windowSize, startPolicy)), "BulkVolumeClassifier", ["window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "BulkVolumeClassifier", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of Butter by name, for `Butter({ ... })`. */
@@ -1779,7 +1793,7 @@ export function Butter(order?: any, cutoffFreq?: any): ScreamerOp {
   if (typeof cutoffFreq !== "number") throw new TypeError(`Butter: cutoffFreq must be a number, got ${_what(cutoffFreq)}`);
   try {
     return _params(wrapOp(M, () => new M.Butter(order, cutoffFreq)), "Butter", ["order", "cutoff_freq"], _given);
-  } catch (e) { throw _finite(M, "Butter", ["cutoffFreq"], [cutoffFreq], e); }
+  } catch (e) { throw _finite(M, "Butter", ["order", "cutoffFreq"], [order, cutoffFreq], e); }
 }
 
 /** The settings of ButterBandpass by name, for `ButterBandpass({ ... })`. */
@@ -1821,7 +1835,7 @@ export function ButterBandpass(order?: any, lowCutoff?: any, highCutoff?: any): 
   if (typeof highCutoff !== "number") throw new TypeError(`ButterBandpass: highCutoff must be a number, got ${_what(highCutoff)}`);
   try {
     return _params(wrapOp(M, () => new M.ButterBandpass(order, lowCutoff, highCutoff)), "ButterBandpass", ["order", "low_cutoff", "high_cutoff"], _given);
-  } catch (e) { throw _finite(M, "ButterBandpass", ["lowCutoff", "highCutoff"], [lowCutoff, highCutoff], e); }
+  } catch (e) { throw _finite(M, "ButterBandpass", ["order", "lowCutoff", "highCutoff"], [order, lowCutoff, highCutoff], e); }
 }
 
 /** The settings of ButterBandstop by name, for `ButterBandstop({ ... })`. */
@@ -1863,7 +1877,7 @@ export function ButterBandstop(order?: any, lowCutoff?: any, highCutoff?: any): 
   if (typeof highCutoff !== "number") throw new TypeError(`ButterBandstop: highCutoff must be a number, got ${_what(highCutoff)}`);
   try {
     return _params(wrapOp(M, () => new M.ButterBandstop(order, lowCutoff, highCutoff)), "ButterBandstop", ["order", "low_cutoff", "high_cutoff"], _given);
-  } catch (e) { throw _finite(M, "ButterBandstop", ["lowCutoff", "highCutoff"], [lowCutoff, highCutoff], e); }
+  } catch (e) { throw _finite(M, "ButterBandstop", ["order", "lowCutoff", "highCutoff"], [order, lowCutoff, highCutoff], e); }
 }
 
 /** The settings of ButterHighpass by name, for `ButterHighpass({ ... })`. */
@@ -1900,7 +1914,7 @@ export function ButterHighpass(order?: any, cutoffFreq?: any): ScreamerOp {
   if (typeof cutoffFreq !== "number") throw new TypeError(`ButterHighpass: cutoffFreq must be a number, got ${_what(cutoffFreq)}`);
   try {
     return _params(wrapOp(M, () => new M.ButterHighpass(order, cutoffFreq)), "ButterHighpass", ["order", "cutoff_freq"], _given);
-  } catch (e) { throw _finite(M, "ButterHighpass", ["cutoffFreq"], [cutoffFreq], e); }
+  } catch (e) { throw _finite(M, "ButterHighpass", ["order", "cutoffFreq"], [order, cutoffFreq], e); }
 }
 
 /** The settings of CCI by name, for `CCI({ ... })`. */
@@ -1930,7 +1944,9 @@ export function CCI(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 14;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`CCI: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.CCI(windowSize)), "CCI", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.CCI(windowSize)), "CCI", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "CCI", ["windowSize"], [windowSize], e); }
 }
 
 /** Cart2Polar has no settings: its options object is empty. */
@@ -2144,7 +2160,9 @@ export function CrossTopBottom(count?: any): ScreamerOp {
   if (count === undefined) count = 1;
   const M = current();
   if (typeof count !== "number" || !Number.isInteger(count)) throw new TypeError(`CrossTopBottom: count must be an integer, got ${typeof count === "number" ? count : _what(count)}`);
-  return _params(wrapRowOp(M, () => new M.CrossTopBottom(count)), "CrossTopBottom", ["count"], _given);
+  try {
+    return _params(wrapRowOp(M, () => new M.CrossTopBottom(count)), "CrossTopBottom", ["count"], _given);
+  } catch (e) { throw _finite(M, "CrossTopBottom", ["count"], [count], e); }
 }
 
 /** The settings of CrossWinsorize by name, for `CrossWinsorize({ ... })`. */
@@ -2418,7 +2436,9 @@ export function DX(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 14;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`DX: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.DX(windowSize)), "DX", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.DX(windowSize)), "DX", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "DX", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of Decycler by name, for `Decycler({ ... })`. */
@@ -2490,7 +2510,9 @@ export function Detrend(windowSize?: any, startPolicy?: any): ScreamerOp {
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`Detrend: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`Detrend: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return _params(wrapOp(M, () => new M.Detrend(windowSize, startPolicy)), "Detrend", ["window_size", "start_policy"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.Detrend(windowSize, startPolicy)), "Detrend", ["window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "Detrend", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of Diff by name, for `Diff({ ... })`. */
@@ -2525,7 +2547,9 @@ export function Diff(windowSize?: any, startPolicy?: any): ScreamerOp {
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`Diff: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`Diff: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return _params(wrapOp(M, () => new M.Diff(windowSize, startPolicy)), "Diff", ["window_size", "start_policy"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.Diff(windowSize, startPolicy)), "Diff", ["window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "Diff", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of Diff2 by name, for `Diff2({ ... })`. */
@@ -2617,7 +2641,9 @@ export function DonchianChannels(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`DonchianChannels: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.DonchianChannels(windowSize)), "DonchianChannels", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.DonchianChannels(windowSize)), "DonchianChannels", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "DonchianChannels", ["windowSize"], [windowSize], e); }
 }
 
 /** Drawdown has no settings: its options object is empty. */
@@ -4050,7 +4076,7 @@ export function FracDiff(d?: any, windowSize?: any, threshold?: any, startPolicy
   if (typeof startPolicy !== "string") throw new TypeError(`FracDiff: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.FracDiff(d, windowSize, threshold, startPolicy)), "FracDiff", ["d", "window_size", "threshold", "start_policy"], _given);
-  } catch (e) { throw _finite(M, "FracDiff", ["d", "threshold"], [d, threshold], e); }
+  } catch (e) { throw _finite(M, "FracDiff", ["d", "windowSize", "threshold"], [d, windowSize, threshold], e); }
 }
 
 /** GreaterEqual has no settings: its options object is empty. */
@@ -4089,7 +4115,7 @@ export function GreaterThan(options?: GreaterThanOptions): ScreamerOp {
 export interface HampelOptions {
   /** Number of most recent samples used for the median and the MAD. @defaultValue `20` */
   windowSize?: number;
-  /** Detection threshold in robust standard deviations (1.4826 * MAD). Larger values flag fewer samples; 3.0 is typical. @defaultValue `3.0` */
+  /** Detection threshold in robust standard deviations (1.4826 * MAD). Larger values flag fewer samples; 3.0 is typical. inf flags no sample, so the output is the input. @defaultValue `3.0` */
   nSigma?: number;
   /** What to return: "cleaned" gives the signal with outliers replaced by the median, "flag" gives 1.0 at outliers and 0.0 elsewhere, and "nan" gives the input with outliers replaced by NaN. @defaultValue `"cleaned"` */
   output?: string;
@@ -4108,7 +4134,7 @@ export function Hampel(options: HampelOptions): ScreamerOp;
  * Robust Hampel despiker, replace samples far from the window median (in MAD units).
  *
  * @param windowSize Number of most recent samples used for the median and the MAD.
- * @param nSigma Detection threshold in robust standard deviations (1.4826 * MAD). Larger values flag fewer samples; 3.0 is typical.
+ * @param nSigma Detection threshold in robust standard deviations (1.4826 * MAD). Larger values flag fewer samples; 3.0 is typical. inf flags no sample, so the output is the input.
  * @param output What to return: "cleaned" gives the signal with outliers replaced by the median, "flag" gives 1.0 at outliers and 0.0 elsewhere, and "nan" gives the input with outliers replaced by NaN.
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/Hampel.html for the full reference.
@@ -4129,7 +4155,7 @@ export function Hampel(windowSize?: any, nSigma?: any, output?: any, startPolicy
   if (typeof startPolicy !== "string") throw new TypeError(`Hampel: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.Hampel(windowSize, nSigma, output, startPolicy)), "Hampel", ["window_size", "n_sigma", "output", "start_policy"], _given);
-  } catch (e) { throw _finite(M, "Hampel", ["nSigma"], [nSigma], e); }
+  } catch (e) { throw _finite(M, "Hampel", ["windowSize", "nSigma"], [windowSize, nSigma], e); }
 }
 
 /** The settings of HawkesIntensity by name, for `HawkesIntensity({ ... })`. */
@@ -4224,7 +4250,7 @@ export function Hold(n?: any, release?: any): ScreamerOp {
   if (typeof release !== "number") throw new TypeError(`Hold: release must be a number, got ${_what(release)}`);
   try {
     return _params(wrapOp(M, () => new M.Hold(n, release)), "Hold", ["n", "release"], _given);
-  } catch (e) { throw _finite(M, "Hold", ["release"], [release], e); }
+  } catch (e) { throw _finite(M, "Hold", ["n", "release"], [n, release], e); }
 }
 
 /** The settings of HullMA by name, for `HullMA({ ... })`. */
@@ -4254,7 +4280,9 @@ export function HullMA(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`HullMA: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.HullMA(windowSize)), "HullMA", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.HullMA(windowSize)), "HullMA", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "HullMA", ["windowSize"], [windowSize], e); }
 }
 
 /** Hypot has no settings: its options object is empty. */
@@ -4293,7 +4321,7 @@ export function Identity(options?: IdentityOptions): ScreamerOp {
 export interface ImpulseClipOptions {
   /** Number of most recent first differences (and values) used for the robust scale and the replacement median. @defaultValue `20` */
   windowSize?: number;
-  /** Detection threshold in robust standard deviations of the differences (1.4826 * MAD). Larger values flag fewer samples; 4.0 is typical. @defaultValue `4.0` */
+  /** Detection threshold in robust standard deviations of the differences (1.4826 * MAD). Larger values flag fewer samples; 4.0 is typical. inf flags no sample, so the output is the input. @defaultValue `4.0` */
   nSigma?: number;
   /** What to return: "cleaned" gives the signal with outliers replaced by the median, "flag" gives 1.0 at outliers and 0.0 elsewhere, and "nan" gives the input with outliers replaced by NaN. @defaultValue `"cleaned"` */
   output?: string;
@@ -4312,7 +4340,7 @@ export function ImpulseClip(options: ImpulseClipOptions): ScreamerOp;
  * Causal impulse remover, detects spikes on the trend-free first difference.
  *
  * @param windowSize Number of most recent first differences (and values) used for the robust scale and the replacement median.
- * @param nSigma Detection threshold in robust standard deviations of the differences (1.4826 * MAD). Larger values flag fewer samples; 4.0 is typical.
+ * @param nSigma Detection threshold in robust standard deviations of the differences (1.4826 * MAD). Larger values flag fewer samples; 4.0 is typical. inf flags no sample, so the output is the input.
  * @param output What to return: "cleaned" gives the signal with outliers replaced by the median, "flag" gives 1.0 at outliers and 0.0 elsewhere, and "nan" gives the input with outliers replaced by NaN.
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/ImpulseClip.html for the full reference.
@@ -4333,7 +4361,7 @@ export function ImpulseClip(windowSize?: any, nSigma?: any, output?: any, startP
   if (typeof startPolicy !== "string") throw new TypeError(`ImpulseClip: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.ImpulseClip(windowSize, nSigma, output, startPolicy)), "ImpulseClip", ["window_size", "n_sigma", "output", "start_policy"], _given);
-  } catch (e) { throw _finite(M, "ImpulseClip", ["nSigma"], [nSigma], e); }
+  } catch (e) { throw _finite(M, "ImpulseClip", ["windowSize", "nSigma"], [windowSize, nSigma], e); }
 }
 
 /** InstantaneousTrendline has no settings: its options object is empty. */
@@ -4421,7 +4449,9 @@ export function KAMA(windowSize?: any, fast?: any, slow?: any): ScreamerOp {
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`KAMA: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof fast !== "number" || !Number.isInteger(fast)) throw new TypeError(`KAMA: fast must be an integer, got ${typeof fast === "number" ? fast : _what(fast)}`);
   if (typeof slow !== "number" || !Number.isInteger(slow)) throw new TypeError(`KAMA: slow must be an integer, got ${typeof slow === "number" ? slow : _what(slow)}`);
-  return _params(wrapOp(M, () => new M.KAMA(windowSize, fast, slow)), "KAMA", ["window_size", "fast", "slow"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.KAMA(windowSize, fast, slow)), "KAMA", ["window_size", "fast", "slow"], _given);
+  } catch (e) { throw _finite(M, "KAMA", ["windowSize", "fast", "slow"], [windowSize, fast, slow], e); }
 }
 
 /** The settings of KalmanFilter by name, for `KalmanFilter({ ... })`. */
@@ -4432,7 +4462,7 @@ export interface KalmanFilterOptions {
   observationVar?: number;
   /** Starting state estimate x_0, used before the first observation. @defaultValue `0.0` */
   initialState?: number;
-  /** Variance P_0 of the starting state. A large value such as 1e9 makes the filter forget the initial state quickly. @defaultValue `1.0` */
+  /** Variance P_0 of the starting state. A large value such as 1e9 makes the filter forget the initial state quickly. inf is a diffuse prior, so the first observation sets the state, with the observation variance. @defaultValue `1.0` */
   initialVariance?: number;
 }
 
@@ -4449,7 +4479,7 @@ export function KalmanFilter(options: KalmanFilterOptions): ScreamerOp;
  * @param processVar Variance of the random-walk innovation. Larger values make the filter follow new measurements more closely, with a noisier output.
  * @param observationVar Variance of the measurement noise. Must be positive.
  * @param initialState Starting state estimate x_0, used before the first observation.
- * @param initialVariance Variance P_0 of the starting state. A large value such as 1e9 makes the filter forget the initial state quickly.
+ * @param initialVariance Variance P_0 of the starting state. A large value such as 1e9 makes the filter forget the initial state quickly. inf is a diffuse prior, so the first observation sets the state, with the observation variance.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/KalmanFilter.html for the full reference.
  */
 export function KalmanFilter(processVar?: number, observationVar?: number, initialState?: number, initialVariance?: number): ScreamerOp;
@@ -4547,7 +4577,7 @@ export function KeltnerChannels(windowSize?: any, numAtr?: any): ScreamerOp {
   if (typeof numAtr !== "number") throw new TypeError(`KeltnerChannels: numAtr must be a number, got ${_what(numAtr)}`);
   try {
     return _params(wrapOp(M, () => new M.KeltnerChannels(windowSize, numAtr)), "KeltnerChannels", ["window_size", "num_atr"], _given);
-  } catch (e) { throw _finite(M, "KeltnerChannels", ["numAtr"], [numAtr], e); }
+  } catch (e) { throw _finite(M, "KeltnerChannels", ["windowSize", "numAtr"], [windowSize, numAtr], e); }
 }
 
 /** The settings of Lag by name, for `Lag({ ... })`. */
@@ -4582,7 +4612,9 @@ export function Lag(windowSize?: any, startPolicy?: any): ScreamerOp {
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`Lag: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`Lag: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return _params(wrapOp(M, () => new M.Lag(windowSize, startPolicy)), "Lag", ["window_size", "start_policy"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.Lag(windowSize, startPolicy)), "Lag", ["window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "Lag", ["windowSize"], [windowSize], e); }
 }
 
 /** Last has no settings: its options object is empty. */
@@ -4651,9 +4683,9 @@ export function LessThan(options?: LessThanOptions): ScreamerOp {
 
 /** The settings of Linear by name, for `Linear({ ... })`. */
 export interface LinearOptions {
-  /** Factor that multiplies each input value. @defaultValue `1.0` */
+  /** Factor that multiplies each input value. inf and -inf are taken, as numpy takes them. @defaultValue `1.0` */
   scale?: number;
-  /** Constant added after scaling. @defaultValue `0.0` */
+  /** Constant added after scaling. inf and -inf are taken, as numpy takes them. @defaultValue `0.0` */
   shift?: number;
 }
 
@@ -4667,8 +4699,8 @@ export function Linear(options: LinearOptions): ScreamerOp;
 /**
  * Affine transform: scale * x + shift.
  *
- * @param scale Factor that multiplies each input value.
- * @param shift Constant added after scaling.
+ * @param scale Factor that multiplies each input value. inf and -inf are taken, as numpy takes them.
+ * @param shift Constant added after scaling. inf and -inf are taken, as numpy takes them.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Linear.html for the full reference.
  */
 export function Linear(scale?: number, shift?: number): ScreamerOp;
@@ -4688,11 +4720,11 @@ export function Linear(scale?: any, shift?: any): ScreamerOp {
 
 /** The settings of Linear2 by name, for `Linear2({ ... })`. */
 export interface Linear2Options {
-  /** Coefficient that multiplies the first input. @defaultValue `1.0` */
+  /** Coefficient that multiplies the first input. inf and -inf are taken, as numpy takes them. @defaultValue `1.0` */
   a?: number;
-  /** Coefficient that multiplies the second input. @defaultValue `1.0` */
+  /** Coefficient that multiplies the second input. inf and -inf are taken, as numpy takes them. @defaultValue `1.0` */
   b?: number;
-  /** Constant added to the weighted sum. @defaultValue `0.0` */
+  /** Constant added to the weighted sum. inf and -inf are taken, as numpy takes them. @defaultValue `0.0` */
   c?: number;
 }
 
@@ -4706,9 +4738,9 @@ export function Linear2(options: Linear2Options): ScreamerOp;
 /**
  * Two-input affine combination: a*x + b*y + c.
  *
- * @param a Coefficient that multiplies the first input.
- * @param b Coefficient that multiplies the second input.
- * @param c Constant added to the weighted sum.
+ * @param a Coefficient that multiplies the first input. inf and -inf are taken, as numpy takes them.
+ * @param b Coefficient that multiplies the second input. inf and -inf are taken, as numpy takes them.
+ * @param c Constant added to the weighted sum. inf and -inf are taken, as numpy takes them.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Linear2.html for the full reference.
  */
 export function Linear2(a?: number, b?: number, c?: number): ScreamerOp;
@@ -4771,7 +4803,9 @@ export function LogReturn(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 1;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`LogReturn: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.LogReturn(windowSize)), "LogReturn", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.LogReturn(windowSize)), "LogReturn", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "LogReturn", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of MACD by name, for `MACD({ ... })`. */
@@ -4811,7 +4845,9 @@ export function MACD(fast?: any, slow?: any, signal?: any): ScreamerOp {
   if (typeof fast !== "number" || !Number.isInteger(fast)) throw new TypeError(`MACD: fast must be an integer, got ${typeof fast === "number" ? fast : _what(fast)}`);
   if (typeof slow !== "number" || !Number.isInteger(slow)) throw new TypeError(`MACD: slow must be an integer, got ${typeof slow === "number" ? slow : _what(slow)}`);
   if (typeof signal !== "number" || !Number.isInteger(signal)) throw new TypeError(`MACD: signal must be an integer, got ${typeof signal === "number" ? signal : _what(signal)}`);
-  return _params(wrapOp(M, () => new M.MACD(fast, slow, signal)), "MACD", ["fast", "slow", "signal"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.MACD(fast, slow, signal)), "MACD", ["fast", "slow", "signal"], _given);
+  } catch (e) { throw _finite(M, "MACD", ["fast", "slow", "signal"], [fast, slow, signal], e); }
 }
 
 /** The settings of MAMA by name, for `MAMA({ ... })`. */
@@ -4878,7 +4914,9 @@ export function MFI(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 14;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`MFI: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.MFI(windowSize)), "MFI", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.MFI(windowSize)), "MFI", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "MFI", ["windowSize"], [windowSize], e); }
 }
 
 /** MaxDrawdown has no settings: its options object is empty. */
@@ -4940,7 +4978,9 @@ export function MinusDI(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 14;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`MinusDI: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.MinusDI(windowSize)), "MinusDI", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.MinusDI(windowSize)), "MinusDI", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "MinusDI", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of MinusDM by name, for `MinusDM({ ... })`. */
@@ -4970,7 +5010,9 @@ export function MinusDM(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 14;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`MinusDM: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.MinusDM(windowSize)), "MinusDM", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.MinusDM(windowSize)), "MinusDM", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "MinusDM", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of Momentum by name, for `Momentum({ ... })`. */
@@ -5005,7 +5047,9 @@ export function Momentum(windowSize?: any, startPolicy?: any): ScreamerOp {
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`Momentum: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`Momentum: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return _params(wrapOp(M, () => new M.Momentum(windowSize, startPolicy)), "Momentum", ["window_size", "start_policy"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.Momentum(windowSize, startPolicy)), "Momentum", ["window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "Momentum", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of MovingAverage by name, for `MovingAverage({ ... })`. */
@@ -5092,7 +5136,9 @@ export function NATR(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 14;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`NATR: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.NATR(windowSize)), "NATR", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.NATR(windowSize)), "NATR", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "NATR", ["windowSize"], [windowSize], e); }
 }
 
 /** NegPart has no settings: its options object is empty. */
@@ -5218,7 +5264,9 @@ export function PlusDI(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 14;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`PlusDI: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.PlusDI(windowSize)), "PlusDI", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.PlusDI(windowSize)), "PlusDI", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "PlusDI", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of PlusDM by name, for `PlusDM({ ... })`. */
@@ -5248,7 +5296,9 @@ export function PlusDM(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 14;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`PlusDM: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.PlusDM(windowSize)), "PlusDM", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.PlusDM(windowSize)), "PlusDM", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "PlusDM", ["windowSize"], [windowSize], e); }
 }
 
 /** Polar2Cart has no settings: its options object is empty. */
@@ -5301,7 +5351,7 @@ export function PosPart(options?: PosPartOptions): ScreamerOp {
 
 /** The settings of Power by name, for `Power({ ... })`. */
 export interface PowerOptions {
-  /** Exponent applied to each element. The default 2 gives the same result as Square, which computes x * x directly. @defaultValue `2.0` */
+  /** Exponent applied to each element. The default 2 gives the same result as Square, which computes x * x directly. inf and -inf are taken, as numpy's power takes them. @defaultValue `2.0` */
   p?: number;
 }
 
@@ -5315,7 +5365,7 @@ export function Power(options: PowerOptions): ScreamerOp;
 /**
  * x raised to a fixed exponent p.
  *
- * @param p Exponent applied to each element. The default 2 gives the same result as Square, which computes x * x directly.
+ * @param p Exponent applied to each element. The default 2 gives the same result as Square, which computes x * x directly. inf and -inf are taken, as numpy's power takes them.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Power.html for the full reference.
  */
 export function Power(p?: number): ScreamerOp;
@@ -5370,7 +5420,7 @@ export function Propagator(windowSize?: any, g0?: any, gamma?: any): ScreamerOp 
   if (typeof gamma !== "number") throw new TypeError(`Propagator: gamma must be a number, got ${_what(gamma)}`);
   try {
     return _params(wrapOp(M, () => new M.Propagator(windowSize, g0, gamma)), "Propagator", ["window_size", "g0", "gamma"], _given);
-  } catch (e) { throw _finite(M, "Propagator", ["g0", "gamma"], [g0, gamma], e); }
+  } catch (e) { throw _finite(M, "Propagator", ["windowSize", "g0", "gamma"], [windowSize, g0, gamma], e); }
 }
 
 /** QueueImbalance has no settings: its options object is empty. */
@@ -5416,7 +5466,9 @@ export function ROC(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 10;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`ROC: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.ROC(windowSize)), "ROC", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.ROC(windowSize)), "ROC", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "ROC", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of ROCP by name, for `ROCP({ ... })`. */
@@ -5446,7 +5498,9 @@ export function ROCP(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 10;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`ROCP: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.ROCP(windowSize)), "ROCP", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.ROCP(windowSize)), "ROCP", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "ROCP", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of ROCR by name, for `ROCR({ ... })`. */
@@ -5476,7 +5530,9 @@ export function ROCR(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 10;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`ROCR: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.ROCR(windowSize)), "ROCR", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.ROCR(windowSize)), "ROCR", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "ROCR", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RealizedSpread by name, for `RealizedSpread({ ... })`. */
@@ -5506,7 +5562,9 @@ export function RealizedSpread(lag?: any): ScreamerOp {
   if (lag === undefined) lag = 1;
   const M = current();
   if (typeof lag !== "number" || !Number.isInteger(lag)) throw new TypeError(`RealizedSpread: lag must be an integer, got ${typeof lag === "number" ? lag : _what(lag)}`);
-  return _params(wrapOp(M, () => new M.RealizedSpread(lag)), "RealizedSpread", ["lag"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RealizedSpread(lag)), "RealizedSpread", ["lag"], _given);
+  } catch (e) { throw _finite(M, "RealizedSpread", ["lag"], [lag], e); }
 }
 
 /** Relu has no settings: its options object is empty. */
@@ -5552,7 +5610,9 @@ export function Return(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 1;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`Return: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.Return(windowSize)), "Return", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.Return(windowSize)), "Return", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "Return", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollSpread by name, for `RollSpread({ ... })`. */
@@ -5587,7 +5647,9 @@ export function RollSpread(windowSize?: any, startPolicy?: any): ScreamerOp {
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollSpread: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`RollSpread: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return _params(wrapOp(M, () => new M.RollSpread(windowSize, startPolicy)), "RollSpread", ["window_size", "start_policy"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollSpread(windowSize, startPolicy)), "RollSpread", ["window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollSpread", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingADF by name, for `RollingADF({ ... })`. */
@@ -5622,7 +5684,9 @@ export function RollingADF(windowSize?: any, lags?: any): ScreamerOp {
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingADF: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof lags !== "number" || !Number.isInteger(lags)) throw new TypeError(`RollingADF: lags must be an integer, got ${typeof lags === "number" ? lags : _what(lags)}`);
-  return _params(wrapOp(M, () => new M.RollingADF(windowSize, lags)), "RollingADF", ["window_size", "lags"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingADF(windowSize, lags)), "RollingADF", ["window_size", "lags"], _given);
+  } catch (e) { throw _finite(M, "RollingADF", ["windowSize", "lags"], [windowSize, lags], e); }
 }
 
 /** The settings of RollingAlpha by name, for `RollingAlpha({ ... })`. */
@@ -5657,7 +5721,9 @@ export function RollingAlpha(windowSize?: any, startPolicy?: any): ScreamerOp {
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingAlpha: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingAlpha: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return _params(wrapOp(M, () => new M.RollingAlpha(windowSize, startPolicy)), "RollingAlpha", ["window_size", "start_policy"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingAlpha(windowSize, startPolicy)), "RollingAlpha", ["window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollingAlpha", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingArgmax by name, for `RollingArgmax({ ... })`. */
@@ -5687,7 +5753,9 @@ export function RollingArgmax(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingArgmax: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.RollingArgmax(windowSize)), "RollingArgmax", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingArgmax(windowSize)), "RollingArgmax", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "RollingArgmax", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingArgmin by name, for `RollingArgmin({ ... })`. */
@@ -5717,7 +5785,9 @@ export function RollingArgmin(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingArgmin: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.RollingArgmin(windowSize)), "RollingArgmin", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingArgmin(windowSize)), "RollingArgmin", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "RollingArgmin", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingBeta by name, for `RollingBeta({ ... })`. */
@@ -5752,7 +5822,9 @@ export function RollingBeta(windowSize?: any, startPolicy?: any): ScreamerOp {
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingBeta: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingBeta: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return _params(wrapOp(M, () => new M.RollingBeta(windowSize, startPolicy)), "RollingBeta", ["window_size", "start_policy"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingBeta(windowSize, startPolicy)), "RollingBeta", ["window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollingBeta", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingCVaR by name, for `RollingCVaR({ ... })`. */
@@ -5789,7 +5861,7 @@ export function RollingCVaR(windowSize?: any, alpha?: any): ScreamerOp {
   if (typeof alpha !== "number") throw new TypeError(`RollingCVaR: alpha must be a number, got ${_what(alpha)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingCVaR(windowSize, alpha)), "RollingCVaR", ["window_size", "alpha"], _given);
-  } catch (e) { throw _finite(M, "RollingCVaR", ["alpha"], [alpha], e); }
+  } catch (e) { throw _finite(M, "RollingCVaR", ["windowSize", "alpha"], [windowSize, alpha], e); }
 }
 
 /** The settings of RollingCalmar by name, for `RollingCalmar({ ... })`. */
@@ -5826,7 +5898,7 @@ export function RollingCalmar(windowSize?: any, periodsPerYear?: any): ScreamerO
   if (typeof periodsPerYear !== "number") throw new TypeError(`RollingCalmar: periodsPerYear must be a number, got ${_what(periodsPerYear)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingCalmar(windowSize, periodsPerYear)), "RollingCalmar", ["window_size", "periods_per_year"], _given);
-  } catch (e) { throw _finite(M, "RollingCalmar", ["periodsPerYear"], [periodsPerYear], e); }
+  } catch (e) { throw _finite(M, "RollingCalmar", ["windowSize", "periodsPerYear"], [windowSize, periodsPerYear], e); }
 }
 
 /** The settings of RollingCorr by name, for `RollingCorr({ ... })`. */
@@ -5861,7 +5933,9 @@ export function RollingCorr(windowSize?: any, startPolicy?: any): ScreamerOp {
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingCorr: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingCorr: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return _params(wrapOp(M, () => new M.RollingCorr(windowSize, startPolicy)), "RollingCorr", ["window_size", "start_policy"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingCorr(windowSize, startPolicy)), "RollingCorr", ["window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollingCorr", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingCov by name, for `RollingCov({ ... })`. */
@@ -5896,7 +5970,9 @@ export function RollingCov(windowSize?: any, startPolicy?: any): ScreamerOp {
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingCov: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingCov: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return _params(wrapOp(M, () => new M.RollingCov(windowSize, startPolicy)), "RollingCov", ["window_size", "start_policy"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingCov(windowSize, startPolicy)), "RollingCov", ["window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollingCov", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingDownsideDeviation by name, for `RollingDownsideDeviation({ ... })`. */
@@ -5938,7 +6014,7 @@ export function RollingDownsideDeviation(windowSize?: any, mar?: any, startPolic
   if (typeof startPolicy !== "string") throw new TypeError(`RollingDownsideDeviation: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingDownsideDeviation(windowSize, mar, startPolicy)), "RollingDownsideDeviation", ["window_size", "mar", "start_policy"], _given);
-  } catch (e) { throw _finite(M, "RollingDownsideDeviation", ["mar"], [mar], e); }
+  } catch (e) { throw _finite(M, "RollingDownsideDeviation", ["windowSize", "mar"], [windowSize, mar], e); }
 }
 
 /** The settings of RollingGarmanKlassVar by name, for `RollingGarmanKlassVar({ ... })`. */
@@ -5968,7 +6044,9 @@ export function RollingGarmanKlassVar(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingGarmanKlassVar: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.RollingGarmanKlassVar(windowSize)), "RollingGarmanKlassVar", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingGarmanKlassVar(windowSize)), "RollingGarmanKlassVar", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "RollingGarmanKlassVar", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingGarmanKlassVol by name, for `RollingGarmanKlassVol({ ... })`. */
@@ -5998,7 +6076,9 @@ export function RollingGarmanKlassVol(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingGarmanKlassVol: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.RollingGarmanKlassVol(windowSize)), "RollingGarmanKlassVol", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingGarmanKlassVol(windowSize)), "RollingGarmanKlassVol", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "RollingGarmanKlassVol", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingHitRate by name, for `RollingHitRate({ ... })`. */
@@ -6028,7 +6108,9 @@ export function RollingHitRate(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 252;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingHitRate: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.RollingHitRate(windowSize)), "RollingHitRate", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingHitRate(windowSize)), "RollingHitRate", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "RollingHitRate", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingHurst by name, for `RollingHurst({ ... })`. */
@@ -6068,7 +6150,9 @@ export function RollingHurst(windowSize?: any, minScale?: any, method?: any): Sc
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingHurst: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof minScale !== "number" || !Number.isInteger(minScale)) throw new TypeError(`RollingHurst: minScale must be an integer, got ${typeof minScale === "number" ? minScale : _what(minScale)}`);
   if (typeof method !== "string") throw new TypeError(`RollingHurst: method must be a string, got ${method instanceof String ? "a String object" : _what(method)}`);
-  return _params(wrapOp(M, () => new M.RollingHurst(windowSize, minScale, method)), "RollingHurst", ["window_size", "min_scale", "method"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingHurst(windowSize, minScale, method)), "RollingHurst", ["window_size", "min_scale", "method"], _given);
+  } catch (e) { throw _finite(M, "RollingHurst", ["windowSize", "minScale"], [windowSize, minScale], e); }
 }
 
 /** The settings of RollingInfoRatio by name, for `RollingInfoRatio({ ... })`. */
@@ -6105,7 +6189,7 @@ export function RollingInfoRatio(windowSize?: any, periodsPerYear?: any): Scream
   if (typeof periodsPerYear !== "number") throw new TypeError(`RollingInfoRatio: periodsPerYear must be a number, got ${_what(periodsPerYear)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingInfoRatio(windowSize, periodsPerYear)), "RollingInfoRatio", ["window_size", "periods_per_year"], _given);
-  } catch (e) { throw _finite(M, "RollingInfoRatio", ["periodsPerYear"], [periodsPerYear], e); }
+  } catch (e) { throw _finite(M, "RollingInfoRatio", ["windowSize", "periodsPerYear"], [windowSize, periodsPerYear], e); }
 }
 
 /** The settings of RollingIqr by name, for `RollingIqr({ ... })`. */
@@ -6135,7 +6219,9 @@ export function RollingIqr(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingIqr: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.RollingIqr(windowSize)), "RollingIqr", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingIqr(windowSize)), "RollingIqr", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "RollingIqr", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingKurt by name, for `RollingKurt({ ... })`. */
@@ -6170,7 +6256,9 @@ export function RollingKurt(windowSize?: any, startPolicy?: any): ScreamerOp {
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingKurt: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingKurt: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return _params(wrapOp(M, () => new M.RollingKurt(windowSize, startPolicy)), "RollingKurt", ["window_size", "start_policy"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingKurt(windowSize, startPolicy)), "RollingKurt", ["window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollingKurt", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingKyleLambda by name, for `RollingKyleLambda({ ... })`. */
@@ -6205,7 +6293,9 @@ export function RollingKyleLambda(windowSize?: any, startPolicy?: any): Screamer
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingKyleLambda: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingKyleLambda: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return _params(wrapOp(M, () => new M.RollingKyleLambda(windowSize, startPolicy)), "RollingKyleLambda", ["window_size", "start_policy"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingKyleLambda(windowSize, startPolicy)), "RollingKyleLambda", ["window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollingKyleLambda", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingLinearRegression by name, for `RollingLinearRegression({ ... })`. */
@@ -6240,7 +6330,9 @@ export function RollingLinearRegression(windowSize?: any, startPolicy?: any): Sc
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingLinearRegression: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingLinearRegression: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return _params(wrapOp(M, () => new M.RollingLinearRegression(windowSize, startPolicy)), "RollingLinearRegression", ["window_size", "start_policy"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingLinearRegression(windowSize, startPolicy)), "RollingLinearRegression", ["window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollingLinearRegression", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingMad by name, for `RollingMad({ ... })`. */
@@ -6275,7 +6367,9 @@ export function RollingMad(windowSize?: any, startPolicy?: any): ScreamerOp {
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingMad: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingMad: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return _params(wrapOp(M, () => new M.RollingMad(windowSize, startPolicy)), "RollingMad", ["window_size", "start_policy"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingMad(windowSize, startPolicy)), "RollingMad", ["window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollingMad", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingMax by name, for `RollingMax({ ... })`. */
@@ -6305,7 +6399,9 @@ export function RollingMax(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingMax: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.RollingMax(windowSize)), "RollingMax", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingMax(windowSize)), "RollingMax", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "RollingMax", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingMaxDrawdown by name, for `RollingMaxDrawdown({ ... })`. */
@@ -6335,7 +6431,9 @@ export function RollingMaxDrawdown(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 252;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingMaxDrawdown: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.RollingMaxDrawdown(windowSize)), "RollingMaxDrawdown", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingMaxDrawdown(windowSize)), "RollingMaxDrawdown", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "RollingMaxDrawdown", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingMean by name, for `RollingMean({ ... })`. */
@@ -6370,7 +6468,9 @@ export function RollingMean(windowSize?: any, startPolicy?: any): ScreamerOp {
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingMean: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingMean: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return _params(wrapOp(M, () => new M.RollingMean(windowSize, startPolicy)), "RollingMean", ["window_size", "start_policy"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingMean(windowSize, startPolicy)), "RollingMean", ["window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollingMean", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingMedian by name, for `RollingMedian({ ... })`. */
@@ -6400,7 +6500,9 @@ export function RollingMedian(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingMedian: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.RollingMedian(windowSize)), "RollingMedian", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingMedian(windowSize)), "RollingMedian", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "RollingMedian", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingMedianAD by name, for `RollingMedianAD({ ... })`. */
@@ -6435,7 +6537,9 @@ export function RollingMedianAD(windowSize?: any, startPolicy?: any): ScreamerOp
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingMedianAD: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingMedianAD: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return _params(wrapOp(M, () => new M.RollingMedianAD(windowSize, startPolicy)), "RollingMedianAD", ["window_size", "start_policy"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingMedianAD(windowSize, startPolicy)), "RollingMedianAD", ["window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollingMedianAD", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingMin by name, for `RollingMin({ ... })`. */
@@ -6465,7 +6569,9 @@ export function RollingMin(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingMin: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.RollingMin(windowSize)), "RollingMin", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingMin(windowSize)), "RollingMin", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "RollingMin", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingMinMax by name, for `RollingMinMax({ ... })`. */
@@ -6495,7 +6601,9 @@ export function RollingMinMax(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingMinMax: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.RollingMinMax(windowSize)), "RollingMinMax", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingMinMax(windowSize)), "RollingMinMax", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "RollingMinMax", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingOU by name, for `RollingOU({ ... })`. */
@@ -6535,7 +6643,9 @@ export function RollingOU(windowSize?: any, output?: any, startPolicy?: any): Sc
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingOU: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof output !== "string") throw new TypeError(`RollingOU: output must be a string, got ${output instanceof String ? "a String object" : _what(output)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingOU: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return _params(wrapOp(M, () => new M.RollingOU(windowSize, output, startPolicy)), "RollingOU", ["window_size", "output", "start_policy"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingOU(windowSize, output, startPolicy)), "RollingOU", ["window_size", "output", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollingOU", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingOmega by name, for `RollingOmega({ ... })`. */
@@ -6572,7 +6682,7 @@ export function RollingOmega(windowSize?: any, threshold?: any): ScreamerOp {
   if (typeof threshold !== "number") throw new TypeError(`RollingOmega: threshold must be a number, got ${_what(threshold)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingOmega(windowSize, threshold)), "RollingOmega", ["window_size", "threshold"], _given);
-  } catch (e) { throw _finite(M, "RollingOmega", ["threshold"], [threshold], e); }
+  } catch (e) { throw _finite(M, "RollingOmega", ["windowSize", "threshold"], [windowSize, threshold], e); }
 }
 
 /** The settings of RollingOrderImbalance by name, for `RollingOrderImbalance({ ... })`. */
@@ -6607,7 +6717,9 @@ export function RollingOrderImbalance(windowSize?: any, startPolicy?: any): Scre
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingOrderImbalance: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingOrderImbalance: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return _params(wrapOp(M, () => new M.RollingOrderImbalance(windowSize, startPolicy)), "RollingOrderImbalance", ["window_size", "start_policy"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingOrderImbalance(windowSize, startPolicy)), "RollingOrderImbalance", ["window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollingOrderImbalance", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingParkinsonVar by name, for `RollingParkinsonVar({ ... })`. */
@@ -6637,7 +6749,9 @@ export function RollingParkinsonVar(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingParkinsonVar: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.RollingParkinsonVar(windowSize)), "RollingParkinsonVar", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingParkinsonVar(windowSize)), "RollingParkinsonVar", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "RollingParkinsonVar", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingParkinsonVol by name, for `RollingParkinsonVol({ ... })`. */
@@ -6667,7 +6781,9 @@ export function RollingParkinsonVol(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingParkinsonVol: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.RollingParkinsonVol(windowSize)), "RollingParkinsonVol", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingParkinsonVol(windowSize)), "RollingParkinsonVol", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "RollingParkinsonVol", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingPercentile by name, for `RollingPercentile({ ... })`. */
@@ -6697,7 +6813,9 @@ export function RollingPercentile(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingPercentile: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.RollingPercentile(windowSize)), "RollingPercentile", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingPercentile(windowSize)), "RollingPercentile", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "RollingPercentile", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingPoly1 by name, for `RollingPoly1({ ... })`. */
@@ -6737,7 +6855,9 @@ export function RollingPoly1(windowSize?: any, derivativeOrder?: any, startPolic
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingPoly1: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof derivativeOrder !== "number" || !Number.isInteger(derivativeOrder)) throw new TypeError(`RollingPoly1: derivativeOrder must be an integer, got ${typeof derivativeOrder === "number" ? derivativeOrder : _what(derivativeOrder)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingPoly1: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return _params(wrapOp(M, () => new M.RollingPoly1(windowSize, derivativeOrder, startPolicy)), "RollingPoly1", ["window_size", "derivative_order", "start_policy"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingPoly1(windowSize, derivativeOrder, startPolicy)), "RollingPoly1", ["window_size", "derivative_order", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollingPoly1", ["windowSize", "derivativeOrder"], [windowSize, derivativeOrder], e); }
 }
 
 /** The settings of RollingPoly2 by name, for `RollingPoly2({ ... })`. */
@@ -6777,7 +6897,9 @@ export function RollingPoly2(windowSize?: any, derivativeOrder?: any, startPolic
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingPoly2: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof derivativeOrder !== "number" || !Number.isInteger(derivativeOrder)) throw new TypeError(`RollingPoly2: derivativeOrder must be an integer, got ${typeof derivativeOrder === "number" ? derivativeOrder : _what(derivativeOrder)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingPoly2: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return _params(wrapOp(M, () => new M.RollingPoly2(windowSize, derivativeOrder, startPolicy)), "RollingPoly2", ["window_size", "derivative_order", "start_policy"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingPoly2(windowSize, derivativeOrder, startPolicy)), "RollingPoly2", ["window_size", "derivative_order", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollingPoly2", ["windowSize", "derivativeOrder"], [windowSize, derivativeOrder], e); }
 }
 
 /** The settings of RollingQuantile by name, for `RollingQuantile({ ... })`. */
@@ -6814,7 +6936,7 @@ export function RollingQuantile(windowSize?: any, quantile?: any): ScreamerOp {
   if (typeof quantile !== "number") throw new TypeError(`RollingQuantile: quantile must be a number, got ${_what(quantile)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingQuantile(windowSize, quantile)), "RollingQuantile", ["window_size", "quantile"], _given);
-  } catch (e) { throw _finite(M, "RollingQuantile", ["quantile"], [quantile], e); }
+  } catch (e) { throw _finite(M, "RollingQuantile", ["windowSize", "quantile"], [windowSize, quantile], e); }
 }
 
 /** The settings of RollingRSI by name, for `RollingRSI({ ... })`. */
@@ -6854,7 +6976,9 @@ export function RollingRSI(windowSize?: any, method?: any, startPolicy?: any): S
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingRSI: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof method !== "string") throw new TypeError(`RollingRSI: method must be a string, got ${method instanceof String ? "a String object" : _what(method)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingRSI: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return _params(wrapOp(M, () => new M.RollingRSI(windowSize, method, startPolicy)), "RollingRSI", ["window_size", "method", "start_policy"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingRSI(windowSize, method, startPolicy)), "RollingRSI", ["window_size", "method", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollingRSI", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingRange by name, for `RollingRange({ ... })`. */
@@ -6884,7 +7008,9 @@ export function RollingRange(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingRange: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.RollingRange(windowSize)), "RollingRange", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingRange(windowSize)), "RollingRange", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "RollingRange", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingRank by name, for `RollingRank({ ... })`. */
@@ -6914,7 +7040,9 @@ export function RollingRank(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingRank: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.RollingRank(windowSize)), "RollingRank", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingRank(windowSize)), "RollingRank", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "RollingRank", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingResidualStd by name, for `RollingResidualStd({ ... })`. */
@@ -6949,7 +7077,9 @@ export function RollingResidualStd(windowSize?: any, startPolicy?: any): Screame
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingResidualStd: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingResidualStd: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return _params(wrapOp(M, () => new M.RollingResidualStd(windowSize, startPolicy)), "RollingResidualStd", ["window_size", "start_policy"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingResidualStd(windowSize, startPolicy)), "RollingResidualStd", ["window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollingResidualStd", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingRms by name, for `RollingRms({ ... })`. */
@@ -6984,7 +7114,9 @@ export function RollingRms(windowSize?: any, startPolicy?: any): ScreamerOp {
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingRms: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingRms: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return _params(wrapOp(M, () => new M.RollingRms(windowSize, startPolicy)), "RollingRms", ["window_size", "start_policy"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingRms(windowSize, startPolicy)), "RollingRms", ["window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollingRms", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingRogersSatchellVar by name, for `RollingRogersSatchellVar({ ... })`. */
@@ -7014,7 +7146,9 @@ export function RollingRogersSatchellVar(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingRogersSatchellVar: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.RollingRogersSatchellVar(windowSize)), "RollingRogersSatchellVar", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingRogersSatchellVar(windowSize)), "RollingRogersSatchellVar", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "RollingRogersSatchellVar", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingRogersSatchellVol by name, for `RollingRogersSatchellVol({ ... })`. */
@@ -7044,7 +7178,9 @@ export function RollingRogersSatchellVol(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingRogersSatchellVol: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.RollingRogersSatchellVol(windowSize)), "RollingRogersSatchellVol", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingRogersSatchellVol(windowSize)), "RollingRogersSatchellVol", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "RollingRogersSatchellVol", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingSharpe by name, for `RollingSharpe({ ... })`. */
@@ -7081,7 +7217,7 @@ export function RollingSharpe(windowSize?: any, periodsPerYear?: any): ScreamerO
   if (typeof periodsPerYear !== "number") throw new TypeError(`RollingSharpe: periodsPerYear must be a number, got ${_what(periodsPerYear)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingSharpe(windowSize, periodsPerYear)), "RollingSharpe", ["window_size", "periods_per_year"], _given);
-  } catch (e) { throw _finite(M, "RollingSharpe", ["periodsPerYear"], [periodsPerYear], e); }
+  } catch (e) { throw _finite(M, "RollingSharpe", ["windowSize", "periodsPerYear"], [windowSize, periodsPerYear], e); }
 }
 
 /** The settings of RollingSigmaClip by name, for `RollingSigmaClip({ ... })`. */
@@ -7133,7 +7269,7 @@ export function RollingSigmaClip(windowSize?: any, lower?: any, upper?: any, out
   if (typeof startPolicy !== "string") throw new TypeError(`RollingSigmaClip: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingSigmaClip(windowSize, lower, upper, output, startPolicy)), "RollingSigmaClip", ["window_size", "lower", "upper", "output", "start_policy"], _given);
-  } catch (e) { throw _finite(M, "RollingSigmaClip", ["lower", "upper"], [(Number.isNaN(lower) ? null : lower), (Number.isNaN(upper) ? null : upper)], e); }
+  } catch (e) { throw _finite(M, "RollingSigmaClip", ["windowSize", "lower", "upper"], [windowSize, (Number.isNaN(lower) ? null : lower), (Number.isNaN(upper) ? null : upper)], e); }
 }
 
 /** The settings of RollingSkew by name, for `RollingSkew({ ... })`. */
@@ -7168,7 +7304,9 @@ export function RollingSkew(windowSize?: any, startPolicy?: any): ScreamerOp {
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingSkew: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingSkew: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return _params(wrapOp(M, () => new M.RollingSkew(windowSize, startPolicy)), "RollingSkew", ["window_size", "start_policy"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingSkew(windowSize, startPolicy)), "RollingSkew", ["window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollingSkew", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingSortino by name, for `RollingSortino({ ... })`. */
@@ -7210,7 +7348,7 @@ export function RollingSortino(windowSize?: any, periodsPerYear?: any, target?: 
   if (typeof target !== "number") throw new TypeError(`RollingSortino: target must be a number, got ${_what(target)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingSortino(windowSize, periodsPerYear, target)), "RollingSortino", ["window_size", "periods_per_year", "target"], _given);
-  } catch (e) { throw _finite(M, "RollingSortino", ["periodsPerYear", "target"], [periodsPerYear, target], e); }
+  } catch (e) { throw _finite(M, "RollingSortino", ["windowSize", "periodsPerYear", "target"], [windowSize, periodsPerYear, target], e); }
 }
 
 /** The settings of RollingSpread by name, for `RollingSpread({ ... })`. */
@@ -7245,7 +7383,9 @@ export function RollingSpread(windowSize?: any, startPolicy?: any): ScreamerOp {
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingSpread: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingSpread: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return _params(wrapOp(M, () => new M.RollingSpread(windowSize, startPolicy)), "RollingSpread", ["window_size", "start_policy"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingSpread(windowSize, startPolicy)), "RollingSpread", ["window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollingSpread", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingStd by name, for `RollingStd({ ... })`. */
@@ -7280,7 +7420,9 @@ export function RollingStd(windowSize?: any, startPolicy?: any): ScreamerOp {
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingStd: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingStd: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return _params(wrapOp(M, () => new M.RollingStd(windowSize, startPolicy)), "RollingStd", ["window_size", "start_policy"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingStd(windowSize, startPolicy)), "RollingStd", ["window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollingStd", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingSum by name, for `RollingSum({ ... })`. */
@@ -7315,7 +7457,9 @@ export function RollingSum(windowSize?: any, startPolicy?: any): ScreamerOp {
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingSum: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingSum: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return _params(wrapOp(M, () => new M.RollingSum(windowSize, startPolicy)), "RollingSum", ["window_size", "start_policy"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingSum(windowSize, startPolicy)), "RollingSum", ["window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollingSum", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingTLSBeta by name, for `RollingTLSBeta({ ... })`. */
@@ -7350,7 +7494,9 @@ export function RollingTLSBeta(windowSize?: any, startPolicy?: any): ScreamerOp 
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingTLSBeta: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingTLSBeta: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return _params(wrapOp(M, () => new M.RollingTLSBeta(windowSize, startPolicy)), "RollingTLSBeta", ["window_size", "start_policy"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingTLSBeta(windowSize, startPolicy)), "RollingTLSBeta", ["window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollingTLSBeta", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingTSF by name, for `RollingTSF({ ... })`. */
@@ -7380,7 +7526,9 @@ export function RollingTSF(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingTSF: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.RollingTSF(windowSize)), "RollingTSF", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingTSF(windowSize)), "RollingTSF", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "RollingTSF", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingVWAP by name, for `RollingVWAP({ ... })`. */
@@ -7410,7 +7558,9 @@ export function RollingVWAP(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingVWAP: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.RollingVWAP(windowSize)), "RollingVWAP", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingVWAP(windowSize)), "RollingVWAP", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "RollingVWAP", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingVar by name, for `RollingVar({ ... })`. */
@@ -7445,7 +7595,9 @@ export function RollingVar(windowSize?: any, startPolicy?: any): ScreamerOp {
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingVar: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingVar: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return _params(wrapOp(M, () => new M.RollingVar(windowSize, startPolicy)), "RollingVar", ["window_size", "start_policy"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingVar(windowSize, startPolicy)), "RollingVar", ["window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollingVar", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingYangZhangVar by name, for `RollingYangZhangVar({ ... })`. */
@@ -7475,7 +7627,9 @@ export function RollingYangZhangVar(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingYangZhangVar: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.RollingYangZhangVar(windowSize)), "RollingYangZhangVar", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingYangZhangVar(windowSize)), "RollingYangZhangVar", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "RollingYangZhangVar", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingYangZhangVol by name, for `RollingYangZhangVol({ ... })`. */
@@ -7505,7 +7659,9 @@ export function RollingYangZhangVol(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingYangZhangVol: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.RollingYangZhangVol(windowSize)), "RollingYangZhangVol", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingYangZhangVol(windowSize)), "RollingYangZhangVol", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "RollingYangZhangVol", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingZscore by name, for `RollingZscore({ ... })`. */
@@ -7540,7 +7696,9 @@ export function RollingZscore(windowSize?: any, startPolicy?: any): ScreamerOp {
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingZscore: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingZscore: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return _params(wrapOp(M, () => new M.RollingZscore(windowSize, startPolicy)), "RollingZscore", ["window_size", "start_policy"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.RollingZscore(windowSize, startPolicy)), "RollingZscore", ["window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollingZscore", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RoofingFilter by name, for `RoofingFilter({ ... })`. */
@@ -7813,7 +7971,9 @@ export function Stoch(fastkPeriod?: any, smoothK?: any, d?: any): ScreamerOp {
   if (typeof fastkPeriod !== "number" || !Number.isInteger(fastkPeriod)) throw new TypeError(`Stoch: fastkPeriod must be an integer, got ${typeof fastkPeriod === "number" ? fastkPeriod : _what(fastkPeriod)}`);
   if (typeof smoothK !== "number" || !Number.isInteger(smoothK)) throw new TypeError(`Stoch: smoothK must be an integer, got ${typeof smoothK === "number" ? smoothK : _what(smoothK)}`);
   if (typeof d !== "number" || !Number.isInteger(d)) throw new TypeError(`Stoch: d must be an integer, got ${typeof d === "number" ? d : _what(d)}`);
-  return _params(wrapOp(M, () => new M.Stoch(fastkPeriod, smoothK, d)), "Stoch", ["fastk_period", "smooth_k", "d"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.Stoch(fastkPeriod, smoothK, d)), "Stoch", ["fastk_period", "smooth_k", "d"], _given);
+  } catch (e) { throw _finite(M, "Stoch", ["fastkPeriod", "smoothK", "d"], [fastkPeriod, smoothK, d], e); }
 }
 
 /** The settings of StochRSI by name, for `StochRSI({ ... })`. */
@@ -7858,7 +8018,9 @@ export function StochRSI(rsiPeriod?: any, stochPeriod?: any, smoothK?: any, d?: 
   if (typeof stochPeriod !== "number" || !Number.isInteger(stochPeriod)) throw new TypeError(`StochRSI: stochPeriod must be an integer, got ${typeof stochPeriod === "number" ? stochPeriod : _what(stochPeriod)}`);
   if (typeof smoothK !== "number" || !Number.isInteger(smoothK)) throw new TypeError(`StochRSI: smoothK must be an integer, got ${typeof smoothK === "number" ? smoothK : _what(smoothK)}`);
   if (typeof d !== "number" || !Number.isInteger(d)) throw new TypeError(`StochRSI: d must be an integer, got ${typeof d === "number" ? d : _what(d)}`);
-  return _params(wrapOp(M, () => new M.StochRSI(rsiPeriod, stochPeriod, smoothK, d)), "StochRSI", ["rsi_period", "stoch_period", "smooth_k", "d"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.StochRSI(rsiPeriod, stochPeriod, smoothK, d)), "StochRSI", ["rsi_period", "stoch_period", "smooth_k", "d"], _given);
+  } catch (e) { throw _finite(M, "StochRSI", ["rsiPeriod", "stochPeriod", "smoothK", "d"], [rsiPeriod, stochPeriod, smoothK, d], e); }
 }
 
 /** Sub has no settings: its options object is empty. */
@@ -7988,7 +8150,9 @@ export function TRIMA(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`TRIMA: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.TRIMA(windowSize)), "TRIMA", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.TRIMA(windowSize)), "TRIMA", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "TRIMA", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of TRIX by name, for `TRIX({ ... })`. */
@@ -8018,7 +8182,9 @@ export function TRIX(span?: any): ScreamerOp {
   if (span === undefined) span = 14;
   const M = current();
   if (typeof span !== "number" || !Number.isInteger(span)) throw new TypeError(`TRIX: span must be an integer, got ${typeof span === "number" ? span : _what(span)}`);
-  return _params(wrapOp(M, () => new M.TRIX(span)), "TRIX", ["span"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.TRIX(span)), "TRIX", ["span"], _given);
+  } catch (e) { throw _finite(M, "TRIX", ["span"], [span], e); }
 }
 
 /** Tanh has no settings: its options object is empty. */
@@ -8122,7 +8288,9 @@ export function UltimateOscillator(period1?: any, period2?: any, period3?: any):
   if (typeof period1 !== "number" || !Number.isInteger(period1)) throw new TypeError(`UltimateOscillator: period1 must be an integer, got ${typeof period1 === "number" ? period1 : _what(period1)}`);
   if (typeof period2 !== "number" || !Number.isInteger(period2)) throw new TypeError(`UltimateOscillator: period2 must be an integer, got ${typeof period2 === "number" ? period2 : _what(period2)}`);
   if (typeof period3 !== "number" || !Number.isInteger(period3)) throw new TypeError(`UltimateOscillator: period3 must be an integer, got ${typeof period3 === "number" ? period3 : _what(period3)}`);
-  return _params(wrapOp(M, () => new M.UltimateOscillator(period1, period2, period3)), "UltimateOscillator", ["period1", "period2", "period3"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.UltimateOscillator(period1, period2, period3)), "UltimateOscillator", ["period1", "period2", "period3"], _given);
+  } catch (e) { throw _finite(M, "UltimateOscillator", ["period1", "period2", "period3"], [period1, period2, period3], e); }
 }
 
 /** The settings of VPIN by name, for `VPIN({ ... })`. */
@@ -8159,7 +8327,7 @@ export function VPIN(bucketVolume?: any, nBuckets?: any): ScreamerOp {
   if (typeof nBuckets !== "number" || !Number.isInteger(nBuckets)) throw new TypeError(`VPIN: nBuckets must be an integer, got ${typeof nBuckets === "number" ? nBuckets : _what(nBuckets)}`);
   try {
     return _params(wrapOp(M, () => new M.VPIN(bucketVolume, nBuckets)), "VPIN", ["bucket_volume", "n_buckets"], _given);
-  } catch (e) { throw _finite(M, "VPIN", ["bucketVolume"], [bucketVolume], e); }
+  } catch (e) { throw _finite(M, "VPIN", ["bucketVolume", "nBuckets"], [bucketVolume, nBuckets], e); }
 }
 
 /** The settings of WMA by name, for `WMA({ ... })`. */
@@ -8194,7 +8362,9 @@ export function WMA(windowSize?: any, startPolicy?: any): ScreamerOp {
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`WMA: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`WMA: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
-  return _params(wrapOp(M, () => new M.WMA(windowSize, startPolicy)), "WMA", ["window_size", "start_policy"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.WMA(windowSize, startPolicy)), "WMA", ["window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "WMA", ["windowSize"], [windowSize], e); }
 }
 
 /** Where has no settings: its options object is empty. */
@@ -8240,5 +8410,7 @@ export function WilliamsR(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 14;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`WilliamsR: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
-  return _params(wrapOp(M, () => new M.WilliamsR(windowSize)), "WilliamsR", ["window_size"], _given);
+  try {
+    return _params(wrapOp(M, () => new M.WilliamsR(windowSize)), "WilliamsR", ["window_size"], _given);
+  } catch (e) { throw _finite(M, "WilliamsR", ["windowSize"], [windowSize], e); }
 }

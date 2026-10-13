@@ -274,9 +274,10 @@ def _factory_body(name: str, params: list[dict], wrapper: str = "wrapOp") -> str
     for p in vecs:
         n = p["name"]
         lines.append(f"  const {n}_ = _vec(\"{name}\", \"{n}\", {n});")
-    # A float setting that is not finite: the constructor's RangeError becomes
-    # the one message form (finite_settings.h), on the error path only.
-    floats = [p for p in params if not p["is_str"] and not p.get("is_int")]
+    # A float setting that is not finite, or an integer setting below its
+    # smallest value: the constructor's RangeError becomes the one message
+    # form (finite_settings.h, int_settings.h), on the error path only.
+    floats = [p for p in params if not p["is_str"]]
     if floats:
         lines.append("  try {")
         ind = "  "
@@ -387,7 +388,9 @@ const _noSettings = (op: string, x: unknown, nArgs: number): void => {
 };
 // A constructor's RangeError for a float setting that is not finite, as the
 // one message "<Op>: <setting> must be finite, got Infinity" (C++
-// finite_settings.h); any other error as it is.
+// finite_settings.h), or for an integer setting below its smallest value,
+// "<Op>: <setting> must be at least 1, got -1" (int_settings.h); any other
+// error as it is.
 const _finite = (M: any, op: string, names: string[], values: unknown[], e: unknown): unknown => {
   if (!(e instanceof RangeError)) return e;
   const ns: string[] = [], vs: unknown[] = [];

@@ -18,15 +18,15 @@ parameters:
 - name: a
   type: float
   default: 1.0
-  description: Coefficient that multiplies the first input.
+  description: Coefficient that multiplies the first input. inf and -inf are taken, as numpy takes them.
 - name: b
   type: float
   default: 1.0
-  description: Coefficient that multiplies the second input.
+  description: Coefficient that multiplies the second input. inf and -inf are taken, as numpy takes them.
 - name: c
   type: float
   default: 0.0
-  description: Constant added to the weighted sum.
+  description: Constant added to the weighted sum. inf and -inf are taken, as numpy takes them.
 nan_policy: ignore
 see_also:
 - Linear

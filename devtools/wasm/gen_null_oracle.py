@@ -119,6 +119,25 @@ def _non_finite(cls, base, op):
     return out
 
 
+def _below_min(cls, base, op):
+    """For every integer setting, the refusal of the value one below its
+    smallest (C++ int_settings.h): "<Op>: <setting> must be at least 1, got 0"."""
+    from screamer import screamer_bindings as _b
+    out = {}
+    for cpp_type, arg in zip(op["ctor"], op["ctor_args"]):
+        if cpp_type != "int":
+            continue
+        low = _b._int_setting_min(op["name"], arg["name"])
+        if low is None:
+            raise SystemExit(f"{op['name']}.{arg['name']}: no entry in int_settings.h")
+        try:
+            cls(**dict(base, **{arg["name"]: low - 1}))
+            out[arg["name"]] = None
+        except ValueError as e:
+            out[arg["name"]] = [low - 1, str(e)]
+    return out
+
+
 def compute():
     with open(MANIFEST) as f:
         manifest = json.load(f)
@@ -134,7 +153,8 @@ def compute():
         out.append({"name": op["name"], "base": base, "accepts_none": settings,
                     "accepts_bool": bools,
                     "bool_message": {a["name"]: _message(cls, base, a["name"], True) for a in args},
-                    "non_finite": _non_finite(cls, base, op)})
+                    "non_finite": _non_finite(cls, base, op),
+                    "below_min": _below_min(cls, base, op)})
     return out
 
 

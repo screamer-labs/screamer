@@ -6476,13 +6476,13 @@
         "name": "scale",
         "type": "float",
         "default": 1.0,
-        "description": "Factor that multiplies each input value."
+        "description": "Factor that multiplies each input value. inf and -inf are taken, as numpy takes them."
       },
       {
         "name": "shift",
         "type": "float",
         "default": 0.0,
-        "description": "Constant added after scaling."
+        "description": "Constant added after scaling. inf and -inf are taken, as numpy takes them."
       }
     ],
     "nan_policy": "ignore",
@@ -6524,19 +6524,19 @@
         "name": "a",
         "type": "float",
         "default": 1.0,
-        "description": "Coefficient that multiplies the first input."
+        "description": "Coefficient that multiplies the first input. inf and -inf are taken, as numpy takes them."
       },
       {
         "name": "b",
         "type": "float",
         "default": 1.0,
-        "description": "Coefficient that multiplies the second input."
+        "description": "Coefficient that multiplies the second input. inf and -inf are taken, as numpy takes them."
       },
       {
         "name": "c",
         "type": "float",
         "default": 0.0,
-        "description": "Constant added to the weighted sum."
+        "description": "Constant added to the weighted sum. inf and -inf are taken, as numpy takes them."
       }
     ],
     "nan_policy": "ignore",
@@ -6848,7 +6848,7 @@
         "name": "p",
         "type": "float",
         "default": 2.0,
-        "description": "Exponent applied to each element. The default 2 gives the same result as Square, which computes x * x directly."
+        "description": "Exponent applied to each element. The default 2 gives the same result as Square, which computes x * x directly. inf and -inf are taken, as numpy's power takes them."
       }
     ],
     "nan_policy": "ignore",
@@ -9412,7 +9412,7 @@
         "type": "float",
         "default": 3.0,
         "min": 0,
-        "description": "Detection threshold in robust standard deviations (1.4826 * MAD). Larger values flag fewer samples; 3.0 is typical."
+        "description": "Detection threshold in robust standard deviations (1.4826 * MAD). Larger values flag fewer samples; 3.0 is typical. inf flags no sample, so the output is the input."
       },
       {
         "name": "output",
@@ -9535,7 +9535,7 @@
         "type": "float",
         "default": 4.0,
         "min": 0,
-        "description": "Detection threshold in robust standard deviations of the differences (1.4826 * MAD). Larger values flag fewer samples; 4.0 is typical."
+        "description": "Detection threshold in robust standard deviations of the differences (1.4826 * MAD). Larger values flag fewer samples; 4.0 is typical. inf flags no sample, so the output is the input."
       },
       {
         "name": "output",
@@ -13219,7 +13219,7 @@
         "type": "float",
         "default": 1.0,
         "min": 0.0,
-        "description": "Variance P_0 of the starting state. A large value such as 1e9 makes the filter forget the initial state quickly."
+        "description": "Variance P_0 of the starting state. A large value such as 1e9 makes the filter forget the initial state quickly. inf is a diffuse prior, so the first observation sets the state, with the observation variance."
       }
     ],
     "nan_policy": "ignore",

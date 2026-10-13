@@ -55,7 +55,7 @@ public:
           start_policy_(detail::parse_start_policy(start_policy)),
           window_(window_size)
     {
-        require_finite("n_sigma", n_sigma);
+        require_finite("n_sigma", n_sigma, kTakesPosInf);   // inf: never replace
         if (window_size <= 0) {
             throw std::invalid_argument("Window size must be positive.");
         }

@@ -295,7 +295,7 @@ def test_rolling_ou_warmup():
 def test_rolling_ou_validation():
     # One pair has no slope: window_size must be 3 or more.
     for w in (0, 1, 2):
-        with pytest.raises(ValueError, match="3 or more"):
+        with pytest.raises(ValueError, match=f"^RollingOU: window_size must be at least 3, got {w}$"):
             s.RollingOU(w)
     with pytest.raises(ValueError):
         s.RollingOU(10, output="bogus")

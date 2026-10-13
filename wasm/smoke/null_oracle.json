@@ -9,6 +9,16 @@
    "slow": false
   },
   "base": {},
+  "below_min": {
+   "fast": [
+    1,
+    "ADOSC: fast must be at least 2, got 1"
+   ],
+   "slow": [
+    2,
+    "ADOSC: slow must be at least 3, got 2"
+   ]
+  },
   "bool_message": {
    "fast": "ADOSC: fast must be an integer, got bool",
    "slow": "ADOSC: slow must be an integer, got bool"
@@ -24,6 +34,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "ADX: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "window_size": "ADX: window_size must be an integer, got bool"
   },
@@ -38,6 +54,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "ADXR: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "window_size": "ADXR: window_size must be an integer, got bool"
   },
@@ -52,6 +74,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "ATR: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "window_size": "ATR: window_size must be an integer, got bool"
   },
@@ -68,6 +96,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "AmihudIlliquidity: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "start_policy": "AmihudIlliquidity: start_policy must be a string, got bool",
    "window_size": "AmihudIlliquidity: window_size must be an integer, got bool"
@@ -83,6 +117,7 @@
    "multiplier": false
   },
   "base": {},
+  "below_min": {},
   "bool_message": {
    "multiplier": "BacktestCarry: multiplier must be a number, got bool"
   },
@@ -125,6 +160,7 @@
    "tick_size": false
   },
   "base": {},
+  "below_min": {},
   "bool_message": {
    "fill": "BacktestL1Orders: fill must be a string, got bool",
    "maker_fee": "BacktestL1Orders: maker_fee must be a number, got bool",
@@ -227,6 +263,7 @@
    "trailing_stop": false
   },
   "base": {},
+  "below_min": {},
   "bool_message": {
    "fee_per_contract": "BacktestL1Target: fee_per_contract must be a number, got bool",
    "initial_capital": "BacktestL1Target: initial_capital must be a number, got bool",
@@ -337,6 +374,7 @@
    "tick_size": false
   },
   "base": {},
+  "below_min": {},
   "bool_message": {
    "fill": "BacktestL1TradesOrders: fill must be a string, got bool",
    "maker_fee": "BacktestL1TradesOrders: maker_fee must be a number, got bool",
@@ -435,6 +473,7 @@
    "tick_size": false
   },
   "base": {},
+  "below_min": {},
   "bool_message": {
    "fill": "BacktestOHLCOrders: fill must be a string, got bool",
    "maker_fee": "BacktestOHLCOrders: maker_fee must be a number, got bool",
@@ -541,6 +580,12 @@
    "trailing_stop": false
   },
   "base": {},
+  "below_min": {
+   "delay": [
+    0,
+    "BacktestOHLCTarget: delay must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "delay": "BacktestOHLCTarget: delay must be an integer, got bool",
    "fee_per_contract": "BacktestOHLCTarget: fee_per_contract must be a number, got bool",
@@ -663,6 +708,12 @@
    "trailing_stop": false
   },
   "base": {},
+  "below_min": {
+   "delay": [
+    0,
+    "BacktestOHLCVTarget: delay must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "delay": "BacktestOHLCVTarget: delay must be an integer, got bool",
    "fee_per_contract": "BacktestOHLCVTarget: fee_per_contract must be a number, got bool",
@@ -785,6 +836,12 @@
    "tick_size": false
   },
   "base": {},
+  "below_min": {
+   "delay": [
+    0,
+    "BacktestPortfolioOHLCTarget: delay must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "delay": "BacktestPortfolioOHLCTarget: delay must be an integer, got bool",
    "fee": "BacktestPortfolioOHLCTarget: fee must be a number or a sequence of numbers, got bool",
@@ -880,6 +937,7 @@
    "tick_size": false
   },
   "base": {},
+  "below_min": {},
   "bool_message": {
    "fee": "BacktestPortfolioTarget: fee must be a number or a sequence of numbers, got bool",
    "fee_per_contract": "BacktestPortfolioTarget: fee_per_contract must be a number or a sequence of numbers, got bool",
@@ -979,6 +1037,7 @@
    "trailing_stop": false
   },
   "base": {},
+  "below_min": {},
   "bool_message": {
    "fee": "BacktestPriceTarget: fee must be a number, got bool",
    "fee_per_contract": "BacktestPriceTarget: fee_per_contract must be a number, got bool",
@@ -1073,6 +1132,7 @@
    "periods_per_year": false
   },
   "base": {},
+  "below_min": {},
   "bool_message": {
    "periods_per_year": "BacktestReport: periods_per_year must be a number, got bool"
   },
@@ -1093,6 +1153,7 @@
    "periods_per_year": false
   },
   "base": {},
+  "below_min": {},
   "bool_message": {
    "periods_per_year": "BacktestStats: periods_per_year must be a number, got bool"
   },
@@ -1135,6 +1196,7 @@
    "tick_size": false
   },
   "base": {},
+  "below_min": {},
   "bool_message": {
    "fill": "BacktestTradesOrders: fill must be a string, got bool",
    "maker_fee": "BacktestTradesOrders: maker_fee must be a number, got bool",
@@ -1239,6 +1301,7 @@
    "trailing_stop": false
   },
   "base": {},
+  "below_min": {},
   "bool_message": {
    "fee_per_contract": "BacktestTradesTarget: fee_per_contract must be a number, got bool",
    "initial_capital": "BacktestTradesTarget: initial_capital must be a number, got bool",
@@ -1337,6 +1400,7 @@
    "stop": false
   },
   "base": {},
+  "below_min": {},
   "bool_message": {
    "entry": "BandSignal: entry must be a number, got bool",
    "exit": "BandSignal: exit must be a number, got bool",
@@ -1381,6 +1445,7 @@
   "base": {
    "com": 10.0
   },
+  "below_min": {},
   "bool_message": {
    "alpha": "BayesianRegression: alpha must be a number, got bool",
    "com": "BayesianRegression: com must be a number, got bool",
@@ -1435,6 +1500,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "BollingerBands: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "num_std": "BollingerBands: num_std must be a number, got bool",
    "start_policy": "BollingerBands: start_policy must be a string, got bool",
@@ -1459,6 +1530,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "BulkVolumeClassifier: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "start_policy": "BulkVolumeClassifier: start_policy must be a string, got bool",
    "window_size": "BulkVolumeClassifier: window_size must be an integer, got bool"
@@ -1476,6 +1553,12 @@
    "order": false
   },
   "base": {},
+  "below_min": {
+   "order": [
+    0,
+    "Butter: order must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "cutoff_freq": "Butter: cutoff_freq must be a number, got bool",
    "order": "Butter: order must be an integer, got bool"
@@ -1501,6 +1584,12 @@
    "order": false
   },
   "base": {},
+  "below_min": {
+   "order": [
+    0,
+    "ButterBandpass: order must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "high_cutoff": "ButterBandpass: high_cutoff must be a number, got bool",
    "low_cutoff": "ButterBandpass: low_cutoff must be a number, got bool",
@@ -1532,6 +1621,12 @@
    "order": false
   },
   "base": {},
+  "below_min": {
+   "order": [
+    0,
+    "ButterBandstop: order must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "high_cutoff": "ButterBandstop: high_cutoff must be a number, got bool",
    "low_cutoff": "ButterBandstop: low_cutoff must be a number, got bool",
@@ -1561,6 +1656,12 @@
    "order": false
   },
   "base": {},
+  "below_min": {
+   "order": [
+    0,
+    "ButterHighpass: order must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "cutoff_freq": "ButterHighpass: cutoff_freq must be a number, got bool",
    "order": "ButterHighpass: order must be an integer, got bool"
@@ -1582,6 +1683,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "CCI: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "window_size": "CCI: window_size must be an integer, got bool"
   },
@@ -1601,6 +1708,7 @@
    "lower": 1.0,
    "upper": 3.0
   },
+  "below_min": {},
   "bool_message": {
    "lower": "Clip: lower must be a number, got bool",
    "upper": "Clip: upper must be a number, got bool"
@@ -1629,6 +1737,7 @@
    "net": true
   },
   "base": {},
+  "below_min": {},
   "bool_message": {
    "gross": "CrossNormalize: gross must be a number, got bool",
    "net": "CrossNormalize: net must be a number, got bool"
@@ -1655,6 +1764,7 @@
    "scale": false
   },
   "base": {},
+  "below_min": {},
   "bool_message": {
    "scale": "CrossRank: scale must be a string, got bool"
   },
@@ -1669,6 +1779,12 @@
    "count": false
   },
   "base": {},
+  "below_min": {
+   "count": [
+    0,
+    "CrossTopBottom: count must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "count": "CrossTopBottom: count must be an integer, got bool"
   },
@@ -1685,6 +1801,7 @@
    "upper": false
   },
   "base": {},
+  "below_min": {},
   "bool_message": {
    "lower": "CrossWinsorize: lower must be a number, got bool",
    "upper": "CrossWinsorize: upper must be a number, got bool"
@@ -1719,6 +1836,7 @@
   "base": {
    "com": 10.0
   },
+  "below_min": {},
   "bool_message": {
    "alpha": "DEMA: alpha must be a number, got bool",
    "com": "DEMA: com must be a number, got bool",
@@ -1757,6 +1875,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "DX: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "window_size": "DX: window_size must be an integer, got bool"
   },
@@ -1775,6 +1899,7 @@
   "base": {
    "period": 10.0
   },
+  "below_min": {},
   "bool_message": {
    "cutoff": "Decycler: cutoff must be a number, got bool",
    "period": "Decycler: period must be a number, got bool"
@@ -1803,6 +1928,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "Detrend: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "start_policy": "Detrend: start_policy must be a string, got bool",
    "window_size": "Detrend: window_size must be an integer, got bool"
@@ -1820,6 +1951,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "Diff: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "start_policy": "Diff: start_policy must be a string, got bool",
    "window_size": "Diff: window_size must be an integer, got bool"
@@ -1835,6 +1972,7 @@
    "start_policy": false
   },
   "base": {},
+  "below_min": {},
   "bool_message": {
    "start_policy": "Diff2: start_policy must be a string, got bool"
   },
@@ -1849,6 +1987,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "DonchianChannels: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "window_size": "DonchianChannels: window_size must be an integer, got bool"
   },
@@ -1871,6 +2015,7 @@
   "base": {
    "com": 10.0
   },
+  "below_min": {},
   "bool_message": {
    "alpha": "EwAlpha: alpha must be a number, got bool",
    "com": "EwAlpha: com must be a number, got bool",
@@ -1917,6 +2062,7 @@
   "base": {
    "com": 10.0
   },
+  "below_min": {},
   "bool_message": {
    "alpha": "EwBeta: alpha must be a number, got bool",
    "com": "EwBeta: com must be a number, got bool",
@@ -1963,6 +2109,7 @@
   "base": {
    "com": 10.0
   },
+  "below_min": {},
   "bool_message": {
    "alpha": "EwCorr: alpha must be a number, got bool",
    "com": "EwCorr: com must be a number, got bool",
@@ -2009,6 +2156,7 @@
   "base": {
    "com": 10.0
   },
+  "below_min": {},
   "bool_message": {
    "alpha": "EwCov: alpha must be a number, got bool",
    "com": "EwCov: com must be a number, got bool",
@@ -2055,6 +2203,7 @@
   "base": {
    "com": 10.0
   },
+  "below_min": {},
   "bool_message": {
    "alpha": "EwGarmanKlassVar: alpha must be a number, got bool",
    "com": "EwGarmanKlassVar: com must be a number, got bool",
@@ -2101,6 +2250,7 @@
   "base": {
    "com": 10.0
   },
+  "below_min": {},
   "bool_message": {
    "alpha": "EwGarmanKlassVol: alpha must be a number, got bool",
    "com": "EwGarmanKlassVol: com must be a number, got bool",
@@ -2147,6 +2297,7 @@
   "base": {
    "com": 10.0
   },
+  "below_min": {},
   "bool_message": {
    "alpha": "EwKurt: alpha must be a number, got bool",
    "com": "EwKurt: com must be a number, got bool",
@@ -2193,6 +2344,7 @@
   "base": {
    "com": 10.0
   },
+  "below_min": {},
   "bool_message": {
    "alpha": "EwKyleLambda: alpha must be a number, got bool",
    "com": "EwKyleLambda: com must be a number, got bool",
@@ -2239,6 +2391,7 @@
   "base": {
    "com": 10.0
   },
+  "below_min": {},
   "bool_message": {
    "alpha": "EwMean: alpha must be a number, got bool",
    "com": "EwMean: com must be a number, got bool",
@@ -2285,6 +2438,7 @@
   "base": {
    "com": 10.0
   },
+  "below_min": {},
   "bool_message": {
    "alpha": "EwParkinsonVar: alpha must be a number, got bool",
    "com": "EwParkinsonVar: com must be a number, got bool",
@@ -2331,6 +2485,7 @@
   "base": {
    "com": 10.0
   },
+  "below_min": {},
   "bool_message": {
    "alpha": "EwParkinsonVol: alpha must be a number, got bool",
    "com": "EwParkinsonVol: com must be a number, got bool",
@@ -2377,6 +2532,7 @@
   "base": {
    "com": 10.0
   },
+  "below_min": {},
   "bool_message": {
    "alpha": "EwResidualStd: alpha must be a number, got bool",
    "com": "EwResidualStd: com must be a number, got bool",
@@ -2423,6 +2579,7 @@
   "base": {
    "com": 10.0
   },
+  "below_min": {},
   "bool_message": {
    "alpha": "EwRms: alpha must be a number, got bool",
    "com": "EwRms: com must be a number, got bool",
@@ -2469,6 +2626,7 @@
   "base": {
    "com": 10.0
   },
+  "below_min": {},
   "bool_message": {
    "alpha": "EwRogersSatchellVar: alpha must be a number, got bool",
    "com": "EwRogersSatchellVar: com must be a number, got bool",
@@ -2515,6 +2673,7 @@
   "base": {
    "com": 10.0
   },
+  "below_min": {},
   "bool_message": {
    "alpha": "EwRogersSatchellVol: alpha must be a number, got bool",
    "com": "EwRogersSatchellVol: com must be a number, got bool",
@@ -2561,6 +2720,7 @@
   "base": {
    "com": 10.0
   },
+  "below_min": {},
   "bool_message": {
    "alpha": "EwSkew: alpha must be a number, got bool",
    "com": "EwSkew: com must be a number, got bool",
@@ -2607,6 +2767,7 @@
   "base": {
    "com": 10.0
   },
+  "below_min": {},
   "bool_message": {
    "alpha": "EwSpread: alpha must be a number, got bool",
    "com": "EwSpread: com must be a number, got bool",
@@ -2653,6 +2814,7 @@
   "base": {
    "com": 10.0
   },
+  "below_min": {},
   "bool_message": {
    "alpha": "EwStd: alpha must be a number, got bool",
    "com": "EwStd: com must be a number, got bool",
@@ -2699,6 +2861,7 @@
   "base": {
    "com": 10.0
   },
+  "below_min": {},
   "bool_message": {
    "alpha": "EwVar: alpha must be a number, got bool",
    "com": "EwVar: com must be a number, got bool",
@@ -2745,6 +2908,7 @@
   "base": {
    "com": 10.0
   },
+  "below_min": {},
   "bool_message": {
    "alpha": "EwYangZhangVar: alpha must be a number, got bool",
    "com": "EwYangZhangVar: com must be a number, got bool",
@@ -2791,6 +2955,7 @@
   "base": {
    "com": 10.0
   },
+  "below_min": {},
   "bool_message": {
    "alpha": "EwYangZhangVol: alpha must be a number, got bool",
    "com": "EwYangZhangVol: com must be a number, got bool",
@@ -2837,6 +3002,7 @@
   "base": {
    "com": 10.0
   },
+  "below_min": {},
   "bool_message": {
    "alpha": "EwZscore: alpha must be a number, got bool",
    "com": "EwZscore: com must be a number, got bool",
@@ -2875,6 +3041,7 @@
    "fill": false
   },
   "base": {},
+  "below_min": {},
   "bool_message": {
    "fill": "FillNa: fill must be a number, got bool"
   },
@@ -2901,6 +3068,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "FracDiff: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "d": "FracDiff: d must be a number, got bool",
    "start_policy": "FracDiff: start_policy must be a string, got bool",
@@ -2935,6 +3108,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "Hampel: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "n_sigma": "Hampel: n_sigma must be a number, got bool",
    "output": "Hampel: output must be a string, got bool",
@@ -2944,9 +3123,9 @@
   "name": "Hampel",
   "non_finite": {
    "n_sigma": {
-    "-inf": "Hampel: n_sigma must be finite, got -inf",
-    "inf": "Hampel: n_sigma must be finite, got inf",
-    "nan": "Hampel: n_sigma must be finite, got nan"
+    "-inf": "Hampel: n_sigma must be finite or inf, got -inf",
+    "inf": null,
+    "nan": "Hampel: n_sigma must be finite or inf, got nan"
    }
   }
  },
@@ -2962,6 +3141,7 @@
    "mu": false
   },
   "base": {},
+  "below_min": {},
   "bool_message": {
    "alpha": "HawkesIntensity: alpha must be a number, got bool",
    "decay": "HawkesIntensity: decay must be a number, got bool",
@@ -2998,6 +3178,12 @@
   "base": {
    "n": 3
   },
+  "below_min": {
+   "n": [
+    0,
+    "Hold: n must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "n": "Hold: n must be an integer, got bool",
    "release": "Hold: release must be a number, got bool"
@@ -3019,6 +3205,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    3,
+    "HullMA: window_size must be at least 4, got 3"
+   ]
+  },
   "bool_message": {
    "window_size": "HullMA: window_size must be an integer, got bool"
   },
@@ -3039,6 +3231,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "ImpulseClip: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "n_sigma": "ImpulseClip: n_sigma must be a number, got bool",
    "output": "ImpulseClip: output must be a string, got bool",
@@ -3048,9 +3246,9 @@
   "name": "ImpulseClip",
   "non_finite": {
    "n_sigma": {
-    "-inf": "ImpulseClip: n_sigma must be finite, got -inf",
-    "inf": "ImpulseClip: n_sigma must be finite, got inf",
-    "nan": "ImpulseClip: n_sigma must be finite, got nan"
+    "-inf": "ImpulseClip: n_sigma must be finite or inf, got -inf",
+    "inf": null,
+    "nan": "ImpulseClip: n_sigma must be finite or inf, got nan"
    }
   }
  },
@@ -3066,6 +3264,20 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "fast": [
+    0,
+    "KAMA: fast must be at least 1, got 0"
+   ],
+   "slow": [
+    0,
+    "KAMA: slow must be at least 1, got 0"
+   ],
+   "window_size": [
+    1,
+    "KAMA: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "fast": "KAMA: fast must be an integer, got bool",
    "slow": "KAMA: slow must be an integer, got bool",
@@ -3088,6 +3300,7 @@
    "process_var": false
   },
   "base": {},
+  "below_min": {},
   "bool_message": {
    "initial_state": "KalmanFilter: initial_state must be a number, got bool",
    "initial_variance": "KalmanFilter: initial_variance must be a number, got bool",
@@ -3102,9 +3315,9 @@
     "nan": "KalmanFilter: initial_state must be finite, got nan"
    },
    "initial_variance": {
-    "-inf": "KalmanFilter: initial_variance must be finite, got -inf",
-    "inf": "KalmanFilter: initial_variance must be finite, got inf",
-    "nan": "KalmanFilter: initial_variance must be finite, got nan"
+    "-inf": "KalmanFilter: initial_variance must be finite or inf, got -inf",
+    "inf": null,
+    "nan": "KalmanFilter: initial_variance must be finite or inf, got nan"
    },
    "observation_var": {
     "-inf": "KalmanFilter: observation_var must be finite, got -inf",
@@ -3130,6 +3343,7 @@
    "prior_var": false
   },
   "base": {},
+  "below_min": {},
   "bool_message": {
    "delta": "KalmanRegression: delta must be a number, got bool",
    "obs_var": "KalmanRegression: obs_var must be a number, got bool",
@@ -3164,6 +3378,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "KeltnerChannels: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "num_atr": "KeltnerChannels: num_atr must be a number, got bool",
    "window_size": "KeltnerChannels: window_size must be an integer, got bool"
@@ -3187,6 +3407,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "Lag: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "start_policy": "Lag: start_policy must be a string, got bool",
    "window_size": "Lag: window_size must be an integer, got bool"
@@ -3204,6 +3430,7 @@
    "shift": false
   },
   "base": {},
+  "below_min": {},
   "bool_message": {
    "scale": "Linear: scale must be a number, got bool",
    "shift": "Linear: shift must be a number, got bool"
@@ -3211,14 +3438,14 @@
   "name": "Linear",
   "non_finite": {
    "scale": {
-    "-inf": "Linear: scale must be finite, got -inf",
-    "inf": "Linear: scale must be finite, got inf",
-    "nan": "Linear: scale must be finite, got nan"
+    "-inf": null,
+    "inf": null,
+    "nan": "Linear: scale must be finite or inf or -inf, got nan"
    },
    "shift": {
-    "-inf": "Linear: shift must be finite, got -inf",
-    "inf": "Linear: shift must be finite, got inf",
-    "nan": "Linear: shift must be finite, got nan"
+    "-inf": null,
+    "inf": null,
+    "nan": "Linear: shift must be finite or inf or -inf, got nan"
    }
   }
  },
@@ -3234,6 +3461,7 @@
    "c": false
   },
   "base": {},
+  "below_min": {},
   "bool_message": {
    "a": "Linear2: a must be a number, got bool",
    "b": "Linear2: b must be a number, got bool",
@@ -3242,19 +3470,19 @@
   "name": "Linear2",
   "non_finite": {
    "a": {
-    "-inf": "Linear2: a must be finite, got -inf",
-    "inf": "Linear2: a must be finite, got inf",
-    "nan": "Linear2: a must be finite, got nan"
+    "-inf": null,
+    "inf": null,
+    "nan": "Linear2: a must be finite or inf or -inf, got nan"
    },
    "b": {
-    "-inf": "Linear2: b must be finite, got -inf",
-    "inf": "Linear2: b must be finite, got inf",
-    "nan": "Linear2: b must be finite, got nan"
+    "-inf": null,
+    "inf": null,
+    "nan": "Linear2: b must be finite or inf or -inf, got nan"
    },
    "c": {
-    "-inf": "Linear2: c must be finite, got -inf",
-    "inf": "Linear2: c must be finite, got inf",
-    "nan": "Linear2: c must be finite, got nan"
+    "-inf": null,
+    "inf": null,
+    "nan": "Linear2: c must be finite or inf or -inf, got nan"
    }
   }
  },
@@ -3266,6 +3494,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "LogReturn: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "window_size": "LogReturn: window_size must be an integer, got bool"
   },
@@ -3284,6 +3518,20 @@
    "slow": false
   },
   "base": {},
+  "below_min": {
+   "fast": [
+    1,
+    "MACD: fast must be at least 2, got 1"
+   ],
+   "signal": [
+    1,
+    "MACD: signal must be at least 2, got 1"
+   ],
+   "slow": [
+    2,
+    "MACD: slow must be at least 3, got 2"
+   ]
+  },
   "bool_message": {
    "fast": "MACD: fast must be an integer, got bool",
    "signal": "MACD: signal must be an integer, got bool",
@@ -3302,6 +3550,7 @@
    "slow_limit": false
   },
   "base": {},
+  "below_min": {},
   "bool_message": {
    "fast_limit": "MAMA: fast_limit must be a number, got bool",
    "slow_limit": "MAMA: slow_limit must be a number, got bool"
@@ -3328,6 +3577,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "MFI: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "window_size": "MFI: window_size must be an integer, got bool"
   },
@@ -3342,6 +3597,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "MinusDI: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "window_size": "MinusDI: window_size must be an integer, got bool"
   },
@@ -3356,6 +3617,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "MinusDM: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "window_size": "MinusDM: window_size must be an integer, got bool"
   },
@@ -3372,6 +3639,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "Momentum: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "start_policy": "Momentum: start_policy must be a string, got bool",
    "window_size": "Momentum: window_size must be an integer, got bool"
@@ -3387,6 +3660,7 @@
    "taps": false
   },
   "base": {},
+  "below_min": {},
   "bool_message": {
    "taps": "MovingAverage: taps must be a number or a sequence of numbers, got bool"
   },
@@ -3407,6 +3681,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "NATR: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "window_size": "NATR: window_size must be an integer, got bool"
   },
@@ -3421,6 +3701,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "PlusDI: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "window_size": "PlusDI: window_size must be an integer, got bool"
   },
@@ -3435,6 +3721,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "PlusDM: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "window_size": "PlusDM: window_size must be an integer, got bool"
   },
@@ -3449,15 +3741,16 @@
    "p": false
   },
   "base": {},
+  "below_min": {},
   "bool_message": {
    "p": "Power: p must be a number, got bool"
   },
   "name": "Power",
   "non_finite": {
    "p": {
-    "-inf": "Power: p must be finite, got -inf",
-    "inf": "Power: p must be finite, got inf",
-    "nan": "Power: p must be finite, got nan"
+    "-inf": null,
+    "inf": null,
+    "nan": "Power: p must be finite or inf or -inf, got nan"
    }
   }
  },
@@ -3473,6 +3766,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "Propagator: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "g0": "Propagator: g0 must be a number, got bool",
    "gamma": "Propagator: gamma must be a number, got bool",
@@ -3500,6 +3799,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "ROC: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "window_size": "ROC: window_size must be an integer, got bool"
   },
@@ -3514,6 +3819,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "ROCP: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "window_size": "ROCP: window_size must be an integer, got bool"
   },
@@ -3528,6 +3839,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "ROCR: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "window_size": "ROCR: window_size must be an integer, got bool"
   },
@@ -3542,6 +3859,12 @@
    "lag": false
   },
   "base": {},
+  "below_min": {
+   "lag": [
+    0,
+    "RealizedSpread: lag must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "lag": "RealizedSpread: lag must be an integer, got bool"
   },
@@ -3556,6 +3879,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "Return: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "window_size": "Return: window_size must be an integer, got bool"
   },
@@ -3572,6 +3901,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "RollSpread: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "start_policy": "RollSpread: start_policy must be a string, got bool",
    "window_size": "RollSpread: window_size must be an integer, got bool"
@@ -3589,6 +3924,16 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "lags": [
+    -1,
+    "RollingADF: lags must be at least 0, got -1"
+   ],
+   "window_size": [
+    3,
+    "RollingADF: window_size must be at least 4, got 3"
+   ]
+  },
   "bool_message": {
    "lags": "RollingADF: lags must be an integer, got bool",
    "window_size": "RollingADF: window_size must be an integer, got bool"
@@ -3606,6 +3951,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "RollingAlpha: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "start_policy": "RollingAlpha: start_policy must be a string, got bool",
    "window_size": "RollingAlpha: window_size must be an integer, got bool"
@@ -3621,6 +3972,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "RollingArgmax: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "window_size": "RollingArgmax: window_size must be an integer, got bool"
   },
@@ -3635,6 +3992,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "RollingArgmin: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "window_size": "RollingArgmin: window_size must be an integer, got bool"
   },
@@ -3651,6 +4014,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "RollingBeta: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "start_policy": "RollingBeta: start_policy must be a string, got bool",
    "window_size": "RollingBeta: window_size must be an integer, got bool"
@@ -3668,6 +4037,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "RollingCVaR: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "alpha": "RollingCVaR: alpha must be a number, got bool",
    "window_size": "RollingCVaR: window_size must be an integer, got bool"
@@ -3691,6 +4066,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "RollingCalmar: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "periods_per_year": "RollingCalmar: periods_per_year must be a number, got bool",
    "window_size": "RollingCalmar: window_size must be an integer, got bool"
@@ -3714,6 +4095,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "RollingCorr: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "start_policy": "RollingCorr: start_policy must be a string, got bool",
    "window_size": "RollingCorr: window_size must be an integer, got bool"
@@ -3731,6 +4118,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "RollingCov: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "start_policy": "RollingCov: start_policy must be a string, got bool",
    "window_size": "RollingCov: window_size must be an integer, got bool"
@@ -3750,6 +4143,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "RollingDownsideDeviation: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "mar": "RollingDownsideDeviation: mar must be a number, got bool",
    "start_policy": "RollingDownsideDeviation: start_policy must be a string, got bool",
@@ -3772,6 +4171,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "RollingGarmanKlassVar: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "window_size": "RollingGarmanKlassVar: window_size must be an integer, got bool"
   },
@@ -3786,6 +4191,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "RollingGarmanKlassVol: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "window_size": "RollingGarmanKlassVol: window_size must be an integer, got bool"
   },
@@ -3800,6 +4211,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "RollingHitRate: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "window_size": "RollingHitRate: window_size must be an integer, got bool"
   },
@@ -3818,6 +4235,16 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "min_scale": [
+    3,
+    "RollingHurst: min_scale must be at least 4, got 3"
+   ],
+   "window_size": [
+    31,
+    "RollingHurst: window_size must be at least 32, got 31"
+   ]
+  },
   "bool_message": {
    "method": "RollingHurst: method must be a string, got bool",
    "min_scale": "RollingHurst: min_scale must be an integer, got bool",
@@ -3836,6 +4263,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "RollingInfoRatio: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "periods_per_year": "RollingInfoRatio: periods_per_year must be a number, got bool",
    "window_size": "RollingInfoRatio: window_size must be an integer, got bool"
@@ -3857,6 +4290,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "RollingIqr: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "window_size": "RollingIqr: window_size must be an integer, got bool"
   },
@@ -3873,6 +4312,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "RollingKurt: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "start_policy": "RollingKurt: start_policy must be a string, got bool",
    "window_size": "RollingKurt: window_size must be an integer, got bool"
@@ -3890,6 +4335,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "RollingKyleLambda: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "start_policy": "RollingKyleLambda: start_policy must be a string, got bool",
    "window_size": "RollingKyleLambda: window_size must be an integer, got bool"
@@ -3907,6 +4358,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    2,
+    "RollingLinearRegression: window_size must be at least 3, got 2"
+   ]
+  },
   "bool_message": {
    "start_policy": "RollingLinearRegression: start_policy must be a string, got bool",
    "window_size": "RollingLinearRegression: window_size must be an integer, got bool"
@@ -3924,6 +4381,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "RollingMad: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "start_policy": "RollingMad: start_policy must be a string, got bool",
    "window_size": "RollingMad: window_size must be an integer, got bool"
@@ -3939,6 +4402,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "RollingMax: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "window_size": "RollingMax: window_size must be an integer, got bool"
   },
@@ -3953,6 +4422,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "RollingMaxDrawdown: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "window_size": "RollingMaxDrawdown: window_size must be an integer, got bool"
   },
@@ -3969,6 +4444,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "RollingMean: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "start_policy": "RollingMean: start_policy must be a string, got bool",
    "window_size": "RollingMean: window_size must be an integer, got bool"
@@ -3984,6 +4465,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "RollingMedian: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "window_size": "RollingMedian: window_size must be an integer, got bool"
   },
@@ -4000,6 +4487,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "RollingMedianAD: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "start_policy": "RollingMedianAD: start_policy must be a string, got bool",
    "window_size": "RollingMedianAD: window_size must be an integer, got bool"
@@ -4015,6 +4508,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "RollingMin: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "window_size": "RollingMin: window_size must be an integer, got bool"
   },
@@ -4029,6 +4528,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "RollingMinMax: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "window_size": "RollingMinMax: window_size must be an integer, got bool"
   },
@@ -4047,6 +4552,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    2,
+    "RollingOU: window_size must be at least 3, got 2"
+   ]
+  },
   "bool_message": {
    "output": "RollingOU: output must be a string, got bool",
    "start_policy": "RollingOU: start_policy must be a string, got bool",
@@ -4065,6 +4576,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "RollingOmega: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "threshold": "RollingOmega: threshold must be a number, got bool",
    "window_size": "RollingOmega: window_size must be an integer, got bool"
@@ -4088,6 +4605,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "RollingOrderImbalance: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "start_policy": "RollingOrderImbalance: start_policy must be a string, got bool",
    "window_size": "RollingOrderImbalance: window_size must be an integer, got bool"
@@ -4103,6 +4626,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "RollingParkinsonVar: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "window_size": "RollingParkinsonVar: window_size must be an integer, got bool"
   },
@@ -4117,6 +4646,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "RollingParkinsonVol: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "window_size": "RollingParkinsonVol: window_size must be an integer, got bool"
   },
@@ -4131,6 +4666,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "RollingPercentile: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "window_size": "RollingPercentile: window_size must be an integer, got bool"
   },
@@ -4149,6 +4690,16 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "derivative_order": [
+    -1,
+    "RollingPoly1: derivative_order must be at least 0, got -1"
+   ],
+   "window_size": [
+    1,
+    "RollingPoly1: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "derivative_order": "RollingPoly1: derivative_order must be an integer, got bool",
    "start_policy": "RollingPoly1: start_policy must be a string, got bool",
@@ -4169,6 +4720,16 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "derivative_order": [
+    -1,
+    "RollingPoly2: derivative_order must be at least 0, got -1"
+   ],
+   "window_size": [
+    2,
+    "RollingPoly2: window_size must be at least 3, got 2"
+   ]
+  },
   "bool_message": {
    "derivative_order": "RollingPoly2: derivative_order must be an integer, got bool",
    "start_policy": "RollingPoly2: start_policy must be a string, got bool",
@@ -4187,6 +4748,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "RollingQuantile: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "quantile": "RollingQuantile: quantile must be a number, got bool",
    "window_size": "RollingQuantile: window_size must be an integer, got bool"
@@ -4212,6 +4779,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "RollingRSI: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "method": "RollingRSI: method must be a string, got bool",
    "start_policy": "RollingRSI: start_policy must be a string, got bool",
@@ -4228,6 +4801,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "RollingRange: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "window_size": "RollingRange: window_size must be an integer, got bool"
   },
@@ -4242,6 +4821,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "RollingRank: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "window_size": "RollingRank: window_size must be an integer, got bool"
   },
@@ -4258,6 +4843,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "RollingResidualStd: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "start_policy": "RollingResidualStd: start_policy must be a string, got bool",
    "window_size": "RollingResidualStd: window_size must be an integer, got bool"
@@ -4275,6 +4866,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "RollingRms: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "start_policy": "RollingRms: start_policy must be a string, got bool",
    "window_size": "RollingRms: window_size must be an integer, got bool"
@@ -4290,6 +4887,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "RollingRogersSatchellVar: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "window_size": "RollingRogersSatchellVar: window_size must be an integer, got bool"
   },
@@ -4304,6 +4907,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "RollingRogersSatchellVol: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "window_size": "RollingRogersSatchellVol: window_size must be an integer, got bool"
   },
@@ -4320,6 +4929,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "RollingSharpe: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "periods_per_year": "RollingSharpe: periods_per_year must be a number, got bool",
    "window_size": "RollingSharpe: window_size must be an integer, got bool"
@@ -4352,6 +4967,12 @@
    "lower": 1.0,
    "upper": 3.0
   },
+  "below_min": {
+   "window_size": [
+    0,
+    "RollingSigmaClip: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "lower": "RollingSigmaClip: lower must be a number, got bool",
    "output": "RollingSigmaClip: output must be a string, got bool",
@@ -4383,6 +5004,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    2,
+    "RollingSkew: window_size must be at least 3, got 2"
+   ]
+  },
   "bool_message": {
    "start_policy": "RollingSkew: start_policy must be a string, got bool",
    "window_size": "RollingSkew: window_size must be an integer, got bool"
@@ -4402,6 +5029,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "RollingSortino: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "periods_per_year": "RollingSortino: periods_per_year must be a number, got bool",
    "target": "RollingSortino: target must be a number, got bool",
@@ -4431,6 +5064,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "RollingSpread: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "start_policy": "RollingSpread: start_policy must be a string, got bool",
    "window_size": "RollingSpread: window_size must be an integer, got bool"
@@ -4448,6 +5087,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "RollingStd: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "start_policy": "RollingStd: start_policy must be a string, got bool",
    "window_size": "RollingStd: window_size must be an integer, got bool"
@@ -4465,6 +5110,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "RollingSum: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "start_policy": "RollingSum: start_policy must be a string, got bool",
    "window_size": "RollingSum: window_size must be an integer, got bool"
@@ -4482,6 +5133,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "RollingTLSBeta: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "start_policy": "RollingTLSBeta: start_policy must be a string, got bool",
    "window_size": "RollingTLSBeta: window_size must be an integer, got bool"
@@ -4497,6 +5154,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "RollingTSF: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "window_size": "RollingTSF: window_size must be an integer, got bool"
   },
@@ -4511,6 +5174,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "RollingVWAP: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "window_size": "RollingVWAP: window_size must be an integer, got bool"
   },
@@ -4527,6 +5196,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "RollingVar: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "start_policy": "RollingVar: start_policy must be a string, got bool",
    "window_size": "RollingVar: window_size must be an integer, got bool"
@@ -4542,6 +5217,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "RollingYangZhangVar: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "window_size": "RollingYangZhangVar: window_size must be an integer, got bool"
   },
@@ -4556,6 +5237,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "RollingYangZhangVol: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "window_size": "RollingYangZhangVol: window_size must be an integer, got bool"
   },
@@ -4572,6 +5259,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "RollingZscore: window_size must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "start_policy": "RollingZscore: start_policy must be a string, got bool",
    "window_size": "RollingZscore: window_size must be an integer, got bool"
@@ -4596,6 +5289,7 @@
    "hp_period": 48.0,
    "lp_period": 10.0
   },
+  "below_min": {},
   "bool_message": {
    "hp_cutoff": "RoofingFilter: hp_cutoff must be a number, got bool",
    "hp_period": "RoofingFilter: hp_period must be a number, got bool",
@@ -4641,6 +5335,7 @@
    "lower": 1.0,
    "upper": 3.0
   },
+  "below_min": {},
   "bool_message": {
    "initial": "SchmittTrigger: initial must be a number, got bool",
    "lower": "SchmittTrigger: lower must be a number, got bool",
@@ -4677,6 +5372,20 @@
    "smooth_k": false
   },
   "base": {},
+  "below_min": {
+   "d": [
+    0,
+    "Stoch: d must be at least 1, got 0"
+   ],
+   "fastk_period": [
+    0,
+    "Stoch: fastk_period must be at least 1, got 0"
+   ],
+   "smooth_k": [
+    0,
+    "Stoch: smooth_k must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "d": "Stoch: d must be an integer, got bool",
    "fastk_period": "Stoch: fastk_period must be an integer, got bool",
@@ -4699,6 +5408,24 @@
    "stoch_period": false
   },
   "base": {},
+  "below_min": {
+   "d": [
+    0,
+    "StochRSI: d must be at least 1, got 0"
+   ],
+   "rsi_period": [
+    1,
+    "StochRSI: rsi_period must be at least 2, got 1"
+   ],
+   "smooth_k": [
+    0,
+    "StochRSI: smooth_k must be at least 1, got 0"
+   ],
+   "stoch_period": [
+    0,
+    "StochRSI: stoch_period must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "d": "StochRSI: d must be an integer, got bool",
    "rsi_period": "StochRSI: rsi_period must be an integer, got bool",
@@ -4720,6 +5447,7 @@
   "base": {
    "period": 10.0
   },
+  "below_min": {},
   "bool_message": {
    "cutoff": "SuperSmoother: cutoff must be a number, got bool",
    "period": "SuperSmoother: period must be a number, got bool"
@@ -4754,6 +5482,7 @@
   "base": {
    "com": 10.0
   },
+  "below_min": {},
   "bool_message": {
    "alpha": "TEMA: alpha must be a number, got bool",
    "com": "TEMA: com must be a number, got bool",
@@ -4792,6 +5521,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "TRIMA: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "window_size": "TRIMA: window_size must be an integer, got bool"
   },
@@ -4806,6 +5541,12 @@
    "span": false
   },
   "base": {},
+  "below_min": {
+   "span": [
+    1,
+    "TRIX: span must be at least 2, got 1"
+   ]
+  },
   "bool_message": {
    "span": "TRIX: span must be an integer, got bool"
   },
@@ -4824,6 +5565,20 @@
    "period3": false
   },
   "base": {},
+  "below_min": {
+   "period1": [
+    0,
+    "UltimateOscillator: period1 must be at least 1, got 0"
+   ],
+   "period2": [
+    0,
+    "UltimateOscillator: period2 must be at least 1, got 0"
+   ],
+   "period3": [
+    0,
+    "UltimateOscillator: period3 must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "period1": "UltimateOscillator: period1 must be an integer, got bool",
    "period2": "UltimateOscillator: period2 must be an integer, got bool",
@@ -4842,6 +5597,12 @@
    "n_buckets": false
   },
   "base": {},
+  "below_min": {
+   "n_buckets": [
+    0,
+    "VPIN: n_buckets must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "bucket_volume": "VPIN: bucket_volume must be a number, got bool",
    "n_buckets": "VPIN: n_buckets must be an integer, got bool"
@@ -4865,6 +5626,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "WMA: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "start_policy": "WMA: start_policy must be a string, got bool",
    "window_size": "WMA: window_size must be an integer, got bool"
@@ -4880,6 +5647,12 @@
    "window_size": false
   },
   "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "WilliamsR: window_size must be at least 1, got 0"
+   ]
+  },
   "bool_message": {
    "window_size": "WilliamsR: window_size must be an integer, got bool"
   },

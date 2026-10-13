@@ -42,7 +42,7 @@ public:
         require_finite("process_var", process_var);
         require_finite("observation_var", observation_var);
         require_finite("initial_state", initial_state);
-        require_finite("initial_variance", initial_variance);
+        require_finite("initial_variance", initial_variance, kTakesPosInf);   // inf: a diffuse prior
         if (!(process_var >= 0.0)) {
             throw std::invalid_argument("process_var must be >= 0.");
         }
@@ -69,6 +69,14 @@ public:
         }
         // Predict.
         const double P_pred = P_ + process_var_;
+        if (std::isinf(P_pred)) {
+            // A diffuse prior (initial_variance = inf): the limit of the
+            // update as P -> inf. The gain is 1, the state is the
+            // observation and its variance the observation variance.
+            x_ = z;
+            P_ = observation_var_;
+            return x_;
+        }
         // Update.
         const double K = P_pred / (P_pred + observation_var_);
         x_ = x_ + K * (z - x_);

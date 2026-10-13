@@ -235,6 +235,26 @@ def finite_error(cls_name, args, kwargs):
     return _b._finite_setting_error(cls_name, names, values) or None
 
 
+def int_min_error(cls_name, args, kwargs):
+    """The message for an integer setting below its smallest value,
+    "<Op>: <setting> must be at least 1, got -1", or None (C++
+    int_settings.h holds each setting's smallest value)."""
+    params = bind_params(cls_name, args, kwargs)
+    names, values = [], []
+    for p in (_load_help().get(cls_name) or {}).get("parameters", []):
+        value = params.get(p["name"])
+        if p.get("type") != "int" or value is None:
+            continue
+        try:
+            names.append(p["name"])
+            values.append(float(value))
+        except (TypeError, ValueError):
+            names.pop()
+    if not names:
+        return None
+    return _b._int_setting_error(cls_name, names, values) or None
+
+
 def _make_wrapper(name, base):
     """Build a same-named subclass of ``base`` that captures its init args."""
     cls = type(name, (base,), {"__doc__": build_docstring(name), "__module__": "screamer"})
@@ -249,8 +269,9 @@ def _make_wrapper(name, base):
                 raise
             raise TypeError(msg) from None
         except ValueError:
-            # A setting that is not finite: the one message form.
-            msg = finite_error(name, args, kwargs)
+            # A setting that is not finite, or an integer setting below its
+            # smallest value: the one message form of each.
+            msg = finite_error(name, args, kwargs) or int_min_error(name, args, kwargs)
             if msg is None:
                 raise
             raise ValueError(msg) from None

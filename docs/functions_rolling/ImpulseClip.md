@@ -29,7 +29,7 @@ parameters:
   default: 4.0
   min: 0
   description: Detection threshold in robust standard deviations of the differences (1.4826
-    * MAD). Larger values flag fewer samples; 4.0 is typical.
+    * MAD). Larger values flag fewer samples; 4.0 is typical. inf flags no sample, so the output is the input.
 - name: output
   type: str
   default: cleaned

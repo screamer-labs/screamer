@@ -11,6 +11,7 @@
 #include <tuple>
 #include "screamer/common/column_driver.h"
 #include "screamer/common/finite_settings.h"
+#include "screamer/common/int_settings.h"
 #include <string>
 #include <vector>
 #include "screamer/common/eval_op.h"
@@ -172,7 +173,8 @@ inline std::uintptr_t opPtr(screamer::EvalOp& op) {
 }
 
 // The message for a float setting that is not finite (finite_settings.h),
-// asked by a generated factory after its constructor threw: `names` is an
+// or an integer setting below its smallest value (int_settings.h), asked by
+// a generated factory after its constructor threw: `names` is an
 // Array of the camelCase setting names, `values` an Array of numbers or
 // Arrays of numbers. "" when no setting is at fault.
 inline std::string finiteSettingError(std::string op, emscripten::val names, emscripten::val values) {
@@ -191,7 +193,12 @@ inline std::string finiteSettingError(std::string op, emscripten::val names, ems
         }
         vs.push_back(std::move(xs));
     }
-    return screamer::finite_setting_error(op, ns, vs, true);
+    std::string msg = screamer::finite_setting_error(op, ns, vs, true);
+    if (!msg.empty()) return msg;
+    // An integer setting below its smallest value (int_settings.h).
+    std::vector<double> firsts;
+    for (const auto& x : vs) firsts.push_back(x.empty() ? 0.0 : x[0]);
+    return screamer::int_setting_error(op, ns, firsts);
 }
 
 }  // namespace screamer_wasm

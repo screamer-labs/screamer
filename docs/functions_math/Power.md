@@ -17,7 +17,7 @@ parameters:
   type: float
   default: 2.0
   description: Exponent applied to each element. The default 2 gives the same result as Square,
-    which computes x * x directly.
+    which computes x * x directly. inf and -inf are taken, as numpy's power takes them.
 nan_policy: ignore
 see_also:
 - Square

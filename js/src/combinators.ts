@@ -13,6 +13,8 @@ import {
   combineArrays, combineAsync, combineIterators,
   type CombineEvent, type CombineInput, type CombineLayout, type CombineRow,
 } from "./combine.js";
+import { maxPendingCount } from "./pipeline.js";
+import { current } from "./index.js";
 import { mergeArrays, mergeAsync, mergeIterators, type MergeEvent, type MergeResult } from "./merge.js";
 import {
   RESAMPLE_MODE_CODE,
@@ -106,6 +108,8 @@ export function combineLatest(inputs: unknown[], opts?: CombineLatestOpts): unkn
       throw new RangeError("combineLatest: layout applies to arrays and iterators; " +
         "streams inside a Pipeline carry fields only");
     // Unset: the Pipeline's maxPending. The engine checks the value at compile.
+    // The node's cap is checked now, as Python's CombineLatest checks it.
+    if (o.maxPending !== undefined) maxPendingCount(current(), o.maxPending, "combineLatest: maxPending");
     // `spec`: the node as Python's to_dict writes it (Pipeline.toJSON).
     const spec = { op: "CombineLatest", params: { emit: o.whenAll ? "when_all" : "on_any",
                                                   ...(o.maxPending !== undefined ? { max_pending: o.maxPending } : {}) } };

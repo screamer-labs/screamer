@@ -5,6 +5,7 @@
 #include <vector>
 #include <string>
 #include "screamer/common/eval_op.h"
+#include "screamer/common/int_settings.h"
 #include "screamer/common/base.h"
 #include "screamer/common/async_generator.h"
 #include "screamer/common/lazy_eval_iterator.h"
@@ -27,6 +28,17 @@ void init_bindings_core(nb::module_& m) {
                                       const std::vector<std::vector<double>>& values) {
         return screamer::finite_setting_error(op, names, values, false);
     }, "op"_a, "names"_a, "values"_a);
+    // The message for an integer setting below its smallest value
+    // (int_settings.h), asked on the same error path.
+    m.def("_int_setting_error", [](const std::string& op, const std::vector<std::string>& names,
+                                   const std::vector<double>& values) {
+        return screamer::int_setting_error(op, names, values);
+    }, "op"_a, "names"_a, "values"_a);
+    m.def("_int_setting_min", [](const std::string& op, const std::string& setting) -> nb::object {
+        long long v = 0;
+        if (!screamer::int_setting_min(op, setting, v)) return nb::none();
+        return nb::int_(v);
+    }, "op"_a, "setting"_a);
 
     // Test/engine helper: run one event through an op.
     m.def("_eval_op", [](screamer::EvalOp& op, const std::vector<double>& in) {

@@ -20,6 +20,7 @@ namespace screamer {
         Butter(int order, double cutoff_freq) :
             order_(order), cutoff_freq_(cutoff_freq)
         {
+            if (order < 1) throw std::invalid_argument("Order must be at least 1.");
             require_finite("cutoff_freq", cutoff_freq);
             std::vector<double> b, a;
             butterworth_filter(order, cutoff_freq, b, a);

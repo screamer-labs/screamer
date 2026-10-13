@@ -9,7 +9,7 @@ namespace screamer {
 
     class Power : public ScreamerBase {
     public:
-        Power(double p) : p_(p) { require_finite("p", p); }
+        Power(double p) : p_(p) { require_finite("p", p, kTakesPosInf | kTakesNegInf); }
 
         double process_scalar(double newValue) override {
             return std::pow(newValue, p_);

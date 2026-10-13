@@ -292,7 +292,36 @@ test("options: inf, -inf and NaN agree with Python for every float setting (null
       }
     }
   }
-  assert.ok(n > 750 && refused > 720, `${n} values, ${refused} refused`);
+  assert.ok(n > 750 && refused > 700, `${n} values, ${refused} refused`);
+});
+
+test("options: an integer setting below its smallest value agrees with Python (null_oracle.json)", async () => {
+  // One message form (int_settings.h), never the raw text of a buffer
+  // ("vector"): the value one below the smallest, and a large negative one.
+  await ready();
+  const { readFileSync } = await import("node:fs");
+  const ops: any = await import("../src/generated/ops.ts");
+  const oracle: { name: string; base: Record<string, number>;
+                  below_min: Record<string, [number, string] | null> }[] =
+    JSON.parse(readFileSync(new URL("../../wasm/smoke/null_oracle.json", import.meta.url), "utf8"));
+  const camel = (k: string) => k.replace(/_([a-z])/g, (_m, c) => c.toUpperCase());
+  let n = 0;
+  for (const { name, base, below_min } of oracle) {
+    const opts: Record<string, unknown> = {};
+    for (const [b, v] of Object.entries(base)) opts[camel(b)] = v;
+    for (const [k, rec] of Object.entries(below_min)) {
+      assert.ok(rec, `${name}.${k}: Python takes the value below its smallest`);
+      const [v, message] = rec!;
+      for (const x of [v, -1e9]) {
+        assert.throws(() => ops[name]({ ...opts, [camel(k)]: x }), {
+          name: "RangeError",
+          message: message.replace(`: ${k} must be`, `: ${camel(k)} must be`).replace(/got -?\d+$/, `got ${x}`),
+        }, `${name}.${k}=${x}`);
+        n++;
+      }
+    }
+  }
+  assert.ok(n > 240);
 });
 
 test("options: a stream setting refuses a boolean (G25)", async () => {

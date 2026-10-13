@@ -19,9 +19,9 @@ namespace screamer {
 class Linear2 : public FunctorBase<Linear2, 2, 1> {
 public:
     Linear2(double a, double b, double c = 0.0) : a_(a), b_(b), c_(c) {
-        require_finite("a", a);
-        require_finite("b", b);
-        require_finite("c", c);
+        require_finite("a", a, kTakesPosInf | kTakesNegInf);
+        require_finite("b", b, kTakesPosInf | kTakesNegInf);
+        require_finite("c", c, kTakesPosInf | kTakesNegInf);
     }
 
     ResultTuple call(const InputArray& inputs) override {

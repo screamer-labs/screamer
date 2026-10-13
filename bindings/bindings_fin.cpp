@@ -467,7 +467,8 @@ nb::object row_op_packed(screamer::RowOp& self, nb::object x) {
         screamer::detail::read_double_view(nb::cast<nb::ndarray<nb::ro>>(x));
     const std::size_t fi = self.fields_in(), fo = self.fields_out();
     if (p.shape[2] != fi)
-        throw nb::value_error(("a packed input of a row operator has shape (T, K, " +
+        throw nb::value_error(("a packed input of " + screamer::op_display_name(nb::find(self)) +
+                               " has shape (T, K, " +
                                std::to_string(fi) + "), got (" + std::to_string(p.shape[0]) + ", " +
                                std::to_string(p.shape[1]) + ", " + std::to_string(p.shape[2]) +
                                ").").c_str());

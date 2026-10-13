@@ -37,7 +37,7 @@ parameters:
   default: 1.0
   min: 0.0
   description: Variance P_0 of the starting state. A large value such as 1e9 makes
-    the filter forget the initial state quickly.
+    the filter forget the initial state quickly. inf is a diffuse prior, so the first observation sets the state, with the observation variance.
 nan_policy: ignore
 see_also:
 - KalmanRegression

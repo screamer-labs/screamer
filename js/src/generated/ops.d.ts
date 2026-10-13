@@ -2587,7 +2587,7 @@ export declare function GreaterThan(options?: GreaterThanOptions): ScreamerOp;
 export interface HampelOptions {
   /** Number of most recent samples used for the median and the MAD. @defaultValue `20` */
   windowSize?: number;
-  /** Detection threshold in robust standard deviations (1.4826 * MAD). Larger values flag fewer samples; 3.0 is typical. @defaultValue `3.0` */
+  /** Detection threshold in robust standard deviations (1.4826 * MAD). Larger values flag fewer samples; 3.0 is typical. inf flags no sample, so the output is the input. @defaultValue `3.0` */
   nSigma?: number;
   /** What to return: "cleaned" gives the signal with outliers replaced by the median, "flag" gives 1.0 at outliers and 0.0 elsewhere, and "nan" gives the input with outliers replaced by NaN. @defaultValue `"cleaned"` */
   output?: string;
@@ -2606,7 +2606,7 @@ export declare function Hampel(options: HampelOptions): ScreamerOp;
  * Robust Hampel despiker, replace samples far from the window median (in MAD units).
  *
  * @param windowSize Number of most recent samples used for the median and the MAD.
- * @param nSigma Detection threshold in robust standard deviations (1.4826 * MAD). Larger values flag fewer samples; 3.0 is typical.
+ * @param nSigma Detection threshold in robust standard deviations (1.4826 * MAD). Larger values flag fewer samples; 3.0 is typical. inf flags no sample, so the output is the input.
  * @param output What to return: "cleaned" gives the signal with outliers replaced by the median, "flag" gives 1.0 at outliers and 0.0 elsewhere, and "nan" gives the input with outliers replaced by NaN.
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/Hampel.html for the full reference.
@@ -2722,7 +2722,7 @@ export declare function Identity(options?: IdentityOptions): ScreamerOp;
 export interface ImpulseClipOptions {
   /** Number of most recent first differences (and values) used for the robust scale and the replacement median. @defaultValue `20` */
   windowSize?: number;
-  /** Detection threshold in robust standard deviations of the differences (1.4826 * MAD). Larger values flag fewer samples; 4.0 is typical. @defaultValue `4.0` */
+  /** Detection threshold in robust standard deviations of the differences (1.4826 * MAD). Larger values flag fewer samples; 4.0 is typical. inf flags no sample, so the output is the input. @defaultValue `4.0` */
   nSigma?: number;
   /** What to return: "cleaned" gives the signal with outliers replaced by the median, "flag" gives 1.0 at outliers and 0.0 elsewhere, and "nan" gives the input with outliers replaced by NaN. @defaultValue `"cleaned"` */
   output?: string;
@@ -2741,7 +2741,7 @@ export declare function ImpulseClip(options: ImpulseClipOptions): ScreamerOp;
  * Causal impulse remover, detects spikes on the trend-free first difference.
  *
  * @param windowSize Number of most recent first differences (and values) used for the robust scale and the replacement median.
- * @param nSigma Detection threshold in robust standard deviations of the differences (1.4826 * MAD). Larger values flag fewer samples; 4.0 is typical.
+ * @param nSigma Detection threshold in robust standard deviations of the differences (1.4826 * MAD). Larger values flag fewer samples; 4.0 is typical. inf flags no sample, so the output is the input.
  * @param output What to return: "cleaned" gives the signal with outliers replaced by the median, "flag" gives 1.0 at outliers and 0.0 elsewhere, and "nan" gives the input with outliers replaced by NaN.
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/ImpulseClip.html for the full reference.
@@ -2816,7 +2816,7 @@ export interface KalmanFilterOptions {
   observationVar?: number;
   /** Starting state estimate x_0, used before the first observation. @defaultValue `0.0` */
   initialState?: number;
-  /** Variance P_0 of the starting state. A large value such as 1e9 makes the filter forget the initial state quickly. @defaultValue `1.0` */
+  /** Variance P_0 of the starting state. A large value such as 1e9 makes the filter forget the initial state quickly. inf is a diffuse prior, so the first observation sets the state, with the observation variance. @defaultValue `1.0` */
   initialVariance?: number;
 }
 
@@ -2833,7 +2833,7 @@ export declare function KalmanFilter(options: KalmanFilterOptions): ScreamerOp;
  * @param processVar Variance of the random-walk innovation. Larger values make the filter follow new measurements more closely, with a noisier output.
  * @param observationVar Variance of the measurement noise. Must be positive.
  * @param initialState Starting state estimate x_0, used before the first observation.
- * @param initialVariance Variance P_0 of the starting state. A large value such as 1e9 makes the filter forget the initial state quickly.
+ * @param initialVariance Variance P_0 of the starting state. A large value such as 1e9 makes the filter forget the initial state quickly. inf is a diffuse prior, so the first observation sets the state, with the observation variance.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/KalmanFilter.html for the full reference.
  */
 export declare function KalmanFilter(processVar?: number, observationVar?: number, initialState?: number, initialVariance?: number): ScreamerOp;
@@ -2959,9 +2959,9 @@ export declare function LessThan(options?: LessThanOptions): ScreamerOp;
 
 /** The settings of Linear by name, for `Linear({ ... })`. */
 export interface LinearOptions {
-  /** Factor that multiplies each input value. @defaultValue `1.0` */
+  /** Factor that multiplies each input value. inf and -inf are taken, as numpy takes them. @defaultValue `1.0` */
   scale?: number;
-  /** Constant added after scaling. @defaultValue `0.0` */
+  /** Constant added after scaling. inf and -inf are taken, as numpy takes them. @defaultValue `0.0` */
   shift?: number;
 }
 
@@ -2975,19 +2975,19 @@ export declare function Linear(options: LinearOptions): ScreamerOp;
 /**
  * Affine transform: scale * x + shift.
  *
- * @param scale Factor that multiplies each input value.
- * @param shift Constant added after scaling.
+ * @param scale Factor that multiplies each input value. inf and -inf are taken, as numpy takes them.
+ * @param shift Constant added after scaling. inf and -inf are taken, as numpy takes them.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Linear.html for the full reference.
  */
 export declare function Linear(scale?: number, shift?: number): ScreamerOp;
 
 /** The settings of Linear2 by name, for `Linear2({ ... })`. */
 export interface Linear2Options {
-  /** Coefficient that multiplies the first input. @defaultValue `1.0` */
+  /** Coefficient that multiplies the first input. inf and -inf are taken, as numpy takes them. @defaultValue `1.0` */
   a?: number;
-  /** Coefficient that multiplies the second input. @defaultValue `1.0` */
+  /** Coefficient that multiplies the second input. inf and -inf are taken, as numpy takes them. @defaultValue `1.0` */
   b?: number;
-  /** Constant added to the weighted sum. @defaultValue `0.0` */
+  /** Constant added to the weighted sum. inf and -inf are taken, as numpy takes them. @defaultValue `0.0` */
   c?: number;
 }
 
@@ -3001,9 +3001,9 @@ export declare function Linear2(options: Linear2Options): ScreamerOp;
 /**
  * Two-input affine combination: a*x + b*y + c.
  *
- * @param a Coefficient that multiplies the first input.
- * @param b Coefficient that multiplies the second input.
- * @param c Constant added to the weighted sum.
+ * @param a Coefficient that multiplies the first input. inf and -inf are taken, as numpy takes them.
+ * @param b Coefficient that multiplies the second input. inf and -inf are taken, as numpy takes them.
+ * @param c Constant added to the weighted sum. inf and -inf are taken, as numpy takes them.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Linear2.html for the full reference.
  */
 export declare function Linear2(a?: number, b?: number, c?: number): ScreamerOp;
@@ -3396,7 +3396,7 @@ export declare function PosPart(options?: PosPartOptions): ScreamerOp;
 
 /** The settings of Power by name, for `Power({ ... })`. */
 export interface PowerOptions {
-  /** Exponent applied to each element. The default 2 gives the same result as Square, which computes x * x directly. @defaultValue `2.0` */
+  /** Exponent applied to each element. The default 2 gives the same result as Square, which computes x * x directly. inf and -inf are taken, as numpy's power takes them. @defaultValue `2.0` */
   p?: number;
 }
 
@@ -3410,7 +3410,7 @@ export declare function Power(options: PowerOptions): ScreamerOp;
 /**
  * x raised to a fixed exponent p.
  *
- * @param p Exponent applied to each element. The default 2 gives the same result as Square, which computes x * x directly.
+ * @param p Exponent applied to each element. The default 2 gives the same result as Square, which computes x * x directly. inf and -inf are taken, as numpy's power takes them.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Power.html for the full reference.
  */
 export declare function Power(p?: number): ScreamerOp;

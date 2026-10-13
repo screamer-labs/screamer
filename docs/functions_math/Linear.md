@@ -18,11 +18,11 @@ parameters:
 - name: scale
   type: float
   default: 1.0
-  description: Factor that multiplies each input value.
+  description: Factor that multiplies each input value. inf and -inf are taken, as numpy takes them.
 - name: shift
   type: float
   default: 0.0
-  description: Constant added after scaling.
+  description: Constant added after scaling. inf and -inf are taken, as numpy takes them.
 nan_policy: ignore
 see_also:
 - Linear2
