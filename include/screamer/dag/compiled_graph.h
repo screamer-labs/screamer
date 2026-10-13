@@ -511,9 +511,10 @@ public:
         // Check every node against the input widths before any event is fed.
         {
             std::vector<std::size_t> known(num_in_, 0);
+            std::vector<bool> present(num_in_, false);
             for (std::size_t i = 0; i < num_in_; ++i)
-                if (in_lens[i] > 0) known[i] = widths[i];
-            validate_widths(known);
+                if (in_lens[i] > 0) { known[i] = widths[i]; present[i] = true; }
+            validate_widths(known, present);
         }
 
         // One input needs no merge: its events go in array order, as the
@@ -605,24 +606,33 @@ private:
     // Each rule is the one the node itself applies, so a graph passes here
     // exactly when its nodes accept the widths; the node checks stay as a
     // backstop for widths that are not known here.
-    void validate_widths(const std::vector<std::size_t>& in_w) const {
+    //
+    // `present` marks the inputs that have events (a batch run): such an input
+    // of width 0 is a known zero width, not an unknown one. The zero follows
+    // the nodes that pass rows through (Dropna, Delay, a lag), so a width rule
+    // with a minimum sees it.
+    void validate_widths(const std::vector<std::size_t>& in_w,
+                         const std::vector<bool>& present = {}) const {
         const std::size_t n = spec_.nodes.size();
         std::vector<std::size_t> w(n, 0);   // 0 = unknown
+        std::vector<bool> zero(n, false);   // a known width of 0
         auto in_of = [&](const NodeSpec& nd) -> std::size_t {
             return nd.inputs.size() == 1 ? w[nd.inputs[0]] : 0;
         };
         for (std::size_t id : topo_producers_first_) {
             const NodeSpec& nd = spec_.nodes[id];
-            if (nd.require_width) {
-                const std::size_t iw = w[nd.inputs[nd.require_slot]];
-                if (iw != 0 && iw != nd.require_width)
-                    throw std::invalid_argument(
-                        nd.require_what + " holds " + std::to_string(iw) + " columns, expected " +
-                        std::to_string(nd.require_width));
+            for (const WidthRule& r : nd.width_rules) {
+                const std::size_t in = nd.inputs[r.slot];
+                const std::size_t iw = w[in];
+                if ((iw != 0 && ((r.exact && iw != r.exact) || iw < r.min)) ||
+                        (zero[in] && r.min > 0))
+                    throw std::invalid_argument(width_rule_text(r, iw));
             }
             switch (nd.kind) {
             case NodeKind::Input:
                 w[id] = in_w[input_sig_[id]];
+                zero[id] = w[id] == 0 && input_sig_[id] < present.size() &&
+                           present[input_sig_[id]];
                 break;
             case NodeKind::Functor: {
                 // Every producer pushes its own frames into the operator, so each
@@ -657,6 +667,7 @@ private:
             case NodeKind::Delay:
             case NodeKind::LagRows:
                 w[id] = in_of(nd);
+                zero[id] = nd.inputs.size() == 1 && zero[nd.inputs[0]];
                 break;
             case NodeKind::Select: {
                 const std::size_t iw = in_of(nd);

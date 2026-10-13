@@ -104,11 +104,11 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   * `X` must be `(T,)` or `(T, K)` with `K` at least 1. A rank-3 `X` raises
     `ValueError` ("forecast_pairs: X has 3 dimensions, expected (T,) or
     (T, K)"); 2.8.0 raised `RuntimeError` in count mode and returned the first
-    feature only in duration mode. A `(T, 0)` `X` raises `ValueError` ("X has
-    no feature columns"), where 2.8.0 raised `IndexError`; given to a count-mode
-    graph node, it raises `ValueError` ("a lag takes rows of at least one
-    value"), where 2.8.0 raised `RuntimeError`. Reshape `X` to
-    `(T, K)`.
+    feature only in duration mode. A `(T, 0)` `X` raises `ValueError`
+    ("forecast_pairs: X has 0 columns, expected at least 1") in the eager call
+    and in a graph node, in both modes, before any event is fed. 2.8.0 raised
+    `IndexError` in the eager count call and `RuntimeError` in a count-mode
+    node, and a duration-mode node returned no rows. Reshape `X` to `(T, K)`.
   * In count mode, `(values, index)` pairs raise `TypeError` ("count= mode
     takes X and y as values"); 2.8.0 read each pair as a 2-row array and
     returned unrelated numbers. Pass the values, or use `duration=`.

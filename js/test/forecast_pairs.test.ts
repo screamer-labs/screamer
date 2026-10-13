@@ -206,7 +206,7 @@ test("GraphBuilder: a builder compiles once", async () => {
   }
 });
 
-test("Pipeline: a rank-3 feed raises in every graph; a lag refuses rows of no values", async () => {
+test("Pipeline: a rank-3 feed raises in every graph; forecastPairs refuses an X of no columns", async () => {
   await ready();
   const v = Float64Array.from({ length: 8 }, (_, i) => i);
   const rank3 = { data: new Float64Array(16), shape: [8, 2, 1] };
@@ -229,9 +229,9 @@ test("Pipeline: a rank-3 feed raises in every graph; a lag refuses rows of no va
       Object.fromEntries(inputs.map((n, i) => [n, i === 0 ? first : v]));
     assert.throws(() => p(feeds(rank3)), (e: any) => e instanceof RangeError &&
       e.message === "Pipeline: the values of input 0 have shape [8,2,1], expected (T,) or (T, w)", name);
-    if (name === "forecast count")       // the lag refuses rows of no values
+    if (name.startsWith("forecast"))     // the graph requires X to have a column
       assert.throws(() => p(feeds(empty)), (e: any) => e instanceof RangeError &&
-        /a lag takes rows of at least one value/.test(e.message), name);
+        e.message === "forecast_pairs: X has 0 columns, expected at least 1", name);
     p.dispose();
   }
 });
@@ -245,4 +245,23 @@ test("forecastPairs: a large count costs memory only as events arrive", async ()
   const wide = { data: new Float64Array(30).fill(1), shape: [10, 3] };
   const [xw] = forecastPairs(wide, v, { count: 2 ** 31 - 1 });
   assert.deepEqual((xw as NdArray).shape, [10, 3]);
+});
+
+test("forecastPairs: a (T, 0) X raises eagerly and in a node, in both modes", async () => {
+  await ready();
+  const v = [0, 1, 2, 3, 4, 5];
+  const empty = { data: new Float64Array(0), shape: [6, 0] };
+  const msg = "forecast_pairs: X has 0 columns, expected at least 1";
+  const is = (e: any) => e instanceof RangeError && e.message === msg;
+  assert.throws(() => forecastPairs(empty, v, { count: 1 }), is);
+  assert.throws(() => forecastPairs({ values: empty }, { values: v }, { duration: 1 }), is);
+  for (const opts of [{ count: 1 }, { duration: 1 }]) {
+    const X = Input("X"), y = Input("y");
+    const p = new Pipeline([X, y], [forecastPairs(X, y, opts)]);
+    assert.throws(() => p({ X: empty, y: v }), is);
+    const out = p({ X: v, y: v }) as Output;           // nothing was pushed
+    assert.deepEqual((out.values as NdArray).shape[1], 2);
+    assert.throws(() => p.live().push("X", 0, []), RangeError);
+    p.dispose();
+  }
 });

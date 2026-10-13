@@ -16,6 +16,26 @@ namespace screamer { namespace dag {
 enum class NodeKind { Input, Functor, CombineLatest, DropNa, Select, Resample, Filter, Delay,
                       LagRows };
 
+// A rule on the width of input `slot` of a node: exactly `exact` columns
+// (0 = any), and at least `min` columns. A graph given another width raises
+// "<what> holds N columns, expected E" or "<what> has N columns, expected at
+// least M".
+struct WidthRule {
+    std::size_t slot = 0;
+    std::size_t exact = 0;
+    std::size_t min = 0;
+    std::string what;
+};
+
+// The text of a width that breaks a rule.
+inline std::string width_rule_text(const WidthRule& r, std::size_t width) {
+    if (r.exact && width != r.exact)
+        return r.what + " holds " + std::to_string(width) + " columns, expected " +
+               std::to_string(r.exact);
+    return r.what + " has " + std::to_string(width) + " columns, expected at least " +
+           std::to_string(r.min);
+}
+
 // Pure data: one node of a graph definition.
 struct NodeSpec {
     NodeKind kind = NodeKind::Input;
@@ -26,12 +46,9 @@ struct NodeSpec {
     ResampleParams resample;              // Resample only
     std::int64_t delay_duration = 0;     // Delay only
     std::size_t lag_count = 1;            // LagRows only: events to lag by
-    // A node may require the width of its input `require_slot` (0 = any
-    // width); a graph given another width raises "<require_what> holds N
-    // columns, expected <require_width>".
-    std::size_t require_width = 0;
-    std::size_t require_slot = 0;
-    std::string require_what;
+    // Width rules on the node's inputs, checked before any event is fed
+    // (CompiledGraph::validate_widths).
+    std::vector<WidthRule> width_rules;
     std::size_t max_pending = kDefaultMaxPending;  // CombineLatest, Filter: reorder buffer cap
     std::vector<std::size_t> inputs;      // producer node ids (edges into this node)
 };
@@ -135,15 +152,13 @@ public:
         spec_.nodes.push_back(std::move(ns));
         return spec_.nodes.size() - 1;
     }
-    // Requires the width of input `slot` of node `id` (NodeSpec::require_width).
-    void require_width(std::size_t id, std::size_t slot, std::size_t width, std::string what) {
+    // Adds a width rule on input `slot` of node `id` (NodeSpec::width_rules).
+    void require_width(std::size_t id, WidthRule rule) {
         NodeSpec& ns = spec_.nodes.at(id);
-        if (slot >= ns.inputs.size())
+        if (rule.slot >= ns.inputs.size())
             throw std::invalid_argument("require_width: the node has no input " +
-                                        std::to_string(slot));
-        ns.require_width = width;
-        ns.require_slot  = slot;
-        ns.require_what  = std::move(what);
+                                        std::to_string(rule.slot));
+        ns.width_rules.push_back(std::move(rule));
     }
     std::size_t add_filter(std::vector<std::size_t> inputs) {
         // Filter is a fixed 2-input gate (data, mask); fail early on wrong arity

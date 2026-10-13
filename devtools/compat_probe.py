@@ -340,6 +340,8 @@ def cases():
         "forecast_pairs duration 2**70": lambda: fp((v, idx), (w, idx), duration=2**70),
         "forecast_pairs dropna str": lambda: fp(v, w, count=1, dropna="no"),
         "forecast_pairs count node (T,0) X": lambda: fp_graph((X[:, :0], w), count=1),
+        "forecast_pairs duration node (T,0) X": lambda: fp_graph(
+            ((X[:, :0], idx), (w, idx)), duration=10),
         "forecast_pairs count node rank-3 X": lambda: fp_graph((X.reshape(T, 1, K), w), count=1),
         "Pipeline rank-3 feed": lambda: (lambda x: s.Pipeline([x], [s.RollingMean(2)(x)]))(
             s.Input("x"))(X.reshape(T, 1, K)),

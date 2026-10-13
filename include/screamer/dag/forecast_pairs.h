@@ -49,8 +49,13 @@ inline void check_forecast_pairs_horizon(std::optional<std::int64_t> count,
         throw_forecast_pairs_range("duration", std::to_string(*duration));
 }
 
-// The text of a y that is not one column.
-inline std::string forecast_pairs_y_text() { return "forecast_pairs: y"; }
+// The rules on X (at least one feature column) and y (one column).
+inline WidthRule forecast_pairs_x_rule(std::size_t slot) {
+    WidthRule r; r.slot = slot; r.min = 1; r.what = "forecast_pairs: X"; return r;
+}
+inline WidthRule forecast_pairs_y_rule(std::size_t slot) {
+    WidthRule r; r.slot = slot; r.exact = 1; r.min = 1; r.what = "forecast_pairs: y"; return r;
+}
 
 // The input rule of an eager call: X is (T,) or (T, K) with K >= 1, y is one
 // column ((T,) or (T, 1)), and in count mode, which pairs row t with row t,
@@ -62,20 +67,19 @@ inline void check_forecast_pairs_inputs(bool count_mode, std::size_t x_ndim, std
         throw std::invalid_argument("forecast_pairs: X has " + std::to_string(x_ndim) +
                                     " dimensions, expected (T,) or (T, K)");
     if (x_ndim == 2 && x_cols == 0)
-        throw std::invalid_argument("forecast_pairs: X has no feature columns");
+        throw std::invalid_argument(width_rule_text(forecast_pairs_x_rule(0), 0));
     if (y_ndim > 2)
         throw std::invalid_argument("forecast_pairs: y has " + std::to_string(y_ndim) +
                                     " dimensions, expected (T,) or (T, 1)");
     if (y_ndim == 2 && y_cols != 1)
-        throw std::invalid_argument(forecast_pairs_y_text() + " holds " + std::to_string(y_cols) +
-                                    " columns, expected 1");
+        throw std::invalid_argument(width_rule_text(forecast_pairs_y_rule(0), y_cols));
     if (count_mode && x_rows != y_rows)
         throw std::invalid_argument("X and y must share the same length (time axis)");
 }
 
 // Adds the forecast-pairs nodes that read X from node `x` (any width) and y
-// from node `y` (one column, checked when the widths are known: the join
-// requires it); returns the output node. Exactly one of `count` and `duration` is given.
+// from node `y` (one column); returns the output node. Width rules on the
+// nodes that read X and y check both before any event is fed. Exactly one of `count` and `duration` is given.
 inline std::size_t add_forecast_pairs(GraphBuilder& gb, std::size_t x, std::size_t y,
                                       std::optional<std::int64_t> count,
                                       std::optional<std::int64_t> duration, bool dropna) {
@@ -83,15 +87,18 @@ inline std::size_t add_forecast_pairs(GraphBuilder& gb, std::size_t x, std::size
     std::size_t shifted;
     if (count) {
         shifted = gb.add_lag_rows({x}, static_cast<std::size_t>(*count));
+        gb.require_width(shifted, forecast_pairs_x_rule(0));
     } else {
         ResampleParams rp;
         rp.mode = ResampleMode::ByClock;
         rp.agg  = ResampleAgg::Last;
         rp.fill = ResampleFill::Carry;
-        shifted = gb.add_resample({gb.add_delay({x}, *duration), y}, rp);
+        const std::size_t delayed = gb.add_delay({x}, *duration);
+        gb.require_width(delayed, forecast_pairs_x_rule(0));
+        shifted = gb.add_resample({delayed, y}, rp);
     }
     const std::size_t pairs = gb.add_combine_latest({shifted, y}, true);
-    gb.require_width(pairs, 1, 1, forecast_pairs_y_text());
+    gb.require_width(pairs, forecast_pairs_y_rule(1));
     return dropna ? gb.add_dropna({pairs}, false) : pairs;
 }
 

@@ -13182,6 +13182,28 @@
   "RuntimeError",
   "dag::FunctorNode: frame width does not match op n_in"
  ],
+ "forecast_pairs duration node (T,0) X": [
+  "pair",
+  [
+   "ndarray",
+   [
+    0,
+    2
+   ],
+   "f",
+   0.0,
+   "da39a3ee5e6b4b0d"
+  ],
+  [
+   "ndarray",
+   [
+    0
+   ],
+   "i",
+   0.0,
+   "da39a3ee5e6b4b0d"
+  ]
+ ],
  "forecast_pairs count node rank-3 X": [
   "pair",
   [

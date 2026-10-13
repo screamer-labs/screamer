@@ -642,7 +642,7 @@ def test_forecast_pairs_input_rules():
         forecast_pairs(v.reshape(6, 1, 1), v, count=1)
     with pytest.raises(ValueError, match=r"X has 3 dimensions"):
         forecast_pairs((v.reshape(6, 1, 1), i), (v, i), duration=1)
-    with pytest.raises(ValueError, match="no feature columns"):
+    with pytest.raises(ValueError, match=r"X has 0 columns, expected at least 1"):
         forecast_pairs(np.empty((6, 0)), v, count=1)
     with pytest.raises(TypeError, match="pairs are for duration="):
         forecast_pairs((v, i), (v, i), count=1)
@@ -704,8 +704,9 @@ def test_pipeline_refuses_rank3_feeds(which):
         pipe(rank3, *rest)
     with pytest.raises(ValueError, match=r"Pipeline: the values of input 0 have shape"):
         pipe((rank3, np.arange(8)), *[(r, np.arange(8)) for r in rest])
-    if name == "forecast count":         # the lag refuses rows of no values
-        with pytest.raises(ValueError, match="a lag takes rows of at least one value"):
+    if name.startswith("forecast"):      # the graph requires X to have a column
+        with pytest.raises(ValueError, match=r"forecast_pairs: X has 0 columns, "
+                                             r"expected at least 1"):
             pipe(np.empty((8, 0)), *rest)
     # a lazy feed and a live push refuse a 2-D event already
     with pytest.raises(ValueError):
@@ -744,3 +745,29 @@ def test_forecast_pairs_lag_across_ring_growth(count):
                                     for t, r in enumerate(X)),
                                    ((float(v), t) for t, v in enumerate(y)), count=count))
         assert _same(np.array([r[0] for r in lazy]).reshape(450, k + 1), _rows(xs, ys, k))
+
+
+@pytest.mark.parametrize("mode", [{"count": 1}, {"duration": 1}])
+def test_forecast_pairs_zero_width_x_raises_in_every_regime(mode):
+    """A (T, 0) X raises the same error eagerly and in a node, before any event:
+    the graph's width rule, not a node, refuses it. Lazy and live calls refuse
+    an event with no values."""
+    from screamer import Input, Pipeline
+    v = np.arange(6.0)
+    i = np.arange(6)
+    msg = r"forecast_pairs: X has 0 columns, expected at least 1"
+    eager = (lambda: forecast_pairs(np.empty((6, 0)), v, **mode)) if "count" in mode else \
+        (lambda: forecast_pairs((np.empty((6, 0)), i), (v, i), **mode))
+    with pytest.raises(ValueError, match=msg):
+        eager()
+    X_in, y_in = Input("X"), Input("y")
+    pipe = Pipeline([X_in, y_in], [forecast_pairs(X_in, y_in, **mode)])
+    with pytest.raises(ValueError, match=msg):
+        pipe((np.empty((6, 0)), i), (v, i))
+    # the pipeline still runs afterwards: nothing was pushed
+    vals, _ = pipe((v, i), (v, i))
+    assert vals.shape[1] == 2
+    with pytest.raises(ValueError, match="needs at least one value|is empty"):
+        pipe.live().push("X", 0, [])
+    with pytest.raises(ValueError):
+        list(forecast_pairs(iter([([], 0)]), iter([(1.0, 0)]), **mode))
