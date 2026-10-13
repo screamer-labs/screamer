@@ -2,6 +2,7 @@
 #define SCREAMER_AMIHUD_ILLIQUIDITY_H
 
 #include <cmath>
+#include <cstddef>
 #include <limits>
 #include <string>
 #include "screamer/common/functor_base.h"
@@ -15,7 +16,7 @@ namespace screamer {
     // high-impact regime), a robust and cheap cousin of Kyle's lambda. A zero
     // notional, or a NaN on either input, contributes no sample to the window
     // and yields NaN at that step (nan_policy: ignore).
-    class AmihudIlliquidity : public FunctorBase<AmihudIlliquidity, 2, 1> {
+    class AmihudIlliquidity : public StepperFunctorBase<AmihudIlliquidity, 2, 1> {
     public:
         AmihudIlliquidity(int window_size, const std::string& start_policy = "strict")
             : mean_(window_size, start_policy)
@@ -26,19 +27,57 @@ namespace screamer {
             mean_.reset();
         }
 
-        ResultTuple call(const InputArray& inputs) override {
-            const double ret = inputs[0];
-            const double notional = inputs[1];
-            double ratio;
-            if (isnan2(ret) || isnan2(notional) || notional == 0.0) {
-                ratio = std::numeric_limits<double>::quiet_NaN();
-            } else {
-                ratio = std::abs(ret) / notional;
+        // One event on the window's state, for both the batch column loop and
+        // call() (StepperFunctorBase): the running values stay in registers
+        // in a batch call. The step is detail::RollingMean::append on the
+        // ratio, which ignores a NaN ratio (state untouched, NaN out), giving
+        // the "ignore" behavior.
+        struct Stepper {
+            double* buf;
+            std::size_t cap;
+            std::size_t index;
+            std::size_t count;
+            double sum;
+            detail::StartPolicy policy;
+
+            inline ResultTuple call(const InputArray& inputs) {
+                const double ret = inputs[0];
+                const double notional = inputs[1];
+                if (isnan2(ret) || isnan2(notional) || notional == 0.0) {
+                    return std::numeric_limits<double>::quiet_NaN();
+                }
+                const double ratio = std::abs(ret) / notional;
+                if (isnan2(ratio)) {
+                    return std::numeric_limits<double>::quiet_NaN();
+                }
+                const double old = buf[index];
+                buf[index] = ratio;
+                if (++index == cap) {
+                    index = 0;
+                }
+                if (count == cap) {
+                    sum += ratio - old;
+                    return sum / cap;
+                }
+                sum += ratio;
+                count++;
+                if (count == cap) {
+                    return sum / cap;
+                }
+                if (policy == detail::StartPolicy::Strict) {
+                    return std::numeric_limits<double>::quiet_NaN();
+                }
+                if (policy == detail::StartPolicy::Expanding) {
+                    return sum / count;
+                }
+                return sum / cap;   // StartPolicy::Zero
             }
-            // detail::RollingMean.append ignores a NaN ratio (state untouched,
-            // returns NaN), giving the "ignore" behavior for free.
-            return mean_.append(ratio);
+        };
+        Stepper stepper() {
+            return Stepper{mean_.buffer_data(), mean_.capacity(), mean_.index(),
+                           mean_.count(), mean_.sum(), mean_.start_policy()};
         }
+        void store(const Stepper& k) { mean_.restore(k.index, k.count, k.sum); }
 
     private:
         detail::RollingMean mean_;

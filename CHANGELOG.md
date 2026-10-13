@@ -1114,7 +1114,9 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   are read in place too; a tile of a `(T, K, N)` array gathers the N fields
   of a row in one pass; `WilliamsR` reads strided fields in place and takes
   the rolling high and low in one pass; `ContOFI` keeps its state in
-  registers. The results are unchanged. Python, 200,000 values per field (ms,
+  registers, and so does `AmihudIlliquidity`, whose speed depended on the
+  process (0.31 to 0.71 ms on 200,000 values, now 0.30 to 0.32). The
+  results are unchanged. Python, 200,000 values per field (ms,
   separate / packed, was): `Sub()` 0.057 / 0.057 (0.112 / 0.112),
   `WilliamsR(20)` 0.58 / 0.58 (0.77 / 0.95), `WilliamsR(20)` on
   `(2000, 100)` fields 0.82 / 0.83 (1.02 / 1.08), `Where()` on `(2000, 100)`
