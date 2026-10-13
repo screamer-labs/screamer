@@ -10,6 +10,7 @@ import * as ops from "./generated/ops.js";
 import { current } from "./index.js";
 import { wasmCall } from "./errors.js";
 import { aKind } from "./kinds.js";
+import { SETTINGS } from "./runtime.js";
 
 type Dict = Record<string, any>;
 
@@ -27,9 +28,17 @@ function jsonText(x: unknown): string {
 // A functor node's op as Python writes it: its class and the settings its
 // factory recorded.
 function functorOf(node: Node, who: string): { cls: string; params: Dict } {
-  const spec = (node.op as any)?.wrapper?.screamerSpec;
-  if (!spec) throw new TypeError(`${who}: a functor without recorded settings cannot be saved; build it with its factory`);
-  return spec;
+  const rec = (node.op as any)?.wrapper?.[SETTINGS];
+  if (!rec) throw new TypeError(`${who}: a functor without recorded settings cannot be saved; build it with its factory`);
+  // The settings given (undefined, and null for an optional setting, are not
+  // given), by their Python names; an array setting is copied.
+  const params: Dict = {};
+  (rec.names as string[]).forEach((n, i) => {
+    const v = rec.given[i];
+    if (v === undefined || v === null) return;
+    params[n] = Array.isArray(v) || ArrayBuffer.isView(v) ? Array.from(v as ArrayLike<unknown>) : v;
+  });
+  return { cls: rec.cls, params };
 }
 
 /** The description of a pipeline, as Python's `Pipeline.to_dict()` gives it. */

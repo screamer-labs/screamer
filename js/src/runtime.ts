@@ -275,6 +275,10 @@ class OpRes implements Owned {
 // `copy` builds the stream copies when `src` is a raw op whose factory lives
 // elsewhere (wrapReducerOp passes its own). `finalize` false leaves freeing
 // to a wrapper that owns this one and always disposes it (wrapReducerOp).
+// The key under which a generated factory records the settings the caller
+// gave ({ cls, names, given }), read by Pipeline.toJSON (pipeline_io.ts).
+export const SETTINGS = Symbol("screamer settings");
+
 export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp, finalize = true): ScreamerOp {
   const make = copy ?? (typeof src === "function" ? (src as () => RawOp) : null);
   const raw = resolve(src);

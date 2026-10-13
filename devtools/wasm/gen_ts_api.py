@@ -398,17 +398,12 @@ const _finite = (M: any, op: string, names: string[], values: unknown[], e: unkn
   const msg = M.finiteSettingError(op, ns, vs);
   return msg ? new RangeError(msg) : e;
 };
-// Records the settings the caller gave on the op, by their Python names
-// (`screamerSpec`: { cls, params }), for Pipeline.toJSON. An array setting
-// is copied.
+// Records the settings the caller gave on the op, for Pipeline.toJSON: its
+// class, the Python names and the values as given (pipeline_io.ts reads them
+// into { cls, params } only when a pipeline is saved, so a construction pays
+// one property write).
 const _params = (op: ScreamerOp, cls: string, names: string[], given: unknown[]): ScreamerOp => {
-  const params: Record<string, unknown> = {};
-  names.forEach((n, i) => {
-    const v = given[i];
-    if (v === undefined || v === null) return;
-    params[n] = Array.isArray(v) || ArrayBuffer.isView(v) ? Array.from(v as ArrayLike<unknown>) : v;
-  });
-  Object.defineProperty(op, "screamerSpec", { value: { cls, params } });
+  (op as any)[SETTINGS] = { cls, names, given };
   return op;
 };
 const _tooMany = (op: string, n: number, nArgs: number): never => {
@@ -478,7 +473,7 @@ def render_ops_ts(ops: list[dict], help_map: dict) -> str:
         wrappers.append("wrapRowOp")
     out = [HEADER]
     out.append(
-        f'import {{ {", ".join(wrappers)}, type ScreamerOp }} from "../runtime.js";'
+        f'import {{ {", ".join(wrappers)}, SETTINGS, type ScreamerOp }} from "../runtime.js";'
     )
     out.append('import { current } from "../index.js";')
     out.append("")
