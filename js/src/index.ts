@@ -48,7 +48,7 @@ export { backtestReport } from "./backtest.js";
 export type { BacktestReportOptions, BacktestReportResult } from "./backtest.js";
 export { forecastPairs } from "./supervised.js";
 export { split } from "./split.js";
-export type { SplitOptions } from "./split.js";
+export type { SplitOptions, SplitOutput } from "./split.js";
 export type { ForecastPairsOptions, ForecastValues, ForecastStream } from "./supervised.js";
 export {
   circularShift, segmentShuffle, positionTest,

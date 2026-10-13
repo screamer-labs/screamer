@@ -6,7 +6,6 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
 #include <nanobind/stl/vector.h>
-#include <nanobind/stl/optional.h>
 #include "screamer/common/base.h"
 #include "screamer/streams/event.h"
 #include "screamer/streams/vector_source.h"
@@ -17,7 +16,6 @@
 #include "screamer/streams/combine_latest.h"
 #include "screamer/streams/py_source.h"
 #include "screamer/streams/split.h"
-#include "screamer/common/int_arg.h"
 #include "screamer/common/gc.h"
 #include <algorithm>
 #include <cstddef>
@@ -243,21 +241,31 @@ static nb::object merge_batch(nb::list index_arrays, nb::list value_arrays) {
 
 // split: the partition and its rules are include/screamer/streams/split.h,
 // shared with the WebAssembly binding. Python adapts the arguments
-// (screamer/streams.py split): values as float64, sources as a native integer
-// or bool array or as float64, the index as int64 or float64 or None. Returns
-// [(values, index_or_None), ...], one pair per output.
+// (screamer/streams.py split): values as a float64 array of any rank with
+// time first, sources as a list or tuple, or an integer, bool or float64
+// array, the index as int64 or float64 or None. Returns
+// [(values, index_or_None), ...], one pair per output; each output's values
+// have the shape (rows, *values.shape[1:]).
 using AnyArray = nb::ndarray<nb::ro, nb::c_contig, nb::device::cpu>;
+using AnyF64 = nb::ndarray<const double, nb::c_contig, nb::device::cpu>;
 
 template <class Index>
-static nb::list split_outputs(const SplitPlan& plan, const double* v, const Index* k) {
+static nb::list split_outputs(const SplitPlan& plan, const AnyF64& values, const Index* k) {
     const std::size_t n = plan.outputs();
+    std::vector<std::size_t> shape(values.ndim());
+    std::size_t width = 1;
+    for (std::size_t d = 1; d < values.ndim(); ++d) {
+        shape[d] = values.shape(d);
+        width *= shape[d];
+    }
     std::vector<double*> vptr(n);
     std::vector<Index*> kptr(k ? n : 0);
     nb::list out;
     for (std::size_t i = 0; i < n; ++i) {
         const std::size_t c = plan.counts()[i];
-        vptr[i] = new double[c ? c : 1];
-        nb::object ov = owned_array(vptr[i], {c});      // owns the buffer from here
+        shape[0] = c;
+        vptr[i] = new double[c * width ? c * width : 1];
+        nb::object ov = owned_array(vptr[i], shape);      // owns the buffer from here
         if (k) {
             kptr[i] = new Index[c ? c : 1];
             out.append(nb::make_tuple(ov, owned_array(kptr[i], {c})));
@@ -265,11 +273,69 @@ static nb::list split_outputs(const SplitPlan& plan, const double* v, const Inde
             out.append(nb::make_tuple(ov, nb::none()));
         }
     }
-    plan.scatter(v, k, vptr.data(), kptr.data());
+    plan.scatter(values.data(), width, k, vptr.data(), kptr.data());
     return out;
 }
 
-static SplitPlan split_plan(const AnyArray& s, std::size_t total, bool has_n, double n) {
+// The text of a Python object for an error message: its repr.
+static std::string repr_text(nb::handle x) { return nb::cast<std::string>(nb::repr(x)); }
+
+// numpy.bool_, looked up once per call when NumPy is loaded (else null).
+static PyObject* numpy_bool_type() {
+    PyObject* np = PyImport_GetModule(nb::str("numpy").ptr());
+    if (!np) { PyErr_Clear(); return nullptr; }
+    PyObject* t = PyObject_GetAttrString(np, "bool_");
+    Py_DECREF(np);
+    if (!t) { PyErr_Clear(); return nullptr; }
+    Py_DECREF(t);                                      // NumPy keeps the type alive
+    return t;
+}
+
+// One source from a list item: an int (or anything with __index__) or a
+// float under split_tag; a bool, None, a string or another kind is a wrong
+// kind, and a nested sequence a shape error.
+static std::uint32_t split_tag_py(nb::handle e, PyObject* np_bool) {
+    PyObject* o = e.ptr();
+    if (PyBool_Check(o) || (np_bool && Py_TYPE(o) == reinterpret_cast<PyTypeObject*>(np_bool)))
+        throw_split_source_kind("a bool");
+    if (PyFloat_Check(o)) return split_tag(PyFloat_AsDouble(o));
+    if (PyObject* ix = PyNumber_Index(o)) {             // int, NumPy integer
+        int overflow = 0;
+        const long long v = PyLong_AsLongLongAndOverflow(ix, &overflow);
+        Py_DECREF(ix);
+        if (overflow) throw_split_source_range(repr_text(e));
+        if (v == -1 && PyErr_Occurred()) throw nb::python_error();
+        return split_tag(static_cast<std::int64_t>(v));
+    }
+    PyErr_Clear();
+    if (PyList_Check(o) || PyTuple_Check(o) ||
+        (nb::hasattr(e, "ndim") && nb::cast<int>(e.attr("ndim")) > 0))
+        throw std::invalid_argument("split: sources must be 1-D (one source per event), got 2 dimensions");
+    if (!is_text(e) && !e.is_none() && PyNumber_Check(o) && !PyComplex_Check(o)) {
+        const double d = PyFloat_AsDouble(o);           // NumPy floating
+        if (!(d == -1.0 && PyErr_Occurred())) return split_tag(d);
+        PyErr_Clear();
+    }
+    throw_split_source_kind(e.is_none() ? "None" : "a " + nb::cast<std::string>(nb::type_name(e.type())));
+}
+
+static SplitPlan split_plan(nb::handle sources, std::size_t& count, std::size_t& ndim,
+                            bool has_n, double n, std::vector<std::uint32_t>& tags) {
+    PyObject* o = sources.ptr();
+    if (PyList_Check(o) || PyTuple_Check(o)) {
+        const bool list = PyList_Check(o);
+        count = static_cast<std::size_t>(list ? PyList_Size(o) : PyTuple_Size(o));
+        ndim = 1;
+        tags.resize(count);
+        PyObject* np_bool = numpy_bool_type();
+        for (std::size_t j = 0; j < count; ++j)
+            tags[j] = split_tag_py(nb::handle(list ? PyList_GetItem(o, j) : PyTuple_GetItem(o, j)), np_bool);
+        return SplitPlan(std::move(tags), has_n, n);
+    }
+    AnyArray s = nb::cast<AnyArray>(sources, /*convert=*/false);
+    ndim = s.ndim();
+    count = ndim ? s.shape(0) : 1;
+    const std::size_t total = ndim == 1 ? count : 0;  // the caller rejects ndim != 1 first
     using C = nb::dlpack::dtype_code;
     const nb::dlpack::dtype dt = s.dtype();
     const void* p = s.data();
@@ -288,32 +354,64 @@ static SplitPlan split_plan(const AnyArray& s, std::size_t total, bool has_n, do
     } else if (dt.code == static_cast<std::uint8_t>(C::Float) && dt.bits == 64) {
         return SplitPlan(static_cast<const double*>(p), total, has_n, n);
     }
-    throw nb::type_error("split: sources must be an integer, bool or float64 array");
+    throw nb::type_error("split: sources must be an integer or float64 array");
 }
 
-static nb::list split_py(nb::ndarray<const double, nb::c_contig, nb::device::cpu> values,
-                         AnyArray sources, nb::handle index,
-                         std::optional<IntArg<std::int64_t>> n) {
+// n: None, or a whole number under the setting rule (an int, a NumPy integer,
+// a bool). A float is a wrong kind, as for every integer setting, with the
+// message the shared rule gives; Python has already refused a string.
+static bool split_n(nb::handle n, double& out) {
+    if (n.is_none()) return false;
+    PyObject* o = n.ptr();
+    if (!PyFloat_Check(o)) {
+        if (PyObject* ix = PyNumber_Index(o)) {
+            int overflow = 0;
+            const long long v = PyLong_AsLongLongAndOverflow(ix, &overflow);
+            Py_DECREF(ix);
+            if (v == -1 && !overflow && PyErr_Occurred()) throw nb::python_error();
+            // Beyond int64 is beyond the cap; the shared rule reports it.
+            out = overflow ? (overflow > 0 ? 1e300 : -1e300) : static_cast<double>(v);
+            if (overflow > 0)
+                throw std::invalid_argument("split: n must be at most 2**31 - 1, got " + repr_text(n));
+            return true;
+        }
+        PyErr_Clear();
+    }
+    throw_split_n_kind(PyFloat_Check(o) || nb::hasattr(n, "dtype") ? repr_text(n)
+                       : "a " + nb::cast<std::string>(nb::type_name(n.type())));
+}
+
+static nb::list split_py(AnyF64 values, nb::handle sources, nb::handle index, nb::handle n) {
     const bool has_index = !index.is_none();
     AnyArray idx;
     if (has_index && !nb::try_cast(index, idx, /*convert=*/false))
         throw nb::type_error("split: index must be an int64 or float64 array");
-    check_split_inputs(values.ndim(), values.ndim() ? values.shape(0) : 1,
-                       sources.ndim(), sources.ndim() ? sources.shape(0) : 1,
+    // The shapes first, so a bad call raises the same error as in JavaScript.
+    std::size_t src_count = 0, src_ndim = 1;
+    PyObject* so = sources.ptr();
+    if (PyList_Check(so) || PyTuple_Check(so)) {
+        src_count = static_cast<std::size_t>(PyList_Check(so) ? PyList_Size(so) : PyTuple_Size(so));
+    } else {
+        AnyArray s;
+        if (!nb::try_cast(sources, s, /*convert=*/false))
+            throw nb::type_error("split: sources must be an integer or float64 array");
+        src_ndim = s.ndim();
+        src_count = src_ndim ? s.shape(0) : 1;
+    }
+    check_split_inputs(values.ndim(), values.ndim() ? values.shape(0) : 0, src_ndim, src_count,
                        has_index, has_index ? idx.ndim() : 0,
                        has_index && idx.ndim() ? idx.shape(0) : 0);
-    const std::size_t total = values.shape(0);
-    const bool has_n = n.has_value();
-    const double nd = has_n ? static_cast<double>(static_cast<std::int64_t>(*n)) : 0.0;
-    const SplitPlan plan = split_plan(sources, total, has_n, nd);
-    const double* v = values.data();
-    if (!has_index) return split_outputs<double>(plan, v, nullptr);
+    double nd = 0;
+    const bool has_n = split_n(n, nd);
+    std::vector<std::uint32_t> tags;
+    const SplitPlan plan = split_plan(sources, src_count, src_ndim, has_n, nd, tags);
+    if (!has_index) return split_outputs<double>(plan, values, nullptr);
     const nb::dlpack::dtype dt = idx.dtype();
     using C = nb::dlpack::dtype_code;
     if (dt.code == static_cast<std::uint8_t>(C::Int) && dt.bits == 64)
-        return split_outputs(plan, v, static_cast<const std::int64_t*>(idx.data()));
+        return split_outputs(plan, values, static_cast<const std::int64_t*>(idx.data()));
     if (dt.code == static_cast<std::uint8_t>(C::Float) && dt.bits == 64)
-        return split_outputs(plan, v, static_cast<const double*>(idx.data()));
+        return split_outputs(plan, values, static_cast<const double*>(idx.data()));
     throw nb::type_error("split: index must be an int64 or float64 array");
 }
 

@@ -11,6 +11,10 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 ### Added
 
 * JavaScript `split`.
+* `split` takes values of any rank with time first, `(T, ...)`, in Python and
+  JavaScript: each event is a row, and each output keeps the row shape
+  `(rows, ...)` (an `NdArray` in JavaScript). 2.8.0 raised `TypeError` for
+  values that were not 1-D.
 * JavaScript `forecastPairs`.
 * JavaScript `backtestReport`.
 * The microstructure operators `SignedVolume`, `RollingKyleLambda`,
@@ -94,19 +98,27 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 * `split` runs its checks and its partition in C++, shared with JavaScript's
   `split`. Results for valid inputs are unchanged. Other changes:
-  * A source must be a whole number from 0 to 4294967295. A fractional, NaN,
-    `None`, negative or larger source raises `TypeError` ("split: a source
-    must be a whole number from 0 to 4294967295, got 0.5"), as an index does.
-    2.8.0 truncated a fractional source, sent a NaN source to output 0, and
-    raised `OverflowError` or nanobind's `TypeError` for a negative or too
-    large one. Pass `np.floor(sources).astype(int)` for the truncated result.
-  * A 2-D `values` or `sources` array raises `ValueError` ("split: values
-    must be 1-D (one value per event), got 2 dimensions"); 2.8.0 raised
-    nanobind's `TypeError`. A length mismatch and a negative `n` raise
-    `ValueError` with the 2.8.0 message, where 2.8.0 raised `RuntimeError`.
+  * A source must be a whole number. A bool, fractional, NaN, infinite,
+    `None` or string source raises `TypeError` ("split: a source must be a
+    whole number, got 0.5"; "... got a bool"), checked before any conversion,
+    in a list as in an array. 2.8.0 read a bool as 0 or 1, truncated a
+    fractional source and sent a NaN source to output 0. Pass
+    `np.asarray(sources).astype(int)` for the 2.8.0 result.
+  * A whole source must be from 0 to 2147483646 (one less than the most
+    outputs, 2**31 - 1); another raises `ValueError` ("split: a source must
+    be from 0 to 2147483646, got -1"). 2.8.0 raised `OverflowError` or
+    nanobind's `TypeError` for a negative source and silently wrapped an
+    int64 or uint64 source of 2**32 or more modulo 2**32 (2**40 went to
+    output 0).
+  * A 2-D `sources` or `index` raises `ValueError` ("split: index must be
+    1-D (one index per event), got 2 dimensions"); 2.8.0 raised nanobind's
+    `TypeError`. A length mismatch and a negative `n` raise `ValueError` with
+    the 2.8.0 message, where 2.8.0 raised `RuntimeError`.
   * `n` is at most 2**31 - 1; a larger `n` raises `ValueError`, where 2.8.0
-    raised nanobind's `TypeError`.
-  * A positional call no longer builds and drops a row-number index.
+    raised nanobind's `TypeError`. A float `n` raises `TypeError` ("split: n
+    must be an integer, got 2.0"), as for every integer setting; 2.8.0
+    raised nanobind's `TypeError`, or `ValueError` when the float was too
+    small. Pass `int(n)`.
 * `forecast_pairs` runs one graph defined in C++, shared with JavaScript's
   `forecastPairs`, in every regime. Results for valid inputs are unchanged,
   except for a 2-D `X` in duration mode (see "Fixed"). Other changes:
@@ -787,6 +799,15 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Performance
 
+* `split` reads, checks and counts the sources in one pass, reads a uint32
+  source array (the output of `merge`) in place, and no longer builds and
+  drops a row-number index in a positional call. On 1e6 events it is 5-20%
+  faster than 2.8.0 (2.3x for a positional call with 1000 sources), and 4x
+  faster on a list of NumPy integers.
+* The string check before a float64 conversion of a list (shared by every
+  operator and stream function) reads a list of NumPy scalars about 25x
+  faster: it checks the first item of each NumPy scalar type and compares the
+  type of the rest.
 * A `Pipeline` with several aligned outputs aligns them in C++, for a batch
   call, a lazy call and `live().result()`. Python, two outputs of 10^6 rows:
   a batch call takes 15 ms (was 39 ms), a lazy call of 10^5 generator events

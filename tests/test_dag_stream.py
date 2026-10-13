@@ -1,3 +1,4 @@
+import pytest
 import numpy as np
 from screamer import RollingMean, Diff, Sub, Merge
 from screamer import screamer_bindings as _b
@@ -645,3 +646,19 @@ def test_object_index_array_follows_the_live_rule():
         p((v, [0, 2**64]))
     with pytest.raises(TypeError, match="must be a number"):
         p((v, np.array([0, True], dtype=object)))
+
+
+# The string check remembers NumPy scalar types already seen in a list; a
+# string after them, or an array of strings, is still found.
+@pytest.mark.parametrize("items", [
+    [np.int64(1), np.int64(2), np.str_("a")],
+    [np.float32(1), np.float32(2), "a"],
+    [np.int64(1), np.array(["a"])],
+    [[np.int64(1)], [np.int64(2), np.bytes_(b"x")]],
+])
+def test_refuse_text_after_numpy_scalars(items):
+    from screamer.dag import _as_float64
+    with pytest.raises(TypeError):
+        _as_float64(items)
+    with pytest.raises(TypeError):
+        _b._refuse_text(items)

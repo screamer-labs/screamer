@@ -8,140 +8,199 @@
 // out.
 //
 // The rules:
-// - values, sources and the index (when given) are 1-D and of one length;
-//   otherwise std::invalid_argument (ValueError in Python, RangeError in JS);
-// - a source is a whole number from 0 to 2**32 - 1, the index-style rule
-//   (checked_index.h): a fractional, NaN, negative or too large source is an
-//   IndexTypeError (TypeError in both bindings);
+// - values have a time axis: shape (T, ...), each event a row of K values
+//   (K = 1 for 1-D values); sources and the index (when given) are 1-D of
+//   length T; otherwise std::invalid_argument (ValueError in Python, RangeError
+//   in JavaScript);
+// - a source is a whole number: a bool, a fractional or a non-finite source is
+//   an IndexTypeError (TypeError in both bindings), as an index of the wrong
+//   kind is; a whole source outside 0 to 2**31 - 2 is std::invalid_argument;
 // - n, the number of outputs, defaults to max(sources) + 1 (0 with no events);
-//   a given n is a whole number (else SettingTypeError), not negative, and
-//   must exceed every source, so no event is dropped (else
-//   std::invalid_argument). There are at most 2**31 - 1 outputs.
+//   a given n is a whole number (else SettingTypeError), not negative, at most
+//   2**31 - 1, and must exceed every source, so no event is dropped (else
+//   std::invalid_argument).
 //
-// One pass reads and checks the tags, one counts the events per output, and
-// one scatters them, O(N) in all. Each output keeps the event order (stable).
+// One pass reads, checks and counts the tags, and one scatters the events,
+// O(N) in all. Each output keeps the event order (stable).
 
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 #include "screamer/dag/checked_index.h"
 #include "screamer/dag/max_pending.h"
 
 namespace screamer { namespace streams {
 
-constexpr double kMaxSplitSource = 4294967295.0;      // 2**32 - 1
-constexpr std::uint32_t kMaxSplitOutputs = 2147483647u;   // 2**31 - 1, as 2.8.0's int n
+constexpr std::uint32_t kMaxSplitOutputs = 2147483647u;            // 2**31 - 1
+constexpr std::uint32_t kMaxSplitSource = kMaxSplitOutputs - 1;    // 2**31 - 2
 
-[[noreturn]] inline void throw_bad_split_source(const std::string& text) {
-    throw dag::IndexTypeError("split: a source must be a whole number from 0 to 4294967295, got " +
-                              text);
+// A source that is not a whole number; `text` is the value or its kind.
+[[noreturn]] inline void throw_split_source_kind(const std::string& text) {
+    throw dag::IndexTypeError("split: a source must be a whole number, got " + text);
 }
 
-// One source tag: a whole number from 0 to 2**32 - 1.
+// A whole source outside the range of outputs.
+[[noreturn]] inline void throw_split_source_range(const std::string& text) {
+    throw std::invalid_argument("split: a source must be from 0 to 2147483646, got " + text);
+}
+
+// An n that is not a whole number; `text` is the value or its kind.
+[[noreturn]] inline void throw_split_n_kind(const std::string& text) {
+    throw dag::SettingTypeError("split: n must be an integer, got " + text);
+}
+
+// One source tag.
 template <class S>
 inline std::uint32_t split_tag(S s) {
     if constexpr (std::is_same_v<S, bool>) {
-        return s ? 1u : 0u;
+        throw_split_source_kind("a bool");
     } else if constexpr (std::is_floating_point_v<S>) {
         const double d = static_cast<double>(s);
-        if (d >= 0.0 && d <= kMaxSplitSource && d == std::floor(d))   // NaN fails
-            return static_cast<std::uint32_t>(d);
-        throw_bad_split_source(dag::number_text(d));
+        if (!std::isfinite(d) || d != std::floor(d)) throw_split_source_kind(dag::number_text(d));
+        if (d < 0.0 || d > kMaxSplitSource) throw_split_source_range(dag::number_text(d));
+        return static_cast<std::uint32_t>(d);
     } else if constexpr (std::is_signed_v<S>) {
-        if (s >= 0 && static_cast<std::uint64_t>(s) <= 0xFFFFFFFFull)
-            return static_cast<std::uint32_t>(s);
-        throw_bad_split_source(std::to_string(s));
+        if (s < 0 || static_cast<std::uint64_t>(s) > kMaxSplitSource)
+            throw_split_source_range(std::to_string(s));
+        return static_cast<std::uint32_t>(s);
     } else {
-        if (static_cast<std::uint64_t>(s) <= 0xFFFFFFFFull) return static_cast<std::uint32_t>(s);
-        throw_bad_split_source(std::to_string(s));
+        if (static_cast<std::uint64_t>(s) > kMaxSplitSource) throw_split_source_range(std::to_string(s));
+        return static_cast<std::uint32_t>(s);
     }
 }
 
-// The dimensions of a call: values and sources 1-D, and one length for values,
-// sources and the index (when there is one).
-inline void check_split_inputs(std::size_t values_ndim, std::size_t values_len,
+// The dimensions of a call: values with a time axis of T rows, sources 1-D of
+// T, and the index (when there is one) 1-D of T.
+inline void check_split_inputs(std::size_t values_ndim, std::size_t values_rows,
                                std::size_t sources_ndim, std::size_t sources_len,
                                bool has_index, std::size_t index_ndim, std::size_t index_len) {
-    if (values_ndim != 1)
-        throw std::invalid_argument("split: values must be 1-D (one value per event), got " +
-                                    std::to_string(values_ndim) + " dimensions");
+    if (values_ndim < 1)
+        throw std::invalid_argument("split: values must have a time axis, got 0 dimensions");
     if (sources_ndim != 1)
         throw std::invalid_argument("split: sources must be 1-D (one source per event), got " +
                                     std::to_string(sources_ndim) + " dimensions");
     if (has_index && index_ndim != 1)
         throw std::invalid_argument("split: index must be 1-D (one index per event), got " +
                                     std::to_string(index_ndim) + " dimensions");
-    if (sources_len != values_len || (has_index && index_len != values_len))
+    if (sources_len != values_rows || (has_index && index_len != values_rows))
         throw std::invalid_argument("split: values/sources/index length differ");
 }
 
 // The checked tags of one call, the number of outputs, and the events per
-// output. Reads `src` in place when it already holds uint32 tags; the caller
-// keeps `src` alive while the plan is used.
+// output. Reads `src` in place when it holds uint32 tags already in range; the
+// caller keeps `src` alive while the plan is used.
 class SplitPlan {
 public:
     template <class S>
-    SplitPlan(const S* src, std::size_t total, bool has_n, double n) : total_(total) {
-        std::uint32_t top = 0;
+    SplitPlan(const S* src, std::size_t total, bool has_n, double n)
+        : total_(total), limit_(count_limit(has_n, n)) {
         if constexpr (std::is_same_v<S, std::uint32_t>) {
-            tags_ = src;
-            for (std::size_t j = 0; j < total; ++j) top = src[j] > top ? src[j] : top;
-        } else {
-            owned_.resize(total);
-            for (std::size_t j = 0; j < total; ++j) {
-                const std::uint32_t t = split_tag(src[j]);
-                owned_[j] = t;
-                top = t > top ? t : top;
+            std::size_t j = 0;
+            for (; j < total && src[j] <= kMaxSplitSource; ++j) count(src[j]);
+            if (j == total) {
+                tags_ = src;
+                finish(has_n, n);
+                return;
             }
-            tags_ = owned_.data();
+            counts_.clear();               // a tag out of range: the checked path reports it
+            top_ = 0;
         }
-        counts_.assign(outputs(top, has_n, n), 0);
-        for (std::size_t j = 0; j < total; ++j) counts_[tags_[j]]++;
+        owned_.resize(total);
+        for (std::size_t j = 0; j < total; ++j) {
+            const std::uint32_t t = split_tag(src[j]);
+            owned_[j] = t;
+            count(t);
+        }
+        tags_ = owned_.data();
+        finish(has_n, n);
     }
+
+    // From tags a binding has checked with split_tag already.
+    SplitPlan(std::vector<std::uint32_t>&& tags, bool has_n, double n)
+        : total_(tags.size()), limit_(count_limit(has_n, n)), owned_(std::move(tags)) {
+        for (std::uint32_t t : owned_) count(t);
+        tags_ = owned_.data();
+        finish(has_n, n);
+    }
+
+    SplitPlan(const SplitPlan&) = delete;
+    SplitPlan& operator=(const SplitPlan&) = delete;
 
     std::size_t outputs() const { return counts_.size(); }
     const std::vector<std::size_t>& counts() const { return counts_; }
 
-    // Writes each event's value, and its index when `k` is not null, to the
-    // end of its output so far: vout[i] and kout[i] hold counts()[i] items.
+    // Writes each event's row of `width` values, and its index when `k` is not
+    // null, to the end of its output so far: vout[i] holds counts()[i] rows
+    // and kout[i] counts()[i] items.
     template <class Index>
-    void scatter(const double* v, const Index* k, double* const* vout, Index* const* kout) const {
+    void scatter(const double* v, std::size_t width, const Index* k,
+                 double* const* vout, Index* const* kout) const {
         std::vector<std::size_t> pos(counts_.size(), 0);
-        for (std::size_t j = 0; j < total_; ++j) {
-            const std::uint32_t s = tags_[j];
-            const std::size_t p = pos[s]++;
-            vout[s][p] = v[j];
-            if (k) kout[s][p] = k[j];
+        // One loop per case, so the per-event loop has no branch.
+        if (width == 1 && k) {
+            for (std::size_t j = 0; j < total_; ++j) {
+                const std::uint32_t s = tags_[j];
+                const std::size_t p = pos[s]++;
+                vout[s][p] = v[j];
+                kout[s][p] = k[j];
+            }
+        } else if (width == 1) {
+            for (std::size_t j = 0; j < total_; ++j) {
+                const std::uint32_t s = tags_[j];
+                vout[s][pos[s]++] = v[j];
+            }
+        } else {
+            for (std::size_t j = 0; j < total_; ++j) {
+                const std::uint32_t s = tags_[j];
+                const std::size_t p = pos[s]++;
+                if (width) std::memcpy(vout[s] + p * width, v + j * width, width * sizeof(double));
+                if (k) kout[s][p] = k[j];
+            }
         }
     }
 
 private:
+    // The outputs a given n allows (n itself is checked in finish): a tag at or
+    // beyond it is not counted, so a small n never sizes counts_ by a large tag.
+    static std::size_t count_limit(bool has_n, double n) {
+        if (!has_n || !std::isfinite(n) || n != std::floor(n)) return SIZE_MAX;
+        if (n <= 0) return 0;
+        return n >= kMaxSplitOutputs ? kMaxSplitOutputs : static_cast<std::size_t>(n);
+    }
+
+    // Counts one event of a checked tag; counts_ grows to the largest tag + 1
+    // as the tags are read, so no separate counting pass is needed.
+    void count(std::uint32_t t) {
+        top_ = t > top_ ? t : top_;
+        if (t >= limit_) return;                       // finish reports n too small
+        if (t >= counts_.size()) counts_.resize(static_cast<std::size_t>(t) + 1, 0);
+        ++counts_[t];
+    }
+
     // The number of outputs: n when given, else the largest tag + 1.
-    std::size_t outputs(std::uint32_t top, bool has_n, double n) const {
-        if (!has_n) {
-            if (!total_) return 0;
-            if (top >= kMaxSplitOutputs)
-                throw std::invalid_argument("split: sources up to " + std::to_string(top) +
-                                            " need more than 2**31 - 1 outputs");
-            return static_cast<std::size_t>(top) + 1;
-        }
-        if (!std::isfinite(n) || n != std::floor(n))
-            throw dag::SettingTypeError("split: n must be an integer, got " + dag::number_text(n));
-        if (total_ && n <= static_cast<double>(top))
+    void finish(bool has_n, double n) {
+        if (!has_n) return;
+        if (!std::isfinite(n) || n != std::floor(n)) throw_split_n_kind(dag::number_text(n));
+        if (total_ && n <= static_cast<double>(top_))
             throw std::invalid_argument("split: n=" + dag::number_text(n) +
-                                        " is too small for sources up to " + std::to_string(top) +
+                                        " is too small for sources up to " + std::to_string(top_) +
                                         "; events would be dropped");
         if (n < 0) throw std::invalid_argument("split: n must be non-negative");
         if (n > static_cast<double>(kMaxSplitOutputs))
-            throw std::invalid_argument("split: n must be at most 2**31 - 1, got " + dag::number_text(n));
-        return static_cast<std::size_t>(n);
+            throw std::invalid_argument("split: n must be at most 2**31 - 1, got " +
+                                        dag::number_text(n));
+        counts_.resize(static_cast<std::size_t>(n), 0);
     }
 
     std::size_t total_;
+    std::size_t limit_;
+    std::uint32_t top_ = 0;
     std::vector<std::uint32_t> owned_;
     const std::uint32_t* tags_ = nullptr;
     std::vector<std::size_t> counts_;

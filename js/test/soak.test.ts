@@ -153,6 +153,8 @@ test("soak: split, and its rejected calls, leave nothing behind", async () => {
     try { split(v, src, { n: 2 }); } catch { /* rejected in C++ */ }
     try { split(v, [0, 0.5, 0, 0, 0]); } catch { /* rejected in C++ */ }
     try { split(v, src, { index: [1] }); } catch { /* rejected in C++ */ }
+    try { split(v, [0, true, 0, 0, 0] as any); } catch { /* rejected in JavaScript */ }
+    split({ data: new Float64Array(10), shape: [5, 2] }, src, { index: ix });
   }, N_MIXED);
   assert.ok(r.js < JS_BOUND, `JS heap grew by ${r.js} bytes`);
   assert.ok(r.wasm < WASM_BOUND, `WASM heap grew by ${r.wasm} bytes`);

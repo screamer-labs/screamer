@@ -243,7 +243,18 @@ inline bool read_double(nb::handle h, double& d) {
 // itself, an array (or pandas object) whose dtype kind is U or S, or an
 // object array holding one (scanned element by element; this runs only for
 // object dtypes, a slow path already). Any other value returns untouched.
-inline void refuse_text(nb::handle x, const std::string& who = "", int depth = 0) {
+// A list item's type known to hold no string: a NumPy scalar type other than
+// str_ and bytes_ (is_text catches those, as subclasses of str and bytes) is
+// one number of a fixed kind. The first item of such a type is checked in full
+// and the type remembered for the rest of the call, so a list of NumPy scalars
+// costs one type compare per item instead of two attribute lookups.
+struct TextFreeTypes {
+    PyTypeObject* generic = nullptr;     // numpy.generic, looked up once per call
+    PyTypeObject* last = nullptr;        // the last NumPy scalar type seen
+    bool looked_up = false;
+};
+
+inline void refuse_text(nb::handle x, const std::string& who, int depth, TextFreeTypes& seen) {
     if (is_text(x)) throw_text_value(who, x, depth ? "an element" : "a value");
     PyObject* o = x.ptr();
     if (PyList_Check(o) || PyTuple_Check(o)) {          // nested lists, read in C
@@ -253,8 +264,21 @@ inline void refuse_text(nb::handle x, const std::string& who = "", int depth = 0
         for (Py_ssize_t i = 0; i < n; ++i) {
             PyObject* e = list ? PyList_GetItem(o, i) : PyTuple_GetItem(o, i);   // borrowed
             if (!e) throw nb::python_error();
-            if (PyFloat_Check(e) || PyLong_Check(e) || e == Py_None) continue;
-            refuse_text(nb::handle(e), who, depth + 1);
+            if (PyFloat_Check(e) || PyLong_Check(e) || e == Py_None || Py_TYPE(e) == seen.last) continue;
+            refuse_text(nb::handle(e), who, depth + 1, seen);
+            if (PyList_Check(e) || PyTuple_Check(e) || is_text(nb::handle(e))) continue;
+            if (!seen.looked_up) {
+                seen.looked_up = true;
+                PyObject* np = PyImport_GetModule(nb::str("numpy").ptr());   // only if loaded
+                if (np) {
+                    PyObject* g = PyObject_GetAttrString(np, "generic");
+                    Py_DECREF(np);
+                    if (g && PyType_Check(g)) seen.generic = reinterpret_cast<PyTypeObject*>(g);
+                    Py_XDECREF(g);   // numpy keeps the type alive
+                }
+                PyErr_Clear();
+            }
+            if (seen.generic && PyObject_TypeCheck(e, seen.generic)) seen.last = Py_TYPE(e);
         }
         return;
     }
@@ -277,6 +301,11 @@ inline void refuse_text(nb::handle x, const std::string& who = "", int depth = 0
         reinterpret_cast<PyObject*>(&PyBaseObject_Type))).attr("ravel")();
     for (nb::handle e : flat)
         if (is_text(e)) throw_text_value(who, e, "an element");
+}
+
+inline void refuse_text(nb::handle x, const std::string& who = "", int depth = 0) {
+    TextFreeTypes seen;
+    refuse_text(x, who, depth, seen);
 }
 
 // An element that should be a number is not one: a TypeError naming the first

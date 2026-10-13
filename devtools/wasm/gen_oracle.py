@@ -38,8 +38,10 @@ on its own clock): the inputs, the eager result, and the rows and index of the
 same graph as a Pipeline node, which forecastPairs must reproduce exactly.
 
 A sixth fixture, wasm/smoke/oracle_split.json, holds split's per-source
-values and index for tagged streams (positional and indexed, NaN values, an
-n larger than max(sources)+1, no events), which split must reproduce exactly.
+values and index for tagged streams (positional and indexed, NaN and infinite
+values and index, an n larger than max(sources)+1, no events, values with rows
+of shape (T, 3), (T, 1), (T, 2, 2) and (0, 3)), which split must reproduce
+exactly. A non-finite number is written as null (NaN), "inf" or "-inf".
 """
 
 import json
@@ -313,39 +315,54 @@ def forecast_entries():
 
 
 def split_entries():
-    """split on fixed tagged streams: the inputs, n (None for the default) and
-    each output's values and index (None when positional)."""
+    """split on fixed tagged streams: the inputs (values with their shape), n
+    (None for the default) and each output's values (with their shape) and
+    index (None when positional)."""
     import numpy as np
 
     def nums(a):
-        return [None if math.isnan(v) else float(v) for v in np.ravel(a)]
+        return [None if math.isnan(v) else ("inf" if v == math.inf else "-inf" if v == -math.inf
+                                            else float(v)) for v in np.ravel(a)]
 
     rng = np.random.default_rng(22)
     T = 30
     values = rng.standard_normal(T)
     values[[4, 17]] = np.nan
+    values[9] = np.inf
     sources = rng.integers(0, 4, size=T)
     int_index = np.cumsum(rng.integers(1, 4, size=T))
     float_index = int_index * 0.25
+    odd_index = float_index.copy()
+    odd_index[[2, 11]] = [np.nan, -np.inf]
+    rows = rng.standard_normal((T, 3))
+    rows[[5, 6], [0, 2]] = np.nan
+    cube = rng.standard_normal((T, 2, 2))
     cases = [
         ("positional", values, sources, None, None),
         ("int index", values, sources, int_index, None),
         ("float index", values, sources, float_index, None),
+        ("NaN and -inf index", values, sources, odd_index, None),
         ("n larger than max(sources)+1", values, sources, int_index, 7),
         ("one source", values[:5], np.zeros(5, dtype=np.int64), None, None),
         ("no events", values[:0], sources[:0], None, None),
         ("no events, n=2", values[:0], sources[:0], int_index[:0], 2),
+        ("(T, 3) rows", rows, sources, int_index, None),
+        ("(T, 1) rows", rows[:, :1], sources, None, None),
+        ("(T, 2, 2) rows", cube, sources, float_index, 5),
+        ("(0, 3) rows", rows[:0], sources[:0], None, 2),
     ]
     out = []
     for name, v, src, idx, n in cases:
         parts = screamer.split(v, src, index=idx, n=n)
         out.append({
             "name": name,
+            "shape": list(v.shape),
             "values": nums(v),
             "sources": [int(x) for x in src],
             "index": None if idx is None else nums(idx),
             "n": n,
-            "parts": [{"values": nums(pv), "index": None if pi is None else nums(pi)}
+            "parts": [{"shape": list(pv.shape), "values": nums(pv),
+                       "index": None if pi is None else nums(pi)}
                       for pv, pi in parts],
         })
     return out

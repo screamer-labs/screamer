@@ -21,8 +21,11 @@ The inverse of `Merge`: partition a source-tagged stream back into one stream pe
 source. `split(*Merge()(a_v, b_v, index=[a_k, b_k]))` reconstructs the original
 streams.
 
-Event `i` goes to output `sources[i]`, in event order. A source is a whole
-number from 0 to 4294967295; any other source raises `TypeError`. `n` sets the
+Event `i` goes to output `sources[i]`, in event order. `values` may have any
+rank with time first, `(T, ...)`: each event is a row, and each output keeps the
+row shape, `(rows, ...)`. A source is a whole number: a bool, a fractional or a
+non-finite source raises `TypeError`. It is from 0 to 2147483646, one less than
+the most outputs (2**31 - 1); another source raises `ValueError`. `n` sets the
 number of outputs, by default `max(sources) + 1`; an `n` at or below the largest
 source raises `ValueError`, since events would be dropped.
 
@@ -55,6 +58,8 @@ Merge two streams, then split them apart again and read back the first source.
 ## JavaScript
 
 `split(values, sources, { index, n })` takes the same arguments, with the index
-as an option, and returns `[values, index]` pairs of `Float64Array`s (`index`
-is `null` without one), with the same values as Python. An `n` that would drop
-an event raises `RangeError`.
+as an option, and returns `[values, index]` pairs with the same values as
+Python. `values` is a `Float64Array` for 1-D values, or an `NdArray` of shape
+`[rows, ...]` for values given as an `NdArray` of rank 2 or more or as rows;
+`index` is a `Float64Array`, or `null` without one. Where Python raises
+`ValueError`, JavaScript raises `RangeError`.

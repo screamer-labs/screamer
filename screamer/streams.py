@@ -656,8 +656,10 @@ def split(values, sources, index=None, n=None):
     ``None`` for the per-source index.
     ``n`` sets how many output streams to produce (default: max(sources)+1); pass
     it explicitly to include sources that emitted nothing. A source is a whole
-    number from 0 to 4294967295 (else TypeError), and an ``n`` at or below the
-    largest source raises ValueError.
+    number (a bool, a fractional or a non-finite source raises TypeError) from
+    0 to 2147483646 (else ValueError), and an ``n`` at or below the largest
+    source raises ValueError. ``values`` may have any rank with time first:
+    each event is a row, and each output keeps the row shape.
     """
     # Argument adaptation only: the rules (shapes, the source rule, n) and the
     # partition are C++ (include/screamer/streams/split.h), shared with the
@@ -666,14 +668,20 @@ def split(values, sources, index=None, n=None):
         index = values[1]          # the tuple carries its own index
         values = values[0]
     values = _as_float64(values, contiguous=True)
-    # A native integer or bool array goes to C++ as it is; anything else as
-    # float64 (a string is a TypeError, None is NaN), which holds every valid
-    # source exactly.
-    kind = getattr(getattr(sources, "dtype", None), "kind", None)
-    if kind is not None and kind in "biu" and sources.dtype.isnative:
-        sources = np.ascontiguousarray(sources)
-    else:
-        sources = _as_float64(sources, contiguous=True)
+    # A list or tuple is read item by item in C++, and a native integer, bool
+    # or float64 array as it is, so the kind of each source is checked before
+    # any conversion (a bool is a wrong kind). Anything else is read as
+    # float64 (a string is a TypeError, None is NaN).
+    if not isinstance(sources, (list, tuple)):
+        if not hasattr(sources, "dtype"):
+            sources = np.asarray(sources)
+        dt = sources.dtype
+        if dt.kind == "O" and np.ndim(sources) == 1:
+            sources = list(sources)
+        elif getattr(dt, "isnative", False) and (dt.kind in "biu" or dt == np.float64):
+            sources = np.ascontiguousarray(sources)
+        else:
+            sources = _as_float64(sources, contiguous=True)
     if n is not None:
         _setting("split: n", n)
     if index is not None:

@@ -168,29 +168,54 @@ def test_split_n_explicit():
 
 
 @pytest.mark.parametrize("sources", [
-    [0, 2, 1, 0], np.array([0, 2, 1, 0], dtype=np.uint8), np.array([0, 2, 1, 0], dtype=np.int32),
-    np.array([0, 2, 1, 0], dtype=np.uint32), np.array([0, 2, 1, 0], dtype=np.uint64),
-    [0.0, 2.0, 1.0, 0.0], np.array([0, 2, 1, 0], dtype=np.float32),
-    np.array([0, 2, 1, 0], dtype=">i4"),
+    [0, 2, 1, 0], (0, 2, 1, 0), np.array([0, 2, 1, 0], dtype=np.uint8),
+    np.array([0, 2, 1, 0], dtype=np.int32), np.array([0, 2, 1, 0], dtype=np.uint32),
+    np.array([0, 2, 1, 0], dtype=np.uint64), [0.0, 2.0, 1.0, 0.0],
+    np.array([0, 2, 1, 0], dtype=np.float32), np.array([0, 2, 1, 0], dtype=">i4"),
+    list(np.array([0, 2, 1, 0])), list(np.array([0, 2, 1, 0], dtype=np.float32)),
+    np.array([0, 2, 1, 0], dtype=object), np.array([0, 2, 1, 0])[::-1][::-1],
 ])
 def test_split_sources_every_numeric_kind(sources):
     parts = streams.split(np.array([1.0, 2.0, 3.0, 4.0]), sources)
     assert [list(v) for v, _ in parts] == [[1.0, 4.0], [3.0], [2.0]]
 
 
-def test_split_bool_sources():
-    parts = streams.split(np.array([1.0, 2.0, 3.0]), np.array([True, False, True]))
-    assert [list(v) for v, _ in parts] == [[2.0], [1.0, 3.0]]
+@pytest.mark.parametrize("sources", [
+    np.array([True, False]), [True, False], [True, 1], [1, np.True_],
+    np.array([True, 1], dtype=object),
+])
+def test_split_bool_sources_raise(sources):
+    with pytest.raises(TypeError, match="split: a source must be a whole number, got a bool$"):
+        streams.split(np.array([1.0, 2.0]), sources)
 
 
 @pytest.mark.parametrize("sources, text", [
-    ([0.5, 0.0], "0.5"), ([np.nan, 0.0], "NaN"), ([None, 0], "NaN"),
-    ([-1, 0], "-1"), (np.array([-1, 0]), "-1"), ([2**32, 0], "4294967296"),
-    ([np.inf, 0.0], "inf"),
+    ([0.5, 0.0], "0.5"), ([np.nan, 0.0], "NaN"), (np.array([np.nan, 0.0]), "NaN"),
+    ([None, 0], "None"), ([np.inf, 0.0], "inf"), (np.array([0.5, 0.0], dtype=np.float32), "0.5"),
+    (["0", 1], "a str"),
 ])
-def test_split_source_rule(sources, text):
-    with pytest.raises(TypeError, match=f"a source must be a whole number from 0 to 4294967295, got {text}$"):
+def test_split_source_kind_rule(sources, text):
+    with pytest.raises(TypeError, match=f"split: a source must be a whole number, got {text}$"):
         streams.split(np.array([1.0, 2.0]), sources)
+
+
+@pytest.mark.parametrize("sources, text", [
+    ([-1, 0], "-1"), (np.array([-1, 0]), "-1"), ([-1.0, 0.0], "-1"),
+    ([2**31 - 1, 0], "2147483647"), ([2**32, 0], "4294967296"),
+    (np.array([2**40, 0], dtype=np.int64), "1099511627776"),
+    (np.array([2**40, 0], dtype=np.uint64), "1099511627776"),
+    (np.array([2**31 - 1, 0], dtype=np.uint32), "2147483647"),
+    (np.array([-1, 0], dtype=np.int8), "-1"), ([2**70, 0], str(2**70)),
+])
+def test_split_source_range_rule(sources, text):
+    with pytest.raises(ValueError, match=f"split: a source must be from 0 to 2147483646, got {text}$"):
+        streams.split(np.array([1.0, 2.0]), sources)
+
+
+def test_split_largest_source():
+    # the largest source needs 2**31 - 1 outputs; checked without building them
+    with pytest.raises(ValueError, match="n=1 is too small for sources up to 2147483646"):
+        streams.split(np.array([1.0]), [2**31 - 2], n=1)
 
 
 def test_split_n_rules():
@@ -201,22 +226,62 @@ def test_split_n_rules():
         streams.split(v[:0], [], n=-1)
     with pytest.raises(ValueError, match="at most 2\\*\\*31 - 1"):
         streams.split(v[:0], [], n=2**31)
+    with pytest.raises(ValueError, match="at most 2\\*\\*31 - 1"):
+        streams.split(v[:0], [], n=2**70)
     with pytest.raises(TypeError, match="n must be a number"):
         streams.split(v, src, n="4")
+    for bad, text in [(2.0, "2.0"), (1.5, "1.5"), (np.float64(4.0), "np.float64\\(4.0\\)")]:
+        with pytest.raises(TypeError, match=f"^split: n must be an integer, got {text}$"):
+            streams.split(v, src, n=bad)
     assert len(streams.split(v, src, n=6)) == 6
+    assert len(streams.split(v, src, n=np.int64(5))) == 5
+    assert len(streams.split(v[:1], [0], n=True)) == 1
 
 
 def test_split_shape_rules():
-    with pytest.raises(ValueError, match="values must be 1-D"):
-        streams.split(np.zeros((2, 2)), [0, 1])
     with pytest.raises(ValueError, match="sources must be 1-D"):
         streams.split(np.zeros(2), np.zeros((2, 1), dtype=np.int64))
+    with pytest.raises(ValueError, match="sources must be 1-D"):
+        streams.split(np.zeros(2), [[0], [1]])
+    with pytest.raises(ValueError, match="index must be 1-D"):
+        streams.split(np.zeros(2), [0, 1], index=np.zeros((2, 1)))
     with pytest.raises(ValueError, match="length differ"):
         streams.split(np.zeros(2), [0])
+    with pytest.raises(ValueError, match="length differ"):
+        streams.split(np.zeros((2, 3)), [0, 1, 0])
     with pytest.raises(ValueError, match="length differ"):
         streams.split(np.zeros(2), [0, 1], index=[1])
     with pytest.raises(TypeError):
         streams.split(np.zeros(2), [0, 1], index=["a", "b"])
+
+
+@pytest.mark.parametrize("shape", [(6, 3), (6, 1), (6, 2, 2), (6, 0), (0, 3)])
+def test_split_rows(shape):
+    T = shape[0]
+    values = np.arange(float(np.prod(shape))).reshape(shape)
+    src = np.arange(T) % 3
+    idx = np.arange(T) * 10
+    parts = streams.split(values, src, index=idx, n=4)
+    assert len(parts) == 4
+    for s, (v, k) in enumerate(parts):
+        assert v.shape == (int((src == s).sum()),) + shape[1:]
+        np.testing.assert_array_equal(v, values[src == s])
+        np.testing.assert_array_equal(k, idx[src == s])
+    # each row matches a 1-D split of one column
+    if shape[1:] and shape[1] and T:
+        col = streams.split(values[:, 0], src)
+        for (v, _), (c, _) in zip(parts, col):
+            np.testing.assert_array_equal(v[:, 0], c)
+
+
+def test_split_non_contiguous():
+    values = np.arange(20.0)[::2]
+    src = (np.arange(20) % 3)[::2]
+    idx = (np.arange(20) * 1.5)[::2]
+    parts = streams.split(values, src, index=idx)
+    for s, (v, k) in enumerate(parts):
+        np.testing.assert_array_equal(v, values[src == s])
+        np.testing.assert_array_equal(k, idx[src == s])
 
 
 def test_split_index_kinds_kept():

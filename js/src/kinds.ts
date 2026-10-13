@@ -143,7 +143,14 @@ export function feedValue(v: unknown, who: string, where: () => string): number 
 export function toF64Checked(x: Float64Array | ArrayLike<unknown>, who: string, where: (i: number) => string,
                              values = false): Float64Array {
   if (x instanceof Float64Array) return x;
-  const n = x.length, out = new Float64Array(n);
+  return fillF64Checked(x, new Float64Array(x.length), who, where, values);
+}
+
+// The same, written into `out` (x.length items, for example a view of the
+// WASM heap, which saves a copy). Returns `out`.
+export function fillF64Checked(x: ArrayLike<unknown>, out: Float64Array, who: string,
+                               where: (i: number) => string, values = false): Float64Array {
+  const n = x.length;
   const one = values ? feedValue : feedNumber;
   for (let i = 0; i < n; i++) {
     const v = x[i];
