@@ -55,7 +55,11 @@ namespace screamer {
             // NaN, and a volume that is not finite, is a missing value: NaN
             // out, the state untouched (packing an infinite volume would
             // never end).
-            if (!std::isfinite(buy) || !std::isfinite(sell)) {
+            // One check covers all three: the raw sum is not finite when
+            // either input is NaN or +-inf, and when two positive volumes
+            // overflow (a negative one is clamped to 0 below, so the clamped
+            // sum overflows only if the raw sum does).
+            if (!std::isfinite(buy + sell)) {
                 return std::numeric_limits<double>::quiet_NaN();   // ignore
             }
             // Volumes are non-negative; clamp defensively so the volume clock and
@@ -63,11 +67,12 @@ namespace screamer {
             if (buy < 0.0) buy = 0.0;
             if (sell < 0.0) sell = 0.0;
 
-            // A sum past the double range is missing too.
             double total = buy + sell;
-            if (!std::isfinite(total)) {
-                return std::numeric_limits<double>::quiet_NaN();
-            }
+            // The closed form below can only fire for a trade of more than
+            // n_buckets + 2**20 buckets: the remaining volume only shrinks and
+            // division rounds monotonically, so an ordinary trade never needs
+            // the per-bucket test (one division per event, not per bucket).
+            const bool huge = total / bucket_volume_ > static_cast<double>(n_buckets_) + 1048576.0;
             while (total > 0.0) {
                 const double space = bucket_volume_ - (cur_buy_ + cur_sell_);
                 if (total < space) {                 // fits in the current bucket
@@ -94,6 +99,7 @@ namespace screamer {
                 // volume (1e308 would otherwise loop 1e308 times). Below that
                 // the loop runs, so the results of ordinary trades do not
                 // change in the last bits.
+                if (!huge) continue;
                 const double whole = std::floor(total / bucket_volume_);
                 if (whole > static_cast<double>(n_buckets_) + 1048576.0) {
                     // The share first: bucket_volume_ / total may underflow.
