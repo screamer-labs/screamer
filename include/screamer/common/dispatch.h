@@ -69,12 +69,25 @@ inline float half_bits_to_float(uint16_t h) {
 // Read one element of an arbitrary-dtype buffer at element index `idx`, coerced
 // to double. Mirrors pybind's `py::array_t<double, forcecast>` dtype coercion,
 // which nanobind's generic `nb::ndarray<nb::ro>` does NOT do for free.
+// Element idx of a buffer of T, read with memcpy. The buffer can be a view
+// whose data pointer is not aligned for T (np.frombuffer with an odd offset,
+// a strided view of a packed record array), and a load through a T* cast is
+// undefined behaviour there. Compilers turn the fixed-size memcpy into one
+// plain load on every target that allows unaligned loads.
+template <class T>
+inline T read_unaligned(const void* base, int64_t idx) {
+    T v;
+    std::memcpy(&v, static_cast<const unsigned char*>(base) + idx * static_cast<int64_t>(sizeof(T)),
+                sizeof(T));
+    return v;
+}
+
 inline double load_elem(const void* base, int64_t idx, const nb::dlpack::dtype& dt) {
     using C = nb::dlpack::dtype_code;
     if (dt.code == (uint8_t) C::Float) {
-        if (dt.bits == 64) return ((const double*)  base)[idx];
-        if (dt.bits == 32) return (double)((const float*) base)[idx];
-        if (dt.bits == 16) return (double) half_bits_to_float(((const uint16_t*) base)[idx]);
+        if (dt.bits == 64) return read_unaligned<double>(base, idx);
+        if (dt.bits == 32) return (double) read_unaligned<float>(base, idx);
+        if (dt.bits == 16) return (double) half_bits_to_float(read_unaligned<uint16_t>(base, idx));
         // A wider float (numpy longdouble / float128, 80- or 128-bit) never
         // reaches load_elem: nanobind's nb::ndarray<nb::ro> cannot represent that
         // dtype, so the dispatch layer coerces such an array to float64 via
@@ -82,19 +95,19 @@ inline double load_elem(const void* base, int64_t idx, const nb::dlpack::dtype& 
         // element is read here. On a platform where long double == double (e.g.
         // Apple Silicon) it is already a 64-bit float, handled above.
     } else if (dt.code == (uint8_t) C::Int) {
-        if (dt.bits == 64) return (double)((const int64_t*) base)[idx];
-        if (dt.bits == 32) return (double)((const int32_t*) base)[idx];
-        if (dt.bits == 16) return (double)((const int16_t*) base)[idx];
-        if (dt.bits == 8)  return (double)((const int8_t*)  base)[idx];
+        if (dt.bits == 64) return (double) read_unaligned<int64_t>(base, idx);
+        if (dt.bits == 32) return (double) read_unaligned<int32_t>(base, idx);
+        if (dt.bits == 16) return (double) read_unaligned<int16_t>(base, idx);
+        if (dt.bits == 8)  return (double) read_unaligned<int8_t>(base, idx);
     } else if (dt.code == (uint8_t) C::UInt) {
-        if (dt.bits == 64) return (double)((const uint64_t*) base)[idx];
-        if (dt.bits == 32) return (double)((const uint32_t*) base)[idx];
-        if (dt.bits == 16) return (double)((const uint16_t*) base)[idx];
-        if (dt.bits == 8)  return (double)((const uint8_t*)  base)[idx];
+        if (dt.bits == 64) return (double) read_unaligned<uint64_t>(base, idx);
+        if (dt.bits == 32) return (double) read_unaligned<uint32_t>(base, idx);
+        if (dt.bits == 16) return (double) read_unaligned<uint16_t>(base, idx);
+        if (dt.bits == 8)  return (double) read_unaligned<uint8_t>(base, idx);
     } else if (dt.code == (uint8_t) C::Bool) {
         // numpy bool is a 1-byte array of 0/1. Old pybind11 forcecast coerced
         // it to double the same way; True/False -> 1.0/0.0.
-        if (dt.bits == 8) return ((const uint8_t*) base)[idx] ? 1.0 : 0.0;
+        if (dt.bits == 8) return read_unaligned<uint8_t>(base, idx) ? 1.0 : 0.0;
     }
     throw nb::type_error("Unsupported ndarray dtype; expected a numeric array.");
 }
