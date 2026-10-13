@@ -17,6 +17,7 @@ SCRIPTS = [
     "devtools/inject_nan_footnote.py",
     "devtools/stream_diagrams.py",
     "devtools/wasm/gen_dag_oracle.py",
+    "devtools/wasm/gen_null_oracle.py",
     "devtools/wasm/gen_oracle.py",
     "devtools/wasm/gen_shape_oracle.py",
     "devtools/wasm/gen_ts_api.py",

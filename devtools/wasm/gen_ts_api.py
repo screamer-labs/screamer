@@ -36,9 +36,12 @@ passed to the constructor, then freed (the ctor copies the vector).
 Each factory also takes one plain object as its only argument, the settings by
 camelCase name (``EwMean({ span: 20 })``), typed by an ``<Op>Options`` type and
 an overload. The object is unpacked into the parameters, and the positional
-checks then run once on the values. ``null`` and ``undefined`` mean a setting's
-default in both forms; a required setting (no default) raises TypeError. An op
-without settings takes an empty options object or nothing.
+checks then run once on the values. ``undefined`` means a setting's default in
+both forms; ``null`` does too for a ``std::optional`` setting, the settings
+Python takes ``None`` for, and is a wrong kind for every other. A required
+setting (no default) left out raises TypeError, as do more arguments than
+settings. An op without settings takes an empty options object or nothing.
+Every message the factories raise starts with the op name.
 
 Modes:
     (no args)     regenerate ops.ts and ops.d.ts
@@ -120,7 +123,7 @@ def _ts_default(cpp_type: str, raw: str | None) -> str | None:
 
 
 def _build_params(op: dict):
-    """Return a list of dicts: name, ts_type, default (TS literal or None), is_vec."""
+    """Return a list of dicts: name, ts_type, default (TS literal or None), kind flags."""
     ctor = op["ctor"]
     ctor_args = op.get("ctor_args") or []
     # ctor_args, when present, is aligned 1:1 with ctor by the manifest
@@ -145,9 +148,16 @@ def _build_params(op: dict):
                 "default": _ts_default(cpp_type, arg_default),
                 "is_vec": cpp_type == "std::vector<double>",
                 "is_str": cpp_type == "std::string",
+                # Python takes None for exactly these (as "not given"); so does
+                # JavaScript with null. Every other setting refuses null.
+                "nullable": cpp_type.startswith("std::optional<"),
             }
         )
     return out
+
+
+def _ts_param_type(p: dict) -> str:
+    return f"{p['ts_type']} | null" if p["nullable"] else p["ts_type"]
 
 
 def _sig_decl(params: list[dict]) -> str:
@@ -155,7 +165,7 @@ def _sig_decl(params: list[dict]) -> str:
     bits = []
     for p in params:
         opt = "?" if p["default"] is not None else ""
-        bits.append(f"{p['name']}{opt}: {p['ts_type']}")
+        bits.append(f"{p['name']}{opt}: {_ts_param_type(p)}")
     return ", ".join(bits)
 
 
@@ -175,7 +185,16 @@ def _takes_options(params: list[dict]) -> bool:
     return not params or params[0]["ts_type"] in _OPTIONS_SAFE_FIRST
 
 
-def _options_type(name: str, params: list[dict], help_entry: dict | None, decl: bool) -> list[str]:
+def _kind(p: dict) -> str:
+    """What a setting must be, for messages."""
+    if p["is_str"]:
+        return "a string"
+    if p["is_vec"]:
+        return "a number or an array of numbers"
+    return "a number"
+
+
+def _options_type(name: str, params: list[dict], help_entry: dict | None) -> list[str]:
     """The `<Op>Options` type: the settings by camelCase name."""
     if not params:
         return [f"/** {name} has no settings: its options object is empty. */",
@@ -184,11 +203,16 @@ def _options_type(name: str, params: list[dict], help_entry: dict | None, decl: 
     lines = [f"/** The settings of {name} by name, for `{name}({{ ... }})`. */",
              f"export interface {name}Options {{"]
     for p in params:
+        doc = []
         desc = param_help.get(p["orig_name"])
         if desc:
-            lines.append(f"  /** {_escape_comment(desc.strip())} */")
+            doc.append(_escape_comment(desc.strip()))
+        if p["default"] is not None and not p["nullable"]:
+            doc.append(f"@defaultValue `{p['default']}`")
+        if doc:
+            lines.append(f"  /** {' '.join(doc)} */")
         opt = "?" if p["default"] is not None else ""
-        lines.append(f"  {p['name']}{opt}: {p['ts_type']};")
+        lines.append(f"  {p['name']}{opt}: {_ts_param_type(p)};")
     lines.append("}")
     return lines
 
@@ -199,41 +223,44 @@ def _factory_body(name: str, params: list[dict], wrapper: str = "wrapOp") -> str
     lines = []
     names = [p["name"] for p in params]
     if not params:
-        lines.append(f'  if (_isOptions(options)) _options("{name}", options, arguments.length, []);')
-    elif _takes_options(params):
-        # One plain object as the only argument holds the settings by name; it
-        # is unpacked into the parameters, then checked as a positional call.
-        lst = ", ".join(f'"{n}"' for n in names)
-        lines.append(f"  if (_isOptions({names[0]})) [{', '.join(names)}] = "
-                     f'_options("{name}", {names[0]}, arguments.length, [{lst}]);')
-    # null or undefined is the default; a required setting has none.
+        lines.append(f'  if (arguments.length) _noSettings("{name}", options, arguments.length);')
+    else:
+        if _takes_options(params):
+            # One plain object as the only argument holds the settings by name;
+            # it is unpacked into the parameters, then checked as a positional call.
+            lst = ", ".join(f'"{n}"' for n in names)
+            lines.append(f"  if (_isOptions({names[0]})) [{', '.join(names)}] = "
+                         f'_options("{name}", {names[0]}, arguments.length, [{lst}], "{names[0]} must be {_kind(params[0])}");')
+            lines.append(f"  else if (arguments.length > {len(params)}) _tooMany(\"{name}\", {len(params)}, arguments.length);")
+        else:
+            lines.append(f"  if (arguments.length > {len(params)}) _tooMany(\"{name}\", {len(params)}, arguments.length);")
+    # undefined is the default; null is too where Python takes None (an
+    # optional setting); a required setting has no default.
     for p in params:
         n = p["name"]
         if p["default"] is None:
-            lines.append(f"  if ({n} == null) throw new TypeError(`{name}: {n} is required`);")
-        else:
+            lines.append(f"  if ({n} === undefined) throw new TypeError(`{name}: {n} is required`);")
+        elif p["nullable"]:
             lines.append(f"  {n} ??= {p['default']};")
+        else:
+            lines.append(f"  if ({n} === undefined) {n} = {p['default']};")
     lines.append("  const M = current();")
-    # A string parameter reaches C++ as a val and is read there; checking it here
-    # keeps C++ from reading a non-string object (and running its getters).
+    # Each setting is checked here, before C++ reads it: embind would convert
+    # any value to a number (true, [3], an object), and would read a non-string
+    # object for a string (running its getters). A string ("3") is never parsed
+    # (R-a), as in Python.
     for p in params:
-        if p.get("is_str"):
-            n = p["name"]
-            lines.append(f'  if (typeof {n} !== "string") throw new TypeError(`{n} must be a string, got ${{typeof {n}}}`);')
+        n = p["name"]
+        if p["is_str"]:
+            lines.append(f'  if (typeof {n} !== "string") throw new TypeError(`{name}: {n} must be a string, '
+                         f'got ${{{n} instanceof String ? "a String object" : _what({n})}}`);')
         elif not p["is_vec"]:
-            # A number setting is a number: a string ("3") is a wrong kind, never
-            # parsed (R-a), as in Python.
-            n = p["name"]
-            lines.append(f'  if (_isText({n})) throw new TypeError(`{n} must be a number, got a string`);')
+            lines.append(f'  if (typeof {n} !== "number") throw new TypeError(`{name}: {n} must be {_kind(p)}, got ${{_what({n})}}`);')
     # Copy array parameters once, now: the closure below runs again for every
     # copy of the op, and must not see later edits to the caller's array.
     for p in vecs:
         n = p["name"]
-        lines.append(f"  const {n}_ = _vec(\"{n}\", {n});")
-        # A string, a String object, or an array holding one is a wrong kind
-        # (R-a), checked once on the copy, as in Python.
-        lines.append(f"  if (_isText({n}_) || (Array.isArray({n}_) && {n}_.some(_isText))) "
-                     f"throw new TypeError(`{n} must be a number or an array of numbers, got a string`);")
+        lines.append(f"  const {n}_ = _vec(\"{name}\", \"{n}\", {n});")
     if not vecs:
         lines.append(f"  return {wrapper}(M, () => new M.{name}({', '.join(call_args)}));")
         return "\n".join(lines)
@@ -246,14 +273,9 @@ def _factory_body(name: str, params: list[dict], wrapper: str = "wrapOp") -> str
     for idx, p in enumerate(params):
         if p["is_vec"]:
             # A bare number is the one-entry vector (one value for all assets).
-            # Every element is a number, whatever iterable holds it (an Array,
-            # a Set, a generator): a string or a nested array is a wrong kind,
-            # never read by embind's ToNumber (R-a).
             n = p["name"]
-            lines.append(f"      for (const _x of (typeof {n}_ === \"number\" ? [{n}_] : {n}_)) {{")
-            lines.append(f"        if (typeof _x !== \"number\") throw new TypeError(`{n} must be a number or an array of numbers, got ${{_what(_x)}}`);")
-            lines.append(f"        _v{idx}.push_back(_x);")
-            lines.append("      }")
+            lines.append(f"      if (typeof {n}_ === \"number\") _v{idx}.push_back({n}_);")
+            lines.append(f"      else for (const _x of {n}_) _v{idx}.push_back(_x);")
     lines.append(f"      return new M.{name}({', '.join(call_args)});")
     lines.append("    } finally {")
     for v in vs:
@@ -278,6 +300,60 @@ HEADER = (
     "// AUTO-GENERATED by devtools/wasm/gen_ts_api.py. Do not edit by hand.\n"
     "// Regenerate: poetry run python devtools/wasm/gen_ts_api.py\n"
 )
+
+
+# Shared by every factory in ops.ts: the value checks and the options object.
+RUNTIME_HELPERS = r"""
+// A string or String object: never a number setting (R-a).
+const _isText = (x: unknown): boolean => typeof x === "string" || x instanceof String;
+const _article = (k: string): string => (/^[aeiou]/i.test(k) ? "an " : "a ") + k;
+// An NdArray-like {data, shape}: data for the operator, never a setting.
+const _isNd = (x: any): boolean => x !== null && typeof x === "object" && "data" in x && "shape" in x;
+// The kind of a setting value that is the wrong kind, for the message.
+const _what = (x: any): string => _isText(x) ? "a string" : Array.isArray(x) ? "an array" : x === null ? "null" : _isNd(x) ? "an NdArray" : typeof x === "object" ? _article(x.constructor?.name ?? "Object") : typeof x;
+// A vector setting is a number, or an Array or a typed array of numbers, as in
+// Python; any other container (a Set, a generator) or element is a wrong kind.
+// An array is copied once, so every copy of the op reads the same values.
+const _vec = (op: string, name: string, x: any): number | number[] => {
+  const bad = (y: unknown) => new TypeError(`${op}: ${name} must be a number or an array of numbers, got ${_what(y)}`);
+  if (typeof x === "number") return x;
+  if (!Array.isArray(x) && !(ArrayBuffer.isView(x) && !(x instanceof DataView))) throw bad(x);
+  const a = Array.from(x as ArrayLike<unknown>);
+  for (const e of a) if (typeof e !== "number") throw bad(e);
+  return a as number[];
+};
+// Only a plain object (prototype Object.prototype or null) is an options
+// object; an array, a typed array or a class instance never is.
+const _isOptions = (x: unknown): boolean => {
+  if (x === null || typeof x !== "object") return false;
+  const p = Object.getPrototypeOf(x);
+  return p === Object.prototype || p === null;
+};
+// The settings in an options object, in parameter order. Every own string key
+// counts, enumerable or not; an inherited key is never read, and an own
+// `__proto__` key is an unknown option. `first` says what the first positional
+// argument must be, for an NdArray passed where the settings belong.
+const _options = (op: string, o: any, nArgs: number, names: string[], first: string): any[] => {
+  if (nArgs > 1) throw new TypeError(`${op}: an options object must be the only argument`);
+  for (const k of Reflect.ownKeys(o)) {
+    if (typeof k !== "string" || names.includes(k)) continue;
+    if (_isNd(o))
+      throw new TypeError(names.length ? `${op}: ${first} or an options object, got an NdArray`
+                                       : `${op}: takes no settings, got an NdArray; apply the operator with ${op}()(x)`);
+    throw new TypeError(`${op}: unknown option '${k}'; ` + (names.length ? `valid options are ${names.join(", ")}` : `${op} has no options`));
+  }
+  return names.map((k) => (Object.prototype.hasOwnProperty.call(o, k) ? o[k] : undefined));
+};
+// An operator without settings takes nothing, or one empty options object.
+const _noSettings = (op: string, x: unknown, nArgs: number): void => {
+  if (_isOptions(x)) { _options(op, x, nArgs, [], ""); return; }
+  if (nArgs === 1 && x === undefined) return;
+  throw new TypeError(`${op}: takes no settings, got ${nArgs > 1 ? `${nArgs} arguments` : _what(x)}`);
+};
+const _tooMany = (op: string, n: number, nArgs: number): never => {
+  throw new TypeError(`${op}: takes at most ${n} arguments, got ${nArgs}`);
+};
+"""[1:-1]
 
 
 def load_manifest() -> list[dict]:
@@ -345,36 +421,7 @@ def render_ops_ts(ops: list[dict], help_map: dict) -> str:
     )
     out.append('import { current } from "../index.js";')
     out.append("")
-    out.append("// A string or String object: never a number setting (R-a).")
-    out.append('const _isText = (x: unknown): boolean => typeof x === "string" || x instanceof String;')
-    out.append('const _article = (k: string): string => (/^[aeiou]/i.test(k) ? "an " : "a ") + k;')
-    out.append("// The kind of a setting value that is not a number, for the message.")
-    out.append('const _what = (x: any): string => _isText(x) ? "a string" : Array.isArray(x) ? "an array" : x === null ? "null" : typeof x === "object" ? _article(x.constructor?.name ?? "Object") : typeof x;')
-    out.append("// A vector setting is a number, an Array or a typed array, as in Python; any")
-    out.append("// other container (a Set, a generator) is a wrong kind. An array is copied")
-    out.append("// once, so every copy of the op reads the same values.")
-    out.append("const _vec = (name: string, x: any): any => {")
-    out.append('  if (typeof x === "number") return x;')
-    out.append("  if (Array.isArray(x) || (ArrayBuffer.isView(x) && !(x instanceof DataView))) return Array.from(x as ArrayLike<unknown>);")
-    out.append("  throw new TypeError(`${name} must be a number or an array of numbers, got ${_what(x)}`);")
-    out.append("};")
-    out.append("// Only a plain object (prototype Object.prototype or null) is an options")
-    out.append("// object; an array, a typed array or a class instance never is.")
-    out.append("const _isOptions = (x: unknown): boolean => {")
-    out.append('  if (x === null || typeof x !== "object") return false;')
-    out.append("  const p = Object.getPrototypeOf(x);")
-    out.append("  return p === Object.prototype || p === null;")
-    out.append("};")
-    out.append("// The settings in an options object, in parameter order. Only own enumerable")
-    out.append("// keys count, so an inherited key is never read and an own `__proto__` key")
-    out.append("// is an unknown option.")
-    out.append("const _options = (op: string, o: any, nArgs: number, names: string[]): any[] => {")
-    out.append("  if (nArgs > 1) throw new TypeError(`${op}: an options object must be the only argument`);")
-    out.append("  for (const k of Object.keys(o))")
-    out.append("    if (!names.includes(k))")
-    out.append("      throw new TypeError(`${op}: unknown option '${k}'; ` + (names.length ? `valid options are ${names.join(\", \")}` : `${op} has no options`));")
-    out.append("  return names.map((k) => (Object.prototype.propertyIsEnumerable.call(o, k) ? o[k] : undefined));")
-    out.append("};")
+    out.append(RUNTIME_HELPERS)
     out.append("")
     for op in ops:
         out.extend(_render_op(op, help_map, decl=False))
@@ -403,7 +450,7 @@ def _render_op(op: dict, help_map: dict, decl: bool) -> list[str]:
     lines = []
     opts = _takes_options(params)
     if opts:
-        lines.extend(_options_type(name, params, help_entry, decl))
+        lines.extend(_options_type(name, params, help_entry))
         lines.append("")
     if params:
         if opts:
@@ -414,7 +461,13 @@ def _render_op(op: dict, help_map: dict, decl: bool) -> list[str]:
         if not decl:
             lines.append(f"export function {name}({_sig_impl(params)}): ScreamerOp {{")
     else:
-        lines.extend(_jsdoc_lines(name, help_entry, params))
+        doc = _jsdoc_lines(name, help_entry, params)
+        param = f" * @param options Nothing, or an empty object: {name} has no settings."
+        if len(doc) > 1:
+            doc.insert(-2, param)
+        else:
+            doc = ["/**", f" * {name} operator.", " *", param, " */"]
+        lines.extend(doc)
         lines.append(f"{fn} {name}(options?: {name}Options): ScreamerOp" + (";" if decl else " {"))
     if not decl:
         lines.append(_factory_body(name, params, _wrapper_for(op)))
@@ -428,7 +481,7 @@ def render_ops_dts(ops: list[dict], help_map: dict) -> str:
     out.append("")
     for op in ops:
         out.extend(_render_op(op, help_map, decl=True))
-    out.append("")
+        out.append("")
     return "\n".join(out)
 
 

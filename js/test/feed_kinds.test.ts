@@ -99,7 +99,7 @@ test("round 2: String objects, operator number settings and maxPending refuse st
   assert.throws(() => p.live().push("a", 0, new String("3") as any), TypeError);
   assert.throws(() => p.live().push("a", 0, [new String("3")] as any), TypeError);
   for (const bad of ["3", new String("3")]) {
-    assert.throws(() => RollingMean(bad as any), (e: unknown) => e instanceof TypeError && (e as Error).message === "windowSize must be a number, got a string");
+    assert.throws(() => RollingMean(bad as any), (e: unknown) => e instanceof TypeError && (e as Error).message === "RollingMean: windowSize must be a number, got a string");
   }
   const x = Input("x"), y = Input("y");
   assert.throws(() => combineLatest([x, y], { maxPending: "3" as any }), TypeError);
@@ -121,7 +121,7 @@ test("round 3: every number[] operator setting refuses strings, found from the m
         const args: unknown[] = new Array(i + 1).fill(undefined);
         args[i] = bad;
         assert.throws(() => api[op.name](...args), (e: unknown) => e instanceof TypeError &&
-          (e as Error).message === `${name} must be a number or an array of numbers, got a string`, `${op.name}(${name})`);
+          (e as Error).message === `${op.name}: ${name} must be a number or an array of numbers, got a string`, `${op.name}(${name})`);
       }
       // Q1 (Task 18c): only a number, an Array or a typed array is a vector
       // setting, and every element is a number, as in Python.
@@ -132,7 +132,7 @@ test("round 3: every number[] operator setting refuses strings, found from the m
         const args: unknown[] = new Array(i + 1).fill(undefined);
         args[i] = bad;
         assert.throws(() => api[op.name](...args), (e: unknown) => e instanceof TypeError &&
-          (e as Error).message.startsWith(`${name} must be a number or an array of numbers, got `), `${op.name}(${name}) ${String(bad)}`);
+          (e as Error).message.startsWith(`${op.name}: ${name} must be a number or an array of numbers, got `), `${op.name}(${name}) ${String(bad)}`);
       }
       for (const good of [[1, 2], Float64Array.from([1, 2]), 1]) {
         const ok: unknown[] = new Array(i + 1).fill(undefined);

@@ -84,6 +84,18 @@ test("options: an inherited key is never read", async () => {
   }
 });
 
+test("options: an own non-enumerable key counts", async () => {
+  await ready();
+  const x = Array.from({ length: 30 }, (_, i) => Math.cos(i));
+  const o = Object.defineProperty({}, "span", { value: 20, enumerable: false });
+  assert.deepEqual(Array.from(EwMean(o)(x) as Float64Array), Array.from(EwMean(undefined, 20)(x) as Float64Array));
+  const typo = Object.defineProperty({ span: 20 }, "spn", { value: 20, enumerable: false });
+  assert.throws(() => EwMean(typo), { name: "TypeError",
+    message: "EwMean: unknown option 'spn'; valid options are com, span, halflife, alpha" });
+  // a symbol key is never a setting name and is ignored
+  assert.equal(typeof EwMean({ span: 20, [Symbol("tag")]: 1 } as any), "function");
+});
+
 test("options: only the only argument, and only a plain object", async () => {
   await ready();
   assert.throws(() => (EwMean as any)({ span: 20 }, undefined), { name: "TypeError",
@@ -91,20 +103,64 @@ test("options: only the only argument, and only a plain object", async () => {
   assert.throws(() => (RollingMean as any)({ windowSize: 5 }, "strict"), TypeError);
   // a class instance, a Map or an array is never an options object
   class Settings { span = 20; }
-  for (const bad of [new Settings(), new Map([["span", 20]])])
-    assert.throws(() => EwMean(bad as any), (e: unknown) => !(e instanceof TypeError && /unknown option/.test((e as Error).message)));
+  assert.throws(() => EwMean(new Settings() as any), { name: "TypeError", message: "EwMean: com must be a number, got a Settings" });
+  assert.throws(() => EwMean(new Map([["span", 20]]) as any), { name: "TypeError", message: "EwMean: com must be a number, got a Map" });
+});
+
+test("options: more arguments than settings raise TypeError", async () => {
+  await ready();
+  const { Abs } = await import("../src/index.ts");
+  assert.throws(() => (RollingMean as any)(5, "strict", 1), { name: "TypeError",
+    message: "RollingMean: takes at most 2 arguments, got 3" });
+  assert.throws(() => (MovingAverage as any)([0.5, 0.5], 1), { name: "TypeError",
+    message: "MovingAverage: takes at most 1 arguments, got 2" });
+  assert.throws(() => (Abs as any)(5), { name: "TypeError", message: "Abs: takes no settings, got number" });
+  assert.throws(() => (Abs as any)(undefined, undefined), { name: "TypeError", message: "Abs: takes no settings, got 2 arguments" });
+  assert.throws(() => (Abs as any)({}, 1), { name: "TypeError", message: "Abs: an options object must be the only argument" });
+  // trailing undefined up to the number of settings is a positional default
+  assert.equal(typeof RollingMean(5, undefined), "function");
+  assert.equal(typeof Abs(undefined), "function");
 });
 
 test("options: values pass the positional checks", async () => {
   await ready();
-  assert.throws(() => EwMean({ span: "20" as any }), { name: "TypeError", message: "span must be a number, got a string" });
-  assert.throws(() => EwMean({ span: new String("20") as any }), { name: "TypeError", message: "span must be a number, got a string" });
-  assert.throws(() => RollingMean({ startPolicy: 3 as any }), { name: "TypeError", message: "startPolicy must be a string, got number" });
+  assert.throws(() => EwMean({ span: "20" as any }), { name: "TypeError", message: "EwMean: span must be a number, got a string" });
+  assert.throws(() => EwMean({ span: new String("20") as any }), { name: "TypeError", message: "EwMean: span must be a number, got a string" });
+  assert.throws(() => RollingMean({ startPolicy: 3 as any }), { name: "TypeError", message: "RollingMean: startPolicy must be a string, got number" });
+  assert.throws(() => RollingMean(5, new String("strict") as any), { name: "TypeError",
+    message: "RollingMean: startPolicy must be a string, got a String object" });
   assert.throws(() => MovingAverage({ taps: new Set([0.5, 0.5]) as any }), { name: "TypeError",
-    message: "taps must be a number or an array of numbers, got a Set" });
+    message: "MovingAverage: taps must be a number or an array of numbers, got a Set" });
   assert.throws(() => MovingAverage({ taps: ["0.5"] as any }), { name: "TypeError",
-    message: "taps must be a number or an array of numbers, got a string" });
+    message: "MovingAverage: taps must be a number or an array of numbers, got a string" });
   assert.throws(() => RollingMean({ windowSize: 0 }), RangeError);
+});
+
+test("options: a number setting takes only a number", async () => {
+  await ready();
+  const { Hold } = await import("../src/index.ts");
+  const nd = { data: Float64Array.of(1), shape: [1] };
+  const cases: [unknown, string][] = [[true, "boolean"], [[5], "an array"], [nd, "an NdArray"],
+    [{}, "an Object"], [new Map(), "a Map"], [5n, "bigint"], [null, "null"], [Float64Array.of(5), "a Float64Array"]];
+  for (const [bad, what] of cases) {
+    const message = `Hold: release must be a number, got ${what}`;
+    assert.throws(() => Hold(3, bad as any), { name: "TypeError", message }, `positional ${what}`);
+    assert.throws(() => Hold({ n: 3, release: bad as any }), { name: "TypeError", message }, `option ${what}`);
+  }
+  assert.throws(() => RollingMean({ windowSize: [3] as any }), { name: "TypeError",
+    message: "RollingMean: windowSize must be a number, got an array" });
+});
+
+test("options: an NdArray where the settings belong says so", async () => {
+  await ready();
+  const { Abs } = await import("../src/index.ts");
+  const nd = { data: Float64Array.of(1, 2), shape: [2] };
+  assert.throws(() => EwMean(nd as any), { name: "TypeError",
+    message: "EwMean: com must be a number or an options object, got an NdArray" });
+  assert.throws(() => MovingAverage(nd as any), { name: "TypeError",
+    message: "MovingAverage: taps must be a number or an array of numbers or an options object, got an NdArray" });
+  assert.throws(() => (Abs as any)(nd), { name: "TypeError",
+    message: "Abs: takes no settings, got an NdArray; apply the operator with Abs()(x)" });
 });
 
 test("options: an array first argument is still a positional value (MovingAverage)", async () => {
@@ -121,25 +177,51 @@ test("options: an array first argument is still a positional value (MovingAverag
   assert.deepEqual(Array.from(ma(x) as Float64Array), want);
 });
 
-test("options: null and undefined mean the default, in both forms", async () => {
+test("options: undefined is the default; null is only where Python takes None", async () => {
   await ready();
   const x = Array.from({ length: 30 }, (_, i) => Math.cos(i));
   const run = (op: any) => Array.from(op(x) as Float64Array);
   const want = run(EwMean(undefined, 20));
-  assert.deepEqual(run(EwMean({ com: null as any, span: 20, alpha: undefined })), want);
-  assert.deepEqual(run(EwMean(null as any, 20)), want);
-  assert.deepEqual(run(RollingMean(null as any, null as any)), run(RollingMean()));
-  assert.deepEqual(run(MovingAverage(null as any)), run(MovingAverage()));
-  assert.deepEqual(run(MovingAverage({ taps: null as any })), run(MovingAverage()));
+  assert.deepEqual(run(EwMean({ com: null, span: 20, alpha: undefined })), want);
+  assert.deepEqual(run(EwMean(null, 20)), want);
+  assert.deepEqual(run(RollingMean(undefined, undefined)), run(RollingMean()));
+  assert.deepEqual(run(MovingAverage({ taps: undefined })), run(MovingAverage()));
+  assert.throws(() => RollingMean(null as any), { name: "TypeError", message: "RollingMean: windowSize must be a number, got null" });
+  assert.throws(() => RollingMean(3, null as any), { name: "TypeError", message: "RollingMean: startPolicy must be a string, got null" });
+  assert.throws(() => MovingAverage({ taps: null as any }), { name: "TypeError",
+    message: "MovingAverage: taps must be a number or an array of numbers, got null" });
+});
+
+test("options: null agrees with Python None for every setting (null_oracle.json)", async () => {
+  await ready();
+  const { readFileSync } = await import("node:fs");
+  const ops: any = await import("../src/generated/ops.ts");
+  const oracle: { name: string; base: Record<string, number>; accepts_none: Record<string, boolean> }[] =
+    JSON.parse(readFileSync(new URL("../../wasm/smoke/null_oracle.json", import.meta.url), "utf8"));
+  const camel = (k: string) => k.replace(/_([a-z])/g, (_m, c) => c.toUpperCase());
+  let n = 0;
+  for (const { name, base, accepts_none } of oracle) {
+    const opts: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(base)) opts[camel(k)] = v;
+    for (const [k, accepts] of Object.entries(accepts_none)) {
+      let refused = false;
+      try { ops[name]({ ...opts, [camel(k)]: null }).dispose(); }
+      catch (e) { refused = e instanceof TypeError; }
+      assert.equal(!refused, accepts, `${name}(${k}=null): Python ${accepts ? "takes" : "refuses"} None`);
+      n++;
+    }
+  }
+  assert.ok(n > 450);
 });
 
 test("options: a required setting has no default", async () => {
   await ready();
   const { SchmittTrigger, Hold } = await import("../src/index.ts");
   const msg = { name: "TypeError", message: "SchmittTrigger: lower is required" };
-  assert.throws(() => SchmittTrigger(null as any, 3), msg);
   assert.throws(() => (SchmittTrigger as any)(), msg);
+  assert.throws(() => (SchmittTrigger as any)(undefined, 3), msg);
   assert.throws(() => (SchmittTrigger as any)({ upper: 3 }), msg);
+  assert.throws(() => SchmittTrigger(null as any, 3), { name: "TypeError", message: "SchmittTrigger: lower must be a number, got null" });
   assert.throws(() => (Hold as any)(), { name: "TypeError", message: "Hold: n is required" });
   const x = [0, 2, 4, 2, 0];
   assert.deepEqual(Array.from(SchmittTrigger({ lower: 1, upper: 3 })(x) as Float64Array),

@@ -7,15 +7,20 @@ import { current } from "../index.js";
 // A string or String object: never a number setting (R-a).
 const _isText = (x: unknown): boolean => typeof x === "string" || x instanceof String;
 const _article = (k: string): string => (/^[aeiou]/i.test(k) ? "an " : "a ") + k;
-// The kind of a setting value that is not a number, for the message.
-const _what = (x: any): string => _isText(x) ? "a string" : Array.isArray(x) ? "an array" : x === null ? "null" : typeof x === "object" ? _article(x.constructor?.name ?? "Object") : typeof x;
-// A vector setting is a number, an Array or a typed array, as in Python; any
-// other container (a Set, a generator) is a wrong kind. An array is copied
-// once, so every copy of the op reads the same values.
-const _vec = (name: string, x: any): any => {
+// An NdArray-like {data, shape}: data for the operator, never a setting.
+const _isNd = (x: any): boolean => x !== null && typeof x === "object" && "data" in x && "shape" in x;
+// The kind of a setting value that is the wrong kind, for the message.
+const _what = (x: any): string => _isText(x) ? "a string" : Array.isArray(x) ? "an array" : x === null ? "null" : _isNd(x) ? "an NdArray" : typeof x === "object" ? _article(x.constructor?.name ?? "Object") : typeof x;
+// A vector setting is a number, or an Array or a typed array of numbers, as in
+// Python; any other container (a Set, a generator) or element is a wrong kind.
+// An array is copied once, so every copy of the op reads the same values.
+const _vec = (op: string, name: string, x: any): number | number[] => {
+  const bad = (y: unknown) => new TypeError(`${op}: ${name} must be a number or an array of numbers, got ${_what(y)}`);
   if (typeof x === "number") return x;
-  if (Array.isArray(x) || (ArrayBuffer.isView(x) && !(x instanceof DataView))) return Array.from(x as ArrayLike<unknown>);
-  throw new TypeError(`${name} must be a number or an array of numbers, got ${_what(x)}`);
+  if (!Array.isArray(x) && !(ArrayBuffer.isView(x) && !(x instanceof DataView))) throw bad(x);
+  const a = Array.from(x as ArrayLike<unknown>);
+  for (const e of a) if (typeof e !== "number") throw bad(e);
+  return a as number[];
 };
 // Only a plain object (prototype Object.prototype or null) is an options
 // object; an array, a typed array or a class instance never is.
@@ -24,15 +29,29 @@ const _isOptions = (x: unknown): boolean => {
   const p = Object.getPrototypeOf(x);
   return p === Object.prototype || p === null;
 };
-// The settings in an options object, in parameter order. Only own enumerable
-// keys count, so an inherited key is never read and an own `__proto__` key
-// is an unknown option.
-const _options = (op: string, o: any, nArgs: number, names: string[]): any[] => {
+// The settings in an options object, in parameter order. Every own string key
+// counts, enumerable or not; an inherited key is never read, and an own
+// `__proto__` key is an unknown option. `first` says what the first positional
+// argument must be, for an NdArray passed where the settings belong.
+const _options = (op: string, o: any, nArgs: number, names: string[], first: string): any[] => {
   if (nArgs > 1) throw new TypeError(`${op}: an options object must be the only argument`);
-  for (const k of Object.keys(o))
-    if (!names.includes(k))
-      throw new TypeError(`${op}: unknown option '${k}'; ` + (names.length ? `valid options are ${names.join(", ")}` : `${op} has no options`));
-  return names.map((k) => (Object.prototype.propertyIsEnumerable.call(o, k) ? o[k] : undefined));
+  for (const k of Reflect.ownKeys(o)) {
+    if (typeof k !== "string" || names.includes(k)) continue;
+    if (_isNd(o))
+      throw new TypeError(names.length ? `${op}: ${first} or an options object, got an NdArray`
+                                       : `${op}: takes no settings, got an NdArray; apply the operator with ${op}()(x)`);
+    throw new TypeError(`${op}: unknown option '${k}'; ` + (names.length ? `valid options are ${names.join(", ")}` : `${op} has no options`));
+  }
+  return names.map((k) => (Object.prototype.hasOwnProperty.call(o, k) ? o[k] : undefined));
+};
+// An operator without settings takes nothing, or one empty options object.
+const _noSettings = (op: string, x: unknown, nArgs: number): void => {
+  if (_isOptions(x)) { _options(op, x, nArgs, [], ""); return; }
+  if (nArgs === 1 && x === undefined) return;
+  throw new TypeError(`${op}: takes no settings, got ${nArgs > 1 ? `${nArgs} arguments` : _what(x)}`);
+};
+const _tooMany = (op: string, n: number, nArgs: number): never => {
+  throw new TypeError(`${op}: takes at most ${n} arguments, got ${nArgs}`);
 };
 
 /** AD has no settings: its options object is empty. */
@@ -41,19 +60,20 @@ export type ADOptions = Record<string, never>;
 /**
  * Chaikin Accumulation/Distribution Line.
  *
+ * @param options Nothing, or an empty object: AD has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/AD.html for the full reference.
  */
 export function AD(options?: ADOptions): ScreamerOp {
-  if (_isOptions(options)) _options("AD", options, arguments.length, []);
+  if (arguments.length) _noSettings("AD", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.AD());
 }
 
 /** The settings of ADOSC by name, for `ADOSC({ ... })`. */
 export interface ADOSCOptions {
-  /** Span of the fast EMA of the AD line, in samples. Must be less than slow. */
+  /** Span of the fast EMA of the AD line, in samples. Must be less than slow. @defaultValue `3` */
   fast?: number;
-  /** Span of the slow EMA of the AD line, in samples. Must be greater than fast. */
+  /** Span of the slow EMA of the AD line, in samples. Must be greater than fast. @defaultValue `10` */
   slow?: number;
 }
 
@@ -73,18 +93,19 @@ export function ADOSC(options: ADOSCOptions): ScreamerOp;
  */
 export function ADOSC(fast?: number, slow?: number): ScreamerOp;
 export function ADOSC(fast?: any, slow?: any): ScreamerOp {
-  if (_isOptions(fast)) [fast, slow] = _options("ADOSC", fast, arguments.length, ["fast", "slow"]);
-  fast ??= 3;
-  slow ??= 10;
+  if (_isOptions(fast)) [fast, slow] = _options("ADOSC", fast, arguments.length, ["fast", "slow"], "fast must be a number");
+  else if (arguments.length > 2) _tooMany("ADOSC", 2, arguments.length);
+  if (fast === undefined) fast = 3;
+  if (slow === undefined) slow = 10;
   const M = current();
-  if (_isText(fast)) throw new TypeError(`fast must be a number, got a string`);
-  if (_isText(slow)) throw new TypeError(`slow must be a number, got a string`);
+  if (typeof fast !== "number") throw new TypeError(`ADOSC: fast must be a number, got ${_what(fast)}`);
+  if (typeof slow !== "number") throw new TypeError(`ADOSC: slow must be a number, got ${_what(slow)}`);
   return wrapOp(M, () => new M.ADOSC(fast, slow));
 }
 
 /** The settings of ADX by name, for `ADX({ ... })`. */
 export interface ADXOptions {
-  /** Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value. 14 is Wilder's choice. */
+  /** Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value. 14 is Wilder's choice. @defaultValue `14` */
   windowSize?: number;
 }
 
@@ -103,16 +124,17 @@ export function ADX(options: ADXOptions): ScreamerOp;
  */
 export function ADX(windowSize?: number): ScreamerOp;
 export function ADX(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("ADX", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 14;
+  if (_isOptions(windowSize)) [windowSize] = _options("ADX", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("ADX", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 14;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`ADX: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.ADX(windowSize));
 }
 
 /** The settings of ADXR by name, for `ADXR({ ... })`. */
 export interface ADXROptions {
-  /** Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value. It is also the lag between the two ADX values that are averaged (window_size - 1 samples). */
+  /** Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value. It is also the lag between the two ADX values that are averaged (window_size - 1 samples). @defaultValue `14` */
   windowSize?: number;
 }
 
@@ -131,16 +153,17 @@ export function ADXR(options: ADXROptions): ScreamerOp;
  */
 export function ADXR(windowSize?: number): ScreamerOp;
 export function ADXR(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("ADXR", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 14;
+  if (_isOptions(windowSize)) [windowSize] = _options("ADXR", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("ADXR", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 14;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`ADXR: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.ADXR(windowSize));
 }
 
 /** The settings of ATR by name, for `ATR({ ... })`. */
 export interface ATROptions {
-  /** Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value. 14 is Wilder's choice. */
+  /** Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value. 14 is Wilder's choice. @defaultValue `14` */
   windowSize?: number;
 }
 
@@ -159,10 +182,11 @@ export function ATR(options: ATROptions): ScreamerOp;
  */
 export function ATR(windowSize?: number): ScreamerOp;
 export function ATR(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("ATR", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 14;
+  if (_isOptions(windowSize)) [windowSize] = _options("ATR", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("ATR", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 14;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`ATR: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.ATR(windowSize));
 }
 
@@ -172,10 +196,11 @@ export type AbsOptions = Record<string, never>;
 /**
  * Absolute value of each element.
  *
+ * @param options Nothing, or an empty object: Abs has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Abs.html for the full reference.
  */
 export function Abs(options?: AbsOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Abs", options, arguments.length, []);
+  if (arguments.length) _noSettings("Abs", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Abs());
 }
@@ -186,10 +211,11 @@ export type AcosOptions = Record<string, never>;
 /**
  * Inverse cosine of each element (radians, input in [-1, 1]).
  *
+ * @param options Nothing, or an empty object: Acos has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Acos.html for the full reference.
  */
 export function Acos(options?: AcosOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Acos", options, arguments.length, []);
+  if (arguments.length) _noSettings("Acos", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Acos());
 }
@@ -200,19 +226,20 @@ export type AddOptions = Record<string, never>;
 /**
  * Elementwise sum of two aligned streams (x + y).
  *
+ * @param options Nothing, or an empty object: Add has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Add.html for the full reference.
  */
 export function Add(options?: AddOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Add", options, arguments.length, []);
+  if (arguments.length) _noSettings("Add", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Add());
 }
 
 /** The settings of AmihudIlliquidity by name, for `AmihudIlliquidity({ ... })`. */
 export interface AmihudIlliquidityOptions {
-  /** Number of most recent valid observations averaged. */
+  /** Number of most recent valid observations averaged. @defaultValue `20` */
   windowSize?: number;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -232,12 +259,13 @@ export function AmihudIlliquidity(options: AmihudIlliquidityOptions): ScreamerOp
  */
 export function AmihudIlliquidity(windowSize?: number, startPolicy?: string): ScreamerOp;
 export function AmihudIlliquidity(windowSize?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("AmihudIlliquidity", windowSize, arguments.length, ["windowSize", "startPolicy"]);
-  windowSize ??= 20;
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("AmihudIlliquidity", windowSize, arguments.length, ["windowSize", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("AmihudIlliquidity", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`AmihudIlliquidity: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`AmihudIlliquidity: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.AmihudIlliquidity(windowSize, startPolicy));
 }
 
@@ -247,10 +275,11 @@ export type AndOptions = Record<string, never>;
 /**
  * Returns 1.0 if both inputs are nonzero, else 0.0. NaN in either input yields NaN.
  *
+ * @param options Nothing, or an empty object: And has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/And.html for the full reference.
  */
 export function And(options?: AndOptions): ScreamerOp {
-  if (_isOptions(options)) _options("And", options, arguments.length, []);
+  if (arguments.length) _noSettings("And", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.And());
 }
@@ -261,10 +290,11 @@ export type AsinOptions = Record<string, never>;
 /**
  * Inverse sine of each element (radians, input in [-1, 1]).
  *
+ * @param options Nothing, or an empty object: Asin has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Asin.html for the full reference.
  */
 export function Asin(options?: AsinOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Asin", options, arguments.length, []);
+  if (arguments.length) _noSettings("Asin", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Asin());
 }
@@ -275,10 +305,11 @@ export type AtanOptions = Record<string, never>;
 /**
  * Inverse tangent of each element (radians).
  *
+ * @param options Nothing, or an empty object: Atan has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Atan.html for the full reference.
  */
 export function Atan(options?: AtanOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Atan", options, arguments.length, []);
+  if (arguments.length) _noSettings("Atan", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Atan());
 }
@@ -289,10 +320,11 @@ export type Atan2Options = Record<string, never>;
 /**
  * Signed angle of (x, y) from the positive x-axis (numpy.arctan2 order).
  *
+ * @param options Nothing, or an empty object: Atan2 has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Atan2.html for the full reference.
  */
 export function Atan2(options?: Atan2Options): ScreamerOp {
-  if (_isOptions(options)) _options("Atan2", options, arguments.length, []);
+  if (arguments.length) _noSettings("Atan2", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Atan2());
 }
@@ -303,17 +335,18 @@ export type BOPOptions = Record<string, never>;
 /**
  * (close - open) / (high - low) per bar. No smoothing.
  *
+ * @param options Nothing, or an empty object: BOP has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/BOP.html for the full reference.
  */
 export function BOP(options?: BOPOptions): ScreamerOp {
-  if (_isOptions(options)) _options("BOP", options, arguments.length, []);
+  if (arguments.length) _noSettings("BOP", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.BOP());
 }
 
 /** The settings of BacktestCarry by name, for `BacktestCarry({ ... })`. */
 export interface BacktestCarryOptions {
-  /** Contract multiplier, as on the engine that produced the output. */
+  /** Contract multiplier, as on the engine that produced the output. @defaultValue `1.0` */
   multiplier?: number;
 }
 
@@ -332,38 +365,39 @@ export function BacktestCarry(options: BacktestCarryOptions): ScreamerOp;
  */
 export function BacktestCarry(multiplier?: number): ScreamerOp;
 export function BacktestCarry(multiplier?: any): ScreamerOp {
-  if (_isOptions(multiplier)) [multiplier] = _options("BacktestCarry", multiplier, arguments.length, ["multiplier"]);
-  multiplier ??= 1.0;
+  if (_isOptions(multiplier)) [multiplier] = _options("BacktestCarry", multiplier, arguments.length, ["multiplier"], "multiplier must be a number");
+  else if (arguments.length > 1) _tooMany("BacktestCarry", 1, arguments.length);
+  if (multiplier === undefined) multiplier = 1.0;
   const M = current();
-  if (_isText(multiplier)) throw new TypeError(`multiplier must be a number, got a string`);
+  if (typeof multiplier !== "number") throw new TypeError(`BacktestCarry: multiplier must be a number, got ${_what(multiplier)}`);
   return wrapOp(M, () => new M.BacktestCarry(multiplier));
 }
 
 /** The settings of BacktestL1Orders by name, for `BacktestL1Orders({ ... })`. */
 export interface BacktestL1OrdersOptions {
-  /** Fractional fee on a maker fill; negative for a rebate. */
+  /** Fractional fee on a maker fill; negative for a rebate. @defaultValue `0.0` */
   makerFee?: number;
-  /** Fractional fee on a taker fill (a quote submitted already crossing the spread). */
+  /** Fractional fee on a taker fill (a quote submitted already crossing the spread). @defaultValue `0.0` */
   takerFee?: number;
-  /** Fill rule. "breach" (conservative) fills only when the market trades through your quote; "touch" (optimistic) also fills a participation partial once per lock episode. */
+  /** Fill rule. "breach" (conservative) fills only when the market trades through your quote; "touch" (optimistic) also fills a participation partial once per lock episode. @defaultValue `"breach"` */
   fill?: string;
-  /** Fraction of the locked ask/bid size captured on a touch fill (front-of-queue at 1.0). */
+  /** Fraction of the locked ask/bid size captured on a touch fill (front-of-queue at 1.0). @defaultValue `1.0` */
   participationRatio?: number;
-  /** Instrument price grid (0 = continuous). A marketable order walks one tick past the displayed quote for the size beyond it; slippage offsets round up to whole ticks. */
+  /** Instrument price grid (0 = continuous). A marketable order walks one tick past the displayed quote for the size beyond it; slippage offsets round up to whole ticks. @defaultValue `0.0` */
   tickSize?: number;
-  /** Inventory floor; sell fills are capped so the position never falls below it. */
+  /** Inventory floor; sell fills are capped so the position never falls below it. @defaultValue `-Infinity` */
   minPosition?: number;
-  /** Inventory ceiling; buy fills are capped so the position never exceeds it. */
+  /** Inventory ceiling; buy fills are capped so the position never exceeds it. @defaultValue `Infinity` */
   maxPosition?: number;
-  /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. */
+  /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. @defaultValue `1.0` */
   multiplier?: number;
-  /** Fixed fee (or rebate when negative) charged per contract on maker fills. */
+  /** Fixed fee (or rebate when negative) charged per contract on maker fills. @defaultValue `0.0` */
   makerFeePerContract?: number;
-  /** Fixed fee (or rebate when negative) charged per contract on taker fills. */
+  /** Fixed fee (or rebate when negative) charged per contract on taker fills. @defaultValue `0.0` */
   takerFeePerContract?: number;
-  /** Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip. */
+  /** Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip. @defaultValue `0.0` */
   slippage?: number;
-  /** Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount). */
+  /** Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount). @defaultValue `"fraction"` */
   slippageUnit?: string;
 }
 
@@ -393,64 +427,65 @@ export function BacktestL1Orders(options: BacktestL1OrdersOptions): ScreamerOp;
  */
 export function BacktestL1Orders(makerFee?: number, takerFee?: number, fill?: string, participationRatio?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, makerFeePerContract?: number, takerFeePerContract?: number, slippage?: number, slippageUnit?: string): ScreamerOp;
 export function BacktestL1Orders(makerFee?: any, takerFee?: any, fill?: any, participationRatio?: any, tickSize?: any, minPosition?: any, maxPosition?: any, multiplier?: any, makerFeePerContract?: any, takerFeePerContract?: any, slippage?: any, slippageUnit?: any): ScreamerOp {
-  if (_isOptions(makerFee)) [makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit] = _options("BacktestL1Orders", makerFee, arguments.length, ["makerFee", "takerFee", "fill", "participationRatio", "tickSize", "minPosition", "maxPosition", "multiplier", "makerFeePerContract", "takerFeePerContract", "slippage", "slippageUnit"]);
-  makerFee ??= 0.0;
-  takerFee ??= 0.0;
-  fill ??= "breach";
-  participationRatio ??= 1.0;
-  tickSize ??= 0.0;
-  minPosition ??= -Infinity;
-  maxPosition ??= Infinity;
-  multiplier ??= 1.0;
-  makerFeePerContract ??= 0.0;
-  takerFeePerContract ??= 0.0;
-  slippage ??= 0.0;
-  slippageUnit ??= "fraction";
+  if (_isOptions(makerFee)) [makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit] = _options("BacktestL1Orders", makerFee, arguments.length, ["makerFee", "takerFee", "fill", "participationRatio", "tickSize", "minPosition", "maxPosition", "multiplier", "makerFeePerContract", "takerFeePerContract", "slippage", "slippageUnit"], "makerFee must be a number");
+  else if (arguments.length > 12) _tooMany("BacktestL1Orders", 12, arguments.length);
+  if (makerFee === undefined) makerFee = 0.0;
+  if (takerFee === undefined) takerFee = 0.0;
+  if (fill === undefined) fill = "breach";
+  if (participationRatio === undefined) participationRatio = 1.0;
+  if (tickSize === undefined) tickSize = 0.0;
+  if (minPosition === undefined) minPosition = -Infinity;
+  if (maxPosition === undefined) maxPosition = Infinity;
+  if (multiplier === undefined) multiplier = 1.0;
+  if (makerFeePerContract === undefined) makerFeePerContract = 0.0;
+  if (takerFeePerContract === undefined) takerFeePerContract = 0.0;
+  if (slippage === undefined) slippage = 0.0;
+  if (slippageUnit === undefined) slippageUnit = "fraction";
   const M = current();
-  if (_isText(makerFee)) throw new TypeError(`makerFee must be a number, got a string`);
-  if (_isText(takerFee)) throw new TypeError(`takerFee must be a number, got a string`);
-  if (typeof fill !== "string") throw new TypeError(`fill must be a string, got ${typeof fill}`);
-  if (_isText(participationRatio)) throw new TypeError(`participationRatio must be a number, got a string`);
-  if (_isText(tickSize)) throw new TypeError(`tickSize must be a number, got a string`);
-  if (_isText(minPosition)) throw new TypeError(`minPosition must be a number, got a string`);
-  if (_isText(maxPosition)) throw new TypeError(`maxPosition must be a number, got a string`);
-  if (_isText(multiplier)) throw new TypeError(`multiplier must be a number, got a string`);
-  if (_isText(makerFeePerContract)) throw new TypeError(`makerFeePerContract must be a number, got a string`);
-  if (_isText(takerFeePerContract)) throw new TypeError(`takerFeePerContract must be a number, got a string`);
-  if (_isText(slippage)) throw new TypeError(`slippage must be a number, got a string`);
-  if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
+  if (typeof makerFee !== "number") throw new TypeError(`BacktestL1Orders: makerFee must be a number, got ${_what(makerFee)}`);
+  if (typeof takerFee !== "number") throw new TypeError(`BacktestL1Orders: takerFee must be a number, got ${_what(takerFee)}`);
+  if (typeof fill !== "string") throw new TypeError(`BacktestL1Orders: fill must be a string, got ${fill instanceof String ? "a String object" : _what(fill)}`);
+  if (typeof participationRatio !== "number") throw new TypeError(`BacktestL1Orders: participationRatio must be a number, got ${_what(participationRatio)}`);
+  if (typeof tickSize !== "number") throw new TypeError(`BacktestL1Orders: tickSize must be a number, got ${_what(tickSize)}`);
+  if (typeof minPosition !== "number") throw new TypeError(`BacktestL1Orders: minPosition must be a number, got ${_what(minPosition)}`);
+  if (typeof maxPosition !== "number") throw new TypeError(`BacktestL1Orders: maxPosition must be a number, got ${_what(maxPosition)}`);
+  if (typeof multiplier !== "number") throw new TypeError(`BacktestL1Orders: multiplier must be a number, got ${_what(multiplier)}`);
+  if (typeof makerFeePerContract !== "number") throw new TypeError(`BacktestL1Orders: makerFeePerContract must be a number, got ${_what(makerFeePerContract)}`);
+  if (typeof takerFeePerContract !== "number") throw new TypeError(`BacktestL1Orders: takerFeePerContract must be a number, got ${_what(takerFeePerContract)}`);
+  if (typeof slippage !== "number") throw new TypeError(`BacktestL1Orders: slippage must be a number, got ${_what(slippage)}`);
+  if (typeof slippageUnit !== "string") throw new TypeError(`BacktestL1Orders: slippageUnit must be a string, got ${slippageUnit instanceof String ? "a String object" : _what(slippageUnit)}`);
   return wrapOp(M, () => new M.BacktestL1Orders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
 }
 
 /** The settings of BacktestL1Target by name, for `BacktestL1Target({ ... })`. */
 export interface BacktestL1TargetOptions {
-  /** Fractional fee charged on each taker fill. */
+  /** Fractional fee charged on each taker fill. @defaultValue `0.0` */
   takerFee?: number;
-  /** Instrument price grid (0 = continuous). A marketable order walks one tick past the displayed quote for the size beyond it; slippage offsets round up to whole ticks. */
+  /** Instrument price grid (0 = continuous). A marketable order walks one tick past the displayed quote for the size beyond it; slippage offsets round up to whole ticks. @defaultValue `0.0` */
   tickSize?: number;
-  /** Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. */
+  /** Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. @defaultValue `-Infinity` */
   minPosition?: number;
-  /** Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. */
+  /** Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. @defaultValue `Infinity` */
   maxPosition?: number;
-  /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. */
+  /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. @defaultValue `1.0` */
   multiplier?: number;
-  /** Fixed fee (or rebate when negative) charged per contract on each fill. */
+  /** Fixed fee (or rebate when negative) charged per contract on each fill. @defaultValue `0.0` */
   feePerContract?: number;
-  /** Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip. */
+  /** Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip. @defaultValue `0.0` */
   slippage?: number;
-  /** Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount). */
+  /** Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount). @defaultValue `"fraction"` */
   slippageUnit?: string;
-  /** Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off. */
+  /** Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off. @defaultValue `0.0` */
   stopLoss?: number;
-  /** Exit when the price moves this fraction in favor of the average entry fill. 0 turns it off. */
+  /** Exit when the price moves this fraction in favor of the average entry fill. 0 turns it off. @defaultValue `0.0` */
   takeProfit?: number;
-  /** Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off. */
+  /** Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off. @defaultValue `0.0` */
   trailingStop?: number;
-  /** How to read the target: "units" (a position), "notional" (a currency amount), or "weight" (a fraction of initial_capital + equity). It is converted to units at the execution price. */
+  /** How to read the target: "units" (a position), "notional" (a currency amount), or "weight" (a fraction of initial_capital + equity). It is converted to units at the execution price. @defaultValue `"units"` */
   size?: string;
-  /** Starting capital for size="weight" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl. */
+  /** Starting capital for size="weight" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl. @defaultValue `0.0` */
   initialCapital?: number;
-  /** With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes. */
+  /** With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes. @defaultValue `0.0` */
   rebalanceBand?: number;
 }
 
@@ -482,64 +517,65 @@ export function BacktestL1Target(options: BacktestL1TargetOptions): ScreamerOp;
  */
 export function BacktestL1Target(takerFee?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, feePerContract?: number, slippage?: number, slippageUnit?: string, stopLoss?: number, takeProfit?: number, trailingStop?: number, size?: string, initialCapital?: number, rebalanceBand?: number): ScreamerOp;
 export function BacktestL1Target(takerFee?: any, tickSize?: any, minPosition?: any, maxPosition?: any, multiplier?: any, feePerContract?: any, slippage?: any, slippageUnit?: any, stopLoss?: any, takeProfit?: any, trailingStop?: any, size?: any, initialCapital?: any, rebalanceBand?: any): ScreamerOp {
-  if (_isOptions(takerFee)) [takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand] = _options("BacktestL1Target", takerFee, arguments.length, ["takerFee", "tickSize", "minPosition", "maxPosition", "multiplier", "feePerContract", "slippage", "slippageUnit", "stopLoss", "takeProfit", "trailingStop", "size", "initialCapital", "rebalanceBand"]);
-  takerFee ??= 0.0;
-  tickSize ??= 0.0;
-  minPosition ??= -Infinity;
-  maxPosition ??= Infinity;
-  multiplier ??= 1.0;
-  feePerContract ??= 0.0;
-  slippage ??= 0.0;
-  slippageUnit ??= "fraction";
-  stopLoss ??= 0.0;
-  takeProfit ??= 0.0;
-  trailingStop ??= 0.0;
-  size ??= "units";
-  initialCapital ??= 0.0;
-  rebalanceBand ??= 0.0;
+  if (_isOptions(takerFee)) [takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand] = _options("BacktestL1Target", takerFee, arguments.length, ["takerFee", "tickSize", "minPosition", "maxPosition", "multiplier", "feePerContract", "slippage", "slippageUnit", "stopLoss", "takeProfit", "trailingStop", "size", "initialCapital", "rebalanceBand"], "takerFee must be a number");
+  else if (arguments.length > 14) _tooMany("BacktestL1Target", 14, arguments.length);
+  if (takerFee === undefined) takerFee = 0.0;
+  if (tickSize === undefined) tickSize = 0.0;
+  if (minPosition === undefined) minPosition = -Infinity;
+  if (maxPosition === undefined) maxPosition = Infinity;
+  if (multiplier === undefined) multiplier = 1.0;
+  if (feePerContract === undefined) feePerContract = 0.0;
+  if (slippage === undefined) slippage = 0.0;
+  if (slippageUnit === undefined) slippageUnit = "fraction";
+  if (stopLoss === undefined) stopLoss = 0.0;
+  if (takeProfit === undefined) takeProfit = 0.0;
+  if (trailingStop === undefined) trailingStop = 0.0;
+  if (size === undefined) size = "units";
+  if (initialCapital === undefined) initialCapital = 0.0;
+  if (rebalanceBand === undefined) rebalanceBand = 0.0;
   const M = current();
-  if (_isText(takerFee)) throw new TypeError(`takerFee must be a number, got a string`);
-  if (_isText(tickSize)) throw new TypeError(`tickSize must be a number, got a string`);
-  if (_isText(minPosition)) throw new TypeError(`minPosition must be a number, got a string`);
-  if (_isText(maxPosition)) throw new TypeError(`maxPosition must be a number, got a string`);
-  if (_isText(multiplier)) throw new TypeError(`multiplier must be a number, got a string`);
-  if (_isText(feePerContract)) throw new TypeError(`feePerContract must be a number, got a string`);
-  if (_isText(slippage)) throw new TypeError(`slippage must be a number, got a string`);
-  if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
-  if (_isText(stopLoss)) throw new TypeError(`stopLoss must be a number, got a string`);
-  if (_isText(takeProfit)) throw new TypeError(`takeProfit must be a number, got a string`);
-  if (_isText(trailingStop)) throw new TypeError(`trailingStop must be a number, got a string`);
-  if (typeof size !== "string") throw new TypeError(`size must be a string, got ${typeof size}`);
-  if (_isText(initialCapital)) throw new TypeError(`initialCapital must be a number, got a string`);
-  if (_isText(rebalanceBand)) throw new TypeError(`rebalanceBand must be a number, got a string`);
+  if (typeof takerFee !== "number") throw new TypeError(`BacktestL1Target: takerFee must be a number, got ${_what(takerFee)}`);
+  if (typeof tickSize !== "number") throw new TypeError(`BacktestL1Target: tickSize must be a number, got ${_what(tickSize)}`);
+  if (typeof minPosition !== "number") throw new TypeError(`BacktestL1Target: minPosition must be a number, got ${_what(minPosition)}`);
+  if (typeof maxPosition !== "number") throw new TypeError(`BacktestL1Target: maxPosition must be a number, got ${_what(maxPosition)}`);
+  if (typeof multiplier !== "number") throw new TypeError(`BacktestL1Target: multiplier must be a number, got ${_what(multiplier)}`);
+  if (typeof feePerContract !== "number") throw new TypeError(`BacktestL1Target: feePerContract must be a number, got ${_what(feePerContract)}`);
+  if (typeof slippage !== "number") throw new TypeError(`BacktestL1Target: slippage must be a number, got ${_what(slippage)}`);
+  if (typeof slippageUnit !== "string") throw new TypeError(`BacktestL1Target: slippageUnit must be a string, got ${slippageUnit instanceof String ? "a String object" : _what(slippageUnit)}`);
+  if (typeof stopLoss !== "number") throw new TypeError(`BacktestL1Target: stopLoss must be a number, got ${_what(stopLoss)}`);
+  if (typeof takeProfit !== "number") throw new TypeError(`BacktestL1Target: takeProfit must be a number, got ${_what(takeProfit)}`);
+  if (typeof trailingStop !== "number") throw new TypeError(`BacktestL1Target: trailingStop must be a number, got ${_what(trailingStop)}`);
+  if (typeof size !== "string") throw new TypeError(`BacktestL1Target: size must be a string, got ${size instanceof String ? "a String object" : _what(size)}`);
+  if (typeof initialCapital !== "number") throw new TypeError(`BacktestL1Target: initialCapital must be a number, got ${_what(initialCapital)}`);
+  if (typeof rebalanceBand !== "number") throw new TypeError(`BacktestL1Target: rebalanceBand must be a number, got ${_what(rebalanceBand)}`);
   return wrapOp(M, () => new M.BacktestL1Target(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand));
 }
 
 /** The settings of BacktestL1TradesOrders by name, for `BacktestL1TradesOrders({ ... })`. */
 export interface BacktestL1TradesOrdersOptions {
-  /** Fractional fee on a maker fill; negative for a rebate. */
+  /** Fractional fee on a maker fill; negative for a rebate. @defaultValue `0.0` */
   makerFee?: number;
-  /** Fractional fee on a taker fill (a quote submitted already crossing the spread). */
+  /** Fractional fee on a taker fill (a quote submitted already crossing the spread). @defaultValue `0.0` */
   takerFee?: number;
-  /** Fill rule for a trade at your price. "touch" fills a participation partial; "breach" fills only on a trade through. */
+  /** Fill rule for a trade at your price. "touch" fills a participation partial; "breach" fills only on a trade through. @defaultValue `"touch"` */
   fill?: string;
-  /** Fraction of an at-price trade's size captured (front-of-queue at 1.0). */
+  /** Fraction of an at-price trade's size captured (front-of-queue at 1.0). @defaultValue `1.0` */
   participationRatio?: number;
-  /** Instrument price grid (0 = continuous). A marketable order walks one tick past the displayed quote for the size beyond it; slippage offsets round up to whole ticks. */
+  /** Instrument price grid (0 = continuous). A marketable order walks one tick past the displayed quote for the size beyond it; slippage offsets round up to whole ticks. @defaultValue `0.0` */
   tickSize?: number;
-  /** Inventory floor; sell fills are capped so the position never falls below it. */
+  /** Inventory floor; sell fills are capped so the position never falls below it. @defaultValue `-Infinity` */
   minPosition?: number;
-  /** Inventory ceiling; buy fills are capped so the position never exceeds it. */
+  /** Inventory ceiling; buy fills are capped so the position never exceeds it. @defaultValue `Infinity` */
   maxPosition?: number;
-  /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. */
+  /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. @defaultValue `1.0` */
   multiplier?: number;
-  /** Fixed fee (or rebate when negative) charged per contract on maker fills. */
+  /** Fixed fee (or rebate when negative) charged per contract on maker fills. @defaultValue `0.0` */
   makerFeePerContract?: number;
-  /** Fixed fee (or rebate when negative) charged per contract on taker fills. */
+  /** Fixed fee (or rebate when negative) charged per contract on taker fills. @defaultValue `0.0` */
   takerFeePerContract?: number;
-  /** Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip. */
+  /** Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip. @defaultValue `0.0` */
   slippage?: number;
-  /** Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount). */
+  /** Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount). @defaultValue `"fraction"` */
   slippageUnit?: string;
 }
 
@@ -569,60 +605,61 @@ export function BacktestL1TradesOrders(options: BacktestL1TradesOrdersOptions): 
  */
 export function BacktestL1TradesOrders(makerFee?: number, takerFee?: number, fill?: string, participationRatio?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, makerFeePerContract?: number, takerFeePerContract?: number, slippage?: number, slippageUnit?: string): ScreamerOp;
 export function BacktestL1TradesOrders(makerFee?: any, takerFee?: any, fill?: any, participationRatio?: any, tickSize?: any, minPosition?: any, maxPosition?: any, multiplier?: any, makerFeePerContract?: any, takerFeePerContract?: any, slippage?: any, slippageUnit?: any): ScreamerOp {
-  if (_isOptions(makerFee)) [makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit] = _options("BacktestL1TradesOrders", makerFee, arguments.length, ["makerFee", "takerFee", "fill", "participationRatio", "tickSize", "minPosition", "maxPosition", "multiplier", "makerFeePerContract", "takerFeePerContract", "slippage", "slippageUnit"]);
-  makerFee ??= 0.0;
-  takerFee ??= 0.0;
-  fill ??= "touch";
-  participationRatio ??= 1.0;
-  tickSize ??= 0.0;
-  minPosition ??= -Infinity;
-  maxPosition ??= Infinity;
-  multiplier ??= 1.0;
-  makerFeePerContract ??= 0.0;
-  takerFeePerContract ??= 0.0;
-  slippage ??= 0.0;
-  slippageUnit ??= "fraction";
+  if (_isOptions(makerFee)) [makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit] = _options("BacktestL1TradesOrders", makerFee, arguments.length, ["makerFee", "takerFee", "fill", "participationRatio", "tickSize", "minPosition", "maxPosition", "multiplier", "makerFeePerContract", "takerFeePerContract", "slippage", "slippageUnit"], "makerFee must be a number");
+  else if (arguments.length > 12) _tooMany("BacktestL1TradesOrders", 12, arguments.length);
+  if (makerFee === undefined) makerFee = 0.0;
+  if (takerFee === undefined) takerFee = 0.0;
+  if (fill === undefined) fill = "touch";
+  if (participationRatio === undefined) participationRatio = 1.0;
+  if (tickSize === undefined) tickSize = 0.0;
+  if (minPosition === undefined) minPosition = -Infinity;
+  if (maxPosition === undefined) maxPosition = Infinity;
+  if (multiplier === undefined) multiplier = 1.0;
+  if (makerFeePerContract === undefined) makerFeePerContract = 0.0;
+  if (takerFeePerContract === undefined) takerFeePerContract = 0.0;
+  if (slippage === undefined) slippage = 0.0;
+  if (slippageUnit === undefined) slippageUnit = "fraction";
   const M = current();
-  if (_isText(makerFee)) throw new TypeError(`makerFee must be a number, got a string`);
-  if (_isText(takerFee)) throw new TypeError(`takerFee must be a number, got a string`);
-  if (typeof fill !== "string") throw new TypeError(`fill must be a string, got ${typeof fill}`);
-  if (_isText(participationRatio)) throw new TypeError(`participationRatio must be a number, got a string`);
-  if (_isText(tickSize)) throw new TypeError(`tickSize must be a number, got a string`);
-  if (_isText(minPosition)) throw new TypeError(`minPosition must be a number, got a string`);
-  if (_isText(maxPosition)) throw new TypeError(`maxPosition must be a number, got a string`);
-  if (_isText(multiplier)) throw new TypeError(`multiplier must be a number, got a string`);
-  if (_isText(makerFeePerContract)) throw new TypeError(`makerFeePerContract must be a number, got a string`);
-  if (_isText(takerFeePerContract)) throw new TypeError(`takerFeePerContract must be a number, got a string`);
-  if (_isText(slippage)) throw new TypeError(`slippage must be a number, got a string`);
-  if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
+  if (typeof makerFee !== "number") throw new TypeError(`BacktestL1TradesOrders: makerFee must be a number, got ${_what(makerFee)}`);
+  if (typeof takerFee !== "number") throw new TypeError(`BacktestL1TradesOrders: takerFee must be a number, got ${_what(takerFee)}`);
+  if (typeof fill !== "string") throw new TypeError(`BacktestL1TradesOrders: fill must be a string, got ${fill instanceof String ? "a String object" : _what(fill)}`);
+  if (typeof participationRatio !== "number") throw new TypeError(`BacktestL1TradesOrders: participationRatio must be a number, got ${_what(participationRatio)}`);
+  if (typeof tickSize !== "number") throw new TypeError(`BacktestL1TradesOrders: tickSize must be a number, got ${_what(tickSize)}`);
+  if (typeof minPosition !== "number") throw new TypeError(`BacktestL1TradesOrders: minPosition must be a number, got ${_what(minPosition)}`);
+  if (typeof maxPosition !== "number") throw new TypeError(`BacktestL1TradesOrders: maxPosition must be a number, got ${_what(maxPosition)}`);
+  if (typeof multiplier !== "number") throw new TypeError(`BacktestL1TradesOrders: multiplier must be a number, got ${_what(multiplier)}`);
+  if (typeof makerFeePerContract !== "number") throw new TypeError(`BacktestL1TradesOrders: makerFeePerContract must be a number, got ${_what(makerFeePerContract)}`);
+  if (typeof takerFeePerContract !== "number") throw new TypeError(`BacktestL1TradesOrders: takerFeePerContract must be a number, got ${_what(takerFeePerContract)}`);
+  if (typeof slippage !== "number") throw new TypeError(`BacktestL1TradesOrders: slippage must be a number, got ${_what(slippage)}`);
+  if (typeof slippageUnit !== "string") throw new TypeError(`BacktestL1TradesOrders: slippageUnit must be a string, got ${slippageUnit instanceof String ? "a String object" : _what(slippageUnit)}`);
   return wrapOp(M, () => new M.BacktestL1TradesOrders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
 }
 
 /** The settings of BacktestOHLCOrders by name, for `BacktestOHLCOrders({ ... })`. */
 export interface BacktestOHLCOrdersOptions {
-  /** Fractional fee on a passive (resting) fill; negative for a rebate. */
+  /** Fractional fee on a passive (resting) fill; negative for a rebate. @defaultValue `0.0` */
   makerFee?: number;
-  /** Fractional fee on a marketable (taker) fill. */
+  /** Fractional fee on a marketable (taker) fill. @defaultValue `0.0` */
   takerFee?: number;
-  /** Fill rule. "touch" fills when the bar's low/high reaches your quote price; "breach" requires the bar to trade through it. */
+  /** Fill rule. "touch" fills when the bar's low/high reaches your quote price; "breach" requires the bar to trade through it. @defaultValue `"touch"` */
   fill?: string;
-  /** Fraction of the quoted size captured on each fill (front-of-queue at 1.0). */
+  /** Fraction of the quoted size captured on each fill (front-of-queue at 1.0). @defaultValue `1.0` */
   participationRatio?: number;
-  /** Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step. */
+  /** Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step. @defaultValue `0.0` */
   tickSize?: number;
-  /** Inventory floor; sell fills are capped so the position never falls below it. */
+  /** Inventory floor; sell fills are capped so the position never falls below it. @defaultValue `-Infinity` */
   minPosition?: number;
-  /** Inventory ceiling; buy fills are capped so the position never exceeds it. */
+  /** Inventory ceiling; buy fills are capped so the position never exceeds it. @defaultValue `Infinity` */
   maxPosition?: number;
-  /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. */
+  /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. @defaultValue `1.0` */
   multiplier?: number;
-  /** Fixed fee (or rebate when negative) charged per contract on maker fills. */
+  /** Fixed fee (or rebate when negative) charged per contract on maker fills. @defaultValue `0.0` */
   makerFeePerContract?: number;
-  /** Fixed fee (or rebate when negative) charged per contract on taker fills. */
+  /** Fixed fee (or rebate when negative) charged per contract on taker fills. @defaultValue `0.0` */
   takerFeePerContract?: number;
-  /** Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip. */
+  /** Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip. @defaultValue `0.0` */
   slippage?: number;
-  /** Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount). */
+  /** Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount). @defaultValue `"fraction"` */
   slippageUnit?: string;
 }
 
@@ -652,68 +689,69 @@ export function BacktestOHLCOrders(options: BacktestOHLCOrdersOptions): Screamer
  */
 export function BacktestOHLCOrders(makerFee?: number, takerFee?: number, fill?: string, participationRatio?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, makerFeePerContract?: number, takerFeePerContract?: number, slippage?: number, slippageUnit?: string): ScreamerOp;
 export function BacktestOHLCOrders(makerFee?: any, takerFee?: any, fill?: any, participationRatio?: any, tickSize?: any, minPosition?: any, maxPosition?: any, multiplier?: any, makerFeePerContract?: any, takerFeePerContract?: any, slippage?: any, slippageUnit?: any): ScreamerOp {
-  if (_isOptions(makerFee)) [makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit] = _options("BacktestOHLCOrders", makerFee, arguments.length, ["makerFee", "takerFee", "fill", "participationRatio", "tickSize", "minPosition", "maxPosition", "multiplier", "makerFeePerContract", "takerFeePerContract", "slippage", "slippageUnit"]);
-  makerFee ??= 0.0;
-  takerFee ??= 0.0;
-  fill ??= "touch";
-  participationRatio ??= 1.0;
-  tickSize ??= 0.0;
-  minPosition ??= -Infinity;
-  maxPosition ??= Infinity;
-  multiplier ??= 1.0;
-  makerFeePerContract ??= 0.0;
-  takerFeePerContract ??= 0.0;
-  slippage ??= 0.0;
-  slippageUnit ??= "fraction";
+  if (_isOptions(makerFee)) [makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit] = _options("BacktestOHLCOrders", makerFee, arguments.length, ["makerFee", "takerFee", "fill", "participationRatio", "tickSize", "minPosition", "maxPosition", "multiplier", "makerFeePerContract", "takerFeePerContract", "slippage", "slippageUnit"], "makerFee must be a number");
+  else if (arguments.length > 12) _tooMany("BacktestOHLCOrders", 12, arguments.length);
+  if (makerFee === undefined) makerFee = 0.0;
+  if (takerFee === undefined) takerFee = 0.0;
+  if (fill === undefined) fill = "touch";
+  if (participationRatio === undefined) participationRatio = 1.0;
+  if (tickSize === undefined) tickSize = 0.0;
+  if (minPosition === undefined) minPosition = -Infinity;
+  if (maxPosition === undefined) maxPosition = Infinity;
+  if (multiplier === undefined) multiplier = 1.0;
+  if (makerFeePerContract === undefined) makerFeePerContract = 0.0;
+  if (takerFeePerContract === undefined) takerFeePerContract = 0.0;
+  if (slippage === undefined) slippage = 0.0;
+  if (slippageUnit === undefined) slippageUnit = "fraction";
   const M = current();
-  if (_isText(makerFee)) throw new TypeError(`makerFee must be a number, got a string`);
-  if (_isText(takerFee)) throw new TypeError(`takerFee must be a number, got a string`);
-  if (typeof fill !== "string") throw new TypeError(`fill must be a string, got ${typeof fill}`);
-  if (_isText(participationRatio)) throw new TypeError(`participationRatio must be a number, got a string`);
-  if (_isText(tickSize)) throw new TypeError(`tickSize must be a number, got a string`);
-  if (_isText(minPosition)) throw new TypeError(`minPosition must be a number, got a string`);
-  if (_isText(maxPosition)) throw new TypeError(`maxPosition must be a number, got a string`);
-  if (_isText(multiplier)) throw new TypeError(`multiplier must be a number, got a string`);
-  if (_isText(makerFeePerContract)) throw new TypeError(`makerFeePerContract must be a number, got a string`);
-  if (_isText(takerFeePerContract)) throw new TypeError(`takerFeePerContract must be a number, got a string`);
-  if (_isText(slippage)) throw new TypeError(`slippage must be a number, got a string`);
-  if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
+  if (typeof makerFee !== "number") throw new TypeError(`BacktestOHLCOrders: makerFee must be a number, got ${_what(makerFee)}`);
+  if (typeof takerFee !== "number") throw new TypeError(`BacktestOHLCOrders: takerFee must be a number, got ${_what(takerFee)}`);
+  if (typeof fill !== "string") throw new TypeError(`BacktestOHLCOrders: fill must be a string, got ${fill instanceof String ? "a String object" : _what(fill)}`);
+  if (typeof participationRatio !== "number") throw new TypeError(`BacktestOHLCOrders: participationRatio must be a number, got ${_what(participationRatio)}`);
+  if (typeof tickSize !== "number") throw new TypeError(`BacktestOHLCOrders: tickSize must be a number, got ${_what(tickSize)}`);
+  if (typeof minPosition !== "number") throw new TypeError(`BacktestOHLCOrders: minPosition must be a number, got ${_what(minPosition)}`);
+  if (typeof maxPosition !== "number") throw new TypeError(`BacktestOHLCOrders: maxPosition must be a number, got ${_what(maxPosition)}`);
+  if (typeof multiplier !== "number") throw new TypeError(`BacktestOHLCOrders: multiplier must be a number, got ${_what(multiplier)}`);
+  if (typeof makerFeePerContract !== "number") throw new TypeError(`BacktestOHLCOrders: makerFeePerContract must be a number, got ${_what(makerFeePerContract)}`);
+  if (typeof takerFeePerContract !== "number") throw new TypeError(`BacktestOHLCOrders: takerFeePerContract must be a number, got ${_what(takerFeePerContract)}`);
+  if (typeof slippage !== "number") throw new TypeError(`BacktestOHLCOrders: slippage must be a number, got ${_what(slippage)}`);
+  if (typeof slippageUnit !== "string") throw new TypeError(`BacktestOHLCOrders: slippageUnit must be a string, got ${slippageUnit instanceof String ? "a String object" : _what(slippageUnit)}`);
   return wrapOp(M, () => new M.BacktestOHLCOrders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
 }
 
 /** The settings of BacktestOHLCTarget by name, for `BacktestOHLCTarget({ ... })`. */
 export interface BacktestOHLCTargetOptions {
-  /** Fractional fee charged on a market (taker) fill at the open. */
+  /** Fractional fee charged on a market (taker) fill at the open. @defaultValue `0.0` */
   takerFee?: number;
-  /** Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step. */
+  /** Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step. @defaultValue `0.0` */
   tickSize?: number;
-  /** Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. */
+  /** Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. @defaultValue `-Infinity` */
   minPosition?: number;
-  /** Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. */
+  /** Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. @defaultValue `Infinity` */
   maxPosition?: number;
-  /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. */
+  /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. @defaultValue `1.0` */
   multiplier?: number;
-  /** Fixed fee (or rebate when negative) charged per contract on each fill. */
+  /** Fixed fee (or rebate when negative) charged per contract on each fill. @defaultValue `0.0` */
   feePerContract?: number;
-  /** Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip. */
+  /** Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip. @defaultValue `0.0` */
   slippage?: number;
-  /** Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount). */
+  /** Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount). @defaultValue `"fraction"` */
   slippageUnit?: string;
-  /** Reference price of the execution bar: "open", "close", "typical" (high + low + close) / 3, or "ohlc4" (open + high + low + close) / 4. */
+  /** Reference price of the execution bar: "open", "close", "typical" (high + low + close) / 3, or "ohlc4" (open + high + low + close) / 4. @defaultValue `"open"` */
   fillAt?: string;
-  /** Bars between the decision and the execution. A target from bar t trades on bar t + delay. 0 is allowed only with fill_at="close" (market-on-close of the signal bar). */
+  /** Bars between the decision and the execution. A target from bar t trades on bar t + delay. 0 is allowed only with fill_at="close" (market-on-close of the signal bar). @defaultValue `1` */
   delay?: number;
-  /** Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off. */
+  /** Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off. @defaultValue `0.0` */
   stopLoss?: number;
-  /** Exit when the price moves this fraction in favor of the average entry fill. 0 turns it off. */
+  /** Exit when the price moves this fraction in favor of the average entry fill. 0 turns it off. @defaultValue `0.0` */
   takeProfit?: number;
-  /** Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off. */
+  /** Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off. @defaultValue `0.0` */
   trailingStop?: number;
-  /** How to read the target: "units" (a position), "notional" (a currency amount), or "weight" (a fraction of initial_capital + equity). It is converted to units at the execution price. */
+  /** How to read the target: "units" (a position), "notional" (a currency amount), or "weight" (a fraction of initial_capital + equity). It is converted to units at the execution price. @defaultValue `"units"` */
   size?: string;
-  /** Starting capital for size="weight" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl. */
+  /** Starting capital for size="weight" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl. @defaultValue `0.0` */
   initialCapital?: number;
-  /** With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes. */
+  /** With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes. @defaultValue `0.0` */
   rebalanceBand?: number;
 }
 
@@ -747,78 +785,79 @@ export function BacktestOHLCTarget(options: BacktestOHLCTargetOptions): Screamer
  */
 export function BacktestOHLCTarget(takerFee?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, feePerContract?: number, slippage?: number, slippageUnit?: string, fillAt?: string, delay?: number, stopLoss?: number, takeProfit?: number, trailingStop?: number, size?: string, initialCapital?: number, rebalanceBand?: number): ScreamerOp;
 export function BacktestOHLCTarget(takerFee?: any, tickSize?: any, minPosition?: any, maxPosition?: any, multiplier?: any, feePerContract?: any, slippage?: any, slippageUnit?: any, fillAt?: any, delay?: any, stopLoss?: any, takeProfit?: any, trailingStop?: any, size?: any, initialCapital?: any, rebalanceBand?: any): ScreamerOp {
-  if (_isOptions(takerFee)) [takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, fillAt, delay, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand] = _options("BacktestOHLCTarget", takerFee, arguments.length, ["takerFee", "tickSize", "minPosition", "maxPosition", "multiplier", "feePerContract", "slippage", "slippageUnit", "fillAt", "delay", "stopLoss", "takeProfit", "trailingStop", "size", "initialCapital", "rebalanceBand"]);
-  takerFee ??= 0.0;
-  tickSize ??= 0.0;
-  minPosition ??= -Infinity;
-  maxPosition ??= Infinity;
-  multiplier ??= 1.0;
-  feePerContract ??= 0.0;
-  slippage ??= 0.0;
-  slippageUnit ??= "fraction";
-  fillAt ??= "open";
-  delay ??= 1;
-  stopLoss ??= 0.0;
-  takeProfit ??= 0.0;
-  trailingStop ??= 0.0;
-  size ??= "units";
-  initialCapital ??= 0.0;
-  rebalanceBand ??= 0.0;
+  if (_isOptions(takerFee)) [takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, fillAt, delay, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand] = _options("BacktestOHLCTarget", takerFee, arguments.length, ["takerFee", "tickSize", "minPosition", "maxPosition", "multiplier", "feePerContract", "slippage", "slippageUnit", "fillAt", "delay", "stopLoss", "takeProfit", "trailingStop", "size", "initialCapital", "rebalanceBand"], "takerFee must be a number");
+  else if (arguments.length > 16) _tooMany("BacktestOHLCTarget", 16, arguments.length);
+  if (takerFee === undefined) takerFee = 0.0;
+  if (tickSize === undefined) tickSize = 0.0;
+  if (minPosition === undefined) minPosition = -Infinity;
+  if (maxPosition === undefined) maxPosition = Infinity;
+  if (multiplier === undefined) multiplier = 1.0;
+  if (feePerContract === undefined) feePerContract = 0.0;
+  if (slippage === undefined) slippage = 0.0;
+  if (slippageUnit === undefined) slippageUnit = "fraction";
+  if (fillAt === undefined) fillAt = "open";
+  if (delay === undefined) delay = 1;
+  if (stopLoss === undefined) stopLoss = 0.0;
+  if (takeProfit === undefined) takeProfit = 0.0;
+  if (trailingStop === undefined) trailingStop = 0.0;
+  if (size === undefined) size = "units";
+  if (initialCapital === undefined) initialCapital = 0.0;
+  if (rebalanceBand === undefined) rebalanceBand = 0.0;
   const M = current();
-  if (_isText(takerFee)) throw new TypeError(`takerFee must be a number, got a string`);
-  if (_isText(tickSize)) throw new TypeError(`tickSize must be a number, got a string`);
-  if (_isText(minPosition)) throw new TypeError(`minPosition must be a number, got a string`);
-  if (_isText(maxPosition)) throw new TypeError(`maxPosition must be a number, got a string`);
-  if (_isText(multiplier)) throw new TypeError(`multiplier must be a number, got a string`);
-  if (_isText(feePerContract)) throw new TypeError(`feePerContract must be a number, got a string`);
-  if (_isText(slippage)) throw new TypeError(`slippage must be a number, got a string`);
-  if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
-  if (typeof fillAt !== "string") throw new TypeError(`fillAt must be a string, got ${typeof fillAt}`);
-  if (_isText(delay)) throw new TypeError(`delay must be a number, got a string`);
-  if (_isText(stopLoss)) throw new TypeError(`stopLoss must be a number, got a string`);
-  if (_isText(takeProfit)) throw new TypeError(`takeProfit must be a number, got a string`);
-  if (_isText(trailingStop)) throw new TypeError(`trailingStop must be a number, got a string`);
-  if (typeof size !== "string") throw new TypeError(`size must be a string, got ${typeof size}`);
-  if (_isText(initialCapital)) throw new TypeError(`initialCapital must be a number, got a string`);
-  if (_isText(rebalanceBand)) throw new TypeError(`rebalanceBand must be a number, got a string`);
+  if (typeof takerFee !== "number") throw new TypeError(`BacktestOHLCTarget: takerFee must be a number, got ${_what(takerFee)}`);
+  if (typeof tickSize !== "number") throw new TypeError(`BacktestOHLCTarget: tickSize must be a number, got ${_what(tickSize)}`);
+  if (typeof minPosition !== "number") throw new TypeError(`BacktestOHLCTarget: minPosition must be a number, got ${_what(minPosition)}`);
+  if (typeof maxPosition !== "number") throw new TypeError(`BacktestOHLCTarget: maxPosition must be a number, got ${_what(maxPosition)}`);
+  if (typeof multiplier !== "number") throw new TypeError(`BacktestOHLCTarget: multiplier must be a number, got ${_what(multiplier)}`);
+  if (typeof feePerContract !== "number") throw new TypeError(`BacktestOHLCTarget: feePerContract must be a number, got ${_what(feePerContract)}`);
+  if (typeof slippage !== "number") throw new TypeError(`BacktestOHLCTarget: slippage must be a number, got ${_what(slippage)}`);
+  if (typeof slippageUnit !== "string") throw new TypeError(`BacktestOHLCTarget: slippageUnit must be a string, got ${slippageUnit instanceof String ? "a String object" : _what(slippageUnit)}`);
+  if (typeof fillAt !== "string") throw new TypeError(`BacktestOHLCTarget: fillAt must be a string, got ${fillAt instanceof String ? "a String object" : _what(fillAt)}`);
+  if (typeof delay !== "number") throw new TypeError(`BacktestOHLCTarget: delay must be a number, got ${_what(delay)}`);
+  if (typeof stopLoss !== "number") throw new TypeError(`BacktestOHLCTarget: stopLoss must be a number, got ${_what(stopLoss)}`);
+  if (typeof takeProfit !== "number") throw new TypeError(`BacktestOHLCTarget: takeProfit must be a number, got ${_what(takeProfit)}`);
+  if (typeof trailingStop !== "number") throw new TypeError(`BacktestOHLCTarget: trailingStop must be a number, got ${_what(trailingStop)}`);
+  if (typeof size !== "string") throw new TypeError(`BacktestOHLCTarget: size must be a string, got ${size instanceof String ? "a String object" : _what(size)}`);
+  if (typeof initialCapital !== "number") throw new TypeError(`BacktestOHLCTarget: initialCapital must be a number, got ${_what(initialCapital)}`);
+  if (typeof rebalanceBand !== "number") throw new TypeError(`BacktestOHLCTarget: rebalanceBand must be a number, got ${_what(rebalanceBand)}`);
   return wrapOp(M, () => new M.BacktestOHLCTarget(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, fillAt, delay, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand));
 }
 
 /** The settings of BacktestOHLCVTarget by name, for `BacktestOHLCVTarget({ ... })`. */
 export interface BacktestOHLCVTargetOptions {
-  /** The most an order may trade on one bar, as a share of the bar's volume (0.1 = 10%). The rest carries to the next bars. */
+  /** The most an order may trade on one bar, as a share of the bar's volume (0.1 = 10%). The rest carries to the next bars. @defaultValue `1.0` */
   maxParticipation?: number;
-  /** Fractional fee charged on a market (taker) fill at the open. */
+  /** Fractional fee charged on a market (taker) fill at the open. @defaultValue `0.0` */
   takerFee?: number;
-  /** Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step. */
+  /** Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step. @defaultValue `0.0` */
   tickSize?: number;
-  /** Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. */
+  /** Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. @defaultValue `-Infinity` */
   minPosition?: number;
-  /** Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. */
+  /** Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. @defaultValue `Infinity` */
   maxPosition?: number;
-  /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. */
+  /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. @defaultValue `1.0` */
   multiplier?: number;
-  /** Fixed fee (or rebate when negative) charged per contract on each fill. */
+  /** Fixed fee (or rebate when negative) charged per contract on each fill. @defaultValue `0.0` */
   feePerContract?: number;
-  /** Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip. */
+  /** Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip. @defaultValue `0.0` */
   slippage?: number;
-  /** Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount). */
+  /** Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount). @defaultValue `"fraction"` */
   slippageUnit?: string;
-  /** Reference price of the execution bar: "open", "close", "typical" (high + low + close) / 3, or "ohlc4" (open + high + low + close) / 4. */
+  /** Reference price of the execution bar: "open", "close", "typical" (high + low + close) / 3, or "ohlc4" (open + high + low + close) / 4. @defaultValue `"open"` */
   fillAt?: string;
-  /** Bars between the decision and the execution. A target from bar t trades on bar t + delay. 0 is allowed only with fill_at="close" (market-on-close of the signal bar). */
+  /** Bars between the decision and the execution. A target from bar t trades on bar t + delay. 0 is allowed only with fill_at="close" (market-on-close of the signal bar). @defaultValue `1` */
   delay?: number;
-  /** Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off. */
+  /** Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off. @defaultValue `0.0` */
   stopLoss?: number;
-  /** Exit when the price moves this fraction in favor of the average entry fill. 0 turns it off. */
+  /** Exit when the price moves this fraction in favor of the average entry fill. 0 turns it off. @defaultValue `0.0` */
   takeProfit?: number;
-  /** Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off. */
+  /** Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off. @defaultValue `0.0` */
   trailingStop?: number;
-  /** How to read the target: "units" (a position), "notional" (a currency amount), or "weight" (a fraction of initial_capital + equity). It is converted to units at the execution price. */
+  /** How to read the target: "units" (a position), "notional" (a currency amount), or "weight" (a fraction of initial_capital + equity). It is converted to units at the execution price. @defaultValue `"units"` */
   size?: string;
-  /** Starting capital for size="weight" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl. */
+  /** Starting capital for size="weight" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl. @defaultValue `0.0` */
   initialCapital?: number;
-  /** With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes. */
+  /** With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes. @defaultValue `0.0` */
   rebalanceBand?: number;
 }
 
@@ -853,74 +892,75 @@ export function BacktestOHLCVTarget(options: BacktestOHLCVTargetOptions): Scream
  */
 export function BacktestOHLCVTarget(maxParticipation?: number, takerFee?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, feePerContract?: number, slippage?: number, slippageUnit?: string, fillAt?: string, delay?: number, stopLoss?: number, takeProfit?: number, trailingStop?: number, size?: string, initialCapital?: number, rebalanceBand?: number): ScreamerOp;
 export function BacktestOHLCVTarget(maxParticipation?: any, takerFee?: any, tickSize?: any, minPosition?: any, maxPosition?: any, multiplier?: any, feePerContract?: any, slippage?: any, slippageUnit?: any, fillAt?: any, delay?: any, stopLoss?: any, takeProfit?: any, trailingStop?: any, size?: any, initialCapital?: any, rebalanceBand?: any): ScreamerOp {
-  if (_isOptions(maxParticipation)) [maxParticipation, takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, fillAt, delay, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand] = _options("BacktestOHLCVTarget", maxParticipation, arguments.length, ["maxParticipation", "takerFee", "tickSize", "minPosition", "maxPosition", "multiplier", "feePerContract", "slippage", "slippageUnit", "fillAt", "delay", "stopLoss", "takeProfit", "trailingStop", "size", "initialCapital", "rebalanceBand"]);
-  maxParticipation ??= 1.0;
-  takerFee ??= 0.0;
-  tickSize ??= 0.0;
-  minPosition ??= -Infinity;
-  maxPosition ??= Infinity;
-  multiplier ??= 1.0;
-  feePerContract ??= 0.0;
-  slippage ??= 0.0;
-  slippageUnit ??= "fraction";
-  fillAt ??= "open";
-  delay ??= 1;
-  stopLoss ??= 0.0;
-  takeProfit ??= 0.0;
-  trailingStop ??= 0.0;
-  size ??= "units";
-  initialCapital ??= 0.0;
-  rebalanceBand ??= 0.0;
+  if (_isOptions(maxParticipation)) [maxParticipation, takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, fillAt, delay, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand] = _options("BacktestOHLCVTarget", maxParticipation, arguments.length, ["maxParticipation", "takerFee", "tickSize", "minPosition", "maxPosition", "multiplier", "feePerContract", "slippage", "slippageUnit", "fillAt", "delay", "stopLoss", "takeProfit", "trailingStop", "size", "initialCapital", "rebalanceBand"], "maxParticipation must be a number");
+  else if (arguments.length > 17) _tooMany("BacktestOHLCVTarget", 17, arguments.length);
+  if (maxParticipation === undefined) maxParticipation = 1.0;
+  if (takerFee === undefined) takerFee = 0.0;
+  if (tickSize === undefined) tickSize = 0.0;
+  if (minPosition === undefined) minPosition = -Infinity;
+  if (maxPosition === undefined) maxPosition = Infinity;
+  if (multiplier === undefined) multiplier = 1.0;
+  if (feePerContract === undefined) feePerContract = 0.0;
+  if (slippage === undefined) slippage = 0.0;
+  if (slippageUnit === undefined) slippageUnit = "fraction";
+  if (fillAt === undefined) fillAt = "open";
+  if (delay === undefined) delay = 1;
+  if (stopLoss === undefined) stopLoss = 0.0;
+  if (takeProfit === undefined) takeProfit = 0.0;
+  if (trailingStop === undefined) trailingStop = 0.0;
+  if (size === undefined) size = "units";
+  if (initialCapital === undefined) initialCapital = 0.0;
+  if (rebalanceBand === undefined) rebalanceBand = 0.0;
   const M = current();
-  if (_isText(maxParticipation)) throw new TypeError(`maxParticipation must be a number, got a string`);
-  if (_isText(takerFee)) throw new TypeError(`takerFee must be a number, got a string`);
-  if (_isText(tickSize)) throw new TypeError(`tickSize must be a number, got a string`);
-  if (_isText(minPosition)) throw new TypeError(`minPosition must be a number, got a string`);
-  if (_isText(maxPosition)) throw new TypeError(`maxPosition must be a number, got a string`);
-  if (_isText(multiplier)) throw new TypeError(`multiplier must be a number, got a string`);
-  if (_isText(feePerContract)) throw new TypeError(`feePerContract must be a number, got a string`);
-  if (_isText(slippage)) throw new TypeError(`slippage must be a number, got a string`);
-  if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
-  if (typeof fillAt !== "string") throw new TypeError(`fillAt must be a string, got ${typeof fillAt}`);
-  if (_isText(delay)) throw new TypeError(`delay must be a number, got a string`);
-  if (_isText(stopLoss)) throw new TypeError(`stopLoss must be a number, got a string`);
-  if (_isText(takeProfit)) throw new TypeError(`takeProfit must be a number, got a string`);
-  if (_isText(trailingStop)) throw new TypeError(`trailingStop must be a number, got a string`);
-  if (typeof size !== "string") throw new TypeError(`size must be a string, got ${typeof size}`);
-  if (_isText(initialCapital)) throw new TypeError(`initialCapital must be a number, got a string`);
-  if (_isText(rebalanceBand)) throw new TypeError(`rebalanceBand must be a number, got a string`);
+  if (typeof maxParticipation !== "number") throw new TypeError(`BacktestOHLCVTarget: maxParticipation must be a number, got ${_what(maxParticipation)}`);
+  if (typeof takerFee !== "number") throw new TypeError(`BacktestOHLCVTarget: takerFee must be a number, got ${_what(takerFee)}`);
+  if (typeof tickSize !== "number") throw new TypeError(`BacktestOHLCVTarget: tickSize must be a number, got ${_what(tickSize)}`);
+  if (typeof minPosition !== "number") throw new TypeError(`BacktestOHLCVTarget: minPosition must be a number, got ${_what(minPosition)}`);
+  if (typeof maxPosition !== "number") throw new TypeError(`BacktestOHLCVTarget: maxPosition must be a number, got ${_what(maxPosition)}`);
+  if (typeof multiplier !== "number") throw new TypeError(`BacktestOHLCVTarget: multiplier must be a number, got ${_what(multiplier)}`);
+  if (typeof feePerContract !== "number") throw new TypeError(`BacktestOHLCVTarget: feePerContract must be a number, got ${_what(feePerContract)}`);
+  if (typeof slippage !== "number") throw new TypeError(`BacktestOHLCVTarget: slippage must be a number, got ${_what(slippage)}`);
+  if (typeof slippageUnit !== "string") throw new TypeError(`BacktestOHLCVTarget: slippageUnit must be a string, got ${slippageUnit instanceof String ? "a String object" : _what(slippageUnit)}`);
+  if (typeof fillAt !== "string") throw new TypeError(`BacktestOHLCVTarget: fillAt must be a string, got ${fillAt instanceof String ? "a String object" : _what(fillAt)}`);
+  if (typeof delay !== "number") throw new TypeError(`BacktestOHLCVTarget: delay must be a number, got ${_what(delay)}`);
+  if (typeof stopLoss !== "number") throw new TypeError(`BacktestOHLCVTarget: stopLoss must be a number, got ${_what(stopLoss)}`);
+  if (typeof takeProfit !== "number") throw new TypeError(`BacktestOHLCVTarget: takeProfit must be a number, got ${_what(takeProfit)}`);
+  if (typeof trailingStop !== "number") throw new TypeError(`BacktestOHLCVTarget: trailingStop must be a number, got ${_what(trailingStop)}`);
+  if (typeof size !== "string") throw new TypeError(`BacktestOHLCVTarget: size must be a string, got ${size instanceof String ? "a String object" : _what(size)}`);
+  if (typeof initialCapital !== "number") throw new TypeError(`BacktestOHLCVTarget: initialCapital must be a number, got ${_what(initialCapital)}`);
+  if (typeof rebalanceBand !== "number") throw new TypeError(`BacktestOHLCVTarget: rebalanceBand must be a number, got ${_what(rebalanceBand)}`);
   return wrapOp(M, () => new M.BacktestOHLCVTarget(maxParticipation, takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, fillAt, delay, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand));
 }
 
 /** The settings of BacktestPortfolioOHLCTarget by name, for `BacktestPortfolioOHLCTarget({ ... })`. */
 export interface BacktestPortfolioOHLCTargetOptions {
-  /** Fractional fee on the traded notional, one value for all assets or one per asset. */
+  /** Fractional fee on the traded notional, one value for all assets or one per asset. @defaultValue `[0.0]` */
   fee?: number | number[];
-  /** Adverse price offset on every fill, read in `slippage_unit`, one value for all assets or one per asset. */
+  /** Adverse price offset on every fill, read in `slippage_unit`, one value for all assets or one per asset. @defaultValue `[0.0]` */
   slippage?: number | number[];
-  /** Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price". */
+  /** Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price". @defaultValue `"fraction"` */
   slippageUnit?: string;
-  /** Price grid per asset (0 = continuous). Slippage offsets round up to whole ticks. */
+  /** Price grid per asset (0 = continuous). Slippage offsets round up to whole ticks. @defaultValue `[0.0]` */
   tickSize?: number | number[];
-  /** Contract multiplier per asset, applied to pnl, notional, and proportional fees. */
+  /** Contract multiplier per asset, applied to pnl, notional, and proportional fees. @defaultValue `[1.0]` */
   multiplier?: number | number[];
-  /** Fixed fee per contract traded, one value for all assets or one per asset. */
+  /** Fixed fee per contract traded, one value for all assets or one per asset. @defaultValue `[0.0]` */
   feePerContract?: number | number[];
-  /** What a target means: "weight" (a fraction of portfolio equity), "notional" (a currency amount), or "units" (a position). */
+  /** What a target means: "weight" (a fraction of portfolio equity), "notional" (a currency amount), or "units" (a position). @defaultValue `"weight"` */
   size?: string;
-  /** Starting capital. Portfolio equity is this plus the summed pnl of all assets; weights are fractions of it. */
+  /** Starting capital. Portfolio equity is this plus the summed pnl of all assets; weights are fractions of it. @defaultValue `1.0` */
   initialCapital?: number;
-  /** Trade a held asset back to its target when its holding drifts from it by more than this fraction of equity (0 = never). Needs size "weight" or "notional". */
+  /** Trade a held asset back to its target when its holding drifts from it by more than this fraction of equity (0 = never). Needs size "weight" or "notional". @defaultValue `0.0` */
   rebalanceBand?: number;
-  /** When the band trips: "drifted" trades only the assets beyond it, "all" rebalances every asset that has a target. */
+  /** When the band trips: "drifted" trades only the assets beyond it, "all" rebalances every asset that has a target. @defaultValue `"drifted"` */
   rebalance?: string;
-  /** Largest gross exposure, sum of absolute position values over equity. Orders that exceed it are scaled down. */
+  /** Largest gross exposure, sum of absolute position values over equity. Orders that exceed it are scaled down. @defaultValue `Infinity` */
   maxGross?: number;
-  /** Largest absolute net exposure, sum of position values over equity. Orders that exceed it are scaled down. */
+  /** Largest absolute net exposure, sum of position values over equity. Orders that exceed it are scaled down. @defaultValue `Infinity` */
   maxNet?: number;
-  /** Execution price on the execution bar: "open", "close", "typical" ((high + low + close) / 3), or "ohlc4". */
+  /** Execution price on the execution bar: "open", "close", "typical" ((high + low + close) / 3), or "ohlc4". @defaultValue `"open"` */
   fillAt?: string;
-  /** Bars between the bar a target is decided on (at its close) and the bar it executes on. 0 needs fill_at "close". */
+  /** Bars between the bar a target is decided on (at its close) and the bar it executes on. 0 needs fill_at "close". @defaultValue `1` */
   delay?: number;
 }
 
@@ -952,64 +992,50 @@ export function BacktestPortfolioOHLCTarget(options: BacktestPortfolioOHLCTarget
  */
 export function BacktestPortfolioOHLCTarget(fee?: number | number[], slippage?: number | number[], slippageUnit?: string, tickSize?: number | number[], multiplier?: number | number[], feePerContract?: number | number[], size?: string, initialCapital?: number, rebalanceBand?: number, rebalance?: string, maxGross?: number, maxNet?: number, fillAt?: string, delay?: number): ScreamerOp;
 export function BacktestPortfolioOHLCTarget(fee?: any, slippage?: any, slippageUnit?: any, tickSize?: any, multiplier?: any, feePerContract?: any, size?: any, initialCapital?: any, rebalanceBand?: any, rebalance?: any, maxGross?: any, maxNet?: any, fillAt?: any, delay?: any): ScreamerOp {
-  if (_isOptions(fee)) [fee, slippage, slippageUnit, tickSize, multiplier, feePerContract, size, initialCapital, rebalanceBand, rebalance, maxGross, maxNet, fillAt, delay] = _options("BacktestPortfolioOHLCTarget", fee, arguments.length, ["fee", "slippage", "slippageUnit", "tickSize", "multiplier", "feePerContract", "size", "initialCapital", "rebalanceBand", "rebalance", "maxGross", "maxNet", "fillAt", "delay"]);
-  fee ??= [0.0];
-  slippage ??= [0.0];
-  slippageUnit ??= "fraction";
-  tickSize ??= [0.0];
-  multiplier ??= [1.0];
-  feePerContract ??= [0.0];
-  size ??= "weight";
-  initialCapital ??= 1.0;
-  rebalanceBand ??= 0.0;
-  rebalance ??= "drifted";
-  maxGross ??= Infinity;
-  maxNet ??= Infinity;
-  fillAt ??= "open";
-  delay ??= 1;
+  if (_isOptions(fee)) [fee, slippage, slippageUnit, tickSize, multiplier, feePerContract, size, initialCapital, rebalanceBand, rebalance, maxGross, maxNet, fillAt, delay] = _options("BacktestPortfolioOHLCTarget", fee, arguments.length, ["fee", "slippage", "slippageUnit", "tickSize", "multiplier", "feePerContract", "size", "initialCapital", "rebalanceBand", "rebalance", "maxGross", "maxNet", "fillAt", "delay"], "fee must be a number or an array of numbers");
+  else if (arguments.length > 14) _tooMany("BacktestPortfolioOHLCTarget", 14, arguments.length);
+  if (fee === undefined) fee = [0.0];
+  if (slippage === undefined) slippage = [0.0];
+  if (slippageUnit === undefined) slippageUnit = "fraction";
+  if (tickSize === undefined) tickSize = [0.0];
+  if (multiplier === undefined) multiplier = [1.0];
+  if (feePerContract === undefined) feePerContract = [0.0];
+  if (size === undefined) size = "weight";
+  if (initialCapital === undefined) initialCapital = 1.0;
+  if (rebalanceBand === undefined) rebalanceBand = 0.0;
+  if (rebalance === undefined) rebalance = "drifted";
+  if (maxGross === undefined) maxGross = Infinity;
+  if (maxNet === undefined) maxNet = Infinity;
+  if (fillAt === undefined) fillAt = "open";
+  if (delay === undefined) delay = 1;
   const M = current();
-  if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
-  if (typeof size !== "string") throw new TypeError(`size must be a string, got ${typeof size}`);
-  if (_isText(initialCapital)) throw new TypeError(`initialCapital must be a number, got a string`);
-  if (_isText(rebalanceBand)) throw new TypeError(`rebalanceBand must be a number, got a string`);
-  if (typeof rebalance !== "string") throw new TypeError(`rebalance must be a string, got ${typeof rebalance}`);
-  if (_isText(maxGross)) throw new TypeError(`maxGross must be a number, got a string`);
-  if (_isText(maxNet)) throw new TypeError(`maxNet must be a number, got a string`);
-  if (typeof fillAt !== "string") throw new TypeError(`fillAt must be a string, got ${typeof fillAt}`);
-  if (_isText(delay)) throw new TypeError(`delay must be a number, got a string`);
-  const fee_ = _vec("fee", fee);
-  if (_isText(fee_) || (Array.isArray(fee_) && fee_.some(_isText))) throw new TypeError(`fee must be a number or an array of numbers, got a string`);
-  const slippage_ = _vec("slippage", slippage);
-  if (_isText(slippage_) || (Array.isArray(slippage_) && slippage_.some(_isText))) throw new TypeError(`slippage must be a number or an array of numbers, got a string`);
-  const tickSize_ = _vec("tickSize", tickSize);
-  if (_isText(tickSize_) || (Array.isArray(tickSize_) && tickSize_.some(_isText))) throw new TypeError(`tickSize must be a number or an array of numbers, got a string`);
-  const multiplier_ = _vec("multiplier", multiplier);
-  if (_isText(multiplier_) || (Array.isArray(multiplier_) && multiplier_.some(_isText))) throw new TypeError(`multiplier must be a number or an array of numbers, got a string`);
-  const feePerContract_ = _vec("feePerContract", feePerContract);
-  if (_isText(feePerContract_) || (Array.isArray(feePerContract_) && feePerContract_.some(_isText))) throw new TypeError(`feePerContract must be a number or an array of numbers, got a string`);
+  if (typeof slippageUnit !== "string") throw new TypeError(`BacktestPortfolioOHLCTarget: slippageUnit must be a string, got ${slippageUnit instanceof String ? "a String object" : _what(slippageUnit)}`);
+  if (typeof size !== "string") throw new TypeError(`BacktestPortfolioOHLCTarget: size must be a string, got ${size instanceof String ? "a String object" : _what(size)}`);
+  if (typeof initialCapital !== "number") throw new TypeError(`BacktestPortfolioOHLCTarget: initialCapital must be a number, got ${_what(initialCapital)}`);
+  if (typeof rebalanceBand !== "number") throw new TypeError(`BacktestPortfolioOHLCTarget: rebalanceBand must be a number, got ${_what(rebalanceBand)}`);
+  if (typeof rebalance !== "string") throw new TypeError(`BacktestPortfolioOHLCTarget: rebalance must be a string, got ${rebalance instanceof String ? "a String object" : _what(rebalance)}`);
+  if (typeof maxGross !== "number") throw new TypeError(`BacktestPortfolioOHLCTarget: maxGross must be a number, got ${_what(maxGross)}`);
+  if (typeof maxNet !== "number") throw new TypeError(`BacktestPortfolioOHLCTarget: maxNet must be a number, got ${_what(maxNet)}`);
+  if (typeof fillAt !== "string") throw new TypeError(`BacktestPortfolioOHLCTarget: fillAt must be a string, got ${fillAt instanceof String ? "a String object" : _what(fillAt)}`);
+  if (typeof delay !== "number") throw new TypeError(`BacktestPortfolioOHLCTarget: delay must be a number, got ${_what(delay)}`);
+  const fee_ = _vec("BacktestPortfolioOHLCTarget", "fee", fee);
+  const slippage_ = _vec("BacktestPortfolioOHLCTarget", "slippage", slippage);
+  const tickSize_ = _vec("BacktestPortfolioOHLCTarget", "tickSize", tickSize);
+  const multiplier_ = _vec("BacktestPortfolioOHLCTarget", "multiplier", multiplier);
+  const feePerContract_ = _vec("BacktestPortfolioOHLCTarget", "feePerContract", feePerContract);
   return wrapRowOp(M, () => {
     const _v0 = new M.VectorDouble(), _v1 = new M.VectorDouble(), _v3 = new M.VectorDouble(), _v4 = new M.VectorDouble(), _v5 = new M.VectorDouble();
     try {
-      for (const _x of (typeof fee_ === "number" ? [fee_] : fee_)) {
-        if (typeof _x !== "number") throw new TypeError(`fee must be a number or an array of numbers, got ${_what(_x)}`);
-        _v0.push_back(_x);
-      }
-      for (const _x of (typeof slippage_ === "number" ? [slippage_] : slippage_)) {
-        if (typeof _x !== "number") throw new TypeError(`slippage must be a number or an array of numbers, got ${_what(_x)}`);
-        _v1.push_back(_x);
-      }
-      for (const _x of (typeof tickSize_ === "number" ? [tickSize_] : tickSize_)) {
-        if (typeof _x !== "number") throw new TypeError(`tickSize must be a number or an array of numbers, got ${_what(_x)}`);
-        _v3.push_back(_x);
-      }
-      for (const _x of (typeof multiplier_ === "number" ? [multiplier_] : multiplier_)) {
-        if (typeof _x !== "number") throw new TypeError(`multiplier must be a number or an array of numbers, got ${_what(_x)}`);
-        _v4.push_back(_x);
-      }
-      for (const _x of (typeof feePerContract_ === "number" ? [feePerContract_] : feePerContract_)) {
-        if (typeof _x !== "number") throw new TypeError(`feePerContract must be a number or an array of numbers, got ${_what(_x)}`);
-        _v5.push_back(_x);
-      }
+      if (typeof fee_ === "number") _v0.push_back(fee_);
+      else for (const _x of fee_) _v0.push_back(_x);
+      if (typeof slippage_ === "number") _v1.push_back(slippage_);
+      else for (const _x of slippage_) _v1.push_back(_x);
+      if (typeof tickSize_ === "number") _v3.push_back(tickSize_);
+      else for (const _x of tickSize_) _v3.push_back(_x);
+      if (typeof multiplier_ === "number") _v4.push_back(multiplier_);
+      else for (const _x of multiplier_) _v4.push_back(_x);
+      if (typeof feePerContract_ === "number") _v5.push_back(feePerContract_);
+      else for (const _x of feePerContract_) _v5.push_back(_x);
       return new M.BacktestPortfolioOHLCTarget(_v0, _v1, slippageUnit, _v3, _v4, _v5, size, initialCapital, rebalanceBand, rebalance, maxGross, maxNet, fillAt, delay);
     } finally {
       _v0.delete();
@@ -1023,29 +1049,29 @@ export function BacktestPortfolioOHLCTarget(fee?: any, slippage?: any, slippageU
 
 /** The settings of BacktestPortfolioTarget by name, for `BacktestPortfolioTarget({ ... })`. */
 export interface BacktestPortfolioTargetOptions {
-  /** Fractional fee on the traded notional, one value for all assets or one per asset. */
+  /** Fractional fee on the traded notional, one value for all assets or one per asset. @defaultValue `[0.0]` */
   fee?: number | number[];
-  /** Adverse price offset on every fill, read in `slippage_unit`, one value for all assets or one per asset. */
+  /** Adverse price offset on every fill, read in `slippage_unit`, one value for all assets or one per asset. @defaultValue `[0.0]` */
   slippage?: number | number[];
-  /** Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price". */
+  /** Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price". @defaultValue `"fraction"` */
   slippageUnit?: string;
-  /** Price grid per asset (0 = continuous). Slippage offsets round up to whole ticks. */
+  /** Price grid per asset (0 = continuous). Slippage offsets round up to whole ticks. @defaultValue `[0.0]` */
   tickSize?: number | number[];
-  /** Contract multiplier per asset, applied to pnl, notional, and proportional fees. */
+  /** Contract multiplier per asset, applied to pnl, notional, and proportional fees. @defaultValue `[1.0]` */
   multiplier?: number | number[];
-  /** Fixed fee per contract traded, one value for all assets or one per asset. */
+  /** Fixed fee per contract traded, one value for all assets or one per asset. @defaultValue `[0.0]` */
   feePerContract?: number | number[];
-  /** What a target means: "weight" (a fraction of portfolio equity), "notional" (a currency amount), or "units" (a position). */
+  /** What a target means: "weight" (a fraction of portfolio equity), "notional" (a currency amount), or "units" (a position). @defaultValue `"weight"` */
   size?: string;
-  /** Starting capital. Portfolio equity is this plus the summed pnl of all assets; weights are fractions of it. */
+  /** Starting capital. Portfolio equity is this plus the summed pnl of all assets; weights are fractions of it. @defaultValue `1.0` */
   initialCapital?: number;
-  /** Trade a held asset back to its target when its holding drifts from it by more than this fraction of equity (0 = never). Needs size "weight" or "notional". */
+  /** Trade a held asset back to its target when its holding drifts from it by more than this fraction of equity (0 = never). Needs size "weight" or "notional". @defaultValue `0.0` */
   rebalanceBand?: number;
-  /** When the band trips: "drifted" trades only the assets beyond it, "all" rebalances every asset that has a target. */
+  /** When the band trips: "drifted" trades only the assets beyond it, "all" rebalances every asset that has a target. @defaultValue `"drifted"` */
   rebalance?: string;
-  /** Largest gross exposure, sum of absolute position values over equity. Orders that exceed it are scaled down. */
+  /** Largest gross exposure, sum of absolute position values over equity. Orders that exceed it are scaled down. @defaultValue `Infinity` */
   maxGross?: number;
-  /** Largest absolute net exposure, sum of position values over equity. Orders that exceed it are scaled down. */
+  /** Largest absolute net exposure, sum of position values over equity. Orders that exceed it are scaled down. @defaultValue `Infinity` */
   maxNet?: number;
 }
 
@@ -1075,60 +1101,46 @@ export function BacktestPortfolioTarget(options: BacktestPortfolioTargetOptions)
  */
 export function BacktestPortfolioTarget(fee?: number | number[], slippage?: number | number[], slippageUnit?: string, tickSize?: number | number[], multiplier?: number | number[], feePerContract?: number | number[], size?: string, initialCapital?: number, rebalanceBand?: number, rebalance?: string, maxGross?: number, maxNet?: number): ScreamerOp;
 export function BacktestPortfolioTarget(fee?: any, slippage?: any, slippageUnit?: any, tickSize?: any, multiplier?: any, feePerContract?: any, size?: any, initialCapital?: any, rebalanceBand?: any, rebalance?: any, maxGross?: any, maxNet?: any): ScreamerOp {
-  if (_isOptions(fee)) [fee, slippage, slippageUnit, tickSize, multiplier, feePerContract, size, initialCapital, rebalanceBand, rebalance, maxGross, maxNet] = _options("BacktestPortfolioTarget", fee, arguments.length, ["fee", "slippage", "slippageUnit", "tickSize", "multiplier", "feePerContract", "size", "initialCapital", "rebalanceBand", "rebalance", "maxGross", "maxNet"]);
-  fee ??= [0.0];
-  slippage ??= [0.0];
-  slippageUnit ??= "fraction";
-  tickSize ??= [0.0];
-  multiplier ??= [1.0];
-  feePerContract ??= [0.0];
-  size ??= "weight";
-  initialCapital ??= 1.0;
-  rebalanceBand ??= 0.0;
-  rebalance ??= "drifted";
-  maxGross ??= Infinity;
-  maxNet ??= Infinity;
+  if (_isOptions(fee)) [fee, slippage, slippageUnit, tickSize, multiplier, feePerContract, size, initialCapital, rebalanceBand, rebalance, maxGross, maxNet] = _options("BacktestPortfolioTarget", fee, arguments.length, ["fee", "slippage", "slippageUnit", "tickSize", "multiplier", "feePerContract", "size", "initialCapital", "rebalanceBand", "rebalance", "maxGross", "maxNet"], "fee must be a number or an array of numbers");
+  else if (arguments.length > 12) _tooMany("BacktestPortfolioTarget", 12, arguments.length);
+  if (fee === undefined) fee = [0.0];
+  if (slippage === undefined) slippage = [0.0];
+  if (slippageUnit === undefined) slippageUnit = "fraction";
+  if (tickSize === undefined) tickSize = [0.0];
+  if (multiplier === undefined) multiplier = [1.0];
+  if (feePerContract === undefined) feePerContract = [0.0];
+  if (size === undefined) size = "weight";
+  if (initialCapital === undefined) initialCapital = 1.0;
+  if (rebalanceBand === undefined) rebalanceBand = 0.0;
+  if (rebalance === undefined) rebalance = "drifted";
+  if (maxGross === undefined) maxGross = Infinity;
+  if (maxNet === undefined) maxNet = Infinity;
   const M = current();
-  if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
-  if (typeof size !== "string") throw new TypeError(`size must be a string, got ${typeof size}`);
-  if (_isText(initialCapital)) throw new TypeError(`initialCapital must be a number, got a string`);
-  if (_isText(rebalanceBand)) throw new TypeError(`rebalanceBand must be a number, got a string`);
-  if (typeof rebalance !== "string") throw new TypeError(`rebalance must be a string, got ${typeof rebalance}`);
-  if (_isText(maxGross)) throw new TypeError(`maxGross must be a number, got a string`);
-  if (_isText(maxNet)) throw new TypeError(`maxNet must be a number, got a string`);
-  const fee_ = _vec("fee", fee);
-  if (_isText(fee_) || (Array.isArray(fee_) && fee_.some(_isText))) throw new TypeError(`fee must be a number or an array of numbers, got a string`);
-  const slippage_ = _vec("slippage", slippage);
-  if (_isText(slippage_) || (Array.isArray(slippage_) && slippage_.some(_isText))) throw new TypeError(`slippage must be a number or an array of numbers, got a string`);
-  const tickSize_ = _vec("tickSize", tickSize);
-  if (_isText(tickSize_) || (Array.isArray(tickSize_) && tickSize_.some(_isText))) throw new TypeError(`tickSize must be a number or an array of numbers, got a string`);
-  const multiplier_ = _vec("multiplier", multiplier);
-  if (_isText(multiplier_) || (Array.isArray(multiplier_) && multiplier_.some(_isText))) throw new TypeError(`multiplier must be a number or an array of numbers, got a string`);
-  const feePerContract_ = _vec("feePerContract", feePerContract);
-  if (_isText(feePerContract_) || (Array.isArray(feePerContract_) && feePerContract_.some(_isText))) throw new TypeError(`feePerContract must be a number or an array of numbers, got a string`);
+  if (typeof slippageUnit !== "string") throw new TypeError(`BacktestPortfolioTarget: slippageUnit must be a string, got ${slippageUnit instanceof String ? "a String object" : _what(slippageUnit)}`);
+  if (typeof size !== "string") throw new TypeError(`BacktestPortfolioTarget: size must be a string, got ${size instanceof String ? "a String object" : _what(size)}`);
+  if (typeof initialCapital !== "number") throw new TypeError(`BacktestPortfolioTarget: initialCapital must be a number, got ${_what(initialCapital)}`);
+  if (typeof rebalanceBand !== "number") throw new TypeError(`BacktestPortfolioTarget: rebalanceBand must be a number, got ${_what(rebalanceBand)}`);
+  if (typeof rebalance !== "string") throw new TypeError(`BacktestPortfolioTarget: rebalance must be a string, got ${rebalance instanceof String ? "a String object" : _what(rebalance)}`);
+  if (typeof maxGross !== "number") throw new TypeError(`BacktestPortfolioTarget: maxGross must be a number, got ${_what(maxGross)}`);
+  if (typeof maxNet !== "number") throw new TypeError(`BacktestPortfolioTarget: maxNet must be a number, got ${_what(maxNet)}`);
+  const fee_ = _vec("BacktestPortfolioTarget", "fee", fee);
+  const slippage_ = _vec("BacktestPortfolioTarget", "slippage", slippage);
+  const tickSize_ = _vec("BacktestPortfolioTarget", "tickSize", tickSize);
+  const multiplier_ = _vec("BacktestPortfolioTarget", "multiplier", multiplier);
+  const feePerContract_ = _vec("BacktestPortfolioTarget", "feePerContract", feePerContract);
   return wrapRowOp(M, () => {
     const _v0 = new M.VectorDouble(), _v1 = new M.VectorDouble(), _v3 = new M.VectorDouble(), _v4 = new M.VectorDouble(), _v5 = new M.VectorDouble();
     try {
-      for (const _x of (typeof fee_ === "number" ? [fee_] : fee_)) {
-        if (typeof _x !== "number") throw new TypeError(`fee must be a number or an array of numbers, got ${_what(_x)}`);
-        _v0.push_back(_x);
-      }
-      for (const _x of (typeof slippage_ === "number" ? [slippage_] : slippage_)) {
-        if (typeof _x !== "number") throw new TypeError(`slippage must be a number or an array of numbers, got ${_what(_x)}`);
-        _v1.push_back(_x);
-      }
-      for (const _x of (typeof tickSize_ === "number" ? [tickSize_] : tickSize_)) {
-        if (typeof _x !== "number") throw new TypeError(`tickSize must be a number or an array of numbers, got ${_what(_x)}`);
-        _v3.push_back(_x);
-      }
-      for (const _x of (typeof multiplier_ === "number" ? [multiplier_] : multiplier_)) {
-        if (typeof _x !== "number") throw new TypeError(`multiplier must be a number or an array of numbers, got ${_what(_x)}`);
-        _v4.push_back(_x);
-      }
-      for (const _x of (typeof feePerContract_ === "number" ? [feePerContract_] : feePerContract_)) {
-        if (typeof _x !== "number") throw new TypeError(`feePerContract must be a number or an array of numbers, got ${_what(_x)}`);
-        _v5.push_back(_x);
-      }
+      if (typeof fee_ === "number") _v0.push_back(fee_);
+      else for (const _x of fee_) _v0.push_back(_x);
+      if (typeof slippage_ === "number") _v1.push_back(slippage_);
+      else for (const _x of slippage_) _v1.push_back(_x);
+      if (typeof tickSize_ === "number") _v3.push_back(tickSize_);
+      else for (const _x of tickSize_) _v3.push_back(_x);
+      if (typeof multiplier_ === "number") _v4.push_back(multiplier_);
+      else for (const _x of multiplier_) _v4.push_back(_x);
+      if (typeof feePerContract_ === "number") _v5.push_back(feePerContract_);
+      else for (const _x of feePerContract_) _v5.push_back(_x);
       return new M.BacktestPortfolioTarget(_v0, _v1, slippageUnit, _v3, _v4, _v5, size, initialCapital, rebalanceBand, rebalance, maxGross, maxNet);
     } finally {
       _v0.delete();
@@ -1142,35 +1154,35 @@ export function BacktestPortfolioTarget(fee?: any, slippage?: any, slippageUnit?
 
 /** The settings of BacktestPriceTarget by name, for `BacktestPriceTarget({ ... })`. */
 export interface BacktestPriceTargetOptions {
-  /** Fractional bid-ask spread crossed on each trade (e.g. 0.0005 = 5 bps). Default 0 is frictionless. */
+  /** Fractional bid-ask spread crossed on each trade (e.g. 0.0005 = 5 bps). Default 0 is frictionless. @defaultValue `0.0` */
   spread?: number;
-  /** Fractional taker fee charged on the traded notional. */
+  /** Fractional taker fee charged on the traded notional. @defaultValue `0.0` */
   fee?: number;
-  /** Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. */
+  /** Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. @defaultValue `-Infinity` */
   minPosition?: number;
-  /** Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. */
+  /** Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. @defaultValue `Infinity` */
   maxPosition?: number;
-  /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. */
+  /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. @defaultValue `1.0` */
   multiplier?: number;
-  /** Fixed fee (or rebate when negative) charged per contract on each fill. */
+  /** Fixed fee (or rebate when negative) charged per contract on each fill. @defaultValue `0.0` */
   feePerContract?: number;
-  /** Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip. */
+  /** Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip. @defaultValue `0.0` */
   slippage?: number;
-  /** Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount). */
+  /** Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount). @defaultValue `"fraction"` */
   slippageUnit?: string;
-  /** Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the `"ticks"` slippage unit counts in this step. */
+  /** Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the `"ticks"` slippage unit counts in this step. @defaultValue `0.0` */
   tickSize?: number;
-  /** Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off. */
+  /** Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off. @defaultValue `0.0` */
   stopLoss?: number;
-  /** Exit when the price moves this fraction in favor of the average entry fill. 0 turns it off. */
+  /** Exit when the price moves this fraction in favor of the average entry fill. 0 turns it off. @defaultValue `0.0` */
   takeProfit?: number;
-  /** Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off. */
+  /** Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off. @defaultValue `0.0` */
   trailingStop?: number;
-  /** How to read the target: "units" (a position), "notional" (a currency amount), or "weight" (a fraction of initial_capital + equity). It is converted to units at the execution price. */
+  /** How to read the target: "units" (a position), "notional" (a currency amount), or "weight" (a fraction of initial_capital + equity). It is converted to units at the execution price. @defaultValue `"units"` */
   size?: string;
-  /** Starting capital for size="weight" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl. */
+  /** Starting capital for size="weight" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl. @defaultValue `0.0` */
   initialCapital?: number;
-  /** With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes. */
+  /** With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes. @defaultValue `0.0` */
   rebalanceBand?: number;
 }
 
@@ -1203,44 +1215,45 @@ export function BacktestPriceTarget(options: BacktestPriceTargetOptions): Scream
  */
 export function BacktestPriceTarget(spread?: number, fee?: number, minPosition?: number, maxPosition?: number, multiplier?: number, feePerContract?: number, slippage?: number, slippageUnit?: string, tickSize?: number, stopLoss?: number, takeProfit?: number, trailingStop?: number, size?: string, initialCapital?: number, rebalanceBand?: number): ScreamerOp;
 export function BacktestPriceTarget(spread?: any, fee?: any, minPosition?: any, maxPosition?: any, multiplier?: any, feePerContract?: any, slippage?: any, slippageUnit?: any, tickSize?: any, stopLoss?: any, takeProfit?: any, trailingStop?: any, size?: any, initialCapital?: any, rebalanceBand?: any): ScreamerOp {
-  if (_isOptions(spread)) [spread, fee, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, tickSize, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand] = _options("BacktestPriceTarget", spread, arguments.length, ["spread", "fee", "minPosition", "maxPosition", "multiplier", "feePerContract", "slippage", "slippageUnit", "tickSize", "stopLoss", "takeProfit", "trailingStop", "size", "initialCapital", "rebalanceBand"]);
-  spread ??= 0.0;
-  fee ??= 0.0;
-  minPosition ??= -Infinity;
-  maxPosition ??= Infinity;
-  multiplier ??= 1.0;
-  feePerContract ??= 0.0;
-  slippage ??= 0.0;
-  slippageUnit ??= "fraction";
-  tickSize ??= 0.0;
-  stopLoss ??= 0.0;
-  takeProfit ??= 0.0;
-  trailingStop ??= 0.0;
-  size ??= "units";
-  initialCapital ??= 0.0;
-  rebalanceBand ??= 0.0;
+  if (_isOptions(spread)) [spread, fee, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, tickSize, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand] = _options("BacktestPriceTarget", spread, arguments.length, ["spread", "fee", "minPosition", "maxPosition", "multiplier", "feePerContract", "slippage", "slippageUnit", "tickSize", "stopLoss", "takeProfit", "trailingStop", "size", "initialCapital", "rebalanceBand"], "spread must be a number");
+  else if (arguments.length > 15) _tooMany("BacktestPriceTarget", 15, arguments.length);
+  if (spread === undefined) spread = 0.0;
+  if (fee === undefined) fee = 0.0;
+  if (minPosition === undefined) minPosition = -Infinity;
+  if (maxPosition === undefined) maxPosition = Infinity;
+  if (multiplier === undefined) multiplier = 1.0;
+  if (feePerContract === undefined) feePerContract = 0.0;
+  if (slippage === undefined) slippage = 0.0;
+  if (slippageUnit === undefined) slippageUnit = "fraction";
+  if (tickSize === undefined) tickSize = 0.0;
+  if (stopLoss === undefined) stopLoss = 0.0;
+  if (takeProfit === undefined) takeProfit = 0.0;
+  if (trailingStop === undefined) trailingStop = 0.0;
+  if (size === undefined) size = "units";
+  if (initialCapital === undefined) initialCapital = 0.0;
+  if (rebalanceBand === undefined) rebalanceBand = 0.0;
   const M = current();
-  if (_isText(spread)) throw new TypeError(`spread must be a number, got a string`);
-  if (_isText(fee)) throw new TypeError(`fee must be a number, got a string`);
-  if (_isText(minPosition)) throw new TypeError(`minPosition must be a number, got a string`);
-  if (_isText(maxPosition)) throw new TypeError(`maxPosition must be a number, got a string`);
-  if (_isText(multiplier)) throw new TypeError(`multiplier must be a number, got a string`);
-  if (_isText(feePerContract)) throw new TypeError(`feePerContract must be a number, got a string`);
-  if (_isText(slippage)) throw new TypeError(`slippage must be a number, got a string`);
-  if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
-  if (_isText(tickSize)) throw new TypeError(`tickSize must be a number, got a string`);
-  if (_isText(stopLoss)) throw new TypeError(`stopLoss must be a number, got a string`);
-  if (_isText(takeProfit)) throw new TypeError(`takeProfit must be a number, got a string`);
-  if (_isText(trailingStop)) throw new TypeError(`trailingStop must be a number, got a string`);
-  if (typeof size !== "string") throw new TypeError(`size must be a string, got ${typeof size}`);
-  if (_isText(initialCapital)) throw new TypeError(`initialCapital must be a number, got a string`);
-  if (_isText(rebalanceBand)) throw new TypeError(`rebalanceBand must be a number, got a string`);
+  if (typeof spread !== "number") throw new TypeError(`BacktestPriceTarget: spread must be a number, got ${_what(spread)}`);
+  if (typeof fee !== "number") throw new TypeError(`BacktestPriceTarget: fee must be a number, got ${_what(fee)}`);
+  if (typeof minPosition !== "number") throw new TypeError(`BacktestPriceTarget: minPosition must be a number, got ${_what(minPosition)}`);
+  if (typeof maxPosition !== "number") throw new TypeError(`BacktestPriceTarget: maxPosition must be a number, got ${_what(maxPosition)}`);
+  if (typeof multiplier !== "number") throw new TypeError(`BacktestPriceTarget: multiplier must be a number, got ${_what(multiplier)}`);
+  if (typeof feePerContract !== "number") throw new TypeError(`BacktestPriceTarget: feePerContract must be a number, got ${_what(feePerContract)}`);
+  if (typeof slippage !== "number") throw new TypeError(`BacktestPriceTarget: slippage must be a number, got ${_what(slippage)}`);
+  if (typeof slippageUnit !== "string") throw new TypeError(`BacktestPriceTarget: slippageUnit must be a string, got ${slippageUnit instanceof String ? "a String object" : _what(slippageUnit)}`);
+  if (typeof tickSize !== "number") throw new TypeError(`BacktestPriceTarget: tickSize must be a number, got ${_what(tickSize)}`);
+  if (typeof stopLoss !== "number") throw new TypeError(`BacktestPriceTarget: stopLoss must be a number, got ${_what(stopLoss)}`);
+  if (typeof takeProfit !== "number") throw new TypeError(`BacktestPriceTarget: takeProfit must be a number, got ${_what(takeProfit)}`);
+  if (typeof trailingStop !== "number") throw new TypeError(`BacktestPriceTarget: trailingStop must be a number, got ${_what(trailingStop)}`);
+  if (typeof size !== "string") throw new TypeError(`BacktestPriceTarget: size must be a string, got ${size instanceof String ? "a String object" : _what(size)}`);
+  if (typeof initialCapital !== "number") throw new TypeError(`BacktestPriceTarget: initialCapital must be a number, got ${_what(initialCapital)}`);
+  if (typeof rebalanceBand !== "number") throw new TypeError(`BacktestPriceTarget: rebalanceBand must be a number, got ${_what(rebalanceBand)}`);
   return wrapOp(M, () => new M.BacktestPriceTarget(spread, fee, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, tickSize, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand));
 }
 
 /** The settings of BacktestReport by name, for `BacktestReport({ ... })`. */
 export interface BacktestReportOptions {
-  /** Steps per year, used to annualize the Sharpe ratio (for example 252 for daily bars). The default 1 gives the per-step ratio. */
+  /** Steps per year, used to annualize the Sharpe ratio (for example 252 for daily bars). The default 1 gives the per-step ratio. @defaultValue `1.0` */
   periodsPerYear?: number;
 }
 
@@ -1259,16 +1272,17 @@ export function BacktestReport(options: BacktestReportOptions): ScreamerOp;
  */
 export function BacktestReport(periodsPerYear?: number): ScreamerOp;
 export function BacktestReport(periodsPerYear?: any): ScreamerOp {
-  if (_isOptions(periodsPerYear)) [periodsPerYear] = _options("BacktestReport", periodsPerYear, arguments.length, ["periodsPerYear"]);
-  periodsPerYear ??= 1.0;
+  if (_isOptions(periodsPerYear)) [periodsPerYear] = _options("BacktestReport", periodsPerYear, arguments.length, ["periodsPerYear"], "periodsPerYear must be a number");
+  else if (arguments.length > 1) _tooMany("BacktestReport", 1, arguments.length);
+  if (periodsPerYear === undefined) periodsPerYear = 1.0;
   const M = current();
-  if (_isText(periodsPerYear)) throw new TypeError(`periodsPerYear must be a number, got a string`);
+  if (typeof periodsPerYear !== "number") throw new TypeError(`BacktestReport: periodsPerYear must be a number, got ${_what(periodsPerYear)}`);
   return wrapOp(M, () => new M.BacktestReport(periodsPerYear));
 }
 
 /** The settings of BacktestStats by name, for `BacktestStats({ ... })`. */
 export interface BacktestStatsOptions {
-  /** Steps per year, used to annualize Sortino and Calmar (for example 252 for daily bars). The default 1 gives per-step ratios. */
+  /** Steps per year, used to annualize Sortino and Calmar (for example 252 for daily bars). The default 1 gives per-step ratios. @defaultValue `1.0` */
   periodsPerYear?: number;
 }
 
@@ -1287,38 +1301,39 @@ export function BacktestStats(options: BacktestStatsOptions): ScreamerOp;
  */
 export function BacktestStats(periodsPerYear?: number): ScreamerOp;
 export function BacktestStats(periodsPerYear?: any): ScreamerOp {
-  if (_isOptions(periodsPerYear)) [periodsPerYear] = _options("BacktestStats", periodsPerYear, arguments.length, ["periodsPerYear"]);
-  periodsPerYear ??= 1.0;
+  if (_isOptions(periodsPerYear)) [periodsPerYear] = _options("BacktestStats", periodsPerYear, arguments.length, ["periodsPerYear"], "periodsPerYear must be a number");
+  else if (arguments.length > 1) _tooMany("BacktestStats", 1, arguments.length);
+  if (periodsPerYear === undefined) periodsPerYear = 1.0;
   const M = current();
-  if (_isText(periodsPerYear)) throw new TypeError(`periodsPerYear must be a number, got a string`);
+  if (typeof periodsPerYear !== "number") throw new TypeError(`BacktestStats: periodsPerYear must be a number, got ${_what(periodsPerYear)}`);
   return wrapOp(M, () => new M.BacktestStats(periodsPerYear));
 }
 
 /** The settings of BacktestTradesOrders by name, for `BacktestTradesOrders({ ... })`. */
 export interface BacktestTradesOrdersOptions {
-  /** Fractional fee on a maker fill; negative for a rebate. */
+  /** Fractional fee on a maker fill; negative for a rebate. @defaultValue `0.0` */
   makerFee?: number;
-  /** Fractional fee on a taker fill (a market order that sweeps any print). */
+  /** Fractional fee on a taker fill (a market order that sweeps any print). @defaultValue `0.0` */
   takerFee?: number;
-  /** Fill rule for a trade at your price. "touch" fills a participation partial; "breach" fills only on a trade through. */
+  /** Fill rule for a trade at your price. "touch" fills a participation partial; "breach" fills only on a trade through. @defaultValue `"touch"` */
   fill?: string;
-  /** Fraction of an at-price trade's size captured (front-of-queue at 1.0). */
+  /** Fraction of an at-price trade's size captured (front-of-queue at 1.0). @defaultValue `1.0` */
   participationRatio?: number;
-  /** Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step. */
+  /** Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step. @defaultValue `0.0` */
   tickSize?: number;
-  /** Inventory floor; sell fills are capped so the position never falls below it. */
+  /** Inventory floor; sell fills are capped so the position never falls below it. @defaultValue `-Infinity` */
   minPosition?: number;
-  /** Inventory ceiling; buy fills are capped so the position never exceeds it. */
+  /** Inventory ceiling; buy fills are capped so the position never exceeds it. @defaultValue `Infinity` */
   maxPosition?: number;
-  /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. */
+  /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. @defaultValue `1.0` */
   multiplier?: number;
-  /** Fixed fee (or rebate when negative) charged per contract on maker fills. */
+  /** Fixed fee (or rebate when negative) charged per contract on maker fills. @defaultValue `0.0` */
   makerFeePerContract?: number;
-  /** Fixed fee (or rebate when negative) charged per contract on taker fills. */
+  /** Fixed fee (or rebate when negative) charged per contract on taker fills. @defaultValue `0.0` */
   takerFeePerContract?: number;
-  /** Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip. */
+  /** Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip. @defaultValue `0.0` */
   slippage?: number;
-  /** Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount). */
+  /** Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount). @defaultValue `"fraction"` */
   slippageUnit?: string;
 }
 
@@ -1348,66 +1363,67 @@ export function BacktestTradesOrders(options: BacktestTradesOrdersOptions): Scre
  */
 export function BacktestTradesOrders(makerFee?: number, takerFee?: number, fill?: string, participationRatio?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, makerFeePerContract?: number, takerFeePerContract?: number, slippage?: number, slippageUnit?: string): ScreamerOp;
 export function BacktestTradesOrders(makerFee?: any, takerFee?: any, fill?: any, participationRatio?: any, tickSize?: any, minPosition?: any, maxPosition?: any, multiplier?: any, makerFeePerContract?: any, takerFeePerContract?: any, slippage?: any, slippageUnit?: any): ScreamerOp {
-  if (_isOptions(makerFee)) [makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit] = _options("BacktestTradesOrders", makerFee, arguments.length, ["makerFee", "takerFee", "fill", "participationRatio", "tickSize", "minPosition", "maxPosition", "multiplier", "makerFeePerContract", "takerFeePerContract", "slippage", "slippageUnit"]);
-  makerFee ??= 0.0;
-  takerFee ??= 0.0;
-  fill ??= "touch";
-  participationRatio ??= 1.0;
-  tickSize ??= 0.0;
-  minPosition ??= -Infinity;
-  maxPosition ??= Infinity;
-  multiplier ??= 1.0;
-  makerFeePerContract ??= 0.0;
-  takerFeePerContract ??= 0.0;
-  slippage ??= 0.0;
-  slippageUnit ??= "fraction";
+  if (_isOptions(makerFee)) [makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit] = _options("BacktestTradesOrders", makerFee, arguments.length, ["makerFee", "takerFee", "fill", "participationRatio", "tickSize", "minPosition", "maxPosition", "multiplier", "makerFeePerContract", "takerFeePerContract", "slippage", "slippageUnit"], "makerFee must be a number");
+  else if (arguments.length > 12) _tooMany("BacktestTradesOrders", 12, arguments.length);
+  if (makerFee === undefined) makerFee = 0.0;
+  if (takerFee === undefined) takerFee = 0.0;
+  if (fill === undefined) fill = "touch";
+  if (participationRatio === undefined) participationRatio = 1.0;
+  if (tickSize === undefined) tickSize = 0.0;
+  if (minPosition === undefined) minPosition = -Infinity;
+  if (maxPosition === undefined) maxPosition = Infinity;
+  if (multiplier === undefined) multiplier = 1.0;
+  if (makerFeePerContract === undefined) makerFeePerContract = 0.0;
+  if (takerFeePerContract === undefined) takerFeePerContract = 0.0;
+  if (slippage === undefined) slippage = 0.0;
+  if (slippageUnit === undefined) slippageUnit = "fraction";
   const M = current();
-  if (_isText(makerFee)) throw new TypeError(`makerFee must be a number, got a string`);
-  if (_isText(takerFee)) throw new TypeError(`takerFee must be a number, got a string`);
-  if (typeof fill !== "string") throw new TypeError(`fill must be a string, got ${typeof fill}`);
-  if (_isText(participationRatio)) throw new TypeError(`participationRatio must be a number, got a string`);
-  if (_isText(tickSize)) throw new TypeError(`tickSize must be a number, got a string`);
-  if (_isText(minPosition)) throw new TypeError(`minPosition must be a number, got a string`);
-  if (_isText(maxPosition)) throw new TypeError(`maxPosition must be a number, got a string`);
-  if (_isText(multiplier)) throw new TypeError(`multiplier must be a number, got a string`);
-  if (_isText(makerFeePerContract)) throw new TypeError(`makerFeePerContract must be a number, got a string`);
-  if (_isText(takerFeePerContract)) throw new TypeError(`takerFeePerContract must be a number, got a string`);
-  if (_isText(slippage)) throw new TypeError(`slippage must be a number, got a string`);
-  if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
+  if (typeof makerFee !== "number") throw new TypeError(`BacktestTradesOrders: makerFee must be a number, got ${_what(makerFee)}`);
+  if (typeof takerFee !== "number") throw new TypeError(`BacktestTradesOrders: takerFee must be a number, got ${_what(takerFee)}`);
+  if (typeof fill !== "string") throw new TypeError(`BacktestTradesOrders: fill must be a string, got ${fill instanceof String ? "a String object" : _what(fill)}`);
+  if (typeof participationRatio !== "number") throw new TypeError(`BacktestTradesOrders: participationRatio must be a number, got ${_what(participationRatio)}`);
+  if (typeof tickSize !== "number") throw new TypeError(`BacktestTradesOrders: tickSize must be a number, got ${_what(tickSize)}`);
+  if (typeof minPosition !== "number") throw new TypeError(`BacktestTradesOrders: minPosition must be a number, got ${_what(minPosition)}`);
+  if (typeof maxPosition !== "number") throw new TypeError(`BacktestTradesOrders: maxPosition must be a number, got ${_what(maxPosition)}`);
+  if (typeof multiplier !== "number") throw new TypeError(`BacktestTradesOrders: multiplier must be a number, got ${_what(multiplier)}`);
+  if (typeof makerFeePerContract !== "number") throw new TypeError(`BacktestTradesOrders: makerFeePerContract must be a number, got ${_what(makerFeePerContract)}`);
+  if (typeof takerFeePerContract !== "number") throw new TypeError(`BacktestTradesOrders: takerFeePerContract must be a number, got ${_what(takerFeePerContract)}`);
+  if (typeof slippage !== "number") throw new TypeError(`BacktestTradesOrders: slippage must be a number, got ${_what(slippage)}`);
+  if (typeof slippageUnit !== "string") throw new TypeError(`BacktestTradesOrders: slippageUnit must be a string, got ${slippageUnit instanceof String ? "a String object" : _what(slippageUnit)}`);
   return wrapOp(M, () => new M.BacktestTradesOrders(makerFee, takerFee, fill, participationRatio, tickSize, minPosition, maxPosition, multiplier, makerFeePerContract, takerFeePerContract, slippage, slippageUnit));
 }
 
 /** The settings of BacktestTradesTarget by name, for `BacktestTradesTarget({ ... })`. */
 export interface BacktestTradesTargetOptions {
-  /** Fractional fee charged on each taker fill at the print price. */
+  /** Fractional fee charged on each taker fill at the print price. @defaultValue `0.0` */
   takerFee?: number;
-  /** Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step. */
+  /** Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step. @defaultValue `0.0` */
   tickSize?: number;
-  /** Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. */
+  /** Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. @defaultValue `-Infinity` */
   minPosition?: number;
-  /** Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. */
+  /** Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. @defaultValue `Infinity` */
   maxPosition?: number;
-  /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. */
+  /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. @defaultValue `1.0` */
   multiplier?: number;
-  /** Fixed fee (or rebate when negative) charged per contract on each fill. */
+  /** Fixed fee (or rebate when negative) charged per contract on each fill. @defaultValue `0.0` */
   feePerContract?: number;
-  /** Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip. */
+  /** Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip. @defaultValue `0.0` */
   slippage?: number;
-  /** Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount). */
+  /** Unit of `slippage`: "fraction" of the reference price (5 bps = 5e-4), "ticks" of `tick_size`, or "price" (an absolute amount). @defaultValue `"fraction"` */
   slippageUnit?: string;
-  /** Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off. */
+  /** Exit when the price moves this fraction against the average entry fill (0.05 = 5%). 0 turns it off. @defaultValue `0.0` */
   stopLoss?: number;
-  /** Exit when the price moves this fraction in favor of the average entry fill. 0 turns it off. */
+  /** Exit when the price moves this fraction in favor of the average entry fill. 0 turns it off. @defaultValue `0.0` */
   takeProfit?: number;
-  /** Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off. */
+  /** Exit when the price falls this fraction from the best price since entry (the highest for a long, the lowest for a short). 0 turns it off. @defaultValue `0.0` */
   trailingStop?: number;
-  /** How to read the target: "units" (a position), "notional" (a currency amount), or "weight" (a fraction of initial_capital + equity). It is converted to units at the execution price. */
+  /** How to read the target: "units" (a position), "notional" (a currency amount), or "weight" (a fraction of initial_capital + equity). It is converted to units at the execution price. @defaultValue `"units"` */
   size?: string;
-  /** Starting capital for size="weight" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl. */
+  /** Starting capital for size="weight" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl. @defaultValue `0.0` */
   initialCapital?: number;
-  /** With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes. */
+  /** With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes. @defaultValue `0.0` */
   rebalanceBand?: number;
-  /** Cap each print's fill at this share of the print's size; the rest fills on later prints. The default fills the whole order on any print. */
+  /** Cap each print's fill at this share of the print's size; the rest fills on later prints. The default fills the whole order on any print. @defaultValue `Infinity` */
   maxParticipation?: number;
 }
 
@@ -1440,48 +1456,49 @@ export function BacktestTradesTarget(options: BacktestTradesTargetOptions): Scre
  */
 export function BacktestTradesTarget(takerFee?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, feePerContract?: number, slippage?: number, slippageUnit?: string, stopLoss?: number, takeProfit?: number, trailingStop?: number, size?: string, initialCapital?: number, rebalanceBand?: number, maxParticipation?: number): ScreamerOp;
 export function BacktestTradesTarget(takerFee?: any, tickSize?: any, minPosition?: any, maxPosition?: any, multiplier?: any, feePerContract?: any, slippage?: any, slippageUnit?: any, stopLoss?: any, takeProfit?: any, trailingStop?: any, size?: any, initialCapital?: any, rebalanceBand?: any, maxParticipation?: any): ScreamerOp {
-  if (_isOptions(takerFee)) [takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand, maxParticipation] = _options("BacktestTradesTarget", takerFee, arguments.length, ["takerFee", "tickSize", "minPosition", "maxPosition", "multiplier", "feePerContract", "slippage", "slippageUnit", "stopLoss", "takeProfit", "trailingStop", "size", "initialCapital", "rebalanceBand", "maxParticipation"]);
-  takerFee ??= 0.0;
-  tickSize ??= 0.0;
-  minPosition ??= -Infinity;
-  maxPosition ??= Infinity;
-  multiplier ??= 1.0;
-  feePerContract ??= 0.0;
-  slippage ??= 0.0;
-  slippageUnit ??= "fraction";
-  stopLoss ??= 0.0;
-  takeProfit ??= 0.0;
-  trailingStop ??= 0.0;
-  size ??= "units";
-  initialCapital ??= 0.0;
-  rebalanceBand ??= 0.0;
-  maxParticipation ??= Infinity;
+  if (_isOptions(takerFee)) [takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand, maxParticipation] = _options("BacktestTradesTarget", takerFee, arguments.length, ["takerFee", "tickSize", "minPosition", "maxPosition", "multiplier", "feePerContract", "slippage", "slippageUnit", "stopLoss", "takeProfit", "trailingStop", "size", "initialCapital", "rebalanceBand", "maxParticipation"], "takerFee must be a number");
+  else if (arguments.length > 15) _tooMany("BacktestTradesTarget", 15, arguments.length);
+  if (takerFee === undefined) takerFee = 0.0;
+  if (tickSize === undefined) tickSize = 0.0;
+  if (minPosition === undefined) minPosition = -Infinity;
+  if (maxPosition === undefined) maxPosition = Infinity;
+  if (multiplier === undefined) multiplier = 1.0;
+  if (feePerContract === undefined) feePerContract = 0.0;
+  if (slippage === undefined) slippage = 0.0;
+  if (slippageUnit === undefined) slippageUnit = "fraction";
+  if (stopLoss === undefined) stopLoss = 0.0;
+  if (takeProfit === undefined) takeProfit = 0.0;
+  if (trailingStop === undefined) trailingStop = 0.0;
+  if (size === undefined) size = "units";
+  if (initialCapital === undefined) initialCapital = 0.0;
+  if (rebalanceBand === undefined) rebalanceBand = 0.0;
+  if (maxParticipation === undefined) maxParticipation = Infinity;
   const M = current();
-  if (_isText(takerFee)) throw new TypeError(`takerFee must be a number, got a string`);
-  if (_isText(tickSize)) throw new TypeError(`tickSize must be a number, got a string`);
-  if (_isText(minPosition)) throw new TypeError(`minPosition must be a number, got a string`);
-  if (_isText(maxPosition)) throw new TypeError(`maxPosition must be a number, got a string`);
-  if (_isText(multiplier)) throw new TypeError(`multiplier must be a number, got a string`);
-  if (_isText(feePerContract)) throw new TypeError(`feePerContract must be a number, got a string`);
-  if (_isText(slippage)) throw new TypeError(`slippage must be a number, got a string`);
-  if (typeof slippageUnit !== "string") throw new TypeError(`slippageUnit must be a string, got ${typeof slippageUnit}`);
-  if (_isText(stopLoss)) throw new TypeError(`stopLoss must be a number, got a string`);
-  if (_isText(takeProfit)) throw new TypeError(`takeProfit must be a number, got a string`);
-  if (_isText(trailingStop)) throw new TypeError(`trailingStop must be a number, got a string`);
-  if (typeof size !== "string") throw new TypeError(`size must be a string, got ${typeof size}`);
-  if (_isText(initialCapital)) throw new TypeError(`initialCapital must be a number, got a string`);
-  if (_isText(rebalanceBand)) throw new TypeError(`rebalanceBand must be a number, got a string`);
-  if (_isText(maxParticipation)) throw new TypeError(`maxParticipation must be a number, got a string`);
+  if (typeof takerFee !== "number") throw new TypeError(`BacktestTradesTarget: takerFee must be a number, got ${_what(takerFee)}`);
+  if (typeof tickSize !== "number") throw new TypeError(`BacktestTradesTarget: tickSize must be a number, got ${_what(tickSize)}`);
+  if (typeof minPosition !== "number") throw new TypeError(`BacktestTradesTarget: minPosition must be a number, got ${_what(minPosition)}`);
+  if (typeof maxPosition !== "number") throw new TypeError(`BacktestTradesTarget: maxPosition must be a number, got ${_what(maxPosition)}`);
+  if (typeof multiplier !== "number") throw new TypeError(`BacktestTradesTarget: multiplier must be a number, got ${_what(multiplier)}`);
+  if (typeof feePerContract !== "number") throw new TypeError(`BacktestTradesTarget: feePerContract must be a number, got ${_what(feePerContract)}`);
+  if (typeof slippage !== "number") throw new TypeError(`BacktestTradesTarget: slippage must be a number, got ${_what(slippage)}`);
+  if (typeof slippageUnit !== "string") throw new TypeError(`BacktestTradesTarget: slippageUnit must be a string, got ${slippageUnit instanceof String ? "a String object" : _what(slippageUnit)}`);
+  if (typeof stopLoss !== "number") throw new TypeError(`BacktestTradesTarget: stopLoss must be a number, got ${_what(stopLoss)}`);
+  if (typeof takeProfit !== "number") throw new TypeError(`BacktestTradesTarget: takeProfit must be a number, got ${_what(takeProfit)}`);
+  if (typeof trailingStop !== "number") throw new TypeError(`BacktestTradesTarget: trailingStop must be a number, got ${_what(trailingStop)}`);
+  if (typeof size !== "string") throw new TypeError(`BacktestTradesTarget: size must be a string, got ${size instanceof String ? "a String object" : _what(size)}`);
+  if (typeof initialCapital !== "number") throw new TypeError(`BacktestTradesTarget: initialCapital must be a number, got ${_what(initialCapital)}`);
+  if (typeof rebalanceBand !== "number") throw new TypeError(`BacktestTradesTarget: rebalanceBand must be a number, got ${_what(rebalanceBand)}`);
+  if (typeof maxParticipation !== "number") throw new TypeError(`BacktestTradesTarget: maxParticipation must be a number, got ${_what(maxParticipation)}`);
   return wrapOp(M, () => new M.BacktestTradesTarget(takerFee, tickSize, minPosition, maxPosition, multiplier, feePerContract, slippage, slippageUnit, stopLoss, takeProfit, trailingStop, size, initialCapital, rebalanceBand, maxParticipation));
 }
 
 /** The settings of BandSignal by name, for `BandSignal({ ... })`. */
 export interface BandSignalOptions {
-  /** Entry level. A flat position goes short when the z-score reaches +entry and long when it reaches -entry. */
+  /** Entry level. A flat position goes short when the z-score reaches +entry and long when it reaches -entry. @defaultValue `2.0` */
   entry?: number;
-  /** Exit level, in (-entry, entry). A short exits when the z-score falls to exit, a long when it rises to -exit. */
+  /** Exit level, in (-entry, entry). A short exits when the z-score falls to exit, a long when it rises to -exit. @defaultValue `0.0` */
   exit?: number;
-  /** Stop level, above entry (inf = no stop). A short exits when the z-score reaches +stop, a long at -stop, and that side cannot re-enter until the z-score returns inside the exit level. */
+  /** Stop level, above entry (inf = no stop). A short exits when the z-score reaches +stop, a long at -stop, and that side cannot re-enter until the z-score returns inside the exit level. @defaultValue `Infinity` */
   stop?: number;
 }
 
@@ -1502,30 +1519,31 @@ export function BandSignal(options: BandSignalOptions): ScreamerOp;
  */
 export function BandSignal(entry?: number, exit?: number, stop?: number): ScreamerOp;
 export function BandSignal(entry?: any, exit?: any, stop?: any): ScreamerOp {
-  if (_isOptions(entry)) [entry, exit, stop] = _options("BandSignal", entry, arguments.length, ["entry", "exit", "stop"]);
-  entry ??= 2.0;
-  exit ??= 0.0;
-  stop ??= Infinity;
+  if (_isOptions(entry)) [entry, exit, stop] = _options("BandSignal", entry, arguments.length, ["entry", "exit", "stop"], "entry must be a number");
+  else if (arguments.length > 3) _tooMany("BandSignal", 3, arguments.length);
+  if (entry === undefined) entry = 2.0;
+  if (exit === undefined) exit = 0.0;
+  if (stop === undefined) stop = Infinity;
   const M = current();
-  if (_isText(entry)) throw new TypeError(`entry must be a number, got a string`);
-  if (_isText(exit)) throw new TypeError(`exit must be a number, got a string`);
-  if (_isText(stop)) throw new TypeError(`stop must be a number, got a string`);
+  if (typeof entry !== "number") throw new TypeError(`BandSignal: entry must be a number, got ${_what(entry)}`);
+  if (typeof exit !== "number") throw new TypeError(`BandSignal: exit must be a number, got ${_what(exit)}`);
+  if (typeof stop !== "number") throw new TypeError(`BandSignal: stop must be a number, got ${_what(stop)}`);
   return wrapOp(M, () => new M.BandSignal(entry, exit, stop));
 }
 
 /** The settings of BayesianRegression by name, for `BayesianRegression({ ... })`. */
 export interface BayesianRegressionOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  com?: number;
+  com?: number | null;
   /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
-  span?: number;
+  span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  halflife?: number;
+  halflife?: number | null;
   /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
-  alpha?: number;
-  /** Prior precision of the intercept and slope, which have prior mean 0. Larger values pull the coefficients toward zero more strongly. Must be positive. */
+  alpha?: number | null;
+  /** Prior precision of the intercept and slope, which have prior mean 0. Larger values pull the coefficients toward zero more strongly. Must be positive. @defaultValue `1.0` */
   priorPrecision?: number;
-  /** Prior guess of the noise standard deviation: the prior mean of the noise variance is prior_sigma^2. Must be positive. */
+  /** Prior guess of the noise standard deviation: the prior mean of the noise variance is prior_sigma^2. Must be positive. @defaultValue `1.0` */
   priorSigma?: number;
 }
 
@@ -1547,32 +1565,33 @@ export function BayesianRegression(options: BayesianRegressionOptions): Screamer
  * @param priorSigma Prior guess of the noise standard deviation: the prior mean of the noise variance is prior_sigma^2. Must be positive.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/BayesianRegression.html for the full reference.
  */
-export function BayesianRegression(com?: number, span?: number, halflife?: number, alpha?: number, priorPrecision?: number, priorSigma?: number): ScreamerOp;
+export function BayesianRegression(com?: number | null, span?: number | null, halflife?: number | null, alpha?: number | null, priorPrecision?: number, priorSigma?: number): ScreamerOp;
 export function BayesianRegression(com?: any, span?: any, halflife?: any, alpha?: any, priorPrecision?: any, priorSigma?: any): ScreamerOp {
-  if (_isOptions(com)) [com, span, halflife, alpha, priorPrecision, priorSigma] = _options("BayesianRegression", com, arguments.length, ["com", "span", "halflife", "alpha", "priorPrecision", "priorSigma"]);
+  if (_isOptions(com)) [com, span, halflife, alpha, priorPrecision, priorSigma] = _options("BayesianRegression", com, arguments.length, ["com", "span", "halflife", "alpha", "priorPrecision", "priorSigma"], "com must be a number");
+  else if (arguments.length > 6) _tooMany("BayesianRegression", 6, arguments.length);
   com ??= NaN;
   span ??= NaN;
   halflife ??= NaN;
   alpha ??= NaN;
-  priorPrecision ??= 1.0;
-  priorSigma ??= 1.0;
+  if (priorPrecision === undefined) priorPrecision = 1.0;
+  if (priorSigma === undefined) priorSigma = 1.0;
   const M = current();
-  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
-  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
-  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
-  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
-  if (_isText(priorPrecision)) throw new TypeError(`priorPrecision must be a number, got a string`);
-  if (_isText(priorSigma)) throw new TypeError(`priorSigma must be a number, got a string`);
+  if (typeof com !== "number") throw new TypeError(`BayesianRegression: com must be a number, got ${_what(com)}`);
+  if (typeof span !== "number") throw new TypeError(`BayesianRegression: span must be a number, got ${_what(span)}`);
+  if (typeof halflife !== "number") throw new TypeError(`BayesianRegression: halflife must be a number, got ${_what(halflife)}`);
+  if (typeof alpha !== "number") throw new TypeError(`BayesianRegression: alpha must be a number, got ${_what(alpha)}`);
+  if (typeof priorPrecision !== "number") throw new TypeError(`BayesianRegression: priorPrecision must be a number, got ${_what(priorPrecision)}`);
+  if (typeof priorSigma !== "number") throw new TypeError(`BayesianRegression: priorSigma must be a number, got ${_what(priorSigma)}`);
   return wrapOp(M, () => new M.BayesianRegression(com, span, halflife, alpha, priorPrecision, priorSigma));
 }
 
 /** The settings of BollingerBands by name, for `BollingerBands({ ... })`. */
 export interface BollingerBandsOptions {
-  /** Number of most recent samples used for the mean and the standard deviation. */
+  /** Number of most recent samples used for the mean and the standard deviation. @defaultValue `20` */
   windowSize?: number;
-  /** Width of the bands: the distance from the middle band to each outer band, in rolling standard deviations. */
+  /** Width of the bands: the distance from the middle band to each outer band, in rolling standard deviations. @defaultValue `2.0` */
   numStd?: number;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -1593,22 +1612,23 @@ export function BollingerBands(options: BollingerBandsOptions): ScreamerOp;
  */
 export function BollingerBands(windowSize?: number, numStd?: number, startPolicy?: string): ScreamerOp;
 export function BollingerBands(windowSize?: any, numStd?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, numStd, startPolicy] = _options("BollingerBands", windowSize, arguments.length, ["windowSize", "numStd", "startPolicy"]);
-  windowSize ??= 20;
-  numStd ??= 2.0;
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, numStd, startPolicy] = _options("BollingerBands", windowSize, arguments.length, ["windowSize", "numStd", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 3) _tooMany("BollingerBands", 3, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (numStd === undefined) numStd = 2.0;
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (_isText(numStd)) throw new TypeError(`numStd must be a number, got a string`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`BollingerBands: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof numStd !== "number") throw new TypeError(`BollingerBands: numStd must be a number, got ${_what(numStd)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`BollingerBands: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.BollingerBands(windowSize, numStd, startPolicy));
 }
 
 /** The settings of BulkVolumeClassifier by name, for `BulkVolumeClassifier({ ... })`. */
 export interface BulkVolumeClassifierOptions {
-  /** Number of observations in the trailing standard deviation window, including the current one. */
+  /** Number of observations in the trailing standard deviation window, including the current one. @defaultValue `20` */
   windowSize?: number;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -1628,20 +1648,21 @@ export function BulkVolumeClassifier(options: BulkVolumeClassifierOptions): Scre
  */
 export function BulkVolumeClassifier(windowSize?: number, startPolicy?: string): ScreamerOp;
 export function BulkVolumeClassifier(windowSize?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("BulkVolumeClassifier", windowSize, arguments.length, ["windowSize", "startPolicy"]);
-  windowSize ??= 20;
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("BulkVolumeClassifier", windowSize, arguments.length, ["windowSize", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("BulkVolumeClassifier", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`BulkVolumeClassifier: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`BulkVolumeClassifier: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.BulkVolumeClassifier(windowSize, startPolicy));
 }
 
 /** The settings of Butter by name, for `Butter({ ... })`. */
 export interface ButterOptions {
-  /** Filter order. A higher order gives a steeper rolloff and a longer delay. */
+  /** Filter order. A higher order gives a steeper rolloff and a longer delay. @defaultValue `2` */
   order?: number;
-  /** Cutoff frequency as a fraction of the Nyquist frequency (half the sampling rate), strictly between 0 and 1. 1 is the Nyquist frequency, the scipy.signal.butter Wn convention. */
+  /** Cutoff frequency as a fraction of the Nyquist frequency (half the sampling rate), strictly between 0 and 1. 1 is the Nyquist frequency, the scipy.signal.butter Wn convention. @defaultValue `0.1` */
   cutoffFreq?: number;
 }
 
@@ -1661,22 +1682,23 @@ export function Butter(options: ButterOptions): ScreamerOp;
  */
 export function Butter(order?: number, cutoffFreq?: number): ScreamerOp;
 export function Butter(order?: any, cutoffFreq?: any): ScreamerOp {
-  if (_isOptions(order)) [order, cutoffFreq] = _options("Butter", order, arguments.length, ["order", "cutoffFreq"]);
-  order ??= 2;
-  cutoffFreq ??= 0.1;
+  if (_isOptions(order)) [order, cutoffFreq] = _options("Butter", order, arguments.length, ["order", "cutoffFreq"], "order must be a number");
+  else if (arguments.length > 2) _tooMany("Butter", 2, arguments.length);
+  if (order === undefined) order = 2;
+  if (cutoffFreq === undefined) cutoffFreq = 0.1;
   const M = current();
-  if (_isText(order)) throw new TypeError(`order must be a number, got a string`);
-  if (_isText(cutoffFreq)) throw new TypeError(`cutoffFreq must be a number, got a string`);
+  if (typeof order !== "number") throw new TypeError(`Butter: order must be a number, got ${_what(order)}`);
+  if (typeof cutoffFreq !== "number") throw new TypeError(`Butter: cutoffFreq must be a number, got ${_what(cutoffFreq)}`);
   return wrapOp(M, () => new M.Butter(order, cutoffFreq));
 }
 
 /** The settings of ButterBandpass by name, for `ButterBandpass({ ... })`. */
 export interface ButterBandpassOptions {
-  /** Order N of the analog prototype. The digital filter has order 2N. */
+  /** Order N of the analog prototype. The digital filter has order 2N. @defaultValue `2` */
   order?: number;
-  /** Lower edge of the pass band, as a fraction of the Nyquist frequency. Must satisfy 0 < low_cutoff < high_cutoff < 1. */
+  /** Lower edge of the pass band, as a fraction of the Nyquist frequency. Must satisfy 0 < low_cutoff < high_cutoff < 1. @defaultValue `0.05` */
   lowCutoff?: number;
-  /** Upper edge of the pass band, as a fraction of the Nyquist frequency. Must satisfy 0 < low_cutoff < high_cutoff < 1. */
+  /** Upper edge of the pass band, as a fraction of the Nyquist frequency. Must satisfy 0 < low_cutoff < high_cutoff < 1. @defaultValue `0.2` */
   highCutoff?: number;
 }
 
@@ -1697,24 +1719,25 @@ export function ButterBandpass(options: ButterBandpassOptions): ScreamerOp;
  */
 export function ButterBandpass(order?: number, lowCutoff?: number, highCutoff?: number): ScreamerOp;
 export function ButterBandpass(order?: any, lowCutoff?: any, highCutoff?: any): ScreamerOp {
-  if (_isOptions(order)) [order, lowCutoff, highCutoff] = _options("ButterBandpass", order, arguments.length, ["order", "lowCutoff", "highCutoff"]);
-  order ??= 2;
-  lowCutoff ??= 0.05;
-  highCutoff ??= 0.2;
+  if (_isOptions(order)) [order, lowCutoff, highCutoff] = _options("ButterBandpass", order, arguments.length, ["order", "lowCutoff", "highCutoff"], "order must be a number");
+  else if (arguments.length > 3) _tooMany("ButterBandpass", 3, arguments.length);
+  if (order === undefined) order = 2;
+  if (lowCutoff === undefined) lowCutoff = 0.05;
+  if (highCutoff === undefined) highCutoff = 0.2;
   const M = current();
-  if (_isText(order)) throw new TypeError(`order must be a number, got a string`);
-  if (_isText(lowCutoff)) throw new TypeError(`lowCutoff must be a number, got a string`);
-  if (_isText(highCutoff)) throw new TypeError(`highCutoff must be a number, got a string`);
+  if (typeof order !== "number") throw new TypeError(`ButterBandpass: order must be a number, got ${_what(order)}`);
+  if (typeof lowCutoff !== "number") throw new TypeError(`ButterBandpass: lowCutoff must be a number, got ${_what(lowCutoff)}`);
+  if (typeof highCutoff !== "number") throw new TypeError(`ButterBandpass: highCutoff must be a number, got ${_what(highCutoff)}`);
   return wrapOp(M, () => new M.ButterBandpass(order, lowCutoff, highCutoff));
 }
 
 /** The settings of ButterBandstop by name, for `ButterBandstop({ ... })`. */
 export interface ButterBandstopOptions {
-  /** Order N of the analog prototype. The digital filter has order 2N. */
+  /** Order N of the analog prototype. The digital filter has order 2N. @defaultValue `2` */
   order?: number;
-  /** Lower edge of the stop band, as a fraction of the Nyquist frequency. Must satisfy 0 < low_cutoff < high_cutoff < 1. */
+  /** Lower edge of the stop band, as a fraction of the Nyquist frequency. Must satisfy 0 < low_cutoff < high_cutoff < 1. @defaultValue `0.05` */
   lowCutoff?: number;
-  /** Upper edge of the stop band, as a fraction of the Nyquist frequency. Must satisfy 0 < low_cutoff < high_cutoff < 1. */
+  /** Upper edge of the stop band, as a fraction of the Nyquist frequency. Must satisfy 0 < low_cutoff < high_cutoff < 1. @defaultValue `0.2` */
   highCutoff?: number;
 }
 
@@ -1735,22 +1758,23 @@ export function ButterBandstop(options: ButterBandstopOptions): ScreamerOp;
  */
 export function ButterBandstop(order?: number, lowCutoff?: number, highCutoff?: number): ScreamerOp;
 export function ButterBandstop(order?: any, lowCutoff?: any, highCutoff?: any): ScreamerOp {
-  if (_isOptions(order)) [order, lowCutoff, highCutoff] = _options("ButterBandstop", order, arguments.length, ["order", "lowCutoff", "highCutoff"]);
-  order ??= 2;
-  lowCutoff ??= 0.05;
-  highCutoff ??= 0.2;
+  if (_isOptions(order)) [order, lowCutoff, highCutoff] = _options("ButterBandstop", order, arguments.length, ["order", "lowCutoff", "highCutoff"], "order must be a number");
+  else if (arguments.length > 3) _tooMany("ButterBandstop", 3, arguments.length);
+  if (order === undefined) order = 2;
+  if (lowCutoff === undefined) lowCutoff = 0.05;
+  if (highCutoff === undefined) highCutoff = 0.2;
   const M = current();
-  if (_isText(order)) throw new TypeError(`order must be a number, got a string`);
-  if (_isText(lowCutoff)) throw new TypeError(`lowCutoff must be a number, got a string`);
-  if (_isText(highCutoff)) throw new TypeError(`highCutoff must be a number, got a string`);
+  if (typeof order !== "number") throw new TypeError(`ButterBandstop: order must be a number, got ${_what(order)}`);
+  if (typeof lowCutoff !== "number") throw new TypeError(`ButterBandstop: lowCutoff must be a number, got ${_what(lowCutoff)}`);
+  if (typeof highCutoff !== "number") throw new TypeError(`ButterBandstop: highCutoff must be a number, got ${_what(highCutoff)}`);
   return wrapOp(M, () => new M.ButterBandstop(order, lowCutoff, highCutoff));
 }
 
 /** The settings of ButterHighpass by name, for `ButterHighpass({ ... })`. */
 export interface ButterHighpassOptions {
-  /** Filter order. A higher order gives a steeper rolloff and a larger group delay. */
+  /** Filter order. A higher order gives a steeper rolloff and a larger group delay. @defaultValue `2` */
   order?: number;
-  /** Cutoff frequency as a fraction of the Nyquist frequency, strictly between 0 and 1. 1 is the Nyquist frequency, the scipy.signal.butter Wn convention. */
+  /** Cutoff frequency as a fraction of the Nyquist frequency, strictly between 0 and 1. 1 is the Nyquist frequency, the scipy.signal.butter Wn convention. @defaultValue `0.1` */
   cutoffFreq?: number;
 }
 
@@ -1770,18 +1794,19 @@ export function ButterHighpass(options: ButterHighpassOptions): ScreamerOp;
  */
 export function ButterHighpass(order?: number, cutoffFreq?: number): ScreamerOp;
 export function ButterHighpass(order?: any, cutoffFreq?: any): ScreamerOp {
-  if (_isOptions(order)) [order, cutoffFreq] = _options("ButterHighpass", order, arguments.length, ["order", "cutoffFreq"]);
-  order ??= 2;
-  cutoffFreq ??= 0.1;
+  if (_isOptions(order)) [order, cutoffFreq] = _options("ButterHighpass", order, arguments.length, ["order", "cutoffFreq"], "order must be a number");
+  else if (arguments.length > 2) _tooMany("ButterHighpass", 2, arguments.length);
+  if (order === undefined) order = 2;
+  if (cutoffFreq === undefined) cutoffFreq = 0.1;
   const M = current();
-  if (_isText(order)) throw new TypeError(`order must be a number, got a string`);
-  if (_isText(cutoffFreq)) throw new TypeError(`cutoffFreq must be a number, got a string`);
+  if (typeof order !== "number") throw new TypeError(`ButterHighpass: order must be a number, got ${_what(order)}`);
+  if (typeof cutoffFreq !== "number") throw new TypeError(`ButterHighpass: cutoffFreq must be a number, got ${_what(cutoffFreq)}`);
   return wrapOp(M, () => new M.ButterHighpass(order, cutoffFreq));
 }
 
 /** The settings of CCI by name, for `CCI({ ... })`. */
 export interface CCIOptions {
-  /** Number of most recent typical prices in the mean and mean-absolute-deviation window. Lambert used 20; TA-Lib defaults to 14. */
+  /** Number of most recent typical prices in the mean and mean-absolute-deviation window. Lambert used 20; TA-Lib defaults to 14. @defaultValue `14` */
   windowSize?: number;
 }
 
@@ -1800,10 +1825,11 @@ export function CCI(options: CCIOptions): ScreamerOp;
  */
 export function CCI(windowSize?: number): ScreamerOp;
 export function CCI(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("CCI", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 14;
+  if (_isOptions(windowSize)) [windowSize] = _options("CCI", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("CCI", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 14;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`CCI: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.CCI(windowSize));
 }
 
@@ -1813,10 +1839,11 @@ export type Cart2PolarOptions = Record<string, never>;
 /**
  * Convert (x, y) to (r, theta).
  *
+ * @param options Nothing, or an empty object: Cart2Polar has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Cart2Polar.html for the full reference.
  */
 export function Cart2Polar(options?: Cart2PolarOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Cart2Polar", options, arguments.length, []);
+  if (arguments.length) _noSettings("Cart2Polar", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Cart2Polar());
 }
@@ -1827,10 +1854,11 @@ export type CeilOptions = Record<string, never>;
 /**
  * Round each element toward positive infinity.
  *
+ * @param options Nothing, or an empty object: Ceil has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Ceil.html for the full reference.
  */
 export function Ceil(options?: CeilOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Ceil", options, arguments.length, []);
+  if (arguments.length) _noSettings("Ceil", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Ceil());
 }
@@ -1838,9 +1866,9 @@ export function Ceil(options?: CeilOptions): ScreamerOp {
 /** The settings of Clip by name, for `Clip({ ... })`. */
 export interface ClipOptions {
   /** Smallest allowed value; smaller values are replaced by it. None means no lower bound. */
-  lower?: number;
+  lower?: number | null;
   /** Largest allowed value; larger values are replaced by it. None means no upper bound. */
-  upper?: number;
+  upper?: number | null;
 }
 
 /**
@@ -1857,14 +1885,15 @@ export function Clip(options: ClipOptions): ScreamerOp;
  * @param upper Largest allowed value; larger values are replaced by it. None means no upper bound.
  * @see https://screamer.readthedocs.io/en/latest/functions_preprocessing/Clip.html for the full reference.
  */
-export function Clip(lower?: number, upper?: number): ScreamerOp;
+export function Clip(lower?: number | null, upper?: number | null): ScreamerOp;
 export function Clip(lower?: any, upper?: any): ScreamerOp {
-  if (_isOptions(lower)) [lower, upper] = _options("Clip", lower, arguments.length, ["lower", "upper"]);
+  if (_isOptions(lower)) [lower, upper] = _options("Clip", lower, arguments.length, ["lower", "upper"], "lower must be a number");
+  else if (arguments.length > 2) _tooMany("Clip", 2, arguments.length);
   lower ??= NaN;
   upper ??= NaN;
   const M = current();
-  if (_isText(lower)) throw new TypeError(`lower must be a number, got a string`);
-  if (_isText(upper)) throw new TypeError(`upper must be a number, got a string`);
+  if (typeof lower !== "number") throw new TypeError(`Clip: lower must be a number, got ${_what(lower)}`);
+  if (typeof upper !== "number") throw new TypeError(`Clip: upper must be a number, got ${_what(upper)}`);
   return wrapOp(M, () => new M.Clip(lower, upper));
 }
 
@@ -1874,10 +1903,11 @@ export type ContOFIOptions = Record<string, never>;
 /**
  * Cont-Kukanov-Stoikov (2014) order-flow imbalance from L1 book events.
  *
+ * @param options Nothing, or an empty object: ContOFI has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_micro/ContOFI.html for the full reference.
  */
 export function ContOFI(options?: ContOFIOptions): ScreamerOp {
-  if (_isOptions(options)) _options("ContOFI", options, arguments.length, []);
+  if (arguments.length) _noSettings("ContOFI", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.ContOFI());
 }
@@ -1888,10 +1918,11 @@ export type CosOptions = Record<string, never>;
 /**
  * Cosine of each element (radians).
  *
+ * @param options Nothing, or an empty object: Cos has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Cos.html for the full reference.
  */
 export function Cos(options?: CosOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Cos", options, arguments.length, []);
+  if (arguments.length) _noSettings("Cos", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Cos());
 }
@@ -1902,20 +1933,21 @@ export type CrossDemeanOptions = Record<string, never>;
 /**
  * Subtract the mean across assets at each step, removing the common component.
  *
+ * @param options Nothing, or an empty object: CrossDemean has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_cross/CrossDemean.html for the full reference.
  */
 export function CrossDemean(options?: CrossDemeanOptions): ScreamerOp {
-  if (_isOptions(options)) _options("CrossDemean", options, arguments.length, []);
+  if (arguments.length) _noSettings("CrossDemean", options, arguments.length);
   const M = current();
   return wrapRowOp(M, () => new M.CrossDemean());
 }
 
 /** The settings of CrossNormalize by name, for `CrossNormalize({ ... })`. */
 export interface CrossNormalizeOptions {
-  /** Sum of the absolute weights of each row. */
+  /** Sum of the absolute weights of each row. @defaultValue `1.0` */
   gross?: number;
   /** Sum of the weights of each row, in [-gross, gross]. None (the default) keeps the signs of the scores and sets no net target. */
-  net?: number;
+  net?: number | null;
 }
 
 /**
@@ -1932,20 +1964,21 @@ export function CrossNormalize(options: CrossNormalizeOptions): ScreamerOp;
  * @param net Sum of the weights of each row, in [-gross, gross]. None (the default) keeps the signs of the scores and sets no net target.
  * @see https://screamer.readthedocs.io/en/latest/functions_cross/CrossNormalize.html for the full reference.
  */
-export function CrossNormalize(gross?: number, net?: number): ScreamerOp;
+export function CrossNormalize(gross?: number, net?: number | null): ScreamerOp;
 export function CrossNormalize(gross?: any, net?: any): ScreamerOp {
-  if (_isOptions(gross)) [gross, net] = _options("CrossNormalize", gross, arguments.length, ["gross", "net"]);
-  gross ??= 1.0;
+  if (_isOptions(gross)) [gross, net] = _options("CrossNormalize", gross, arguments.length, ["gross", "net"], "gross must be a number");
+  else if (arguments.length > 2) _tooMany("CrossNormalize", 2, arguments.length);
+  if (gross === undefined) gross = 1.0;
   net ??= NaN;
   const M = current();
-  if (_isText(gross)) throw new TypeError(`gross must be a number, got a string`);
-  if (_isText(net)) throw new TypeError(`net must be a number, got a string`);
+  if (typeof gross !== "number") throw new TypeError(`CrossNormalize: gross must be a number, got ${_what(gross)}`);
+  if (typeof net !== "number") throw new TypeError(`CrossNormalize: net must be a number, got ${_what(net)}`);
   return wrapRowOp(M, () => new M.CrossNormalize(gross, net));
 }
 
 /** The settings of CrossRank by name, for `CrossRank({ ... })`. */
 export interface CrossRankOptions {
-  /** Output range: "signed" maps the lowest value to -1 and the highest to 1; "unit" maps them to 0 and 1. */
+  /** Output range: "signed" maps the lowest value to -1 and the highest to 1; "unit" maps them to 0 and 1. @defaultValue `"signed"` */
   scale?: string;
 }
 
@@ -1964,16 +1997,17 @@ export function CrossRank(options: CrossRankOptions): ScreamerOp;
  */
 export function CrossRank(scale?: string): ScreamerOp;
 export function CrossRank(scale?: any): ScreamerOp {
-  if (_isOptions(scale)) [scale] = _options("CrossRank", scale, arguments.length, ["scale"]);
-  scale ??= "signed";
+  if (_isOptions(scale)) [scale] = _options("CrossRank", scale, arguments.length, ["scale"], "scale must be a string");
+  else if (arguments.length > 1) _tooMany("CrossRank", 1, arguments.length);
+  if (scale === undefined) scale = "signed";
   const M = current();
-  if (typeof scale !== "string") throw new TypeError(`scale must be a string, got ${typeof scale}`);
+  if (typeof scale !== "string") throw new TypeError(`CrossRank: scale must be a string, got ${scale instanceof String ? "a String object" : _what(scale)}`);
   return wrapRowOp(M, () => new M.CrossRank(scale));
 }
 
 /** The settings of CrossTopBottom by name, for `CrossTopBottom({ ... })`. */
 export interface CrossTopBottomOptions {
-  /** Number of assets on each side. */
+  /** Number of assets on each side. @defaultValue `1` */
   count?: number;
 }
 
@@ -1992,18 +2026,19 @@ export function CrossTopBottom(options: CrossTopBottomOptions): ScreamerOp;
  */
 export function CrossTopBottom(count?: number): ScreamerOp;
 export function CrossTopBottom(count?: any): ScreamerOp {
-  if (_isOptions(count)) [count] = _options("CrossTopBottom", count, arguments.length, ["count"]);
-  count ??= 1;
+  if (_isOptions(count)) [count] = _options("CrossTopBottom", count, arguments.length, ["count"], "count must be a number");
+  else if (arguments.length > 1) _tooMany("CrossTopBottom", 1, arguments.length);
+  if (count === undefined) count = 1;
   const M = current();
-  if (_isText(count)) throw new TypeError(`count must be a number, got a string`);
+  if (typeof count !== "number") throw new TypeError(`CrossTopBottom: count must be a number, got ${_what(count)}`);
   return wrapRowOp(M, () => new M.CrossTopBottom(count));
 }
 
 /** The settings of CrossWinsorize by name, for `CrossWinsorize({ ... })`. */
 export interface CrossWinsorizeOptions {
-  /** Lower quantile in [0, 1]. */
+  /** Lower quantile in [0, 1]. @defaultValue `0.05` */
   lower?: number;
-  /** Upper quantile in [lower, 1]. */
+  /** Upper quantile in [lower, 1]. @defaultValue `0.95` */
   upper?: number;
 }
 
@@ -2023,12 +2058,13 @@ export function CrossWinsorize(options: CrossWinsorizeOptions): ScreamerOp;
  */
 export function CrossWinsorize(lower?: number, upper?: number): ScreamerOp;
 export function CrossWinsorize(lower?: any, upper?: any): ScreamerOp {
-  if (_isOptions(lower)) [lower, upper] = _options("CrossWinsorize", lower, arguments.length, ["lower", "upper"]);
-  lower ??= 0.05;
-  upper ??= 0.95;
+  if (_isOptions(lower)) [lower, upper] = _options("CrossWinsorize", lower, arguments.length, ["lower", "upper"], "lower must be a number");
+  else if (arguments.length > 2) _tooMany("CrossWinsorize", 2, arguments.length);
+  if (lower === undefined) lower = 0.05;
+  if (upper === undefined) upper = 0.95;
   const M = current();
-  if (_isText(lower)) throw new TypeError(`lower must be a number, got a string`);
-  if (_isText(upper)) throw new TypeError(`upper must be a number, got a string`);
+  if (typeof lower !== "number") throw new TypeError(`CrossWinsorize: lower must be a number, got ${_what(lower)}`);
+  if (typeof upper !== "number") throw new TypeError(`CrossWinsorize: upper must be a number, got ${_what(upper)}`);
   return wrapRowOp(M, () => new M.CrossWinsorize(lower, upper));
 }
 
@@ -2038,10 +2074,11 @@ export type CrossZscoreOptions = Record<string, never>;
 /**
  * Standardize each asset against the others at the same step: (x - mean) / std across the row.
  *
+ * @param options Nothing, or an empty object: CrossZscore has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_cross/CrossZscore.html for the full reference.
  */
 export function CrossZscore(options?: CrossZscoreOptions): ScreamerOp {
-  if (_isOptions(options)) _options("CrossZscore", options, arguments.length, []);
+  if (arguments.length) _noSettings("CrossZscore", options, arguments.length);
   const M = current();
   return wrapRowOp(M, () => new M.CrossZscore());
 }
@@ -2052,10 +2089,11 @@ export type CubeOptions = Record<string, never>;
 /**
  * Cube of each element, computed as x * x * x.
  *
+ * @param options Nothing, or an empty object: Cube has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Cube.html for the full reference.
  */
 export function Cube(options?: CubeOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Cube", options, arguments.length, []);
+  if (arguments.length) _noSettings("Cube", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Cube());
 }
@@ -2066,10 +2104,11 @@ export type CumMaxOptions = Record<string, never>;
 /**
  * Running maximum from t=0.
  *
+ * @param options Nothing, or an empty object: CumMax has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_misc/CumMax.html for the full reference.
  */
 export function CumMax(options?: CumMaxOptions): ScreamerOp {
-  if (_isOptions(options)) _options("CumMax", options, arguments.length, []);
+  if (arguments.length) _noSettings("CumMax", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.CumMax());
 }
@@ -2080,10 +2119,11 @@ export type CumMinOptions = Record<string, never>;
 /**
  * Running minimum from t=0.
  *
+ * @param options Nothing, or an empty object: CumMin has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_misc/CumMin.html for the full reference.
  */
 export function CumMin(options?: CumMinOptions): ScreamerOp {
-  if (_isOptions(options)) _options("CumMin", options, arguments.length, []);
+  if (arguments.length) _noSettings("CumMin", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.CumMin());
 }
@@ -2094,10 +2134,11 @@ export type CumProdOptions = Record<string, never>;
 /**
  * Running product from t=0.
  *
+ * @param options Nothing, or an empty object: CumProd has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_misc/CumProd.html for the full reference.
  */
 export function CumProd(options?: CumProdOptions): ScreamerOp {
-  if (_isOptions(options)) _options("CumProd", options, arguments.length, []);
+  if (arguments.length) _noSettings("CumProd", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.CumProd());
 }
@@ -2108,10 +2149,11 @@ export type CumSumOptions = Record<string, never>;
 /**
  * Running sum from t=0.
  *
+ * @param options Nothing, or an empty object: CumSum has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_misc/CumSum.html for the full reference.
  */
 export function CumSum(options?: CumSumOptions): ScreamerOp {
-  if (_isOptions(options)) _options("CumSum", options, arguments.length, []);
+  if (arguments.length) _noSettings("CumSum", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.CumSum());
 }
@@ -2122,10 +2164,11 @@ export type CycleAmplitudeOptions = Record<string, never>;
 /**
  * Instantaneous amplitude (envelope) of the analytic signal via Ehlers' homodyne discriminator.
  *
+ * @param options Nothing, or an empty object: CycleAmplitude has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/CycleAmplitude.html for the full reference.
  */
 export function CycleAmplitude(options?: CycleAmplitudeOptions): ScreamerOp {
-  if (_isOptions(options)) _options("CycleAmplitude", options, arguments.length, []);
+  if (arguments.length) _noSettings("CycleAmplitude", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.CycleAmplitude());
 }
@@ -2136,10 +2179,11 @@ export type CycleFrequencyOptions = Record<string, never>;
 /**
  * Instantaneous frequency, in cycles per sample, via Ehlers' homodyne discriminator.
  *
+ * @param options Nothing, or an empty object: CycleFrequency has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/CycleFrequency.html for the full reference.
  */
 export function CycleFrequency(options?: CycleFrequencyOptions): ScreamerOp {
-  if (_isOptions(options)) _options("CycleFrequency", options, arguments.length, []);
+  if (arguments.length) _noSettings("CycleFrequency", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.CycleFrequency());
 }
@@ -2150,10 +2194,11 @@ export type CyclePhaseOptions = Record<string, never>;
 /**
  * Instantaneous phase, in degrees, of the analytic signal via Ehlers' homodyne discriminator.
  *
+ * @param options Nothing, or an empty object: CyclePhase has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/CyclePhase.html for the full reference.
  */
 export function CyclePhase(options?: CyclePhaseOptions): ScreamerOp {
-  if (_isOptions(options)) _options("CyclePhase", options, arguments.length, []);
+  if (arguments.length) _noSettings("CyclePhase", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.CyclePhase());
 }
@@ -2164,10 +2209,11 @@ export type CycleSineOptions = Record<string, never>;
 /**
  * Sinewave indicator (sine, leadsine) from the instantaneous phase of the analytic signal.
  *
+ * @param options Nothing, or an empty object: CycleSine has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/CycleSine.html for the full reference.
  */
 export function CycleSine(options?: CycleSineOptions): ScreamerOp {
-  if (_isOptions(options)) _options("CycleSine", options, arguments.length, []);
+  if (arguments.length) _noSettings("CycleSine", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.CycleSine());
 }
@@ -2175,13 +2221,13 @@ export function CycleSine(options?: CycleSineOptions): ScreamerOp {
 /** The settings of DEMA by name, for `DEMA({ ... })`. */
 export interface DEMAOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  com?: number;
+  com?: number | null;
   /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
-  span?: number;
+  span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  halflife?: number;
+  halflife?: number | null;
   /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
-  alpha?: number;
+  alpha?: number | null;
 }
 
 /**
@@ -2200,24 +2246,25 @@ export function DEMA(options: DEMAOptions): ScreamerOp;
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/DEMA.html for the full reference.
  */
-export function DEMA(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function DEMA(com?: number | null, span?: number | null, halflife?: number | null, alpha?: number | null): ScreamerOp;
 export function DEMA(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
-  if (_isOptions(com)) [com, span, halflife, alpha] = _options("DEMA", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("DEMA", com, arguments.length, ["com", "span", "halflife", "alpha"], "com must be a number");
+  else if (arguments.length > 4) _tooMany("DEMA", 4, arguments.length);
   com ??= NaN;
   span ??= NaN;
   halflife ??= NaN;
   alpha ??= NaN;
   const M = current();
-  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
-  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
-  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
-  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
+  if (typeof com !== "number") throw new TypeError(`DEMA: com must be a number, got ${_what(com)}`);
+  if (typeof span !== "number") throw new TypeError(`DEMA: span must be a number, got ${_what(span)}`);
+  if (typeof halflife !== "number") throw new TypeError(`DEMA: halflife must be a number, got ${_what(halflife)}`);
+  if (typeof alpha !== "number") throw new TypeError(`DEMA: alpha must be a number, got ${_what(alpha)}`);
   return wrapOp(M, () => new M.DEMA(com, span, halflife, alpha));
 }
 
 /** The settings of DX by name, for `DX({ ... })`. */
 export interface DXOptions {
-  /** Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value. */
+  /** Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value. @defaultValue `14` */
   windowSize?: number;
 }
 
@@ -2236,19 +2283,20 @@ export function DX(options: DXOptions): ScreamerOp;
  */
 export function DX(windowSize?: number): ScreamerOp;
 export function DX(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("DX", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 14;
+  if (_isOptions(windowSize)) [windowSize] = _options("DX", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("DX", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 14;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`DX: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.DX(windowSize));
 }
 
 /** The settings of Decycler by name, for `Decycler({ ... })`. */
 export interface DecyclerOptions {
   /** Cutoff as a cycle length in samples; cycles at or below this length are removed. Give exactly one of period and cutoff. The default shown is a suggested starting value; the constructor has no default. */
-  period?: number;
+  period?: number | null;
   /** Cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / period. Give exactly one of period and cutoff. */
-  cutoff?: number;
+  cutoff?: number | null;
 }
 
 /**
@@ -2265,22 +2313,23 @@ export function Decycler(options: DecyclerOptions): ScreamerOp;
  * @param cutoff Cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / period. Give exactly one of period and cutoff.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/Decycler.html for the full reference.
  */
-export function Decycler(period?: number, cutoff?: number): ScreamerOp;
+export function Decycler(period?: number | null, cutoff?: number | null): ScreamerOp;
 export function Decycler(period?: any, cutoff?: any): ScreamerOp {
-  if (_isOptions(period)) [period, cutoff] = _options("Decycler", period, arguments.length, ["period", "cutoff"]);
+  if (_isOptions(period)) [period, cutoff] = _options("Decycler", period, arguments.length, ["period", "cutoff"], "period must be a number");
+  else if (arguments.length > 2) _tooMany("Decycler", 2, arguments.length);
   period ??= NaN;
   cutoff ??= NaN;
   const M = current();
-  if (_isText(period)) throw new TypeError(`period must be a number, got a string`);
-  if (_isText(cutoff)) throw new TypeError(`cutoff must be a number, got a string`);
+  if (typeof period !== "number") throw new TypeError(`Decycler: period must be a number, got ${_what(period)}`);
+  if (typeof cutoff !== "number") throw new TypeError(`Decycler: cutoff must be a number, got ${_what(cutoff)}`);
   return wrapOp(M, () => new M.Decycler(period, cutoff));
 }
 
 /** The settings of Detrend by name, for `Detrend({ ... })`. */
 export interface DetrendOptions {
-  /** Number of most recent samples in the trailing rolling mean that is subtracted. */
+  /** Number of most recent samples in the trailing rolling mean that is subtracted. @defaultValue `20` */
   windowSize?: number;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -2300,20 +2349,21 @@ export function Detrend(options: DetrendOptions): ScreamerOp;
  */
 export function Detrend(windowSize?: number, startPolicy?: string): ScreamerOp;
 export function Detrend(windowSize?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("Detrend", windowSize, arguments.length, ["windowSize", "startPolicy"]);
-  windowSize ??= 20;
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("Detrend", windowSize, arguments.length, ["windowSize", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("Detrend", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`Detrend: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`Detrend: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.Detrend(windowSize, startPolicy));
 }
 
 /** The settings of Diff by name, for `Diff({ ... })`. */
 export interface DiffOptions {
-  /** Lag k of the difference, in samples; 1 gives the difference between consecutive samples. */
+  /** Lag k of the difference, in samples; 1 gives the difference between consecutive samples. @defaultValue `1` */
   windowSize?: number;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -2333,18 +2383,19 @@ export function Diff(options: DiffOptions): ScreamerOp;
  */
 export function Diff(windowSize?: number, startPolicy?: string): ScreamerOp;
 export function Diff(windowSize?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("Diff", windowSize, arguments.length, ["windowSize", "startPolicy"]);
-  windowSize ??= 1;
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("Diff", windowSize, arguments.length, ["windowSize", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("Diff", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 1;
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`Diff: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`Diff: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.Diff(windowSize, startPolicy));
 }
 
 /** The settings of Diff2 by name, for `Diff2({ ... })`. */
 export interface Diff2Options {
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -2363,10 +2414,11 @@ export function Diff2(options: Diff2Options): ScreamerOp;
  */
 export function Diff2(startPolicy?: string): ScreamerOp;
 export function Diff2(startPolicy?: any): ScreamerOp {
-  if (_isOptions(startPolicy)) [startPolicy] = _options("Diff2", startPolicy, arguments.length, ["startPolicy"]);
-  startPolicy ??= "strict";
+  if (_isOptions(startPolicy)) [startPolicy] = _options("Diff2", startPolicy, arguments.length, ["startPolicy"], "startPolicy must be a string");
+  else if (arguments.length > 1) _tooMany("Diff2", 1, arguments.length);
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`Diff2: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.Diff2(startPolicy));
 }
 
@@ -2376,10 +2428,11 @@ export type DivOptions = Record<string, never>;
 /**
  * Elementwise quotient of two aligned streams (x / y).
  *
+ * @param options Nothing, or an empty object: Div has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Div.html for the full reference.
  */
 export function Div(options?: DivOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Div", options, arguments.length, []);
+  if (arguments.length) _noSettings("Div", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Div());
 }
@@ -2390,17 +2443,18 @@ export type DominantCycleOptions = Record<string, never>;
 /**
  * Dominant cycle period via Ehlers' homodyne discriminator.
  *
+ * @param options Nothing, or an empty object: DominantCycle has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/DominantCycle.html for the full reference.
  */
 export function DominantCycle(options?: DominantCycleOptions): ScreamerOp {
-  if (_isOptions(options)) _options("DominantCycle", options, arguments.length, []);
+  if (arguments.length) _noSettings("DominantCycle", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.DominantCycle());
 }
 
 /** The settings of DonchianChannels by name, for `DonchianChannels({ ... })`. */
 export interface DonchianChannelsOptions {
-  /** Number of most recent samples over which the maximum of high and the minimum of low are taken. */
+  /** Number of most recent samples over which the maximum of high and the minimum of low are taken. @defaultValue `20` */
   windowSize?: number;
 }
 
@@ -2419,10 +2473,11 @@ export function DonchianChannels(options: DonchianChannelsOptions): ScreamerOp;
  */
 export function DonchianChannels(windowSize?: number): ScreamerOp;
 export function DonchianChannels(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("DonchianChannels", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 20;
+  if (_isOptions(windowSize)) [windowSize] = _options("DonchianChannels", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("DonchianChannels", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`DonchianChannels: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.DonchianChannels(windowSize));
 }
 
@@ -2432,10 +2487,11 @@ export type DrawdownOptions = Record<string, never>;
 /**
  * Running drawdown from the cumulative peak.
  *
+ * @param options Nothing, or an empty object: Drawdown has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/Drawdown.html for the full reference.
  */
 export function Drawdown(options?: DrawdownOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Drawdown", options, arguments.length, []);
+  if (arguments.length) _noSettings("Drawdown", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Drawdown());
 }
@@ -2446,10 +2502,11 @@ export type EffectiveSpreadOptions = Record<string, never>;
 /**
  * Effective spread, 2*|price - mid|: the round-trip cost paid relative to the mid.
  *
+ * @param options Nothing, or an empty object: EffectiveSpread has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_micro/EffectiveSpread.html for the full reference.
  */
 export function EffectiveSpread(options?: EffectiveSpreadOptions): ScreamerOp {
-  if (_isOptions(options)) _options("EffectiveSpread", options, arguments.length, []);
+  if (arguments.length) _noSettings("EffectiveSpread", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.EffectiveSpread());
 }
@@ -2460,10 +2517,11 @@ export type EluOptions = Record<string, never>;
 /**
  * Exponential linear unit.
  *
+ * @param options Nothing, or an empty object: Elu has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Elu.html for the full reference.
  */
 export function Elu(options?: EluOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Elu", options, arguments.length, []);
+  if (arguments.length) _noSettings("Elu", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Elu());
 }
@@ -2474,10 +2532,11 @@ export type EqualOptions = Record<string, never>;
 /**
  * Returns 1.0 if a == b, else 0.0. NaN in either input yields NaN.
  *
+ * @param options Nothing, or an empty object: Equal has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Equal.html for the full reference.
  */
 export function Equal(options?: EqualOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Equal", options, arguments.length, []);
+  if (arguments.length) _noSettings("Equal", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Equal());
 }
@@ -2488,10 +2547,11 @@ export type ErfOptions = Record<string, never>;
 /**
  * Gauss error function.
  *
+ * @param options Nothing, or an empty object: Erf has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Erf.html for the full reference.
  */
 export function Erf(options?: ErfOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Erf", options, arguments.length, []);
+  if (arguments.length) _noSettings("Erf", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Erf());
 }
@@ -2502,10 +2562,11 @@ export type ErfcOptions = Record<string, never>;
 /**
  * Complementary error function (1 - erf).
  *
+ * @param options Nothing, or an empty object: Erfc has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Erfc.html for the full reference.
  */
 export function Erfc(options?: ErfcOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Erfc", options, arguments.length, []);
+  if (arguments.length) _noSettings("Erfc", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Erfc());
 }
@@ -2513,13 +2574,13 @@ export function Erfc(options?: ErfcOptions): ScreamerOp {
 /** The settings of EwAlpha by name, for `EwAlpha({ ... })`. */
 export interface EwAlphaOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  com?: number;
+  com?: number | null;
   /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
-  span?: number;
+  span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  halflife?: number;
+  halflife?: number | null;
   /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
-  alpha?: number;
+  alpha?: number | null;
 }
 
 /**
@@ -2538,31 +2599,32 @@ export function EwAlpha(options: EwAlphaOptions): ScreamerOp;
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwAlpha.html for the full reference.
  */
-export function EwAlpha(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwAlpha(com?: number | null, span?: number | null, halflife?: number | null, alpha?: number | null): ScreamerOp;
 export function EwAlpha(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
-  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwAlpha", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwAlpha", com, arguments.length, ["com", "span", "halflife", "alpha"], "com must be a number");
+  else if (arguments.length > 4) _tooMany("EwAlpha", 4, arguments.length);
   com ??= NaN;
   span ??= NaN;
   halflife ??= NaN;
   alpha ??= NaN;
   const M = current();
-  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
-  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
-  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
-  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
+  if (typeof com !== "number") throw new TypeError(`EwAlpha: com must be a number, got ${_what(com)}`);
+  if (typeof span !== "number") throw new TypeError(`EwAlpha: span must be a number, got ${_what(span)}`);
+  if (typeof halflife !== "number") throw new TypeError(`EwAlpha: halflife must be a number, got ${_what(halflife)}`);
+  if (typeof alpha !== "number") throw new TypeError(`EwAlpha: alpha must be a number, got ${_what(alpha)}`);
   return wrapOp(M, () => new M.EwAlpha(com, span, halflife, alpha));
 }
 
 /** The settings of EwBeta by name, for `EwBeta({ ... })`. */
 export interface EwBetaOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  com?: number;
+  com?: number | null;
   /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
-  span?: number;
+  span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  halflife?: number;
+  halflife?: number | null;
   /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
-  alpha?: number;
+  alpha?: number | null;
 }
 
 /**
@@ -2581,31 +2643,32 @@ export function EwBeta(options: EwBetaOptions): ScreamerOp;
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwBeta.html for the full reference.
  */
-export function EwBeta(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwBeta(com?: number | null, span?: number | null, halflife?: number | null, alpha?: number | null): ScreamerOp;
 export function EwBeta(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
-  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwBeta", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwBeta", com, arguments.length, ["com", "span", "halflife", "alpha"], "com must be a number");
+  else if (arguments.length > 4) _tooMany("EwBeta", 4, arguments.length);
   com ??= NaN;
   span ??= NaN;
   halflife ??= NaN;
   alpha ??= NaN;
   const M = current();
-  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
-  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
-  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
-  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
+  if (typeof com !== "number") throw new TypeError(`EwBeta: com must be a number, got ${_what(com)}`);
+  if (typeof span !== "number") throw new TypeError(`EwBeta: span must be a number, got ${_what(span)}`);
+  if (typeof halflife !== "number") throw new TypeError(`EwBeta: halflife must be a number, got ${_what(halflife)}`);
+  if (typeof alpha !== "number") throw new TypeError(`EwBeta: alpha must be a number, got ${_what(alpha)}`);
   return wrapOp(M, () => new M.EwBeta(com, span, halflife, alpha));
 }
 
 /** The settings of EwCorr by name, for `EwCorr({ ... })`. */
 export interface EwCorrOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  com?: number;
+  com?: number | null;
   /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
-  span?: number;
+  span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  halflife?: number;
+  halflife?: number | null;
   /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
-  alpha?: number;
+  alpha?: number | null;
 }
 
 /**
@@ -2624,31 +2687,32 @@ export function EwCorr(options: EwCorrOptions): ScreamerOp;
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwCorr.html for the full reference.
  */
-export function EwCorr(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwCorr(com?: number | null, span?: number | null, halflife?: number | null, alpha?: number | null): ScreamerOp;
 export function EwCorr(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
-  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwCorr", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwCorr", com, arguments.length, ["com", "span", "halflife", "alpha"], "com must be a number");
+  else if (arguments.length > 4) _tooMany("EwCorr", 4, arguments.length);
   com ??= NaN;
   span ??= NaN;
   halflife ??= NaN;
   alpha ??= NaN;
   const M = current();
-  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
-  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
-  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
-  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
+  if (typeof com !== "number") throw new TypeError(`EwCorr: com must be a number, got ${_what(com)}`);
+  if (typeof span !== "number") throw new TypeError(`EwCorr: span must be a number, got ${_what(span)}`);
+  if (typeof halflife !== "number") throw new TypeError(`EwCorr: halflife must be a number, got ${_what(halflife)}`);
+  if (typeof alpha !== "number") throw new TypeError(`EwCorr: alpha must be a number, got ${_what(alpha)}`);
   return wrapOp(M, () => new M.EwCorr(com, span, halflife, alpha));
 }
 
 /** The settings of EwCov by name, for `EwCov({ ... })`. */
 export interface EwCovOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  com?: number;
+  com?: number | null;
   /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
-  span?: number;
+  span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  halflife?: number;
+  halflife?: number | null;
   /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
-  alpha?: number;
+  alpha?: number | null;
 }
 
 /**
@@ -2667,31 +2731,32 @@ export function EwCov(options: EwCovOptions): ScreamerOp;
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwCov.html for the full reference.
  */
-export function EwCov(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwCov(com?: number | null, span?: number | null, halflife?: number | null, alpha?: number | null): ScreamerOp;
 export function EwCov(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
-  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwCov", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwCov", com, arguments.length, ["com", "span", "halflife", "alpha"], "com must be a number");
+  else if (arguments.length > 4) _tooMany("EwCov", 4, arguments.length);
   com ??= NaN;
   span ??= NaN;
   halflife ??= NaN;
   alpha ??= NaN;
   const M = current();
-  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
-  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
-  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
-  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
+  if (typeof com !== "number") throw new TypeError(`EwCov: com must be a number, got ${_what(com)}`);
+  if (typeof span !== "number") throw new TypeError(`EwCov: span must be a number, got ${_what(span)}`);
+  if (typeof halflife !== "number") throw new TypeError(`EwCov: halflife must be a number, got ${_what(halflife)}`);
+  if (typeof alpha !== "number") throw new TypeError(`EwCov: alpha must be a number, got ${_what(alpha)}`);
   return wrapOp(M, () => new M.EwCov(com, span, halflife, alpha));
 }
 
 /** The settings of EwGarmanKlassVar by name, for `EwGarmanKlassVar({ ... })`. */
 export interface EwGarmanKlassVarOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  com?: number;
+  com?: number | null;
   /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
-  span?: number;
+  span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  halflife?: number;
+  halflife?: number | null;
   /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
-  alpha?: number;
+  alpha?: number | null;
 }
 
 /**
@@ -2710,31 +2775,32 @@ export function EwGarmanKlassVar(options: EwGarmanKlassVarOptions): ScreamerOp;
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwGarmanKlassVar.html for the full reference.
  */
-export function EwGarmanKlassVar(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwGarmanKlassVar(com?: number | null, span?: number | null, halflife?: number | null, alpha?: number | null): ScreamerOp;
 export function EwGarmanKlassVar(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
-  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwGarmanKlassVar", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwGarmanKlassVar", com, arguments.length, ["com", "span", "halflife", "alpha"], "com must be a number");
+  else if (arguments.length > 4) _tooMany("EwGarmanKlassVar", 4, arguments.length);
   com ??= NaN;
   span ??= NaN;
   halflife ??= NaN;
   alpha ??= NaN;
   const M = current();
-  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
-  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
-  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
-  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
+  if (typeof com !== "number") throw new TypeError(`EwGarmanKlassVar: com must be a number, got ${_what(com)}`);
+  if (typeof span !== "number") throw new TypeError(`EwGarmanKlassVar: span must be a number, got ${_what(span)}`);
+  if (typeof halflife !== "number") throw new TypeError(`EwGarmanKlassVar: halflife must be a number, got ${_what(halflife)}`);
+  if (typeof alpha !== "number") throw new TypeError(`EwGarmanKlassVar: alpha must be a number, got ${_what(alpha)}`);
   return wrapOp(M, () => new M.EwGarmanKlassVar(com, span, halflife, alpha));
 }
 
 /** The settings of EwGarmanKlassVol by name, for `EwGarmanKlassVol({ ... })`. */
 export interface EwGarmanKlassVolOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  com?: number;
+  com?: number | null;
   /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
-  span?: number;
+  span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  halflife?: number;
+  halflife?: number | null;
   /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
-  alpha?: number;
+  alpha?: number | null;
 }
 
 /**
@@ -2753,31 +2819,32 @@ export function EwGarmanKlassVol(options: EwGarmanKlassVolOptions): ScreamerOp;
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwGarmanKlassVol.html for the full reference.
  */
-export function EwGarmanKlassVol(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwGarmanKlassVol(com?: number | null, span?: number | null, halflife?: number | null, alpha?: number | null): ScreamerOp;
 export function EwGarmanKlassVol(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
-  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwGarmanKlassVol", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwGarmanKlassVol", com, arguments.length, ["com", "span", "halflife", "alpha"], "com must be a number");
+  else if (arguments.length > 4) _tooMany("EwGarmanKlassVol", 4, arguments.length);
   com ??= NaN;
   span ??= NaN;
   halflife ??= NaN;
   alpha ??= NaN;
   const M = current();
-  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
-  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
-  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
-  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
+  if (typeof com !== "number") throw new TypeError(`EwGarmanKlassVol: com must be a number, got ${_what(com)}`);
+  if (typeof span !== "number") throw new TypeError(`EwGarmanKlassVol: span must be a number, got ${_what(span)}`);
+  if (typeof halflife !== "number") throw new TypeError(`EwGarmanKlassVol: halflife must be a number, got ${_what(halflife)}`);
+  if (typeof alpha !== "number") throw new TypeError(`EwGarmanKlassVol: alpha must be a number, got ${_what(alpha)}`);
   return wrapOp(M, () => new M.EwGarmanKlassVol(com, span, halflife, alpha));
 }
 
 /** The settings of EwKurt by name, for `EwKurt({ ... })`. */
 export interface EwKurtOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  com?: number;
+  com?: number | null;
   /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
-  span?: number;
+  span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  halflife?: number;
+  halflife?: number | null;
   /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
-  alpha?: number;
+  alpha?: number | null;
 }
 
 /**
@@ -2796,31 +2863,32 @@ export function EwKurt(options: EwKurtOptions): ScreamerOp;
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwKurt.html for the full reference.
  */
-export function EwKurt(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwKurt(com?: number | null, span?: number | null, halflife?: number | null, alpha?: number | null): ScreamerOp;
 export function EwKurt(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
-  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwKurt", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwKurt", com, arguments.length, ["com", "span", "halflife", "alpha"], "com must be a number");
+  else if (arguments.length > 4) _tooMany("EwKurt", 4, arguments.length);
   com ??= NaN;
   span ??= NaN;
   halflife ??= NaN;
   alpha ??= NaN;
   const M = current();
-  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
-  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
-  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
-  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
+  if (typeof com !== "number") throw new TypeError(`EwKurt: com must be a number, got ${_what(com)}`);
+  if (typeof span !== "number") throw new TypeError(`EwKurt: span must be a number, got ${_what(span)}`);
+  if (typeof halflife !== "number") throw new TypeError(`EwKurt: halflife must be a number, got ${_what(halflife)}`);
+  if (typeof alpha !== "number") throw new TypeError(`EwKurt: alpha must be a number, got ${_what(alpha)}`);
   return wrapOp(M, () => new M.EwKurt(com, span, halflife, alpha));
 }
 
 /** The settings of EwKyleLambda by name, for `EwKyleLambda({ ... })`. */
 export interface EwKyleLambdaOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  com?: number;
+  com?: number | null;
   /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
-  span?: number;
+  span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  halflife?: number;
+  halflife?: number | null;
   /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
-  alpha?: number;
+  alpha?: number | null;
 }
 
 /**
@@ -2839,31 +2907,32 @@ export function EwKyleLambda(options: EwKyleLambdaOptions): ScreamerOp;
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_micro/EwKyleLambda.html for the full reference.
  */
-export function EwKyleLambda(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwKyleLambda(com?: number | null, span?: number | null, halflife?: number | null, alpha?: number | null): ScreamerOp;
 export function EwKyleLambda(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
-  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwKyleLambda", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwKyleLambda", com, arguments.length, ["com", "span", "halflife", "alpha"], "com must be a number");
+  else if (arguments.length > 4) _tooMany("EwKyleLambda", 4, arguments.length);
   com ??= NaN;
   span ??= NaN;
   halflife ??= NaN;
   alpha ??= NaN;
   const M = current();
-  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
-  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
-  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
-  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
+  if (typeof com !== "number") throw new TypeError(`EwKyleLambda: com must be a number, got ${_what(com)}`);
+  if (typeof span !== "number") throw new TypeError(`EwKyleLambda: span must be a number, got ${_what(span)}`);
+  if (typeof halflife !== "number") throw new TypeError(`EwKyleLambda: halflife must be a number, got ${_what(halflife)}`);
+  if (typeof alpha !== "number") throw new TypeError(`EwKyleLambda: alpha must be a number, got ${_what(alpha)}`);
   return wrapOp(M, () => new M.EwKyleLambda(com, span, halflife, alpha));
 }
 
 /** The settings of EwMean by name, for `EwMean({ ... })`. */
 export interface EwMeanOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  com?: number;
+  com?: number | null;
   /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
-  span?: number;
+  span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  halflife?: number;
+  halflife?: number | null;
   /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
-  alpha?: number;
+  alpha?: number | null;
 }
 
 /**
@@ -2882,31 +2951,32 @@ export function EwMean(options: EwMeanOptions): ScreamerOp;
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwMean.html for the full reference.
  */
-export function EwMean(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwMean(com?: number | null, span?: number | null, halflife?: number | null, alpha?: number | null): ScreamerOp;
 export function EwMean(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
-  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwMean", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwMean", com, arguments.length, ["com", "span", "halflife", "alpha"], "com must be a number");
+  else if (arguments.length > 4) _tooMany("EwMean", 4, arguments.length);
   com ??= NaN;
   span ??= NaN;
   halflife ??= NaN;
   alpha ??= NaN;
   const M = current();
-  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
-  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
-  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
-  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
+  if (typeof com !== "number") throw new TypeError(`EwMean: com must be a number, got ${_what(com)}`);
+  if (typeof span !== "number") throw new TypeError(`EwMean: span must be a number, got ${_what(span)}`);
+  if (typeof halflife !== "number") throw new TypeError(`EwMean: halflife must be a number, got ${_what(halflife)}`);
+  if (typeof alpha !== "number") throw new TypeError(`EwMean: alpha must be a number, got ${_what(alpha)}`);
   return wrapOp(M, () => new M.EwMean(com, span, halflife, alpha));
 }
 
 /** The settings of EwParkinsonVar by name, for `EwParkinsonVar({ ... })`. */
 export interface EwParkinsonVarOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  com?: number;
+  com?: number | null;
   /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
-  span?: number;
+  span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  halflife?: number;
+  halflife?: number | null;
   /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
-  alpha?: number;
+  alpha?: number | null;
 }
 
 /**
@@ -2925,31 +2995,32 @@ export function EwParkinsonVar(options: EwParkinsonVarOptions): ScreamerOp;
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwParkinsonVar.html for the full reference.
  */
-export function EwParkinsonVar(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwParkinsonVar(com?: number | null, span?: number | null, halflife?: number | null, alpha?: number | null): ScreamerOp;
 export function EwParkinsonVar(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
-  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwParkinsonVar", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwParkinsonVar", com, arguments.length, ["com", "span", "halflife", "alpha"], "com must be a number");
+  else if (arguments.length > 4) _tooMany("EwParkinsonVar", 4, arguments.length);
   com ??= NaN;
   span ??= NaN;
   halflife ??= NaN;
   alpha ??= NaN;
   const M = current();
-  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
-  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
-  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
-  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
+  if (typeof com !== "number") throw new TypeError(`EwParkinsonVar: com must be a number, got ${_what(com)}`);
+  if (typeof span !== "number") throw new TypeError(`EwParkinsonVar: span must be a number, got ${_what(span)}`);
+  if (typeof halflife !== "number") throw new TypeError(`EwParkinsonVar: halflife must be a number, got ${_what(halflife)}`);
+  if (typeof alpha !== "number") throw new TypeError(`EwParkinsonVar: alpha must be a number, got ${_what(alpha)}`);
   return wrapOp(M, () => new M.EwParkinsonVar(com, span, halflife, alpha));
 }
 
 /** The settings of EwParkinsonVol by name, for `EwParkinsonVol({ ... })`. */
 export interface EwParkinsonVolOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  com?: number;
+  com?: number | null;
   /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
-  span?: number;
+  span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  halflife?: number;
+  halflife?: number | null;
   /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
-  alpha?: number;
+  alpha?: number | null;
 }
 
 /**
@@ -2968,31 +3039,32 @@ export function EwParkinsonVol(options: EwParkinsonVolOptions): ScreamerOp;
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwParkinsonVol.html for the full reference.
  */
-export function EwParkinsonVol(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwParkinsonVol(com?: number | null, span?: number | null, halflife?: number | null, alpha?: number | null): ScreamerOp;
 export function EwParkinsonVol(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
-  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwParkinsonVol", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwParkinsonVol", com, arguments.length, ["com", "span", "halflife", "alpha"], "com must be a number");
+  else if (arguments.length > 4) _tooMany("EwParkinsonVol", 4, arguments.length);
   com ??= NaN;
   span ??= NaN;
   halflife ??= NaN;
   alpha ??= NaN;
   const M = current();
-  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
-  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
-  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
-  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
+  if (typeof com !== "number") throw new TypeError(`EwParkinsonVol: com must be a number, got ${_what(com)}`);
+  if (typeof span !== "number") throw new TypeError(`EwParkinsonVol: span must be a number, got ${_what(span)}`);
+  if (typeof halflife !== "number") throw new TypeError(`EwParkinsonVol: halflife must be a number, got ${_what(halflife)}`);
+  if (typeof alpha !== "number") throw new TypeError(`EwParkinsonVol: alpha must be a number, got ${_what(alpha)}`);
   return wrapOp(M, () => new M.EwParkinsonVol(com, span, halflife, alpha));
 }
 
 /** The settings of EwResidualStd by name, for `EwResidualStd({ ... })`. */
 export interface EwResidualStdOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  com?: number;
+  com?: number | null;
   /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
-  span?: number;
+  span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  halflife?: number;
+  halflife?: number | null;
   /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
-  alpha?: number;
+  alpha?: number | null;
 }
 
 /**
@@ -3011,31 +3083,32 @@ export function EwResidualStd(options: EwResidualStdOptions): ScreamerOp;
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwResidualStd.html for the full reference.
  */
-export function EwResidualStd(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwResidualStd(com?: number | null, span?: number | null, halflife?: number | null, alpha?: number | null): ScreamerOp;
 export function EwResidualStd(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
-  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwResidualStd", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwResidualStd", com, arguments.length, ["com", "span", "halflife", "alpha"], "com must be a number");
+  else if (arguments.length > 4) _tooMany("EwResidualStd", 4, arguments.length);
   com ??= NaN;
   span ??= NaN;
   halflife ??= NaN;
   alpha ??= NaN;
   const M = current();
-  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
-  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
-  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
-  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
+  if (typeof com !== "number") throw new TypeError(`EwResidualStd: com must be a number, got ${_what(com)}`);
+  if (typeof span !== "number") throw new TypeError(`EwResidualStd: span must be a number, got ${_what(span)}`);
+  if (typeof halflife !== "number") throw new TypeError(`EwResidualStd: halflife must be a number, got ${_what(halflife)}`);
+  if (typeof alpha !== "number") throw new TypeError(`EwResidualStd: alpha must be a number, got ${_what(alpha)}`);
   return wrapOp(M, () => new M.EwResidualStd(com, span, halflife, alpha));
 }
 
 /** The settings of EwRms by name, for `EwRms({ ... })`. */
 export interface EwRmsOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  com?: number;
+  com?: number | null;
   /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
-  span?: number;
+  span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  halflife?: number;
+  halflife?: number | null;
   /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
-  alpha?: number;
+  alpha?: number | null;
 }
 
 /**
@@ -3054,31 +3127,32 @@ export function EwRms(options: EwRmsOptions): ScreamerOp;
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwRms.html for the full reference.
  */
-export function EwRms(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwRms(com?: number | null, span?: number | null, halflife?: number | null, alpha?: number | null): ScreamerOp;
 export function EwRms(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
-  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwRms", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwRms", com, arguments.length, ["com", "span", "halflife", "alpha"], "com must be a number");
+  else if (arguments.length > 4) _tooMany("EwRms", 4, arguments.length);
   com ??= NaN;
   span ??= NaN;
   halflife ??= NaN;
   alpha ??= NaN;
   const M = current();
-  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
-  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
-  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
-  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
+  if (typeof com !== "number") throw new TypeError(`EwRms: com must be a number, got ${_what(com)}`);
+  if (typeof span !== "number") throw new TypeError(`EwRms: span must be a number, got ${_what(span)}`);
+  if (typeof halflife !== "number") throw new TypeError(`EwRms: halflife must be a number, got ${_what(halflife)}`);
+  if (typeof alpha !== "number") throw new TypeError(`EwRms: alpha must be a number, got ${_what(alpha)}`);
   return wrapOp(M, () => new M.EwRms(com, span, halflife, alpha));
 }
 
 /** The settings of EwRogersSatchellVar by name, for `EwRogersSatchellVar({ ... })`. */
 export interface EwRogersSatchellVarOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  com?: number;
+  com?: number | null;
   /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
-  span?: number;
+  span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  halflife?: number;
+  halflife?: number | null;
   /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
-  alpha?: number;
+  alpha?: number | null;
 }
 
 /**
@@ -3097,31 +3171,32 @@ export function EwRogersSatchellVar(options: EwRogersSatchellVarOptions): Scream
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwRogersSatchellVar.html for the full reference.
  */
-export function EwRogersSatchellVar(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwRogersSatchellVar(com?: number | null, span?: number | null, halflife?: number | null, alpha?: number | null): ScreamerOp;
 export function EwRogersSatchellVar(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
-  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwRogersSatchellVar", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwRogersSatchellVar", com, arguments.length, ["com", "span", "halflife", "alpha"], "com must be a number");
+  else if (arguments.length > 4) _tooMany("EwRogersSatchellVar", 4, arguments.length);
   com ??= NaN;
   span ??= NaN;
   halflife ??= NaN;
   alpha ??= NaN;
   const M = current();
-  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
-  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
-  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
-  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
+  if (typeof com !== "number") throw new TypeError(`EwRogersSatchellVar: com must be a number, got ${_what(com)}`);
+  if (typeof span !== "number") throw new TypeError(`EwRogersSatchellVar: span must be a number, got ${_what(span)}`);
+  if (typeof halflife !== "number") throw new TypeError(`EwRogersSatchellVar: halflife must be a number, got ${_what(halflife)}`);
+  if (typeof alpha !== "number") throw new TypeError(`EwRogersSatchellVar: alpha must be a number, got ${_what(alpha)}`);
   return wrapOp(M, () => new M.EwRogersSatchellVar(com, span, halflife, alpha));
 }
 
 /** The settings of EwRogersSatchellVol by name, for `EwRogersSatchellVol({ ... })`. */
 export interface EwRogersSatchellVolOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  com?: number;
+  com?: number | null;
   /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
-  span?: number;
+  span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  halflife?: number;
+  halflife?: number | null;
   /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
-  alpha?: number;
+  alpha?: number | null;
 }
 
 /**
@@ -3140,31 +3215,32 @@ export function EwRogersSatchellVol(options: EwRogersSatchellVolOptions): Scream
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwRogersSatchellVol.html for the full reference.
  */
-export function EwRogersSatchellVol(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwRogersSatchellVol(com?: number | null, span?: number | null, halflife?: number | null, alpha?: number | null): ScreamerOp;
 export function EwRogersSatchellVol(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
-  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwRogersSatchellVol", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwRogersSatchellVol", com, arguments.length, ["com", "span", "halflife", "alpha"], "com must be a number");
+  else if (arguments.length > 4) _tooMany("EwRogersSatchellVol", 4, arguments.length);
   com ??= NaN;
   span ??= NaN;
   halflife ??= NaN;
   alpha ??= NaN;
   const M = current();
-  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
-  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
-  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
-  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
+  if (typeof com !== "number") throw new TypeError(`EwRogersSatchellVol: com must be a number, got ${_what(com)}`);
+  if (typeof span !== "number") throw new TypeError(`EwRogersSatchellVol: span must be a number, got ${_what(span)}`);
+  if (typeof halflife !== "number") throw new TypeError(`EwRogersSatchellVol: halflife must be a number, got ${_what(halflife)}`);
+  if (typeof alpha !== "number") throw new TypeError(`EwRogersSatchellVol: alpha must be a number, got ${_what(alpha)}`);
   return wrapOp(M, () => new M.EwRogersSatchellVol(com, span, halflife, alpha));
 }
 
 /** The settings of EwSkew by name, for `EwSkew({ ... })`. */
 export interface EwSkewOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  com?: number;
+  com?: number | null;
   /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
-  span?: number;
+  span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  halflife?: number;
+  halflife?: number | null;
   /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
-  alpha?: number;
+  alpha?: number | null;
 }
 
 /**
@@ -3183,31 +3259,32 @@ export function EwSkew(options: EwSkewOptions): ScreamerOp;
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwSkew.html for the full reference.
  */
-export function EwSkew(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwSkew(com?: number | null, span?: number | null, halflife?: number | null, alpha?: number | null): ScreamerOp;
 export function EwSkew(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
-  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwSkew", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwSkew", com, arguments.length, ["com", "span", "halflife", "alpha"], "com must be a number");
+  else if (arguments.length > 4) _tooMany("EwSkew", 4, arguments.length);
   com ??= NaN;
   span ??= NaN;
   halflife ??= NaN;
   alpha ??= NaN;
   const M = current();
-  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
-  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
-  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
-  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
+  if (typeof com !== "number") throw new TypeError(`EwSkew: com must be a number, got ${_what(com)}`);
+  if (typeof span !== "number") throw new TypeError(`EwSkew: span must be a number, got ${_what(span)}`);
+  if (typeof halflife !== "number") throw new TypeError(`EwSkew: halflife must be a number, got ${_what(halflife)}`);
+  if (typeof alpha !== "number") throw new TypeError(`EwSkew: alpha must be a number, got ${_what(alpha)}`);
   return wrapOp(M, () => new M.EwSkew(com, span, halflife, alpha));
 }
 
 /** The settings of EwSpread by name, for `EwSpread({ ... })`. */
 export interface EwSpreadOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  com?: number;
+  com?: number | null;
   /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
-  span?: number;
+  span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  halflife?: number;
+  halflife?: number | null;
   /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
-  alpha?: number;
+  alpha?: number | null;
 }
 
 /**
@@ -3226,31 +3303,32 @@ export function EwSpread(options: EwSpreadOptions): ScreamerOp;
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwSpread.html for the full reference.
  */
-export function EwSpread(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwSpread(com?: number | null, span?: number | null, halflife?: number | null, alpha?: number | null): ScreamerOp;
 export function EwSpread(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
-  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwSpread", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwSpread", com, arguments.length, ["com", "span", "halflife", "alpha"], "com must be a number");
+  else if (arguments.length > 4) _tooMany("EwSpread", 4, arguments.length);
   com ??= NaN;
   span ??= NaN;
   halflife ??= NaN;
   alpha ??= NaN;
   const M = current();
-  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
-  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
-  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
-  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
+  if (typeof com !== "number") throw new TypeError(`EwSpread: com must be a number, got ${_what(com)}`);
+  if (typeof span !== "number") throw new TypeError(`EwSpread: span must be a number, got ${_what(span)}`);
+  if (typeof halflife !== "number") throw new TypeError(`EwSpread: halflife must be a number, got ${_what(halflife)}`);
+  if (typeof alpha !== "number") throw new TypeError(`EwSpread: alpha must be a number, got ${_what(alpha)}`);
   return wrapOp(M, () => new M.EwSpread(com, span, halflife, alpha));
 }
 
 /** The settings of EwStd by name, for `EwStd({ ... })`. */
 export interface EwStdOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  com?: number;
+  com?: number | null;
   /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
-  span?: number;
+  span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  halflife?: number;
+  halflife?: number | null;
   /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
-  alpha?: number;
+  alpha?: number | null;
 }
 
 /**
@@ -3269,31 +3347,32 @@ export function EwStd(options: EwStdOptions): ScreamerOp;
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwStd.html for the full reference.
  */
-export function EwStd(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwStd(com?: number | null, span?: number | null, halflife?: number | null, alpha?: number | null): ScreamerOp;
 export function EwStd(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
-  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwStd", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwStd", com, arguments.length, ["com", "span", "halflife", "alpha"], "com must be a number");
+  else if (arguments.length > 4) _tooMany("EwStd", 4, arguments.length);
   com ??= NaN;
   span ??= NaN;
   halflife ??= NaN;
   alpha ??= NaN;
   const M = current();
-  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
-  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
-  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
-  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
+  if (typeof com !== "number") throw new TypeError(`EwStd: com must be a number, got ${_what(com)}`);
+  if (typeof span !== "number") throw new TypeError(`EwStd: span must be a number, got ${_what(span)}`);
+  if (typeof halflife !== "number") throw new TypeError(`EwStd: halflife must be a number, got ${_what(halflife)}`);
+  if (typeof alpha !== "number") throw new TypeError(`EwStd: alpha must be a number, got ${_what(alpha)}`);
   return wrapOp(M, () => new M.EwStd(com, span, halflife, alpha));
 }
 
 /** The settings of EwVar by name, for `EwVar({ ... })`. */
 export interface EwVarOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  com?: number;
+  com?: number | null;
   /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
-  span?: number;
+  span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  halflife?: number;
+  halflife?: number | null;
   /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
-  alpha?: number;
+  alpha?: number | null;
 }
 
 /**
@@ -3312,31 +3391,32 @@ export function EwVar(options: EwVarOptions): ScreamerOp;
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwVar.html for the full reference.
  */
-export function EwVar(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwVar(com?: number | null, span?: number | null, halflife?: number | null, alpha?: number | null): ScreamerOp;
 export function EwVar(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
-  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwVar", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwVar", com, arguments.length, ["com", "span", "halflife", "alpha"], "com must be a number");
+  else if (arguments.length > 4) _tooMany("EwVar", 4, arguments.length);
   com ??= NaN;
   span ??= NaN;
   halflife ??= NaN;
   alpha ??= NaN;
   const M = current();
-  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
-  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
-  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
-  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
+  if (typeof com !== "number") throw new TypeError(`EwVar: com must be a number, got ${_what(com)}`);
+  if (typeof span !== "number") throw new TypeError(`EwVar: span must be a number, got ${_what(span)}`);
+  if (typeof halflife !== "number") throw new TypeError(`EwVar: halflife must be a number, got ${_what(halflife)}`);
+  if (typeof alpha !== "number") throw new TypeError(`EwVar: alpha must be a number, got ${_what(alpha)}`);
   return wrapOp(M, () => new M.EwVar(com, span, halflife, alpha));
 }
 
 /** The settings of EwYangZhangVar by name, for `EwYangZhangVar({ ... })`. */
 export interface EwYangZhangVarOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  com?: number;
+  com?: number | null;
   /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
-  span?: number;
+  span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  halflife?: number;
+  halflife?: number | null;
   /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
-  alpha?: number;
+  alpha?: number | null;
 }
 
 /**
@@ -3355,31 +3435,32 @@ export function EwYangZhangVar(options: EwYangZhangVarOptions): ScreamerOp;
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwYangZhangVar.html for the full reference.
  */
-export function EwYangZhangVar(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwYangZhangVar(com?: number | null, span?: number | null, halflife?: number | null, alpha?: number | null): ScreamerOp;
 export function EwYangZhangVar(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
-  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwYangZhangVar", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwYangZhangVar", com, arguments.length, ["com", "span", "halflife", "alpha"], "com must be a number");
+  else if (arguments.length > 4) _tooMany("EwYangZhangVar", 4, arguments.length);
   com ??= NaN;
   span ??= NaN;
   halflife ??= NaN;
   alpha ??= NaN;
   const M = current();
-  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
-  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
-  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
-  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
+  if (typeof com !== "number") throw new TypeError(`EwYangZhangVar: com must be a number, got ${_what(com)}`);
+  if (typeof span !== "number") throw new TypeError(`EwYangZhangVar: span must be a number, got ${_what(span)}`);
+  if (typeof halflife !== "number") throw new TypeError(`EwYangZhangVar: halflife must be a number, got ${_what(halflife)}`);
+  if (typeof alpha !== "number") throw new TypeError(`EwYangZhangVar: alpha must be a number, got ${_what(alpha)}`);
   return wrapOp(M, () => new M.EwYangZhangVar(com, span, halflife, alpha));
 }
 
 /** The settings of EwYangZhangVol by name, for `EwYangZhangVol({ ... })`. */
 export interface EwYangZhangVolOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  com?: number;
+  com?: number | null;
   /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
-  span?: number;
+  span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  halflife?: number;
+  halflife?: number | null;
   /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
-  alpha?: number;
+  alpha?: number | null;
 }
 
 /**
@@ -3398,31 +3479,32 @@ export function EwYangZhangVol(options: EwYangZhangVolOptions): ScreamerOp;
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwYangZhangVol.html for the full reference.
  */
-export function EwYangZhangVol(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwYangZhangVol(com?: number | null, span?: number | null, halflife?: number | null, alpha?: number | null): ScreamerOp;
 export function EwYangZhangVol(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
-  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwYangZhangVol", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwYangZhangVol", com, arguments.length, ["com", "span", "halflife", "alpha"], "com must be a number");
+  else if (arguments.length > 4) _tooMany("EwYangZhangVol", 4, arguments.length);
   com ??= NaN;
   span ??= NaN;
   halflife ??= NaN;
   alpha ??= NaN;
   const M = current();
-  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
-  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
-  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
-  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
+  if (typeof com !== "number") throw new TypeError(`EwYangZhangVol: com must be a number, got ${_what(com)}`);
+  if (typeof span !== "number") throw new TypeError(`EwYangZhangVol: span must be a number, got ${_what(span)}`);
+  if (typeof halflife !== "number") throw new TypeError(`EwYangZhangVol: halflife must be a number, got ${_what(halflife)}`);
+  if (typeof alpha !== "number") throw new TypeError(`EwYangZhangVol: alpha must be a number, got ${_what(alpha)}`);
   return wrapOp(M, () => new M.EwYangZhangVol(com, span, halflife, alpha));
 }
 
 /** The settings of EwZscore by name, for `EwZscore({ ... })`. */
 export interface EwZscoreOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  com?: number;
+  com?: number | null;
   /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
-  span?: number;
+  span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  halflife?: number;
+  halflife?: number | null;
   /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
-  alpha?: number;
+  alpha?: number | null;
 }
 
 /**
@@ -3441,18 +3523,19 @@ export function EwZscore(options: EwZscoreOptions): ScreamerOp;
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwZscore.html for the full reference.
  */
-export function EwZscore(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function EwZscore(com?: number | null, span?: number | null, halflife?: number | null, alpha?: number | null): ScreamerOp;
 export function EwZscore(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
-  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwZscore", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("EwZscore", com, arguments.length, ["com", "span", "halflife", "alpha"], "com must be a number");
+  else if (arguments.length > 4) _tooMany("EwZscore", 4, arguments.length);
   com ??= NaN;
   span ??= NaN;
   halflife ??= NaN;
   alpha ??= NaN;
   const M = current();
-  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
-  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
-  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
-  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
+  if (typeof com !== "number") throw new TypeError(`EwZscore: com must be a number, got ${_what(com)}`);
+  if (typeof span !== "number") throw new TypeError(`EwZscore: span must be a number, got ${_what(span)}`);
+  if (typeof halflife !== "number") throw new TypeError(`EwZscore: halflife must be a number, got ${_what(halflife)}`);
+  if (typeof alpha !== "number") throw new TypeError(`EwZscore: alpha must be a number, got ${_what(alpha)}`);
   return wrapOp(M, () => new M.EwZscore(com, span, halflife, alpha));
 }
 
@@ -3462,10 +3545,11 @@ export type ExpOptions = Record<string, never>;
 /**
  * e to the power of each element.
  *
+ * @param options Nothing, or an empty object: Exp has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Exp.html for the full reference.
  */
 export function Exp(options?: ExpOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Exp", options, arguments.length, []);
+  if (arguments.length) _noSettings("Exp", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Exp());
 }
@@ -3476,10 +3560,11 @@ export type ExpandingKurtOptions = Record<string, never>;
 /**
  * Running bias-corrected excess kurtosis (Fisher) over the whole history.
  *
+ * @param options Nothing, or an empty object: ExpandingKurt has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingKurt.html for the full reference.
  */
 export function ExpandingKurt(options?: ExpandingKurtOptions): ScreamerOp {
-  if (_isOptions(options)) _options("ExpandingKurt", options, arguments.length, []);
+  if (arguments.length) _noSettings("ExpandingKurt", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.ExpandingKurt());
 }
@@ -3490,10 +3575,11 @@ export type ExpandingMaxOptions = Record<string, never>;
 /**
  * Running maximum since the start of the stream.
  *
+ * @param options Nothing, or an empty object: ExpandingMax has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingMax.html for the full reference.
  */
 export function ExpandingMax(options?: ExpandingMaxOptions): ScreamerOp {
-  if (_isOptions(options)) _options("ExpandingMax", options, arguments.length, []);
+  if (arguments.length) _noSettings("ExpandingMax", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.ExpandingMax());
 }
@@ -3504,10 +3590,11 @@ export type ExpandingMeanOptions = Record<string, never>;
 /**
  * Running mean over the whole history since the last reset.
  *
+ * @param options Nothing, or an empty object: ExpandingMean has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingMean.html for the full reference.
  */
 export function ExpandingMean(options?: ExpandingMeanOptions): ScreamerOp {
-  if (_isOptions(options)) _options("ExpandingMean", options, arguments.length, []);
+  if (arguments.length) _noSettings("ExpandingMean", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.ExpandingMean());
 }
@@ -3518,10 +3605,11 @@ export type ExpandingMinOptions = Record<string, never>;
 /**
  * Running minimum since the start of the stream.
  *
+ * @param options Nothing, or an empty object: ExpandingMin has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingMin.html for the full reference.
  */
 export function ExpandingMin(options?: ExpandingMinOptions): ScreamerOp {
-  if (_isOptions(options)) _options("ExpandingMin", options, arguments.length, []);
+  if (arguments.length) _noSettings("ExpandingMin", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.ExpandingMin());
 }
@@ -3532,10 +3620,11 @@ export type ExpandingProdOptions = Record<string, never>;
 /**
  * Running product since the start of the stream.
  *
+ * @param options Nothing, or an empty object: ExpandingProd has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingProd.html for the full reference.
  */
 export function ExpandingProd(options?: ExpandingProdOptions): ScreamerOp {
-  if (_isOptions(options)) _options("ExpandingProd", options, arguments.length, []);
+  if (arguments.length) _noSettings("ExpandingProd", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.ExpandingProd());
 }
@@ -3546,10 +3635,11 @@ export type ExpandingSkewOptions = Record<string, never>;
 /**
  * Running bias-corrected sample skewness (G1) over the whole history.
  *
+ * @param options Nothing, or an empty object: ExpandingSkew has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingSkew.html for the full reference.
  */
 export function ExpandingSkew(options?: ExpandingSkewOptions): ScreamerOp {
-  if (_isOptions(options)) _options("ExpandingSkew", options, arguments.length, []);
+  if (arguments.length) _noSettings("ExpandingSkew", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.ExpandingSkew());
 }
@@ -3560,10 +3650,11 @@ export type ExpandingSlopeOptions = Record<string, never>;
 /**
  * Running OLS slope of the series against time over the whole history.
  *
+ * @param options Nothing, or an empty object: ExpandingSlope has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingSlope.html for the full reference.
  */
 export function ExpandingSlope(options?: ExpandingSlopeOptions): ScreamerOp {
-  if (_isOptions(options)) _options("ExpandingSlope", options, arguments.length, []);
+  if (arguments.length) _noSettings("ExpandingSlope", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.ExpandingSlope());
 }
@@ -3574,10 +3665,11 @@ export type ExpandingStdOptions = Record<string, never>;
 /**
  * Running sample standard deviation (ddof=1) over the whole history.
  *
+ * @param options Nothing, or an empty object: ExpandingStd has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingStd.html for the full reference.
  */
 export function ExpandingStd(options?: ExpandingStdOptions): ScreamerOp {
-  if (_isOptions(options)) _options("ExpandingStd", options, arguments.length, []);
+  if (arguments.length) _noSettings("ExpandingStd", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.ExpandingStd());
 }
@@ -3588,10 +3680,11 @@ export type ExpandingSumOptions = Record<string, never>;
 /**
  * Running sum since the start of the stream.
  *
+ * @param options Nothing, or an empty object: ExpandingSum has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingSum.html for the full reference.
  */
 export function ExpandingSum(options?: ExpandingSumOptions): ScreamerOp {
-  if (_isOptions(options)) _options("ExpandingSum", options, arguments.length, []);
+  if (arguments.length) _noSettings("ExpandingSum", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.ExpandingSum());
 }
@@ -3602,10 +3695,11 @@ export type ExpandingVarOptions = Record<string, never>;
 /**
  * Running sample variance (ddof=1) over the whole history.
  *
+ * @param options Nothing, or an empty object: ExpandingVar has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingVar.html for the full reference.
  */
 export function ExpandingVar(options?: ExpandingVarOptions): ScreamerOp {
-  if (_isOptions(options)) _options("ExpandingVar", options, arguments.length, []);
+  if (arguments.length) _noSettings("ExpandingVar", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.ExpandingVar());
 }
@@ -3616,17 +3710,18 @@ export type FfillOptions = Record<string, never>;
 /**
  * Replace NaN with the most recent non-NaN value.
  *
+ * @param options Nothing, or an empty object: Ffill has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_preprocessing/Ffill.html for the full reference.
  */
 export function Ffill(options?: FfillOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Ffill", options, arguments.length, []);
+  if (arguments.length) _noSettings("Ffill", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Ffill());
 }
 
 /** The settings of FillNa by name, for `FillNa({ ... })`. */
 export interface FillNaOptions {
-  /** Constant that replaces each NaN. */
+  /** Constant that replaces each NaN. @defaultValue `0.0` */
   fill?: number;
 }
 
@@ -3645,10 +3740,11 @@ export function FillNa(options: FillNaOptions): ScreamerOp;
  */
 export function FillNa(fill?: number): ScreamerOp;
 export function FillNa(fill?: any): ScreamerOp {
-  if (_isOptions(fill)) [fill] = _options("FillNa", fill, arguments.length, ["fill"]);
-  fill ??= 0.0;
+  if (_isOptions(fill)) [fill] = _options("FillNa", fill, arguments.length, ["fill"], "fill must be a number");
+  else if (arguments.length > 1) _tooMany("FillNa", 1, arguments.length);
+  if (fill === undefined) fill = 0.0;
   const M = current();
-  if (_isText(fill)) throw new TypeError(`fill must be a number, got a string`);
+  if (typeof fill !== "number") throw new TypeError(`FillNa: fill must be a number, got ${_what(fill)}`);
   return wrapOp(M, () => new M.FillNa(fill));
 }
 
@@ -3658,10 +3754,11 @@ export type FirstOptions = Record<string, never>;
 /**
  * Latch the first finite value seen since reset.
  *
+ * @param options Nothing, or an empty object: First has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_misc/First.html for the full reference.
  */
 export function First(options?: FirstOptions): ScreamerOp {
-  if (_isOptions(options)) _options("First", options, arguments.length, []);
+  if (arguments.length) _noSettings("First", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.First());
 }
@@ -3672,23 +3769,24 @@ export type FloorOptions = Record<string, never>;
 /**
  * Round each element toward negative infinity.
  *
+ * @param options Nothing, or an empty object: Floor has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Floor.html for the full reference.
  */
 export function Floor(options?: FloorOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Floor", options, arguments.length, []);
+  if (arguments.length) _noSettings("Floor", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Floor());
 }
 
 /** The settings of FracDiff by name, for `FracDiff({ ... })`. */
 export interface FracDiffOptions {
-  /** Differencing order. 0 is the identity, 1 the first difference, 2 the second; negative values give fractional integration. */
+  /** Differencing order. 0 is the identity, 1 the first difference, 2 the second; negative values give fractional integration. @defaultValue `0.4` */
   d?: number;
-  /** Maximum number of taps, which bounds memory and per-step cost. */
+  /** Maximum number of taps, which bounds memory and per-step cost. @defaultValue `100` */
   windowSize?: number;
-  /** Truncate the weight series at the first weight smaller than this in absolute value. 0.0 keeps all window_size taps. */
+  /** Truncate the weight series at the first weight smaller than this in absolute value. 0.0 keeps all window_size taps. @defaultValue `1e-05` */
   threshold?: number;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -3710,16 +3808,17 @@ export function FracDiff(options: FracDiffOptions): ScreamerOp;
  */
 export function FracDiff(d?: number, windowSize?: number, threshold?: number, startPolicy?: string): ScreamerOp;
 export function FracDiff(d?: any, windowSize?: any, threshold?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(d)) [d, windowSize, threshold, startPolicy] = _options("FracDiff", d, arguments.length, ["d", "windowSize", "threshold", "startPolicy"]);
-  d ??= 0.4;
-  windowSize ??= 100;
-  threshold ??= 1e-05;
-  startPolicy ??= "strict";
+  if (_isOptions(d)) [d, windowSize, threshold, startPolicy] = _options("FracDiff", d, arguments.length, ["d", "windowSize", "threshold", "startPolicy"], "d must be a number");
+  else if (arguments.length > 4) _tooMany("FracDiff", 4, arguments.length);
+  if (d === undefined) d = 0.4;
+  if (windowSize === undefined) windowSize = 100;
+  if (threshold === undefined) threshold = 1e-05;
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(d)) throw new TypeError(`d must be a number, got a string`);
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (_isText(threshold)) throw new TypeError(`threshold must be a number, got a string`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof d !== "number") throw new TypeError(`FracDiff: d must be a number, got ${_what(d)}`);
+  if (typeof windowSize !== "number") throw new TypeError(`FracDiff: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof threshold !== "number") throw new TypeError(`FracDiff: threshold must be a number, got ${_what(threshold)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`FracDiff: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.FracDiff(d, windowSize, threshold, startPolicy));
 }
 
@@ -3729,10 +3828,11 @@ export type GreaterEqualOptions = Record<string, never>;
 /**
  * Returns 1.0 if a >= b, else 0.0. NaN in either input yields NaN.
  *
+ * @param options Nothing, or an empty object: GreaterEqual has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/GreaterEqual.html for the full reference.
  */
 export function GreaterEqual(options?: GreaterEqualOptions): ScreamerOp {
-  if (_isOptions(options)) _options("GreaterEqual", options, arguments.length, []);
+  if (arguments.length) _noSettings("GreaterEqual", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.GreaterEqual());
 }
@@ -3743,23 +3843,24 @@ export type GreaterThanOptions = Record<string, never>;
 /**
  * Returns 1.0 if a > b, else 0.0. NaN in either input yields NaN.
  *
+ * @param options Nothing, or an empty object: GreaterThan has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/GreaterThan.html for the full reference.
  */
 export function GreaterThan(options?: GreaterThanOptions): ScreamerOp {
-  if (_isOptions(options)) _options("GreaterThan", options, arguments.length, []);
+  if (arguments.length) _noSettings("GreaterThan", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.GreaterThan());
 }
 
 /** The settings of Hampel by name, for `Hampel({ ... })`. */
 export interface HampelOptions {
-  /** Number of most recent samples used for the median and the MAD. */
+  /** Number of most recent samples used for the median and the MAD. @defaultValue `20` */
   windowSize?: number;
-  /** Detection threshold in robust standard deviations (1.4826 * MAD). Larger values flag fewer samples; 3.0 is typical. */
+  /** Detection threshold in robust standard deviations (1.4826 * MAD). Larger values flag fewer samples; 3.0 is typical. @defaultValue `3.0` */
   nSigma?: number;
-  /** What to return: "cleaned" gives the signal with outliers replaced by the median, "flag" gives 1.0 at outliers and 0.0 elsewhere, and "nan" gives the input with outliers replaced by NaN. */
+  /** What to return: "cleaned" gives the signal with outliers replaced by the median, "flag" gives 1.0 at outliers and 0.0 elsewhere, and "nan" gives the input with outliers replaced by NaN. @defaultValue `"cleaned"` */
   output?: string;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -3781,26 +3882,27 @@ export function Hampel(options: HampelOptions): ScreamerOp;
  */
 export function Hampel(windowSize?: number, nSigma?: number, output?: string, startPolicy?: string): ScreamerOp;
 export function Hampel(windowSize?: any, nSigma?: any, output?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, nSigma, output, startPolicy] = _options("Hampel", windowSize, arguments.length, ["windowSize", "nSigma", "output", "startPolicy"]);
-  windowSize ??= 20;
-  nSigma ??= 3.0;
-  output ??= "cleaned";
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, nSigma, output, startPolicy] = _options("Hampel", windowSize, arguments.length, ["windowSize", "nSigma", "output", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 4) _tooMany("Hampel", 4, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (nSigma === undefined) nSigma = 3.0;
+  if (output === undefined) output = "cleaned";
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (_isText(nSigma)) throw new TypeError(`nSigma must be a number, got a string`);
-  if (typeof output !== "string") throw new TypeError(`output must be a string, got ${typeof output}`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`Hampel: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof nSigma !== "number") throw new TypeError(`Hampel: nSigma must be a number, got ${_what(nSigma)}`);
+  if (typeof output !== "string") throw new TypeError(`Hampel: output must be a string, got ${output instanceof String ? "a String object" : _what(output)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`Hampel: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.Hampel(windowSize, nSigma, output, startPolicy));
 }
 
 /** The settings of HawkesIntensity by name, for `HawkesIntensity({ ... })`. */
 export interface HawkesIntensityOptions {
-  /** Fraction of the excitation kept from one step to the next, in (0, 1). Larger values make the excitation fade more slowly. */
+  /** Fraction of the excitation kept from one step to the next, in (0, 1). Larger values make the excitation fade more slowly. @defaultValue `0.9` */
   decay?: number;
-  /** Excitation amplitude: each event adds alpha times its mark to the excitation. */
+  /** Excitation amplitude: each event adds alpha times its mark to the excitation. @defaultValue `1.0` */
   alpha?: number;
-  /** Baseline intensity, the output when there has been no recent event. */
+  /** Baseline intensity, the output when there has been no recent event. @defaultValue `0.0` */
   mu?: number;
 }
 
@@ -3821,14 +3923,15 @@ export function HawkesIntensity(options: HawkesIntensityOptions): ScreamerOp;
  */
 export function HawkesIntensity(decay?: number, alpha?: number, mu?: number): ScreamerOp;
 export function HawkesIntensity(decay?: any, alpha?: any, mu?: any): ScreamerOp {
-  if (_isOptions(decay)) [decay, alpha, mu] = _options("HawkesIntensity", decay, arguments.length, ["decay", "alpha", "mu"]);
-  decay ??= 0.9;
-  alpha ??= 1.0;
-  mu ??= 0.0;
+  if (_isOptions(decay)) [decay, alpha, mu] = _options("HawkesIntensity", decay, arguments.length, ["decay", "alpha", "mu"], "decay must be a number");
+  else if (arguments.length > 3) _tooMany("HawkesIntensity", 3, arguments.length);
+  if (decay === undefined) decay = 0.9;
+  if (alpha === undefined) alpha = 1.0;
+  if (mu === undefined) mu = 0.0;
   const M = current();
-  if (_isText(decay)) throw new TypeError(`decay must be a number, got a string`);
-  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
-  if (_isText(mu)) throw new TypeError(`mu must be a number, got a string`);
+  if (typeof decay !== "number") throw new TypeError(`HawkesIntensity: decay must be a number, got ${_what(decay)}`);
+  if (typeof alpha !== "number") throw new TypeError(`HawkesIntensity: alpha must be a number, got ${_what(alpha)}`);
+  if (typeof mu !== "number") throw new TypeError(`HawkesIntensity: mu must be a number, got ${_what(mu)}`);
   return wrapOp(M, () => new M.HawkesIntensity(decay, alpha, mu));
 }
 
@@ -3838,10 +3941,11 @@ export type HilbertPhasorOptions = Record<string, never>;
 /**
  * In-phase and quadrature components of the analytic signal via Ehlers' Hilbert transform.
  *
+ * @param options Nothing, or an empty object: HilbertPhasor has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/HilbertPhasor.html for the full reference.
  */
 export function HilbertPhasor(options?: HilbertPhasorOptions): ScreamerOp {
-  if (_isOptions(options)) _options("HilbertPhasor", options, arguments.length, []);
+  if (arguments.length) _noSettings("HilbertPhasor", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.HilbertPhasor());
 }
@@ -3850,7 +3954,7 @@ export function HilbertPhasor(options?: HilbertPhasorOptions): ScreamerOp {
 export interface HoldOptions {
   /** Number of steps the latched value is held, counting the trigger step: a nonzero input at t is output at t, t+1, ..., t+n-1. */
   n: number;
-  /** Value returned when no hold is active and the input is zero. May be finite or NaN; inf is rejected. */
+  /** Value returned when no hold is active and the input is zero. May be finite or NaN; inf is rejected. @defaultValue `0.0` */
   release?: number;
 }
 
@@ -3870,18 +3974,19 @@ export function Hold(options: HoldOptions): ScreamerOp;
  */
 export function Hold(n: number, release?: number): ScreamerOp;
 export function Hold(n?: any, release?: any): ScreamerOp {
-  if (_isOptions(n)) [n, release] = _options("Hold", n, arguments.length, ["n", "release"]);
-  if (n == null) throw new TypeError(`Hold: n is required`);
-  release ??= 0.0;
+  if (_isOptions(n)) [n, release] = _options("Hold", n, arguments.length, ["n", "release"], "n must be a number");
+  else if (arguments.length > 2) _tooMany("Hold", 2, arguments.length);
+  if (n === undefined) throw new TypeError(`Hold: n is required`);
+  if (release === undefined) release = 0.0;
   const M = current();
-  if (_isText(n)) throw new TypeError(`n must be a number, got a string`);
-  if (_isText(release)) throw new TypeError(`release must be a number, got a string`);
+  if (typeof n !== "number") throw new TypeError(`Hold: n must be a number, got ${_what(n)}`);
+  if (typeof release !== "number") throw new TypeError(`Hold: release must be a number, got ${_what(release)}`);
   return wrapOp(M, () => new M.Hold(n, release));
 }
 
 /** The settings of HullMA by name, for `HullMA({ ... })`. */
 export interface HullMAOptions {
-  /** Main window n in samples; the inner windows are n // 2 and floor(sqrt(n)). Must be at least 4 so that both inner windows are at least 2. */
+  /** Main window n in samples; the inner windows are n // 2 and floor(sqrt(n)). Must be at least 4 so that both inner windows are at least 2. @defaultValue `20` */
   windowSize?: number;
 }
 
@@ -3900,10 +4005,11 @@ export function HullMA(options: HullMAOptions): ScreamerOp;
  */
 export function HullMA(windowSize?: number): ScreamerOp;
 export function HullMA(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("HullMA", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 20;
+  if (_isOptions(windowSize)) [windowSize] = _options("HullMA", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("HullMA", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`HullMA: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.HullMA(windowSize));
 }
 
@@ -3913,10 +4019,11 @@ export type HypotOptions = Record<string, never>;
 /**
  * Euclidean distance sqrt(x^2 + y^2), numerically stable.
  *
+ * @param options Nothing, or an empty object: Hypot has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Hypot.html for the full reference.
  */
 export function Hypot(options?: HypotOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Hypot", options, arguments.length, []);
+  if (arguments.length) _noSettings("Hypot", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Hypot());
 }
@@ -3927,23 +4034,24 @@ export type IdentityOptions = Record<string, never>;
 /**
  * Pass-through (y = x).
  *
+ * @param options Nothing, or an empty object: Identity has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_misc/Identity.html for the full reference.
  */
 export function Identity(options?: IdentityOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Identity", options, arguments.length, []);
+  if (arguments.length) _noSettings("Identity", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Identity());
 }
 
 /** The settings of ImpulseClip by name, for `ImpulseClip({ ... })`. */
 export interface ImpulseClipOptions {
-  /** Number of most recent first differences (and values) used for the robust scale and the replacement median. */
+  /** Number of most recent first differences (and values) used for the robust scale and the replacement median. @defaultValue `20` */
   windowSize?: number;
-  /** Detection threshold in robust standard deviations of the differences (1.4826 * MAD). Larger values flag fewer samples; 4.0 is typical. */
+  /** Detection threshold in robust standard deviations of the differences (1.4826 * MAD). Larger values flag fewer samples; 4.0 is typical. @defaultValue `4.0` */
   nSigma?: number;
-  /** What to return: "cleaned" gives the signal with outliers replaced by the median, "flag" gives 1.0 at outliers and 0.0 elsewhere, and "nan" gives the input with outliers replaced by NaN. */
+  /** What to return: "cleaned" gives the signal with outliers replaced by the median, "flag" gives 1.0 at outliers and 0.0 elsewhere, and "nan" gives the input with outliers replaced by NaN. @defaultValue `"cleaned"` */
   output?: string;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -3965,16 +4073,17 @@ export function ImpulseClip(options: ImpulseClipOptions): ScreamerOp;
  */
 export function ImpulseClip(windowSize?: number, nSigma?: number, output?: string, startPolicy?: string): ScreamerOp;
 export function ImpulseClip(windowSize?: any, nSigma?: any, output?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, nSigma, output, startPolicy] = _options("ImpulseClip", windowSize, arguments.length, ["windowSize", "nSigma", "output", "startPolicy"]);
-  windowSize ??= 20;
-  nSigma ??= 4.0;
-  output ??= "cleaned";
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, nSigma, output, startPolicy] = _options("ImpulseClip", windowSize, arguments.length, ["windowSize", "nSigma", "output", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 4) _tooMany("ImpulseClip", 4, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (nSigma === undefined) nSigma = 4.0;
+  if (output === undefined) output = "cleaned";
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (_isText(nSigma)) throw new TypeError(`nSigma must be a number, got a string`);
-  if (typeof output !== "string") throw new TypeError(`output must be a string, got ${typeof output}`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`ImpulseClip: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof nSigma !== "number") throw new TypeError(`ImpulseClip: nSigma must be a number, got ${_what(nSigma)}`);
+  if (typeof output !== "string") throw new TypeError(`ImpulseClip: output must be a string, got ${output instanceof String ? "a String object" : _what(output)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`ImpulseClip: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.ImpulseClip(windowSize, nSigma, output, startPolicy));
 }
 
@@ -3984,10 +4093,11 @@ export type InstantaneousTrendlineOptions = Record<string, never>;
 /**
  * Adaptive 2-pole trendline whose smoothing tracks the measured dominant cycle.
  *
+ * @param options Nothing, or an empty object: InstantaneousTrendline has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/InstantaneousTrendline.html for the full reference.
  */
 export function InstantaneousTrendline(options?: InstantaneousTrendlineOptions): ScreamerOp {
-  if (_isOptions(options)) _options("InstantaneousTrendline", options, arguments.length, []);
+  if (arguments.length) _noSettings("InstantaneousTrendline", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.InstantaneousTrendline());
 }
@@ -3998,10 +4108,11 @@ export type IsFiniteOptions = Record<string, never>;
 /**
  * Returns 1.0 for finite values, 0.0 for NaN or inf. Does not propagate NaN.
  *
+ * @param options Nothing, or an empty object: IsFinite has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/IsFinite.html for the full reference.
  */
 export function IsFinite(options?: IsFiniteOptions): ScreamerOp {
-  if (_isOptions(options)) _options("IsFinite", options, arguments.length, []);
+  if (arguments.length) _noSettings("IsFinite", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.IsFinite());
 }
@@ -4012,21 +4123,22 @@ export type IsNanOptions = Record<string, never>;
 /**
  * Returns 1.0 if the input is NaN, else 0.0. Does not propagate NaN.
  *
+ * @param options Nothing, or an empty object: IsNan has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/IsNan.html for the full reference.
  */
 export function IsNan(options?: IsNanOptions): ScreamerOp {
-  if (_isOptions(options)) _options("IsNan", options, arguments.length, []);
+  if (arguments.length) _noSettings("IsNan", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.IsNan());
 }
 
 /** The settings of KAMA by name, for `KAMA({ ... })`. */
 export interface KAMAOptions {
-  /** Efficiency-ratio lookback n in samples: the net move and the path length are measured over the last n steps. */
+  /** Efficiency-ratio lookback n in samples: the net move and the path length are measured over the last n steps. @defaultValue `10` */
   windowSize?: number;
-  /** Period of the fastest smoothing constant, alpha_fast = 2 / (fast + 1), used when the efficiency ratio is 1. TA-Lib fixes it at 2. */
+  /** Period of the fastest smoothing constant, alpha_fast = 2 / (fast + 1), used when the efficiency ratio is 1. TA-Lib fixes it at 2. @defaultValue `2` */
   fast?: number;
-  /** Period of the slowest smoothing constant, alpha_slow = 2 / (slow + 1), used when the efficiency ratio is 0. TA-Lib fixes it at 30. */
+  /** Period of the slowest smoothing constant, alpha_slow = 2 / (slow + 1), used when the efficiency ratio is 0. TA-Lib fixes it at 30. @defaultValue `30` */
   slow?: number;
 }
 
@@ -4047,26 +4159,27 @@ export function KAMA(options: KAMAOptions): ScreamerOp;
  */
 export function KAMA(windowSize?: number, fast?: number, slow?: number): ScreamerOp;
 export function KAMA(windowSize?: any, fast?: any, slow?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, fast, slow] = _options("KAMA", windowSize, arguments.length, ["windowSize", "fast", "slow"]);
-  windowSize ??= 10;
-  fast ??= 2;
-  slow ??= 30;
+  if (_isOptions(windowSize)) [windowSize, fast, slow] = _options("KAMA", windowSize, arguments.length, ["windowSize", "fast", "slow"], "windowSize must be a number");
+  else if (arguments.length > 3) _tooMany("KAMA", 3, arguments.length);
+  if (windowSize === undefined) windowSize = 10;
+  if (fast === undefined) fast = 2;
+  if (slow === undefined) slow = 30;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (_isText(fast)) throw new TypeError(`fast must be a number, got a string`);
-  if (_isText(slow)) throw new TypeError(`slow must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`KAMA: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof fast !== "number") throw new TypeError(`KAMA: fast must be a number, got ${_what(fast)}`);
+  if (typeof slow !== "number") throw new TypeError(`KAMA: slow must be a number, got ${_what(slow)}`);
   return wrapOp(M, () => new M.KAMA(windowSize, fast, slow));
 }
 
 /** The settings of KalmanFilter by name, for `KalmanFilter({ ... })`. */
 export interface KalmanFilterOptions {
-  /** Variance of the random-walk innovation. Larger values make the filter follow new measurements more closely, with a noisier output. */
+  /** Variance of the random-walk innovation. Larger values make the filter follow new measurements more closely, with a noisier output. @defaultValue `0.01` */
   processVar?: number;
-  /** Variance of the measurement noise. Must be positive. */
+  /** Variance of the measurement noise. Must be positive. @defaultValue `1.0` */
   observationVar?: number;
-  /** Starting state estimate x_0, used before the first observation. */
+  /** Starting state estimate x_0, used before the first observation. @defaultValue `0.0` */
   initialState?: number;
-  /** Variance P_0 of the starting state. A large value such as 1e9 makes the filter forget the initial state quickly. */
+  /** Variance P_0 of the starting state. A large value such as 1e9 makes the filter forget the initial state quickly. @defaultValue `1.0` */
   initialVariance?: number;
 }
 
@@ -4088,26 +4201,27 @@ export function KalmanFilter(options: KalmanFilterOptions): ScreamerOp;
  */
 export function KalmanFilter(processVar?: number, observationVar?: number, initialState?: number, initialVariance?: number): ScreamerOp;
 export function KalmanFilter(processVar?: any, observationVar?: any, initialState?: any, initialVariance?: any): ScreamerOp {
-  if (_isOptions(processVar)) [processVar, observationVar, initialState, initialVariance] = _options("KalmanFilter", processVar, arguments.length, ["processVar", "observationVar", "initialState", "initialVariance"]);
-  processVar ??= 0.01;
-  observationVar ??= 1.0;
-  initialState ??= 0.0;
-  initialVariance ??= 1.0;
+  if (_isOptions(processVar)) [processVar, observationVar, initialState, initialVariance] = _options("KalmanFilter", processVar, arguments.length, ["processVar", "observationVar", "initialState", "initialVariance"], "processVar must be a number");
+  else if (arguments.length > 4) _tooMany("KalmanFilter", 4, arguments.length);
+  if (processVar === undefined) processVar = 0.01;
+  if (observationVar === undefined) observationVar = 1.0;
+  if (initialState === undefined) initialState = 0.0;
+  if (initialVariance === undefined) initialVariance = 1.0;
   const M = current();
-  if (_isText(processVar)) throw new TypeError(`processVar must be a number, got a string`);
-  if (_isText(observationVar)) throw new TypeError(`observationVar must be a number, got a string`);
-  if (_isText(initialState)) throw new TypeError(`initialState must be a number, got a string`);
-  if (_isText(initialVariance)) throw new TypeError(`initialVariance must be a number, got a string`);
+  if (typeof processVar !== "number") throw new TypeError(`KalmanFilter: processVar must be a number, got ${_what(processVar)}`);
+  if (typeof observationVar !== "number") throw new TypeError(`KalmanFilter: observationVar must be a number, got ${_what(observationVar)}`);
+  if (typeof initialState !== "number") throw new TypeError(`KalmanFilter: initialState must be a number, got ${_what(initialState)}`);
+  if (typeof initialVariance !== "number") throw new TypeError(`KalmanFilter: initialVariance must be a number, got ${_what(initialVariance)}`);
   return wrapOp(M, () => new M.KalmanFilter(processVar, observationVar, initialState, initialVariance));
 }
 
 /** The settings of KalmanRegression by name, for `KalmanRegression({ ... })`. */
 export interface KalmanRegressionOptions {
-  /** How fast the intercept and slope may move. The state noise variance is delta / (1 - delta) per step; smaller values give steadier estimates and a spread that keeps its mean reversion. The right value scales with the bar frequency, from about 1e-10 on one-minute log prices to 1e-8 to 1e-6 on daily ones. Must be in (0, 1). */
+  /** How fast the intercept and slope may move. The state noise variance is delta / (1 - delta) per step; smaller values give steadier estimates and a spread that keeps its mean reversion. The right value scales with the bar frequency, from about 1e-10 on one-minute log prices to 1e-8 to 1e-6 on daily ones. Must be in (0, 1). @defaultValue `1e-06` */
   delta?: number;
-  /** Variance of the spread (the regression error), in squared units of the first input. Must be positive. */
+  /** Variance of the spread (the regression error), in squared units of the first input. Must be positive. @defaultValue `0.001` */
   obsVar?: number;
-  /** Starting variance of the intercept and slope, which both start at zero. */
+  /** Starting variance of the intercept and slope, which both start at zero. @defaultValue `1.0` */
   priorVar?: number;
 }
 
@@ -4128,22 +4242,23 @@ export function KalmanRegression(options: KalmanRegressionOptions): ScreamerOp;
  */
 export function KalmanRegression(delta?: number, obsVar?: number, priorVar?: number): ScreamerOp;
 export function KalmanRegression(delta?: any, obsVar?: any, priorVar?: any): ScreamerOp {
-  if (_isOptions(delta)) [delta, obsVar, priorVar] = _options("KalmanRegression", delta, arguments.length, ["delta", "obsVar", "priorVar"]);
-  delta ??= 1e-06;
-  obsVar ??= 0.001;
-  priorVar ??= 1.0;
+  if (_isOptions(delta)) [delta, obsVar, priorVar] = _options("KalmanRegression", delta, arguments.length, ["delta", "obsVar", "priorVar"], "delta must be a number");
+  else if (arguments.length > 3) _tooMany("KalmanRegression", 3, arguments.length);
+  if (delta === undefined) delta = 1e-06;
+  if (obsVar === undefined) obsVar = 0.001;
+  if (priorVar === undefined) priorVar = 1.0;
   const M = current();
-  if (_isText(delta)) throw new TypeError(`delta must be a number, got a string`);
-  if (_isText(obsVar)) throw new TypeError(`obsVar must be a number, got a string`);
-  if (_isText(priorVar)) throw new TypeError(`priorVar must be a number, got a string`);
+  if (typeof delta !== "number") throw new TypeError(`KalmanRegression: delta must be a number, got ${_what(delta)}`);
+  if (typeof obsVar !== "number") throw new TypeError(`KalmanRegression: obsVar must be a number, got ${_what(obsVar)}`);
+  if (typeof priorVar !== "number") throw new TypeError(`KalmanRegression: priorVar must be a number, got ${_what(priorVar)}`);
   return wrapOp(M, () => new M.KalmanRegression(delta, obsVar, priorVar));
 }
 
 /** The settings of KeltnerChannels by name, for `KeltnerChannels({ ... })`. */
 export interface KeltnerChannelsOptions {
-  /** Period for both the EMA midline and the ATR offset. */
+  /** Period for both the EMA midline and the ATR offset. @defaultValue `20` */
   windowSize?: number;
-  /** Distance from the middle line to each outer line, in multiples of the ATR. */
+  /** Distance from the middle line to each outer line, in multiples of the ATR. @defaultValue `2.0` */
   numAtr?: number;
 }
 
@@ -4163,20 +4278,21 @@ export function KeltnerChannels(options: KeltnerChannelsOptions): ScreamerOp;
  */
 export function KeltnerChannels(windowSize?: number, numAtr?: number): ScreamerOp;
 export function KeltnerChannels(windowSize?: any, numAtr?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, numAtr] = _options("KeltnerChannels", windowSize, arguments.length, ["windowSize", "numAtr"]);
-  windowSize ??= 20;
-  numAtr ??= 2.0;
+  if (_isOptions(windowSize)) [windowSize, numAtr] = _options("KeltnerChannels", windowSize, arguments.length, ["windowSize", "numAtr"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("KeltnerChannels", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (numAtr === undefined) numAtr = 2.0;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (_isText(numAtr)) throw new TypeError(`numAtr must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`KeltnerChannels: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof numAtr !== "number") throw new TypeError(`KeltnerChannels: numAtr must be a number, got ${_what(numAtr)}`);
   return wrapOp(M, () => new M.KeltnerChannels(windowSize, numAtr));
 }
 
 /** The settings of Lag by name, for `Lag({ ... })`. */
 export interface LagOptions {
-  /** Number of samples k to delay the input by. */
+  /** Number of samples k to delay the input by. @defaultValue `1` */
   windowSize?: number;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -4196,12 +4312,13 @@ export function Lag(options: LagOptions): ScreamerOp;
  */
 export function Lag(windowSize?: number, startPolicy?: string): ScreamerOp;
 export function Lag(windowSize?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("Lag", windowSize, arguments.length, ["windowSize", "startPolicy"]);
-  windowSize ??= 1;
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("Lag", windowSize, arguments.length, ["windowSize", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("Lag", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 1;
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`Lag: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`Lag: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.Lag(windowSize, startPolicy));
 }
 
@@ -4211,10 +4328,11 @@ export type LastOptions = Record<string, never>;
 /**
  * Return the most recent finite value seen since reset.
  *
+ * @param options Nothing, or an empty object: Last has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_misc/Last.html for the full reference.
  */
 export function Last(options?: LastOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Last", options, arguments.length, []);
+  if (arguments.length) _noSettings("Last", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Last());
 }
@@ -4225,10 +4343,11 @@ export type LeeReadySignOptions = Record<string, never>;
 /**
  * Trade sign by the Lee-Ready (1991) rule: quote test with tick-rule fallback.
  *
+ * @param options Nothing, or an empty object: LeeReadySign has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_micro/LeeReadySign.html for the full reference.
  */
 export function LeeReadySign(options?: LeeReadySignOptions): ScreamerOp {
-  if (_isOptions(options)) _options("LeeReadySign", options, arguments.length, []);
+  if (arguments.length) _noSettings("LeeReadySign", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.LeeReadySign());
 }
@@ -4239,10 +4358,11 @@ export type LessEqualOptions = Record<string, never>;
 /**
  * Returns 1.0 if a <= b, else 0.0. NaN in either input yields NaN.
  *
+ * @param options Nothing, or an empty object: LessEqual has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/LessEqual.html for the full reference.
  */
 export function LessEqual(options?: LessEqualOptions): ScreamerOp {
-  if (_isOptions(options)) _options("LessEqual", options, arguments.length, []);
+  if (arguments.length) _noSettings("LessEqual", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.LessEqual());
 }
@@ -4253,19 +4373,20 @@ export type LessThanOptions = Record<string, never>;
 /**
  * Returns 1.0 if a < b, else 0.0. NaN in either input yields NaN.
  *
+ * @param options Nothing, or an empty object: LessThan has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/LessThan.html for the full reference.
  */
 export function LessThan(options?: LessThanOptions): ScreamerOp {
-  if (_isOptions(options)) _options("LessThan", options, arguments.length, []);
+  if (arguments.length) _noSettings("LessThan", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.LessThan());
 }
 
 /** The settings of Linear by name, for `Linear({ ... })`. */
 export interface LinearOptions {
-  /** Factor that multiplies each input value. */
+  /** Factor that multiplies each input value. @defaultValue `1.0` */
   scale?: number;
-  /** Constant added after scaling. */
+  /** Constant added after scaling. @defaultValue `0.0` */
   shift?: number;
 }
 
@@ -4285,22 +4406,23 @@ export function Linear(options: LinearOptions): ScreamerOp;
  */
 export function Linear(scale?: number, shift?: number): ScreamerOp;
 export function Linear(scale?: any, shift?: any): ScreamerOp {
-  if (_isOptions(scale)) [scale, shift] = _options("Linear", scale, arguments.length, ["scale", "shift"]);
-  scale ??= 1.0;
-  shift ??= 0.0;
+  if (_isOptions(scale)) [scale, shift] = _options("Linear", scale, arguments.length, ["scale", "shift"], "scale must be a number");
+  else if (arguments.length > 2) _tooMany("Linear", 2, arguments.length);
+  if (scale === undefined) scale = 1.0;
+  if (shift === undefined) shift = 0.0;
   const M = current();
-  if (_isText(scale)) throw new TypeError(`scale must be a number, got a string`);
-  if (_isText(shift)) throw new TypeError(`shift must be a number, got a string`);
+  if (typeof scale !== "number") throw new TypeError(`Linear: scale must be a number, got ${_what(scale)}`);
+  if (typeof shift !== "number") throw new TypeError(`Linear: shift must be a number, got ${_what(shift)}`);
   return wrapOp(M, () => new M.Linear(scale, shift));
 }
 
 /** The settings of Linear2 by name, for `Linear2({ ... })`. */
 export interface Linear2Options {
-  /** Coefficient that multiplies the first input. */
+  /** Coefficient that multiplies the first input. @defaultValue `1.0` */
   a?: number;
-  /** Coefficient that multiplies the second input. */
+  /** Coefficient that multiplies the second input. @defaultValue `1.0` */
   b?: number;
-  /** Constant added to the weighted sum. */
+  /** Constant added to the weighted sum. @defaultValue `0.0` */
   c?: number;
 }
 
@@ -4321,14 +4443,15 @@ export function Linear2(options: Linear2Options): ScreamerOp;
  */
 export function Linear2(a?: number, b?: number, c?: number): ScreamerOp;
 export function Linear2(a?: any, b?: any, c?: any): ScreamerOp {
-  if (_isOptions(a)) [a, b, c] = _options("Linear2", a, arguments.length, ["a", "b", "c"]);
-  a ??= 1.0;
-  b ??= 1.0;
-  c ??= 0.0;
+  if (_isOptions(a)) [a, b, c] = _options("Linear2", a, arguments.length, ["a", "b", "c"], "a must be a number");
+  else if (arguments.length > 3) _tooMany("Linear2", 3, arguments.length);
+  if (a === undefined) a = 1.0;
+  if (b === undefined) b = 1.0;
+  if (c === undefined) c = 0.0;
   const M = current();
-  if (_isText(a)) throw new TypeError(`a must be a number, got a string`);
-  if (_isText(b)) throw new TypeError(`b must be a number, got a string`);
-  if (_isText(c)) throw new TypeError(`c must be a number, got a string`);
+  if (typeof a !== "number") throw new TypeError(`Linear2: a must be a number, got ${_what(a)}`);
+  if (typeof b !== "number") throw new TypeError(`Linear2: b must be a number, got ${_what(b)}`);
+  if (typeof c !== "number") throw new TypeError(`Linear2: c must be a number, got ${_what(c)}`);
   return wrapOp(M, () => new M.Linear2(a, b, c));
 }
 
@@ -4338,17 +4461,18 @@ export type LogOptions = Record<string, never>;
 /**
  * Natural logarithm of each element.
  *
+ * @param options Nothing, or an empty object: Log has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Log.html for the full reference.
  */
 export function Log(options?: LogOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Log", options, arguments.length, []);
+  if (arguments.length) _noSettings("Log", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Log());
 }
 
 /** The settings of LogReturn by name, for `LogReturn({ ... })`. */
 export interface LogReturnOptions {
-  /** Lag k: the output compares each value with the value k steps earlier. */
+  /** Lag k: the output compares each value with the value k steps earlier. @defaultValue `1` */
   windowSize?: number;
 }
 
@@ -4367,20 +4491,21 @@ export function LogReturn(options: LogReturnOptions): ScreamerOp;
  */
 export function LogReturn(windowSize?: number): ScreamerOp;
 export function LogReturn(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("LogReturn", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 1;
+  if (_isOptions(windowSize)) [windowSize] = _options("LogReturn", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("LogReturn", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 1;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`LogReturn: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.LogReturn(windowSize));
 }
 
 /** The settings of MACD by name, for `MACD({ ... })`. */
 export interface MACDOptions {
-  /** Span of the fast EMA, in samples. Must be less than slow. */
+  /** Span of the fast EMA, in samples. Must be less than slow. @defaultValue `12` */
   fast?: number;
-  /** Span of the slow EMA, in samples. Must be greater than fast. */
+  /** Span of the slow EMA, in samples. Must be greater than fast. @defaultValue `26` */
   slow?: number;
-  /** Span of the EMA applied to the MACD line to form the signal line, in samples. */
+  /** Span of the EMA applied to the MACD line to form the signal line, in samples. @defaultValue `9` */
   signal?: number;
 }
 
@@ -4401,22 +4526,23 @@ export function MACD(options: MACDOptions): ScreamerOp;
  */
 export function MACD(fast?: number, slow?: number, signal?: number): ScreamerOp;
 export function MACD(fast?: any, slow?: any, signal?: any): ScreamerOp {
-  if (_isOptions(fast)) [fast, slow, signal] = _options("MACD", fast, arguments.length, ["fast", "slow", "signal"]);
-  fast ??= 12;
-  slow ??= 26;
-  signal ??= 9;
+  if (_isOptions(fast)) [fast, slow, signal] = _options("MACD", fast, arguments.length, ["fast", "slow", "signal"], "fast must be a number");
+  else if (arguments.length > 3) _tooMany("MACD", 3, arguments.length);
+  if (fast === undefined) fast = 12;
+  if (slow === undefined) slow = 26;
+  if (signal === undefined) signal = 9;
   const M = current();
-  if (_isText(fast)) throw new TypeError(`fast must be a number, got a string`);
-  if (_isText(slow)) throw new TypeError(`slow must be a number, got a string`);
-  if (_isText(signal)) throw new TypeError(`signal must be a number, got a string`);
+  if (typeof fast !== "number") throw new TypeError(`MACD: fast must be a number, got ${_what(fast)}`);
+  if (typeof slow !== "number") throw new TypeError(`MACD: slow must be a number, got ${_what(slow)}`);
+  if (typeof signal !== "number") throw new TypeError(`MACD: signal must be a number, got ${_what(signal)}`);
   return wrapOp(M, () => new M.MACD(fast, slow, signal));
 }
 
 /** The settings of MAMA by name, for `MAMA({ ... })`. */
 export interface MAMAOptions {
-  /** Upper bound on the smoothing constant, applied when the phase advances quickly. */
+  /** Upper bound on the smoothing constant, applied when the phase advances quickly. @defaultValue `0.5` */
   fastLimit?: number;
-  /** Lower bound on the smoothing constant, applied when the phase stalls. */
+  /** Lower bound on the smoothing constant, applied when the phase stalls. @defaultValue `0.05` */
   slowLimit?: number;
 }
 
@@ -4436,18 +4562,19 @@ export function MAMA(options: MAMAOptions): ScreamerOp;
  */
 export function MAMA(fastLimit?: number, slowLimit?: number): ScreamerOp;
 export function MAMA(fastLimit?: any, slowLimit?: any): ScreamerOp {
-  if (_isOptions(fastLimit)) [fastLimit, slowLimit] = _options("MAMA", fastLimit, arguments.length, ["fastLimit", "slowLimit"]);
-  fastLimit ??= 0.5;
-  slowLimit ??= 0.05;
+  if (_isOptions(fastLimit)) [fastLimit, slowLimit] = _options("MAMA", fastLimit, arguments.length, ["fastLimit", "slowLimit"], "fastLimit must be a number");
+  else if (arguments.length > 2) _tooMany("MAMA", 2, arguments.length);
+  if (fastLimit === undefined) fastLimit = 0.5;
+  if (slowLimit === undefined) slowLimit = 0.05;
   const M = current();
-  if (_isText(fastLimit)) throw new TypeError(`fastLimit must be a number, got a string`);
-  if (_isText(slowLimit)) throw new TypeError(`slowLimit must be a number, got a string`);
+  if (typeof fastLimit !== "number") throw new TypeError(`MAMA: fastLimit must be a number, got ${_what(fastLimit)}`);
+  if (typeof slowLimit !== "number") throw new TypeError(`MAMA: slowLimit must be a number, got ${_what(slowLimit)}`);
   return wrapOp(M, () => new M.MAMA(fastLimit, slowLimit));
 }
 
 /** The settings of MFI by name, for `MFI({ ... })`. */
 export interface MFIOptions {
-  /** Number of most recent typical-price changes whose money flow is summed into the positive and negative totals. */
+  /** Number of most recent typical-price changes whose money flow is summed into the positive and negative totals. @defaultValue `14` */
   windowSize?: number;
 }
 
@@ -4466,10 +4593,11 @@ export function MFI(options: MFIOptions): ScreamerOp;
  */
 export function MFI(windowSize?: number): ScreamerOp;
 export function MFI(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("MFI", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 14;
+  if (_isOptions(windowSize)) [windowSize] = _options("MFI", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("MFI", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 14;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`MFI: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.MFI(windowSize));
 }
 
@@ -4479,10 +4607,11 @@ export type MaxDrawdownOptions = Record<string, never>;
 /**
  * Worst drawdown experienced so far (since reset).
  *
+ * @param options Nothing, or an empty object: MaxDrawdown has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/MaxDrawdown.html for the full reference.
  */
 export function MaxDrawdown(options?: MaxDrawdownOptions): ScreamerOp {
-  if (_isOptions(options)) _options("MaxDrawdown", options, arguments.length, []);
+  if (arguments.length) _noSettings("MaxDrawdown", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.MaxDrawdown());
 }
@@ -4493,17 +4622,18 @@ export type MicroPriceOptions = Record<string, never>;
 /**
  * Imbalance-weighted mid (Stoikov 2018, first-order): fair value that leans toward the thinner side of the book.
  *
+ * @param options Nothing, or an empty object: MicroPrice has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_micro/MicroPrice.html for the full reference.
  */
 export function MicroPrice(options?: MicroPriceOptions): ScreamerOp {
-  if (_isOptions(options)) _options("MicroPrice", options, arguments.length, []);
+  if (arguments.length) _noSettings("MicroPrice", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.MicroPrice());
 }
 
 /** The settings of MinusDI by name, for `MinusDI({ ... })`. */
 export interface MinusDIOptions {
-  /** Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value. */
+  /** Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value. @defaultValue `14` */
   windowSize?: number;
 }
 
@@ -4522,16 +4652,17 @@ export function MinusDI(options: MinusDIOptions): ScreamerOp;
  */
 export function MinusDI(windowSize?: number): ScreamerOp;
 export function MinusDI(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("MinusDI", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 14;
+  if (_isOptions(windowSize)) [windowSize] = _options("MinusDI", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("MinusDI", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 14;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`MinusDI: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.MinusDI(windowSize));
 }
 
 /** The settings of MinusDM by name, for `MinusDM({ ... })`. */
 export interface MinusDMOptions {
-  /** Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value. */
+  /** Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value. @defaultValue `14` */
   windowSize?: number;
 }
 
@@ -4550,18 +4681,19 @@ export function MinusDM(options: MinusDMOptions): ScreamerOp;
  */
 export function MinusDM(windowSize?: number): ScreamerOp;
 export function MinusDM(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("MinusDM", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 14;
+  if (_isOptions(windowSize)) [windowSize] = _options("MinusDM", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("MinusDM", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 14;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`MinusDM: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.MinusDM(windowSize));
 }
 
 /** The settings of Momentum by name, for `Momentum({ ... })`. */
 export interface MomentumOptions {
-  /** Lookback k, in samples. TA-Lib also defaults to 10. */
+  /** Lookback k, in samples. TA-Lib also defaults to 10. @defaultValue `10` */
   windowSize?: number;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -4581,18 +4713,19 @@ export function Momentum(options: MomentumOptions): ScreamerOp;
  */
 export function Momentum(windowSize?: number, startPolicy?: string): ScreamerOp;
 export function Momentum(windowSize?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("Momentum", windowSize, arguments.length, ["windowSize", "startPolicy"]);
-  windowSize ??= 10;
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("Momentum", windowSize, arguments.length, ["windowSize", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("Momentum", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 10;
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`Momentum: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`Momentum: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.Momentum(windowSize, startPolicy));
 }
 
 /** The settings of MovingAverage by name, for `MovingAverage({ ... })`. */
 export interface MovingAverageOptions {
-  /** FIR coefficients; taps[0] multiplies the current sample and taps[-1] the oldest. Must be non-empty. The default is a 3-tap triangular kernel. */
+  /** FIR coefficients; taps[0] multiplies the current sample and taps[-1] the oldest. Must be non-empty. The default is a 3-tap triangular kernel. @defaultValue `[0.25, 0.5, 0.25]` */
   taps?: number | number[];
 }
 
@@ -4611,18 +4744,16 @@ export function MovingAverage(options: MovingAverageOptions): ScreamerOp;
  */
 export function MovingAverage(taps?: number | number[]): ScreamerOp;
 export function MovingAverage(taps?: any): ScreamerOp {
-  if (_isOptions(taps)) [taps] = _options("MovingAverage", taps, arguments.length, ["taps"]);
-  taps ??= [0.25, 0.5, 0.25];
+  if (_isOptions(taps)) [taps] = _options("MovingAverage", taps, arguments.length, ["taps"], "taps must be a number or an array of numbers");
+  else if (arguments.length > 1) _tooMany("MovingAverage", 1, arguments.length);
+  if (taps === undefined) taps = [0.25, 0.5, 0.25];
   const M = current();
-  const taps_ = _vec("taps", taps);
-  if (_isText(taps_) || (Array.isArray(taps_) && taps_.some(_isText))) throw new TypeError(`taps must be a number or an array of numbers, got a string`);
+  const taps_ = _vec("MovingAverage", "taps", taps);
   return wrapOp(M, () => {
     const _v0 = new M.VectorDouble();
     try {
-      for (const _x of (typeof taps_ === "number" ? [taps_] : taps_)) {
-        if (typeof _x !== "number") throw new TypeError(`taps must be a number or an array of numbers, got ${_what(_x)}`);
-        _v0.push_back(_x);
-      }
+      if (typeof taps_ === "number") _v0.push_back(taps_);
+      else for (const _x of taps_) _v0.push_back(_x);
       return new M.MovingAverage(_v0);
     } finally {
       _v0.delete();
@@ -4636,17 +4767,18 @@ export type MulOptions = Record<string, never>;
 /**
  * Elementwise product of two aligned streams (x * y).
  *
+ * @param options Nothing, or an empty object: Mul has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Mul.html for the full reference.
  */
 export function Mul(options?: MulOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Mul", options, arguments.length, []);
+  if (arguments.length) _noSettings("Mul", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Mul());
 }
 
 /** The settings of NATR by name, for `NATR({ ... })`. */
 export interface NATROptions {
-  /** Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value. */
+  /** Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value. @defaultValue `14` */
   windowSize?: number;
 }
 
@@ -4665,10 +4797,11 @@ export function NATR(options: NATROptions): ScreamerOp;
  */
 export function NATR(windowSize?: number): ScreamerOp;
 export function NATR(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("NATR", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 14;
+  if (_isOptions(windowSize)) [windowSize] = _options("NATR", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("NATR", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 14;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`NATR: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.NATR(windowSize));
 }
 
@@ -4678,10 +4811,11 @@ export type NegPartOptions = Record<string, never>;
 /**
  * Negative part of x: max(-x, 0).
  *
+ * @param options Nothing, or an empty object: NegPart has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/NegPart.html for the full reference.
  */
 export function NegPart(options?: NegPartOptions): ScreamerOp {
-  if (_isOptions(options)) _options("NegPart", options, arguments.length, []);
+  if (arguments.length) _noSettings("NegPart", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.NegPart());
 }
@@ -4692,10 +4826,11 @@ export type NotOptions = Record<string, never>;
 /**
  * Returns 0.0 if input is nonzero, 1.0 if zero. NaN propagates.
  *
+ * @param options Nothing, or an empty object: Not has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Not.html for the full reference.
  */
 export function Not(options?: NotOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Not", options, arguments.length, []);
+  if (arguments.length) _noSettings("Not", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Not());
 }
@@ -4706,10 +4841,11 @@ export type NotEqualOptions = Record<string, never>;
 /**
  * Returns 1.0 if a != b, else 0.0. NaN in either input yields NaN.
  *
+ * @param options Nothing, or an empty object: NotEqual has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/NotEqual.html for the full reference.
  */
 export function NotEqual(options?: NotEqualOptions): ScreamerOp {
-  if (_isOptions(options)) _options("NotEqual", options, arguments.length, []);
+  if (arguments.length) _noSettings("NotEqual", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.NotEqual());
 }
@@ -4720,10 +4856,11 @@ export type OBVOptions = Record<string, never>;
 /**
  * On-Balance Volume: signed cumulative volume by close-direction (Granville, 1963).
  *
+ * @param options Nothing, or an empty object: OBV has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/OBV.html for the full reference.
  */
 export function OBV(options?: OBVOptions): ScreamerOp {
-  if (_isOptions(options)) _options("OBV", options, arguments.length, []);
+  if (arguments.length) _noSettings("OBV", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.OBV());
 }
@@ -4734,10 +4871,11 @@ export type OFIOptions = Record<string, never>;
 /**
  * Normalized signed order flow, (buy - sell) / (buy + sell).
  *
+ * @param options Nothing, or an empty object: OFI has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_micro/OFI.html for the full reference.
  */
 export function OFI(options?: OFIOptions): ScreamerOp {
-  if (_isOptions(options)) _options("OFI", options, arguments.length, []);
+  if (arguments.length) _noSettings("OFI", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.OFI());
 }
@@ -4748,17 +4886,18 @@ export type OrOptions = Record<string, never>;
 /**
  * Returns 1.0 if either input is nonzero, else 0.0. NaN in either input yields NaN.
  *
+ * @param options Nothing, or an empty object: Or has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Or.html for the full reference.
  */
 export function Or(options?: OrOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Or", options, arguments.length, []);
+  if (arguments.length) _noSettings("Or", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Or());
 }
 
 /** The settings of PlusDI by name, for `PlusDI({ ... })`. */
 export interface PlusDIOptions {
-  /** Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value. */
+  /** Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value. @defaultValue `14` */
   windowSize?: number;
 }
 
@@ -4777,16 +4916,17 @@ export function PlusDI(options: PlusDIOptions): ScreamerOp;
  */
 export function PlusDI(windowSize?: number): ScreamerOp;
 export function PlusDI(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("PlusDI", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 14;
+  if (_isOptions(windowSize)) [windowSize] = _options("PlusDI", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("PlusDI", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 14;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`PlusDI: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.PlusDI(windowSize));
 }
 
 /** The settings of PlusDM by name, for `PlusDM({ ... })`. */
 export interface PlusDMOptions {
-  /** Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value. */
+  /** Wilder smoothing period: the smoother seeds on the first window_size values, then each step keeps (window_size - 1) / window_size of the previous value. @defaultValue `14` */
   windowSize?: number;
 }
 
@@ -4805,10 +4945,11 @@ export function PlusDM(options: PlusDMOptions): ScreamerOp;
  */
 export function PlusDM(windowSize?: number): ScreamerOp;
 export function PlusDM(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("PlusDM", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 14;
+  if (_isOptions(windowSize)) [windowSize] = _options("PlusDM", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("PlusDM", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 14;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`PlusDM: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.PlusDM(windowSize));
 }
 
@@ -4818,10 +4959,11 @@ export type Polar2CartOptions = Record<string, never>;
 /**
  * Convert (r, theta) to (x, y).
  *
+ * @param options Nothing, or an empty object: Polar2Cart has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Polar2Cart.html for the full reference.
  */
 export function Polar2Cart(options?: Polar2CartOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Polar2Cart", options, arguments.length, []);
+  if (arguments.length) _noSettings("Polar2Cart", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Polar2Cart());
 }
@@ -4832,10 +4974,11 @@ export type PortfolioReportOptions = Record<string, never>;
 /**
  * Reduce a multi-asset backtest engine output into causal portfolio-level report columns.
  *
+ * @param options Nothing, or an empty object: PortfolioReport has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/PortfolioReport.html for the full reference.
  */
 export function PortfolioReport(options?: PortfolioReportOptions): ScreamerOp {
-  if (_isOptions(options)) _options("PortfolioReport", options, arguments.length, []);
+  if (arguments.length) _noSettings("PortfolioReport", options, arguments.length);
   const M = current();
   return wrapReducerOp(M, () => new M.PortfolioReport());
 }
@@ -4846,17 +4989,18 @@ export type PosPartOptions = Record<string, never>;
 /**
  * Positive part of x: max(x, 0).
  *
+ * @param options Nothing, or an empty object: PosPart has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/PosPart.html for the full reference.
  */
 export function PosPart(options?: PosPartOptions): ScreamerOp {
-  if (_isOptions(options)) _options("PosPart", options, arguments.length, []);
+  if (arguments.length) _noSettings("PosPart", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.PosPart());
 }
 
 /** The settings of Power by name, for `Power({ ... })`. */
 export interface PowerOptions {
-  /** Exponent applied to each element. The default 2 gives the same result as Square, which computes x * x directly. */
+  /** Exponent applied to each element. The default 2 gives the same result as Square, which computes x * x directly. @defaultValue `2.0` */
   p?: number;
 }
 
@@ -4875,20 +5019,21 @@ export function Power(options: PowerOptions): ScreamerOp;
  */
 export function Power(p?: number): ScreamerOp;
 export function Power(p?: any): ScreamerOp {
-  if (_isOptions(p)) [p] = _options("Power", p, arguments.length, ["p"]);
-  p ??= 2.0;
+  if (_isOptions(p)) [p] = _options("Power", p, arguments.length, ["p"], "p must be a number");
+  else if (arguments.length > 1) _tooMany("Power", 1, arguments.length);
+  if (p === undefined) p = 2.0;
   const M = current();
-  if (_isText(p)) throw new TypeError(`p must be a number, got a string`);
+  if (typeof p !== "number") throw new TypeError(`Power: p must be a number, got ${_what(p)}`);
   return wrapOp(M, () => new M.Power(p));
 }
 
 /** The settings of Propagator by name, for `Propagator({ ... })`. */
 export interface PropagatorOptions {
-  /** Number of past flow samples included in the convolution (the kernel support). */
+  /** Number of past flow samples included in the convolution (the kernel support). @defaultValue `20` */
   windowSize?: number;
-  /** Kernel amplitude; scales the overall impact magnitude. */
+  /** Kernel amplitude; scales the overall impact magnitude. @defaultValue `1.0` */
   g0?: number;
-  /** Power-law decay exponent. Larger values make the kernel decay faster. */
+  /** Power-law decay exponent. Larger values make the kernel decay faster. @defaultValue `0.5` */
   gamma?: number;
 }
 
@@ -4909,14 +5054,15 @@ export function Propagator(options: PropagatorOptions): ScreamerOp;
  */
 export function Propagator(windowSize?: number, g0?: number, gamma?: number): ScreamerOp;
 export function Propagator(windowSize?: any, g0?: any, gamma?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, g0, gamma] = _options("Propagator", windowSize, arguments.length, ["windowSize", "g0", "gamma"]);
-  windowSize ??= 20;
-  g0 ??= 1.0;
-  gamma ??= 0.5;
+  if (_isOptions(windowSize)) [windowSize, g0, gamma] = _options("Propagator", windowSize, arguments.length, ["windowSize", "g0", "gamma"], "windowSize must be a number");
+  else if (arguments.length > 3) _tooMany("Propagator", 3, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (g0 === undefined) g0 = 1.0;
+  if (gamma === undefined) gamma = 0.5;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (_isText(g0)) throw new TypeError(`g0 must be a number, got a string`);
-  if (_isText(gamma)) throw new TypeError(`gamma must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`Propagator: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof g0 !== "number") throw new TypeError(`Propagator: g0 must be a number, got ${_what(g0)}`);
+  if (typeof gamma !== "number") throw new TypeError(`Propagator: gamma must be a number, got ${_what(gamma)}`);
   return wrapOp(M, () => new M.Propagator(windowSize, g0, gamma));
 }
 
@@ -4926,17 +5072,18 @@ export type QueueImbalanceOptions = Record<string, never>;
 /**
  * Normalized L1 book imbalance, (bid_size - ask_size) / (bid_size + ask_size).
  *
+ * @param options Nothing, or an empty object: QueueImbalance has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_micro/QueueImbalance.html for the full reference.
  */
 export function QueueImbalance(options?: QueueImbalanceOptions): ScreamerOp {
-  if (_isOptions(options)) _options("QueueImbalance", options, arguments.length, []);
+  if (arguments.length) _noSettings("QueueImbalance", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.QueueImbalance());
 }
 
 /** The settings of ROC by name, for `ROC({ ... })`. */
 export interface ROCOptions {
-  /** Lookback k: the output compares each value with the value k steps earlier. TA-Lib uses 10. */
+  /** Lookback k: the output compares each value with the value k steps earlier. TA-Lib uses 10. @defaultValue `10` */
   windowSize?: number;
 }
 
@@ -4955,16 +5102,17 @@ export function ROC(options: ROCOptions): ScreamerOp;
  */
 export function ROC(windowSize?: number): ScreamerOp;
 export function ROC(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("ROC", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 10;
+  if (_isOptions(windowSize)) [windowSize] = _options("ROC", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("ROC", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 10;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`ROC: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.ROC(windowSize));
 }
 
 /** The settings of ROCP by name, for `ROCP({ ... })`. */
 export interface ROCPOptions {
-  /** Lookback k: the output compares each value with the value k steps earlier. TA-Lib uses 10. */
+  /** Lookback k: the output compares each value with the value k steps earlier. TA-Lib uses 10. @defaultValue `10` */
   windowSize?: number;
 }
 
@@ -4983,16 +5131,17 @@ export function ROCP(options: ROCPOptions): ScreamerOp;
  */
 export function ROCP(windowSize?: number): ScreamerOp;
 export function ROCP(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("ROCP", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 10;
+  if (_isOptions(windowSize)) [windowSize] = _options("ROCP", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("ROCP", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 10;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`ROCP: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.ROCP(windowSize));
 }
 
 /** The settings of ROCR by name, for `ROCR({ ... })`. */
 export interface ROCROptions {
-  /** Lookback k: the output compares each value with the value k steps earlier. TA-Lib uses 10. */
+  /** Lookback k: the output compares each value with the value k steps earlier. TA-Lib uses 10. @defaultValue `10` */
   windowSize?: number;
 }
 
@@ -5011,16 +5160,17 @@ export function ROCR(options: ROCROptions): ScreamerOp;
  */
 export function ROCR(windowSize?: number): ScreamerOp;
 export function ROCR(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("ROCR", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 10;
+  if (_isOptions(windowSize)) [windowSize] = _options("ROCR", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("ROCR", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 10;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`ROCR: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.ROCR(windowSize));
 }
 
 /** The settings of RealizedSpread by name, for `RealizedSpread({ ... })`. */
 export interface RealizedSpreadOptions {
-  /** Number of steps between a trade and the mid it is compared with (the price-impact horizon). */
+  /** Number of steps between a trade and the mid it is compared with (the price-impact horizon). @defaultValue `1` */
   lag?: number;
 }
 
@@ -5039,10 +5189,11 @@ export function RealizedSpread(options: RealizedSpreadOptions): ScreamerOp;
  */
 export function RealizedSpread(lag?: number): ScreamerOp;
 export function RealizedSpread(lag?: any): ScreamerOp {
-  if (_isOptions(lag)) [lag] = _options("RealizedSpread", lag, arguments.length, ["lag"]);
-  lag ??= 1;
+  if (_isOptions(lag)) [lag] = _options("RealizedSpread", lag, arguments.length, ["lag"], "lag must be a number");
+  else if (arguments.length > 1) _tooMany("RealizedSpread", 1, arguments.length);
+  if (lag === undefined) lag = 1;
   const M = current();
-  if (_isText(lag)) throw new TypeError(`lag must be a number, got a string`);
+  if (typeof lag !== "number") throw new TypeError(`RealizedSpread: lag must be a number, got ${_what(lag)}`);
   return wrapOp(M, () => new M.RealizedSpread(lag));
 }
 
@@ -5052,17 +5203,18 @@ export type ReluOptions = Record<string, never>;
 /**
  * Rectified linear unit: max(0, x).
  *
+ * @param options Nothing, or an empty object: Relu has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Relu.html for the full reference.
  */
 export function Relu(options?: ReluOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Relu", options, arguments.length, []);
+  if (arguments.length) _noSettings("Relu", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Relu());
 }
 
 /** The settings of Return by name, for `Return({ ... })`. */
 export interface ReturnOptions {
-  /** Lag k: the output compares each value with the value k steps earlier (1 compares consecutive values). */
+  /** Lag k: the output compares each value with the value k steps earlier (1 compares consecutive values). @defaultValue `1` */
   windowSize?: number;
 }
 
@@ -5081,18 +5233,19 @@ export function Return(options: ReturnOptions): ScreamerOp;
  */
 export function Return(windowSize?: number): ScreamerOp;
 export function Return(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("Return", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 1;
+  if (_isOptions(windowSize)) [windowSize] = _options("Return", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("Return", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 1;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`Return: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.Return(windowSize));
 }
 
 /** The settings of RollSpread by name, for `RollSpread({ ... })`. */
 export interface RollSpreadOptions {
-  /** Number of consecutive price-change pairs in the trailing covariance window. */
+  /** Number of consecutive price-change pairs in the trailing covariance window. @defaultValue `20` */
   windowSize?: number;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -5112,20 +5265,21 @@ export function RollSpread(options: RollSpreadOptions): ScreamerOp;
  */
 export function RollSpread(windowSize?: number, startPolicy?: string): ScreamerOp;
 export function RollSpread(windowSize?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollSpread", windowSize, arguments.length, ["windowSize", "startPolicy"]);
-  windowSize ??= 20;
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollSpread", windowSize, arguments.length, ["windowSize", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("RollSpread", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollSpread: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollSpread: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.RollSpread(windowSize, startPolicy));
 }
 
 /** The settings of RollingADF by name, for `RollingADF({ ... })`. */
 export interface RollingADFOptions {
-  /** Number of regression rows in the window. Must be at least lags + 4. */
+  /** Number of regression rows in the window. Must be at least lags + 4. @defaultValue `100` */
   windowSize?: number;
-  /** Number of lagged differences in the regression (the augmentation). 0 is the plain Dickey-Fuller test. */
+  /** Number of lagged differences in the regression (the augmentation). 0 is the plain Dickey-Fuller test. @defaultValue `1` */
   lags?: number;
 }
 
@@ -5145,20 +5299,21 @@ export function RollingADF(options: RollingADFOptions): ScreamerOp;
  */
 export function RollingADF(windowSize?: number, lags?: number): ScreamerOp;
 export function RollingADF(windowSize?: any, lags?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, lags] = _options("RollingADF", windowSize, arguments.length, ["windowSize", "lags"]);
-  windowSize ??= 100;
-  lags ??= 1;
+  if (_isOptions(windowSize)) [windowSize, lags] = _options("RollingADF", windowSize, arguments.length, ["windowSize", "lags"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("RollingADF", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 100;
+  if (lags === undefined) lags = 1;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (_isText(lags)) throw new TypeError(`lags must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingADF: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof lags !== "number") throw new TypeError(`RollingADF: lags must be a number, got ${_what(lags)}`);
   return wrapOp(M, () => new M.RollingADF(windowSize, lags));
 }
 
 /** The settings of RollingAlpha by name, for `RollingAlpha({ ... })`. */
 export interface RollingAlphaOptions {
-  /** Number of most recent (target, regressor) pairs in the regression window. */
+  /** Number of most recent (target, regressor) pairs in the regression window. @defaultValue `20` */
   windowSize?: number;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -5178,18 +5333,19 @@ export function RollingAlpha(options: RollingAlphaOptions): ScreamerOp;
  */
 export function RollingAlpha(windowSize?: number, startPolicy?: string): ScreamerOp;
 export function RollingAlpha(windowSize?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingAlpha", windowSize, arguments.length, ["windowSize", "startPolicy"]);
-  windowSize ??= 20;
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingAlpha", windowSize, arguments.length, ["windowSize", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("RollingAlpha", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingAlpha: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingAlpha: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.RollingAlpha(windowSize, startPolicy));
 }
 
 /** The settings of RollingArgmax by name, for `RollingArgmax({ ... })`. */
 export interface RollingArgmaxOptions {
-  /** Number of most recent samples searched for the maximum. */
+  /** Number of most recent samples searched for the maximum. @defaultValue `20` */
   windowSize?: number;
 }
 
@@ -5208,16 +5364,17 @@ export function RollingArgmax(options: RollingArgmaxOptions): ScreamerOp;
  */
 export function RollingArgmax(windowSize?: number): ScreamerOp;
 export function RollingArgmax(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("RollingArgmax", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 20;
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingArgmax", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("RollingArgmax", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingArgmax: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.RollingArgmax(windowSize));
 }
 
 /** The settings of RollingArgmin by name, for `RollingArgmin({ ... })`. */
 export interface RollingArgminOptions {
-  /** Number of most recent samples searched for the minimum. */
+  /** Number of most recent samples searched for the minimum. @defaultValue `20` */
   windowSize?: number;
 }
 
@@ -5236,18 +5393,19 @@ export function RollingArgmin(options: RollingArgminOptions): ScreamerOp;
  */
 export function RollingArgmin(windowSize?: number): ScreamerOp;
 export function RollingArgmin(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("RollingArgmin", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 20;
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingArgmin", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("RollingArgmin", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingArgmin: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.RollingArgmin(windowSize));
 }
 
 /** The settings of RollingBeta by name, for `RollingBeta({ ... })`. */
 export interface RollingBetaOptions {
-  /** Number of most recent (target, regressor) pairs in the regression window. */
+  /** Number of most recent (target, regressor) pairs in the regression window. @defaultValue `20` */
   windowSize?: number;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -5267,20 +5425,21 @@ export function RollingBeta(options: RollingBetaOptions): ScreamerOp;
  */
 export function RollingBeta(windowSize?: number, startPolicy?: string): ScreamerOp;
 export function RollingBeta(windowSize?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingBeta", windowSize, arguments.length, ["windowSize", "startPolicy"]);
-  windowSize ??= 20;
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingBeta", windowSize, arguments.length, ["windowSize", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("RollingBeta", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingBeta: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingBeta: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.RollingBeta(windowSize, startPolicy));
 }
 
 /** The settings of RollingCVaR by name, for `RollingCVaR({ ... })`. */
 export interface RollingCVaROptions {
-  /** Number of most recent returns in the window. */
+  /** Number of most recent returns in the window. @defaultValue `20` */
   windowSize?: number;
-  /** Tail probability level in (0, 1); 0.05 means the 5% CVaR (average loss in the worst 5% of the window). */
+  /** Tail probability level in (0, 1); 0.05 means the 5% CVaR (average loss in the worst 5% of the window). @defaultValue `0.05` */
   alpha?: number;
 }
 
@@ -5300,20 +5459,21 @@ export function RollingCVaR(options: RollingCVaROptions): ScreamerOp;
  */
 export function RollingCVaR(windowSize?: number, alpha?: number): ScreamerOp;
 export function RollingCVaR(windowSize?: any, alpha?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, alpha] = _options("RollingCVaR", windowSize, arguments.length, ["windowSize", "alpha"]);
-  windowSize ??= 20;
-  alpha ??= 0.05;
+  if (_isOptions(windowSize)) [windowSize, alpha] = _options("RollingCVaR", windowSize, arguments.length, ["windowSize", "alpha"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("RollingCVaR", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (alpha === undefined) alpha = 0.05;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingCVaR: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof alpha !== "number") throw new TypeError(`RollingCVaR: alpha must be a number, got ${_what(alpha)}`);
   return wrapOp(M, () => new M.RollingCVaR(windowSize, alpha));
 }
 
 /** The settings of RollingCalmar by name, for `RollingCalmar({ ... })`. */
 export interface RollingCalmarOptions {
-  /** Number of most recent returns used for the mean return and the drawdown. */
+  /** Number of most recent returns used for the mean return and the drawdown. @defaultValue `252` */
   windowSize?: number;
-  /** Annualization factor that multiplies the mean return: 252 for daily, 52 for weekly, 12 for monthly data, 1 for no annualization. */
+  /** Annualization factor that multiplies the mean return: 252 for daily, 52 for weekly, 12 for monthly data, 1 for no annualization. @defaultValue `1.0` */
   periodsPerYear?: number;
 }
 
@@ -5333,20 +5493,21 @@ export function RollingCalmar(options: RollingCalmarOptions): ScreamerOp;
  */
 export function RollingCalmar(windowSize?: number, periodsPerYear?: number): ScreamerOp;
 export function RollingCalmar(windowSize?: any, periodsPerYear?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, periodsPerYear] = _options("RollingCalmar", windowSize, arguments.length, ["windowSize", "periodsPerYear"]);
-  windowSize ??= 252;
-  periodsPerYear ??= 1.0;
+  if (_isOptions(windowSize)) [windowSize, periodsPerYear] = _options("RollingCalmar", windowSize, arguments.length, ["windowSize", "periodsPerYear"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("RollingCalmar", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 252;
+  if (periodsPerYear === undefined) periodsPerYear = 1.0;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (_isText(periodsPerYear)) throw new TypeError(`periodsPerYear must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingCalmar: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof periodsPerYear !== "number") throw new TypeError(`RollingCalmar: periodsPerYear must be a number, got ${_what(periodsPerYear)}`);
   return wrapOp(M, () => new M.RollingCalmar(windowSize, periodsPerYear));
 }
 
 /** The settings of RollingCorr by name, for `RollingCorr({ ... })`. */
 export interface RollingCorrOptions {
-  /** Number of most recent (x, y) pairs in the window. */
+  /** Number of most recent (x, y) pairs in the window. @defaultValue `20` */
   windowSize?: number;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -5366,20 +5527,21 @@ export function RollingCorr(options: RollingCorrOptions): ScreamerOp;
  */
 export function RollingCorr(windowSize?: number, startPolicy?: string): ScreamerOp;
 export function RollingCorr(windowSize?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingCorr", windowSize, arguments.length, ["windowSize", "startPolicy"]);
-  windowSize ??= 20;
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingCorr", windowSize, arguments.length, ["windowSize", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("RollingCorr", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingCorr: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingCorr: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.RollingCorr(windowSize, startPolicy));
 }
 
 /** The settings of RollingCov by name, for `RollingCov({ ... })`. */
 export interface RollingCovOptions {
-  /** Number of most recent (x, y) pairs in the window. */
+  /** Number of most recent (x, y) pairs in the window. @defaultValue `20` */
   windowSize?: number;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -5399,22 +5561,23 @@ export function RollingCov(options: RollingCovOptions): ScreamerOp;
  */
 export function RollingCov(windowSize?: number, startPolicy?: string): ScreamerOp;
 export function RollingCov(windowSize?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingCov", windowSize, arguments.length, ["windowSize", "startPolicy"]);
-  windowSize ??= 20;
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingCov", windowSize, arguments.length, ["windowSize", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("RollingCov", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingCov: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingCov: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.RollingCov(windowSize, startPolicy));
 }
 
 /** The settings of RollingDownsideDeviation by name, for `RollingDownsideDeviation({ ... })`. */
 export interface RollingDownsideDeviationOptions {
-  /** Number of most recent returns in the window. */
+  /** Number of most recent returns in the window. @defaultValue `20` */
   windowSize?: number;
-  /** Minimum acceptable return. Only returns below it contribute to the deviation. */
+  /** Minimum acceptable return. Only returns below it contribute to the deviation. @defaultValue `0.0` */
   mar?: number;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -5435,20 +5598,21 @@ export function RollingDownsideDeviation(options: RollingDownsideDeviationOption
  */
 export function RollingDownsideDeviation(windowSize?: number, mar?: number, startPolicy?: string): ScreamerOp;
 export function RollingDownsideDeviation(windowSize?: any, mar?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, mar, startPolicy] = _options("RollingDownsideDeviation", windowSize, arguments.length, ["windowSize", "mar", "startPolicy"]);
-  windowSize ??= 20;
-  mar ??= 0.0;
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, mar, startPolicy] = _options("RollingDownsideDeviation", windowSize, arguments.length, ["windowSize", "mar", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 3) _tooMany("RollingDownsideDeviation", 3, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (mar === undefined) mar = 0.0;
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (_isText(mar)) throw new TypeError(`mar must be a number, got a string`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingDownsideDeviation: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof mar !== "number") throw new TypeError(`RollingDownsideDeviation: mar must be a number, got ${_what(mar)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingDownsideDeviation: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.RollingDownsideDeviation(windowSize, mar, startPolicy));
 }
 
 /** The settings of RollingGarmanKlassVar by name, for `RollingGarmanKlassVar({ ... })`. */
 export interface RollingGarmanKlassVarOptions {
-  /** Number of most recent bars whose per-bar Garman-Klass variances are averaged. */
+  /** Number of most recent bars whose per-bar Garman-Klass variances are averaged. @defaultValue `20` */
   windowSize?: number;
 }
 
@@ -5467,16 +5631,17 @@ export function RollingGarmanKlassVar(options: RollingGarmanKlassVarOptions): Sc
  */
 export function RollingGarmanKlassVar(windowSize?: number): ScreamerOp;
 export function RollingGarmanKlassVar(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("RollingGarmanKlassVar", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 20;
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingGarmanKlassVar", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("RollingGarmanKlassVar", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingGarmanKlassVar: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.RollingGarmanKlassVar(windowSize));
 }
 
 /** The settings of RollingGarmanKlassVol by name, for `RollingGarmanKlassVol({ ... })`. */
 export interface RollingGarmanKlassVolOptions {
-  /** Number of most recent bars whose per-bar Garman-Klass variances are averaged. */
+  /** Number of most recent bars whose per-bar Garman-Klass variances are averaged. @defaultValue `20` */
   windowSize?: number;
 }
 
@@ -5495,16 +5660,17 @@ export function RollingGarmanKlassVol(options: RollingGarmanKlassVolOptions): Sc
  */
 export function RollingGarmanKlassVol(windowSize?: number): ScreamerOp;
 export function RollingGarmanKlassVol(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("RollingGarmanKlassVol", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 20;
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingGarmanKlassVol", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("RollingGarmanKlassVol", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingGarmanKlassVol: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.RollingGarmanKlassVol(windowSize));
 }
 
 /** The settings of RollingHitRate by name, for `RollingHitRate({ ... })`. */
 export interface RollingHitRateOptions {
-  /** Number of most recent values counted. */
+  /** Number of most recent values counted. @defaultValue `252` */
   windowSize?: number;
 }
 
@@ -5523,20 +5689,21 @@ export function RollingHitRate(options: RollingHitRateOptions): ScreamerOp;
  */
 export function RollingHitRate(windowSize?: number): ScreamerOp;
 export function RollingHitRate(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("RollingHitRate", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 252;
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingHitRate", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("RollingHitRate", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 252;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingHitRate: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.RollingHitRate(windowSize));
 }
 
 /** The settings of RollingHurst by name, for `RollingHurst({ ... })`. */
 export interface RollingHurstOptions {
-  /** Trailing-window length W in samples. Must be at least 4 * min_scale so the regression has at least three scales. */
+  /** Trailing-window length W in samples. Must be at least 4 * min_scale so the regression has at least three scales. @defaultValue `256` */
   windowSize?: number;
-  /** Smallest R/S block size; the scales are min_scale, 2*min_scale, ... up to window_size/2. Larger values reduce small-sample bias but leave fewer scales for the regression. */
+  /** Smallest R/S block size; the scales are min_scale, 2*min_scale, ... up to window_size/2. Larger values reduce small-sample bias but leave fewer scales for the regression. @defaultValue `4` */
   minScale?: number;
-  /** Estimator family. Only "rs" (Anis-Lloyd corrected rescaled range) is available. */
+  /** Estimator family. Only "rs" (Anis-Lloyd corrected rescaled range) is available. @defaultValue `"rs"` */
   method?: string;
 }
 
@@ -5557,22 +5724,23 @@ export function RollingHurst(options: RollingHurstOptions): ScreamerOp;
  */
 export function RollingHurst(windowSize?: number, minScale?: number, method?: string): ScreamerOp;
 export function RollingHurst(windowSize?: any, minScale?: any, method?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, minScale, method] = _options("RollingHurst", windowSize, arguments.length, ["windowSize", "minScale", "method"]);
-  windowSize ??= 256;
-  minScale ??= 4;
-  method ??= "rs";
+  if (_isOptions(windowSize)) [windowSize, minScale, method] = _options("RollingHurst", windowSize, arguments.length, ["windowSize", "minScale", "method"], "windowSize must be a number");
+  else if (arguments.length > 3) _tooMany("RollingHurst", 3, arguments.length);
+  if (windowSize === undefined) windowSize = 256;
+  if (minScale === undefined) minScale = 4;
+  if (method === undefined) method = "rs";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (_isText(minScale)) throw new TypeError(`minScale must be a number, got a string`);
-  if (typeof method !== "string") throw new TypeError(`method must be a string, got ${typeof method}`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingHurst: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof minScale !== "number") throw new TypeError(`RollingHurst: minScale must be a number, got ${_what(minScale)}`);
+  if (typeof method !== "string") throw new TypeError(`RollingHurst: method must be a string, got ${method instanceof String ? "a String object" : _what(method)}`);
   return wrapOp(M, () => new M.RollingHurst(windowSize, minScale, method));
 }
 
 /** The settings of RollingInfoRatio by name, for `RollingInfoRatio({ ... })`. */
 export interface RollingInfoRatioOptions {
-  /** Number of most recent (returns, benchmark) pairs in the window. */
+  /** Number of most recent (returns, benchmark) pairs in the window. @defaultValue `252` */
   windowSize?: number;
-  /** Annualization factor: the ratio is multiplied by sqrt(periods_per_year). Use 252 for daily, 52 for weekly, 12 for monthly data, and 1 for no annualization. */
+  /** Annualization factor: the ratio is multiplied by sqrt(periods_per_year). Use 252 for daily, 52 for weekly, 12 for monthly data, and 1 for no annualization. @defaultValue `1.0` */
   periodsPerYear?: number;
 }
 
@@ -5592,18 +5760,19 @@ export function RollingInfoRatio(options: RollingInfoRatioOptions): ScreamerOp;
  */
 export function RollingInfoRatio(windowSize?: number, periodsPerYear?: number): ScreamerOp;
 export function RollingInfoRatio(windowSize?: any, periodsPerYear?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, periodsPerYear] = _options("RollingInfoRatio", windowSize, arguments.length, ["windowSize", "periodsPerYear"]);
-  windowSize ??= 252;
-  periodsPerYear ??= 1.0;
+  if (_isOptions(windowSize)) [windowSize, periodsPerYear] = _options("RollingInfoRatio", windowSize, arguments.length, ["windowSize", "periodsPerYear"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("RollingInfoRatio", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 252;
+  if (periodsPerYear === undefined) periodsPerYear = 1.0;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (_isText(periodsPerYear)) throw new TypeError(`periodsPerYear must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingInfoRatio: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof periodsPerYear !== "number") throw new TypeError(`RollingInfoRatio: periodsPerYear must be a number, got ${_what(periodsPerYear)}`);
   return wrapOp(M, () => new M.RollingInfoRatio(windowSize, periodsPerYear));
 }
 
 /** The settings of RollingIqr by name, for `RollingIqr({ ... })`. */
 export interface RollingIqrOptions {
-  /** Number of most recent samples whose quartiles are taken. */
+  /** Number of most recent samples whose quartiles are taken. @defaultValue `20` */
   windowSize?: number;
 }
 
@@ -5622,18 +5791,19 @@ export function RollingIqr(options: RollingIqrOptions): ScreamerOp;
  */
 export function RollingIqr(windowSize?: number): ScreamerOp;
 export function RollingIqr(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("RollingIqr", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 20;
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingIqr", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("RollingIqr", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingIqr: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.RollingIqr(windowSize));
 }
 
 /** The settings of RollingKurt by name, for `RollingKurt({ ... })`. */
 export interface RollingKurtOptions {
-  /** Number of most recent samples in the window. The estimator needs at least 4 samples, so smaller windows give NaN. */
+  /** Number of most recent samples in the window. The estimator needs at least 4 samples, so smaller windows give NaN. @defaultValue `20` */
   windowSize?: number;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -5653,20 +5823,21 @@ export function RollingKurt(options: RollingKurtOptions): ScreamerOp;
  */
 export function RollingKurt(windowSize?: number, startPolicy?: string): ScreamerOp;
 export function RollingKurt(windowSize?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingKurt", windowSize, arguments.length, ["windowSize", "startPolicy"]);
-  windowSize ??= 20;
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingKurt", windowSize, arguments.length, ["windowSize", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("RollingKurt", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingKurt: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingKurt: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.RollingKurt(windowSize, startPolicy));
 }
 
 /** The settings of RollingKyleLambda by name, for `RollingKyleLambda({ ... })`. */
 export interface RollingKyleLambdaOptions {
-  /** Number of most recent observations in the regression window. */
+  /** Number of most recent observations in the regression window. @defaultValue `20` */
   windowSize?: number;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -5686,20 +5857,21 @@ export function RollingKyleLambda(options: RollingKyleLambdaOptions): ScreamerOp
  */
 export function RollingKyleLambda(windowSize?: number, startPolicy?: string): ScreamerOp;
 export function RollingKyleLambda(windowSize?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingKyleLambda", windowSize, arguments.length, ["windowSize", "startPolicy"]);
-  windowSize ??= 20;
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingKyleLambda", windowSize, arguments.length, ["windowSize", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("RollingKyleLambda", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingKyleLambda: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingKyleLambda: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.RollingKyleLambda(windowSize, startPolicy));
 }
 
 /** The settings of RollingLinearRegression by name, for `RollingLinearRegression({ ... })`. */
 export interface RollingLinearRegressionOptions {
-  /** Number of most recent (y, x) pairs in the regression window. Must be at least 3, because the standard error divides by n - 2. */
+  /** Number of most recent (y, x) pairs in the regression window. Must be at least 3, because the standard error divides by n - 2. @defaultValue `20` */
   windowSize?: number;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -5719,20 +5891,21 @@ export function RollingLinearRegression(options: RollingLinearRegressionOptions)
  */
 export function RollingLinearRegression(windowSize?: number, startPolicy?: string): ScreamerOp;
 export function RollingLinearRegression(windowSize?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingLinearRegression", windowSize, arguments.length, ["windowSize", "startPolicy"]);
-  windowSize ??= 20;
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingLinearRegression", windowSize, arguments.length, ["windowSize", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("RollingLinearRegression", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingLinearRegression: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingLinearRegression: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.RollingLinearRegression(windowSize, startPolicy));
 }
 
 /** The settings of RollingMad by name, for `RollingMad({ ... })`. */
 export interface RollingMadOptions {
-  /** Number of most recent samples whose mean and absolute deviations are taken. */
+  /** Number of most recent samples whose mean and absolute deviations are taken. @defaultValue `20` */
   windowSize?: number;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -5752,18 +5925,19 @@ export function RollingMad(options: RollingMadOptions): ScreamerOp;
  */
 export function RollingMad(windowSize?: number, startPolicy?: string): ScreamerOp;
 export function RollingMad(windowSize?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingMad", windowSize, arguments.length, ["windowSize", "startPolicy"]);
-  windowSize ??= 20;
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingMad", windowSize, arguments.length, ["windowSize", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("RollingMad", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingMad: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingMad: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.RollingMad(windowSize, startPolicy));
 }
 
 /** The settings of RollingMax by name, for `RollingMax({ ... })`. */
 export interface RollingMaxOptions {
-  /** Number of most recent samples in the window. */
+  /** Number of most recent samples in the window. @defaultValue `20` */
   windowSize?: number;
 }
 
@@ -5782,16 +5956,17 @@ export function RollingMax(options: RollingMaxOptions): ScreamerOp;
  */
 export function RollingMax(windowSize?: number): ScreamerOp;
 export function RollingMax(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("RollingMax", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 20;
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingMax", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("RollingMax", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingMax: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.RollingMax(windowSize));
 }
 
 /** The settings of RollingMaxDrawdown by name, for `RollingMaxDrawdown({ ... })`. */
 export interface RollingMaxDrawdownOptions {
-  /** Number of most recent prices searched for the worst peak-to-trough loss (252 is one trading year of daily data). */
+  /** Number of most recent prices searched for the worst peak-to-trough loss (252 is one trading year of daily data). @defaultValue `252` */
   windowSize?: number;
 }
 
@@ -5810,18 +5985,19 @@ export function RollingMaxDrawdown(options: RollingMaxDrawdownOptions): Screamer
  */
 export function RollingMaxDrawdown(windowSize?: number): ScreamerOp;
 export function RollingMaxDrawdown(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("RollingMaxDrawdown", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 252;
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingMaxDrawdown", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("RollingMaxDrawdown", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 252;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingMaxDrawdown: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.RollingMaxDrawdown(windowSize));
 }
 
 /** The settings of RollingMean by name, for `RollingMean({ ... })`. */
 export interface RollingMeanOptions {
-  /** Number of most recent samples in the window. */
+  /** Number of most recent samples in the window. @defaultValue `20` */
   windowSize?: number;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -5841,18 +6017,19 @@ export function RollingMean(options: RollingMeanOptions): ScreamerOp;
  */
 export function RollingMean(windowSize?: number, startPolicy?: string): ScreamerOp;
 export function RollingMean(windowSize?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingMean", windowSize, arguments.length, ["windowSize", "startPolicy"]);
-  windowSize ??= 20;
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingMean", windowSize, arguments.length, ["windowSize", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("RollingMean", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingMean: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingMean: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.RollingMean(windowSize, startPolicy));
 }
 
 /** The settings of RollingMedian by name, for `RollingMedian({ ... })`. */
 export interface RollingMedianOptions {
-  /** Number of most recent samples in the window. */
+  /** Number of most recent samples in the window. @defaultValue `20` */
   windowSize?: number;
 }
 
@@ -5871,18 +6048,19 @@ export function RollingMedian(options: RollingMedianOptions): ScreamerOp;
  */
 export function RollingMedian(windowSize?: number): ScreamerOp;
 export function RollingMedian(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("RollingMedian", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 20;
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingMedian", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("RollingMedian", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingMedian: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.RollingMedian(windowSize));
 }
 
 /** The settings of RollingMedianAD by name, for `RollingMedianAD({ ... })`. */
 export interface RollingMedianADOptions {
-  /** Number of most recent samples in the window. */
+  /** Number of most recent samples in the window. @defaultValue `20` */
   windowSize?: number;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -5902,18 +6080,19 @@ export function RollingMedianAD(options: RollingMedianADOptions): ScreamerOp;
  */
 export function RollingMedianAD(windowSize?: number, startPolicy?: string): ScreamerOp;
 export function RollingMedianAD(windowSize?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingMedianAD", windowSize, arguments.length, ["windowSize", "startPolicy"]);
-  windowSize ??= 20;
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingMedianAD", windowSize, arguments.length, ["windowSize", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("RollingMedianAD", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingMedianAD: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingMedianAD: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.RollingMedianAD(windowSize, startPolicy));
 }
 
 /** The settings of RollingMin by name, for `RollingMin({ ... })`. */
 export interface RollingMinOptions {
-  /** Number of most recent samples in the window. */
+  /** Number of most recent samples in the window. @defaultValue `20` */
   windowSize?: number;
 }
 
@@ -5932,16 +6111,17 @@ export function RollingMin(options: RollingMinOptions): ScreamerOp;
  */
 export function RollingMin(windowSize?: number): ScreamerOp;
 export function RollingMin(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("RollingMin", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 20;
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingMin", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("RollingMin", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingMin: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.RollingMin(windowSize));
 }
 
 /** The settings of RollingMinMax by name, for `RollingMinMax({ ... })`. */
 export interface RollingMinMaxOptions {
-  /** Number of most recent samples in the window. */
+  /** Number of most recent samples in the window. @defaultValue `20` */
   windowSize?: number;
 }
 
@@ -5960,20 +6140,21 @@ export function RollingMinMax(options: RollingMinMaxOptions): ScreamerOp;
  */
 export function RollingMinMax(windowSize?: number): ScreamerOp;
 export function RollingMinMax(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("RollingMinMax", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 20;
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingMinMax", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("RollingMinMax", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingMinMax: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.RollingMinMax(windowSize));
 }
 
 /** The settings of RollingOU by name, for `RollingOU({ ... })`. */
 export interface RollingOUOptions {
-  /** Number of most recent samples in the window. */
+  /** Number of most recent samples in the window. @defaultValue `20` */
   windowSize?: number;
-  /** Which fitted parameter to return: "mrr" gives the mean-reversion rate per step, "mean" the long-run mean, "relmean" the long-run mean minus the current value, and "std" the noise standard deviation. */
+  /** Which fitted parameter to return: "mrr" gives the mean-reversion rate per step, "mean" the long-run mean, "relmean" the long-run mean minus the current value, and "std" the noise standard deviation. @defaultValue `"mrr"` */
   output?: string;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -5994,22 +6175,23 @@ export function RollingOU(options: RollingOUOptions): ScreamerOp;
  */
 export function RollingOU(windowSize?: number, output?: string, startPolicy?: string): ScreamerOp;
 export function RollingOU(windowSize?: any, output?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, output, startPolicy] = _options("RollingOU", windowSize, arguments.length, ["windowSize", "output", "startPolicy"]);
-  windowSize ??= 20;
-  output ??= "mrr";
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, output, startPolicy] = _options("RollingOU", windowSize, arguments.length, ["windowSize", "output", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 3) _tooMany("RollingOU", 3, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (output === undefined) output = "mrr";
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof output !== "string") throw new TypeError(`output must be a string, got ${typeof output}`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingOU: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof output !== "string") throw new TypeError(`RollingOU: output must be a string, got ${output instanceof String ? "a String object" : _what(output)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingOU: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.RollingOU(windowSize, output, startPolicy));
 }
 
 /** The settings of RollingOmega by name, for `RollingOmega({ ... })`. */
 export interface RollingOmegaOptions {
-  /** Number of most recent returns in the window. */
+  /** Number of most recent returns in the window. @defaultValue `20` */
   windowSize?: number;
-  /** Return level that separates gains from losses. */
+  /** Return level that separates gains from losses. @defaultValue `0.0` */
   threshold?: number;
 }
 
@@ -6029,20 +6211,21 @@ export function RollingOmega(options: RollingOmegaOptions): ScreamerOp;
  */
 export function RollingOmega(windowSize?: number, threshold?: number): ScreamerOp;
 export function RollingOmega(windowSize?: any, threshold?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, threshold] = _options("RollingOmega", windowSize, arguments.length, ["windowSize", "threshold"]);
-  windowSize ??= 20;
-  threshold ??= 0.0;
+  if (_isOptions(windowSize)) [windowSize, threshold] = _options("RollingOmega", windowSize, arguments.length, ["windowSize", "threshold"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("RollingOmega", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (threshold === undefined) threshold = 0.0;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (_isText(threshold)) throw new TypeError(`threshold must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingOmega: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof threshold !== "number") throw new TypeError(`RollingOmega: threshold must be a number, got ${_what(threshold)}`);
   return wrapOp(M, () => new M.RollingOmega(windowSize, threshold));
 }
 
 /** The settings of RollingOrderImbalance by name, for `RollingOrderImbalance({ ... })`. */
 export interface RollingOrderImbalanceOptions {
-  /** Number of most recent observations summed. */
+  /** Number of most recent observations summed. @defaultValue `20` */
   windowSize?: number;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -6062,18 +6245,19 @@ export function RollingOrderImbalance(options: RollingOrderImbalanceOptions): Sc
  */
 export function RollingOrderImbalance(windowSize?: number, startPolicy?: string): ScreamerOp;
 export function RollingOrderImbalance(windowSize?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingOrderImbalance", windowSize, arguments.length, ["windowSize", "startPolicy"]);
-  windowSize ??= 20;
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingOrderImbalance", windowSize, arguments.length, ["windowSize", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("RollingOrderImbalance", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingOrderImbalance: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingOrderImbalance: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.RollingOrderImbalance(windowSize, startPolicy));
 }
 
 /** The settings of RollingParkinsonVar by name, for `RollingParkinsonVar({ ... })`. */
 export interface RollingParkinsonVarOptions {
-  /** Number of most recent bars over which the per-bar estimate is averaged. */
+  /** Number of most recent bars over which the per-bar estimate is averaged. @defaultValue `20` */
   windowSize?: number;
 }
 
@@ -6092,16 +6276,17 @@ export function RollingParkinsonVar(options: RollingParkinsonVarOptions): Scream
  */
 export function RollingParkinsonVar(windowSize?: number): ScreamerOp;
 export function RollingParkinsonVar(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("RollingParkinsonVar", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 20;
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingParkinsonVar", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("RollingParkinsonVar", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingParkinsonVar: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.RollingParkinsonVar(windowSize));
 }
 
 /** The settings of RollingParkinsonVol by name, for `RollingParkinsonVol({ ... })`. */
 export interface RollingParkinsonVolOptions {
-  /** Number of most recent bars over which the per-bar estimate is averaged. */
+  /** Number of most recent bars over which the per-bar estimate is averaged. @defaultValue `20` */
   windowSize?: number;
 }
 
@@ -6120,16 +6305,17 @@ export function RollingParkinsonVol(options: RollingParkinsonVolOptions): Scream
  */
 export function RollingParkinsonVol(windowSize?: number): ScreamerOp;
 export function RollingParkinsonVol(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("RollingParkinsonVol", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 20;
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingParkinsonVol", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("RollingParkinsonVol", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingParkinsonVol: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.RollingParkinsonVol(windowSize));
 }
 
 /** The settings of RollingPercentile by name, for `RollingPercentile({ ... })`. */
 export interface RollingPercentileOptions {
-  /** Number of most recent values the current value is ranked against. */
+  /** Number of most recent values the current value is ranked against. @defaultValue `20` */
   windowSize?: number;
 }
 
@@ -6148,20 +6334,21 @@ export function RollingPercentile(options: RollingPercentileOptions): ScreamerOp
  */
 export function RollingPercentile(windowSize?: number): ScreamerOp;
 export function RollingPercentile(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("RollingPercentile", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 20;
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingPercentile", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("RollingPercentile", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingPercentile: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.RollingPercentile(windowSize));
 }
 
 /** The settings of RollingPoly1 by name, for `RollingPoly1({ ... })`. */
 export interface RollingPoly1Options {
-  /** Number of most recent samples in the window. */
+  /** Number of most recent samples in the window. @defaultValue `20` */
   windowSize?: number;
-  /** What to return from the fitted line: 0 gives the fitted value at the newest sample, 1 the slope per sample. */
+  /** What to return from the fitted line: 0 gives the fitted value at the newest sample, 1 the slope per sample. @defaultValue `0` */
   derivativeOrder?: number;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -6182,24 +6369,25 @@ export function RollingPoly1(options: RollingPoly1Options): ScreamerOp;
  */
 export function RollingPoly1(windowSize?: number, derivativeOrder?: number, startPolicy?: string): ScreamerOp;
 export function RollingPoly1(windowSize?: any, derivativeOrder?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, derivativeOrder, startPolicy] = _options("RollingPoly1", windowSize, arguments.length, ["windowSize", "derivativeOrder", "startPolicy"]);
-  windowSize ??= 20;
-  derivativeOrder ??= 0;
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, derivativeOrder, startPolicy] = _options("RollingPoly1", windowSize, arguments.length, ["windowSize", "derivativeOrder", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 3) _tooMany("RollingPoly1", 3, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (derivativeOrder === undefined) derivativeOrder = 0;
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (_isText(derivativeOrder)) throw new TypeError(`derivativeOrder must be a number, got a string`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingPoly1: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof derivativeOrder !== "number") throw new TypeError(`RollingPoly1: derivativeOrder must be a number, got ${_what(derivativeOrder)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingPoly1: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.RollingPoly1(windowSize, derivativeOrder, startPolicy));
 }
 
 /** The settings of RollingPoly2 by name, for `RollingPoly2({ ... })`. */
 export interface RollingPoly2Options {
-  /** Number of most recent samples in the window. */
+  /** Number of most recent samples in the window. @defaultValue `20` */
   windowSize?: number;
-  /** What to return from the fitted parabola at the newest sample: 0 gives the fitted value, 1 the first derivative (slope), 2 the second derivative (curvature). */
+  /** What to return from the fitted parabola at the newest sample: 0 gives the fitted value, 1 the first derivative (slope), 2 the second derivative (curvature). @defaultValue `0` */
   derivativeOrder?: number;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -6220,22 +6408,23 @@ export function RollingPoly2(options: RollingPoly2Options): ScreamerOp;
  */
 export function RollingPoly2(windowSize?: number, derivativeOrder?: number, startPolicy?: string): ScreamerOp;
 export function RollingPoly2(windowSize?: any, derivativeOrder?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, derivativeOrder, startPolicy] = _options("RollingPoly2", windowSize, arguments.length, ["windowSize", "derivativeOrder", "startPolicy"]);
-  windowSize ??= 20;
-  derivativeOrder ??= 0;
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, derivativeOrder, startPolicy] = _options("RollingPoly2", windowSize, arguments.length, ["windowSize", "derivativeOrder", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 3) _tooMany("RollingPoly2", 3, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (derivativeOrder === undefined) derivativeOrder = 0;
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (_isText(derivativeOrder)) throw new TypeError(`derivativeOrder must be a number, got a string`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingPoly2: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof derivativeOrder !== "number") throw new TypeError(`RollingPoly2: derivativeOrder must be a number, got ${_what(derivativeOrder)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingPoly2: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.RollingPoly2(windowSize, derivativeOrder, startPolicy));
 }
 
 /** The settings of RollingQuantile by name, for `RollingQuantile({ ... })`. */
 export interface RollingQuantileOptions {
-  /** Number of most recent samples in the window. */
+  /** Number of most recent samples in the window. @defaultValue `20` */
   windowSize?: number;
-  /** Quantile to return; 0.5 gives the median. Values between two order statistics are interpolated linearly. */
+  /** Quantile to return; 0.5 gives the median. Values between two order statistics are interpolated linearly. @defaultValue `0.5` */
   quantile?: number;
 }
 
@@ -6255,22 +6444,23 @@ export function RollingQuantile(options: RollingQuantileOptions): ScreamerOp;
  */
 export function RollingQuantile(windowSize?: number, quantile?: number): ScreamerOp;
 export function RollingQuantile(windowSize?: any, quantile?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, quantile] = _options("RollingQuantile", windowSize, arguments.length, ["windowSize", "quantile"]);
-  windowSize ??= 20;
-  quantile ??= 0.5;
+  if (_isOptions(windowSize)) [windowSize, quantile] = _options("RollingQuantile", windowSize, arguments.length, ["windowSize", "quantile"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("RollingQuantile", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (quantile === undefined) quantile = 0.5;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (_isText(quantile)) throw new TypeError(`quantile must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingQuantile: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof quantile !== "number") throw new TypeError(`RollingQuantile: quantile must be a number, got ${_what(quantile)}`);
   return wrapOp(M, () => new M.RollingQuantile(windowSize, quantile));
 }
 
 /** The settings of RollingRSI by name, for `RollingRSI({ ... })`. */
 export interface RollingRSIOptions {
-  /** Smoothing period of the average up and down moves. Wilder's original choice is 14. */
+  /** Smoothing period of the average up and down moves. Wilder's original choice is 14. @defaultValue `14` */
   windowSize?: number;
-  /** Smoothing of the up and down moves: "wilder" uses Wilder's recursive average (matches TA-Lib and pandas-ta), "cutler" uses a simple moving average. */
+  /** Smoothing of the up and down moves: "wilder" uses Wilder's recursive average (matches TA-Lib and pandas-ta), "cutler" uses a simple moving average. @defaultValue `"wilder"` */
   method?: string;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -6291,20 +6481,21 @@ export function RollingRSI(options: RollingRSIOptions): ScreamerOp;
  */
 export function RollingRSI(windowSize?: number, method?: string, startPolicy?: string): ScreamerOp;
 export function RollingRSI(windowSize?: any, method?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, method, startPolicy] = _options("RollingRSI", windowSize, arguments.length, ["windowSize", "method", "startPolicy"]);
-  windowSize ??= 14;
-  method ??= "wilder";
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, method, startPolicy] = _options("RollingRSI", windowSize, arguments.length, ["windowSize", "method", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 3) _tooMany("RollingRSI", 3, arguments.length);
+  if (windowSize === undefined) windowSize = 14;
+  if (method === undefined) method = "wilder";
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof method !== "string") throw new TypeError(`method must be a string, got ${typeof method}`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingRSI: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof method !== "string") throw new TypeError(`RollingRSI: method must be a string, got ${method instanceof String ? "a String object" : _what(method)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingRSI: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.RollingRSI(windowSize, method, startPolicy));
 }
 
 /** The settings of RollingRange by name, for `RollingRange({ ... })`. */
 export interface RollingRangeOptions {
-  /** Number of most recent samples in the window. */
+  /** Number of most recent samples in the window. @defaultValue `20` */
   windowSize?: number;
 }
 
@@ -6323,16 +6514,17 @@ export function RollingRange(options: RollingRangeOptions): ScreamerOp;
  */
 export function RollingRange(windowSize?: number): ScreamerOp;
 export function RollingRange(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("RollingRange", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 20;
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingRange", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("RollingRange", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingRange: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.RollingRange(windowSize));
 }
 
 /** The settings of RollingRank by name, for `RollingRank({ ... })`. */
 export interface RollingRankOptions {
-  /** Number of most recent values the current value is ranked against. */
+  /** Number of most recent values the current value is ranked against. @defaultValue `20` */
   windowSize?: number;
 }
 
@@ -6351,18 +6543,19 @@ export function RollingRank(options: RollingRankOptions): ScreamerOp;
  */
 export function RollingRank(windowSize?: number): ScreamerOp;
 export function RollingRank(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("RollingRank", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 20;
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingRank", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("RollingRank", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingRank: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.RollingRank(windowSize));
 }
 
 /** The settings of RollingResidualStd by name, for `RollingResidualStd({ ... })`. */
 export interface RollingResidualStdOptions {
-  /** Number of most recent (y, x) pairs used for both the hedge ratio and the standard deviation. */
+  /** Number of most recent (y, x) pairs used for both the hedge ratio and the standard deviation. @defaultValue `20` */
   windowSize?: number;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -6382,20 +6575,21 @@ export function RollingResidualStd(options: RollingResidualStdOptions): Screamer
  */
 export function RollingResidualStd(windowSize?: number, startPolicy?: string): ScreamerOp;
 export function RollingResidualStd(windowSize?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingResidualStd", windowSize, arguments.length, ["windowSize", "startPolicy"]);
-  windowSize ??= 20;
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingResidualStd", windowSize, arguments.length, ["windowSize", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("RollingResidualStd", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingResidualStd: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingResidualStd: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.RollingResidualStd(windowSize, startPolicy));
 }
 
 /** The settings of RollingRms by name, for `RollingRms({ ... })`. */
 export interface RollingRmsOptions {
-  /** Number of most recent samples in the window. */
+  /** Number of most recent samples in the window. @defaultValue `20` */
   windowSize?: number;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -6415,18 +6609,19 @@ export function RollingRms(options: RollingRmsOptions): ScreamerOp;
  */
 export function RollingRms(windowSize?: number, startPolicy?: string): ScreamerOp;
 export function RollingRms(windowSize?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingRms", windowSize, arguments.length, ["windowSize", "startPolicy"]);
-  windowSize ??= 20;
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingRms", windowSize, arguments.length, ["windowSize", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("RollingRms", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingRms: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingRms: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.RollingRms(windowSize, startPolicy));
 }
 
 /** The settings of RollingRogersSatchellVar by name, for `RollingRogersSatchellVar({ ... })`. */
 export interface RollingRogersSatchellVarOptions {
-  /** Number of most recent bars over which the per-bar estimate is averaged. */
+  /** Number of most recent bars over which the per-bar estimate is averaged. @defaultValue `20` */
   windowSize?: number;
 }
 
@@ -6445,16 +6640,17 @@ export function RollingRogersSatchellVar(options: RollingRogersSatchellVarOption
  */
 export function RollingRogersSatchellVar(windowSize?: number): ScreamerOp;
 export function RollingRogersSatchellVar(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("RollingRogersSatchellVar", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 20;
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingRogersSatchellVar", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("RollingRogersSatchellVar", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingRogersSatchellVar: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.RollingRogersSatchellVar(windowSize));
 }
 
 /** The settings of RollingRogersSatchellVol by name, for `RollingRogersSatchellVol({ ... })`. */
 export interface RollingRogersSatchellVolOptions {
-  /** Number of most recent bars over which the per-bar estimate is averaged. */
+  /** Number of most recent bars over which the per-bar estimate is averaged. @defaultValue `20` */
   windowSize?: number;
 }
 
@@ -6473,18 +6669,19 @@ export function RollingRogersSatchellVol(options: RollingRogersSatchellVolOption
  */
 export function RollingRogersSatchellVol(windowSize?: number): ScreamerOp;
 export function RollingRogersSatchellVol(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("RollingRogersSatchellVol", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 20;
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingRogersSatchellVol", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("RollingRogersSatchellVol", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingRogersSatchellVol: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.RollingRogersSatchellVol(windowSize));
 }
 
 /** The settings of RollingSharpe by name, for `RollingSharpe({ ... })`. */
 export interface RollingSharpeOptions {
-  /** Number of most recent returns in the window. */
+  /** Number of most recent returns in the window. @defaultValue `252` */
   windowSize?: number;
-  /** Annualization factor: the ratio is multiplied by sqrt(periods_per_year). Use 252 for daily, 52 for weekly, 12 for monthly data, and 1 for no annualization. */
+  /** Annualization factor: the ratio is multiplied by sqrt(periods_per_year). Use 252 for daily, 52 for weekly, 12 for monthly data, and 1 for no annualization. @defaultValue `1.0` */
   periodsPerYear?: number;
 }
 
@@ -6504,26 +6701,27 @@ export function RollingSharpe(options: RollingSharpeOptions): ScreamerOp;
  */
 export function RollingSharpe(windowSize?: number, periodsPerYear?: number): ScreamerOp;
 export function RollingSharpe(windowSize?: any, periodsPerYear?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, periodsPerYear] = _options("RollingSharpe", windowSize, arguments.length, ["windowSize", "periodsPerYear"]);
-  windowSize ??= 252;
-  periodsPerYear ??= 1.0;
+  if (_isOptions(windowSize)) [windowSize, periodsPerYear] = _options("RollingSharpe", windowSize, arguments.length, ["windowSize", "periodsPerYear"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("RollingSharpe", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 252;
+  if (periodsPerYear === undefined) periodsPerYear = 1.0;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (_isText(periodsPerYear)) throw new TypeError(`periodsPerYear must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingSharpe: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof periodsPerYear !== "number") throw new TypeError(`RollingSharpe: periodsPerYear must be a number, got ${_what(periodsPerYear)}`);
   return wrapOp(M, () => new M.RollingSharpe(windowSize, periodsPerYear));
 }
 
 /** The settings of RollingSigmaClip by name, for `RollingSigmaClip({ ... })`. */
 export interface RollingSigmaClipOptions {
-  /** Number of most recent samples in the window. */
+  /** Number of most recent samples in the window. @defaultValue `20` */
   windowSize?: number;
   /** Lower clipping threshold in standard deviations from the rolling mean (for example -3). None disables lower clipping. */
-  lower?: number;
+  lower?: number | null;
   /** Upper clipping threshold in standard deviations from the rolling mean (for example 3). None disables upper clipping. */
-  upper?: number;
-  /** Which value to return: "clipped" gives the input with outliers clipped to the bound, "mean" the rolling mean estimate, "std" the rolling standard deviation estimate, and "nan" the input with outliers replaced by NaN. */
+  upper?: number | null;
+  /** Which value to return: "clipped" gives the input with outliers clipped to the bound, "mean" the rolling mean estimate, "std" the rolling standard deviation estimate, and "nan" the input with outliers replaced by NaN. @defaultValue `"clipped"` */
   output?: string;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -6544,28 +6742,29 @@ export function RollingSigmaClip(options: RollingSigmaClipOptions): ScreamerOp;
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingSigmaClip.html for the full reference.
  */
-export function RollingSigmaClip(windowSize?: number, lower?: number, upper?: number, output?: string, startPolicy?: string): ScreamerOp;
+export function RollingSigmaClip(windowSize?: number, lower?: number | null, upper?: number | null, output?: string, startPolicy?: string): ScreamerOp;
 export function RollingSigmaClip(windowSize?: any, lower?: any, upper?: any, output?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, lower, upper, output, startPolicy] = _options("RollingSigmaClip", windowSize, arguments.length, ["windowSize", "lower", "upper", "output", "startPolicy"]);
-  windowSize ??= 20;
+  if (_isOptions(windowSize)) [windowSize, lower, upper, output, startPolicy] = _options("RollingSigmaClip", windowSize, arguments.length, ["windowSize", "lower", "upper", "output", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 5) _tooMany("RollingSigmaClip", 5, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
   lower ??= NaN;
   upper ??= NaN;
-  output ??= "clipped";
-  startPolicy ??= "strict";
+  if (output === undefined) output = "clipped";
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (_isText(lower)) throw new TypeError(`lower must be a number, got a string`);
-  if (_isText(upper)) throw new TypeError(`upper must be a number, got a string`);
-  if (typeof output !== "string") throw new TypeError(`output must be a string, got ${typeof output}`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingSigmaClip: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof lower !== "number") throw new TypeError(`RollingSigmaClip: lower must be a number, got ${_what(lower)}`);
+  if (typeof upper !== "number") throw new TypeError(`RollingSigmaClip: upper must be a number, got ${_what(upper)}`);
+  if (typeof output !== "string") throw new TypeError(`RollingSigmaClip: output must be a string, got ${output instanceof String ? "a String object" : _what(output)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingSigmaClip: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.RollingSigmaClip(windowSize, lower, upper, output, startPolicy));
 }
 
 /** The settings of RollingSkew by name, for `RollingSkew({ ... })`. */
 export interface RollingSkewOptions {
-  /** Number of most recent samples in the window. */
+  /** Number of most recent samples in the window. @defaultValue `20` */
   windowSize?: number;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -6585,22 +6784,23 @@ export function RollingSkew(options: RollingSkewOptions): ScreamerOp;
  */
 export function RollingSkew(windowSize?: number, startPolicy?: string): ScreamerOp;
 export function RollingSkew(windowSize?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingSkew", windowSize, arguments.length, ["windowSize", "startPolicy"]);
-  windowSize ??= 20;
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingSkew", windowSize, arguments.length, ["windowSize", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("RollingSkew", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingSkew: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingSkew: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.RollingSkew(windowSize, startPolicy));
 }
 
 /** The settings of RollingSortino by name, for `RollingSortino({ ... })`. */
 export interface RollingSortinoOptions {
-  /** Number of most recent returns in the window. */
+  /** Number of most recent returns in the window. @defaultValue `252` */
   windowSize?: number;
-  /** Annualization factor: the ratio is multiplied by sqrt(periods_per_year). Use 252 for daily, 52 for weekly, 12 for monthly data, and 1 for no annualization. */
+  /** Annualization factor: the ratio is multiplied by sqrt(periods_per_year). Use 252 for daily, 52 for weekly, 12 for monthly data, and 1 for no annualization. @defaultValue `1.0` */
   periodsPerYear?: number;
-  /** Minimum acceptable return. It is subtracted from the mean, and only returns below it contribute to the denominator. */
+  /** Minimum acceptable return. It is subtracted from the mean, and only returns below it contribute to the denominator. @defaultValue `0.0` */
   target?: number;
 }
 
@@ -6621,22 +6821,23 @@ export function RollingSortino(options: RollingSortinoOptions): ScreamerOp;
  */
 export function RollingSortino(windowSize?: number, periodsPerYear?: number, target?: number): ScreamerOp;
 export function RollingSortino(windowSize?: any, periodsPerYear?: any, target?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, periodsPerYear, target] = _options("RollingSortino", windowSize, arguments.length, ["windowSize", "periodsPerYear", "target"]);
-  windowSize ??= 252;
-  periodsPerYear ??= 1.0;
-  target ??= 0.0;
+  if (_isOptions(windowSize)) [windowSize, periodsPerYear, target] = _options("RollingSortino", windowSize, arguments.length, ["windowSize", "periodsPerYear", "target"], "windowSize must be a number");
+  else if (arguments.length > 3) _tooMany("RollingSortino", 3, arguments.length);
+  if (windowSize === undefined) windowSize = 252;
+  if (periodsPerYear === undefined) periodsPerYear = 1.0;
+  if (target === undefined) target = 0.0;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (_isText(periodsPerYear)) throw new TypeError(`periodsPerYear must be a number, got a string`);
-  if (_isText(target)) throw new TypeError(`target must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingSortino: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof periodsPerYear !== "number") throw new TypeError(`RollingSortino: periodsPerYear must be a number, got ${_what(periodsPerYear)}`);
+  if (typeof target !== "number") throw new TypeError(`RollingSortino: target must be a number, got ${_what(target)}`);
   return wrapOp(M, () => new M.RollingSortino(windowSize, periodsPerYear, target));
 }
 
 /** The settings of RollingSpread by name, for `RollingSpread({ ... })`. */
 export interface RollingSpreadOptions {
-  /** Number of most recent (x, y) pairs used to estimate the hedge ratio. */
+  /** Number of most recent (x, y) pairs used to estimate the hedge ratio. @defaultValue `20` */
   windowSize?: number;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -6656,20 +6857,21 @@ export function RollingSpread(options: RollingSpreadOptions): ScreamerOp;
  */
 export function RollingSpread(windowSize?: number, startPolicy?: string): ScreamerOp;
 export function RollingSpread(windowSize?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingSpread", windowSize, arguments.length, ["windowSize", "startPolicy"]);
-  windowSize ??= 20;
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingSpread", windowSize, arguments.length, ["windowSize", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("RollingSpread", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingSpread: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingSpread: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.RollingSpread(windowSize, startPolicy));
 }
 
 /** The settings of RollingStd by name, for `RollingStd({ ... })`. */
 export interface RollingStdOptions {
-  /** Number of most recent samples in the window. */
+  /** Number of most recent samples in the window. @defaultValue `20` */
   windowSize?: number;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -6689,20 +6891,21 @@ export function RollingStd(options: RollingStdOptions): ScreamerOp;
  */
 export function RollingStd(windowSize?: number, startPolicy?: string): ScreamerOp;
 export function RollingStd(windowSize?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingStd", windowSize, arguments.length, ["windowSize", "startPolicy"]);
-  windowSize ??= 20;
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingStd", windowSize, arguments.length, ["windowSize", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("RollingStd", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingStd: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingStd: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.RollingStd(windowSize, startPolicy));
 }
 
 /** The settings of RollingSum by name, for `RollingSum({ ... })`. */
 export interface RollingSumOptions {
-  /** Number of most recent samples in the window. */
+  /** Number of most recent samples in the window. @defaultValue `20` */
   windowSize?: number;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -6722,20 +6925,21 @@ export function RollingSum(options: RollingSumOptions): ScreamerOp;
  */
 export function RollingSum(windowSize?: number, startPolicy?: string): ScreamerOp;
 export function RollingSum(windowSize?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingSum", windowSize, arguments.length, ["windowSize", "startPolicy"]);
-  windowSize ??= 20;
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingSum", windowSize, arguments.length, ["windowSize", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("RollingSum", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingSum: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingSum: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.RollingSum(windowSize, startPolicy));
 }
 
 /** The settings of RollingTLSBeta by name, for `RollingTLSBeta({ ... })`. */
 export interface RollingTLSBetaOptions {
-  /** Number of most recent (a, b) pairs in the regression window. */
+  /** Number of most recent (a, b) pairs in the regression window. @defaultValue `20` */
   windowSize?: number;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -6755,18 +6959,19 @@ export function RollingTLSBeta(options: RollingTLSBetaOptions): ScreamerOp;
  */
 export function RollingTLSBeta(windowSize?: number, startPolicy?: string): ScreamerOp;
 export function RollingTLSBeta(windowSize?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingTLSBeta", windowSize, arguments.length, ["windowSize", "startPolicy"]);
-  windowSize ??= 20;
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingTLSBeta", windowSize, arguments.length, ["windowSize", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("RollingTLSBeta", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingTLSBeta: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingTLSBeta: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.RollingTLSBeta(windowSize, startPolicy));
 }
 
 /** The settings of RollingTSF by name, for `RollingTSF({ ... })`. */
 export interface RollingTSFOptions {
-  /** Number of most recent values in the regression on time. */
+  /** Number of most recent values in the regression on time. @defaultValue `20` */
   windowSize?: number;
 }
 
@@ -6785,16 +6990,17 @@ export function RollingTSF(options: RollingTSFOptions): ScreamerOp;
  */
 export function RollingTSF(windowSize?: number): ScreamerOp;
 export function RollingTSF(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("RollingTSF", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 20;
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingTSF", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("RollingTSF", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingTSF: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.RollingTSF(windowSize));
 }
 
 /** The settings of RollingVWAP by name, for `RollingVWAP({ ... })`. */
 export interface RollingVWAPOptions {
-  /** Number of most recent bars in the window. */
+  /** Number of most recent bars in the window. @defaultValue `20` */
   windowSize?: number;
 }
 
@@ -6813,18 +7019,19 @@ export function RollingVWAP(options: RollingVWAPOptions): ScreamerOp;
  */
 export function RollingVWAP(windowSize?: number): ScreamerOp;
 export function RollingVWAP(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("RollingVWAP", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 20;
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingVWAP", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("RollingVWAP", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingVWAP: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.RollingVWAP(windowSize));
 }
 
 /** The settings of RollingVar by name, for `RollingVar({ ... })`. */
 export interface RollingVarOptions {
-  /** Number of most recent samples in the window. */
+  /** Number of most recent samples in the window. @defaultValue `20` */
   windowSize?: number;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -6844,18 +7051,19 @@ export function RollingVar(options: RollingVarOptions): ScreamerOp;
  */
 export function RollingVar(windowSize?: number, startPolicy?: string): ScreamerOp;
 export function RollingVar(windowSize?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingVar", windowSize, arguments.length, ["windowSize", "startPolicy"]);
-  windowSize ??= 20;
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingVar", windowSize, arguments.length, ["windowSize", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("RollingVar", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingVar: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingVar: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.RollingVar(windowSize, startPolicy));
 }
 
 /** The settings of RollingYangZhangVar by name, for `RollingYangZhangVar({ ... })`. */
 export interface RollingYangZhangVarOptions {
-  /** Number of bars n in each variance component; the first estimate needs n + 1 bars. */
+  /** Number of bars n in each variance component; the first estimate needs n + 1 bars. @defaultValue `20` */
   windowSize?: number;
 }
 
@@ -6874,16 +7082,17 @@ export function RollingYangZhangVar(options: RollingYangZhangVarOptions): Scream
  */
 export function RollingYangZhangVar(windowSize?: number): ScreamerOp;
 export function RollingYangZhangVar(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("RollingYangZhangVar", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 20;
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingYangZhangVar", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("RollingYangZhangVar", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingYangZhangVar: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.RollingYangZhangVar(windowSize));
 }
 
 /** The settings of RollingYangZhangVol by name, for `RollingYangZhangVol({ ... })`. */
 export interface RollingYangZhangVolOptions {
-  /** Number of bars n in each variance component; the first estimate needs n + 1 bars. */
+  /** Number of bars n in each variance component; the first estimate needs n + 1 bars. @defaultValue `20` */
   windowSize?: number;
 }
 
@@ -6902,18 +7111,19 @@ export function RollingYangZhangVol(options: RollingYangZhangVolOptions): Scream
  */
 export function RollingYangZhangVol(windowSize?: number): ScreamerOp;
 export function RollingYangZhangVol(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("RollingYangZhangVol", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 20;
+  if (_isOptions(windowSize)) [windowSize] = _options("RollingYangZhangVol", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("RollingYangZhangVol", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingYangZhangVol: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.RollingYangZhangVol(windowSize));
 }
 
 /** The settings of RollingZscore by name, for `RollingZscore({ ... })`. */
 export interface RollingZscoreOptions {
-  /** Number of most recent samples in the window. */
+  /** Number of most recent samples in the window. @defaultValue `20` */
   windowSize?: number;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -6933,25 +7143,26 @@ export function RollingZscore(options: RollingZscoreOptions): ScreamerOp;
  */
 export function RollingZscore(windowSize?: number, startPolicy?: string): ScreamerOp;
 export function RollingZscore(windowSize?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingZscore", windowSize, arguments.length, ["windowSize", "startPolicy"]);
-  windowSize ??= 20;
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingZscore", windowSize, arguments.length, ["windowSize", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("RollingZscore", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`RollingZscore: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingZscore: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.RollingZscore(windowSize, startPolicy));
 }
 
 /** The settings of RoofingFilter by name, for `RoofingFilter({ ... })`. */
 export interface RoofingFilterOptions {
   /** Highpass cutoff as a cycle length in samples; longer cycles (the trend) are removed. Give exactly one of hp_period and hp_cutoff. The default shown is a suggested starting value; the constructor has no default. */
-  hpPeriod?: number;
+  hpPeriod?: number | null;
   /** Lowpass cutoff as a cycle length in samples; shorter cycles (noise) are removed. Give exactly one of lp_period and lp_cutoff. The default shown is a suggested starting value; the constructor has no default. */
-  lpPeriod?: number;
+  lpPeriod?: number | null;
   /** Highpass cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / hp_period. Give exactly one of hp_period and hp_cutoff. */
-  hpCutoff?: number;
+  hpCutoff?: number | null;
   /** Lowpass cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / lp_period. Give exactly one of lp_period and lp_cutoff. */
-  lpCutoff?: number;
+  lpCutoff?: number | null;
 }
 
 /**
@@ -6970,18 +7181,19 @@ export function RoofingFilter(options: RoofingFilterOptions): ScreamerOp;
  * @param lpCutoff Lowpass cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / lp_period. Give exactly one of lp_period and lp_cutoff.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/RoofingFilter.html for the full reference.
  */
-export function RoofingFilter(hpPeriod?: number, lpPeriod?: number, hpCutoff?: number, lpCutoff?: number): ScreamerOp;
+export function RoofingFilter(hpPeriod?: number | null, lpPeriod?: number | null, hpCutoff?: number | null, lpCutoff?: number | null): ScreamerOp;
 export function RoofingFilter(hpPeriod?: any, lpPeriod?: any, hpCutoff?: any, lpCutoff?: any): ScreamerOp {
-  if (_isOptions(hpPeriod)) [hpPeriod, lpPeriod, hpCutoff, lpCutoff] = _options("RoofingFilter", hpPeriod, arguments.length, ["hpPeriod", "lpPeriod", "hpCutoff", "lpCutoff"]);
+  if (_isOptions(hpPeriod)) [hpPeriod, lpPeriod, hpCutoff, lpCutoff] = _options("RoofingFilter", hpPeriod, arguments.length, ["hpPeriod", "lpPeriod", "hpCutoff", "lpCutoff"], "hpPeriod must be a number");
+  else if (arguments.length > 4) _tooMany("RoofingFilter", 4, arguments.length);
   hpPeriod ??= NaN;
   lpPeriod ??= NaN;
   hpCutoff ??= NaN;
   lpCutoff ??= NaN;
   const M = current();
-  if (_isText(hpPeriod)) throw new TypeError(`hpPeriod must be a number, got a string`);
-  if (_isText(lpPeriod)) throw new TypeError(`lpPeriod must be a number, got a string`);
-  if (_isText(hpCutoff)) throw new TypeError(`hpCutoff must be a number, got a string`);
-  if (_isText(lpCutoff)) throw new TypeError(`lpCutoff must be a number, got a string`);
+  if (typeof hpPeriod !== "number") throw new TypeError(`RoofingFilter: hpPeriod must be a number, got ${_what(hpPeriod)}`);
+  if (typeof lpPeriod !== "number") throw new TypeError(`RoofingFilter: lpPeriod must be a number, got ${_what(lpPeriod)}`);
+  if (typeof hpCutoff !== "number") throw new TypeError(`RoofingFilter: hpCutoff must be a number, got ${_what(hpCutoff)}`);
+  if (typeof lpCutoff !== "number") throw new TypeError(`RoofingFilter: lpCutoff must be a number, got ${_what(lpCutoff)}`);
   return wrapOp(M, () => new M.RoofingFilter(hpPeriod, lpPeriod, hpCutoff, lpCutoff));
 }
 
@@ -6991,10 +7203,11 @@ export type RoundOptions = Record<string, never>;
 /**
  * Round each element to the nearest integer (half-to-even).
  *
+ * @param options Nothing, or an empty object: Round has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Round.html for the full reference.
  */
 export function Round(options?: RoundOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Round", options, arguments.length, []);
+  if (arguments.length) _noSettings("Round", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Round());
 }
@@ -7005,7 +7218,7 @@ export interface SchmittTriggerOptions {
   lower: number;
   /** Upper threshold, finite and strictly greater than lower. The output latches to 1.0 when the input rises strictly above this value. */
   upper: number;
-  /** Latch value held before the first threshold crossing. Must be 0.0 (low), 1.0 (high), or NaN (undefined until the first crossing). Defaults to 0.0, so a signal that starts inside the dead band reads low rather than NaN. */
+  /** Latch value held before the first threshold crossing. Must be 0.0 (low), 1.0 (high), or NaN (undefined until the first crossing). Defaults to 0.0, so a signal that starts inside the dead band reads low rather than NaN. @defaultValue `0.0` */
   initial?: number;
 }
 
@@ -7026,14 +7239,15 @@ export function SchmittTrigger(options: SchmittTriggerOptions): ScreamerOp;
  */
 export function SchmittTrigger(lower: number, upper: number, initial?: number): ScreamerOp;
 export function SchmittTrigger(lower?: any, upper?: any, initial?: any): ScreamerOp {
-  if (_isOptions(lower)) [lower, upper, initial] = _options("SchmittTrigger", lower, arguments.length, ["lower", "upper", "initial"]);
-  if (lower == null) throw new TypeError(`SchmittTrigger: lower is required`);
-  if (upper == null) throw new TypeError(`SchmittTrigger: upper is required`);
-  initial ??= 0.0;
+  if (_isOptions(lower)) [lower, upper, initial] = _options("SchmittTrigger", lower, arguments.length, ["lower", "upper", "initial"], "lower must be a number");
+  else if (arguments.length > 3) _tooMany("SchmittTrigger", 3, arguments.length);
+  if (lower === undefined) throw new TypeError(`SchmittTrigger: lower is required`);
+  if (upper === undefined) throw new TypeError(`SchmittTrigger: upper is required`);
+  if (initial === undefined) initial = 0.0;
   const M = current();
-  if (_isText(lower)) throw new TypeError(`lower must be a number, got a string`);
-  if (_isText(upper)) throw new TypeError(`upper must be a number, got a string`);
-  if (_isText(initial)) throw new TypeError(`initial must be a number, got a string`);
+  if (typeof lower !== "number") throw new TypeError(`SchmittTrigger: lower must be a number, got ${_what(lower)}`);
+  if (typeof upper !== "number") throw new TypeError(`SchmittTrigger: upper must be a number, got ${_what(upper)}`);
+  if (typeof initial !== "number") throw new TypeError(`SchmittTrigger: initial must be a number, got ${_what(initial)}`);
   return wrapOp(M, () => new M.SchmittTrigger(lower, upper, initial));
 }
 
@@ -7043,10 +7257,11 @@ export type SeluOptions = Record<string, never>;
 /**
  * Scaled exponential linear unit (self-normalizing networks).
  *
+ * @param options Nothing, or an empty object: Selu has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Selu.html for the full reference.
  */
 export function Selu(options?: SeluOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Selu", options, arguments.length, []);
+  if (arguments.length) _noSettings("Selu", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Selu());
 }
@@ -7057,10 +7272,11 @@ export type SigmoidOptions = Record<string, never>;
 /**
  * Logistic sigmoid: 1 / (1 + exp(-x)).
  *
+ * @param options Nothing, or an empty object: Sigmoid has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Sigmoid.html for the full reference.
  */
 export function Sigmoid(options?: SigmoidOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Sigmoid", options, arguments.length, []);
+  if (arguments.length) _noSettings("Sigmoid", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Sigmoid());
 }
@@ -7071,10 +7287,11 @@ export type SignOptions = Record<string, never>;
 /**
  * Sign of each element: -1, 0, or +1.
  *
+ * @param options Nothing, or an empty object: Sign has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Sign.html for the full reference.
  */
 export function Sign(options?: SignOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Sign", options, arguments.length, []);
+  if (arguments.length) _noSettings("Sign", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Sign());
 }
@@ -7085,10 +7302,11 @@ export type SignedVolumeOptions = Record<string, never>;
 /**
  * Aggressor-signed volume, sign * volume.
  *
+ * @param options Nothing, or an empty object: SignedVolume has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_micro/SignedVolume.html for the full reference.
  */
 export function SignedVolume(options?: SignedVolumeOptions): ScreamerOp {
-  if (_isOptions(options)) _options("SignedVolume", options, arguments.length, []);
+  if (arguments.length) _noSettings("SignedVolume", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.SignedVolume());
 }
@@ -7099,10 +7317,11 @@ export type SinOptions = Record<string, never>;
 /**
  * Sine of each element (radians).
  *
+ * @param options Nothing, or an empty object: Sin has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Sin.html for the full reference.
  */
 export function Sin(options?: SinOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Sin", options, arguments.length, []);
+  if (arguments.length) _noSettings("Sin", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Sin());
 }
@@ -7113,10 +7332,11 @@ export type SoftsignOptions = Record<string, never>;
 /**
  * Softsign: x / (1 + |x|).
  *
+ * @param options Nothing, or an empty object: Softsign has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Softsign.html for the full reference.
  */
 export function Softsign(options?: SoftsignOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Softsign", options, arguments.length, []);
+  if (arguments.length) _noSettings("Softsign", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Softsign());
 }
@@ -7127,10 +7347,11 @@ export type SqrtOptions = Record<string, never>;
 /**
  * Square root of each element.
  *
+ * @param options Nothing, or an empty object: Sqrt has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Sqrt.html for the full reference.
  */
 export function Sqrt(options?: SqrtOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Sqrt", options, arguments.length, []);
+  if (arguments.length) _noSettings("Sqrt", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Sqrt());
 }
@@ -7141,21 +7362,22 @@ export type SquareOptions = Record<string, never>;
 /**
  * Square of each element, computed as x * x.
  *
+ * @param options Nothing, or an empty object: Square has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Square.html for the full reference.
  */
 export function Square(options?: SquareOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Square", options, arguments.length, []);
+  if (arguments.length) _noSettings("Square", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Square());
 }
 
 /** The settings of Stoch by name, for `Stoch({ ... })`. */
 export interface StochOptions {
-  /** Number of most recent bars over which the highest high and lowest low are taken for raw %K. */
+  /** Number of most recent bars over which the highest high and lowest low are taken for raw %K. @defaultValue `14` */
   fastkPeriod?: number;
-  /** Period of the simple moving average applied to raw %K; 1 gives the fast stochastic, 3 the slow stochastic of TA-Lib. */
+  /** Period of the simple moving average applied to raw %K; 1 gives the fast stochastic, 3 the slow stochastic of TA-Lib. @defaultValue `3` */
   smoothK?: number;
-  /** Period of the simple moving average applied to %K to produce %D. */
+  /** Period of the simple moving average applied to %K to produce %D. @defaultValue `3` */
   d?: number;
 }
 
@@ -7176,26 +7398,27 @@ export function Stoch(options: StochOptions): ScreamerOp;
  */
 export function Stoch(fastkPeriod?: number, smoothK?: number, d?: number): ScreamerOp;
 export function Stoch(fastkPeriod?: any, smoothK?: any, d?: any): ScreamerOp {
-  if (_isOptions(fastkPeriod)) [fastkPeriod, smoothK, d] = _options("Stoch", fastkPeriod, arguments.length, ["fastkPeriod", "smoothK", "d"]);
-  fastkPeriod ??= 14;
-  smoothK ??= 3;
-  d ??= 3;
+  if (_isOptions(fastkPeriod)) [fastkPeriod, smoothK, d] = _options("Stoch", fastkPeriod, arguments.length, ["fastkPeriod", "smoothK", "d"], "fastkPeriod must be a number");
+  else if (arguments.length > 3) _tooMany("Stoch", 3, arguments.length);
+  if (fastkPeriod === undefined) fastkPeriod = 14;
+  if (smoothK === undefined) smoothK = 3;
+  if (d === undefined) d = 3;
   const M = current();
-  if (_isText(fastkPeriod)) throw new TypeError(`fastkPeriod must be a number, got a string`);
-  if (_isText(smoothK)) throw new TypeError(`smoothK must be a number, got a string`);
-  if (_isText(d)) throw new TypeError(`d must be a number, got a string`);
+  if (typeof fastkPeriod !== "number") throw new TypeError(`Stoch: fastkPeriod must be a number, got ${_what(fastkPeriod)}`);
+  if (typeof smoothK !== "number") throw new TypeError(`Stoch: smoothK must be a number, got ${_what(smoothK)}`);
+  if (typeof d !== "number") throw new TypeError(`Stoch: d must be a number, got ${_what(d)}`);
   return wrapOp(M, () => new M.Stoch(fastkPeriod, smoothK, d));
 }
 
 /** The settings of StochRSI by name, for `StochRSI({ ... })`. */
 export interface StochRSIOptions {
-  /** Smoothing period of the Wilder RSI computed from the input. */
+  /** Smoothing period of the Wilder RSI computed from the input. @defaultValue `14` */
   rsiPeriod?: number;
-  /** Number of most recent RSI values over which the minimum and maximum are taken. */
+  /** Number of most recent RSI values over which the minimum and maximum are taken. @defaultValue `14` */
   stochPeriod?: number;
-  /** Period of the simple moving average applied to raw %K; 1 gives the fast StochRSI. */
+  /** Period of the simple moving average applied to raw %K; 1 gives the fast StochRSI. @defaultValue `1` */
   smoothK?: number;
-  /** Period of the simple moving average applied to %K to produce %D. */
+  /** Period of the simple moving average applied to %K to produce %D. @defaultValue `3` */
   d?: number;
 }
 
@@ -7217,16 +7440,17 @@ export function StochRSI(options: StochRSIOptions): ScreamerOp;
  */
 export function StochRSI(rsiPeriod?: number, stochPeriod?: number, smoothK?: number, d?: number): ScreamerOp;
 export function StochRSI(rsiPeriod?: any, stochPeriod?: any, smoothK?: any, d?: any): ScreamerOp {
-  if (_isOptions(rsiPeriod)) [rsiPeriod, stochPeriod, smoothK, d] = _options("StochRSI", rsiPeriod, arguments.length, ["rsiPeriod", "stochPeriod", "smoothK", "d"]);
-  rsiPeriod ??= 14;
-  stochPeriod ??= 14;
-  smoothK ??= 1;
-  d ??= 3;
+  if (_isOptions(rsiPeriod)) [rsiPeriod, stochPeriod, smoothK, d] = _options("StochRSI", rsiPeriod, arguments.length, ["rsiPeriod", "stochPeriod", "smoothK", "d"], "rsiPeriod must be a number");
+  else if (arguments.length > 4) _tooMany("StochRSI", 4, arguments.length);
+  if (rsiPeriod === undefined) rsiPeriod = 14;
+  if (stochPeriod === undefined) stochPeriod = 14;
+  if (smoothK === undefined) smoothK = 1;
+  if (d === undefined) d = 3;
   const M = current();
-  if (_isText(rsiPeriod)) throw new TypeError(`rsiPeriod must be a number, got a string`);
-  if (_isText(stochPeriod)) throw new TypeError(`stochPeriod must be a number, got a string`);
-  if (_isText(smoothK)) throw new TypeError(`smoothK must be a number, got a string`);
-  if (_isText(d)) throw new TypeError(`d must be a number, got a string`);
+  if (typeof rsiPeriod !== "number") throw new TypeError(`StochRSI: rsiPeriod must be a number, got ${_what(rsiPeriod)}`);
+  if (typeof stochPeriod !== "number") throw new TypeError(`StochRSI: stochPeriod must be a number, got ${_what(stochPeriod)}`);
+  if (typeof smoothK !== "number") throw new TypeError(`StochRSI: smoothK must be a number, got ${_what(smoothK)}`);
+  if (typeof d !== "number") throw new TypeError(`StochRSI: d must be a number, got ${_what(d)}`);
   return wrapOp(M, () => new M.StochRSI(rsiPeriod, stochPeriod, smoothK, d));
 }
 
@@ -7236,10 +7460,11 @@ export type SubOptions = Record<string, never>;
 /**
  * Elementwise difference of two aligned streams (x - y).
  *
+ * @param options Nothing, or an empty object: Sub has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Sub.html for the full reference.
  */
 export function Sub(options?: SubOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Sub", options, arguments.length, []);
+  if (arguments.length) _noSettings("Sub", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Sub());
 }
@@ -7247,9 +7472,9 @@ export function Sub(options?: SubOptions): ScreamerOp {
 /** The settings of SuperSmoother by name, for `SuperSmoother({ ... })`. */
 export interface SuperSmootherOptions {
   /** Cutoff as a cycle length in samples; cycles shorter than this are attenuated. Give exactly one of period and cutoff. The default shown is a suggested starting value; the constructor has no default. */
-  period?: number;
+  period?: number | null;
   /** Cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / period. Give exactly one of period and cutoff. */
-  cutoff?: number;
+  cutoff?: number | null;
 }
 
 /**
@@ -7266,27 +7491,28 @@ export function SuperSmoother(options: SuperSmootherOptions): ScreamerOp;
  * @param cutoff Cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / period. Give exactly one of period and cutoff.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/SuperSmoother.html for the full reference.
  */
-export function SuperSmoother(period?: number, cutoff?: number): ScreamerOp;
+export function SuperSmoother(period?: number | null, cutoff?: number | null): ScreamerOp;
 export function SuperSmoother(period?: any, cutoff?: any): ScreamerOp {
-  if (_isOptions(period)) [period, cutoff] = _options("SuperSmoother", period, arguments.length, ["period", "cutoff"]);
+  if (_isOptions(period)) [period, cutoff] = _options("SuperSmoother", period, arguments.length, ["period", "cutoff"], "period must be a number");
+  else if (arguments.length > 2) _tooMany("SuperSmoother", 2, arguments.length);
   period ??= NaN;
   cutoff ??= NaN;
   const M = current();
-  if (_isText(period)) throw new TypeError(`period must be a number, got a string`);
-  if (_isText(cutoff)) throw new TypeError(`cutoff must be a number, got a string`);
+  if (typeof period !== "number") throw new TypeError(`SuperSmoother: period must be a number, got ${_what(period)}`);
+  if (typeof cutoff !== "number") throw new TypeError(`SuperSmoother: cutoff must be a number, got ${_what(cutoff)}`);
   return wrapOp(M, () => new M.SuperSmoother(period, cutoff));
 }
 
 /** The settings of TEMA by name, for `TEMA({ ... })`. */
 export interface TEMAOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  com?: number;
+  com?: number | null;
   /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
-  span?: number;
+  span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
-  halflife?: number;
+  halflife?: number | null;
   /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha. */
-  alpha?: number;
+  alpha?: number | null;
 }
 
 /**
@@ -7305,24 +7531,25 @@ export function TEMA(options: TEMAOptions): ScreamerOp;
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/TEMA.html for the full reference.
  */
-export function TEMA(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+export function TEMA(com?: number | null, span?: number | null, halflife?: number | null, alpha?: number | null): ScreamerOp;
 export function TEMA(com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
-  if (_isOptions(com)) [com, span, halflife, alpha] = _options("TEMA", com, arguments.length, ["com", "span", "halflife", "alpha"]);
+  if (_isOptions(com)) [com, span, halflife, alpha] = _options("TEMA", com, arguments.length, ["com", "span", "halflife", "alpha"], "com must be a number");
+  else if (arguments.length > 4) _tooMany("TEMA", 4, arguments.length);
   com ??= NaN;
   span ??= NaN;
   halflife ??= NaN;
   alpha ??= NaN;
   const M = current();
-  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
-  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
-  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
-  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
+  if (typeof com !== "number") throw new TypeError(`TEMA: com must be a number, got ${_what(com)}`);
+  if (typeof span !== "number") throw new TypeError(`TEMA: span must be a number, got ${_what(span)}`);
+  if (typeof halflife !== "number") throw new TypeError(`TEMA: halflife must be a number, got ${_what(halflife)}`);
+  if (typeof alpha !== "number") throw new TypeError(`TEMA: alpha must be a number, got ${_what(alpha)}`);
   return wrapOp(M, () => new M.TEMA(com, span, halflife, alpha));
 }
 
 /** The settings of TRIMA by name, for `TRIMA({ ... })`. */
 export interface TRIMAOptions {
-  /** Total width of the triangular weighting, in samples. */
+  /** Total width of the triangular weighting, in samples. @defaultValue `20` */
   windowSize?: number;
 }
 
@@ -7341,16 +7568,17 @@ export function TRIMA(options: TRIMAOptions): ScreamerOp;
  */
 export function TRIMA(windowSize?: number): ScreamerOp;
 export function TRIMA(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("TRIMA", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 20;
+  if (_isOptions(windowSize)) [windowSize] = _options("TRIMA", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("TRIMA", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`TRIMA: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.TRIMA(windowSize));
 }
 
 /** The settings of TRIX by name, for `TRIX({ ... })`. */
 export interface TRIXOptions {
-  /** Span of each of the three exponential moving averages, giving alpha = 2 / (span + 1). */
+  /** Span of each of the three exponential moving averages, giving alpha = 2 / (span + 1). @defaultValue `14` */
   span?: number;
 }
 
@@ -7369,10 +7597,11 @@ export function TRIX(options: TRIXOptions): ScreamerOp;
  */
 export function TRIX(span?: number): ScreamerOp;
 export function TRIX(span?: any): ScreamerOp {
-  if (_isOptions(span)) [span] = _options("TRIX", span, arguments.length, ["span"]);
-  span ??= 14;
+  if (_isOptions(span)) [span] = _options("TRIX", span, arguments.length, ["span"], "span must be a number");
+  else if (arguments.length > 1) _tooMany("TRIX", 1, arguments.length);
+  if (span === undefined) span = 14;
   const M = current();
-  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
+  if (typeof span !== "number") throw new TypeError(`TRIX: span must be a number, got ${_what(span)}`);
   return wrapOp(M, () => new M.TRIX(span));
 }
 
@@ -7382,10 +7611,11 @@ export type TanhOptions = Record<string, never>;
 /**
  * Hyperbolic tangent.
  *
+ * @param options Nothing, or an empty object: Tanh has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Tanh.html for the full reference.
  */
 export function Tanh(options?: TanhOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Tanh", options, arguments.length, []);
+  if (arguments.length) _noSettings("Tanh", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Tanh());
 }
@@ -7396,17 +7626,18 @@ export type TickRuleSignOptions = Record<string, never>;
 /**
  * Trade sign by the tick rule (+1 up-tick, -1 down-tick, carry on unchanged).
  *
+ * @param options Nothing, or an empty object: TickRuleSign has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_micro/TickRuleSign.html for the full reference.
  */
 export function TickRuleSign(options?: TickRuleSignOptions): ScreamerOp {
-  if (_isOptions(options)) _options("TickRuleSign", options, arguments.length, []);
+  if (arguments.length) _noSettings("TickRuleSign", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.TickRuleSign());
 }
 
 /** The settings of TrendMode by name, for `TrendMode({ ... })`. */
 export interface TrendModeOptions {
-  /** Threshold, as a fraction of the expected per-sample phase advance for the current dominant cycle, below which a sample is classified as trending. */
+  /** Threshold, as a fraction of the expected per-sample phase advance for the current dominant cycle, below which a sample is classified as trending. @defaultValue `0.5` */
   phaseRateFrac?: number;
 }
 
@@ -7425,10 +7656,11 @@ export function TrendMode(options: TrendModeOptions): ScreamerOp;
  */
 export function TrendMode(phaseRateFrac?: number): ScreamerOp;
 export function TrendMode(phaseRateFrac?: any): ScreamerOp {
-  if (_isOptions(phaseRateFrac)) [phaseRateFrac] = _options("TrendMode", phaseRateFrac, arguments.length, ["phaseRateFrac"]);
-  phaseRateFrac ??= 0.5;
+  if (_isOptions(phaseRateFrac)) [phaseRateFrac] = _options("TrendMode", phaseRateFrac, arguments.length, ["phaseRateFrac"], "phaseRateFrac must be a number");
+  else if (arguments.length > 1) _tooMany("TrendMode", 1, arguments.length);
+  if (phaseRateFrac === undefined) phaseRateFrac = 0.5;
   const M = current();
-  if (_isText(phaseRateFrac)) throw new TypeError(`phaseRateFrac must be a number, got a string`);
+  if (typeof phaseRateFrac !== "number") throw new TypeError(`TrendMode: phaseRateFrac must be a number, got ${_what(phaseRateFrac)}`);
   return wrapOp(M, () => new M.TrendMode(phaseRateFrac));
 }
 
@@ -7438,21 +7670,22 @@ export type TrueRangeOptions = Record<string, never>;
 /**
  * Per-bar true range accounting for overnight gaps (Wilder, 1978).
  *
+ * @param options Nothing, or an empty object: TrueRange has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/TrueRange.html for the full reference.
  */
 export function TrueRange(options?: TrueRangeOptions): ScreamerOp {
-  if (_isOptions(options)) _options("TrueRange", options, arguments.length, []);
+  if (arguments.length) _noSettings("TrueRange", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.TrueRange());
 }
 
 /** The settings of UltimateOscillator by name, for `UltimateOscillator({ ... })`. */
 export interface UltimateOscillatorOptions {
-  /** Shortest of the three averaging periods, in bars; weighted 4. */
+  /** Shortest of the three averaging periods, in bars; weighted 4. @defaultValue `7` */
   period1?: number;
-  /** Middle averaging period, in bars; weighted 2. */
+  /** Middle averaging period, in bars; weighted 2. @defaultValue `14` */
   period2?: number;
-  /** Longest averaging period, in bars; weighted 1. Output starts once this window is full. */
+  /** Longest averaging period, in bars; weighted 1. Output starts once this window is full. @defaultValue `28` */
   period3?: number;
 }
 
@@ -7473,22 +7706,23 @@ export function UltimateOscillator(options: UltimateOscillatorOptions): Screamer
  */
 export function UltimateOscillator(period1?: number, period2?: number, period3?: number): ScreamerOp;
 export function UltimateOscillator(period1?: any, period2?: any, period3?: any): ScreamerOp {
-  if (_isOptions(period1)) [period1, period2, period3] = _options("UltimateOscillator", period1, arguments.length, ["period1", "period2", "period3"]);
-  period1 ??= 7;
-  period2 ??= 14;
-  period3 ??= 28;
+  if (_isOptions(period1)) [period1, period2, period3] = _options("UltimateOscillator", period1, arguments.length, ["period1", "period2", "period3"], "period1 must be a number");
+  else if (arguments.length > 3) _tooMany("UltimateOscillator", 3, arguments.length);
+  if (period1 === undefined) period1 = 7;
+  if (period2 === undefined) period2 = 14;
+  if (period3 === undefined) period3 = 28;
   const M = current();
-  if (_isText(period1)) throw new TypeError(`period1 must be a number, got a string`);
-  if (_isText(period2)) throw new TypeError(`period2 must be a number, got a string`);
-  if (_isText(period3)) throw new TypeError(`period3 must be a number, got a string`);
+  if (typeof period1 !== "number") throw new TypeError(`UltimateOscillator: period1 must be a number, got ${_what(period1)}`);
+  if (typeof period2 !== "number") throw new TypeError(`UltimateOscillator: period2 must be a number, got ${_what(period2)}`);
+  if (typeof period3 !== "number") throw new TypeError(`UltimateOscillator: period3 must be a number, got ${_what(period3)}`);
   return wrapOp(M, () => new M.UltimateOscillator(period1, period2, period3));
 }
 
 /** The settings of VPIN by name, for `VPIN({ ... })`. */
 export interface VPINOptions {
-  /** Volume that fills one bucket (the volume clock). Set it to your instrument's volume scale. */
+  /** Volume that fills one bucket (the volume clock). Set it to your instrument's volume scale. @defaultValue `1.0` */
   bucketVolume?: number;
-  /** Number of most recent closed buckets averaged. */
+  /** Number of most recent closed buckets averaged. @defaultValue `50` */
   nBuckets?: number;
 }
 
@@ -7508,20 +7742,21 @@ export function VPIN(options: VPINOptions): ScreamerOp;
  */
 export function VPIN(bucketVolume?: number, nBuckets?: number): ScreamerOp;
 export function VPIN(bucketVolume?: any, nBuckets?: any): ScreamerOp {
-  if (_isOptions(bucketVolume)) [bucketVolume, nBuckets] = _options("VPIN", bucketVolume, arguments.length, ["bucketVolume", "nBuckets"]);
-  bucketVolume ??= 1.0;
-  nBuckets ??= 50;
+  if (_isOptions(bucketVolume)) [bucketVolume, nBuckets] = _options("VPIN", bucketVolume, arguments.length, ["bucketVolume", "nBuckets"], "bucketVolume must be a number");
+  else if (arguments.length > 2) _tooMany("VPIN", 2, arguments.length);
+  if (bucketVolume === undefined) bucketVolume = 1.0;
+  if (nBuckets === undefined) nBuckets = 50;
   const M = current();
-  if (_isText(bucketVolume)) throw new TypeError(`bucketVolume must be a number, got a string`);
-  if (_isText(nBuckets)) throw new TypeError(`nBuckets must be a number, got a string`);
+  if (typeof bucketVolume !== "number") throw new TypeError(`VPIN: bucketVolume must be a number, got ${_what(bucketVolume)}`);
+  if (typeof nBuckets !== "number") throw new TypeError(`VPIN: nBuckets must be a number, got ${_what(nBuckets)}`);
   return wrapOp(M, () => new M.VPIN(bucketVolume, nBuckets));
 }
 
 /** The settings of WMA by name, for `WMA({ ... })`. */
 export interface WMAOptions {
-  /** Number of most recent samples in the window; the newest sample gets weight window_size and the oldest weight 1. */
+  /** Number of most recent samples in the window; the newest sample gets weight window_size and the oldest weight 1. @defaultValue `20` */
   windowSize?: number;
-  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. */
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
   startPolicy?: string;
 }
 
@@ -7541,12 +7776,13 @@ export function WMA(options: WMAOptions): ScreamerOp;
  */
 export function WMA(windowSize?: number, startPolicy?: string): ScreamerOp;
 export function WMA(windowSize?: any, startPolicy?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("WMA", windowSize, arguments.length, ["windowSize", "startPolicy"]);
-  windowSize ??= 20;
-  startPolicy ??= "strict";
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("WMA", windowSize, arguments.length, ["windowSize", "startPolicy"], "windowSize must be a number");
+  else if (arguments.length > 2) _tooMany("WMA", 2, arguments.length);
+  if (windowSize === undefined) windowSize = 20;
+  if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
-  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  if (typeof windowSize !== "number") throw new TypeError(`WMA: windowSize must be a number, got ${_what(windowSize)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`WMA: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   return wrapOp(M, () => new M.WMA(windowSize, startPolicy));
 }
 
@@ -7556,17 +7792,18 @@ export type WhereOptions = Record<string, never>;
 /**
  * Returns a if mask is nonzero, b otherwise. NaN mask yields NaN.
  *
+ * @param options Nothing, or an empty object: Where has no settings.
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Where.html for the full reference.
  */
 export function Where(options?: WhereOptions): ScreamerOp {
-  if (_isOptions(options)) _options("Where", options, arguments.length, []);
+  if (arguments.length) _noSettings("Where", options, arguments.length);
   const M = current();
   return wrapOp(M, () => new M.Where());
 }
 
 /** The settings of WilliamsR by name, for `WilliamsR({ ... })`. */
 export interface WilliamsROptions {
-  /** Number of most recent bars over which the highest high and lowest low are taken. */
+  /** Number of most recent bars over which the highest high and lowest low are taken. @defaultValue `14` */
   windowSize?: number;
 }
 
@@ -7585,9 +7822,10 @@ export function WilliamsR(options: WilliamsROptions): ScreamerOp;
  */
 export function WilliamsR(windowSize?: number): ScreamerOp;
 export function WilliamsR(windowSize?: any): ScreamerOp {
-  if (_isOptions(windowSize)) [windowSize] = _options("WilliamsR", windowSize, arguments.length, ["windowSize"]);
-  windowSize ??= 14;
+  if (_isOptions(windowSize)) [windowSize] = _options("WilliamsR", windowSize, arguments.length, ["windowSize"], "windowSize must be a number");
+  else if (arguments.length > 1) _tooMany("WilliamsR", 1, arguments.length);
+  if (windowSize === undefined) windowSize = 14;
   const M = current();
-  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof windowSize !== "number") throw new TypeError(`WilliamsR: windowSize must be a number, got ${_what(windowSize)}`);
   return wrapOp(M, () => new M.WilliamsR(windowSize));
 }

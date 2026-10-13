@@ -32,3 +32,15 @@ SchmittTrigger({ upper: 3 });
 EwMean({ span: 20 }, 3);
 // @ts-expect-error an op without settings has no options
 Abs({ x: 1 });
+// @ts-expect-error a number setting takes no array
+RollingMean({ windowSize: [3] });
+
+// null is "not given" exactly where Python takes None (an optional setting)
+is<ScreamerOp>(EwMean(null, 20));
+is<ScreamerOp>(EwMean({ com: null, span: 20 }));
+// @ts-expect-error a setting with a fixed default refuses null
+RollingMean(null);
+// @ts-expect-error a setting with a fixed default refuses null
+RollingMean({ windowSize: null });
+// @ts-expect-error an op without settings takes no positional value
+Abs(5);

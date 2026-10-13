@@ -221,7 +221,7 @@ const signed = (mk) => ({ make: () => ({ op: mk() }), feed: (o, s) => o.op(s.sig
 const INDICATORS = [
   // --- Order flow & volume ---------------------------------------------------
   { id: "flow", group: "Order flow & volume", label: "Order-flow pressure", short: "flow", style: "flow",
-    make: () => ({ eS: S.EwMean(undefined, FLOW_SPAN), eA: S.EwMean(undefined, FLOW_SPAN) }),
+    make: () => ({ eS: S.EwMean({ span: FLOW_SPAN }), eA: S.EwMean({ span: FLOW_SPAN }) }),
     feed: (o, s) => { const sv = o.eS(s.signed), av = o.eA(s.size); return av > 0 ? Math.max(-1, Math.min(1, sv / av)) : 0; } },
   { id: "vpin", group: "Order flow & volume", label: "VPIN · 0.5 BTC buckets", short: "VPIN", fixed: [0, 1], refs: [0.5],
     make: () => ({ op: S.VPIN(0.5, 20) }), feed: (o, s) => o.op(s.buy, s.sell) },

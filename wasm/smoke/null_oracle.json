@@ -1,0 +1,1552 @@
+[
+ {
+  "accepts_none": {
+   "fast": false,
+   "slow": false
+  },
+  "base": {},
+  "name": "ADOSC"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "ADX"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "ADXR"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "ATR"
+ },
+ {
+  "accepts_none": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "AmihudIlliquidity"
+ },
+ {
+  "accepts_none": {
+   "multiplier": false
+  },
+  "base": {},
+  "name": "BacktestCarry"
+ },
+ {
+  "accepts_none": {
+   "fill": false,
+   "maker_fee": false,
+   "maker_fee_per_contract": false,
+   "max_position": false,
+   "min_position": false,
+   "multiplier": false,
+   "participation_ratio": false,
+   "slippage": false,
+   "slippage_unit": false,
+   "taker_fee": false,
+   "taker_fee_per_contract": false,
+   "tick_size": false
+  },
+  "base": {},
+  "name": "BacktestL1Orders"
+ },
+ {
+  "accepts_none": {
+   "fee_per_contract": false,
+   "initial_capital": false,
+   "max_position": false,
+   "min_position": false,
+   "multiplier": false,
+   "rebalance_band": false,
+   "size": false,
+   "slippage": false,
+   "slippage_unit": false,
+   "stop_loss": false,
+   "take_profit": false,
+   "taker_fee": false,
+   "tick_size": false,
+   "trailing_stop": false
+  },
+  "base": {},
+  "name": "BacktestL1Target"
+ },
+ {
+  "accepts_none": {
+   "fill": false,
+   "maker_fee": false,
+   "maker_fee_per_contract": false,
+   "max_position": false,
+   "min_position": false,
+   "multiplier": false,
+   "participation_ratio": false,
+   "slippage": false,
+   "slippage_unit": false,
+   "taker_fee": false,
+   "taker_fee_per_contract": false,
+   "tick_size": false
+  },
+  "base": {},
+  "name": "BacktestL1TradesOrders"
+ },
+ {
+  "accepts_none": {
+   "fill": false,
+   "maker_fee": false,
+   "maker_fee_per_contract": false,
+   "max_position": false,
+   "min_position": false,
+   "multiplier": false,
+   "participation_ratio": false,
+   "slippage": false,
+   "slippage_unit": false,
+   "taker_fee": false,
+   "taker_fee_per_contract": false,
+   "tick_size": false
+  },
+  "base": {},
+  "name": "BacktestOHLCOrders"
+ },
+ {
+  "accepts_none": {
+   "delay": false,
+   "fee_per_contract": false,
+   "fill_at": false,
+   "initial_capital": false,
+   "max_position": false,
+   "min_position": false,
+   "multiplier": false,
+   "rebalance_band": false,
+   "size": false,
+   "slippage": false,
+   "slippage_unit": false,
+   "stop_loss": false,
+   "take_profit": false,
+   "taker_fee": false,
+   "tick_size": false,
+   "trailing_stop": false
+  },
+  "base": {},
+  "name": "BacktestOHLCTarget"
+ },
+ {
+  "accepts_none": {
+   "delay": false,
+   "fee_per_contract": false,
+   "fill_at": false,
+   "initial_capital": false,
+   "max_participation": false,
+   "max_position": false,
+   "min_position": false,
+   "multiplier": false,
+   "rebalance_band": false,
+   "size": false,
+   "slippage": false,
+   "slippage_unit": false,
+   "stop_loss": false,
+   "take_profit": false,
+   "taker_fee": false,
+   "tick_size": false,
+   "trailing_stop": false
+  },
+  "base": {},
+  "name": "BacktestOHLCVTarget"
+ },
+ {
+  "accepts_none": {
+   "delay": false,
+   "fee": false,
+   "fee_per_contract": false,
+   "fill_at": false,
+   "initial_capital": false,
+   "max_gross": false,
+   "max_net": false,
+   "multiplier": false,
+   "rebalance": false,
+   "rebalance_band": false,
+   "size": false,
+   "slippage": false,
+   "slippage_unit": false,
+   "tick_size": false
+  },
+  "base": {},
+  "name": "BacktestPortfolioOHLCTarget"
+ },
+ {
+  "accepts_none": {
+   "fee": false,
+   "fee_per_contract": false,
+   "initial_capital": false,
+   "max_gross": false,
+   "max_net": false,
+   "multiplier": false,
+   "rebalance": false,
+   "rebalance_band": false,
+   "size": false,
+   "slippage": false,
+   "slippage_unit": false,
+   "tick_size": false
+  },
+  "base": {},
+  "name": "BacktestPortfolioTarget"
+ },
+ {
+  "accepts_none": {
+   "fee": false,
+   "fee_per_contract": false,
+   "initial_capital": false,
+   "max_position": false,
+   "min_position": false,
+   "multiplier": false,
+   "rebalance_band": false,
+   "size": false,
+   "slippage": false,
+   "slippage_unit": false,
+   "spread": false,
+   "stop_loss": false,
+   "take_profit": false,
+   "tick_size": false,
+   "trailing_stop": false
+  },
+  "base": {},
+  "name": "BacktestPriceTarget"
+ },
+ {
+  "accepts_none": {
+   "periods_per_year": false
+  },
+  "base": {},
+  "name": "BacktestReport"
+ },
+ {
+  "accepts_none": {
+   "periods_per_year": false
+  },
+  "base": {},
+  "name": "BacktestStats"
+ },
+ {
+  "accepts_none": {
+   "fill": false,
+   "maker_fee": false,
+   "maker_fee_per_contract": false,
+   "max_position": false,
+   "min_position": false,
+   "multiplier": false,
+   "participation_ratio": false,
+   "slippage": false,
+   "slippage_unit": false,
+   "taker_fee": false,
+   "taker_fee_per_contract": false,
+   "tick_size": false
+  },
+  "base": {},
+  "name": "BacktestTradesOrders"
+ },
+ {
+  "accepts_none": {
+   "fee_per_contract": false,
+   "initial_capital": false,
+   "max_participation": false,
+   "max_position": false,
+   "min_position": false,
+   "multiplier": false,
+   "rebalance_band": false,
+   "size": false,
+   "slippage": false,
+   "slippage_unit": false,
+   "stop_loss": false,
+   "take_profit": false,
+   "taker_fee": false,
+   "tick_size": false,
+   "trailing_stop": false
+  },
+  "base": {},
+  "name": "BacktestTradesTarget"
+ },
+ {
+  "accepts_none": {
+   "entry": false,
+   "exit": false,
+   "stop": false
+  },
+  "base": {},
+  "name": "BandSignal"
+ },
+ {
+  "accepts_none": {
+   "alpha": true,
+   "com": true,
+   "halflife": true,
+   "prior_precision": false,
+   "prior_sigma": false,
+   "span": true
+  },
+  "base": {
+   "com": 10.0
+  },
+  "name": "BayesianRegression"
+ },
+ {
+  "accepts_none": {
+   "num_std": false,
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "BollingerBands"
+ },
+ {
+  "accepts_none": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "BulkVolumeClassifier"
+ },
+ {
+  "accepts_none": {
+   "cutoff_freq": false,
+   "order": false
+  },
+  "base": {},
+  "name": "Butter"
+ },
+ {
+  "accepts_none": {
+   "high_cutoff": false,
+   "low_cutoff": false,
+   "order": false
+  },
+  "base": {},
+  "name": "ButterBandpass"
+ },
+ {
+  "accepts_none": {
+   "high_cutoff": false,
+   "low_cutoff": false,
+   "order": false
+  },
+  "base": {},
+  "name": "ButterBandstop"
+ },
+ {
+  "accepts_none": {
+   "cutoff_freq": false,
+   "order": false
+  },
+  "base": {},
+  "name": "ButterHighpass"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "CCI"
+ },
+ {
+  "accepts_none": {
+   "lower": true,
+   "upper": true
+  },
+  "base": {
+   "lower": 1.0,
+   "upper": 3.0
+  },
+  "name": "Clip"
+ },
+ {
+  "accepts_none": {
+   "gross": false,
+   "net": true
+  },
+  "base": {},
+  "name": "CrossNormalize"
+ },
+ {
+  "accepts_none": {
+   "scale": false
+  },
+  "base": {},
+  "name": "CrossRank"
+ },
+ {
+  "accepts_none": {
+   "count": false
+  },
+  "base": {},
+  "name": "CrossTopBottom"
+ },
+ {
+  "accepts_none": {
+   "lower": false,
+   "upper": false
+  },
+  "base": {},
+  "name": "CrossWinsorize"
+ },
+ {
+  "accepts_none": {
+   "alpha": true,
+   "com": true,
+   "halflife": true,
+   "span": true
+  },
+  "base": {
+   "com": 10.0
+  },
+  "name": "DEMA"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "DX"
+ },
+ {
+  "accepts_none": {
+   "cutoff": true,
+   "period": true
+  },
+  "base": {
+   "period": 10.0
+  },
+  "name": "Decycler"
+ },
+ {
+  "accepts_none": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "Detrend"
+ },
+ {
+  "accepts_none": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "Diff"
+ },
+ {
+  "accepts_none": {
+   "start_policy": false
+  },
+  "base": {},
+  "name": "Diff2"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "DonchianChannels"
+ },
+ {
+  "accepts_none": {
+   "alpha": true,
+   "com": true,
+   "halflife": true,
+   "span": true
+  },
+  "base": {
+   "com": 10.0
+  },
+  "name": "EwAlpha"
+ },
+ {
+  "accepts_none": {
+   "alpha": true,
+   "com": true,
+   "halflife": true,
+   "span": true
+  },
+  "base": {
+   "com": 10.0
+  },
+  "name": "EwBeta"
+ },
+ {
+  "accepts_none": {
+   "alpha": true,
+   "com": true,
+   "halflife": true,
+   "span": true
+  },
+  "base": {
+   "com": 10.0
+  },
+  "name": "EwCorr"
+ },
+ {
+  "accepts_none": {
+   "alpha": true,
+   "com": true,
+   "halflife": true,
+   "span": true
+  },
+  "base": {
+   "com": 10.0
+  },
+  "name": "EwCov"
+ },
+ {
+  "accepts_none": {
+   "alpha": true,
+   "com": true,
+   "halflife": true,
+   "span": true
+  },
+  "base": {
+   "com": 10.0
+  },
+  "name": "EwGarmanKlassVar"
+ },
+ {
+  "accepts_none": {
+   "alpha": true,
+   "com": true,
+   "halflife": true,
+   "span": true
+  },
+  "base": {
+   "com": 10.0
+  },
+  "name": "EwGarmanKlassVol"
+ },
+ {
+  "accepts_none": {
+   "alpha": true,
+   "com": true,
+   "halflife": true,
+   "span": true
+  },
+  "base": {
+   "com": 10.0
+  },
+  "name": "EwKurt"
+ },
+ {
+  "accepts_none": {
+   "alpha": true,
+   "com": true,
+   "halflife": true,
+   "span": true
+  },
+  "base": {
+   "com": 10.0
+  },
+  "name": "EwKyleLambda"
+ },
+ {
+  "accepts_none": {
+   "alpha": true,
+   "com": true,
+   "halflife": true,
+   "span": true
+  },
+  "base": {
+   "com": 10.0
+  },
+  "name": "EwMean"
+ },
+ {
+  "accepts_none": {
+   "alpha": true,
+   "com": true,
+   "halflife": true,
+   "span": true
+  },
+  "base": {
+   "com": 10.0
+  },
+  "name": "EwParkinsonVar"
+ },
+ {
+  "accepts_none": {
+   "alpha": true,
+   "com": true,
+   "halflife": true,
+   "span": true
+  },
+  "base": {
+   "com": 10.0
+  },
+  "name": "EwParkinsonVol"
+ },
+ {
+  "accepts_none": {
+   "alpha": true,
+   "com": true,
+   "halflife": true,
+   "span": true
+  },
+  "base": {
+   "com": 10.0
+  },
+  "name": "EwResidualStd"
+ },
+ {
+  "accepts_none": {
+   "alpha": true,
+   "com": true,
+   "halflife": true,
+   "span": true
+  },
+  "base": {
+   "com": 10.0
+  },
+  "name": "EwRms"
+ },
+ {
+  "accepts_none": {
+   "alpha": true,
+   "com": true,
+   "halflife": true,
+   "span": true
+  },
+  "base": {
+   "com": 10.0
+  },
+  "name": "EwRogersSatchellVar"
+ },
+ {
+  "accepts_none": {
+   "alpha": true,
+   "com": true,
+   "halflife": true,
+   "span": true
+  },
+  "base": {
+   "com": 10.0
+  },
+  "name": "EwRogersSatchellVol"
+ },
+ {
+  "accepts_none": {
+   "alpha": true,
+   "com": true,
+   "halflife": true,
+   "span": true
+  },
+  "base": {
+   "com": 10.0
+  },
+  "name": "EwSkew"
+ },
+ {
+  "accepts_none": {
+   "alpha": true,
+   "com": true,
+   "halflife": true,
+   "span": true
+  },
+  "base": {
+   "com": 10.0
+  },
+  "name": "EwSpread"
+ },
+ {
+  "accepts_none": {
+   "alpha": true,
+   "com": true,
+   "halflife": true,
+   "span": true
+  },
+  "base": {
+   "com": 10.0
+  },
+  "name": "EwStd"
+ },
+ {
+  "accepts_none": {
+   "alpha": true,
+   "com": true,
+   "halflife": true,
+   "span": true
+  },
+  "base": {
+   "com": 10.0
+  },
+  "name": "EwVar"
+ },
+ {
+  "accepts_none": {
+   "alpha": true,
+   "com": true,
+   "halflife": true,
+   "span": true
+  },
+  "base": {
+   "com": 10.0
+  },
+  "name": "EwYangZhangVar"
+ },
+ {
+  "accepts_none": {
+   "alpha": true,
+   "com": true,
+   "halflife": true,
+   "span": true
+  },
+  "base": {
+   "com": 10.0
+  },
+  "name": "EwYangZhangVol"
+ },
+ {
+  "accepts_none": {
+   "alpha": true,
+   "com": true,
+   "halflife": true,
+   "span": true
+  },
+  "base": {
+   "com": 10.0
+  },
+  "name": "EwZscore"
+ },
+ {
+  "accepts_none": {
+   "fill": false
+  },
+  "base": {},
+  "name": "FillNa"
+ },
+ {
+  "accepts_none": {
+   "d": false,
+   "start_policy": false,
+   "threshold": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "FracDiff"
+ },
+ {
+  "accepts_none": {
+   "n_sigma": false,
+   "output": false,
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "Hampel"
+ },
+ {
+  "accepts_none": {
+   "alpha": false,
+   "decay": false,
+   "mu": false
+  },
+  "base": {},
+  "name": "HawkesIntensity"
+ },
+ {
+  "accepts_none": {
+   "n": false,
+   "release": false
+  },
+  "base": {
+   "n": 3
+  },
+  "name": "Hold"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "HullMA"
+ },
+ {
+  "accepts_none": {
+   "n_sigma": false,
+   "output": false,
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "ImpulseClip"
+ },
+ {
+  "accepts_none": {
+   "fast": false,
+   "slow": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "KAMA"
+ },
+ {
+  "accepts_none": {
+   "initial_state": false,
+   "initial_variance": false,
+   "observation_var": false,
+   "process_var": false
+  },
+  "base": {},
+  "name": "KalmanFilter"
+ },
+ {
+  "accepts_none": {
+   "delta": false,
+   "obs_var": false,
+   "prior_var": false
+  },
+  "base": {},
+  "name": "KalmanRegression"
+ },
+ {
+  "accepts_none": {
+   "num_atr": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "KeltnerChannels"
+ },
+ {
+  "accepts_none": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "Lag"
+ },
+ {
+  "accepts_none": {
+   "scale": false,
+   "shift": false
+  },
+  "base": {},
+  "name": "Linear"
+ },
+ {
+  "accepts_none": {
+   "a": false,
+   "b": false,
+   "c": false
+  },
+  "base": {},
+  "name": "Linear2"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "LogReturn"
+ },
+ {
+  "accepts_none": {
+   "fast": false,
+   "signal": false,
+   "slow": false
+  },
+  "base": {},
+  "name": "MACD"
+ },
+ {
+  "accepts_none": {
+   "fast_limit": false,
+   "slow_limit": false
+  },
+  "base": {},
+  "name": "MAMA"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "MFI"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "MinusDI"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "MinusDM"
+ },
+ {
+  "accepts_none": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "Momentum"
+ },
+ {
+  "accepts_none": {
+   "taps": false
+  },
+  "base": {},
+  "name": "MovingAverage"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "NATR"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "PlusDI"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "PlusDM"
+ },
+ {
+  "accepts_none": {
+   "p": false
+  },
+  "base": {},
+  "name": "Power"
+ },
+ {
+  "accepts_none": {
+   "g0": false,
+   "gamma": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "Propagator"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "ROC"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "ROCP"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "ROCR"
+ },
+ {
+  "accepts_none": {
+   "lag": false
+  },
+  "base": {},
+  "name": "RealizedSpread"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "Return"
+ },
+ {
+  "accepts_none": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollSpread"
+ },
+ {
+  "accepts_none": {
+   "lags": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingADF"
+ },
+ {
+  "accepts_none": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingAlpha"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingArgmax"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingArgmin"
+ },
+ {
+  "accepts_none": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingBeta"
+ },
+ {
+  "accepts_none": {
+   "alpha": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingCVaR"
+ },
+ {
+  "accepts_none": {
+   "periods_per_year": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingCalmar"
+ },
+ {
+  "accepts_none": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingCorr"
+ },
+ {
+  "accepts_none": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingCov"
+ },
+ {
+  "accepts_none": {
+   "mar": false,
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingDownsideDeviation"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingGarmanKlassVar"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingGarmanKlassVol"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingHitRate"
+ },
+ {
+  "accepts_none": {
+   "method": false,
+   "min_scale": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingHurst"
+ },
+ {
+  "accepts_none": {
+   "periods_per_year": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingInfoRatio"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingIqr"
+ },
+ {
+  "accepts_none": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingKurt"
+ },
+ {
+  "accepts_none": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingKyleLambda"
+ },
+ {
+  "accepts_none": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingLinearRegression"
+ },
+ {
+  "accepts_none": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingMad"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingMax"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingMaxDrawdown"
+ },
+ {
+  "accepts_none": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingMean"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingMedian"
+ },
+ {
+  "accepts_none": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingMedianAD"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingMin"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingMinMax"
+ },
+ {
+  "accepts_none": {
+   "output": false,
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingOU"
+ },
+ {
+  "accepts_none": {
+   "threshold": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingOmega"
+ },
+ {
+  "accepts_none": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingOrderImbalance"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingParkinsonVar"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingParkinsonVol"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingPercentile"
+ },
+ {
+  "accepts_none": {
+   "derivative_order": false,
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingPoly1"
+ },
+ {
+  "accepts_none": {
+   "derivative_order": false,
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingPoly2"
+ },
+ {
+  "accepts_none": {
+   "quantile": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingQuantile"
+ },
+ {
+  "accepts_none": {
+   "method": false,
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingRSI"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingRange"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingRank"
+ },
+ {
+  "accepts_none": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingResidualStd"
+ },
+ {
+  "accepts_none": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingRms"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingRogersSatchellVar"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingRogersSatchellVol"
+ },
+ {
+  "accepts_none": {
+   "periods_per_year": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingSharpe"
+ },
+ {
+  "accepts_none": {
+   "lower": true,
+   "output": false,
+   "start_policy": false,
+   "upper": true,
+   "window_size": false
+  },
+  "base": {
+   "lower": 1.0,
+   "upper": 3.0
+  },
+  "name": "RollingSigmaClip"
+ },
+ {
+  "accepts_none": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingSkew"
+ },
+ {
+  "accepts_none": {
+   "periods_per_year": false,
+   "target": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingSortino"
+ },
+ {
+  "accepts_none": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingSpread"
+ },
+ {
+  "accepts_none": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingStd"
+ },
+ {
+  "accepts_none": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingSum"
+ },
+ {
+  "accepts_none": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingTLSBeta"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingTSF"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingVWAP"
+ },
+ {
+  "accepts_none": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingVar"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingYangZhangVar"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingYangZhangVol"
+ },
+ {
+  "accepts_none": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "RollingZscore"
+ },
+ {
+  "accepts_none": {
+   "hp_cutoff": true,
+   "hp_period": true,
+   "lp_cutoff": true,
+   "lp_period": true
+  },
+  "base": {
+   "hp_period": 48.0,
+   "lp_period": 10.0
+  },
+  "name": "RoofingFilter"
+ },
+ {
+  "accepts_none": {
+   "initial": false,
+   "lower": false,
+   "upper": false
+  },
+  "base": {
+   "lower": 1.0,
+   "upper": 3.0
+  },
+  "name": "SchmittTrigger"
+ },
+ {
+  "accepts_none": {
+   "d": false,
+   "fastk_period": false,
+   "smooth_k": false
+  },
+  "base": {},
+  "name": "Stoch"
+ },
+ {
+  "accepts_none": {
+   "d": false,
+   "rsi_period": false,
+   "smooth_k": false,
+   "stoch_period": false
+  },
+  "base": {},
+  "name": "StochRSI"
+ },
+ {
+  "accepts_none": {
+   "cutoff": true,
+   "period": true
+  },
+  "base": {
+   "period": 10.0
+  },
+  "name": "SuperSmoother"
+ },
+ {
+  "accepts_none": {
+   "alpha": true,
+   "com": true,
+   "halflife": true,
+   "span": true
+  },
+  "base": {
+   "com": 10.0
+  },
+  "name": "TEMA"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "TRIMA"
+ },
+ {
+  "accepts_none": {
+   "span": false
+  },
+  "base": {},
+  "name": "TRIX"
+ },
+ {
+  "accepts_none": {
+   "phase_rate_frac": false
+  },
+  "base": {},
+  "name": "TrendMode"
+ },
+ {
+  "accepts_none": {
+   "period1": false,
+   "period2": false,
+   "period3": false
+  },
+  "base": {},
+  "name": "UltimateOscillator"
+ },
+ {
+  "accepts_none": {
+   "bucket_volume": false,
+   "n_buckets": false
+  },
+  "base": {},
+  "name": "VPIN"
+ },
+ {
+  "accepts_none": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "name": "WMA"
+ },
+ {
+  "accepts_none": {
+   "window_size": false
+  },
+  "base": {},
+  "name": "WilliamsR"
+ }
+]

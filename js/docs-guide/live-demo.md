@@ -51,7 +51,7 @@ await ready();
 
 const lowLag  = RollingPoly1(30, 0);                    // low-lag price
 const sumPV   = RollingSum(50), sumV = RollingSum(50);  // volume-weighted fair value
-const flowNet = EwMean(undefined, 50), flowAbs = EwMean(undefined, 50); // order-flow pressure
+const flowNet = EwMean({ span: 50 }), flowAbs = EwMean({ span: 50 }); // order-flow pressure
 
 // sign: +1 when a buyer lifted the offer, -1 when a seller hit the bid
 function onTrade(price, size, sign) {

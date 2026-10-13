@@ -175,7 +175,7 @@ test("Q1: a vector setting is a number, an Array or a typed array, and every ele
     ["array with an object", () => MovingAverage([0.5, {} as any]), /got an Object/],
   ];
   for (const [name, f, re] of bad)
-    assert.throws(f, (e: unknown) => e instanceof TypeError && /^taps must be a number or an array of numbers, got /.test((e as Error).message) && re.test((e as Error).message), name);
+    assert.throws(f, (e: unknown) => e instanceof TypeError && /^MovingAverage: taps must be a number or an array of numbers, got /.test((e as Error).message) && re.test((e as Error).message), name);
   // An Array, a typed array or a number builds.
   assert.deepEqual(MovingAverage([0.5, 0.25])([2, 4, 6]), [NaN, 2.5, 4]);
   assert.deepEqual(MovingAverage(Float64Array.from([0.5, 0.25]) as any)([2, 4, 6]), [NaN, 2.5, 4]);

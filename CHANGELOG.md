@@ -102,13 +102,28 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Changed
 
-* In JavaScript, `null` for an operator parameter keeps its default, as
-  `undefined` does: `RollingMean(3, null)` is `RollingMean(3)`. 2.8.0 read
-  `null` as 0 for a number parameter (`EwMean(null, 20)` raised `RangeError`)
-  and raised `TypeError` for a string or array parameter. A parameter without
-  a default that is left out or `null` raises `TypeError` ("SchmittTrigger:
-  lower is required"), where 2.8.0 read it as 0 (`SchmittTrigger(null, 3)` ran
-  with a lower threshold of 0). Pass `0` for the 2.8.0 result.
+* JavaScript operator constructors check their parameters:
+  * `null` means "not given" only for the parameters that Python marks
+    Optional and takes `None` for (the `com`, `span`, `halflife` and `alpha`
+    of the exponentially weighted operators, the bounds of `Clip`, and so on):
+    `EwMean(null, 20)` is `EwMean(undefined, 20)`, where 2.8.0 read `null` as
+    0 and raised `RangeError`. For every other parameter `null` raises
+    `TypeError`, as `None` does in Python ("RollingMean: windowSize must be a
+    number, got null"); 2.8.0 read it as 0 for a number parameter
+    (`SchmittTrigger(null, 3)` ran with a lower threshold of 0). Pass `0` for
+    the 2.8.0 result, or `undefined` for the default.
+  * A number parameter takes only a number. A boolean, an array, an object,
+    an `NdArray` or a `BigInt` raises `TypeError`; 2.8.0 converted it (`true`
+    as 1, `[5]` as 5, an object as NaN). Pass `Number(x)`. Python still
+    takes `True` and `False`, which are integers there.
+  * A parameter without a default that is left out raises `TypeError`
+    ("Hold: n is required"); 2.8.0 converted it to NaN or 0.
+  * More arguments than the operator has parameters raise `TypeError`
+    ("RollingMean: takes at most 2 arguments, got 3"; "Abs: takes no
+    settings, got number"); 2.8.0 ignored them. Drop the extra arguments.
+  * Every message a constructor raises for a parameter starts with the
+    operator name ("EwMean: span must be a number, got a string"). Messages
+    raised by the C++ core are unchanged.
 * `split` runs its checks and its partition in C++, shared with JavaScript's
   `split`. Results for valid inputs are unchanged. Other changes:
   * A source must be a whole number. A bool, fractional, NaN, infinite,

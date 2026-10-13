@@ -30,7 +30,7 @@ const data = new Float64Array(N);
 for (let i = 0; i < N; i++) data[i] = 100 + Math.sin(i / 1000) + (i % 13) * 0.01;
 
 const OPS = [
-  ["EwMean(span=20)",   () => EwMean(undefined, 20)],
+  ["EwMean(span=20)",   () => EwMean({ span: 20 })],
   ["RollingMean(20)",   () => RollingMean(20)],
   ["RollingPoly1(30)",  () => RollingPoly1(30, 0)],
   ["RollingRSI(14)",    () => RollingRSI(14)],

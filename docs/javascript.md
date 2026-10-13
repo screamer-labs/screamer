@@ -74,10 +74,16 @@ object, so `EwMean(span=20)` becomes `EwMean({ span: 20 })`. The names are
 camelCase, an unknown name raises `TypeError`, and each operator has a matching
 TypeScript type (`EwMeanOptions`). The options object must be the only argument.
 A constructor also takes the parameters positionally, in the order the page
-lists them: `EwMean(undefined, 20)`. In both forms, `undefined` or `null` keeps a
-parameter's default, and leaving out a parameter that has no default raises
-`TypeError`. An operator without parameters, such as `Abs`, takes no argument
-or an empty object. Helpers that take options, such as `positionTest`, take
+lists them: `EwMean(undefined, 20)`. In both forms, `undefined` keeps a
+parameter's default. `null` means "not given" only for the parameters that
+Python marks Optional and takes `None` for, such as the `com`, `span`,
+`halflife` and `alpha` of the exponentially weighted operators; for any other
+parameter, `null` raises `TypeError`, as `None` does in Python. A number
+parameter takes only a number: a string, a boolean, an array or an object
+raises `TypeError`. Leaving out a parameter that has no default, or passing
+more arguments than the operator has parameters, also raises `TypeError`. An
+operator without parameters, such as `Abs`, takes no argument or an empty
+object. Helpers that take options, such as `positionTest`, take
 them as an object. The pandas
 conversions have no JavaScript counterpart. The
 JavaScript-specific parts, such as module loading, async iterables, pipelines,
@@ -177,9 +183,7 @@ const [open, high, low, close] = [2, 3, 4, 5].map(
 const spread = Sub()(EwMean({ span: 20 })(close), EwMean({ span: 100 })(close));
 const signal = Sign()(FillNa(0)(spread));
 
-// BacktestOHLCTarget(takerFee, tickSize, minPosition, maxPosition,
-//                    multiplier, feePerContract, slippage, ...)
-const engine = BacktestOHLCTarget(1e-3, 0, -Infinity, Infinity, 1, 0, 5e-4);
+const engine = BacktestOHLCTarget({ takerFee: 1e-3, slippage: 5e-4 });
 const out = engine(signal, open, high, low, close);   // shape [T, 4]
 
 const { summary } = backtestReport(out, { periodsPerYear: 365 });
