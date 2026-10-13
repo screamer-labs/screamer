@@ -688,6 +688,11 @@ def cases():
         "Linear scale=-inf": lambda: s.Linear(float("-inf"), 0.0)(v[:5]),
         "KalmanFilter initial_variance=inf": lambda: s.KalmanFilter(0.01, 1.0, 0.0, float("inf"))(v),
         "Hampel n_sigma=inf": lambda: s.Hampel(5, float("inf"))(v),
+        # Task 34 fix round 2.
+        "RollingMean(2**31)": lambda: s.RollingMean(2 ** 31),
+        "RollingMean(-10**30)": lambda: s.RollingMean(-10 ** 30),
+        "KalmanFilter finite overflow": lambda: s.KalmanFilter(1.7e308, 0.5, 0.0, 1.7e308)(v[:3]),
+        "BacktestOHLCTarget delay=0 fill_at=open": lambda: s.BacktestOHLCTarget(delay=0),
     })
     return table
 

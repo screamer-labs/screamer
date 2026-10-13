@@ -20284,5 +20284,29 @@
   "f",
   2549.463044,
   "4c5f528475295c68"
+ ],
+ "RollingMean(2**31)": [
+  "ERROR",
+  "TypeError",
+  "__init__(): incompatible function arguments. The following argument ty"
+ ],
+ "RollingMean(-10**30)": [
+  "ERROR",
+  "TypeError",
+  "__init__(): incompatible function arguments. The following argument ty"
+ ],
+ "KalmanFilter finite overflow": [
+  "ndarray",
+  [
+   3
+  ],
+  "f",
+  0.0,
+  "f7598febecfbbbc4"
+ ],
+ "BacktestOHLCTarget delay=0 fill_at=open": [
+  "ERROR",
+  "ValueError",
+  "delay=0 requires fill_at=\"close\": a target decided at a bar's close ca"
  ]
 }

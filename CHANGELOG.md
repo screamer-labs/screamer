@@ -26,7 +26,8 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 * JavaScript `pipeline.toJSON()` (the description object, so
   `JSON.stringify(pipeline)` is its JSON text), `pipeline.toDict()`,
   `pipeline.toJSONText(indent)` (the text Python's `to_json` writes, which
-  keeps a non-finite setting that `JSON.stringify` writes as null),
+  keeps a non-finite setting and -0.0, which `JSON.stringify` writes as null
+  and 0),
   `Pipeline.fromJSON(textOrObject)` and `Pipeline.fromDict(object)`, with
   Python's format: a pipeline saved in one language loads in the other and
   gives the same results. The schema, the
@@ -804,7 +805,8 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   sample flagged, as `Clip`'s `upper=inf` is no bound); inf for
   `KalmanFilter`'s `initial_variance`, a diffuse prior: the first
   observation sets the state, with the observation variance (2.8.0 gave all
-  NaN). 2.8.0 took a non-finite value for these settings, which now refuse
+  NaN). A finite `initial_variance` gives the 2.8.0 results, also where its
+  arithmetic overflows to NaN. 2.8.0 took a non-finite value for these settings, which now refuse
   it:
   - backtest fees: `maker_fee`, `taker_fee`, `fee`, `maker_fee_per_contract`
     and `taker_fee_per_contract`, and `BacktestPriceTarget`'s `spread`;
@@ -841,6 +843,13 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   at least 1, got -1", for every window, period and count. 2.8.0 raised the
   operator's own text, which for a negative window was the C++ buffer's
   "vector" or "Size must be at least 1.". The type of the error is unchanged.
+  A value above the range of the C++ int an integer setting is held in
+  raises `ValueError` (`RangeError`), "RollingMean: window_size must be at
+  most 2147483647, got 2147483648", and so does a NumPy integer of that size;
+  2.8.0 raised nanobind's "incompatible function arguments" (`TypeError`)
+  in Python. A value in range that needs more memory than is available
+  names the setting ("... window_size of 2147483647 needs more memory than
+  is available").
 * `Merge` of a bare number (`Merge()(5.0, 6.0)`) raises `TypeError`, as
   JavaScript's `merge` does: a number is one event, not a stream. 2.8.0
   merged each number as a stream of one value. Pass `[5.0]`.
@@ -898,6 +907,10 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Fixed
 
+* A JavaScript integer setting above the int range wrapped silently:
+  `RollingMean(2 ** 32 + 2)` ran with a window of 2. It raises `RangeError`
+  ("RollingMean: windowSize must be at most 2147483647, got 4294967298"),
+  checked before the value reaches C++.
 * `Butter(0, cutoff)` and a negative order crashed the process; they raise
   `ValueError` ("Butter: order must be at least 1, got 0"), as
   `ButterHighpass`, `ButterBandpass` and `ButterBandstop` already did.
