@@ -11057,5 +11057,169 @@
     506.191929352
    ]
   ]
+ ],
+ "backtest_report engine output": [
+  "pair",
+  [
+   "ndarray",
+   [
+    30,
+    19
+   ],
+   "f",
+   81.455167,
+   "3889142772ac06e8"
+  ],
+  [
+   "ndarray",
+   [
+    16
+   ],
+   "f",
+   103331005.384355,
+   "5fc656e44f104bc1"
+  ]
+ ],
+ "backtest_report holes, periods_per_year=252": [
+  "pair",
+  [
+   "ndarray",
+   [
+    30,
+    19
+   ],
+   "f",
+   Infinity,
+   "d2849a8cccb95fce"
+  ],
+  [
+   "ndarray",
+   [
+    16
+   ],
+   "f",
+   103330996.38516,
+   "947dd628a3f55b98"
+  ]
+ ],
+ "backtest_report index": [
+  "pair",
+  [
+   "ndarray",
+   [
+    30,
+    20
+   ],
+   "f",
+   4431.455167,
+   "4ad2c33d46d1c76d"
+  ],
+  [
+   "ndarray",
+   [
+    16
+   ],
+   "f",
+   236116422.384355,
+   "7c0d70756123fbbf"
+  ]
+ ],
+ "backtest_report no rows": [
+  "pair",
+  [
+   "ndarray",
+   [
+    0,
+    19
+   ],
+   "f",
+   0.0,
+   "da39a3ee5e6b4b0d"
+  ],
+  [
+   "ndarray",
+   [
+    16
+   ],
+   "f",
+   103330997.0,
+   "86452ec20de68fbe"
+  ]
+ ],
+ "backtest_report one row": [
+  "pair",
+  [
+   "ndarray",
+   [
+    1,
+    19
+   ],
+   "f",
+   3.0,
+   "df6ee843b83321d8"
+  ],
+  [
+   "ndarray",
+   [
+    16
+   ],
+   "f",
+   103330999.0,
+   "2c9563c559aaebde"
+  ]
+ ],
+ "backtest_report list with None": [
+  "pair",
+  [
+   "ndarray",
+   [
+    2,
+    19
+   ],
+   "f",
+   8.2,
+   "ea0a3bfd3e409362"
+  ],
+  [
+   "ndarray",
+   [
+    16
+   ],
+   "f",
+   103331002.1,
+   "e77ef94ccbe9ef9d"
+  ]
+ ],
+ "backtest_report Fortran order": [
+  "pair",
+  [
+   "ndarray",
+   [
+    30,
+    19
+   ],
+   "f",
+   Infinity,
+   "603ac7dbbfcabbc7"
+  ],
+  [
+   "ndarray",
+   [
+    16
+   ],
+   "f",
+   103331003.021538,
+   "68b7cb96e81533c2"
+  ]
+ ],
+ "backtest_report (T,3)": [
+  "ERROR",
+  "ValueError",
+  "values must be a (T, 4) array of [equity, pnl, position, cost]"
+ ],
+ "backtest_report periods_per_year=0": [
+  "ERROR",
+  "ValueError",
+  "periods_per_year must be finite and positive."
  ]
 }

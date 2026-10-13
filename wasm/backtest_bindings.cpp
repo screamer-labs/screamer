@@ -17,25 +17,31 @@ constexpr std::size_t kEngine = screamer::kEngineColumns.size();
 constexpr std::size_t kReport = screamer::BacktestReport::column_names.size();
 constexpr std::size_t kStatsCols = screamer::BacktestStats::column_names.size();
 
+// The shape rule of an engine's output, checked first, so a bad call raises
+// the same error class as in Python whatever else is wrong with it.
+void checkEngineRows(std::size_t ndim, std::size_t ncols) {
+    screamer::check_engine_rows(ndim, ncols);
+}
+
 // The engine output `eng` (T rows of `ncols` values, row-major) as the
-// running columns, column-major in `out` (4 + 6 + 9 columns of T values, in
-// the order of backtestReportNames), and the summary in `summary`
-// (kNumStats values). The shape and periods_per_year are checked first.
+// computed running columns, column-major in `out` (6 + 9 columns of T values,
+// in the order of backtestReportNames), and the summary in `summary`
+// (kNumStats values). The engine columns stay in the caller's input. The
+// shape and periods_per_year are checked first.
 void backtestReportInto(std::uintptr_t eng, std::size_t T, std::size_t ndim, std::size_t ncols,
                         double periods_per_year, std::uintptr_t out, std::uintptr_t summary) {
     screamer::check_engine_rows(ndim, ncols);
     screamer::BacktestReport rep(periods_per_year);
     screamer::BacktestStats st(periods_per_year);
-    const double* e = reinterpret_cast<const double*>(eng);
     std::vector<double> report(T * kReport), stats(T * kStatsCols);
-    screamer::backtest_report(rep, st, e, T, static_cast<std::ptrdiff_t>(kEngine), 1,
-                              report.data(), stats.data(), reinterpret_cast<double*>(summary));
+    screamer::backtest_report(rep, st, reinterpret_cast<const double*>(eng), T,
+                              static_cast<std::ptrdiff_t>(kEngine), 1, report.data(),
+                              stats.data(), reinterpret_cast<double*>(summary));
     double* o = reinterpret_cast<double*>(out);
     const auto columns = [&](const double* rows, std::size_t width) {
         for (std::size_t c = 0; c < width; ++c, o += T)
             for (std::size_t t = 0; t < T; ++t) o[t] = rows[t * width + c];
     };
-    columns(e, kEngine);
     columns(report.data(), kReport);
     columns(stats.data(), kStatsCols);
 }
@@ -61,6 +67,7 @@ emscripten::val backtestReportNames() {
 }  // namespace
 
 EMSCRIPTEN_BINDINGS(screamer_backtest) {
+    emscripten::function("checkEngineRows", &checkEngineRows);
     emscripten::function("backtestReportInto", &backtestReportInto);
     emscripten::function("backtestReportNames", &backtestReportNames);
 }

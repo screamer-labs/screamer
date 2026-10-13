@@ -20,9 +20,9 @@ topics:
 
 # `backtest_report`
 
-Labels the output of the [`BacktestReport`](BacktestReport.md) node. It takes a
-backtest engine's `[equity, pnl, position, cost]` output (the four positional
-columns that [`BacktestPriceTarget`](BacktestPriceTarget.md) and the other backtest engines
+Running statistics and a summary for a backtest. It takes a backtest engine's
+`[equity, pnl, position, cost]` output (the four positional columns that
+[`BacktestPriceTarget`](BacktestPriceTarget.md) and the other backtest engines
 emit) and returns `(running, summary)`.
 
 - `running` is a dict of numpy arrays: the four engine columns plus the
@@ -40,7 +40,8 @@ and `BacktestStats` nodes and reads the last finite value of each column. This
 function only labels the result, and needs no pandas. Wrap `running` in a
 `pandas.DataFrame` yourself if you want a frame. In JavaScript,
 `backtestReport(values, { index, periodsPerYear })` returns
-`{ running, summary }` with the same keys.
+`{ running, summary }` with the same keys. There the index must hold numbers,
+and `running.index` is a `Float64Array`; Python passes any index through.
 
 <!-- HELP_END -->
 

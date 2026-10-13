@@ -476,6 +476,10 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Fixed
 
+* JavaScript: an array of rows given to `positionTest` (a portfolio target)
+  or `strategyTest` (an input) reads `null` as `NaN` and rejects a string
+  with `TypeError`, as every other value path does. Before, `null` read as 0
+  and a string was converted.
 * A `Resample(every=..., fill="nan")` or `fill="carry"` fed through a
   `CombineLatest` or a `Filter` hung at the end of the input and grew memory
   until it was killed (`std::bad_alloc` in JavaScript), in a batch call and in

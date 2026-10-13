@@ -157,7 +157,7 @@ copies:
 ```js
 import { readFileSync } from "node:fs";
 import {
-  ready, EwMean, Sub, Sign, FillNa, BacktestOHLCTarget, BacktestReport, positionTest,
+  ready, EwMean, Sub, Sign, FillNa, BacktestOHLCTarget, backtestReport, positionTest,
 } from "@screamer-labs/screamer";
 
 await ready();
@@ -177,11 +177,9 @@ const signal = Sign()(FillNa(0)(spread));
 const engine = BacktestOHLCTarget(1e-3, 0, -Infinity, Infinity, 1, 0, 5e-4);
 const out = engine(signal, open, high, low, close);   // shape [T, 4]
 
-const T = out.shape[0];
-const column = (k) => Float64Array.from({ length: T }, (_, t) => out.data[t * 4 + k]);
-const report = BacktestReport(365)(column(0), column(1), column(2), column(3));
-console.log("pnl", column(0)[T - 1].toFixed(0),
-            "Sharpe", report.data[(T - 1) * 6 + 5].toFixed(2));   // pnl 56362 Sharpe 0.40
+const { summary } = backtestReport(out, { periodsPerYear: 365 });
+console.log("pnl", summary.total_pnl.toFixed(0),
+            "Sharpe", summary.sharpe.toFixed(2));                 // pnl 56362 Sharpe 0.40
 
 const test = positionTest(engine, signal, [open, high, low, close],
                           { n: 999, periodsPerYear: 365 });

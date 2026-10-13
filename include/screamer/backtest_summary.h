@@ -98,8 +98,8 @@ namespace screamer {
     inline void summary_from(const double* eng, std::ptrdiff_t row_stride,
                              std::ptrdiff_t col_stride, const double* report,
                              const double* stats, std::size_t T, double* summary) {
-        constexpr std::ptrdiff_t nr = static_cast<std::ptrdiff_t>(BacktestReport::column_names.size());
-        constexpr std::ptrdiff_t ns = static_cast<std::ptrdiff_t>(BacktestStats::column_names.size());
+        constexpr auto nr = static_cast<std::ptrdiff_t>(BacktestReport::column_names.size());
+        constexpr auto ns = static_cast<std::ptrdiff_t>(BacktestStats::column_names.size());
         for (std::size_t q = 0; q < kNumStats; ++q) {
             const StatSpec& spec = kStats[q];
             const std::size_t col = static_cast<std::size_t>(spec.column);
@@ -112,9 +112,9 @@ namespace screamer {
     }
 
     // The whole report of T engine rows: runs `rep` and `st` over them (a
-    // column run starts from a reset node), writing report (T x 6) and stats (T x 9) row-major, and the
-    // summary (kNumStats values). The nodes carry periods_per_year, which
-    // annualizes sharpe, sortino, and calmar.
+    // column run starts from a reset node), writing report (T x 6) and stats
+    // (T x 9) row-major, and the summary (kNumStats values). The nodes carry
+    // periods_per_year, which annualizes sharpe, sortino, and calmar.
     inline void backtest_report(BacktestReport& rep, BacktestStats& st, const double* eng,
                                 std::size_t T, std::ptrdiff_t row_stride,
                                 std::ptrdiff_t col_stride, double* report, double* stats,

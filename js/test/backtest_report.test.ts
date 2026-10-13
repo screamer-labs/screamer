@@ -3,16 +3,18 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { ready, backtestReport, BacktestPriceTarget, BacktestReport, BacktestStats } from "../src/index.ts";
+import {
+  ready, backtestReport, BacktestPriceTarget, BacktestReport, BacktestStats,
+} from "../src/index.ts";
 import type { NdArray } from "../src/index.ts";
 
 // backtestReport against Python's backtest_report (devtools/wasm/gen_oracle.py
 // writes the fixture). Both label the same C++ report, so the keys and their
-// order match exactly, and so does every value up to the last bits: a native
-// clang build fuses a multiply and an add within one expression, which
-// WebAssembly does not (CMakeLists.txt), so values agree within a relative
-// 1e-12 and NaN and infinities sit in the same places. Within JavaScript the
-// comparisons are exact.
+// order match exactly, and so does every value except in `sharpe` and
+// `sortino`: a native clang build fuses a multiply and an add within one
+// expression of their running updates, which WebAssembly does not
+// (CMakeLists.txt), so those two may differ by a few ulp. NaN and infinities
+// sit in the same places. Within JavaScript every comparison is exact.
 const HERE = dirname(fileURLToPath(import.meta.url));
 type Num = number | null | "inf" | "-inf";
 const cases: Array<{
@@ -22,13 +24,28 @@ const cases: Array<{
   periods_per_year: number;
   running: Record<string, Num[]>;
   summary: Record<string, Num>;
-}> = JSON.parse(readFileSync(join(HERE, "..", "..", "wasm", "smoke", "oracle_backtest.json"), "utf8"));
+}> = JSON.parse(
+  readFileSync(join(HERE, "..", "..", "wasm", "smoke", "oracle_backtest.json"), "utf8"));
 
 const num = (v: Num) => (v === null ? NaN : v === "inf" ? Infinity : v === "-inf" ? -Infinity : v);
 const f64 = (xs: Num[]) => Float64Array.from(xs, num);
 const same = (a: number, b: number) => (Number.isNaN(b) ? Number.isNaN(a) : a === b);
-const close = (a: number, b: number) =>
-  same(a, b) || (Number.isFinite(b) && Math.abs(a - b) <= 1e-12 * Math.max(1, Math.abs(b)));
+
+// The number of doubles between a and b (both finite).
+function ulps(a: number, b: number): number {
+  const key = (x: number) => {
+    const i = new BigInt64Array(new Float64Array([x]).buffer)[0];
+    return i < 0n ? -(i & 0x7fffffffffffffffn) : i;   // monotonic in x
+  };
+  const d = key(a) - key(b);
+  return Number(d < 0n ? -d : d);
+}
+const MAX_ULPS = 4;
+const FUSED = new Set(["sharpe", "sortino"]);
+// Exact, or within MAX_ULPS for the two columns with fused updates.
+const matchFor = (key: string) => (a: number, b: number) =>
+  same(a, b) ||
+  (FUSED.has(key) && Number.isFinite(a) && Number.isFinite(b) && ulps(a, b) <= MAX_ULPS);
 
 function assertSame(got: ArrayLike<number>, want: Float64Array, what: string, eq = same) {
   assert.equal(got.length, want.length, `${what}: length`);
@@ -40,12 +57,12 @@ function input(c: (typeof cases)[number]): NdArray {
   return { data: f64(c.values), shape: c.shape };
 }
 
-test("backtestReport: the fixture covers NaN and infinite values, annualizing, one row and no rows", () => {
+test("backtestReport: the fixture covers NaN and inf, annualizing, one row and no rows", () => {
   assert.deepEqual(cases.map((c) => c.name),
     ["base", "annualized", "holes", "winners", "one row", "no rows"]);
 });
 
-test("backtestReport: running columns and summary match Python's, keys in Python's order", async () => {
+test("backtestReport: columns and summary match Python's, keys in its order", async () => {
   await ready();
   for (const c of cases) {
     const { running, summary } = backtestReport(input(c), { periodsPerYear: c.periods_per_year });
@@ -53,10 +70,10 @@ test("backtestReport: running columns and summary match Python's, keys in Python
     assert.deepEqual(Object.keys(summary), Object.keys(c.summary), `${c.name}: summary keys`);
     for (const [k, v] of Object.entries(c.running)) {
       assert.ok(running[k] instanceof Float64Array, `${c.name}: ${k} is a Float64Array`);
-      assertSame(running[k], f64(v), `${c.name}: running.${k}`, close);
+      assertSame(running[k], f64(v), `${c.name}: running.${k}`, matchFor(k));
     }
     for (const [k, v] of Object.entries(c.summary))
-      assert.ok(close(summary[k], num(v)), `${c.name}: summary.${k}: ${summary[k]} vs ${v}`);
+      assert.ok(matchFor(k)(summary[k], num(v)), `${c.name}: summary.${k}: ${summary[k]} vs ${v}`);
   }
 });
 
@@ -73,7 +90,7 @@ test("backtestReport: an array of rows gives the NdArray result; null is NaN", a
   for (const k of Object.keys(a.summary)) assert.ok(same(b.summary[k], a.summary[k]), k);
 });
 
-test("backtestReport: the report columns are the BacktestReport and BacktestStats operators' columns", async () => {
+test("backtestReport: the columns are the BacktestReport and BacktestStats columns", async () => {
   await ready();
   const c = cases.find((x) => x.name === "annualized")!;
   const { running } = backtestReport(input(c), { periodsPerYear: 252 });
@@ -87,6 +104,14 @@ test("backtestReport: the report columns are the BacktestReport and BacktestStat
   ["exposure", "round_trips", "win_rate", "profit_factor", "avg_win", "avg_loss", "avg_holding",
    "sortino", "calmar"].forEach((k, j) =>
     assertSame(running[k], Float64Array.from({ length: T }, (_, t) => st.data[t * 9 + j]), k));
+});
+
+test("backtestReport: null options are no options", async () => {
+  await ready();
+  const c = cases.find((x) => x.name === "base")!;
+  const a = backtestReport(input(c), null);
+  const b = backtestReport(input(c));
+  for (const k of Object.keys(b.running)) assertSame(a.running[k], b.running[k], k);
 });
 
 test("backtestReport: an index is returned as running.index", async () => {
@@ -112,7 +137,8 @@ test("backtestReport: errors match Python's", async () => {
   await ready();
   const msg = "values must be a (T, 4) array of [equity, pnl, position, cost]";
   const bad = (v: unknown) =>
-    assert.throws(() => backtestReport(v as any), (e: any) => e instanceof RangeError && e.message === msg);
+    assert.throws(() => backtestReport(v as any),
+      (e: any) => e instanceof RangeError && e.message === msg);
   bad({ data: new Float64Array(6), shape: [2, 3] });
   bad({ data: new Float64Array(8), shape: [1, 2, 4] });
   bad({ data: new Float64Array(4), shape: [4] });
@@ -120,15 +146,28 @@ test("backtestReport: errors match Python's", async () => {
   bad([1, 2, 3, 4]);
   bad([]);
   bad([[1, 2, 3], [4, 5, 6]]);
+  bad(null);
+  bad(undefined);
+  bad(5);
+  // Python's order: the shape is checked before the kind of periodsPerYear
+  assert.throws(() => backtestReport([], { periodsPerYear: "x" as any }),
+    (e: any) => e instanceof RangeError && e.message === msg);
+  assert.throws(() => backtestReport([[1, "x", 0]] as any, { periodsPerYear: "x" as any }),
+    (e: any) => e instanceof TypeError && /item \[0\]\[1\] of values/.test(e.message));
   const ok: NdArray = { data: new Float64Array(8), shape: [2, 4] };
   for (const p of [0, -1, NaN, Infinity])
     assert.throws(() => backtestReport(ok, { periodsPerYear: p }),
-      (e: any) => e instanceof RangeError && e.message === "periods_per_year must be finite and positive.");
+      (e: any) => e instanceof RangeError &&
+        e.message === "periods_per_year must be finite and positive.");
   for (const p of ["252", null])
     assert.throws(() => backtestReport(ok, { periodsPerYear: p as any }),
       (e: any) => e instanceof TypeError && /periodsPerYear is a/.test(e.message));
   assert.throws(() => backtestReport([[1, "2", 3, 4]] as any),
-    (e: any) => e instanceof TypeError && /item \[0\]\[1\] of values is a string, expected a number/.test(e.message));
-  assert.throws(() => backtestReport([[1, 2, 3, 4], [1, 2, 3]]), RangeError);
+    (e: any) => e instanceof TypeError &&
+      /item \[0\]\[1\] of values is a string, expected a number/.test(e.message));
+  assert.throws(() => backtestReport([[1, 2, 3, 4], [1, 2, 3]]),
+    (e: any) => e instanceof RangeError &&
+      e.message === "backtestReport: every row of values must hold 4 values, got 3 at row 1");
+  assert.throws(() => backtestReport(ok, { index: ["a", "b"] as any }), TypeError);
   assert.throws(() => backtestReport("abc" as any), TypeError);
 });

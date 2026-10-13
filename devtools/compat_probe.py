@@ -258,6 +258,31 @@ def cases():
         "RollingOrderImbalance stream of scalars":
             lambda: (lambda op: [op(float(x)) for x in v[:8]])(roi()),
     })
+
+    # backtest_report: every running column stacked, and the summary with a
+    # checksum of the key order of both dicts appended
+    def report(values, **kw):
+        import zlib
+        running, summary = s.backtest_report(values, **kw)
+        keys = ",".join(list(running) + ["|"] + list(summary))
+        return (np.column_stack([np.asarray(a, dtype=float) for a in running.values()]),
+                np.append(np.array(list(summary.values())), float(zlib.crc32(keys.encode()))))
+    engine = s.BacktestPriceTarget(spread=0.01)(np.sign(v - v.mean()), v)
+    holes = engine.copy()
+    holes[3, 1] = np.nan
+    holes[10, 3] = np.inf
+    holes[-2:, 0] = np.nan
+    table.update({
+        "backtest_report engine output": lambda: report(engine),
+        "backtest_report holes, periods_per_year=252": lambda: report(holes, periods_per_year=252),
+        "backtest_report index": lambda: report(engine, index=idx),
+        "backtest_report no rows": lambda: report(engine[:0]),
+        "backtest_report one row": lambda: report(engine[:1]),
+        "backtest_report list with None": lambda: report([[1.0, None, 0, 0], [2, 1, 1, 0.1]]),
+        "backtest_report Fortran order": lambda: report(np.asfortranarray(holes)),
+        "backtest_report (T,3)": lambda: report(engine[:, :3]),
+        "backtest_report periods_per_year=0": lambda: report(engine, periods_per_year=0),
+    })
     return table
 
 

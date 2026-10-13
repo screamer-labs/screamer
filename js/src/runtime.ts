@@ -2,7 +2,10 @@ import type { Screamer, RawOp } from "./loader.js";
 import { normalizeError } from "./errors.js";
 import { asNd, type NdArray } from "./ndarray.js";
 import { Node, isNode } from "./node.js";
-import { aKind, shapeText, throwBadShape, throwIfWrongKind, throwIfWrongKindEvent, throwNotANumber, whereText } from "./kinds.js";
+import {
+  aKind, flattenRows, shapeText, throwBadShape, throwIfWrongKind, throwIfWrongKindEvent,
+  throwNotANumber, whereText,
+} from "./kinds.js";
 
 // The op's class name for error messages, e.g. "RollingMean".
 const opName = (raw: RawOp): string => (raw as any).constructor?.name ?? "this op";
@@ -1118,13 +1121,8 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
       return { flat: x.data, T: x.shape[0], k: x.shape[1] };
     }
     if (Array.isArray(x) && x.length > 0 && x.every((r) => isTyped(r) || isNumArr(r))) {
-      const T = x.length, k = x[0].length;
-      const flat = new Float64Array(T * k);
-      x.forEach((r: ArrayLike<number>, i: number) => {
-        if (r.length !== k) throw new RangeError(`every row must hold ${k} values, got ${r.length} at row ${i}`);
-        flat.set(r as number[], i * k);
-      });
-      return { flat, T, k };
+      const { data, T, K } = flattenRows(x, opName(raw), "the input");
+      return { flat: data, T, k: K };
     }
     return null;
   };

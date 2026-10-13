@@ -28,7 +28,7 @@ export function whereText(prefix: string, index = -1, input = -1): string {
 }
 
 export function throwWrongKind(who: string, where: string, x: unknown, expected = "a number"): never {
-  throw new TypeError(`${who}: ${where} is ${aKind(x)}, expected ${expected}`);
+  throw new TypeError(`${who ? `${who}: ` : ""}${where} is ${aKind(x)}, expected ${expected}`);
 }
 
 const isArrayLike = (x: any) =>
@@ -150,4 +150,34 @@ export function toF64Checked(x: Float64Array | ArrayLike<unknown>, who: string, 
     out[i] = typeof v === "number" ? v : one(v, who, () => where(i));
   }
   return out;
+}
+
+// T rows of K values as a row-major (T, K) block; K is the length of the first
+// row. A row that is not an array is a wrong kind (TypeError), a row of another
+// length a RangeError, and each item is read as feedValue reads it (null is
+// NaN, a string a TypeError). `who` names the caller (may be empty) and
+// `where` the input, as in "who: item [2][1] of values is a string, expected
+// a number".
+export function flattenRows(rows: ArrayLike<unknown>, who: string, where: string):
+    { data: Float64Array; T: number; K: number } {
+  const T = rows.length;
+  const prefix = who ? `${who}: ` : "";
+  const isRow = (r: any) => r != null && typeof r === "object" && typeof r.length === "number";
+  const first = T > 0 ? (rows[0] as any) : undefined;
+  const K = isRow(first) ? first.length : 0;
+  const data = new Float64Array(T * K);
+  for (let t = 0; t < T; t++) {
+    const r = rows[t] as any;
+    if (!isRow(r))
+      throw new TypeError(`${prefix}row ${t} of ${where} is ${aKind(r)}, expected an array of numbers`);
+    if (r.length !== K)
+      throw new RangeError(`${prefix}every row of ${where} must hold ${K} values, got ${r.length} at row ${t}`);
+    if (r instanceof Float64Array) { data.set(r, t * K); continue; }
+    for (let c = 0; c < K; c++) {
+      const v = r[c];
+      data[t * K + c] = typeof v === "number" ? v
+        : feedValue(v, who, () => `item [${t}][${c}] of ${where}`);
+    }
+  }
+  return { data, T, K };
 }

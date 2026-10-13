@@ -14,6 +14,7 @@
 import { current } from "./index.js";
 import { asNd, type NdArray } from "./ndarray.js";
 import { wasmCall, wasmCallbacks } from "./errors.js";
+import { flattenRows } from "./kinds.js";
 import type { ScreamerOp } from "./runtime.js";
 
 // A target as a Float64Array, so the engine returns an NdArray: all number[]
@@ -205,18 +206,8 @@ function dims(x: any): [number, number, number] {
   return [1, x.length, 1];
 }
 
-// T rows of K values (fromRows) or K columns of T values (fromColumns) as a
-// row-major (T, K) block.
-function fromRows(rows: ArrayLike<number>[], what: string): Float64Array {
-  const T = rows.length, K = T > 0 ? rows[0].length : 0;
-  const data = new Float64Array(T * K);
-  rows.forEach((r, t) => {
-    if (r == null || r.length !== K) throw new RangeError(`${what}: every row must hold ${K} values`);
-    data.set(r as ArrayLike<number>, t * K);
-  });
-  return data;
-}
-
+// K columns of T values as a row-major (T, K) block (T rows of K values use
+// flattenRows from kinds.ts).
 function fromColumns(cols: ArrayLike<number>[], what: string): Float64Array {
   const K = cols.length, T = K > 0 ? cols[0].length : 0;
   const data = new Float64Array(T * K);
@@ -244,7 +235,7 @@ function positionTarget(target: any, portfolio: boolean): Target {
   }
   if (isColumns(target)) {
     if (portfolio) {
-      const data = fromRows(target, "target");
+      const { data } = flattenRows(target, "", "target");
       const [, T, K] = dims(target);
       return { data, ndim: 2, T, K, original: { data, shape: [T, K] } };
     }
@@ -702,14 +693,7 @@ function toBlock(x: any, i: number): Block {
   const T = x.length;
   const first = T > 0 ? x[0] : undefined;
   if (first != null && typeof first === "object" && typeof first.length === "number") {
-    const K = first.length;
-    const data = new Float64Array(T * K);
-    for (let t = 0; t < T; t++) {
-      const row = x[t];
-      if (row == null || row.length !== K)
-        throw new RangeError(`${where}: every row must hold ${K} values`);
-      for (let a = 0; a < K; a++) data[t * K + a] = row[a];
-    }
+    const { data, K } = flattenRows(x, "", where);
     return { data, T, K, panel: true };
   }
   return { data: Float64Array.from(x as ArrayLike<number>), T, K: 1, panel: false };
