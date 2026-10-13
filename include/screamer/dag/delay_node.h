@@ -3,6 +3,8 @@
 
 #include <cstdint>
 #include <limits>
+#include <stdexcept>
+#include <string>
 #include "screamer/common/checked_arith.h"
 #include "screamer/dag/frame.h"
 #include <cstddef>
@@ -20,8 +22,14 @@ public:
     DelayNode(std::int64_t duration, Sink<Index>& downstream)
         : duration_(duration), downstream_(downstream) {}
 
+    // A delayed index outside the int64 range raises before the event goes on.
     void push(const Frame<Index>& f) override {
-        Frame<Index> out{ static_cast<Index>(f.index + duration_), f.values, f.width };
+        std::int64_t k;
+        if (!screamer::checked_add(static_cast<std::int64_t>(f.index), duration_, k))
+            throw std::invalid_argument(
+                "a delay by duration=" + std::to_string(duration_) + " moves index " +
+                std::to_string(f.index) + " outside the int64 range");
+        Frame<Index> out{ static_cast<Index>(k), f.values, f.width };
         downstream_.push(out);
     }
 

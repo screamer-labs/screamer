@@ -30,6 +30,20 @@ inline bool checked_sub(std::int64_t a, std::int64_t b, std::int64_t& out) {
     return true;
 }
 
+// a * b. Returns false, and leaves `out` untouched, when the product is
+// outside the int64 range.
+inline bool checked_mul(std::int64_t a, std::int64_t b, std::int64_t& out) {
+    constexpr std::int64_t hi = std::numeric_limits<std::int64_t>::max();
+    constexpr std::int64_t lo = std::numeric_limits<std::int64_t>::min();
+    if (a > 0) {
+        if (b > 0 ? a > hi / b : b < lo / a) return false;
+    } else if (a < 0) {
+        if (b > 0 ? a < lo / b : (b != 0 && a < hi / b)) return false;
+    }
+    out = a * b;
+    return true;
+}
+
 // a + b, clamped to the int64 range.
 inline std::int64_t saturating_add(std::int64_t a, std::int64_t b) {
     std::int64_t out;

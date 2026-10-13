@@ -3,6 +3,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -100,6 +101,66 @@ struct ResampleParams {
     // input columns required.
     std::vector<ResamplePlanEntry> plan;
 };
+
+// floor(a / b) for b > 0.
+inline std::int64_t resample_floordiv(std::int64_t a, std::int64_t b) {
+    std::int64_t q = a / b, r = a % b;
+    if (r != 0 && ((r < 0) != (b < 0))) --q;
+    return q;
+}
+
+// The every= bar that holds event index k: floor((k - origin) / every). An
+// index whose distance from origin is outside the int64 range raises.
+inline std::int64_t resample_bucket(std::int64_t k, const ResampleParams& p) {
+    std::int64_t d;
+    if (!screamer::checked_sub(k, p.origin, d))
+        throw std::invalid_argument(
+            "resample: index " + std::to_string(k) + " is outside the int64 range "
+            "when measured from origin=" + std::to_string(p.origin));
+    return resample_floordiv(d, p.width);
+}
+
+// The bar that holds index k, for a watermark (any int64): k - origin
+// clamps to the int64 range, which keeps it a valid bound.
+inline std::int64_t resample_bucket_bound(std::int64_t k, const ResampleParams& p) {
+    return resample_floordiv(screamer::saturating_sub(k, p.origin), p.width);
+}
+
+// The label of bar nb: its start origin + nb * every (label="left") or its
+// end, one every later (label="right"). False when the label is outside the
+// int64 range.
+inline bool resample_label(std::int64_t nb, const ResampleParams& p, std::int64_t& out) {
+    std::int64_t off, start;
+    if (!screamer::checked_mul(nb, p.width, off) || !screamer::checked_add(p.origin, off, start))
+        return false;
+    if (p.label == ResampleLabel::Left) { out = start; return true; }
+    return screamer::checked_add(start, p.width, out);
+}
+
+// A bar whose label is outside the int64 range.
+[[noreturn]] inline void throw_resample_label(const ResampleParams& p) {
+    throw std::invalid_argument(
+        std::string("resample: a bar's ") +
+        (p.label == ResampleLabel::Left ? "left" : "right") + " label (label=\"" +
+        (p.label == ResampleLabel::Left ? "left" : "right") + "\", every=" +
+        std::to_string(p.width) + ", origin=" + std::to_string(p.origin) +
+        ") is outside the int64 range");
+}
+
+// The label of bar nb; raises when it is outside the int64 range.
+inline std::int64_t resample_label_checked(std::int64_t nb, const ResampleParams& p) {
+    std::int64_t out;
+    if (!resample_label(nb, p, out)) throw_resample_label(p);
+    return out;
+}
+
+// The label of bar nb as a bound for a watermark: clamped to the int64 range.
+inline std::int64_t resample_label_bound(std::int64_t nb, const ResampleParams& p) {
+    std::int64_t out;
+    if (resample_label(nb, p, out)) return out;
+    return nb < 0 ? std::numeric_limits<std::int64_t>::min()
+                  : std::numeric_limits<std::int64_t>::max();
+}
 
 // resample_width(OhlcvBars)==0 is a sentinel meaning "width deferred to first push":
 // the actual plan (and output width) is built from the runtime input width at node-init.

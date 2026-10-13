@@ -173,7 +173,7 @@ public:
 
     void flush() override {
         if (p_.mode == ResampleMode::ByIndex) {
-            if (has_any()) emit(cur_label_);
+            if (has_any()) emit(cur_label());
         } else if (p_.mode == ResampleMode::ByClock) {
             // The end of input: no value event can still come, so every pending
             // tick emits, in order, each with the values up to its index. The
@@ -213,6 +213,7 @@ public:
         started_ = false;
         bucket_ = 0;
         cur_label_ = Index{};
+        label_ok_ = true;
         count_in_bucket_ = 0;
         first_index_ = last_index_ = Index{};
         have_emitted_ = false;
@@ -258,7 +259,8 @@ public:
         if (p_.mode == ResampleMode::ByIndex) {
             if (started_) { if (cur_label_ < fwd) fwd = cur_label_; }
             else if (w != std::numeric_limits<Index>::max()) {
-                const Index first = label_for(bucket_of(w));
+                const Index first = static_cast<Index>(
+                    resample_label_bound(resample_bucket_bound(w, p_), p_));
                 if (first < fwd) fwd = first;
             }
         } else {
@@ -280,12 +282,12 @@ public:
         // The end-of-input watermark emits the current bucket if it has data
         // and fills no empty bucket, as flush() does: they are all trailing.
         const bool end = now == std::numeric_limits<Index>::max();
-        std::int64_t target = end ? bucket_ + 1 : bucket_of(now);
+        std::int64_t target = end ? bucket_ + 1 : resample_bucket_bound(now, p_);
         if (target <= bucket_) return;
         if (p_.fill != ResampleFill::Skip && !end)
             check_fill_gap(bucket_, target, !has_any(), p_.max_fill);
-        if (has_any()) emit(cur_label_);
-        else if (p_.fill != ResampleFill::Skip && !end) emit_fill(cur_label_);
+        if (has_any()) emit(cur_label());
+        else if (p_.fill != ResampleFill::Skip && !end) emit_fill(cur_label());
         if (p_.fill != ResampleFill::Skip && !end)
             for (std::int64_t b = bucket_ + 1; b < target; ++b) emit_fill(label_for(b));
         bucket_ = target; reset_accums(); set_index_label(target);
@@ -405,7 +407,8 @@ private:
     }
 
     void push_by_index(Index k, double v) {
-        std::int64_t nb = floordiv(static_cast<std::int64_t>(k) - p_.origin, p_.width);
+        const std::int64_t nb = resample_bucket(static_cast<std::int64_t>(k), p_);
+        check_label(nb);
         if (!started_) {
             started_ = true; bucket_ = nb; reset_accums(); set_index_label(nb);
         } else if (nb != bucket_) {
@@ -419,11 +422,11 @@ private:
     void move_to_bucket(std::int64_t nb) {
         if (p_.fill != ResampleFill::Skip) {
             check_fill_gap(bucket_, nb, !has_any(), p_.max_fill);
-            if (has_any()) emit(cur_label_);
-            else emit_fill(cur_label_);
+            if (has_any()) emit(cur_label());
+            else emit_fill(cur_label());
             for (std::int64_t b = bucket_ + 1; b < nb; ++b) emit_fill(label_for(b));
         } else if (has_any()) {
-            emit(cur_label_);
+            emit(cur_label());
         }
         bucket_ = nb; reset_accums(); set_index_label(nb);
     }
@@ -441,7 +444,8 @@ private:
     }
 
     void push_by_index_multi(Index k, const double* vals) {
-        std::int64_t nb = floordiv(static_cast<std::int64_t>(k) - p_.origin, p_.width);
+        const std::int64_t nb = resample_bucket(static_cast<std::int64_t>(k), p_);
+        check_label(nb);
         if (!started_) {
             started_ = true; bucket_ = nb; reset_accums(); set_index_label(nb);
         } else if (nb != bucket_) {
@@ -677,12 +681,31 @@ private:
         has_last_tick_ = true;
     }
 
+    // The label of bar nb (an emitted row); raises outside the int64 range.
     Index label_for(std::int64_t nb) const {
-        std::int64_t start = p_.origin + nb * p_.width;
-        return static_cast<Index>(p_.label == ResampleLabel::Left ? start : start + p_.width);
+        return static_cast<Index>(resample_label_checked(nb, p_));
     }
 
-    void set_index_label(std::int64_t nb) { cur_label_ = label_for(nb); }
+    // An event at bar nb: its label must be in the int64 range, checked
+    // before the event changes any state.
+    void check_label(std::int64_t nb) const {
+        if (started_ && nb == bucket_) return;
+        std::int64_t l;
+        if (!resample_label(nb, p_, l)) throw_resample_label(p_);
+    }
+
+    // The open bar's label. advance(now) can open a bar whose label is
+    // outside the int64 range: it is kept clamped (a bound for watermarks)
+    // and raises if the bar is ever emitted.
+    void set_index_label(std::int64_t nb) {
+        std::int64_t l;
+        label_ok_ = resample_label(nb, p_, l);
+        cur_label_ = static_cast<Index>(label_ok_ ? l : resample_label_bound(nb, p_));
+    }
+    Index cur_label() const {
+        if (!label_ok_) throw_resample_label(p_);
+        return cur_label_;
+    }
 
     void emit(Index label) {
         if (p_.plan.empty()) {
@@ -722,19 +745,6 @@ private:
         }
     }
 
-    // The bucket that holds index k. k - origin is taken without overflow (a
-    // watermark can be any int64).
-    std::int64_t bucket_of(Index k) const {
-        return floordiv(screamer::saturating_sub(static_cast<std::int64_t>(k), p_.origin),
-                        p_.width);
-    }
-
-    static std::int64_t floordiv(std::int64_t a, std::int64_t b) {
-        std::int64_t q = a / b, r = a % b;
-        if (r != 0 && ((r < 0) != (b < 0))) --q;
-        return q;
-    }
-
     ResampleParams p_;
     std::vector<ResamplePlanEntry> plan0_;   // the constructed plan, restored by reset()
     Sink<Index>& downstream_;
@@ -751,6 +761,7 @@ private:
     Index last_finite_index_{};
     std::int64_t bucket_ = 0;
     Index cur_label_{};
+    bool label_ok_ = true;       // cur_label_ is the open bar's label (not clamped)
     std::int64_t count_in_bucket_ = 0;
     Index first_index_{}, last_index_{};
     double cum_driver_ = 0.0;         // ByCumulative: running driver accumulator

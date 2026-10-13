@@ -294,3 +294,19 @@ test("G19: a stalled clock with periodic advance keeps the WASM heap flat", asyn
     assert.ok(grew < 65536, `WASM heap grew by ${grew} bytes`);
   } finally { p.dispose(); }
 });
+
+test("index arithmetic outside the int64 range raises RangeError naming the setting", async () => {
+  await ready();
+  const TOP = 9223372036854774784;          // 2**63 - 1024, a whole double
+  const isRange = (re: RegExp) => (e: unknown) => e instanceof RangeError && re.test((e as Error).message);
+  assert.throws(() => run(pipe((x) => delay(x, 2048)), { x: { values: [1], index: [TOP] } }),
+    isRange(/a delay by duration=2048 moves index 9223372036854774784 outside the int64 range/));
+  assert.throws(() => run(pipe((x) => resample(x, { every: 2048, label: "right", agg: "last" })),
+    { x: { values: [1], index: [TOP] } }),
+    isRange(/right label \(label="right", every=2048, origin=0\) is outside the int64 range/));
+  assert.throws(() => run(pipe((x) => resample(x, { every: 2048, origin: -4096, agg: "last" })),
+    { x: { values: [1], index: [TOP] } }),
+    isRange(/index 9223372036854774784 is outside the int64 range when measured from origin=-4096/));
+  assert.throws(() => forecastPairs({ values: [1, 1], index: [0, 2000] }, { values: [1, 1], index: [0, 2000] },
+    { duration: TOP }), isRange(/duration=9223372036854774784 moves index 2000/));
+});

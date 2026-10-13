@@ -908,6 +908,15 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Fixed
 
+* Index arithmetic that left the int64 range wrapped around: `Delay(10)` of
+  an index 5 below the int64 maximum gave a large negative index, as did a
+  `forecast_pairs` duration and the labels of a `freq=` (`every=`) Resample
+  near the ends of the range. Such an event raises `ValueError` (`RangeError`
+  in JavaScript) naming the setting ("a delay by duration=10 moves index
+  9223372036854775803 outside the int64 range", "resample: a bar's right
+  label (label="right", every=10, origin=0) is outside the int64 range").
+  `advance(now)` near the ends of the range does not raise; a bar it opens
+  raises only if a row of it is emitted.
 * Operators that count their events kept the count in 32 bits, so a live
   stream went wrong after 2**31 events (25 days at 1000 events per second).
   `KAMA`, `ATR`, `RollingRSI`, `MFI`, `Stoch`, `StochRSI`,

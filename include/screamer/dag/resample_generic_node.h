@@ -56,7 +56,7 @@ public:
 
     void flush() override {
         if (p_.mode == ResampleMode::ByIndex) {
-            if (has_) emit(cur_label_);
+            if (has_) emit(cur_label());
         } else {
             if (count_in_bucket_ > 0) emit(p_.label == ResampleLabel::Left ? first_index_ : last_index_);
         }
@@ -72,6 +72,7 @@ public:
         started_ = false;
         bucket_ = 0;
         cur_label_ = Index{};
+        label_ok_ = true;
         count_in_bucket_ = 0;
         first_index_ = last_index_ = Index{};
         have_emitted_ = false;
@@ -104,7 +105,8 @@ public:
             // merge is not told "no frame < w" while one is still pending.
             if (started_) { if (cur_label_ < fwd) fwd = cur_label_; }
             else if (w != std::numeric_limits<Index>::max()) {
-                const Index first = label_for(bucket_of(w));
+                const Index first = static_cast<Index>(
+                    resample_label_bound(resample_bucket_bound(w, p_), p_));
                 if (first < fwd) fwd = first;
             }
         } else {
@@ -130,14 +132,14 @@ public:
         // The end-of-input watermark emits the current bucket if it has data
         // and fills no empty bucket, as flush() does: they are all trailing.
         const bool end = now == std::numeric_limits<Index>::max();
-        std::int64_t target = end ? bucket_ + 1 : bucket_of(now);
+        std::int64_t target = end ? bucket_ + 1 : resample_bucket_bound(now, p_);
         if (target <= bucket_) return;                   // still inside the current bucket
         if (p_.fill != ResampleFill::Skip && !end)
             check_fill_gap(bucket_, target, !has_, p_.max_fill);
         // Close the current bucket: real row if it saw events, else a fill row.
         // At the end of input an empty bucket is trailing: as flush(), no fill.
-        if (has_) emit(cur_label_);
-        else if (p_.fill != ResampleFill::Skip && !end) emit_fill(cur_label_);
+        if (has_) emit(cur_label());
+        else if (p_.fill != ResampleFill::Skip && !end) emit_fill(cur_label());
         // Trailing empty buckets strictly between the current one and `target`.
         if (p_.fill != ResampleFill::Skip && !end)
             for (std::int64_t b = bucket_ + 1; b < target; ++b) emit_fill(label_for(b));
@@ -161,16 +163,17 @@ private:
     }
 
     void push_by_index(Index k, double v) {
-        std::int64_t nb = floordiv(static_cast<std::int64_t>(k) - p_.origin, p_.width);
+        const std::int64_t nb = resample_bucket(static_cast<std::int64_t>(k), p_);
+        check_label(nb);
         if (!started_) {
             started_ = true; bucket_ = nb; clear_bucket(); set_index_label(nb);
         } else if (nb != bucket_) {
             if (p_.fill != ResampleFill::Skip)
                 check_fill_gap(bucket_, nb, !has_, p_.max_fill);
-            if (has_) emit(cur_label_);
+            if (has_) emit(cur_label());
             // A parked empty current bucket (e.g. advance() left it open with no
             // event) is filled too, matching advance()+fill semantics.
-            else if (p_.fill != ResampleFill::Skip) emit_fill(cur_label_);
+            else if (p_.fill != ResampleFill::Skip) emit_fill(cur_label());
             // Fill internal gaps (empty buckets strictly between bucket_ and nb);
             // trailing empties are handled by advance()/flush(), not here.
             if (p_.fill != ResampleFill::Skip)
@@ -181,12 +184,31 @@ private:
         add(v);
     }
 
+    // The label of bar nb (an emitted row); raises outside the int64 range.
     Index label_for(std::int64_t nb) const {
-        std::int64_t start = p_.origin + nb * p_.width;
-        return static_cast<Index>(p_.label == ResampleLabel::Left ? start : start + p_.width);
+        return static_cast<Index>(resample_label_checked(nb, p_));
     }
 
-    void set_index_label(std::int64_t nb) { cur_label_ = label_for(nb); }
+    // An event at bar nb: its label must be in the int64 range, checked
+    // before the event changes any state.
+    void check_label(std::int64_t nb) const {
+        if (started_ && nb == bucket_) return;
+        std::int64_t l;
+        if (!resample_label(nb, p_, l)) throw_resample_label(p_);
+    }
+
+    // The open bar's label. advance(now) can open a bar whose label is
+    // outside the int64 range: it is kept clamped (a bound for watermarks)
+    // and raises if the bar is ever emitted.
+    void set_index_label(std::int64_t nb) {
+        std::int64_t l;
+        label_ok_ = resample_label(nb, p_, l);
+        cur_label_ = static_cast<Index>(label_ok_ ? l : resample_label_bound(nb, p_));
+    }
+    Index cur_label() const {
+        if (!label_ok_) throw_resample_label(p_);
+        return cur_label_;
+    }
 
     void push_by_count(Index k, double v) {
         if (count_in_bucket_ == 0) first_index_ = k;
@@ -228,19 +250,6 @@ private:
         }
     }
 
-    // The bucket that holds index k. k - origin is taken without overflow (a
-    // watermark can be any int64).
-    std::int64_t bucket_of(Index k) const {
-        return floordiv(screamer::saturating_sub(static_cast<std::int64_t>(k), p_.origin),
-                        p_.width);
-    }
-
-    static std::int64_t floordiv(std::int64_t a, std::int64_t b) {
-        std::int64_t q = a / b, r = a % b;
-        if (r != 0 && ((r < 0) != (b < 0))) --q;
-        return q;
-    }
-
     ResampleParams p_;
     Sink<Index>& downstream_;
     EvalOp* reducer_;
@@ -253,6 +262,7 @@ private:
     bool started_ = false;
     std::int64_t bucket_ = 0;
     Index cur_label_{};
+    bool label_ok_ = true;       // cur_label_ is the open bar's label (not clamped)
     std::int64_t count_in_bucket_ = 0;
     Index first_index_{}, last_index_{};
 };
