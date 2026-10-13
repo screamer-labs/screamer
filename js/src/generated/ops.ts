@@ -62,8 +62,16 @@ const _finite = (M: any, op: string, names: string[], values: unknown[], e: unkn
     const v = values[i];
     if (typeof v === "number" || Array.isArray(v)) { ns.push(n); vs.push(v); }
   });
-  const msg = M.finiteSettingError(op, ns, vs);
+  // A buffer's length_error ("vector") or bad_alloc: a setting too large to allocate.
+  const alloc = e.message === "vector" || /bad_alloc/.test(e.message);
+  const msg = M.finiteSettingError(op, ns, vs, vs.map((v) => String(v)), alloc);
   return msg ? new RangeError(msg) : e;
+};
+// An integer setting outside the range of the C++ int it is held in, refused
+// before the constructor narrows it (it would wrap): the one message of
+// int_settings.h, "<Op>: <setting> must be at most 2147483647, got 4294967298".
+const _intRange = (M: any, op: string, name: string, v: number): never => {
+  throw new RangeError(M.finiteSettingError(op, [name], [v], [String(v)], false));
 };
 // Records the settings the caller gave on the op, for Pipeline.toJSON: its
 // class, the Python names and the values as given (pipeline_io.ts reads them
@@ -124,7 +132,9 @@ export function ADOSC(fast?: any, slow?: any): ScreamerOp {
   if (slow === undefined) slow = 10;
   const M = current();
   if (typeof fast !== "number" || !Number.isInteger(fast)) throw new TypeError(`ADOSC: fast must be an integer, got ${typeof fast === "number" ? fast : _what(fast)}`);
+  if (!(fast >= -2147483648 && fast <= 2147483647)) _intRange(M, "ADOSC", "fast", fast);
   if (typeof slow !== "number" || !Number.isInteger(slow)) throw new TypeError(`ADOSC: slow must be an integer, got ${typeof slow === "number" ? slow : _what(slow)}`);
+  if (!(slow >= -2147483648 && slow <= 2147483647)) _intRange(M, "ADOSC", "slow", slow);
   try {
     return _params(wrapOp(M, () => new M.ADOSC(fast, slow)), "ADOSC", ["fast", "slow"], _given);
   } catch (e) { throw _finite(M, "ADOSC", ["fast", "slow"], [fast, slow], e); }
@@ -157,6 +167,7 @@ export function ADX(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 14;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`ADX: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "ADX", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.ADX(windowSize)), "ADX", ["window_size"], _given);
   } catch (e) { throw _finite(M, "ADX", ["windowSize"], [windowSize], e); }
@@ -189,6 +200,7 @@ export function ADXR(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 14;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`ADXR: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "ADXR", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.ADXR(windowSize)), "ADXR", ["window_size"], _given);
   } catch (e) { throw _finite(M, "ADXR", ["windowSize"], [windowSize], e); }
@@ -221,6 +233,7 @@ export function ATR(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 14;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`ATR: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "ATR", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.ATR(windowSize)), "ATR", ["window_size"], _given);
   } catch (e) { throw _finite(M, "ATR", ["windowSize"], [windowSize], e); }
@@ -305,6 +318,7 @@ export function AmihudIlliquidity(windowSize?: any, startPolicy?: any): Screamer
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`AmihudIlliquidity: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "AmihudIlliquidity", "windowSize", windowSize);
   if (typeof startPolicy !== "string") throw new TypeError(`AmihudIlliquidity: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.AmihudIlliquidity(windowSize, startPolicy)), "AmihudIlliquidity", ["window_size", "start_policy"], _given);
@@ -877,6 +891,7 @@ export function BacktestOHLCTarget(takerFee?: any, tickSize?: any, minPosition?:
   if (typeof slippageUnit !== "string") throw new TypeError(`BacktestOHLCTarget: slippageUnit must be a string, got ${slippageUnit instanceof String ? "a String object" : _what(slippageUnit)}`);
   if (typeof fillAt !== "string") throw new TypeError(`BacktestOHLCTarget: fillAt must be a string, got ${fillAt instanceof String ? "a String object" : _what(fillAt)}`);
   if (typeof delay !== "number" || !Number.isInteger(delay)) throw new TypeError(`BacktestOHLCTarget: delay must be an integer, got ${typeof delay === "number" ? delay : _what(delay)}`);
+  if (!(delay >= -2147483648 && delay <= 2147483647)) _intRange(M, "BacktestOHLCTarget", "delay", delay);
   if (typeof stopLoss !== "number") throw new TypeError(`BacktestOHLCTarget: stopLoss must be a number, got ${_what(stopLoss)}`);
   if (typeof takeProfit !== "number") throw new TypeError(`BacktestOHLCTarget: takeProfit must be a number, got ${_what(takeProfit)}`);
   if (typeof trailingStop !== "number") throw new TypeError(`BacktestOHLCTarget: trailingStop must be a number, got ${_what(trailingStop)}`);
@@ -989,6 +1004,7 @@ export function BacktestOHLCVTarget(maxParticipation?: any, takerFee?: any, tick
   if (typeof slippageUnit !== "string") throw new TypeError(`BacktestOHLCVTarget: slippageUnit must be a string, got ${slippageUnit instanceof String ? "a String object" : _what(slippageUnit)}`);
   if (typeof fillAt !== "string") throw new TypeError(`BacktestOHLCVTarget: fillAt must be a string, got ${fillAt instanceof String ? "a String object" : _what(fillAt)}`);
   if (typeof delay !== "number" || !Number.isInteger(delay)) throw new TypeError(`BacktestOHLCVTarget: delay must be an integer, got ${typeof delay === "number" ? delay : _what(delay)}`);
+  if (!(delay >= -2147483648 && delay <= 2147483647)) _intRange(M, "BacktestOHLCVTarget", "delay", delay);
   if (typeof stopLoss !== "number") throw new TypeError(`BacktestOHLCVTarget: stopLoss must be a number, got ${_what(stopLoss)}`);
   if (typeof takeProfit !== "number") throw new TypeError(`BacktestOHLCVTarget: takeProfit must be a number, got ${_what(takeProfit)}`);
   if (typeof trailingStop !== "number") throw new TypeError(`BacktestOHLCVTarget: trailingStop must be a number, got ${_what(trailingStop)}`);
@@ -1087,6 +1103,7 @@ export function BacktestPortfolioOHLCTarget(fee?: any, slippage?: any, slippageU
   if (typeof maxNet !== "number") throw new TypeError(`BacktestPortfolioOHLCTarget: maxNet must be a number, got ${_what(maxNet)}`);
   if (typeof fillAt !== "string") throw new TypeError(`BacktestPortfolioOHLCTarget: fillAt must be a string, got ${fillAt instanceof String ? "a String object" : _what(fillAt)}`);
   if (typeof delay !== "number" || !Number.isInteger(delay)) throw new TypeError(`BacktestPortfolioOHLCTarget: delay must be an integer, got ${typeof delay === "number" ? delay : _what(delay)}`);
+  if (!(delay >= -2147483648 && delay <= 2147483647)) _intRange(M, "BacktestPortfolioOHLCTarget", "delay", delay);
   const fee_ = _vec("BacktestPortfolioOHLCTarget", "fee", fee);
   const slippage_ = _vec("BacktestPortfolioOHLCTarget", "slippage", slippage);
   const tickSize_ = _vec("BacktestPortfolioOHLCTarget", "tickSize", tickSize);
@@ -1715,6 +1732,7 @@ export function BollingerBands(windowSize?: any, numStd?: any, startPolicy?: any
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`BollingerBands: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "BollingerBands", "windowSize", windowSize);
   if (typeof numStd !== "number") throw new TypeError(`BollingerBands: numStd must be a number, got ${_what(numStd)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`BollingerBands: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
@@ -1753,6 +1771,7 @@ export function BulkVolumeClassifier(windowSize?: any, startPolicy?: any): Screa
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`BulkVolumeClassifier: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "BulkVolumeClassifier", "windowSize", windowSize);
   if (typeof startPolicy !== "string") throw new TypeError(`BulkVolumeClassifier: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.BulkVolumeClassifier(windowSize, startPolicy)), "BulkVolumeClassifier", ["window_size", "start_policy"], _given);
@@ -1790,6 +1809,7 @@ export function Butter(order?: any, cutoffFreq?: any): ScreamerOp {
   if (cutoffFreq === undefined) cutoffFreq = 0.1;
   const M = current();
   if (typeof order !== "number" || !Number.isInteger(order)) throw new TypeError(`Butter: order must be an integer, got ${typeof order === "number" ? order : _what(order)}`);
+  if (!(order >= -2147483648 && order <= 2147483647)) _intRange(M, "Butter", "order", order);
   if (typeof cutoffFreq !== "number") throw new TypeError(`Butter: cutoffFreq must be a number, got ${_what(cutoffFreq)}`);
   try {
     return _params(wrapOp(M, () => new M.Butter(order, cutoffFreq)), "Butter", ["order", "cutoff_freq"], _given);
@@ -1831,6 +1851,7 @@ export function ButterBandpass(order?: any, lowCutoff?: any, highCutoff?: any): 
   if (highCutoff === undefined) highCutoff = 0.2;
   const M = current();
   if (typeof order !== "number" || !Number.isInteger(order)) throw new TypeError(`ButterBandpass: order must be an integer, got ${typeof order === "number" ? order : _what(order)}`);
+  if (!(order >= -2147483648 && order <= 2147483647)) _intRange(M, "ButterBandpass", "order", order);
   if (typeof lowCutoff !== "number") throw new TypeError(`ButterBandpass: lowCutoff must be a number, got ${_what(lowCutoff)}`);
   if (typeof highCutoff !== "number") throw new TypeError(`ButterBandpass: highCutoff must be a number, got ${_what(highCutoff)}`);
   try {
@@ -1873,6 +1894,7 @@ export function ButterBandstop(order?: any, lowCutoff?: any, highCutoff?: any): 
   if (highCutoff === undefined) highCutoff = 0.2;
   const M = current();
   if (typeof order !== "number" || !Number.isInteger(order)) throw new TypeError(`ButterBandstop: order must be an integer, got ${typeof order === "number" ? order : _what(order)}`);
+  if (!(order >= -2147483648 && order <= 2147483647)) _intRange(M, "ButterBandstop", "order", order);
   if (typeof lowCutoff !== "number") throw new TypeError(`ButterBandstop: lowCutoff must be a number, got ${_what(lowCutoff)}`);
   if (typeof highCutoff !== "number") throw new TypeError(`ButterBandstop: highCutoff must be a number, got ${_what(highCutoff)}`);
   try {
@@ -1911,6 +1933,7 @@ export function ButterHighpass(order?: any, cutoffFreq?: any): ScreamerOp {
   if (cutoffFreq === undefined) cutoffFreq = 0.1;
   const M = current();
   if (typeof order !== "number" || !Number.isInteger(order)) throw new TypeError(`ButterHighpass: order must be an integer, got ${typeof order === "number" ? order : _what(order)}`);
+  if (!(order >= -2147483648 && order <= 2147483647)) _intRange(M, "ButterHighpass", "order", order);
   if (typeof cutoffFreq !== "number") throw new TypeError(`ButterHighpass: cutoffFreq must be a number, got ${_what(cutoffFreq)}`);
   try {
     return _params(wrapOp(M, () => new M.ButterHighpass(order, cutoffFreq)), "ButterHighpass", ["order", "cutoff_freq"], _given);
@@ -1944,6 +1967,7 @@ export function CCI(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 14;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`CCI: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "CCI", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.CCI(windowSize)), "CCI", ["window_size"], _given);
   } catch (e) { throw _finite(M, "CCI", ["windowSize"], [windowSize], e); }
@@ -2160,6 +2184,7 @@ export function CrossTopBottom(count?: any): ScreamerOp {
   if (count === undefined) count = 1;
   const M = current();
   if (typeof count !== "number" || !Number.isInteger(count)) throw new TypeError(`CrossTopBottom: count must be an integer, got ${typeof count === "number" ? count : _what(count)}`);
+  if (!(count >= -2147483648 && count <= 2147483647)) _intRange(M, "CrossTopBottom", "count", count);
   try {
     return _params(wrapRowOp(M, () => new M.CrossTopBottom(count)), "CrossTopBottom", ["count"], _given);
   } catch (e) { throw _finite(M, "CrossTopBottom", ["count"], [count], e); }
@@ -2436,6 +2461,7 @@ export function DX(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 14;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`DX: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "DX", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.DX(windowSize)), "DX", ["window_size"], _given);
   } catch (e) { throw _finite(M, "DX", ["windowSize"], [windowSize], e); }
@@ -2509,6 +2535,7 @@ export function Detrend(windowSize?: any, startPolicy?: any): ScreamerOp {
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`Detrend: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "Detrend", "windowSize", windowSize);
   if (typeof startPolicy !== "string") throw new TypeError(`Detrend: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.Detrend(windowSize, startPolicy)), "Detrend", ["window_size", "start_policy"], _given);
@@ -2546,6 +2573,7 @@ export function Diff(windowSize?: any, startPolicy?: any): ScreamerOp {
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`Diff: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "Diff", "windowSize", windowSize);
   if (typeof startPolicy !== "string") throw new TypeError(`Diff: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.Diff(windowSize, startPolicy)), "Diff", ["window_size", "start_policy"], _given);
@@ -2641,6 +2669,7 @@ export function DonchianChannels(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`DonchianChannels: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "DonchianChannels", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.DonchianChannels(windowSize)), "DonchianChannels", ["window_size"], _given);
   } catch (e) { throw _finite(M, "DonchianChannels", ["windowSize"], [windowSize], e); }
@@ -4072,6 +4101,7 @@ export function FracDiff(d?: any, windowSize?: any, threshold?: any, startPolicy
   const M = current();
   if (typeof d !== "number") throw new TypeError(`FracDiff: d must be a number, got ${_what(d)}`);
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`FracDiff: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "FracDiff", "windowSize", windowSize);
   if (typeof threshold !== "number") throw new TypeError(`FracDiff: threshold must be a number, got ${_what(threshold)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`FracDiff: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
@@ -4150,6 +4180,7 @@ export function Hampel(windowSize?: any, nSigma?: any, output?: any, startPolicy
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`Hampel: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "Hampel", "windowSize", windowSize);
   if (typeof nSigma !== "number") throw new TypeError(`Hampel: nSigma must be a number, got ${_what(nSigma)}`);
   if (typeof output !== "string") throw new TypeError(`Hampel: output must be a string, got ${output instanceof String ? "a String object" : _what(output)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`Hampel: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
@@ -4247,6 +4278,7 @@ export function Hold(n?: any, release?: any): ScreamerOp {
   if (release === undefined) release = 0.0;
   const M = current();
   if (typeof n !== "number" || !Number.isInteger(n)) throw new TypeError(`Hold: n must be an integer, got ${typeof n === "number" ? n : _what(n)}`);
+  if (!(n >= -2147483648 && n <= 2147483647)) _intRange(M, "Hold", "n", n);
   if (typeof release !== "number") throw new TypeError(`Hold: release must be a number, got ${_what(release)}`);
   try {
     return _params(wrapOp(M, () => new M.Hold(n, release)), "Hold", ["n", "release"], _given);
@@ -4280,6 +4312,7 @@ export function HullMA(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`HullMA: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "HullMA", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.HullMA(windowSize)), "HullMA", ["window_size"], _given);
   } catch (e) { throw _finite(M, "HullMA", ["windowSize"], [windowSize], e); }
@@ -4356,6 +4389,7 @@ export function ImpulseClip(windowSize?: any, nSigma?: any, output?: any, startP
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`ImpulseClip: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "ImpulseClip", "windowSize", windowSize);
   if (typeof nSigma !== "number") throw new TypeError(`ImpulseClip: nSigma must be a number, got ${_what(nSigma)}`);
   if (typeof output !== "string") throw new TypeError(`ImpulseClip: output must be a string, got ${output instanceof String ? "a String object" : _what(output)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`ImpulseClip: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
@@ -4447,8 +4481,11 @@ export function KAMA(windowSize?: any, fast?: any, slow?: any): ScreamerOp {
   if (slow === undefined) slow = 30;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`KAMA: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "KAMA", "windowSize", windowSize);
   if (typeof fast !== "number" || !Number.isInteger(fast)) throw new TypeError(`KAMA: fast must be an integer, got ${typeof fast === "number" ? fast : _what(fast)}`);
+  if (!(fast >= -2147483648 && fast <= 2147483647)) _intRange(M, "KAMA", "fast", fast);
   if (typeof slow !== "number" || !Number.isInteger(slow)) throw new TypeError(`KAMA: slow must be an integer, got ${typeof slow === "number" ? slow : _what(slow)}`);
+  if (!(slow >= -2147483648 && slow <= 2147483647)) _intRange(M, "KAMA", "slow", slow);
   try {
     return _params(wrapOp(M, () => new M.KAMA(windowSize, fast, slow)), "KAMA", ["window_size", "fast", "slow"], _given);
   } catch (e) { throw _finite(M, "KAMA", ["windowSize", "fast", "slow"], [windowSize, fast, slow], e); }
@@ -4574,6 +4611,7 @@ export function KeltnerChannels(windowSize?: any, numAtr?: any): ScreamerOp {
   if (numAtr === undefined) numAtr = 2.0;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`KeltnerChannels: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "KeltnerChannels", "windowSize", windowSize);
   if (typeof numAtr !== "number") throw new TypeError(`KeltnerChannels: numAtr must be a number, got ${_what(numAtr)}`);
   try {
     return _params(wrapOp(M, () => new M.KeltnerChannels(windowSize, numAtr)), "KeltnerChannels", ["window_size", "num_atr"], _given);
@@ -4611,6 +4649,7 @@ export function Lag(windowSize?: any, startPolicy?: any): ScreamerOp {
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`Lag: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "Lag", "windowSize", windowSize);
   if (typeof startPolicy !== "string") throw new TypeError(`Lag: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.Lag(windowSize, startPolicy)), "Lag", ["window_size", "start_policy"], _given);
@@ -4803,6 +4842,7 @@ export function LogReturn(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 1;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`LogReturn: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "LogReturn", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.LogReturn(windowSize)), "LogReturn", ["window_size"], _given);
   } catch (e) { throw _finite(M, "LogReturn", ["windowSize"], [windowSize], e); }
@@ -4843,8 +4883,11 @@ export function MACD(fast?: any, slow?: any, signal?: any): ScreamerOp {
   if (signal === undefined) signal = 9;
   const M = current();
   if (typeof fast !== "number" || !Number.isInteger(fast)) throw new TypeError(`MACD: fast must be an integer, got ${typeof fast === "number" ? fast : _what(fast)}`);
+  if (!(fast >= -2147483648 && fast <= 2147483647)) _intRange(M, "MACD", "fast", fast);
   if (typeof slow !== "number" || !Number.isInteger(slow)) throw new TypeError(`MACD: slow must be an integer, got ${typeof slow === "number" ? slow : _what(slow)}`);
+  if (!(slow >= -2147483648 && slow <= 2147483647)) _intRange(M, "MACD", "slow", slow);
   if (typeof signal !== "number" || !Number.isInteger(signal)) throw new TypeError(`MACD: signal must be an integer, got ${typeof signal === "number" ? signal : _what(signal)}`);
+  if (!(signal >= -2147483648 && signal <= 2147483647)) _intRange(M, "MACD", "signal", signal);
   try {
     return _params(wrapOp(M, () => new M.MACD(fast, slow, signal)), "MACD", ["fast", "slow", "signal"], _given);
   } catch (e) { throw _finite(M, "MACD", ["fast", "slow", "signal"], [fast, slow, signal], e); }
@@ -4914,6 +4957,7 @@ export function MFI(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 14;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`MFI: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "MFI", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.MFI(windowSize)), "MFI", ["window_size"], _given);
   } catch (e) { throw _finite(M, "MFI", ["windowSize"], [windowSize], e); }
@@ -4978,6 +5022,7 @@ export function MinusDI(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 14;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`MinusDI: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "MinusDI", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.MinusDI(windowSize)), "MinusDI", ["window_size"], _given);
   } catch (e) { throw _finite(M, "MinusDI", ["windowSize"], [windowSize], e); }
@@ -5010,6 +5055,7 @@ export function MinusDM(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 14;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`MinusDM: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "MinusDM", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.MinusDM(windowSize)), "MinusDM", ["window_size"], _given);
   } catch (e) { throw _finite(M, "MinusDM", ["windowSize"], [windowSize], e); }
@@ -5046,6 +5092,7 @@ export function Momentum(windowSize?: any, startPolicy?: any): ScreamerOp {
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`Momentum: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "Momentum", "windowSize", windowSize);
   if (typeof startPolicy !== "string") throw new TypeError(`Momentum: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.Momentum(windowSize, startPolicy)), "Momentum", ["window_size", "start_policy"], _given);
@@ -5136,6 +5183,7 @@ export function NATR(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 14;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`NATR: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "NATR", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.NATR(windowSize)), "NATR", ["window_size"], _given);
   } catch (e) { throw _finite(M, "NATR", ["windowSize"], [windowSize], e); }
@@ -5264,6 +5312,7 @@ export function PlusDI(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 14;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`PlusDI: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "PlusDI", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.PlusDI(windowSize)), "PlusDI", ["window_size"], _given);
   } catch (e) { throw _finite(M, "PlusDI", ["windowSize"], [windowSize], e); }
@@ -5296,6 +5345,7 @@ export function PlusDM(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 14;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`PlusDM: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "PlusDM", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.PlusDM(windowSize)), "PlusDM", ["window_size"], _given);
   } catch (e) { throw _finite(M, "PlusDM", ["windowSize"], [windowSize], e); }
@@ -5416,6 +5466,7 @@ export function Propagator(windowSize?: any, g0?: any, gamma?: any): ScreamerOp 
   if (gamma === undefined) gamma = 0.5;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`Propagator: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "Propagator", "windowSize", windowSize);
   if (typeof g0 !== "number") throw new TypeError(`Propagator: g0 must be a number, got ${_what(g0)}`);
   if (typeof gamma !== "number") throw new TypeError(`Propagator: gamma must be a number, got ${_what(gamma)}`);
   try {
@@ -5466,6 +5517,7 @@ export function ROC(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 10;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`ROC: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "ROC", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.ROC(windowSize)), "ROC", ["window_size"], _given);
   } catch (e) { throw _finite(M, "ROC", ["windowSize"], [windowSize], e); }
@@ -5498,6 +5550,7 @@ export function ROCP(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 10;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`ROCP: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "ROCP", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.ROCP(windowSize)), "ROCP", ["window_size"], _given);
   } catch (e) { throw _finite(M, "ROCP", ["windowSize"], [windowSize], e); }
@@ -5530,6 +5583,7 @@ export function ROCR(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 10;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`ROCR: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "ROCR", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.ROCR(windowSize)), "ROCR", ["window_size"], _given);
   } catch (e) { throw _finite(M, "ROCR", ["windowSize"], [windowSize], e); }
@@ -5562,6 +5616,7 @@ export function RealizedSpread(lag?: any): ScreamerOp {
   if (lag === undefined) lag = 1;
   const M = current();
   if (typeof lag !== "number" || !Number.isInteger(lag)) throw new TypeError(`RealizedSpread: lag must be an integer, got ${typeof lag === "number" ? lag : _what(lag)}`);
+  if (!(lag >= -2147483648 && lag <= 2147483647)) _intRange(M, "RealizedSpread", "lag", lag);
   try {
     return _params(wrapOp(M, () => new M.RealizedSpread(lag)), "RealizedSpread", ["lag"], _given);
   } catch (e) { throw _finite(M, "RealizedSpread", ["lag"], [lag], e); }
@@ -5610,6 +5665,7 @@ export function Return(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 1;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`Return: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "Return", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.Return(windowSize)), "Return", ["window_size"], _given);
   } catch (e) { throw _finite(M, "Return", ["windowSize"], [windowSize], e); }
@@ -5646,6 +5702,7 @@ export function RollSpread(windowSize?: any, startPolicy?: any): ScreamerOp {
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollSpread: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollSpread", "windowSize", windowSize);
   if (typeof startPolicy !== "string") throw new TypeError(`RollSpread: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.RollSpread(windowSize, startPolicy)), "RollSpread", ["window_size", "start_policy"], _given);
@@ -5683,7 +5740,9 @@ export function RollingADF(windowSize?: any, lags?: any): ScreamerOp {
   if (lags === undefined) lags = 1;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingADF: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingADF", "windowSize", windowSize);
   if (typeof lags !== "number" || !Number.isInteger(lags)) throw new TypeError(`RollingADF: lags must be an integer, got ${typeof lags === "number" ? lags : _what(lags)}`);
+  if (!(lags >= -2147483648 && lags <= 2147483647)) _intRange(M, "RollingADF", "lags", lags);
   try {
     return _params(wrapOp(M, () => new M.RollingADF(windowSize, lags)), "RollingADF", ["window_size", "lags"], _given);
   } catch (e) { throw _finite(M, "RollingADF", ["windowSize", "lags"], [windowSize, lags], e); }
@@ -5720,6 +5779,7 @@ export function RollingAlpha(windowSize?: any, startPolicy?: any): ScreamerOp {
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingAlpha: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingAlpha", "windowSize", windowSize);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingAlpha: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingAlpha(windowSize, startPolicy)), "RollingAlpha", ["window_size", "start_policy"], _given);
@@ -5753,6 +5813,7 @@ export function RollingArgmax(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingArgmax: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingArgmax", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.RollingArgmax(windowSize)), "RollingArgmax", ["window_size"], _given);
   } catch (e) { throw _finite(M, "RollingArgmax", ["windowSize"], [windowSize], e); }
@@ -5785,6 +5846,7 @@ export function RollingArgmin(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingArgmin: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingArgmin", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.RollingArgmin(windowSize)), "RollingArgmin", ["window_size"], _given);
   } catch (e) { throw _finite(M, "RollingArgmin", ["windowSize"], [windowSize], e); }
@@ -5821,6 +5883,7 @@ export function RollingBeta(windowSize?: any, startPolicy?: any): ScreamerOp {
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingBeta: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingBeta", "windowSize", windowSize);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingBeta: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingBeta(windowSize, startPolicy)), "RollingBeta", ["window_size", "start_policy"], _given);
@@ -5858,6 +5921,7 @@ export function RollingCVaR(windowSize?: any, alpha?: any): ScreamerOp {
   if (alpha === undefined) alpha = 0.05;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingCVaR: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingCVaR", "windowSize", windowSize);
   if (typeof alpha !== "number") throw new TypeError(`RollingCVaR: alpha must be a number, got ${_what(alpha)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingCVaR(windowSize, alpha)), "RollingCVaR", ["window_size", "alpha"], _given);
@@ -5895,6 +5959,7 @@ export function RollingCalmar(windowSize?: any, periodsPerYear?: any): ScreamerO
   if (periodsPerYear === undefined) periodsPerYear = 1.0;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingCalmar: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingCalmar", "windowSize", windowSize);
   if (typeof periodsPerYear !== "number") throw new TypeError(`RollingCalmar: periodsPerYear must be a number, got ${_what(periodsPerYear)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingCalmar(windowSize, periodsPerYear)), "RollingCalmar", ["window_size", "periods_per_year"], _given);
@@ -5932,6 +5997,7 @@ export function RollingCorr(windowSize?: any, startPolicy?: any): ScreamerOp {
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingCorr: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingCorr", "windowSize", windowSize);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingCorr: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingCorr(windowSize, startPolicy)), "RollingCorr", ["window_size", "start_policy"], _given);
@@ -5969,6 +6035,7 @@ export function RollingCov(windowSize?: any, startPolicy?: any): ScreamerOp {
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingCov: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingCov", "windowSize", windowSize);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingCov: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingCov(windowSize, startPolicy)), "RollingCov", ["window_size", "start_policy"], _given);
@@ -6010,6 +6077,7 @@ export function RollingDownsideDeviation(windowSize?: any, mar?: any, startPolic
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingDownsideDeviation: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingDownsideDeviation", "windowSize", windowSize);
   if (typeof mar !== "number") throw new TypeError(`RollingDownsideDeviation: mar must be a number, got ${_what(mar)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingDownsideDeviation: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
@@ -6044,6 +6112,7 @@ export function RollingGarmanKlassVar(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingGarmanKlassVar: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingGarmanKlassVar", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.RollingGarmanKlassVar(windowSize)), "RollingGarmanKlassVar", ["window_size"], _given);
   } catch (e) { throw _finite(M, "RollingGarmanKlassVar", ["windowSize"], [windowSize], e); }
@@ -6076,6 +6145,7 @@ export function RollingGarmanKlassVol(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingGarmanKlassVol: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingGarmanKlassVol", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.RollingGarmanKlassVol(windowSize)), "RollingGarmanKlassVol", ["window_size"], _given);
   } catch (e) { throw _finite(M, "RollingGarmanKlassVol", ["windowSize"], [windowSize], e); }
@@ -6108,6 +6178,7 @@ export function RollingHitRate(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 252;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingHitRate: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingHitRate", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.RollingHitRate(windowSize)), "RollingHitRate", ["window_size"], _given);
   } catch (e) { throw _finite(M, "RollingHitRate", ["windowSize"], [windowSize], e); }
@@ -6148,7 +6219,9 @@ export function RollingHurst(windowSize?: any, minScale?: any, method?: any): Sc
   if (method === undefined) method = "rs";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingHurst: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingHurst", "windowSize", windowSize);
   if (typeof minScale !== "number" || !Number.isInteger(minScale)) throw new TypeError(`RollingHurst: minScale must be an integer, got ${typeof minScale === "number" ? minScale : _what(minScale)}`);
+  if (!(minScale >= -2147483648 && minScale <= 2147483647)) _intRange(M, "RollingHurst", "minScale", minScale);
   if (typeof method !== "string") throw new TypeError(`RollingHurst: method must be a string, got ${method instanceof String ? "a String object" : _what(method)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingHurst(windowSize, minScale, method)), "RollingHurst", ["window_size", "min_scale", "method"], _given);
@@ -6186,6 +6259,7 @@ export function RollingInfoRatio(windowSize?: any, periodsPerYear?: any): Scream
   if (periodsPerYear === undefined) periodsPerYear = 1.0;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingInfoRatio: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingInfoRatio", "windowSize", windowSize);
   if (typeof periodsPerYear !== "number") throw new TypeError(`RollingInfoRatio: periodsPerYear must be a number, got ${_what(periodsPerYear)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingInfoRatio(windowSize, periodsPerYear)), "RollingInfoRatio", ["window_size", "periods_per_year"], _given);
@@ -6219,6 +6293,7 @@ export function RollingIqr(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingIqr: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingIqr", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.RollingIqr(windowSize)), "RollingIqr", ["window_size"], _given);
   } catch (e) { throw _finite(M, "RollingIqr", ["windowSize"], [windowSize], e); }
@@ -6255,6 +6330,7 @@ export function RollingKurt(windowSize?: any, startPolicy?: any): ScreamerOp {
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingKurt: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingKurt", "windowSize", windowSize);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingKurt: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingKurt(windowSize, startPolicy)), "RollingKurt", ["window_size", "start_policy"], _given);
@@ -6292,6 +6368,7 @@ export function RollingKyleLambda(windowSize?: any, startPolicy?: any): Screamer
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingKyleLambda: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingKyleLambda", "windowSize", windowSize);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingKyleLambda: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingKyleLambda(windowSize, startPolicy)), "RollingKyleLambda", ["window_size", "start_policy"], _given);
@@ -6329,6 +6406,7 @@ export function RollingLinearRegression(windowSize?: any, startPolicy?: any): Sc
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingLinearRegression: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingLinearRegression", "windowSize", windowSize);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingLinearRegression: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingLinearRegression(windowSize, startPolicy)), "RollingLinearRegression", ["window_size", "start_policy"], _given);
@@ -6366,6 +6444,7 @@ export function RollingMad(windowSize?: any, startPolicy?: any): ScreamerOp {
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingMad: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingMad", "windowSize", windowSize);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingMad: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingMad(windowSize, startPolicy)), "RollingMad", ["window_size", "start_policy"], _given);
@@ -6399,6 +6478,7 @@ export function RollingMax(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingMax: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingMax", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.RollingMax(windowSize)), "RollingMax", ["window_size"], _given);
   } catch (e) { throw _finite(M, "RollingMax", ["windowSize"], [windowSize], e); }
@@ -6431,6 +6511,7 @@ export function RollingMaxDrawdown(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 252;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingMaxDrawdown: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingMaxDrawdown", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.RollingMaxDrawdown(windowSize)), "RollingMaxDrawdown", ["window_size"], _given);
   } catch (e) { throw _finite(M, "RollingMaxDrawdown", ["windowSize"], [windowSize], e); }
@@ -6467,6 +6548,7 @@ export function RollingMean(windowSize?: any, startPolicy?: any): ScreamerOp {
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingMean: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingMean", "windowSize", windowSize);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingMean: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingMean(windowSize, startPolicy)), "RollingMean", ["window_size", "start_policy"], _given);
@@ -6500,6 +6582,7 @@ export function RollingMedian(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingMedian: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingMedian", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.RollingMedian(windowSize)), "RollingMedian", ["window_size"], _given);
   } catch (e) { throw _finite(M, "RollingMedian", ["windowSize"], [windowSize], e); }
@@ -6536,6 +6619,7 @@ export function RollingMedianAD(windowSize?: any, startPolicy?: any): ScreamerOp
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingMedianAD: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingMedianAD", "windowSize", windowSize);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingMedianAD: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingMedianAD(windowSize, startPolicy)), "RollingMedianAD", ["window_size", "start_policy"], _given);
@@ -6569,6 +6653,7 @@ export function RollingMin(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingMin: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingMin", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.RollingMin(windowSize)), "RollingMin", ["window_size"], _given);
   } catch (e) { throw _finite(M, "RollingMin", ["windowSize"], [windowSize], e); }
@@ -6601,6 +6686,7 @@ export function RollingMinMax(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingMinMax: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingMinMax", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.RollingMinMax(windowSize)), "RollingMinMax", ["window_size"], _given);
   } catch (e) { throw _finite(M, "RollingMinMax", ["windowSize"], [windowSize], e); }
@@ -6641,6 +6727,7 @@ export function RollingOU(windowSize?: any, output?: any, startPolicy?: any): Sc
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingOU: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingOU", "windowSize", windowSize);
   if (typeof output !== "string") throw new TypeError(`RollingOU: output must be a string, got ${output instanceof String ? "a String object" : _what(output)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingOU: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
@@ -6679,6 +6766,7 @@ export function RollingOmega(windowSize?: any, threshold?: any): ScreamerOp {
   if (threshold === undefined) threshold = 0.0;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingOmega: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingOmega", "windowSize", windowSize);
   if (typeof threshold !== "number") throw new TypeError(`RollingOmega: threshold must be a number, got ${_what(threshold)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingOmega(windowSize, threshold)), "RollingOmega", ["window_size", "threshold"], _given);
@@ -6716,6 +6804,7 @@ export function RollingOrderImbalance(windowSize?: any, startPolicy?: any): Scre
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingOrderImbalance: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingOrderImbalance", "windowSize", windowSize);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingOrderImbalance: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingOrderImbalance(windowSize, startPolicy)), "RollingOrderImbalance", ["window_size", "start_policy"], _given);
@@ -6749,6 +6838,7 @@ export function RollingParkinsonVar(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingParkinsonVar: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingParkinsonVar", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.RollingParkinsonVar(windowSize)), "RollingParkinsonVar", ["window_size"], _given);
   } catch (e) { throw _finite(M, "RollingParkinsonVar", ["windowSize"], [windowSize], e); }
@@ -6781,6 +6871,7 @@ export function RollingParkinsonVol(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingParkinsonVol: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingParkinsonVol", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.RollingParkinsonVol(windowSize)), "RollingParkinsonVol", ["window_size"], _given);
   } catch (e) { throw _finite(M, "RollingParkinsonVol", ["windowSize"], [windowSize], e); }
@@ -6813,6 +6904,7 @@ export function RollingPercentile(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingPercentile: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingPercentile", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.RollingPercentile(windowSize)), "RollingPercentile", ["window_size"], _given);
   } catch (e) { throw _finite(M, "RollingPercentile", ["windowSize"], [windowSize], e); }
@@ -6853,7 +6945,9 @@ export function RollingPoly1(windowSize?: any, derivativeOrder?: any, startPolic
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingPoly1: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingPoly1", "windowSize", windowSize);
   if (typeof derivativeOrder !== "number" || !Number.isInteger(derivativeOrder)) throw new TypeError(`RollingPoly1: derivativeOrder must be an integer, got ${typeof derivativeOrder === "number" ? derivativeOrder : _what(derivativeOrder)}`);
+  if (!(derivativeOrder >= -2147483648 && derivativeOrder <= 2147483647)) _intRange(M, "RollingPoly1", "derivativeOrder", derivativeOrder);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingPoly1: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingPoly1(windowSize, derivativeOrder, startPolicy)), "RollingPoly1", ["window_size", "derivative_order", "start_policy"], _given);
@@ -6895,7 +6989,9 @@ export function RollingPoly2(windowSize?: any, derivativeOrder?: any, startPolic
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingPoly2: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingPoly2", "windowSize", windowSize);
   if (typeof derivativeOrder !== "number" || !Number.isInteger(derivativeOrder)) throw new TypeError(`RollingPoly2: derivativeOrder must be an integer, got ${typeof derivativeOrder === "number" ? derivativeOrder : _what(derivativeOrder)}`);
+  if (!(derivativeOrder >= -2147483648 && derivativeOrder <= 2147483647)) _intRange(M, "RollingPoly2", "derivativeOrder", derivativeOrder);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingPoly2: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingPoly2(windowSize, derivativeOrder, startPolicy)), "RollingPoly2", ["window_size", "derivative_order", "start_policy"], _given);
@@ -6933,6 +7029,7 @@ export function RollingQuantile(windowSize?: any, quantile?: any): ScreamerOp {
   if (quantile === undefined) quantile = 0.5;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingQuantile: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingQuantile", "windowSize", windowSize);
   if (typeof quantile !== "number") throw new TypeError(`RollingQuantile: quantile must be a number, got ${_what(quantile)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingQuantile(windowSize, quantile)), "RollingQuantile", ["window_size", "quantile"], _given);
@@ -6974,6 +7071,7 @@ export function RollingRSI(windowSize?: any, method?: any, startPolicy?: any): S
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingRSI: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingRSI", "windowSize", windowSize);
   if (typeof method !== "string") throw new TypeError(`RollingRSI: method must be a string, got ${method instanceof String ? "a String object" : _what(method)}`);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingRSI: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
@@ -7008,6 +7106,7 @@ export function RollingRange(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingRange: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingRange", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.RollingRange(windowSize)), "RollingRange", ["window_size"], _given);
   } catch (e) { throw _finite(M, "RollingRange", ["windowSize"], [windowSize], e); }
@@ -7040,6 +7139,7 @@ export function RollingRank(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingRank: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingRank", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.RollingRank(windowSize)), "RollingRank", ["window_size"], _given);
   } catch (e) { throw _finite(M, "RollingRank", ["windowSize"], [windowSize], e); }
@@ -7076,6 +7176,7 @@ export function RollingResidualStd(windowSize?: any, startPolicy?: any): Screame
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingResidualStd: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingResidualStd", "windowSize", windowSize);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingResidualStd: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingResidualStd(windowSize, startPolicy)), "RollingResidualStd", ["window_size", "start_policy"], _given);
@@ -7113,6 +7214,7 @@ export function RollingRms(windowSize?: any, startPolicy?: any): ScreamerOp {
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingRms: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingRms", "windowSize", windowSize);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingRms: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingRms(windowSize, startPolicy)), "RollingRms", ["window_size", "start_policy"], _given);
@@ -7146,6 +7248,7 @@ export function RollingRogersSatchellVar(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingRogersSatchellVar: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingRogersSatchellVar", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.RollingRogersSatchellVar(windowSize)), "RollingRogersSatchellVar", ["window_size"], _given);
   } catch (e) { throw _finite(M, "RollingRogersSatchellVar", ["windowSize"], [windowSize], e); }
@@ -7178,6 +7281,7 @@ export function RollingRogersSatchellVol(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingRogersSatchellVol: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingRogersSatchellVol", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.RollingRogersSatchellVol(windowSize)), "RollingRogersSatchellVol", ["window_size"], _given);
   } catch (e) { throw _finite(M, "RollingRogersSatchellVol", ["windowSize"], [windowSize], e); }
@@ -7214,6 +7318,7 @@ export function RollingSharpe(windowSize?: any, periodsPerYear?: any): ScreamerO
   if (periodsPerYear === undefined) periodsPerYear = 1.0;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingSharpe: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingSharpe", "windowSize", windowSize);
   if (typeof periodsPerYear !== "number") throw new TypeError(`RollingSharpe: periodsPerYear must be a number, got ${_what(periodsPerYear)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingSharpe(windowSize, periodsPerYear)), "RollingSharpe", ["window_size", "periods_per_year"], _given);
@@ -7263,6 +7368,7 @@ export function RollingSigmaClip(windowSize?: any, lower?: any, upper?: any, out
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingSigmaClip: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingSigmaClip", "windowSize", windowSize);
   if (typeof lower !== "number") throw new TypeError(`RollingSigmaClip: lower must be a number, got ${_what(lower)}`);
   if (typeof upper !== "number") throw new TypeError(`RollingSigmaClip: upper must be a number, got ${_what(upper)}`);
   if (typeof output !== "string") throw new TypeError(`RollingSigmaClip: output must be a string, got ${output instanceof String ? "a String object" : _what(output)}`);
@@ -7303,6 +7409,7 @@ export function RollingSkew(windowSize?: any, startPolicy?: any): ScreamerOp {
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingSkew: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingSkew", "windowSize", windowSize);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingSkew: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingSkew(windowSize, startPolicy)), "RollingSkew", ["window_size", "start_policy"], _given);
@@ -7344,6 +7451,7 @@ export function RollingSortino(windowSize?: any, periodsPerYear?: any, target?: 
   if (target === undefined) target = 0.0;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingSortino: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingSortino", "windowSize", windowSize);
   if (typeof periodsPerYear !== "number") throw new TypeError(`RollingSortino: periodsPerYear must be a number, got ${_what(periodsPerYear)}`);
   if (typeof target !== "number") throw new TypeError(`RollingSortino: target must be a number, got ${_what(target)}`);
   try {
@@ -7382,6 +7490,7 @@ export function RollingSpread(windowSize?: any, startPolicy?: any): ScreamerOp {
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingSpread: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingSpread", "windowSize", windowSize);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingSpread: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingSpread(windowSize, startPolicy)), "RollingSpread", ["window_size", "start_policy"], _given);
@@ -7419,6 +7528,7 @@ export function RollingStd(windowSize?: any, startPolicy?: any): ScreamerOp {
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingStd: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingStd", "windowSize", windowSize);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingStd: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingStd(windowSize, startPolicy)), "RollingStd", ["window_size", "start_policy"], _given);
@@ -7456,6 +7566,7 @@ export function RollingSum(windowSize?: any, startPolicy?: any): ScreamerOp {
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingSum: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingSum", "windowSize", windowSize);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingSum: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingSum(windowSize, startPolicy)), "RollingSum", ["window_size", "start_policy"], _given);
@@ -7493,6 +7604,7 @@ export function RollingTLSBeta(windowSize?: any, startPolicy?: any): ScreamerOp 
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingTLSBeta: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingTLSBeta", "windowSize", windowSize);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingTLSBeta: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingTLSBeta(windowSize, startPolicy)), "RollingTLSBeta", ["window_size", "start_policy"], _given);
@@ -7526,6 +7638,7 @@ export function RollingTSF(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingTSF: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingTSF", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.RollingTSF(windowSize)), "RollingTSF", ["window_size"], _given);
   } catch (e) { throw _finite(M, "RollingTSF", ["windowSize"], [windowSize], e); }
@@ -7558,6 +7671,7 @@ export function RollingVWAP(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingVWAP: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingVWAP", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.RollingVWAP(windowSize)), "RollingVWAP", ["window_size"], _given);
   } catch (e) { throw _finite(M, "RollingVWAP", ["windowSize"], [windowSize], e); }
@@ -7594,6 +7708,7 @@ export function RollingVar(windowSize?: any, startPolicy?: any): ScreamerOp {
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingVar: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingVar", "windowSize", windowSize);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingVar: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingVar(windowSize, startPolicy)), "RollingVar", ["window_size", "start_policy"], _given);
@@ -7627,6 +7742,7 @@ export function RollingYangZhangVar(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingYangZhangVar: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingYangZhangVar", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.RollingYangZhangVar(windowSize)), "RollingYangZhangVar", ["window_size"], _given);
   } catch (e) { throw _finite(M, "RollingYangZhangVar", ["windowSize"], [windowSize], e); }
@@ -7659,6 +7775,7 @@ export function RollingYangZhangVol(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingYangZhangVol: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingYangZhangVol", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.RollingYangZhangVol(windowSize)), "RollingYangZhangVol", ["window_size"], _given);
   } catch (e) { throw _finite(M, "RollingYangZhangVol", ["windowSize"], [windowSize], e); }
@@ -7695,6 +7812,7 @@ export function RollingZscore(windowSize?: any, startPolicy?: any): ScreamerOp {
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingZscore: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingZscore", "windowSize", windowSize);
   if (typeof startPolicy !== "string") throw new TypeError(`RollingZscore: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.RollingZscore(windowSize, startPolicy)), "RollingZscore", ["window_size", "start_policy"], _given);
@@ -7969,8 +8087,11 @@ export function Stoch(fastkPeriod?: any, smoothK?: any, d?: any): ScreamerOp {
   if (d === undefined) d = 3;
   const M = current();
   if (typeof fastkPeriod !== "number" || !Number.isInteger(fastkPeriod)) throw new TypeError(`Stoch: fastkPeriod must be an integer, got ${typeof fastkPeriod === "number" ? fastkPeriod : _what(fastkPeriod)}`);
+  if (!(fastkPeriod >= -2147483648 && fastkPeriod <= 2147483647)) _intRange(M, "Stoch", "fastkPeriod", fastkPeriod);
   if (typeof smoothK !== "number" || !Number.isInteger(smoothK)) throw new TypeError(`Stoch: smoothK must be an integer, got ${typeof smoothK === "number" ? smoothK : _what(smoothK)}`);
+  if (!(smoothK >= -2147483648 && smoothK <= 2147483647)) _intRange(M, "Stoch", "smoothK", smoothK);
   if (typeof d !== "number" || !Number.isInteger(d)) throw new TypeError(`Stoch: d must be an integer, got ${typeof d === "number" ? d : _what(d)}`);
+  if (!(d >= -2147483648 && d <= 2147483647)) _intRange(M, "Stoch", "d", d);
   try {
     return _params(wrapOp(M, () => new M.Stoch(fastkPeriod, smoothK, d)), "Stoch", ["fastk_period", "smooth_k", "d"], _given);
   } catch (e) { throw _finite(M, "Stoch", ["fastkPeriod", "smoothK", "d"], [fastkPeriod, smoothK, d], e); }
@@ -8015,9 +8136,13 @@ export function StochRSI(rsiPeriod?: any, stochPeriod?: any, smoothK?: any, d?: 
   if (d === undefined) d = 3;
   const M = current();
   if (typeof rsiPeriod !== "number" || !Number.isInteger(rsiPeriod)) throw new TypeError(`StochRSI: rsiPeriod must be an integer, got ${typeof rsiPeriod === "number" ? rsiPeriod : _what(rsiPeriod)}`);
+  if (!(rsiPeriod >= -2147483648 && rsiPeriod <= 2147483647)) _intRange(M, "StochRSI", "rsiPeriod", rsiPeriod);
   if (typeof stochPeriod !== "number" || !Number.isInteger(stochPeriod)) throw new TypeError(`StochRSI: stochPeriod must be an integer, got ${typeof stochPeriod === "number" ? stochPeriod : _what(stochPeriod)}`);
+  if (!(stochPeriod >= -2147483648 && stochPeriod <= 2147483647)) _intRange(M, "StochRSI", "stochPeriod", stochPeriod);
   if (typeof smoothK !== "number" || !Number.isInteger(smoothK)) throw new TypeError(`StochRSI: smoothK must be an integer, got ${typeof smoothK === "number" ? smoothK : _what(smoothK)}`);
+  if (!(smoothK >= -2147483648 && smoothK <= 2147483647)) _intRange(M, "StochRSI", "smoothK", smoothK);
   if (typeof d !== "number" || !Number.isInteger(d)) throw new TypeError(`StochRSI: d must be an integer, got ${typeof d === "number" ? d : _what(d)}`);
+  if (!(d >= -2147483648 && d <= 2147483647)) _intRange(M, "StochRSI", "d", d);
   try {
     return _params(wrapOp(M, () => new M.StochRSI(rsiPeriod, stochPeriod, smoothK, d)), "StochRSI", ["rsi_period", "stoch_period", "smooth_k", "d"], _given);
   } catch (e) { throw _finite(M, "StochRSI", ["rsiPeriod", "stochPeriod", "smoothK", "d"], [rsiPeriod, stochPeriod, smoothK, d], e); }
@@ -8150,6 +8275,7 @@ export function TRIMA(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 20;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`TRIMA: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "TRIMA", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.TRIMA(windowSize)), "TRIMA", ["window_size"], _given);
   } catch (e) { throw _finite(M, "TRIMA", ["windowSize"], [windowSize], e); }
@@ -8182,6 +8308,7 @@ export function TRIX(span?: any): ScreamerOp {
   if (span === undefined) span = 14;
   const M = current();
   if (typeof span !== "number" || !Number.isInteger(span)) throw new TypeError(`TRIX: span must be an integer, got ${typeof span === "number" ? span : _what(span)}`);
+  if (!(span >= -2147483648 && span <= 2147483647)) _intRange(M, "TRIX", "span", span);
   try {
     return _params(wrapOp(M, () => new M.TRIX(span)), "TRIX", ["span"], _given);
   } catch (e) { throw _finite(M, "TRIX", ["span"], [span], e); }
@@ -8286,8 +8413,11 @@ export function UltimateOscillator(period1?: any, period2?: any, period3?: any):
   if (period3 === undefined) period3 = 28;
   const M = current();
   if (typeof period1 !== "number" || !Number.isInteger(period1)) throw new TypeError(`UltimateOscillator: period1 must be an integer, got ${typeof period1 === "number" ? period1 : _what(period1)}`);
+  if (!(period1 >= -2147483648 && period1 <= 2147483647)) _intRange(M, "UltimateOscillator", "period1", period1);
   if (typeof period2 !== "number" || !Number.isInteger(period2)) throw new TypeError(`UltimateOscillator: period2 must be an integer, got ${typeof period2 === "number" ? period2 : _what(period2)}`);
+  if (!(period2 >= -2147483648 && period2 <= 2147483647)) _intRange(M, "UltimateOscillator", "period2", period2);
   if (typeof period3 !== "number" || !Number.isInteger(period3)) throw new TypeError(`UltimateOscillator: period3 must be an integer, got ${typeof period3 === "number" ? period3 : _what(period3)}`);
+  if (!(period3 >= -2147483648 && period3 <= 2147483647)) _intRange(M, "UltimateOscillator", "period3", period3);
   try {
     return _params(wrapOp(M, () => new M.UltimateOscillator(period1, period2, period3)), "UltimateOscillator", ["period1", "period2", "period3"], _given);
   } catch (e) { throw _finite(M, "UltimateOscillator", ["period1", "period2", "period3"], [period1, period2, period3], e); }
@@ -8325,6 +8455,7 @@ export function VPIN(bucketVolume?: any, nBuckets?: any): ScreamerOp {
   const M = current();
   if (typeof bucketVolume !== "number") throw new TypeError(`VPIN: bucketVolume must be a number, got ${_what(bucketVolume)}`);
   if (typeof nBuckets !== "number" || !Number.isInteger(nBuckets)) throw new TypeError(`VPIN: nBuckets must be an integer, got ${typeof nBuckets === "number" ? nBuckets : _what(nBuckets)}`);
+  if (!(nBuckets >= -2147483648 && nBuckets <= 2147483647)) _intRange(M, "VPIN", "nBuckets", nBuckets);
   try {
     return _params(wrapOp(M, () => new M.VPIN(bucketVolume, nBuckets)), "VPIN", ["bucket_volume", "n_buckets"], _given);
   } catch (e) { throw _finite(M, "VPIN", ["bucketVolume", "nBuckets"], [bucketVolume, nBuckets], e); }
@@ -8361,6 +8492,7 @@ export function WMA(windowSize?: any, startPolicy?: any): ScreamerOp {
   if (startPolicy === undefined) startPolicy = "strict";
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`WMA: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "WMA", "windowSize", windowSize);
   if (typeof startPolicy !== "string") throw new TypeError(`WMA: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
     return _params(wrapOp(M, () => new M.WMA(windowSize, startPolicy)), "WMA", ["window_size", "start_policy"], _given);
@@ -8410,6 +8542,7 @@ export function WilliamsR(windowSize?: any): ScreamerOp {
   if (windowSize === undefined) windowSize = 14;
   const M = current();
   if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`WilliamsR: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "WilliamsR", "windowSize", windowSize);
   try {
     return _params(wrapOp(M, () => new M.WilliamsR(windowSize)), "WilliamsR", ["window_size"], _given);
   } catch (e) { throw _finite(M, "WilliamsR", ["windowSize"], [windowSize], e); }

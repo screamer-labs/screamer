@@ -24,7 +24,7 @@ parameters:
 - name: stoch_period
   type: int
   default: 14
-  min: 2
+  min: 1
   description: Number of most recent RSI values over which the minimum and maximum are taken.
 - name: smooth_k
   type: int

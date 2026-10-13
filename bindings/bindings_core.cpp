@@ -31,9 +31,10 @@ void init_bindings_core(nb::module_& m) {
     // The message for an integer setting below its smallest value
     // (int_settings.h), asked on the same error path.
     m.def("_int_setting_error", [](const std::string& op, const std::vector<std::string>& names,
-                                   const std::vector<double>& values) {
-        return screamer::int_setting_error(op, names, values);
-    }, "op"_a, "names"_a, "values"_a);
+                                   const std::vector<double>& values,
+                                   const std::vector<std::string>& texts, bool alloc_failed) {
+        return screamer::int_setting_error(op, names, values, texts, alloc_failed);
+    }, "op"_a, "names"_a, "values"_a, "texts"_a, "alloc_failed"_a = false);
     m.def("_int_setting_min", [](const std::string& op, const std::string& setting) -> nb::object {
         long long v = 0;
         if (!screamer::int_setting_min(op, setting, v)) return nb::none();

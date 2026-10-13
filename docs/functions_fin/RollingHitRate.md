@@ -17,7 +17,7 @@ parameters:
 - name: window_size
   type: int
   default: 252
-  min: 2
+  min: 1
   description: Number of most recent values counted.
 nan_policy: ignore
 see_also:

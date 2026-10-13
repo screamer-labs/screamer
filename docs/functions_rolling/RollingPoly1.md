@@ -26,6 +26,7 @@ parameters:
 - name: derivative_order
   type: int
   default: 0
+  min: 0
   enum:
   - 0
   - 1

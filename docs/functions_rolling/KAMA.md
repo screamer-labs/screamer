@@ -26,13 +26,13 @@ parameters:
 - name: fast
   type: int
   default: 2
-  min: 2
+  min: 1
   description: Period of the fastest smoothing constant, alpha_fast = 2 / (fast + 1), used
     when the efficiency ratio is 1. TA-Lib fixes it at 2.
 - name: slow
   type: int
   default: 30
-  min: 2
+  min: 1
   description: Period of the slowest smoothing constant, alpha_slow = 2 / (slow + 1), used
     when the efficiency ratio is 0. TA-Lib fixes it at 30.
 see_also:

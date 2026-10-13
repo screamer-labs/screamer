@@ -177,7 +177,8 @@ inline std::uintptr_t opPtr(screamer::EvalOp& op) {
 // a generated factory after its constructor threw: `names` is an
 // Array of the camelCase setting names, `values` an Array of numbers or
 // Arrays of numbers. "" when no setting is at fault.
-inline std::string finiteSettingError(std::string op, emscripten::val names, emscripten::val values) {
+inline std::string finiteSettingError(std::string op, emscripten::val names, emscripten::val values,
+                                      emscripten::val texts, bool allocFailed) {
     const auto n = names["length"].as<unsigned>();
     std::vector<std::string> ns;
     std::vector<std::vector<double>> vs;
@@ -195,10 +196,14 @@ inline std::string finiteSettingError(std::string op, emscripten::val names, ems
     }
     std::string msg = screamer::finite_setting_error(op, ns, vs, true);
     if (!msg.empty()) return msg;
-    // An integer setting below its smallest value (int_settings.h).
+    // An integer setting outside its range, or too large to allocate
+    // (int_settings.h); `texts` holds String(value) for the message.
     std::vector<double> firsts;
+    std::vector<std::string> ts;
     for (const auto& x : vs) firsts.push_back(x.empty() ? 0.0 : x[0]);
-    return screamer::int_setting_error(op, ns, firsts);
+    const auto nt = texts["length"].as<unsigned>();
+    for (unsigned i = 0; i < nt; ++i) ts.push_back(texts[i].as<std::string>());
+    return screamer::int_setting_error(op, ns, firsts, ts, allocFailed);
 }
 
 }  // namespace screamer_wasm

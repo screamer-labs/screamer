@@ -18,6 +18,7 @@ parameters:
 - name: count
   type: int
   default: 1
+  min: 1
   description: Number of assets on each side.
 nan_policy: ignore
 see_also:

@@ -235,24 +235,31 @@ def finite_error(cls_name, args, kwargs):
     return _b._finite_setting_error(cls_name, names, values) or None
 
 
-def int_min_error(cls_name, args, kwargs):
-    """The message for an integer setting below its smallest value,
-    "<Op>: <setting> must be at least 1, got -1", or None (C++
-    int_settings.h holds each setting's smallest value)."""
+def int_min_error(cls_name, args, kwargs, alloc_failed=False):
+    """The message for an integer setting outside its range, "<Op>: <setting>
+    must be at least 1, got -1" or "... must be at most 2147483647, got
+    2147483648", or for one too large to allocate; None when there is none
+    (C++ int_settings.h holds each setting's range)."""
+    import operator
     params = bind_params(cls_name, args, kwargs)
-    names, values = [], []
+    names, values, texts = [], [], []
     for p in (_load_help().get(cls_name) or {}).get("parameters", []):
         value = params.get(p["name"])
         if p.get("type") != "int" or value is None:
             continue
         try:
-            names.append(p["name"])
-            values.append(float(value))
-        except (TypeError, ValueError):
-            names.pop()
+            number = operator.index(value)
+        except TypeError:
+            continue
+        try:
+            values.append(float(number))
+        except OverflowError:
+            values.append(float("inf") if number > 0 else float("-inf"))
+        names.append(p["name"])
+        texts.append(str(number))
     if not names:
         return None
-    return _b._int_setting_error(cls_name, names, values) or None
+    return _b._int_setting_error(cls_name, names, values, texts, alloc_failed) or None
 
 
 def _make_wrapper(name, base):
@@ -268,10 +275,11 @@ def _make_wrapper(name, base):
             if msg is None:
                 raise
             raise TypeError(msg) from None
-        except ValueError:
-            # A setting that is not finite, or an integer setting below its
-            # smallest value: the one message form of each.
-            msg = finite_error(name, args, kwargs) or int_min_error(name, args, kwargs)
+        except (ValueError, MemoryError) as e:
+            # A setting that is not finite, or an integer setting outside its
+            # range (or too large to allocate): the one message form of each.
+            alloc = isinstance(e, MemoryError) or str(e) == "vector"
+            msg = finite_error(name, args, kwargs) or int_min_error(name, args, kwargs, alloc)
             if msg is None:
                 raise
             raise ValueError(msg) from None

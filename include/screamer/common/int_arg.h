@@ -82,12 +82,17 @@ template <class T>
 struct IntArg {
     T value{};
     const char* text = nullptr;     // the type name of a refused string or bool, or null
+    bool out_of_range = false;      // an integer that T cannot hold
     // The conversion runs inside nb::init's call, so this TypeError reaches
     // Python with its own message (a caster cannot raise: it is noexcept).
+    // An integer outside T's range is a ValueError, which the Python class
+    // turns into the range message of int_settings.h.
     operator T() const {
         if (text)
             throw nanobind::type_error(
                 (std::string("must be an integer, got ") + text).c_str());
+        if (out_of_range)
+            throw nanobind::value_error("an integer setting is outside the range of int");
         return value;
     }
 };
@@ -153,7 +158,20 @@ struct type_caster<screamer::IntArg<T>> {
             return true;
         }
         make_caster<T> inner;
-        if (!inner.from_python(src, flags, cleanup)) return false;
+        if (!inner.from_python(src, flags, cleanup)) {
+            // An integer (a Python int, a NumPy integer) T cannot hold: taken
+            // here and refused by the conversion, never wrapped.
+            if (!PyFloat_Check(o) && PyIndex_Check(o)) {
+                PyObject* ix = PyNumber_Index(o);
+                if (ix) {
+                    Py_DECREF(ix);
+                    value.out_of_range = true;
+                    return true;
+                }
+                PyErr_Clear();
+            }
+            return false;
+        }
         value.value = inner.value;
         return true;
     }

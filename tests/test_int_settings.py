@@ -37,3 +37,32 @@ def test_a_negative_window_names_the_setting():
         s.RollingMean(-1)
     with pytest.raises(ValueError, match=r"^Butter: order must be at least 1, got 0$"):
         s.Butter(0, 0.1)
+
+
+@pytest.mark.parametrize("op, name", INTS, ids=[f"{o}.{n}" for o, n in INTS])
+def test_a_value_outside_the_int_range_raises_one_message(op, name):
+    """Checked before the value is narrowed to the C++ int: never wrapped,
+    never nanobind's text; the message shows the value given."""
+    import numpy as np
+    low = _b._int_setting_min(op, name)
+    base = dict(ORACLE.get(op, {}).get("base", {}))
+    for v in (2 ** 31, 2 ** 32 + 2, 2 ** 63, 10 ** 30, np.int64(2 ** 40)):
+        with pytest.raises(ValueError) as e:
+            getattr(s, op)(**dict(base, **{name: v}))
+        assert str(e.value) == f"{op}: {name} must be at most 2147483647, got {int(v)}"
+    for v in (-10 ** 30, -2 ** 63, -(2 ** 31) - 1):
+        with pytest.raises(ValueError) as e:
+            getattr(s, op)(**dict(base, **{name: v}))
+        assert str(e.value) == f"{op}: {name} must be at least {low}, got {v}"
+
+
+def test_the_documented_minimum_is_the_constructors():
+    """Each integer setting's `min` in its page's parameter list is the
+    smallest value int_settings.h records (the one the constructors take)."""
+    help_ = json.loads((ROOT / "screamer" / "data" / "help.json").read_text())
+    wrong = []
+    for op, name in INTS:
+        p = [p for p in help_[op]["parameters"] if p["name"] == name][0]
+        if p.get("min") != _b._int_setting_min(op, name):
+            wrong.append((op, name, p.get("min"), _b._int_setting_min(op, name)))
+    assert not wrong

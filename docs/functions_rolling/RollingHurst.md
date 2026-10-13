@@ -23,7 +23,7 @@ parameters:
 - name: window_size
   type: int
   default: 256
-  min: 16
+  min: 32
   description: Trailing-window length W in samples. Must be at least 4 * min_scale so the
     regression has at least three scales.
 - name: min_scale

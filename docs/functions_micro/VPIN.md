@@ -28,6 +28,7 @@ parameters:
 - name: n_buckets
   type: int
   default: 50
+  min: 1
   description: Number of most recent closed buckets averaged.
 nan_policy: ignore
 see_also:

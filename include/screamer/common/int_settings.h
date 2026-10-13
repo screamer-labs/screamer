@@ -10,7 +10,8 @@
 // As with finite_settings.h, each operator's constructor refuses a value it
 // cannot take, and the binding asks int_setting_error() on the error path
 // only whether one of the integer settings it was given is below the
-// smallest value the operator ever takes; then this message replaces the
+// smallest value the operator ever takes (over its other settings, string
+// settings such as fill_at included); then this message replaces the
 // constructor's. kIntSettingMin holds that smallest value for every integer
 // setting (the smallest any combination of the other settings allows; a
 // value at or above it that the constructor still refuses, such as a MACD
@@ -18,6 +19,7 @@
 // tests/test_int_settings.py checks the table against the constructors.
 
 #include <cstddef>
+#include <limits>
 #include <string>
 #include <vector>
 #include "screamer/common/finite_settings.h"
@@ -37,9 +39,9 @@ inline constexpr IntSettingMin kIntSettingMin[] = {
     {"ADXR", "window_size", 2},
     {"ATR", "window_size", 2},
     {"AmihudIlliquidity", "window_size", 1},
-    {"BacktestOHLCTarget", "delay", 1},
-    {"BacktestOHLCVTarget", "delay", 1},
-    {"BacktestPortfolioOHLCTarget", "delay", 1},
+    {"BacktestOHLCTarget", "delay", 0},
+    {"BacktestOHLCVTarget", "delay", 0},
+    {"BacktestPortfolioOHLCTarget", "delay", 0},
     {"BollingerBands", "window_size", 2},
     {"BulkVolumeClassifier", "window_size", 2},
     {"Butter", "order", 1},
@@ -166,18 +168,42 @@ inline bool int_setting_min(const std::string& op, const std::string& setting, l
     return false;
 }
 
-// "<op>: <setting> must be at least <min>, got <v>" for the first setting,
-// in the order given, below its smallest value; "" when there is none.
+// The largest value of an integer setting: the range of the C++ int every
+// integer setting is held in. A larger value is refused before it is
+// narrowed, in both bindings, never wrapped.
+inline constexpr long long kIntSettingMax = std::numeric_limits<int>::max();
+
+// The message for the first integer setting, in the order given, outside
+// its range: "<op>: <setting> must be at least <min>, got <text>" below its
+// smallest value, "<op>: <setting> must be at most 2147483647, got <text>"
+// above the int range. `texts` holds each value as the caller wrote it
+// (Python's int, JavaScript's String(x)), so the message shows the value
+// given. With `alloc_failed` (the constructor ran out of memory, or a
+// buffer's std::length_error), and no value out of range, the message names
+// the largest setting: "<op>: <setting> of <text> needs more memory than is
+// available". "" when there is none.
 inline std::string int_setting_error(const std::string& op, const std::vector<std::string>& names,
-                                     const std::vector<double>& values) {
+                                     const std::vector<double>& values,
+                                     const std::vector<std::string>& texts,
+                                     bool alloc_failed = false) {
+    const auto text = [&](std::size_t i) {
+        return i < texts.size() ? texts[i] : std::string("?");
+    };
+    std::ptrdiff_t largest = -1;
     for (std::size_t i = 0; i < names.size() && i < values.size(); ++i) {
-        const std::string key = detail::setting_key(names[i]);
-        for (const auto& m : kIntSettingMin)
-            if (op == m.op && key == detail::setting_key(m.setting) &&
-                values[i] < static_cast<double>(m.min))
-                return op + ": " + names[i] + " must be at least " + std::to_string(m.min) +
-                       ", got " + std::to_string(static_cast<long long>(values[i]));
+        long long min = 0;
+        if (!int_setting_min(op, names[i], min)) continue;
+        if (values[i] < static_cast<double>(min))
+            return op + ": " + names[i] + " must be at least " + std::to_string(min) + ", got " + text(i);
+        if (values[i] > static_cast<double>(kIntSettingMax))
+            return op + ": " + names[i] + " must be at most " + std::to_string(kIntSettingMax) +
+                   ", got " + text(i);
+        if (largest < 0 || values[i] > values[static_cast<std::size_t>(largest)])
+            largest = static_cast<std::ptrdiff_t>(i);
     }
+    if (alloc_failed && largest >= 0)
+        return op + ": " + names[static_cast<std::size_t>(largest)] + " of " +
+               text(static_cast<std::size_t>(largest)) + " needs more memory than is available";
     return std::string();
 }
 

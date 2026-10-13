@@ -18,7 +18,7 @@ parameters:
 - name: window_size
   type: int
   default: 20
-  min: 2
+  min: 1
   description: Number of most recent samples in the window; the newest sample gets weight
     window_size and the oldest weight 1.
 - name: start_policy

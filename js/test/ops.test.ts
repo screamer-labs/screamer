@@ -324,6 +324,37 @@ test("options: an integer setting below its smallest value agrees with Python (n
   assert.ok(n > 240);
 });
 
+test("options: an integer setting outside the int range is refused before it is narrowed", async () => {
+  // Never wrapped (2**32 + 2 was a window of 2), never the raw "vector":
+  // int_settings.h's message, with the value as JavaScript writes it.
+  await ready();
+  const { readFileSync } = await import("node:fs");
+  const ops: any = await import("../src/generated/ops.ts");
+  const oracle: { name: string; base: Record<string, number>;
+                  below_min: Record<string, [number, string] | null> }[] =
+    JSON.parse(readFileSync(new URL("../../wasm/smoke/null_oracle.json", import.meta.url), "utf8"));
+  const camel = (k: string) => k.replace(/_([a-z])/g, (_m, c) => c.toUpperCase());
+  let n = 0;
+  for (const { name, base, below_min } of oracle) {
+    const opts: Record<string, unknown> = {};
+    for (const [b, v] of Object.entries(base)) opts[camel(b)] = v;
+    for (const [k, rec] of Object.entries(below_min)) {
+      const min = rec![0] + 1;
+      for (const x of [2 ** 31, 2 ** 32 + 2, 2 ** 63, 1e30])
+        assert.throws(() => ops[name]({ ...opts, [camel(k)]: x }), { name: "RangeError",
+          message: `${name}: ${camel(k)} must be at most 2147483647, got ${String(x)}` }, `${name}.${k}=${x}`);
+      for (const x of [-1e30, -(2 ** 31) - 1])
+        assert.throws(() => ops[name]({ ...opts, [camel(k)]: x }), { name: "RangeError",
+          message: `${name}: ${camel(k)} must be at least ${min}, got ${String(x)}` }, `${name}.${k}=${x}`);
+      // In range but too large to allocate: a clean message, never "vector".
+      try { ops[name]({ ...opts, [camel(k)]: 2 ** 31 - 1 }).dispose(); }
+      catch (e) { assert.ok(!/^vector$|std::|bad_alloc/.test((e as Error).message), `${name}.${k}: ${(e as Error).message}`); }
+      n++;
+    }
+  }
+  assert.ok(n > 120);
+});
+
 test("options: a stream setting refuses a boolean (G25)", async () => {
   await ready();
   const { Input, resample, select, delay } = await import("../src/index.ts");

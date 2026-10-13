@@ -19,7 +19,7 @@ parameters:
 - name: window_size
   type: int
   default: 14
-  min: 2
+  min: 1
   description: Number of most recent bars over which the highest high and lowest low are taken.
 nan_policy: ignore
 see_also:

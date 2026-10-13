@@ -19,17 +19,17 @@ parameters:
 - name: period1
   type: int
   default: 7
-  min: 2
+  min: 1
   description: Shortest of the three averaging periods, in bars; weighted 4.
 - name: period2
   type: int
   default: 14
-  min: 2
+  min: 1
   description: Middle averaging period, in bars; weighted 2.
 - name: period3
   type: int
   default: 28
-  min: 2
+  min: 1
   description: Longest averaging period, in bars; weighted 1. Output starts once this window
     is full.
 nan_policy: ignore

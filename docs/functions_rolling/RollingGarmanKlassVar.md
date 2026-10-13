@@ -20,7 +20,7 @@ parameters:
 - name: window_size
   type: int
   default: 20
-  min: 2
+  min: 1
   description: Number of most recent bars whose per-bar Garman-Klass variances are averaged.
 see_also:
 - RollingGarmanKlassVol

@@ -20,7 +20,7 @@ parameters:
 - name: window_size
   type: int
   default: 20
-  min: 2
+  min: 1
   description: Number of most recent bars over which the per-bar estimate is averaged.
 nan_policy: ignore
 see_also:

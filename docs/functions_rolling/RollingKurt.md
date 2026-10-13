@@ -18,7 +18,7 @@ parameters:
 - name: window_size
   type: int
   default: 20
-  min: 2
+  min: 1
   description: Number of most recent samples in the window. The estimator needs at least 4
     samples, so smaller windows give NaN.
 - name: start_policy

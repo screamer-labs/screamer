@@ -23,7 +23,7 @@ parameters:
 - name: slow
   type: int
   default: 26
-  min: 2
+  min: 3
   description: Span of the slow EMA, in samples. Must be greater than fast.
 - name: signal
   type: int

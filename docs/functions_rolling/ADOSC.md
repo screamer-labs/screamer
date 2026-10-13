@@ -25,7 +25,7 @@ parameters:
 - name: slow
   type: int
   default: 10
-  min: 2
+  min: 3
   description: Span of the slow EMA of the AD line, in samples. Must be greater than fast.
 see_also:
 - AD

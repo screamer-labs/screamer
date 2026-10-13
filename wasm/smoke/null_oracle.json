@@ -582,8 +582,8 @@
   "base": {},
   "below_min": {
    "delay": [
-    0,
-    "BacktestOHLCTarget: delay must be at least 1, got 0"
+    -1,
+    "BacktestOHLCTarget: delay must be at least 0, got -1"
    ]
   },
   "bool_message": {
@@ -710,8 +710,8 @@
   "base": {},
   "below_min": {
    "delay": [
-    0,
-    "BacktestOHLCVTarget: delay must be at least 1, got 0"
+    -1,
+    "BacktestOHLCVTarget: delay must be at least 0, got -1"
    ]
   },
   "bool_message": {
@@ -838,8 +838,8 @@
   "base": {},
   "below_min": {
    "delay": [
-    0,
-    "BacktestPortfolioOHLCTarget: delay must be at least 1, got 0"
+    -1,
+    "BacktestPortfolioOHLCTarget: delay must be at least 0, got -1"
    ]
   },
   "bool_message": {

@@ -150,6 +150,7 @@
         "name": "count",
         "type": "int",
         "default": 1,
+        "min": 1,
         "description": "Number of assets on each side."
       }
     ],
@@ -4673,7 +4674,7 @@
         "name": "window_size",
         "type": "int",
         "default": 252,
-        "min": 2,
+        "min": 1,
         "description": "Number of most recent values counted."
       }
     ],
@@ -4926,7 +4927,7 @@
         "name": "window_size",
         "type": "int",
         "default": 20,
-        "min": 2,
+        "min": 1,
         "description": "Number of most recent values the current value is ranked against."
       }
     ],
@@ -4968,7 +4969,7 @@
         "name": "window_size",
         "type": "int",
         "default": 20,
-        "min": 2,
+        "min": 1,
         "description": "Number of most recent values the current value is ranked against."
       }
     ],
@@ -7293,7 +7294,7 @@
         "name": "window_size",
         "type": "int",
         "default": 20,
-        "min": 2,
+        "min": 1,
         "description": "Number of most recent valid observations averaged."
       },
       {
@@ -8159,6 +8160,7 @@
         "name": "n_buckets",
         "type": "int",
         "default": 50,
+        "min": 1,
         "description": "Number of most recent closed buckets averaged."
       }
     ],
@@ -8344,7 +8346,7 @@
         "name": "window_size",
         "type": "int",
         "default": 20,
-        "min": 2,
+        "min": 1,
         "description": "Number of most recent samples in the trailing rolling mean that is subtracted."
       },
       {
@@ -8887,7 +8889,7 @@
         "name": "slow",
         "type": "int",
         "default": 10,
-        "min": 2,
+        "min": 3,
         "description": "Span of the slow EMA of the AD line, in samples. Must be greater than fast."
       }
     ],
@@ -9352,7 +9354,7 @@
         "name": "window_size",
         "type": "int",
         "default": 20,
-        "min": 2,
+        "min": 1,
         "description": "Number of most recent samples over which the maximum of high and the minimum of low are taken."
       }
     ],
@@ -9609,14 +9611,14 @@
         "name": "fast",
         "type": "int",
         "default": 2,
-        "min": 2,
+        "min": 1,
         "description": "Period of the fastest smoothing constant, alpha_fast = 2 / (fast + 1), used when the efficiency ratio is 1. TA-Lib fixes it at 2."
       },
       {
         "name": "slow",
         "type": "int",
         "default": 30,
-        "min": 2,
+        "min": 1,
         "description": "Period of the slowest smoothing constant, alpha_slow = 2 / (slow + 1), used when the efficiency ratio is 0. TA-Lib fixes it at 30."
       }
     ],
@@ -9731,7 +9733,7 @@
         "name": "slow",
         "type": "int",
         "default": 26,
-        "min": 2,
+        "min": 3,
         "description": "Span of the slow EMA, in samples. Must be greater than fast."
       },
       {
@@ -9796,7 +9798,7 @@
         "name": "window_size",
         "type": "int",
         "default": 14,
-        "min": 2,
+        "min": 1,
         "description": "Number of most recent typical-price changes whose money flow is summed into the positive and negative totals."
       }
     ],
@@ -10115,7 +10117,7 @@
         "name": "window_size",
         "type": "int",
         "default": 20,
-        "min": 2,
+        "min": 1,
         "description": "Number of most recent samples searched for the maximum."
       }
     ],
@@ -10158,7 +10160,7 @@
         "name": "window_size",
         "type": "int",
         "default": 20,
-        "min": 2,
+        "min": 1,
         "description": "Number of most recent samples searched for the minimum."
       }
     ],
@@ -10204,7 +10206,7 @@
         "name": "window_size",
         "type": "int",
         "default": 20,
-        "min": 2,
+        "min": 1,
         "description": "Number of most recent bars whose per-bar Garman-Klass variances are averaged."
       }
     ],
@@ -10254,7 +10256,7 @@
         "name": "window_size",
         "type": "int",
         "default": 20,
-        "min": 2,
+        "min": 1,
         "description": "Number of most recent bars whose per-bar Garman-Klass variances are averaged."
       }
     ],
@@ -10307,7 +10309,7 @@
         "name": "window_size",
         "type": "int",
         "default": 256,
-        "min": 16,
+        "min": 32,
         "description": "Trailing-window length W in samples. Must be at least 4 * min_scale so the regression has at least three scales."
       },
       {
@@ -10373,7 +10375,7 @@
         "name": "window_size",
         "type": "int",
         "default": 20,
-        "min": 2,
+        "min": 1,
         "description": "Number of most recent samples whose quartiles are taken."
       }
     ],
@@ -10417,7 +10419,7 @@
         "name": "window_size",
         "type": "int",
         "default": 20,
-        "min": 2,
+        "min": 1,
         "description": "Number of most recent samples in the window. The estimator needs at least 4 samples, so smaller windows give NaN."
       },
       {
@@ -10472,7 +10474,7 @@
         "name": "window_size",
         "type": "int",
         "default": 20,
-        "min": 2,
+        "min": 1,
         "description": "Number of most recent samples whose mean and absolute deviations are taken."
       },
       {
@@ -10526,7 +10528,7 @@
         "name": "window_size",
         "type": "int",
         "default": 20,
-        "min": 2,
+        "min": 1,
         "description": "Number of most recent samples in the window."
       }
     ],
@@ -10572,7 +10574,7 @@
         "name": "window_size",
         "type": "int",
         "default": 20,
-        "min": 2,
+        "min": 1,
         "description": "Number of most recent samples in the window."
       },
       {
@@ -10627,7 +10629,7 @@
         "name": "window_size",
         "type": "int",
         "default": 20,
-        "min": 2,
+        "min": 1,
         "description": "Number of most recent samples in the window."
       }
     ],
@@ -10728,7 +10730,7 @@
         "name": "window_size",
         "type": "int",
         "default": 20,
-        "min": 2,
+        "min": 1,
         "description": "Number of most recent samples in the window."
       }
     ],
@@ -10772,7 +10774,7 @@
         "name": "window_size",
         "type": "int",
         "default": 20,
-        "min": 2,
+        "min": 1,
         "description": "Number of most recent samples in the window."
       }
     ],
@@ -10894,7 +10896,7 @@
         "name": "window_size",
         "type": "int",
         "default": 20,
-        "min": 2,
+        "min": 1,
         "description": "Number of most recent bars over which the per-bar estimate is averaged."
       }
     ],
@@ -10944,7 +10946,7 @@
         "name": "window_size",
         "type": "int",
         "default": 20,
-        "min": 2,
+        "min": 1,
         "description": "Number of most recent bars over which the per-bar estimate is averaged."
       }
     ],
@@ -11002,6 +11004,7 @@
         "name": "derivative_order",
         "type": "int",
         "default": 0,
+        "min": 0,
         "enum": [
           0,
           1
@@ -11072,6 +11075,7 @@
         "name": "derivative_order",
         "type": "int",
         "default": 0,
+        "min": 0,
         "enum": [
           0,
           1,
@@ -11132,7 +11136,7 @@
         "name": "window_size",
         "type": "int",
         "default": 20,
-        "min": 2,
+        "min": 1,
         "description": "Number of most recent samples in the window."
       },
       {
@@ -11253,7 +11257,7 @@
         "name": "window_size",
         "type": "int",
         "default": 20,
-        "min": 2,
+        "min": 1,
         "description": "Number of most recent samples in the window."
       }
     ],
@@ -11352,7 +11356,7 @@
         "name": "window_size",
         "type": "int",
         "default": 20,
-        "min": 2,
+        "min": 1,
         "description": "Number of most recent bars over which the per-bar estimate is averaged."
       }
     ],
@@ -11402,7 +11406,7 @@
         "name": "window_size",
         "type": "int",
         "default": 20,
-        "min": 2,
+        "min": 1,
         "description": "Number of most recent bars over which the per-bar estimate is averaged."
       }
     ],
@@ -11451,7 +11455,7 @@
         "name": "window_size",
         "type": "int",
         "default": 20,
-        "min": 2,
+        "min": 1,
         "description": "Number of most recent samples in the window."
       },
       {
@@ -11639,7 +11643,7 @@
         "name": "window_size",
         "type": "int",
         "default": 20,
-        "min": 2,
+        "min": 1,
         "description": "Number of most recent samples in the window."
       },
       {
@@ -11693,7 +11697,7 @@
         "name": "window_size",
         "type": "int",
         "default": 20,
-        "min": 2,
+        "min": 1,
         "description": "Number of most recent bars in the window."
       }
     ],
@@ -11951,7 +11955,7 @@
         "name": "fastk_period",
         "type": "int",
         "default": 14,
-        "min": 2,
+        "min": 1,
         "description": "Number of most recent bars over which the highest high and lowest low are taken for raw %K."
       },
       {
@@ -12024,7 +12028,7 @@
         "name": "stoch_period",
         "type": "int",
         "default": 14,
-        "min": 2,
+        "min": 1,
         "description": "Number of most recent RSI values over which the minimum and maximum are taken."
       },
       {
@@ -12152,7 +12156,7 @@
         "name": "window_size",
         "type": "int",
         "default": 20,
-        "min": 2,
+        "min": 1,
         "description": "Total width of the triangular weighting, in samples."
       }
     ],
@@ -12285,21 +12289,21 @@
         "name": "period1",
         "type": "int",
         "default": 7,
-        "min": 2,
+        "min": 1,
         "description": "Shortest of the three averaging periods, in bars; weighted 4."
       },
       {
         "name": "period2",
         "type": "int",
         "default": 14,
-        "min": 2,
+        "min": 1,
         "description": "Middle averaging period, in bars; weighted 2."
       },
       {
         "name": "period3",
         "type": "int",
         "default": 28,
-        "min": 2,
+        "min": 1,
         "description": "Longest averaging period, in bars; weighted 1. Output starts once this window is full."
       }
     ],
@@ -12346,7 +12350,7 @@
         "name": "window_size",
         "type": "int",
         "default": 20,
-        "min": 2,
+        "min": 1,
         "description": "Number of most recent samples in the window; the newest sample gets weight window_size and the oldest weight 1."
       },
       {
@@ -12402,7 +12406,7 @@
         "name": "window_size",
         "type": "int",
         "default": 14,
-        "min": 2,
+        "min": 1,
         "description": "Number of most recent bars over which the highest high and lowest low are taken."
       }
     ],

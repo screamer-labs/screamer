@@ -18,7 +18,7 @@ parameters:
 - name: window_size
   type: int
   default: 20
-  min: 2
+  min: 1
   description: Number of most recent samples in the trailing rolling mean that is subtracted.
 - name: start_policy
   type: str

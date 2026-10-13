@@ -16,7 +16,7 @@ parameters:
 - name: window_size
   type: int
   default: 20
-  min: 2
+  min: 1
   description: Total width of the triangular weighting, in samples.
 nan_policy: ignore
 see_also:

@@ -19,7 +19,7 @@ parameters:
 - name: window_size
   type: int
   default: 14
-  min: 2
+  min: 1
   description: Number of most recent typical-price changes whose money flow is summed into
     the positive and negative totals.
 see_also:

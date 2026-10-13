@@ -19,7 +19,7 @@ parameters:
 - name: window_size
   type: int
   default: 20
-  min: 2
+  min: 1
   description: Number of most recent samples over which the maximum of high and the minimum
     of low are taken.
 output_names:

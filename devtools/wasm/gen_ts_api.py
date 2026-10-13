@@ -267,6 +267,7 @@ def _factory_body(name: str, params: list[dict], wrapper: str = "wrapOp") -> str
             # A fraction, NaN or an infinity is not an integer, as in Python.
             lines.append(f'  if (typeof {n} !== "number" || !Number.isInteger({n})) throw new TypeError(`{name}: {n} must be {_kind(p)}, '
                          f'got ${{typeof {n} === "number" ? {n} : _what({n})}}`);')
+            lines.append(f'  if (!({n} >= -2147483648 && {n} <= 2147483647)) _intRange(M, "{name}", "{n}", {n});')
         elif not p["is_vec"]:
             lines.append(f'  if (typeof {n} !== "number") throw new TypeError(`{name}: {n} must be {_kind(p)}, got ${{_what({n})}}`);')
     # Copy array parameters once, now: the closure below runs again for every
@@ -398,8 +399,16 @@ const _finite = (M: any, op: string, names: string[], values: unknown[], e: unkn
     const v = values[i];
     if (typeof v === "number" || Array.isArray(v)) { ns.push(n); vs.push(v); }
   });
-  const msg = M.finiteSettingError(op, ns, vs);
+  // A buffer's length_error ("vector") or bad_alloc: a setting too large to allocate.
+  const alloc = e.message === "vector" || /bad_alloc/.test(e.message);
+  const msg = M.finiteSettingError(op, ns, vs, vs.map((v) => String(v)), alloc);
   return msg ? new RangeError(msg) : e;
+};
+// An integer setting outside the range of the C++ int it is held in, refused
+// before the constructor narrows it (it would wrap): the one message of
+// int_settings.h, "<Op>: <setting> must be at most 2147483647, got 4294967298".
+const _intRange = (M: any, op: string, name: string, v: number): never => {
+  throw new RangeError(M.finiteSettingError(op, [name], [v], [String(v)], false));
 };
 // Records the settings the caller gave on the op, for Pipeline.toJSON: its
 // class, the Python names and the values as given (pipeline_io.ts reads them

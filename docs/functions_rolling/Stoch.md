@@ -20,7 +20,7 @@ parameters:
 - name: fastk_period
   type: int
   default: 14
-  min: 2
+  min: 1
   description: Number of most recent bars over which the highest high and lowest low are taken
     for raw %K.
 - name: smooth_k
