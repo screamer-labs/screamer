@@ -573,6 +573,62 @@ def cases():
         "Resample fill max_fill=0": lambda: s.Resample(freq=1, fill="nan", max_fill=0)((v[:2], gap)),
         "Resample clock value via Filter": clock_via_filter,
     })
+
+    # Empty results keep their width (G18), fill="carry" is per column (G23),
+    # a CombineLatest of zero-width feeds (G24), a bool as a number setting
+    # (G25), to_json with a functor reducer (G21), and the field axis of a
+    # lazy multi-output operator on wide events (A12).
+    E3, e0 = np.zeros((0, K)), np.zeros(0, dtype=np.int64)
+    Xn = X[:6, :2].copy()
+    Xn[[1, 3], 0] = np.nan
+    Xn[[2, 3], 1] = np.nan
+    kn = np.array([0, 10, 25, 40, 41, 70])
+    vn = np.array([v[0], np.nan, v[2]])
+
+    def live_drain(align):
+        a, b = s.Input("a"), s.Input("b")
+        sess = s.Pipeline([a, b], [a, s.RollingMean(2)(b)], align_outputs=align).live()
+        for t in range(2):
+            sess.push("a", t, X[t].tolist())
+            sess.push("b", t, float(v[t]))
+        sess.result()
+        return sess.result()
+
+    def zero_width_combine():
+        a, b = s.Input("a"), s.Input("b")
+        p = s.Pipeline([a, b], [s.RollingMean(2)(s.CombineLatest()(a, b))])
+        return p(np.zeros((3, 0)), np.zeros((3, 0)))
+
+    def json_functor_agg():
+        x = s.Input("x")
+        p = s.Pipeline([x], [s.Resample(count=3, agg=s.RollingMean(2))(x)])
+        return s.Pipeline.from_json(p.to_json())(v)
+
+    clock = (np.zeros(4), np.array([5, 15, 30, 75]))
+    table.update({
+        "Pipeline empty (0,K) passthrough": lambda: pipe1(E3, op=lambda x: x),
+        "Pipeline empty (0,K) resample ohlc": lambda: pipe1(E3, op=lambda x: s.Resample(count=2, agg="ohlc")(x)),
+        "Pipeline live empty drain aligned": lambda: live_drain(True),
+        "Pipeline live empty drain unaligned": lambda: live_drain(False),
+        "Resample count empty (0,K)": lambda: s.Resample(count=2)(E3),
+        "Resample freq ohlc empty (0,K)": lambda: s.Resample(freq=2, agg="ohlc")((E3, e0)),
+        "Delay empty (0,K)": lambda: s.Delay(1)((E3, e0)),
+        "Resample fill carry NaN cells (T,K)": lambda: s.Resample(freq=10, fill="carry")((Xn, kn)),
+        "Resample fill carry NaN bar 1-D": lambda: s.Resample(freq=10, fill="carry")((vn, np.array([0, 10, 40]))),
+        "Resample clock carry NaN cells (T,K)": lambda: s.Resample((Xn, kn), clock, clock=True, agg="last", fill="carry"),
+        "Resample clock carry NaN bar 1-D": lambda: s.Resample((Xn[:, 0], kn), clock, clock=True, agg="last", fill="carry"),
+        "CombineLatest of (T,0) feeds into an operator": zero_width_combine,
+        "Pipeline to_json functor agg": json_functor_agg,
+        "RollingMean(True)": lambda: s.RollingMean(True)(v),
+        "RollingMean(np.True_)": lambda: s.RollingMean(np.True_)(v),
+        "BollingerBands num_std=True": lambda: s.BollingerBands(3, True)(v),
+        "MovingAverage bool taps": lambda: s.MovingAverage([True, 0.5])(v),
+        "Resample count=True": lambda: s.Resample(count=True)(v),
+        "Delay duration=True": lambda: s.Delay(True)(v, idx),
+        "Pipeline max_pending=np.True_": lambda: (lambda x: s.Pipeline(
+            [x], [s.RollingMean(1)(x)], max_pending=np.True_)(v))(s.Input("x")),
+        "BollingerBands lazy wide events": lambda: lz(s.BollingerBands(3)(gen(X[:5]))),
+    })
     return table
 
 

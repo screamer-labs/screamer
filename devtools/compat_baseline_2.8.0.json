@@ -19593,5 +19593,273 @@
    12.0,
    "a9205ffaf1a5ea5f"
   ]
+ ],
+ "Pipeline empty (0,K) passthrough": [
+  "pair",
+  [
+   "ndarray",
+   [
+    0
+   ],
+   "f",
+   0.0,
+   "da39a3ee5e6b4b0d"
+  ],
+  [
+   "ndarray",
+   [
+    0
+   ],
+   "i",
+   0.0,
+   "da39a3ee5e6b4b0d"
+  ]
+ ],
+ "Pipeline empty (0,K) resample ohlc": [
+  "pair",
+  [
+   "ndarray",
+   [
+    0,
+    4
+   ],
+   "f",
+   0.0,
+   "da39a3ee5e6b4b0d"
+  ],
+  [
+   "ndarray",
+   [
+    0
+   ],
+   "i",
+   0.0,
+   "da39a3ee5e6b4b0d"
+  ]
+ ],
+ "Pipeline live empty drain aligned": [
+  "ERROR",
+  "TypeError",
+  "float() argument must be a string or a real number, not 'list'"
+ ],
+ "Pipeline live empty drain unaligned": [
+  "ERROR",
+  "TypeError",
+  "float() argument must be a string or a real number, not 'list'"
+ ],
+ "Resample count empty (0,K)": [
+  "ERROR",
+  "ValueError",
+  "resample: expects a 1-D value stream"
+ ],
+ "Resample freq ohlc empty (0,K)": [
+  "ERROR",
+  "ValueError",
+  "resample: expects a 1-D value stream"
+ ],
+ "Delay empty (0,K)": [
+  "pair",
+  [
+   "ndarray",
+   [
+    0
+   ],
+   "f",
+   0.0,
+   "da39a3ee5e6b4b0d"
+  ],
+  [
+   "ndarray",
+   [
+    0
+   ],
+   "i",
+   0.0,
+   "da39a3ee5e6b4b0d"
+  ]
+ ],
+ "Resample fill carry NaN cells (T,K)": [
+  "ERROR",
+  "ValueError",
+  "resample: expects a 1-D value stream"
+ ],
+ "Resample fill carry NaN bar 1-D": [
+  "pair",
+  [
+   "ndarray",
+   [
+    5
+   ],
+   "f",
+   200.759778,
+   "57e67651e2c69536"
+  ],
+  [
+   "ndarray",
+   [
+    5
+   ],
+   "i",
+   100.0,
+   "8e4df61fbe384e8f"
+  ]
+ ],
+ "Resample clock carry NaN cells (T,K)": [
+  "pair",
+  [
+   "ndarray",
+   [
+    4,
+    2
+   ],
+   "f",
+   595.587328,
+   "2e2257f875cdccd1"
+  ],
+  [
+   "ndarray",
+   [
+    4
+   ],
+   "i",
+   125.0,
+   "e8cd8953ef6b3279"
+  ]
+ ],
+ "Resample clock carry NaN bar 1-D": [
+  "pair",
+  [
+   "ndarray",
+   [
+    4
+   ],
+   "f",
+   397.909404,
+   "307c150c9aba4eea"
+  ],
+  [
+   "ndarray",
+   [
+    4
+   ],
+   "i",
+   125.0,
+   "e8cd8953ef6b3279"
+  ]
+ ],
+ "CombineLatest of (T,0) feeds into an operator": [
+  "ERROR",
+  "RuntimeError",
+  "dag::FunctorNode: frame width does not match op n_in"
+ ],
+ "Pipeline to_json functor agg": [
+  "ERROR",
+  "TypeError",
+  "Object of type RollingMean is not JSON serializable"
+ ],
+ "RollingMean(True)": [
+  "ndarray",
+  [
+   30
+  ],
+  "f",
+  2950.955396,
+  "faf45aac452509b3"
+ ],
+ "RollingMean(np.True_)": [
+  "ndarray",
+  [
+   30
+  ],
+  "f",
+  2950.955396,
+  "faf45aac452509b3"
+ ],
+ "BollingerBands num_std=True": [
+  "ndarray",
+  [
+   30,
+   3
+  ],
+  "f",
+  8263.775082,
+  "6eb0dfc5c348f104"
+ ],
+ "MovingAverage bool taps": [
+  "ndarray",
+  [
+   30
+  ],
+  "f",
+  4278.129661,
+  "443f91cb60260039"
+ ],
+ "Resample count=True": [
+  "pair",
+  [
+   "ndarray",
+   [
+    30
+   ],
+   "f",
+   2950.955396,
+   "faf45aac452509b3"
+  ],
+  [
+   "ndarray",
+   [
+    30
+   ],
+   "i",
+   435.0,
+   "c6aa67295a3a2366"
+  ]
+ ],
+ "Delay duration=True": [
+  "pair",
+  [
+   "ndarray",
+   [
+    30
+   ],
+   "f",
+   2950.955396,
+   "faf45aac452509b3"
+  ],
+  [
+   "ndarray",
+   [
+    30
+   ],
+   "i",
+   4380.0,
+   "b11004692cfea662"
+  ]
+ ],
+ "Pipeline max_pending=np.True_": [
+  "pair",
+  [
+   "ndarray",
+   [
+    30
+   ],
+   "f",
+   2950.955396,
+   "faf45aac452509b3"
+  ],
+  [
+   "ndarray",
+   [
+    30
+   ],
+   "i",
+   435.0,
+   "c6aa67295a3a2366"
+  ]
+ ],
+ "BollingerBands lazy wide events": [
+  "ERROR",
+  "RuntimeError",
+  "std::bad_cast"
  ]
 }
