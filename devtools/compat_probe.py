@@ -694,6 +694,28 @@ def cases():
         "KalmanFilter finite overflow": lambda: s.KalmanFilter(1.7e308, 0.5, 0.0, 1.7e308)(v[:3]),
         "BacktestOHLCTarget delay=0 fill_at=open": lambda: s.BacktestOHLCTarget(delay=0),
     })
+
+    # Task FA (final review, C++ core and engine).
+    def live_after_flush():
+        a, b = s.Input("a"), s.Input("b")
+        sess = s.Pipeline([a, b], [s.CombineLatest()(a, b)]).live()
+        sess.push("a", 1, 1.0)
+        sess.push("b", 1, 2.0)
+        sess.flush()
+        for nm, k, val in [("a", 3, 1.0), ("b", 2, 2.0), ("a", 4, 3.0), ("b", 5, 4.0)]:
+            sess.push(nm, k, val)
+        sess.flush()
+        return sess.result()
+
+    top = 2 ** 63 - 6
+    table.update({
+        "Pipeline live push after flush": live_after_flush,
+        "Delay past int64": lambda: s.Delay(10)(np.ones(2), np.array([0, top])),
+        "Resample right label past int64": lambda: s.Resample(freq=10, label="right", agg="last")(
+            (np.ones(1), np.array([top]))),
+        "Resample origin past int64": lambda: s.Resample(freq=10, origin=-10, agg="last")(
+            (np.ones(1), np.array([top]))),
+    })
     return table
 
 

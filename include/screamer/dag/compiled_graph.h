@@ -387,12 +387,23 @@ public:
         for (std::size_t o = 0; o < outputs_.size(); ++o) outputs_[o].width = result_w_[o];
     }
 
-    // Emits every open trailing bucket (end-of-input signal). Existing nodes emit
-    // nothing on flush; resample nodes emit their partial bucket. Idempotent.
+    // Ends the input: every node emits what it holds (a resample its partial
+    // bucket, a join its last row). After it, push and advance raise until
+    // reset(): the joins have released every row, so a later event could
+    // only come out of order. A repeated flush does nothing.
     void flush() {
         check_live();
+        if (flushed_) return;
         for (auto* s : input_sinks_) if (s) s->flush();
         flushed_ = true;
+    }
+
+    // Throws once flush() ended the input (until reset()).
+    void check_open() const {
+        if (flushed_)
+            throw std::invalid_argument(
+                "flush() ended this session's input; start a new live() session "
+                "to push more events");
     }
 
     // Whether one index-ordered merge feeds the inputs from here until the
@@ -418,7 +429,7 @@ public:
     // the session.
     void advance(std::int64_t now) {
         check_live();
-        flushed_ = false;
+        check_open();
         if (!has_floor_ || now > floor_) { floor_ = now; has_floor_ = true; }
         try { for (auto* s : input_sinks_) if (s) s->on_watermark(now); }
         catch (const FillLimitError&) { throw; }
@@ -431,8 +442,8 @@ public:
         if (input_idx >= num_in_)
             throw std::runtime_error("push_event: input index out of range");
         check_live();
+        check_open();
         check_order(input_idx, index);
-        flushed_ = false;
         if (in_width_[input_idx] != 1) set_width(input_idx, 1);
         note_order(input_idx, index);
         double v = value;
@@ -450,8 +461,8 @@ public:
         if (width == 0)
             throw std::invalid_argument("a wide event needs at least one value, got none");
         check_live();
+        check_open();
         check_order(input_idx, index);
-        flushed_ = false;
         if (in_width_[input_idx] != width) set_width(input_idx, width);
         note_order(input_idx, index);
         Frame<std::int64_t> f{index, values, width};
@@ -947,7 +958,7 @@ private:
     std::vector<std::size_t> topo_producers_first_;
     std::vector<std::size_t> input_sig_;   // node id -> input signature index
     bool poisoned_ = false;
-    bool flushed_ = false;                 // the input ended (flush) since the last event
+    bool flushed_ = false;                 // flush() ended the input (until reset())
     OutputJoin join_;                      // the output alignment across drains
     std::vector<std::size_t> in_width_;   // per input, 0 = not set yet
     std::vector<std::int64_t> in_last_;    // per input, the last live event's index

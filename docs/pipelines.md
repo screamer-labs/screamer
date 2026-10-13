@@ -95,8 +95,9 @@ event by event, `pipe.live()` opens a session:
 - `.advance(now)` moves logical time to `now`, closing every window whose boundary
   has passed (this finalizes time-based bars even when no new data arrives, such as
   an empty minute bar closed by a clock tick);
-- `.flush()` finalizes the current partial window on demand, for example at the end
-  of a loop;
+- `.flush()` ends the input, for example at the end of a loop: it finalizes the
+  current partial window and releases every row. A later `.push()` or
+  `.advance()` raises `ValueError`; a new `live()` session starts over;
 - `.result()` collects the aligned output so far. An input that gets no events
   (a silent clock, a paused feed) holds the other outputs' aligned rows in
   memory until `.advance(now)` or `.flush()`, so a long-running session calls

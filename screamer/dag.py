@@ -285,7 +285,10 @@ def _live_dag_class():
             return self
 
         def flush(self):
-            """Finalize the current partial window(s) now (end-of-loop / on demand)."""
+            """End the input: emit every partial window and release every row.
+
+            A later push() or advance() raises ValueError; start a new live()
+            session to feed more events. A repeated flush() does nothing."""
             self._cg.flush()
             return self
 

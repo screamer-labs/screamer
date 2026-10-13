@@ -357,3 +357,27 @@ test("live: a push whose value disposes the Pipeline raises TypeError", async ()
     p.dispose();
   }
 });
+
+// flush() ends the input (the twin of tests/test_live_flush_ends_input.py).
+test("live: push and advance after flush() throw RangeError; a new session starts over", async () => {
+  await ready();
+  const a = Input("a"), b = Input("b");
+  const p = new Pipeline([a, b], [combineLatest([a, b])]);
+  try {
+    const s = p.live();
+    s.push("a", 1, 1); s.push("b", 1, 2);
+    s.flush();
+    s.flush();                                  // a repeated flush does nothing
+    assert.deepEqual(Array.from((s.result() as Output).index as any), [1]);
+    const ended = (e: unknown) => e instanceof RangeError &&
+      /flush\(\) ended this session's input; start a new live\(\) session/.test((e as Error).message);
+    assert.throws(() => s.push("a", 3, 1), ended);
+    assert.throws(() => s.push("a", 3, [1]), ended);
+    assert.throws(() => s.advance(5), ended);
+    assert.equal(((s.result() as Output).index as any).length, 0);
+    const t = p.live();
+    for (const [nm, k, v] of [["a", 3, 1], ["b", 2, 2], ["a", 4, 3], ["b", 5, 4]] as const) t.push(nm, k, v);
+    t.flush();
+    assert.deepEqual(Array.from((t.result() as Output).index as any), [3, 4, 5]);
+  } finally { p.dispose(); }
+});

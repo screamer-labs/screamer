@@ -135,10 +135,11 @@ returns the session, so calls chain.
   time-based bars even when no event fell in them, for example an empty minute bar
   closed by a clock tick. It is a no-op for event-count (`count=`) windows and
   before the first event; call it with non-decreasing `now`.
-- **`.flush()`** finalizes the current partial window(s) on demand, for example at
-  the end of a processing loop. The end-of-input flush that `pipe(...)` performs
-  implicitly is the special case. Use `.flush()`, not `advance`, to end the input:
-  `advance` leaves `count=` and `threshold=` windows open.
+- **`.flush()`** ends the input: every partial window is finalized and every
+  row is released, as at the end of `pipe(...)`. After it, `.push()` and
+  `.advance()` raise `ValueError`; start a new `live()` session to feed more
+  events. Use `.flush()`, not `advance`, to end the input: `advance` leaves
+  `count=` and `threshold=` windows open.
 - **`.result()`** returns the output accumulated so far, in the same shape
   `pipe(...)` returns, and drains the internal buffers. Aligned outputs keep
   each output's latest value from one call to the next, so the rows of repeated

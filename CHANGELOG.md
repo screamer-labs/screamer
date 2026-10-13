@@ -143,6 +143,13 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Changed
 
+* `flush()` ends a live session's input: a later `push()` or `advance()`
+  raises `ValueError` (`RangeError` in JavaScript), "flush() ended this
+  session's input; start a new live() session to push more events". In
+  2.8.0 a push after `flush()` went on, but the joins
+  (`CombineLatest`, `Filter`) had released every row and no longer put the
+  inputs in index order, so the rows came out unsorted and could differ from
+  batch. Old result: none; open a new `live()` session to feed more events.
 * A decreasing index raises `ValueError` (JavaScript: `RangeError`) at every
   stream entry point, naming the input and the event: "the index of input 0
   decreases at event 2, from 20 to 10; a stream's index must be non-decreasing

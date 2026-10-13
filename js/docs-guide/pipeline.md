@@ -149,7 +149,8 @@ const { values, index } = driver.result();
 
 `driver.advance(now)` moves logical time to `now`, closing every resample window whose boundary
 has passed by `now`, empty ones included (filled per `fill`). `flush()` is the end of input;
-`advance` leaves `count=` and `threshold=` windows open.
+`advance` leaves `count=` and `threshold=` windows open. After `flush()`, `push` and `advance`
+throw `RangeError`; start a new `live()` session to feed more events.
 
 An input keeps the width of its first event (a number is width 1); an event of another width
 throws `RangeError`. `pushWide` is an alias of `push` for arrays. An index is a `number` with a
