@@ -175,9 +175,9 @@ test("split refuses more outputs than its cap of 2**20 (RangeError)", async () =
   await ready();
   const cap = 2 ** 20;
   assert.throws(() => split([1.0], [2 ** 31 - 2]), {
-    name: "RangeError", message: "split: 2147483647 outputs is more than the cap of 1048576 (2**20); pass smaller source ids",
+    name: "RangeError", message: "split: 2147483647 outputs are more than the cap of 1048576 (2**20); pass smaller source ids",
   });
-  assert.throws(() => split([1.0, 2.0], [0, cap]), { name: "RangeError", message: /^split: 1048577 outputs is more than the cap/ });
-  assert.throws(() => split([1.0], [0], { n: cap + 1 }), { name: "RangeError", message: /^split: n=1048577 outputs is more than the cap/ });
+  assert.throws(() => split([1.0, 2.0], [0, cap]), { name: "RangeError", message: /^split: 1048577 outputs are more than the cap/ });
+  assert.throws(() => split([1.0], [0], { n: cap + 1 }), { name: "RangeError", message: /^split: n=1048577 outputs are more than the cap of 1048576 \(2\*\*20\); pass a smaller n$/ });
   assert.equal(split([1.0, 2.0], [0, cap - 1]).length, cap);
 });

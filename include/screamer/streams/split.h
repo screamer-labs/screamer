@@ -46,11 +46,11 @@ constexpr std::uint32_t kMaxSplitSource = kMaxSplitOutputs - 1;    // 2**31 - 2
 constexpr std::size_t kSplitOutputCap = std::size_t(1) << 20;
 
 // More outputs than kSplitOutputCap; `what` is the count ("2147483647
-// outputs", "n=2000000 outputs").
-[[noreturn]] inline void throw_split_cap(const std::string& what) {
-    throw std::invalid_argument("split: " + what + " is more than the cap of " +
-                                std::to_string(kSplitOutputCap) +
-                                " (2**20); pass smaller source ids");
+// outputs", "n=2000000 outputs") and `fix` names the argument to change
+// ("smaller source ids", "a smaller n").
+[[noreturn]] inline void throw_split_cap(const std::string& what, const char* fix) {
+    throw std::invalid_argument("split: " + what + " are more than the cap of " +
+                                std::to_string(kSplitOutputCap) + " (2**20); pass " + fix);
 }
 
 // A source that is not a whole number; `text` is the value or its kind.
@@ -235,7 +235,8 @@ private:
     void finish(bool has_n, double n) {
         if (!has_n) {
             if (total_ && top_ >= kSplitOutputCap)
-                throw_split_cap(std::to_string(std::uint64_t(top_) + 1) + " outputs");
+                throw_split_cap(std::to_string(std::uint64_t(top_) + 1) + " outputs",
+                                "smaller source ids");
             return;
         }
         if (!std::isfinite(n) || n != std::floor(n)) throw_split_n_kind(dag::number_text(n));
@@ -247,7 +248,8 @@ private:
         if (n > static_cast<double>(kMaxSplitOutputs))
             throw std::invalid_argument("split: n must be at most 2**31 - 1, got " +
                                         dag::number_text(n));
-        if (n > static_cast<double>(kSplitOutputCap)) throw_split_cap("n=" + dag::number_text(n) + " outputs");
+        if (n > static_cast<double>(kSplitOutputCap))
+            throw_split_cap("n=" + dag::number_text(n) + " outputs", "a smaller n");
         grow(static_cast<std::size_t>(n));
     }
 

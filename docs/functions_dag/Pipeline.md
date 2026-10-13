@@ -134,8 +134,8 @@ Each session, and each lazy call `pipe(generators)`, runs on its own engine and
 its own copies of the operators (the same parameters, a fresh state), so
 several sessions of one pipeline, a batch call while a session is open, two
 Pipelines built from the same nodes, and direct calls of the operators never
-interfere. Opening a session costs about a compile of the graph (5 us for one
-operator, 35 us for twenty). Each method returns the session, so calls chain.
+interfere. Opening a session costs about one compile of the graph. Each
+method returns the session, so calls chain.
 
 - **`.push(input, index, value)`** feeds one event. `input` is an `Input` name
   (str) or its position (int) in the `inputs` list; `index` is the event's integer
