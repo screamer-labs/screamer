@@ -10145,5 +10145,917 @@
     -545.788953017
    ]
   ]
+ ],
+ "SignedVolume scalars positional": [
+  "float",
+  99.162826816
+ ],
+ "SignedVolume stream of scalars": [
+  "list",
+  8,
+  [
+   [
+    "float",
+    98.990381816
+   ],
+   [
+    "float",
+    -98.781206242
+   ],
+   [
+    "float",
+    98.621981232
+   ],
+   [
+    "float",
+    99.162826816
+   ],
+   [
+    "float",
+    99.377485939
+   ],
+   [
+    "float",
+    99.732858648
+   ],
+   [
+    "float",
+    99.079030038
+   ],
+   [
+    "float",
+    98.949416405
+   ]
+  ]
+ ],
+ "SignedVolume packed (T,2)": [
+  "ERROR",
+  "TypeError",
+  "SignedVolume.__call__() missing 1 required positional argument: 'volum"
+ ],
+ "SignedVolume packed (T,K,2)": [
+  "ERROR",
+  "TypeError",
+  "SignedVolume.__call__() missing 1 required positional argument: 'volum"
+ ],
+ "SignedVolume (T,K) separate": [
+  "ndarray",
+  [
+   30,
+   3
+  ],
+  "f",
+  39942.947495,
+  "b7e68dc766181bd9"
+ ],
+ "SignedVolume (T,K)+(T,)": [
+  "ERROR",
+  "TypeError",
+  "Incompatible input numpy arrays, dimensions mismatch."
+ ],
+ "SignedVolume kw (T,K)": [
+  "ndarray",
+  [
+   30,
+   3
+  ],
+  "f",
+  39942.947495,
+  "b7e68dc766181bd9"
+ ],
+ "SignedVolume list of events": [
+  "ERROR",
+  "TypeError",
+  "SignedVolume.__call__() missing 1 required positional argument: 'volum"
+ ],
+ "SignedVolume tuple of events": [
+  "ERROR",
+  "TypeError",
+  "SignedVolume.__call__() missing 1 required positional argument: 'volum"
+ ],
+ "SignedVolume generator of events": [
+  "ERROR",
+  "TypeError",
+  "SignedVolume.__call__() missing 1 required positional argument: 'volum"
+ ],
+ "SignedVolume async generator of events": [
+  "ERROR",
+  "TypeError",
+  "SignedVolume.__call__() missing 1 required positional argument: 'volum"
+ ],
+ "SignedVolume two generators": [
+  "list",
+  6,
+  [
+   [
+    "float",
+    98.990381816
+   ],
+   [
+    "float",
+    -98.781206242
+   ],
+   [
+    "float",
+    98.621981232
+   ],
+   [
+    "float",
+    99.162826816
+   ],
+   [
+    "float",
+    99.377485939
+   ],
+   [
+    "float",
+    99.732858648
+   ]
+  ]
+ ],
+ "SignedVolume two lists": [
+  "list",
+  6,
+  [
+   [
+    "float",
+    98.990381816
+   ],
+   [
+    "float",
+    -98.781206242
+   ],
+   [
+    "float",
+    98.621981232
+   ],
+   [
+    "float",
+    99.162826816
+   ],
+   [
+    "float",
+    99.377485939
+   ],
+   [
+    "float",
+    99.732858648
+   ]
+  ]
+ ],
+ "SignedVolume pandas Series": [
+  "ndarray",
+  [
+   30
+  ],
+  "f",
+  -940.421455,
+  "e0321d7db0bb212d"
+ ],
+ "SignedVolume kw reversed order": [
+  "ndarray",
+  [
+   30
+  ],
+  "f",
+  -940.421455,
+  "e0321d7db0bb212d"
+ ],
+ "SignedVolume kw unexpected": [
+  "ERROR",
+  "TypeError",
+  "SignedVolume.__call__() got an unexpected keyword argument 'extra'"
+ ],
+ "SignedVolume kw duplicate": [
+  "ERROR",
+  "TypeError",
+  "SignedVolume.__call__() got multiple values for argument 'sign'"
+ ],
+ "SignedVolume kw second only": [
+  "ERROR",
+  "TypeError",
+  "SignedVolume.__call__() missing 1 required positional argument: 'sign'"
+ ],
+ "SignedVolume too many inputs": [
+  "ERROR",
+  "TypeError",
+  "SignedVolume.__call__() takes 3 positional arguments but 4 were given"
+ ],
+ "SignedVolume no inputs": [
+  "ERROR",
+  "TypeError",
+  "SignedVolume.__call__() missing 2 required positional arguments: 'sign"
+ ],
+ "SignedVolume one scalar": [
+  "ERROR",
+  "TypeError",
+  "SignedVolume.__call__() missing 1 required positional argument: 'volum"
+ ],
+ "RollingKyleLambda scalars positional": [
+  "float",
+  NaN
+ ],
+ "RollingKyleLambda stream of scalars": [
+  "list",
+  8,
+  [
+   [
+    "float",
+    NaN
+   ],
+   [
+    "float",
+    NaN
+   ],
+   [
+    "float",
+    NaN
+   ],
+   [
+    "float",
+    NaN
+   ],
+   [
+    "float",
+    0.00091885
+   ],
+   [
+    "float",
+    0.001379158
+   ],
+   [
+    "float",
+    -0.637984643
+   ],
+   [
+    "float",
+    -1.151387707
+   ]
+  ]
+ ],
+ "RollingKyleLambda packed (T,2)": [
+  "ERROR",
+  "TypeError",
+  "RollingKyleLambda.__call__() missing 1 required positional argument: '"
+ ],
+ "RollingKyleLambda packed (T,K,2)": [
+  "ERROR",
+  "TypeError",
+  "RollingKyleLambda.__call__() missing 1 required positional argument: '"
+ ],
+ "RollingKyleLambda (T,K) separate": [
+  "ndarray",
+  [
+   30,
+   3
+  ],
+  "f",
+  -7.82372,
+  "82d8a5412e2f41b9"
+ ],
+ "RollingKyleLambda (T,K)+(T,)": [
+  "ERROR",
+  "TypeError",
+  "Incompatible input numpy arrays, dimensions mismatch."
+ ],
+ "RollingKyleLambda kw (T,K)": [
+  "ndarray",
+  [
+   30,
+   3
+  ],
+  "f",
+  -7.82372,
+  "82d8a5412e2f41b9"
+ ],
+ "RollingKyleLambda list of events": [
+  "ERROR",
+  "TypeError",
+  "RollingKyleLambda.__call__() missing 1 required positional argument: '"
+ ],
+ "RollingKyleLambda tuple of events": [
+  "ERROR",
+  "TypeError",
+  "RollingKyleLambda.__call__() missing 1 required positional argument: '"
+ ],
+ "RollingKyleLambda generator of events": [
+  "ERROR",
+  "TypeError",
+  "RollingKyleLambda.__call__() missing 1 required positional argument: '"
+ ],
+ "RollingKyleLambda async generator of events": [
+  "ERROR",
+  "TypeError",
+  "RollingKyleLambda.__call__() missing 1 required positional argument: '"
+ ],
+ "RollingKyleLambda two generators": [
+  "list",
+  6,
+  [
+   [
+    "float",
+    NaN
+   ],
+   [
+    "float",
+    NaN
+   ],
+   [
+    "float",
+    NaN
+   ],
+   [
+    "float",
+    NaN
+   ],
+   [
+    "float",
+    0.00091885
+   ],
+   [
+    "float",
+    0.001379158
+   ]
+  ]
+ ],
+ "RollingKyleLambda two lists": [
+  "list",
+  6,
+  [
+   [
+    "float",
+    NaN
+   ],
+   [
+    "float",
+    NaN
+   ],
+   [
+    "float",
+    NaN
+   ],
+   [
+    "float",
+    NaN
+   ],
+   [
+    "float",
+    0.00091885
+   ],
+   [
+    "float",
+    0.001379158
+   ]
+  ]
+ ],
+ "RollingKyleLambda pandas Series": [
+  "ndarray",
+  [
+   30
+  ],
+  "f",
+  -3.753589,
+  "03b7189dac5ed4b4"
+ ],
+ "RollingKyleLambda kw reversed order": [
+  "ndarray",
+  [
+   30
+  ],
+  "f",
+  -3.753589,
+  "03b7189dac5ed4b4"
+ ],
+ "RollingKyleLambda kw unexpected": [
+  "ERROR",
+  "TypeError",
+  "RollingKyleLambda.__call__() got an unexpected keyword argument 'extra"
+ ],
+ "RollingKyleLambda kw duplicate": [
+  "ERROR",
+  "TypeError",
+  "RollingKyleLambda.__call__() got multiple values for argument 'signed_"
+ ],
+ "RollingKyleLambda kw second only": [
+  "ERROR",
+  "TypeError",
+  "RollingKyleLambda.__call__() missing 1 required positional argument: '"
+ ],
+ "RollingKyleLambda too many inputs": [
+  "ERROR",
+  "TypeError",
+  "RollingKyleLambda.__call__() takes 3 positional arguments but 4 were g"
+ ],
+ "RollingKyleLambda no inputs": [
+  "ERROR",
+  "TypeError",
+  "RollingKyleLambda.__call__() missing 2 required positional arguments: "
+ ],
+ "RollingKyleLambda one scalar": [
+  "ERROR",
+  "TypeError",
+  "RollingKyleLambda.__call__() missing 1 required positional argument: '"
+ ],
+ "EwKyleLambda scalars positional": [
+  "float",
+  NaN
+ ],
+ "EwKyleLambda stream of scalars": [
+  "list",
+  8,
+  [
+   [
+    "float",
+    NaN
+   ],
+   [
+    "float",
+    0.000667967
+   ],
+   [
+    "float",
+    0.002909464
+   ],
+   [
+    "float",
+    0.002029882
+   ],
+   [
+    "float",
+    0.000244512
+   ],
+   [
+    "float",
+    0.001142091
+   ],
+   [
+    "float",
+    0.003364867
+   ],
+   [
+    "float",
+    0.004071845
+   ]
+  ]
+ ],
+ "EwKyleLambda packed (T,2)": [
+  "ERROR",
+  "TypeError",
+  "EwKyleLambda.__call__() missing 1 required positional argument: 'retur"
+ ],
+ "EwKyleLambda packed (T,K,2)": [
+  "ERROR",
+  "TypeError",
+  "EwKyleLambda.__call__() missing 1 required positional argument: 'retur"
+ ],
+ "EwKyleLambda (T,K) separate": [
+  "ndarray",
+  [
+   30,
+   3
+  ],
+  "f",
+  -2.483098,
+  "4e47a474f344f53d"
+ ],
+ "EwKyleLambda (T,K)+(T,)": [
+  "ERROR",
+  "TypeError",
+  "Incompatible input numpy arrays, dimensions mismatch."
+ ],
+ "EwKyleLambda kw (T,K)": [
+  "ndarray",
+  [
+   30,
+   3
+  ],
+  "f",
+  -2.483098,
+  "4e47a474f344f53d"
+ ],
+ "EwKyleLambda list of events": [
+  "ERROR",
+  "TypeError",
+  "EwKyleLambda.__call__() missing 1 required positional argument: 'retur"
+ ],
+ "EwKyleLambda tuple of events": [
+  "ERROR",
+  "TypeError",
+  "EwKyleLambda.__call__() missing 1 required positional argument: 'retur"
+ ],
+ "EwKyleLambda generator of events": [
+  "ERROR",
+  "TypeError",
+  "EwKyleLambda.__call__() missing 1 required positional argument: 'retur"
+ ],
+ "EwKyleLambda async generator of events": [
+  "ERROR",
+  "TypeError",
+  "EwKyleLambda.__call__() missing 1 required positional argument: 'retur"
+ ],
+ "EwKyleLambda two generators": [
+  "list",
+  6,
+  [
+   [
+    "float",
+    NaN
+   ],
+   [
+    "float",
+    0.000667967
+   ],
+   [
+    "float",
+    0.002909464
+   ],
+   [
+    "float",
+    0.002029882
+   ],
+   [
+    "float",
+    0.000244512
+   ],
+   [
+    "float",
+    0.001142091
+   ]
+  ]
+ ],
+ "EwKyleLambda two lists": [
+  "list",
+  6,
+  [
+   [
+    "float",
+    NaN
+   ],
+   [
+    "float",
+    0.000667967
+   ],
+   [
+    "float",
+    0.002909464
+   ],
+   [
+    "float",
+    0.002029882
+   ],
+   [
+    "float",
+    0.000244512
+   ],
+   [
+    "float",
+    0.001142091
+   ]
+  ]
+ ],
+ "EwKyleLambda pandas Series": [
+  "ndarray",
+  [
+   30
+  ],
+  "f",
+  0.024213,
+  "3b66246005e20588"
+ ],
+ "EwKyleLambda kw reversed order": [
+  "ndarray",
+  [
+   30
+  ],
+  "f",
+  0.024213,
+  "3b66246005e20588"
+ ],
+ "EwKyleLambda kw unexpected": [
+  "ERROR",
+  "TypeError",
+  "EwKyleLambda.__call__() got an unexpected keyword argument 'extra'"
+ ],
+ "EwKyleLambda kw duplicate": [
+  "ERROR",
+  "TypeError",
+  "EwKyleLambda.__call__() got multiple values for argument 'signed_flow'"
+ ],
+ "EwKyleLambda kw second only": [
+  "ERROR",
+  "TypeError",
+  "EwKyleLambda.__call__() missing 1 required positional argument: 'signe"
+ ],
+ "EwKyleLambda too many inputs": [
+  "ERROR",
+  "TypeError",
+  "EwKyleLambda.__call__() takes 3 positional arguments but 4 were given"
+ ],
+ "EwKyleLambda no inputs": [
+  "ERROR",
+  "TypeError",
+  "EwKyleLambda.__call__() missing 2 required positional arguments: 'sign"
+ ],
+ "EwKyleLambda one scalar": [
+  "ERROR",
+  "TypeError",
+  "EwKyleLambda.__call__() missing 1 required positional argument: 'retur"
+ ],
+ "QueueImbalance scalars positional": [
+  "float",
+  0.007884479
+ ],
+ "QueueImbalance stream of scalars": [
+  "list",
+  8,
+  [
+   [
+    "float",
+    0.005701941
+   ],
+   [
+    "float",
+    0.00609946
+   ],
+   [
+    "float",
+    0.010097897
+   ],
+   [
+    "float",
+    0.007884479
+   ],
+   [
+    "float",
+    0.004137637
+   ],
+   [
+    "float",
+    0.004153892
+   ],
+   [
+    "float",
+    0.013883418
+   ],
+   [
+    "float",
+    0.019163538
+   ]
+  ]
+ ],
+ "QueueImbalance packed (T,2)": [
+  "ERROR",
+  "TypeError",
+  "QueueImbalance.__call__() missing 1 required positional argument: 'ask"
+ ],
+ "QueueImbalance packed (T,K,2)": [
+  "ERROR",
+  "TypeError",
+  "QueueImbalance.__call__() missing 1 required positional argument: 'ask"
+ ],
+ "QueueImbalance (T,K) separate": [
+  "ndarray",
+  [
+   30,
+   3
+  ],
+  "f",
+  82.985603,
+  "52d224359015bacd"
+ ],
+ "QueueImbalance (T,K)+(T,)": [
+  "ERROR",
+  "TypeError",
+  "Incompatible input numpy arrays, dimensions mismatch."
+ ],
+ "QueueImbalance kw (T,K)": [
+  "ndarray",
+  [
+   30,
+   3
+  ],
+  "f",
+  82.985603,
+  "52d224359015bacd"
+ ],
+ "QueueImbalance list of events": [
+  "ERROR",
+  "TypeError",
+  "QueueImbalance.__call__() missing 1 required positional argument: 'ask"
+ ],
+ "QueueImbalance tuple of events": [
+  "ERROR",
+  "TypeError",
+  "QueueImbalance.__call__() missing 1 required positional argument: 'ask"
+ ],
+ "QueueImbalance generator of events": [
+  "ERROR",
+  "TypeError",
+  "QueueImbalance.__call__() missing 1 required positional argument: 'ask"
+ ],
+ "QueueImbalance async generator of events": [
+  "ERROR",
+  "TypeError",
+  "QueueImbalance.__call__() missing 1 required positional argument: 'ask"
+ ],
+ "QueueImbalance two generators": [
+  "list",
+  6,
+  [
+   [
+    "float",
+    0.005701941
+   ],
+   [
+    "float",
+    0.00609946
+   ],
+   [
+    "float",
+    0.010097897
+   ],
+   [
+    "float",
+    0.007884479
+   ],
+   [
+    "float",
+    0.004137637
+   ],
+   [
+    "float",
+    0.004153892
+   ]
+  ]
+ ],
+ "QueueImbalance two lists": [
+  "list",
+  6,
+  [
+   [
+    "float",
+    0.005701941
+   ],
+   [
+    "float",
+    0.00609946
+   ],
+   [
+    "float",
+    0.010097897
+   ],
+   [
+    "float",
+    0.007884479
+   ],
+   [
+    "float",
+    0.004137637
+   ],
+   [
+    "float",
+    0.004153892
+   ]
+  ]
+ ],
+ "QueueImbalance pandas Series": [
+  "ndarray",
+  [
+   30
+  ],
+  "f",
+  -0.887449,
+  "906105082bf0efde"
+ ],
+ "QueueImbalance kw reversed order": [
+  "ndarray",
+  [
+   30
+  ],
+  "f",
+  -0.887449,
+  "906105082bf0efde"
+ ],
+ "QueueImbalance kw unexpected": [
+  "ERROR",
+  "TypeError",
+  "QueueImbalance.__call__() got an unexpected keyword argument 'extra'"
+ ],
+ "QueueImbalance kw duplicate": [
+  "ERROR",
+  "TypeError",
+  "QueueImbalance.__call__() got multiple values for argument 'bid_size'"
+ ],
+ "QueueImbalance kw second only": [
+  "ERROR",
+  "TypeError",
+  "QueueImbalance.__call__() missing 1 required positional argument: 'bid"
+ ],
+ "QueueImbalance too many inputs": [
+  "ERROR",
+  "TypeError",
+  "QueueImbalance.__call__() takes 3 positional arguments but 4 were give"
+ ],
+ "QueueImbalance no inputs": [
+  "ERROR",
+  "TypeError",
+  "QueueImbalance.__call__() missing 2 required positional arguments: 'bi"
+ ],
+ "QueueImbalance one scalar": [
+  "ERROR",
+  "TypeError",
+  "QueueImbalance.__call__() missing 1 required positional argument: 'ask"
+ ],
+ "RollingOrderImbalance (T,K)": [
+  "ndarray",
+  [
+   30,
+   3
+  ],
+  "f",
+  12947.202167,
+  "8b20dc2ff514ff92"
+ ],
+ "RollingOrderImbalance kw (T,K)": [
+  "ndarray",
+  [
+   30,
+   3
+  ],
+  "f",
+  12947.202167,
+  "8b20dc2ff514ff92"
+ ],
+ "RollingOrderImbalance two generators": [
+  "ERROR",
+  "TypeError",
+  "RollingOrderImbalance.__call__() takes 2 positional arguments but 3 we"
+ ],
+ "RollingOrderImbalance kw unexpected": [
+  "ERROR",
+  "TypeError",
+  "RollingOrderImbalance.__call__() got an unexpected keyword argument 'e"
+ ],
+ "RollingOrderImbalance kw duplicate": [
+  "ERROR",
+  "TypeError",
+  "RollingOrderImbalance.__call__() got multiple values for argument 'sig"
+ ],
+ "RollingOrderImbalance too many inputs": [
+  "ERROR",
+  "TypeError",
+  "RollingOrderImbalance.__call__() takes 2 positional arguments but 3 we"
+ ],
+ "RollingOrderImbalance no inputs": [
+  "ERROR",
+  "TypeError",
+  "RollingOrderImbalance.__call__() missing 1 required positional argumen"
+ ],
+ "RollingOrderImbalance pandas Series": [
+  "ndarray",
+  [
+   30
+  ],
+  "f",
+  12787.758356,
+  "c67e6d25b4ea3385"
+ ],
+ "RollingOrderImbalance stream of scalars": [
+  "list",
+  8,
+  [
+   [
+    "float",
+    NaN
+   ],
+   [
+    "float",
+    NaN
+   ],
+   [
+    "float",
+    NaN
+   ],
+   [
+    "float",
+    NaN
+   ],
+   [
+    "float",
+    501.695630465
+   ],
+   [
+    "float",
+    502.134774051
+   ],
+   [
+    "float",
+    504.010022545
+   ],
+   [
+    "float",
+    506.191929352
+   ]
+  ]
  ]
 }

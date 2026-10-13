@@ -214,6 +214,50 @@ def cases():
         table[f"RollingOrderImbalance kw {form}"] = (
             lambda conv=conv: (lambda out: out if isinstance(out, (float, list)) else list(out))(
                 s.RollingOrderImbalance(5)(signed_flow=conv(sign * w))))
+    # Microstructure operators in every input form: separate, packed, events,
+    # iterators, pandas, streaming, and the keyword errors.
+    A, B = np.sign(X - 100) * X, X[::-1] - 100
+    for name, (make, (ka, kb), a, b) in micro.items():
+        ev = lambda a=a, b=b: list(zip(a[:6], b[:6]))           # noqa: E731
+        table.update({
+            f"{name} scalars positional": lambda make=make, a=a, b=b: make()(float(a[3]), float(b[3])),
+            f"{name} stream of scalars":
+                lambda make=make, a=a, b=b: (lambda op: [op(float(x), float(y))
+                                                         for x, y in zip(a[:8], b[:8])])(make()),
+            f"{name} packed (T,2)": lambda make=make, a=a, b=b: make()(np.stack([a, b], axis=-1)),
+            f"{name} packed (T,K,2)": lambda make=make: make()(np.stack([A, B], axis=-1)),
+            f"{name} (T,K) separate": lambda make=make: make()(A, B),
+            f"{name} (T,K)+(T,)": lambda make=make, b=b: make()(A, b),
+            f"{name} kw (T,K)": lambda make=make, ka=ka, kb=kb: make()(**{ka: A, kb: B}),
+            f"{name} list of events": lambda make=make, ev=ev: make()(ev()),
+            f"{name} tuple of events": lambda make=make, ev=ev: make()(tuple(ev())),
+            f"{name} generator of events": lambda make=make, ev=ev: list(make()(gen(ev()))),
+            f"{name} async generator of events":
+                lambda make=make, ev=ev: asyncio.run(adrain(make()(agen(ev())))),
+            f"{name} two generators": lambda make=make, a=a, b=b: list(make()(gen(a[:6]), gen(b[:6]))),
+            f"{name} two lists": lambda make=make, a=a, b=b: make()(list(a[:6]), list(b[:6])),
+            f"{name} pandas Series": lambda make=make, a=a, b=b: make()(pd.Series(a), pd.Series(b)),
+            f"{name} kw reversed order": lambda make=make, ka=ka, kb=kb, a=a, b=b: make()(**{kb: b, ka: a}),
+            f"{name} kw unexpected": lambda make=make, a=a, b=b: make()(a, b, extra=a),
+            f"{name} kw duplicate": lambda make=make, ka=ka, a=a, b=b: make()(a, **{ka: b}),
+            f"{name} kw second only": lambda make=make, kb=kb, b=b: make()(**{kb: b}),
+            f"{name} too many inputs": lambda make=make, a=a, b=b: make()(a, b, a),
+            f"{name} no inputs": lambda make=make: make()(),
+            f"{name} one scalar": lambda make=make, a=a: make()(float(a[3])),
+        })
+    roi = lambda: s.RollingOrderImbalance(5)                    # noqa: E731
+    table.update({
+        "RollingOrderImbalance (T,K)": lambda: roi()(A),
+        "RollingOrderImbalance kw (T,K)": lambda: roi()(signed_flow=A),
+        "RollingOrderImbalance two generators": lambda: list(roi()(gen(v[:6]), gen(w[:6]))),
+        "RollingOrderImbalance kw unexpected": lambda: roi()(v, extra=v),
+        "RollingOrderImbalance kw duplicate": lambda: roi()(v, signed_flow=v),
+        "RollingOrderImbalance too many inputs": lambda: roi()(v, w),
+        "RollingOrderImbalance no inputs": lambda: roi()(),
+        "RollingOrderImbalance pandas Series": lambda: roi()(pd.Series(v)),
+        "RollingOrderImbalance stream of scalars":
+            lambda: (lambda op: [op(float(x)) for x in v[:8]])(roi()),
+    })
     return table
 
 
