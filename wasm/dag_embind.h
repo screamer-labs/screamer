@@ -124,6 +124,25 @@ inline std::string maxFillMessage(double v, std::string name) {
     return message_of([&] { screamer::dag::checked_max_fill(v, name); });
 }
 inline double defaultMaxFill() { return static_cast<double>(screamer::dag::kDefaultMaxFill); }
+// The settings rule of a resample (dag/resample_check.h), shared with Python:
+// the message of its first error ('T' TypeError, 'R' RangeError), or "".
+inline std::string resampleSettingsMessage(bool hasEvery, double every, bool hasCount,
+                                           double count, bool hasThreshold, double threshold,
+                                           bool clock, bool aggFunctor, std::string agg,
+                                           std::string label, std::string fill, bool hasOrigin,
+                                           double origin, bool hasMaxAge, bool maxAgeWhole,
+                                           double maxAge) {
+    screamer::dag::ResampleSettings s;
+    s.has_every = hasEvery;         s.every = every;
+    s.has_count = hasCount;         s.count = count;
+    s.has_threshold = hasThreshold; s.threshold = threshold;
+    s.clock = clock;
+    s.agg_functor = aggFunctor;
+    s.agg = std::move(agg); s.label = std::move(label); s.fill = std::move(fill);
+    s.has_origin = hasOrigin;       s.origin = origin;
+    s.has_max_age = hasMaxAge;      s.max_age_whole = maxAgeWhole; s.max_age = maxAge;
+    return message_of([&] { screamer::dag::check_resample_settings(s); });
+}
 // forecastPairs: the input rule of an eager call (dag/forecast_pairs.h).
 inline void checkForecastPairsInputs(bool countMode, double xNdim, double xRows, double xCols,
                                      double yNdim, double yRows, double yCols) {
@@ -157,6 +176,9 @@ public:
         : cg_(std::make_unique<screamer::dag::CompiledGraph>(std::move(spec))) {}
 
     void reset() { cg_->reset(); }
+    // A lazy run (js/src/pipeline.ts) feeds the inputs merged in index order,
+    // as Python's lazy driver does: reset(), then setMergeOrder(true).
+    void setMergeOrder(bool on) { cg_->set_merge_order(on); }
     void flush() { cg_->flush(); }
     // This object's address, for the plain exports of dag_bindings.cpp.
     std::uintptr_t address() { return reinterpret_cast<std::uintptr_t>(this); }
@@ -451,6 +473,8 @@ private:
     emscripten::function("defaultMaxPending", &screamer_wasm::defaultMaxPending); \
     emscripten::function("maxFillMessage", &screamer_wasm::maxFillMessage); \
     emscripten::function("defaultMaxFill", &screamer_wasm::defaultMaxFill);     \
+    emscripten::function("resampleSettingsMessage",                            \
+                         &screamer_wasm::resampleSettingsMessage);             \
     emscripten::function("checkForecastPairsInputs",                           \
                          &screamer_wasm::checkForecastPairsInputs);            \
     emscripten::function("checkForecastPairsHorizon",                          \
@@ -464,6 +488,7 @@ private:
     emscripten::class_<screamer_wasm::CompiledGraphWrap>("CompiledGraph")       \
         .function("reset",        &screamer_wasm::CompiledGraphWrap::reset)     \
         .function("flush",        &screamer_wasm::CompiledGraphWrap::flush)     \
+        .function("setMergeOrder",&screamer_wasm::CompiledGraphWrap::setMergeOrder) \
         .function("advance",      &screamer_wasm::CompiledGraphWrap::advance)   \
         .function("pushEvent",    &screamer_wasm::CompiledGraphWrap::pushEvent) \
         .function("address",      &screamer_wasm::CompiledGraphWrap::address)   \

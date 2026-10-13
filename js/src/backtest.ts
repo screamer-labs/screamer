@@ -6,7 +6,15 @@
 import { current } from "./index.js";
 import { asNd, type NdArray } from "./ndarray.js";
 import { wasmCall } from "./errors.js";
-import { flattenRows, throwWrongKind, toF64Checked } from "./kinds.js";
+import { flattenRows, throwMessage, throwWrongKind, toF64Checked } from "./kinds.js";
+
+/**
+ * Market-order price sentinel for the backtest engines (Python's
+ * `screamer.MARKET`). A quote or limit price of `MARKET` (or any non-finite
+ * price) is a market order in the aggressive direction; NaN works as a
+ * side-agnostic shorthand.
+ */
+export const MARKET = Infinity;
 
 export interface BacktestReportOptions {
   /**
@@ -114,7 +122,11 @@ export function backtestReport(
     });
     const out = M.viewF64(outPtr, T * computed.length);
     computed.forEach((name, i) => { running[name] = out.slice(i * T, (i + 1) * T); });
-    if (index !== null) running.index = index;
+    if (index !== null) {
+      // One index value per row (checked_index.h), as a Pipeline feed.
+      throwMessage(M.feedLengthMessage(WHO, -1, T, index.length));
+      running.index = index;
+    }
     const sums = M.viewF64(sumPtr, summaryNames.length);
     const summary: Record<string, number> = {};
     summaryNames.forEach((name, i) => { summary[name] = sums[i]; });

@@ -18,7 +18,7 @@ export { reshape } from "./shape.js";
 export type { NdArray } from "./ndarray.js";
 export { Node, Input, isNode } from "./node.js";
 export { Pipeline } from "./pipeline.js";
-export type { Output, PipelineOptions, LiveDriver } from "./pipeline.js";
+export type { Output, PipelineOptions, LiveDriver, PipelineRow, PipelineValue } from "./pipeline.js";
 export {
   combineLatest,
   resample,
@@ -47,7 +47,7 @@ export {
   CODES,
 } from "./codes.js";
 export * from "./generated/ops.js";
-export { backtestReport } from "./backtest.js";
+export { backtestReport, MARKET } from "./backtest.js";
 export type { BacktestReportOptions, BacktestReportResult } from "./backtest.js";
 export { forecastPairs } from "./supervised.js";
 export { split } from "./split.js";

@@ -5,6 +5,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <cmath>
+#include <cstdlib>
+#include <new>
 #include <optional>
 #include <array>
 #include <stdexcept>
@@ -23,25 +25,6 @@ namespace screamer_wasm {
 // One event: read n_in doubles at inPtr, write n_out doubles at outPtr.
 inline void evalInto(screamer::EvalOp& op, std::uintptr_t inPtr, std::uintptr_t outPtr) {
     op.eval(reinterpret_cast<const double*>(inPtr), reinterpret_cast<double*>(outPtr));
-}
-
-// A batch of `rows` row-major events as one column: inPtr = rows * n_in()
-// doubles, outPtr = rows * n_out(). Input i starts at inPtr + i and advances by
-// n_in() per event.
-inline void evalBatchInto(screamer::EvalOp& op, std::uintptr_t inPtr,
-                          std::uintptr_t outPtr, std::size_t rows) {
-    const double* in = reinterpret_cast<const double*>(inPtr);
-    const std::size_t ni = op.n_in(), no = op.n_out();
-    if (ni > screamer::kMaxColumnInputs)
-        throw std::invalid_argument("evalBatchInto: too many inputs");
-    std::array<const double*, screamer::kMaxColumnInputs> ptr{};
-    std::array<std::ptrdiff_t, screamer::kMaxColumnInputs> stride{};
-    for (std::size_t i = 0; i < ni; ++i) {
-        ptr[i] = in + i;
-        stride[i] = static_cast<std::ptrdiff_t>(ni);
-    }
-    op.eval_column(ptr.data(), stride.data(), rows, reinterpret_cast<double*>(outPtr),
-                   static_cast<std::ptrdiff_t>(no));
 }
 
 // ---- Dynamic-width reducers ------------------------------------------------
@@ -144,8 +127,15 @@ inline void mapRowsInto(Op& op, std::uintptr_t inPtr, std::uintptr_t outPtr,
     op.reset();
 }
 
+// n doubles of WASM heap, or std::bad_alloc (JavaScript's out-of-memory
+// RangeError, errors.ts) when the heap cannot grow to them: no caller ever
+// writes through a null pointer. JavaScript checks n before the call (an
+// Embind size_t would wrap a number past 2**32).
 inline std::uintptr_t allocF64(std::size_t n) {
-    return reinterpret_cast<std::uintptr_t>(std::malloc(n * sizeof(double)));
+    if (n > SIZE_MAX / sizeof(double)) throw std::bad_alloc();
+    void* p = std::malloc(n * sizeof(double));
+    if (!p && n) throw std::bad_alloc();
+    return reinterpret_cast<std::uintptr_t>(p);
 }
 inline void freeBuf(std::uintptr_t p) { std::free(reinterpret_cast<void*>(p)); }
 
@@ -154,9 +144,6 @@ inline void freeBuf(std::uintptr_t p) { std::free(reinterpret_cast<void*>(p)); }
 // walks emmalloc's free lists, O(free blocks), so keep it off hot paths.
 inline double heapInUse() {
     return static_cast<double>(emmalloc_dynamic_heap_size() - emmalloc_free_dynamic_memory());
-}
-inline emscripten::val viewF64(std::uintptr_t p, std::size_t n) {
-    return emscripten::val(emscripten::typed_memory_view(n, reinterpret_cast<double*>(p)));
 }
 
 // A NaN sentinel maps "argument not provided" to std::nullopt for the EW ops
@@ -209,18 +196,16 @@ inline std::string finiteSettingError(std::string op, emscripten::val names, ems
 }  // namespace screamer_wasm
 
 // Register the shared runtime on the EvalOp base class ONCE. Every op class is
-// registered with base<EvalOp>, so all ops inherit evalInto/evalBatchInto/etc.
+// registered with base<EvalOp>, so all ops inherit evalInto/reset/etc.
 #define SCREAMER_REGISTER_EVAL_OP_RUNTIME()                                    \
     emscripten::class_<screamer::EvalOp>("EvalOp")                             \
         .function("evalInto", &screamer_wasm::evalInto, emscripten::allow_raw_pointers()) \
-        .function("evalBatchInto", &screamer_wasm::evalBatchInto, emscripten::allow_raw_pointers()) \
         .function("reset", &screamer::EvalOp::reset)                           \
         .function("nIn", &screamer::EvalOp::n_in)                              \
         .function("nOut", &screamer::EvalOp::n_out);                           \
     emscripten::function("allocF64", &screamer_wasm::allocF64);               \
     emscripten::function("freeBuf", &screamer_wasm::freeBuf);                 \
     emscripten::function("heapInUse", &screamer_wasm::heapInUse);             \
-    emscripten::function("viewF64", &screamer_wasm::viewF64);                 \
     emscripten::function("finiteSettingError", &screamer_wasm::finiteSettingError); \
     emscripten::function("opPtr", &screamer_wasm::opPtr,                       \
                          emscripten::allow_raw_pointers())

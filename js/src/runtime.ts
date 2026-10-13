@@ -299,16 +299,25 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp, finalize 
     res.release();
   };
 
-  // One event on `o`: raw for a live call, a stream's own copy for a stream.
-  const evalOn = (o: RawOp, inputs: ArrayLike<number>): number | number[] => {
-    M.viewF64(inBuf, nIn).set(inputs as number[]);
-    try { o.evalInto(inBuf, outBuf); } catch (e) { throw normalizeError(e); }
-    const v = M.viewF64(outBuf, nOut);
-    return nOut === 1 ? v[0] : Array.from(v);
+  // One event on the op at address `addr` (opPtr): raw for a live call, a
+  // stream's own copy for a stream. The inputs are numbers; they go to the
+  // heap through HEAPF64 (read at each use: memory growth replaces it) and the
+  // op runs through the plain export screamer_eval, with no Embind dispatch.
+  const inAt = inBuf >> 3, outAt = outBuf >> 3;
+  const rawAddr = M.opPtr(raw) as number;
+  const evalOn = (addr: number, inputs: ArrayLike<number>): number | number[] => {
+    const h: Float64Array = M.HEAPF64;
+    for (let i = 0; i < nIn; i++) h[inAt + i] = inputs[i];
+    try { M._screamer_eval(addr, inBuf, outBuf); } catch (e) { throw normalizeError(e); }
+    const o: Float64Array = M.HEAPF64;   // the op may have grown memory
+    if (nOut === 1) return o[outAt];
+    const v = new Array<number>(nOut);
+    for (let j = 0; j < nOut; j++) v[j] = o[outAt + j];
+    return v;
   };
   const event = (inputs: ArrayLike<number>): number | number[] => {
     if (disposed) throw new Error("operation used after dispose()");
-    return evalOn(raw, inputs);
+    return evalOn(rawAddr, inputs);
   };
 
   // A batch call: the C++ shape module plans the broadcast once (it splits a
@@ -349,7 +358,12 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp, finalize 
   function batch1(arr: ArrayLike<number>, typed: boolean): any {
     const rows = arr.length;
     const { data } = runShaped([{ data: arr, shape: [rows] }]);
-    if (nOut !== 1) return { data, shape: [rows, nOut] } as NdArray;
+    // Rule 3: a number[] gives an Array of per-event results (nOut numbers
+    // each for a multi-output op), a Float64Array a typed result.
+    if (nOut !== 1) {
+      const nd = { data, shape: [rows, nOut] } as NdArray;
+      return typed ? nd : perEvent(nd, rows);
+    }
     if (typed) return data;
     const out = new Array(rows);
     for (let i = 0; i < rows; i++) out[i] = data[i];
@@ -449,6 +463,7 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp, finalize 
     const unpack = n === 1 && nIn > 1;            // one source holds all nIn fields
     let plan: { cols: number; offset: number[]; shapes: number[][]; out: number[] | null } | null = null;
     let ops: RawOp[] = [];                        // the stream's op per column
+    let addrs: number[] = [];                     // and its address (opPtr)
     let colIn = 0, colOut = 0;                    // heap blocks of (cols x nIn) and (cols x nOut)
     // Per-event views of the current event's parts, reused across events.
     const partData: ArrayLike<number>[] = [], partShape: number[][] = [];
@@ -460,7 +475,7 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp, finalize 
         if (!res.live?.delete(handle)) return;
         if (colIn) { M.freeBuf(colIn); M.freeBuf(colOut); colIn = colOut = 0; }
         ops.forEach((c) => pool.release(c));
-        ops = [];
+        ops = []; addrs = [];
       },
     };
     (res.live ??= new Set()).add(handle);
@@ -514,7 +529,7 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp, finalize 
       let p: { shape: number[]; columns: number; offset: number[] };
       try { p = M.eventPlan(shapes.map((s) => [1, ...s]), nIn); } catch (e) { throw normalizeError(e); }
       const cols = p.columns;
-      while (ops.length < cols) ops.push(pool.acquire());
+      while (ops.length < cols) { const c = pool.acquire(); ops.push(c); addrs.push(M.opPtr(c)); }
       colIn = M.allocF64(Math.max(1, cols * nIn)); colOut = M.allocF64(Math.max(1, cols * nOut));
       const out = p.shape.length === 1 && nOut === 1 ? null : (nOut === 1 ? p.shape : [...p.shape, nOut]);
       plan = { cols, offset: p.offset, shapes, out };
@@ -548,7 +563,7 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp, finalize 
       }
       try {
         for (let c = 0; c < cols; c++)
-          ops[c].evalInto(colIn + 8 * c * nIn, colOut + 8 * c * nOut);
+          M._screamer_eval(addrs[c], colIn + 8 * c * nIn, colOut + 8 * c * nOut);
       } catch (e) { throw normalizeError(e); }
       const data = new Float64Array(M.viewF64(colOut, cols * nOut));
       return out ? { data, shape: out.slice() } : data;
@@ -578,8 +593,8 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp, finalize 
       if (mode !== ASSETS) {
         const v = scalarValues(items);
         if (v) {
-          if (mode === UNKNOWN) { ops.push(pool.acquire()); mode = SCALAR; }
-          return evalOn(ops[0], v);
+          if (mode === UNKNOWN) { const c = pool.acquire(); ops.push(c); addrs.push(M.opPtr(c)); mode = SCALAR; }
+          return evalOn(addrs[0], v);
         }
         if (mode === SCALAR) scalarMismatch(items);
       }
@@ -1003,9 +1018,17 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
 
   const dispatch = (...args: any[]): any => {
     if (disposed) throw new Error("operation used after dispose()");
-    // Anything that isn't a single reducer-shaped input -- N scalars, Node
-    // composition, an arity error -- is the ordinary op contract.
-    if (args.length === 2 && !args.some(isNode)) {
+    // Define-then-bind: a functor Node of four portfolio columns, as Python
+    // composes it. The Node holds this wrapper (its settings, for toJSON) and
+    // the factory, which a Pipeline compiles its own copy from.
+    if (args.some(isNode)) {
+      if (args.length !== 4)
+        throw new TypeError(`${opName(raw)} DAG composition expects four portfolio columns.`);
+      return new Node({ functor: raw, wrapper: op, make }, args.filter(isNode));
+    }
+    // Anything that isn't a single reducer-shaped input -- N scalars, an
+    // arity error -- is the ordinary op contract.
+    if (args.length === 2) {
       const kind = streamKind(args, 2, opName(raw));
       if (kind) return stream(args, kind === "async");
       try { return pricedCall(args[0], args[1]); } catch (e) {
@@ -1015,7 +1038,7 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
     }
     if (args.length !== 1) return base(...args);
     const x = args[0];
-    if (isNode(x) || typeof x === "number") return base(x);
+    if (typeof x === "number") return base(x);
     if (isNd(x)) {
       const s = x.shape;
       if (s.length === 3) {

@@ -44,6 +44,10 @@ const sma = RollingMean(3);
 The bare specifier `@screamer-labs/screamer` resolves through the bundler (or an import map). A raw
 browser cannot resolve a bare specifier, which is what the CDN form below handles.
 
+The package loads its module with a plain `import()`, which a bundler follows, and uses no `eval`
+or `new Function`. Under a Content-Security-Policy, the page needs only `'wasm-unsafe-eval'` in
+`script-src` (to compile WebAssembly), not `'unsafe-eval'`.
+
 ## Browser without a build step (CDN)
 
 Import from a full URL inside a module script. jsDelivr serves the published module directly:

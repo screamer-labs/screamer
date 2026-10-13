@@ -44,15 +44,26 @@ export function setExceptionHelpers(h: ExceptionHelpers): void {
 
 const WasmException: (new (...a: any[]) => unknown) | undefined = (globalThis as any).WebAssembly?.Exception;
 
+/** The text of the RangeError for a call that needs more WASM heap than there is
+ * (Python raises MemoryError). */
+export const OUT_OF_MEMORY = "out of memory: the call needs more memory than is available";
+
 export function normalizeError(e: unknown): unknown {
   // Any error from a call into WASM may have left WASM frames (an Embind Error
   // thrown while C++ converts a value, for example), so the reset is for all.
   helpers?.stackRestore(stackBase);
   if (WasmException && e instanceof WasmException && helpers) {
-    let type = "", msg: string | undefined;
+    let type: string | undefined, msg: string | undefined;
     // The caught exception holds the last reference to the C++ object; drop
-    // it once the message is read, or the object leaks.
-    try { [type, msg] = helpers.getExceptionMessage(e); } finally { helpers.decrementExceptionRefcount(e); }
+    // it once the message is read, or the object leaks. Reading it copies the
+    // text on the heap, which fails when the heap is exhausted.
+    try { [type, msg] = helpers.getExceptionMessage(e); } catch { type = undefined; } finally {
+      try { helpers.decrementExceptionRefcount(e); } catch { /* the heap is exhausted */ }
+    }
+    // An allocation that failed: std::bad_alloc, or a container's
+    // std::length_error ("vector"); also an exception whose text could not
+    // be read (no heap left to copy it).
+    if (!type || /bad_alloc|length_error/.test(type)) return new RangeError(OUT_OF_MEMORY);
     // A custom metric's result of the wrong kind, an index or a setting of the
     // wrong kind is a TypeError, as in Python (MetricTypeError, IndexTypeError,
     // SettingTypeError; the type name may be mangled).

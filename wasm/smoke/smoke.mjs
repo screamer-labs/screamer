@@ -137,6 +137,8 @@ function isFiniteOrNaN(v) {
 
 async function main() {
   const M = await init();
+  // A heap view, as js/src/loader.ts makes it (the module exports no view).
+  M.viewF64 = (p, n) => new Float64Array(M.HEAPF64.buffer, p, n);
 
   // ---- Part A: coverage ----
   let constructed = 0;

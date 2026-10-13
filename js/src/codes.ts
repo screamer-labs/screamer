@@ -50,9 +50,9 @@ export const BAR_AGG_FIXED_PLANS: Record<string, Array<[number, number]>> = {
   ohlcv2: [[0, 0], [3, 0], [2, 0], [1, 0], [8, 1], [9, 1]],
 };
 
-// Aggregated export for the parity gate (`--dump` -> JSON). Keys mirror the
-// Python dict names (minus the leading underscore) so the sync test can compare
-// them field by field.
+// Aggregated export for the parity gate (scripts/dump-codes.ts prints it as
+// JSON). Keys mirror the Python dict names (minus the leading underscore) so
+// the sync test can compare them field by field.
 export const CODES = {
   RESAMPLE_AGG_CODE,
   RESAMPLE_MODE_CODE,
@@ -61,10 +61,3 @@ export const CODES = {
   PLAN_AGG_CODE,
   BAR_AGG_FIXED_PLANS,
 };
-
-// `node --import tsx src/codes.ts --dump` prints CODES as JSON for the gate.
-// Guarded so this module also evaluates in the browser, where `process` is
-// undefined (importing it otherwise throws "process is not defined").
-if (typeof process !== "undefined" && process.argv?.includes("--dump")) {
-  process.stdout.write(JSON.stringify(CODES));
-}

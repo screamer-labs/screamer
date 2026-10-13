@@ -56,9 +56,19 @@ export function block(x: unknown, where: string, who = WHO): Block {
   throwWrongKind(who, where, x, "an array, a typed array or an NdArray");
 }
 
+// An index error of a stream function names the function first, as
+// Python's do ("merge: ...", "combineLatest: "); other messages, and one
+// that names it already, are kept.
+export function named(e: unknown, who: string): unknown {
+  if (e instanceof Error && /\bindex\b/.test(e.message) && !e.message.startsWith(`${who}:`))
+    e.message = `${who}: ${e.message}`;
+  return e;
+}
+
 // An index that is not a number is a TypeError; the engine owns the message.
-export function badIndex(index: unknown): never {
-  throwIndexKind(current(), index);
+export function badIndex(index: unknown, who = WHO): never {
+  try { throwIndexKind(current(), index); } catch (e) { throw named(e, who); }
+  throw new TypeError("index must be a number");   // not reached
 }
 
 // A batch index: one number per row.
@@ -73,7 +83,7 @@ export function indexArray(x: unknown, where: string, who = WHO): Float64Array {
   const a = x as ArrayLike<unknown>, out = new Float64Array(a.length);
   for (let i = 0; i < a.length; i++) {
     const v = a[i];
-    out[i] = typeof v === "number" ? v : badIndex(v);
+    out[i] = typeof v === "number" ? v : badIndex(v, who);
   }
   return out;
 }
@@ -135,7 +145,7 @@ export function combineArrays(inputs: unknown[], o: DirectOptions): { values: Nd
       spec.push(data[k], index[k], i ? i.length : 0, b.shape.length, ...b.shape);
     });
     M.viewF64(specPtr, spec.length).set(spec);
-    out = wasmCall(() => M.combineLatestBatch(specPtr, o.whenAll, o.layout));
+    try { out = M.combineLatestBatch(specPtr, o.whenAll, o.layout); } catch (e) { throw named(normalizeError(e), WHO); }
     const shape = out.shape as number[];
     const size = shape.reduce((a: number, b: number) => a * b, 1);
     const values = new Float64Array(M.viewF64(out.values, out.rows * size));
@@ -247,10 +257,11 @@ class Joiner {
   // reject, without a write.
   private load(i: number, x: unknown): number {
     const k = this.count[i]++;
-    const heap: Float64Array = this.M.HEAPF64;   // replaced when memory grows: read it here
-    if (typeof x === "number") { heap[this.bufs[i] >> 3] = x; return 1; }
+    if (typeof x === "number") { this.M.HEAPF64[this.bufs[i] >> 3] = x; return 1; }
     const e = event(x, () => `event ${k} of input ${i}`);
-    if (e.data.length === this.widths[i]) heap.set(e.data, this.bufs[i] >> 3);
+    // HEAPF64 is replaced when memory grows, and reading the event may grow it
+    // (a valueOf): read it after the event.
+    if (e.data.length === this.widths[i]) (this.M.HEAPF64 as Float64Array).set(e.data, this.bufs[i] >> 3);
     return e.data.length;
   }
 
@@ -287,7 +298,7 @@ class Joiner {
       // A positional join writes its row to one fixed place: read it once.
       if (this.zipRow < 0) this.zipRow = this.js.rowValues() >> 3;
       return { value: this.rowAt(this.M.HEAPF64, this.zipRow), index: null };
-    } catch (e) { throw normalizeError(e); }
+    } catch (e) { throw named(normalizeError(e), WHO); }
   }
 
   // Indexed: the next event of source i. With `run`, feeds the join and
@@ -295,16 +306,16 @@ class Joiner {
   offer(i: number, item: unknown, run: boolean): number {
     const { value, index } = this.split(i, item);
     const n = this.load(i, value);
-    try { return this.M._screamer_join_offer(this.live(), i, index, n, run ? 1 : 0); } catch (e) { throw normalizeError(e); }
+    try { return this.M._screamer_join_offer(this.live(), i, index, n, run ? 1 : 0); } catch (e) { throw named(normalizeError(e), WHO); }
   }
 
   // Indexed: source i has ended.
   end(i: number, run: boolean): number {
-    try { return this.M._screamer_join_end(this.live(), i, run ? 1 : 0); } catch (e) { throw normalizeError(e); }
+    try { return this.M._screamer_join_end(this.live(), i, run ? 1 : 0); } catch (e) { throw named(normalizeError(e), WHO); }
   }
 
   start(): number {
-    try { return this.js.start(); } catch (e) { throw normalizeError(e); }
+    try { return this.js.start(); } catch (e) { throw named(normalizeError(e), WHO); }
   }
 
   // The rows a feed settled, and the source whose next event it wants (-1:
@@ -319,9 +330,9 @@ class Joiner {
       const ix = M._screamer_join_row_index(s) >> 3, vals = M._screamer_join_row_values(s) >> 3, w = this.rowSize;
       for (let r = 0; r < m; r++) {
         const p = vals + r * w;
-        // One input of one field: a number, as Python gives a float.
-        const value = !this.wide && w === 1 ? heap[p] : this.rowAt(heap, p);
-        rows.push({ value, index: heap[ix + r] });
+        // A row of numbers is an array, one input of one field too, as Python
+        // gives a tuple and the batch form a row.
+        rows.push({ value: this.rowAt(heap, p), index: heap[ix + r] });
       }
     }
     return { rows, want: (status % n1) - 1 };

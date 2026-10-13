@@ -76,7 +76,9 @@ function check(name: string, want: Result, got: any) {
       const g = got.rows[r];
       const v = flat(g.value);
       assert.ok(v.length === w.value.length && v.every((x, j) => same(x, w.value[j])), `${name}: row ${r}`);
-      if (w.shape.length > 1) assert.deepEqual(g.value.shape, w.shape, `${name}: row ${r} shape`);
+      // Every row's shape, width-1 rows too ([1]: a one-element array).
+      const shape = Array.isArray(g.value) || g.value instanceof Float64Array ? [g.value.length] : g.value.shape;
+      assert.deepEqual(shape, w.shape, `${name}: row ${r} shape`);
       assert.equal(g.index, w.index, `${name}: row ${r} index`);
     });
     return;

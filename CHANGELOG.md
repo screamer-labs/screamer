@@ -10,6 +10,21 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Added
 
+* JavaScript `resample`, `select`, `dropna`, `filter` and `delay` run on
+  arrays and `{ values, index }` streams (they return `{ values, index }`, as
+  Python's `Resample`, `Select`, `Dropna`, `Filter` and `Delay` return
+  `(values, index)`), and on iterators of `{ value, index }` events (they
+  return an iterator of rows), through the same C++ node as the graph form.
+  Several `dropna` streams are an array of `{ values, index }` objects. A
+  `resample` driver or clock stream goes in its `driver` option; its `agg`
+  takes Python's aliases ("high", "low", "open", "close") and synonyms
+  ("std", "var", "prod", "skew", "kurt").
+* A JavaScript `Pipeline` called with an iterator (one input), or an object of
+  iterators keyed by input name, runs lazily and returns a generator of rows,
+  as Python's `pipeline(iter(...))` does. 2.8.0 threw `TypeError`.
+* JavaScript `MARKET`, the market-order price of the order engines (Python's
+  `screamer.MARKET`).
+
 * JavaScript constructors also take one options object: `EwMean({ span: 20 })`.
   The names are the camelCase parameter names, each operator has a TypeScript
   `<Op>Options` type, and an unknown name raises `TypeError`
@@ -21,7 +36,10 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   `{values, index}` for an array and `{value, index}` for an event of an
   iterator, the counterparts of Python's tuples. A plain Array is always
   values. JavaScript `split` returns `{values, index}` objects, so its outputs
-  feed `combineLatest` and a `Pipeline` as they are.
+  feed `combineLatest` and a `Pipeline` as they are. The iterator join gives
+  Python's rows: a row of numbers is an array (one input too), a fractional
+  index joins as in the batch form, a NaN index throws `RangeError`, and an
+  index error starts with "combineLatest: " (`merge`: "merge: ").
 * JavaScript `split`.
 * JavaScript `pipeline.toJSON()` (the description object, so
   `JSON.stringify(pipeline)` is its JSON text), `pipeline.toDict()`,
@@ -142,6 +160,47 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   rule of `max_pending`. See the Changed entry below.
 
 ### Changed
+
+* JavaScript: a one-input multi-output operator on a `number[]` returns an
+  Array of per-event results (`BollingerBands(2)([1, 2, 3])` gives three
+  `[lower, middle, upper]` arrays), as Python's list gives a list and as the
+  multi-input form did. 2.8.0 returned an `NdArray`; pass a `Float64Array` to
+  keep it.
+* JavaScript resample settings follow Python's rule, one C++ check for both
+  languages and `Pipeline.fromJSON`: `every` below 1 or NaN, `count` below
+  1, `threshold` of 0 or less, an unknown `fill` or `label`, `maxAge`
+  without `clock: true`, `agg: "last"` and `fill: "carry"`, a functor
+  reducer with `clock` or `threshold`, a multi-column bar agg with
+  `threshold`, an unknown `agg` and more than one of `every`, `count`,
+  `threshold` and `clock` throw `RangeError` with Python's messages; an
+  unknown option throws `TypeError`; `clock: true` without a driver throws
+  `RangeError`; `mode`, when given, must match the settings. 2.8.0 trapped
+  in WebAssembly (`every: 0`), returned rows, or ignored the setting. Python:
+  a NaN `threshold` and an `every`, `count` or `max_age` outside the int64
+  range raise `ValueError` (2.8.0 accepted a NaN threshold and raised
+  `ValueError`/`OverflowError` with Python's own text for the others).
+* JavaScript `dropna` with an unknown `how` throws `RangeError` 'dropna: how
+  must be "any" or "all"', as Python; 2.8.0 ran it as "any".
+* JavaScript `Pipeline` and combinator construction errors use Python's
+  classes (A4): undeclared or unused inputs, a non-Input entry in `inputs`, a
+  non-Node output, one op behind two nodes, a negative `select` column and
+  `merge` of Nodes throw `RangeError`; a missing feed throws `TypeError`; a
+  live `push` to an unknown input throws `RangeError`. 2.8.0 threw `Error`.
+  Only the class changed.
+* JavaScript `strategyTest` with a `method`, `mode` or `volumeMode` that is
+  not a string, and `positionTest` with such a `method`, throw `TypeError`
+  "strategyTest: method must be a string, got a number". 2.8.0 threw a
+  minified Embind error (`strategyTest`) or `RangeError` (`positionTest`).
+* `backtest_report(values, index=...)` (JavaScript: `backtestReport(values,
+  { index })`) raises `ValueError` (`RangeError`) when the index does not
+  hold one value per row: "backtest_report: the stream has 5 rows of values
+  but 2 index values". 2.8.0 returned the index as given.
+* JavaScript: an `NdArray` dimension above 2**32 - 1 throws `RangeError`.
+  2.8.0 read it as 4294967295 or threw a bare "vector".
+* JavaScript: a call that needs more WebAssembly memory than there is throws
+  `RangeError` "out of memory: the call needs more memory than is
+  available" (Python raises `MemoryError`). 2.8.0 wrote the call's input at
+  address 0 and threw an empty message, or a raw `WebAssembly.Exception`.
 
 * A wrong number of inputs raises `ValueError` naming the operator,
   "RollingCorr expects 2 inputs, got 3" (JavaScript: the same text as a
@@ -998,6 +1057,24 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Fixed
 
+* The JavaScript package loads in bundlers (esbuild, Vite, webpack, Rollup)
+  without a copy step: it imports its WebAssembly module with a plain
+  `import()`, and the Emscripten glue's Node-only `import("module")` is left
+  to run time, so a browser build resolves. It runs under a strict
+  Content-Security-Policy (`'wasm-unsafe-eval'`, no `'unsafe-eval'`): the ES
+  build has no `new Function`. 2.8.0 hid the import in a `Function` body,
+  which bundlers skip and a strict CSP refuses.
+* The CommonJS build no longer carries a second copy of the WebAssembly
+  module: it loads the ES build's copy (the unpacked package is about 0.8 MB
+  smaller).
+* JavaScript: a value whose `valueOf` grows WebAssembly memory no longer
+  writes through a stale heap view (a live `push` of a wide event, `split`,
+  `combineLatest` over iterators).
+* JavaScript `combineLatest` copies an Array `layout` before C++ reads it, so
+  a Proxy or a getter cannot run JavaScript while WebAssembly frames are live.
+* Importing the JavaScript package with `--dump` among the command-line
+  arguments printed the resample code tables to stdout.
+
 * A NumPy `datetime64` or `timedelta64` scalar (`NaT` too) or a ctypes array
   passed to an operator, or as an event of an iterator, crashed the process
   (a segmentation fault in nanobind's buffer import, which read the missing
@@ -1391,6 +1468,12 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   for `ohlc`).
 
 ### Performance
+
+* JavaScript per-event operator calls (`op(x)` on numbers, and every event of
+  a stream) run through a plain WebAssembly export with no Embind dispatch and
+  no typed-array views: `RollingMean(20)(x)` 205 to 37 ns per call,
+  `RollingCorr` 254 to 61 ns, `BollingerBands` 430 to 88 ns, a sync stream
+  246 to 87 ns per event (Node 24, Apple M-series).
 
 * Python iterator sources (lazy calls, `merge`, `combine_latest` and stream
   operators over generators) take each item with `PyIter_Next`: no

@@ -661,6 +661,8 @@ void init_bindings_dag(nb::module_& m) {
             catch (const dag::SettingTypeError& e) { PyErr_SetString(PyExc_TypeError, e.what()); }
         }, nullptr);
     m.def("_checked_index", [](double d) { return dag::checked_index(d); }, "index"_a);
+    // The feed-length rule (checked_index.h): one index value per row.
+    m.def("_check_feed_length", &dag::check_feed_length, "who"_a, "input"_a, "rows"_a, "len"_a);
     m.attr("_DEFAULT_MAX_PENDING") = dag::kDefaultMaxPending;
     // A Pipeline's max_pending under the engine's rule (max_pending.h): an
     // integer from 1 to 2**53. A bool or another kind is a TypeError.
@@ -672,6 +674,39 @@ void init_bindings_dag(nb::module_& m) {
         return dag::checked_max_fill(count_setting(x, who), who);
     }, "max_fill"_a.none(), "who"_a = "resample: max_fill");
     m.attr("_DEFAULT_MAX_FILL") = dag::kDefaultMaxFill;
+    // The settings rule of a Resample (dag/resample_check.h), shared with the
+    // JavaScript binding. None is a setting not given.
+    m.def("_resample_check", [](bool has_freq, nb::handle every, nb::handle count,
+                                nb::handle threshold, bool clock, bool agg_functor,
+                                const std::string& agg, const std::string& label,
+                                const std::string& fill, nb::handle max_age,
+                                bool max_age_whole) {
+        dag::ResampleSettings s;
+        // float(x) as Python reads it (an int past 2**53 rounds; a huge int
+        // raises OverflowError, as int64 settings did).
+        auto as_float = [](nb::handle h) {
+            nb::object f = nb::steal(PyNumber_Float(h.ptr()));
+            if (!f.is_valid()) throw nb::python_error();
+            return PyFloat_AsDouble(f.ptr());
+        };
+        auto num = [&](nb::handle h, bool& has, double& v) {
+            has = !h.is_none();
+            if (has) v = as_float(h);
+        };
+        s.has_freq = has_freq;
+        num(every, s.has_every, s.every);
+        num(count, s.has_count, s.count);
+        num(threshold, s.has_threshold, s.threshold);
+        s.clock = clock;
+        s.agg_functor = agg_functor;
+        s.agg = agg; s.label = label; s.fill = fill;
+        s.max_age_whole = max_age_whole;
+        // max_age of the wrong kind is reported by the rule before it is read.
+        s.has_max_age = !max_age.is_none();
+        if (s.has_max_age && max_age_whole) s.max_age = as_float(max_age);
+        dag::check_resample_settings(s);
+    }, "has_freq"_a, "every"_a.none(), "count"_a.none(), "threshold"_a.none(), "clock"_a,
+       "agg_functor"_a, "agg"_a, "label"_a, "fill"_a, "max_age"_a.none(), "max_age_whole"_a);
     // The string rule for values (cast_double.h refuse_text), for the Python
     // float64 conversions in screamer/dag.py and screamer/streams.py.
     m.def("_refuse_text", [](nb::handle x, const std::string& who) { refuse_text(x, who); },

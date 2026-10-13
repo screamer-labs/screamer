@@ -66,8 +66,12 @@ test("feeds: any string is a TypeError; null is NaN", async () => {
 test("feeds: a wrong-kind bare feed throws TypeError naming its kind", async () => {
   await ready();
   const p = pipe();
-  for (const f of [new DataView(new ArrayBuffer(8)), new Set([1]), (function* () { yield 1; })()])
+  for (const f of [new DataView(new ArrayBuffer(8)), new Set([1])])
     assert.throws(() => p(f as any), (e: unknown) => e instanceof TypeError && (e as Error).message.startsWith("Pipeline: the feeds are"));
+  // An iterator is a lazy run, whose events are { value, index } pairs.
+  const run = p((function* () { yield 1; })() as any) as any;
+  assert.throws(() => run.next(), (e: unknown) => e instanceof TypeError &&
+    (e as Error).message === "Pipeline: event 0 of input 0 is a number, expected a { value, index } event");
   assert.throws(() => p({ values() { return 1; } } as any), (e: unknown) => e instanceof TypeError && (e as Error).message.includes("values function"));
 });
 

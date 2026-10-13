@@ -14,7 +14,7 @@
 import { current } from "./index.js";
 import { asNd, type NdArray } from "./ndarray.js";
 import { wasmCall, wasmCallbacks } from "./errors.js";
-import { flattenRows } from "./kinds.js";
+import { aKind, flattenRows } from "./kinds.js";
 import type { ScreamerOp } from "./runtime.js";
 
 // A target as a Float64Array, so the engine returns an NdArray: all number[]
@@ -33,6 +33,13 @@ function noBools(who: string, args: Record<string, [unknown, boolean]>): void {
       throw new TypeError(`${who}: ${name} must be ${integer ? "an integer" : "a number"}, got boolean`);
 }
 
+// Text settings: a string, or null/undefined for the default. Another kind is
+// a TypeError, as in Python; C++ would refuse it with an Embind error.
+function texts(who: string, args: Record<string, unknown>): void {
+  for (const [name, v] of Object.entries(args))
+    if (v != null && typeof v !== "string") throw new TypeError(`${who}: ${name} must be a string, got ${aKind(v)}`);
+}
+
 // Run a C++ surrogate generator: copy `x` to the heap, write a (T x ncols)
 // row-major block, and copy it back out.
 function surrogates(
@@ -42,7 +49,7 @@ function surrogates(
 ): NdArray {
   const M = current();
   const T = x.length;
-  let xPtr = 0, outPtr = 0;          // freeBuf(0) is a no-op, so a failed alloc is safe
+  let xPtr = 0, outPtr = 0;          // freeBuf(0) is a no-op; a failed alloc throws
   try {
     xPtr = M.allocF64(T); outPtr = M.allocF64(T * ncols);
     M.viewF64(xPtr, T).set(x as number[]);
@@ -442,6 +449,7 @@ export function positionTest(
   const M = current();
   const portfolio = !!(engine as any).rowOp;
   const tgt = positionTarget(target, portfolio);
+  texts("positionTest", { method: opts.method });
   const method = opts.method ?? "shift";
   const metric = opts.metric ?? "sharpe";
   const { custom, name, hasLarger, larger } = metricArgs(metric, opts.largerIsBetter);
@@ -742,6 +750,8 @@ export function strategyTest(
   noBools("strategyTest", { n: [opts.n, true], ohlc: [opts.ohlc, true], price: [opts.price, true],
                            volume: [opts.volume, true], minShift: [opts.minShift, true],
                            seed: [opts.seed, true], periodsPerYear: [opts.periodsPerYear, false] });
+  // The text settings go to C++ as strings: another kind is a TypeError here.
+  texts("strategyTest", { method: opts.method, mode: opts.mode, volumeMode: opts.volumeMode });
   const n = opts.n ?? 500;
   const method = opts.method ?? "bars";
   const metric = opts.metric ?? "sharpe";

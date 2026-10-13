@@ -4,7 +4,8 @@ import { Node, isNode } from "./node.js";
 import { current } from "./index.js";
 import { normalizeError, wasmCall } from "./errors.js";
 import { aKind, feedValue, kindName, throwIndexKind, throwMessage, toF64Checked, whereText } from "./kinds.js";
-import { releaseWith, type Owned } from "./runtime.js";
+import { releaseWith, trackStream, type Owned, type StreamHold } from "./runtime.js";
+import { mergeEvents } from "./merge.js";
 import { build, checkDescription, describe, describeJson } from "./pipeline_io.js";
 
 // One bound feed for an Input: a values stream and its integer index axis.
@@ -14,6 +15,24 @@ type Feeds = Feed | Record<string, Feed>;
 export interface Output {
   values: Float64Array | NdArray;
   index: Float64Array;
+}
+
+/** The value of one output in a row of a lazy run: a number, the output's
+ * columns, or (a per-column resample) the event's shape. */
+export type PipelineValue = number | number[] | Float64Array | NdArray;
+/**
+ * One row of a lazy run (`pipeline(iterator)`): `{ value, index }` for one
+ * output, `{ values, index }` with one value per output for aligned outputs.
+ * The index is null for positional feeds.
+ */
+export type PipelineRow =
+  | { value: PipelineValue; index: number | null; values?: undefined }
+  | { values: Array<number | number[]>; index: number | null; value?: undefined };
+
+// Options of a lazy run (internal: the stream functions set them).
+export interface LazyOptions {
+  positional?: boolean;                        // bare values are row-numbered events
+  shape?: (first: unknown) => number[] | null; // the rows' value shape, from the first event
 }
 
 /**
@@ -140,7 +159,7 @@ function checkStatefulSafety(outputs: Node[]): void {
     const raw = (node.op as any)?.functor;
     if (raw !== undefined) {
       if (used.has(raw)) {
-        throw new Error(
+        throw new RangeError(
           "the same functor instance backs two nodes; construct a fresh " +
             "functor per node (state cannot be shared)",
         );
@@ -161,6 +180,14 @@ function heapU32(M: Screamer, arr: number[]): number {
   new Uint32Array(dv.buffer, dv.byteOffset, arr.length).set(arr);
   return ptr;
 }
+
+// A sync iterator as a lazy feed: not a string, an array, a typed array or a
+// Map/Set (their values are concrete), not an async iterable.
+const isIterator = (x: unknown): boolean =>
+  x != null && typeof x === "object" && typeof (x as any)[Symbol.iterator] === "function" &&
+  typeof (x as any).next === "function" && !Array.isArray(x) && !ArrayBuffer.isView(x);
+// A bare values feed or a {values, index} feed (not feeds by name).
+const isPairOrValues = (x: object): boolean => asNd(x) !== null || ("values" in x && typeof (x as any).values !== "function");
 
 // One compiled engine: the graph, its address for the per-event exports, and
 // the copies of the operators it points into. The Pipeline has one for batch
@@ -198,6 +225,9 @@ class PipelineImpl implements Owned {
   private sessions = new Set<Engine>();
   private building: Engine | null = null;   // the engine compile() is building
   private _disposed = false;
+  // The name feed errors give: a stream function that runs through a
+  // one-node Pipeline names itself ("select: ...").
+  who = "Pipeline";
   readonly alignOutputs: boolean;
   readonly maxPending: number;
 
@@ -211,11 +241,11 @@ class PipelineImpl implements Owned {
 
     for (const n of this.inputs) {
       if (!isNode(n) || (n.op as any)?.input === undefined) {
-        throw new Error("every entry in inputs must be an Input(...) node");
+        throw new RangeError("every entry in inputs must be an Input(...) node");
       }
     }
     for (const n of this.outputs) {
-      if (!isNode(n)) throw new Error("every entry in outputs must be a Node");
+      if (!isNode(n)) throw new RangeError("every entry in outputs must be a Node");
     }
 
     const reachable = reachableInputs(this.outputs);
@@ -224,12 +254,12 @@ class PipelineImpl implements Owned {
     const undeclared = reachable.filter((n) => !declaredSet.has(n));
     if (undeclared.length) {
       const names = undeclared.map((n) => (n.op as any).input);
-      throw new Error(`outputs reference undeclared inputs: ${JSON.stringify(names)}`);
+      throw new RangeError(`outputs reference undeclared inputs: ${JSON.stringify(names)}`);
     }
     const unused = this.inputs.filter((n) => !reachableSet.has(n));
     if (unused.length) {
       const names = unused.map((n) => (n.op as any).input);
-      throw new Error(`declared inputs are unused by any output: ${JSON.stringify(names)}`);
+      throw new RangeError(`declared inputs are unused by any output: ${JSON.stringify(names)}`);
     }
     checkStatefulSafety(this.outputs);
 
@@ -264,7 +294,7 @@ class PipelineImpl implements Owned {
       } else if (op?.combinator !== undefined) {
         nid = this.buildCombinator(gb, op, node.inputs.map(build));
       } else {
-        throw new Error("combinator/operator nodes are not supported yet");
+        throw new TypeError("combinator/operator nodes are not supported yet");
       }
       ids.set(node, nid);
       return nid;
@@ -328,7 +358,7 @@ class PipelineImpl implements Owned {
             inp[0], inp[1], p.count !== undefined, p.count ?? 0,
             p.duration !== undefined, p.duration ?? 0, p.dropna));
         default:
-          throw new Error(`unknown combinator '${kind}'`);
+          throw new TypeError(`unknown combinator '${kind}'`);
       }
     } finally {
       vec.delete();
@@ -400,19 +430,19 @@ class PipelineImpl implements Owned {
         const nd = asNd(v);   // a malformed NdArray raises RangeError
         if (nd) {
           if (nd.shape.length < 1 || nd.shape.length > 2)
-            throw new RangeError(`Pipeline: the values of input ${k} have shape [${nd.shape}], expected (T,) or (T, w)`);
+            throw new RangeError(`${this.who}: the values of input ${k} have shape [${nd.shape}], expected (T,) or (T, w)`);
           rows = nd.shape[0];
           ndWidth = nd.shape.length === 2 ? nd.shape[1] : 1;
           return nd.data;
         }
         if (v instanceof BigInt64Array || v instanceof BigUint64Array)
-          throw new TypeError(`Pipeline: the values of input ${k} are ${aKind(v)}; values must be numbers (Float64Array.from(x, Number) converts them)`);
+          throw new TypeError(`${this.who}: the values of input ${k} are ${aKind(v)}; values must be numbers (Float64Array.from(x, Number) converts them)`);
         if (isFlat(v)) {
-          const out = toF64Checked(v as ArrayLike<unknown>, "Pipeline", at, true);
+          const out = toF64Checked(v as ArrayLike<unknown>, this.who, at, true);
           rows = out.length;
           return out;
         }
-        throw new TypeError(`Pipeline: the values of input ${k} are ${aKind(v)}, expected an array, a typed array or an NdArray`);
+        throw new TypeError(`${this.who}: the values of input ${k} are ${aKind(v)}, expected an array, a typed array or an NdArray`);
       };
       if (isValues(feed)) {
         values = read(feed);
@@ -420,7 +450,7 @@ class PipelineImpl implements Owned {
         values = read((feed as any).values);
         if ((feed as any).index != null) index = indexArray(this.M, (feed as any).index);
       } else {
-        throw new TypeError(`Pipeline: the feed for input '${this.names[k]}' is ${aKind(feed)}, ${expected}`);
+        throw new TypeError(`${this.who}: the feed for input '${this.names[k]}' is ${aKind(feed)}, ${expected}`);
       }
       if (!index) {
         index = new Float64Array(rows!);
@@ -433,7 +463,7 @@ class PipelineImpl implements Owned {
 
     if (isValues(feeds) || isPair(feeds)) {
       if (this.inputs.length !== 1) {
-        throw new Error(`this pipeline has ${this.inputs.length} inputs; pass an object keyed by input name`);
+        throw new TypeError(`this pipeline has ${this.inputs.length} inputs; pass an object keyed by input name`);
       }
       return [one(feeds as Feed, 0)];
     }
@@ -441,13 +471,13 @@ class PipelineImpl implements Owned {
     // a generator, a class instance) is a feed of the wrong kind.
     const proto = feeds !== null && typeof feeds === "object" ? Object.getPrototypeOf(feeds) : undefined;
     if (proto !== Object.prototype && proto !== null)
-      throw new TypeError(`Pipeline: the feeds are ${aKind(feeds)}, ${expected}, or an object keyed by input name`);
+      throw new TypeError(`${this.who}: the feeds are ${aKind(feeds)}, ${expected}, or an object keyed by input name`);
     const obj = feeds as Record<string, Feed>;
     return this.names.map((name, k) => {
       if (!(name in obj)) {
         if ("values" in obj)   // {values() {...}}: not values, not feeds by name
-          throw new TypeError(`Pipeline: the feeds have a values ${typeof (obj as any).values}, expected an array of numbers, a typed array or an NdArray`);
-        throw new Error(`missing feed for input '${name}'`);
+          throw new TypeError(`${this.who}: the feeds have a values ${typeof (obj as any).values}, expected an array of numbers, a typed array or an NdArray`);
+        throw new TypeError(`missing feed for input '${name}'`);
       }
       return one(obj[name], k);
     });
@@ -525,7 +555,7 @@ class PipelineImpl implements Owned {
   // first, in signature order, so the input index equals the name's position.
   private inputIndex(name: string): number {
     const i = this.names.indexOf(name);
-    if (i < 0) throw new Error(`unknown input '${name}'`);
+    if (i < 0) throw new RangeError(`unknown input '${name}'`);
     return i;
   }
 
@@ -544,6 +574,144 @@ class PipelineImpl implements Owned {
     const width = out.width as number;
     const valCopy = new Float64Array(M.viewF64(out.valuePtr, rows * width));
     return width === 1 ? valCopy : ({ data: valCopy, shape: [rows, width] } as NdArray);
+  }
+
+  // The feeds of a lazy run, in signature order, or null for a batch call:
+  // one iterator (a one-input Pipeline), or an object of iterators keyed by
+  // input name. Iterators beside arrays are a TypeError, as in Python.
+  lazyFeeds(feeds: unknown): Iterable<unknown>[] | null {
+    if (isIterator(feeds)) {
+      if (this.inputs.length !== 1)
+        throw new TypeError(`this pipeline has ${this.inputs.length} inputs; pass an object keyed by input name`);
+      return [feeds as Iterable<unknown>];
+    }
+    if (feeds === null || typeof feeds !== "object" || Array.isArray(feeds) || isPairOrValues(feeds)) return null;
+    const vals = this.names.map((n) => (feeds as Record<string, unknown>)[n]);
+    const lazy = vals.filter(isIterator).length;
+    if (lazy === 0) return null;
+    if (lazy !== vals.length)
+      throw new TypeError("dag(...) feeds must be either all lazy iterators or all concrete " +
+        "(arrays / lists / (values, index) tuples); a mix is ambiguous. Wrap the concrete feed " +
+        "in a generator, or materialize the iterator into an array.");
+    return vals as Iterable<unknown>[];
+  }
+
+  // A lazy run over sync iterators, one per input in signature order: the
+  // generator Python's `p(iter(...))` gives. The feeds merge in index order
+  // (ties in input order) and each event runs through an engine of its own
+  // (compiled on new op copies, as a live session), so a lazy run, a batch
+  // call and a live session never share state. Events are `{ value, index }`;
+  // with `o.positional` bare values are rows numbered per input, as a batch
+  // call numbers them, and the rows come back with index null. A value is a
+  // number or a sequence of numbers (one wide event). Rows: `{ value, index }`
+  // for one output (a number, or an array of the output's columns), `{
+  // values, index }` with one value per output for aligned outputs. With
+  // `o.shape`, the first event's shape picks the shape of every row's value
+  // (resample per column). `owner` is the callable Pipeline, held while the
+  // run is open. Nothing is read before the first next().
+  lazy(srcs: Iterable<unknown>[], owner: Pipeline, o: LazyOptions = {}): Generator<PipelineRow, void, undefined> {
+    this.checkLive();
+    if (this.outputs.length > 1 && !this.alignOutputs)
+      throw new TypeError("lazy dag(iterables) with align_outputs=False and multiple outputs is not yet " +
+        "supported; use the batch call dag(arrays)");
+    const held: StreamHold = {};
+    return trackStream(this.runLazy(srcs, owner, o, held), held);
+  }
+
+  private *runLazy(srcs: Iterable<unknown>[], owner: Pipeline, o: LazyOptions,
+                   held: StreamHold): Generator<PipelineRow, void, undefined> {
+    void owner;
+    const M: any = this.M;
+    const self = this;
+    this.checkLive();
+    const engine = this.compile();
+    this.sessions.add(engine);
+    engine.onRelease = () => { self.sessions.delete(engine); };
+    held.close = () => engine.release();
+    const nOut = this.outputs.length;
+    const rows: PipelineRow[] = [];
+    let first = true, positional = false;
+    let rowShape: number[] | null = null;           // o.shape: the value's shape
+    const graph = (): any => {
+      if (!engine.cg) throw new TypeError(`${this.who}: pipeline used after dispose()`);
+      return engine.cg;
+    };
+    // The rows the graph emitted since the last drain, into `rows`.
+    const drain = (): void => {
+      const cg = graph();
+      try {
+        cg.drainStore(this.alignOutputs);
+        if (nOut === 1) {
+          const out = cg.output(0);
+          const h: Float64Array = M.HEAPF64;
+          const ix = out.indexPtr >> 3, vx = out.valuePtr >> 3, w = out.width as number;
+          for (let r = 0; r < out.rows; r++) {
+            const p = vx + r * w;
+            let value: PipelineValue;
+            if (rowShape) {
+              const data = h.slice(p, p + w);
+              value = rowShape.length === 1 ? data : { data, shape: rowShape.slice() };
+            } else if (w === 1) value = h[p];
+            else value = Array.from(h.subarray(p, p + w));
+            rows.push({ value, index: positional ? null : h[ix + r] });
+          }
+        } else if (cg.storedAligned()) {
+          const ai = cg.alignedIndex();
+          const outs = Array.from({ length: nOut }, (_, j) => cg.alignedOutput(j));
+          const h: Float64Array = M.HEAPF64;
+          for (let r = 0; r < ai.rows; r++) {
+            const values = outs.map((out) => {
+              const p = (out.valuePtr >> 3) + r * out.width;
+              return out.width === 1 ? h[p] : Array.from(h.subarray(p, p + out.width));
+            });
+            rows.push({ values, index: positional ? null : h[(ai.indexPtr >> 3) + r] });
+          }
+        }
+      } catch (e) {
+        throw normalizeError(e);
+      } finally {
+        if (engine.cg) engine.cg.clearStored();
+      }
+    };
+    const counts = srcs.map(() => 0);
+    try {
+      const cg0 = graph();
+      wasmCall(() => { cg0.reset(); cg0.setMergeOrder(true); });
+      for (const ev of mergeEvents(srcs, this.who)) {
+        const k = ev.source, n = counts[k]++;
+        if (first) {
+          first = false;
+          positional = ev.index === null;
+          if (positional && !o.positional)
+            throw new TypeError(`${this.who}: event 0 of input ${k} is ${aKind(ev.value)}, expected a { value, index } event`);
+          if (o.shape) rowShape = o.shape(ev.value);
+        }
+        const t = positional ? n : (ev.index as number);
+        const v = ev.value;
+        if (typeof v === "number") {
+          graph();
+          try { M._screamer_push_event(engine.addr, k, t, v); } catch (e) { throw normalizeError(e); }
+        } else {
+          const data = v instanceof Float64Array ? v : v.data;
+          const buf = M.allocF64(data.length || 1);
+          try {
+            (M.HEAPF64 as Float64Array).set(data, buf >> 3);
+            graph();
+            try { M._screamer_push_event_wide(engine.addr, k, t, buf, data.length); } catch (e) { throw normalizeError(e); }
+          } finally {
+            M.freeBuf(buf);
+          }
+        }
+        drain();
+        if (rows.length) { yield* rows; rows.length = 0; }
+      }
+      wasmCall(() => graph().flush());
+      drain();
+      yield* rows;
+    } finally {
+      held.close = undefined;
+      engine.release();
+    }
   }
 
   // Event-by-event driver over the compiled graph. Push events (scalar or wide)
@@ -586,17 +754,23 @@ class PipelineImpl implements Owned {
       if (src == null || typeof src.length !== "number")
         throw new TypeError(`a wide event is a sequence of numbers, got ${typeof values}`);
       const width = src.length;
-      const buf = M.allocF64(width || 1);   // the engine rejects an empty event
-      try {
-        const view = M.viewF64(buf, width);
-        if (src instanceof Float64Array) view.set(src);
-        else for (let j = 0; j < width; j++) {
+      // The values in JavaScript first: converting an item (a valueOf) may
+      // grow the heap, which replaces its views, or dispose the session.
+      let vals: Float64Array;
+      if (src instanceof Float64Array) vals = src;
+      else {
+        vals = new Float64Array(width);
+        for (let j = 0; j < width; j++) {
           const x: unknown = src[j];
           if (x !== null && typeof x === "object" && (Array.isArray(x) || ArrayBuffer.isView(x) || asNd(x)))
             throw new RangeError("a wide event is a 1-D sequence of numbers, item [" + j + "] is a sequence");
-          view[j] = typeof x === "number" ? x
+          vals[j] = typeof x === "number" ? x
             : feedValue(x, "Pipeline", () => `item [${j}] of the values pushed to input ${i}`);
         }
+      }
+      const buf = M.allocF64(width || 1);   // the engine rejects an empty event
+      try {
+        M.viewF64(buf, width).set(vals);
         const g = graphAddress();   // after the values: their conversion may dispose
         try { M._screamer_push_event_wide(g, i, t, buf, width); } catch (e) { throw normalizeError(e); }
       } finally {
@@ -666,6 +840,18 @@ class PipelineImpl implements Owned {
   }
 }
 
+// The key under which a callable Pipeline holds its implementation, for the
+// stream functions that run through a one-node Pipeline (combinators.ts). A
+// property and not a WeakMap: V8 keeps a WeakMap's table at its peak size.
+const IMPL = Symbol("pipeline implementation");
+
+/** @internal A lazy run with options (the stream functions' iterator forms). */
+export function runLazy(p: Pipeline, srcs: Iterable<unknown>[], o: LazyOptions): Generator<PipelineRow, void, undefined> {
+  return ((p as any)[IMPL] as PipelineImpl).lazy(srcs, p, o);
+}
+/** @internal The name a Pipeline's feed errors give. */
+export function setWho(p: Pipeline, who: string): void { ((p as any)[IMPL] as PipelineImpl).who = who; }
+
 // The key under which a live driver holds its Pipeline.
 const OWNER = Symbol("pipeline");
 
@@ -673,6 +859,13 @@ const OWNER = Symbol("pipeline");
 // and its node metadata. `new Pipeline(inputs, outputs)` returns this callable.
 export interface Pipeline {
   (feeds: Feeds): Output | Output[];
+  /**
+   * A lazy run: one iterator (a one-input Pipeline), or an object of
+   * iterators keyed by input name, of `{ value, index }` events. Returns a
+   * generator of rows, the same rows a batch call gives; nothing is read
+   * before the first `next()`.
+   */
+  (feeds: Iterator<unknown> | Record<string, Iterator<unknown>>): Generator<PipelineRow, void, undefined>;
   live(): LiveDriver;
   dispose(): void;
   /**
@@ -711,8 +904,10 @@ export const Pipeline = function (inputs: Node[], outputs: Node[], opts?: Pipeli
     if (n > 1)
       throw new TypeError(`Pipeline: takes one argument, the feeds, got ${n}; ` +
         "pass an index as {values, index} and several inputs as an object keyed by input name");
-    return impl.call(feeds);
+    const lazy = impl.lazyFeeds(feeds);
+    return lazy ? impl.lazy(lazy, fn) : impl.call(feeds);
   }) as Pipeline;
+  (fn as any)[IMPL] = impl;
   // The compiled graph is freed by dispose() or when `fn` is collected.
   (fn as any).dispose = releaseWith(fn, impl);
   (fn as any).live = () => impl.live(fn);

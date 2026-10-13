@@ -399,8 +399,9 @@ const _finite = (M: any, op: string, names: string[], values: unknown[], e: unkn
     const v = values[i];
     if (typeof v === "number" || Array.isArray(v)) { ns.push(n); vs.push(v); }
   });
-  // A buffer's length_error ("vector") or bad_alloc: a setting too large to allocate.
-  const alloc = e.message === "vector" || /bad_alloc/.test(e.message);
+  // A buffer's length_error or bad_alloc (errors.ts gives both as its
+  // out-of-memory RangeError): a setting too large to allocate.
+  const alloc = e.message.startsWith("out of memory");
   const msg = M.finiteSettingError(op, ns, vs, vs.map((v) => String(v)), alloc);
   return msg ? new RangeError(msg) : e;
 };

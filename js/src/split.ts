@@ -5,7 +5,7 @@
 import { current } from "./index.js";
 import { asNd, type NdArray } from "./ndarray.js";
 import { wasmCall } from "./errors.js";
-import { aKind, fillF64Checked, flattenRows, throwIndexKind, throwWrongKind } from "./kinds.js";
+import { aKind, flattenRows, throwIndexKind, throwWrongKind, toF64Checked } from "./kinds.js";
 
 export interface SplitOptions {
   /** The index of each event, partitioned with the values. Absent, each output's index is null. */
@@ -114,7 +114,12 @@ export function split(
     const vp = alloc(size(v)), sp = alloc(size(s)), kp = k ? alloc(size(k)) : 0;
     const outV = alloc(rows * width), outK = k ? alloc(rows) : 0;
     if (v.data) M.viewF64(vp, v.data.length).set(v.data);
-    else fillF64Checked(v.items!, M.viewF64(vp, size(v)), WHO, (i) => `item ${i} of values`, true);
+    else {
+      // Read into JavaScript first: reading an item (a valueOf) may grow the
+      // heap, which replaces its views.
+      const items = toF64Checked(v.items!, WHO, (i) => `item ${i} of values`, true);
+      M.viewF64(vp, items.length).set(items);
+    }
     if (s.data) M.viewF64(sp, s.data.length).set(s.data);
     else fillSources(s.items!, M.viewF64(sp, size(s)));
     if (k) {
