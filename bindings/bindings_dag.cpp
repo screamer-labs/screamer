@@ -141,8 +141,10 @@ public:
             if (auto e = merge_->next()) {
                 const std::size_t src = static_cast<std::size_t>(e->source);
                 const auto* py_src = sources_[src].get();
-                if (!shape_known_ && static_cast<std::ptrdiff_t>(src) == shape_input_)
-                    learn_shape(*py_src);
+                if (static_cast<std::ptrdiff_t>(src) == shape_input_) {
+                    if (!shape_known_) learn_shape(*py_src);
+                    else check_shape(*py_src);
+                }
                 if (py_src->is_wide()) {
                     const auto& wv = py_src->wide_values();
                     cg_.push_event_wide(src, e->index, wv.data(), wv.size());
@@ -196,12 +198,32 @@ private:
     // event keeps the default rows (out_shape_ empty).
     void learn_shape(const streams::PySource<std::int64_t>& src) {
         shape_known_ = true;
-        if (!src.is_wide()) return;
+        first_wide_ = src.is_wide();
+        if (!first_wide_) return;
+        first_shape_ = src.event_shape();
         out_shape_ = src.event_shape();
         if (out_shape_.size() >= 2 && out_shape_.back() == 1) out_shape_.pop_back();
         out_shape_.insert(out_shape_.end(), shape_tail_.begin(), shape_tail_.end());
         out_size_ = 1;
         for (std::size_t d : out_shape_) out_size_ *= d;
+    }
+
+    // Every event of the shape input has the first event's shape, as the rows
+    // of a batch array do: a number, or an array of one shape.
+    void check_shape(const streams::PySource<std::int64_t>& src) const {
+        const bool wide = src.is_wide();
+        if (wide == first_wide_ && (!wide || src.event_shape() == first_shape_)) return;
+        auto text = [](bool w, const std::vector<std::size_t>& sh) {
+            if (!w) return std::string("a number");
+            std::string t = "shape (";
+            for (std::size_t d = 0; d < sh.size(); ++d)
+                t += (d ? ", " : "") + std::to_string(sh[d]);
+            return t + (sh.size() == 1 ? ",)" : ")");
+        };
+        throw nb::value_error((std::string(src.owner()) + ": " +
+            src.event_text(src.events_read() - 1) + " has " + text(wide, src.event_shape()) +
+            ", but the first event had " + text(first_wide_, first_shape_) +
+            "; every event of a resample has one shape").c_str());
     }
 
     // One output: buffer each drained frame directly as a (value, index) row,
@@ -254,6 +276,8 @@ private:
     std::ptrdiff_t shape_input_;              // the input whose event shape shapes rows; -1 none
     std::vector<std::size_t> shape_tail_;     // axes after the event shape (4 for ohlc)
     bool shape_known_ = false;
+    bool first_wide_ = false;                 // the shape input's first event was an array
+    std::vector<std::size_t> first_shape_;    // and its shape
     std::vector<std::size_t> out_shape_;      // the row shape; empty = default rows
     std::size_t out_size_ = 0;
 };

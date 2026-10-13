@@ -207,3 +207,59 @@ def test_pipeline_lazy_events_keep_their_rules():
     strided = np.asfortranarray(np.arange(12.0).reshape(4, 3))[0]
     rows = list(p(iter([(strided, 0), (np.arange(3, dtype=np.float32), 1)])))
     assert rows == [((0.0, 1.0, 2.0), 0), ((0.0, 1.0, 2.0), 1)]
+
+
+# The lazy resample reads an event of any numeric kind or layout as a batch
+# call reads the same rows (fix round 2, N1).
+_D = rng.normal(size=(T, 2, 3))
+_EVENT_KINDS = {
+    "float32": lambda: _D.astype(np.float32),
+    "int64": lambda: (_D * 10).astype(np.int64),
+    "fortran": lambda: np.asfortranarray(_D),
+    "strided": lambda: rng.normal(size=(T, 2, 6))[:, :, ::2],
+    "big-endian": lambda: _D.astype(">f8"),
+    "bool": lambda: _D > 0,
+    "float16": lambda: _D.astype(np.float16),
+}
+
+
+def _lazy_rows(rows, mode, agg):
+    if mode == "clock":
+        out = s.Resample(iter(zip(rows, idx)), iter(zip(clk, clk_idx)), clock=True, agg=agg)
+    else:
+        cfg = {"count": dict(count=7), "freq": dict(freq=50)}[mode]
+        out = s.Resample(agg=agg, **cfg)(iter(zip(rows, idx)))
+    out = list(out)
+    return np.array([v for v, _ in out]), np.array([i for _, i in out])
+
+
+@pytest.mark.parametrize("mode", ["clock", "count", "freq"])
+@pytest.mark.parametrize("kind", sorted(_EVENT_KINDS) + ["lists", "tuples", "list of rows"])
+def test_lazy_reads_every_event_kind_as_batch(mode, kind):
+    if kind in _EVENT_KINDS:
+        data = _EVENT_KINDS[kind]()
+        rows = list(data)
+    else:
+        data = _D
+        rows = {"lists": [r.tolist() for r in _D],
+                "tuples": [tuple(map(tuple, r)) for r in _D],
+                "list of rows": [list(r) for r in _D]}[kind]
+    v, i = _lazy_rows(rows, mode, "ohlc")
+    batch, batch_idx = _run(data, mode, "ohlc", lazy=False)
+    np.testing.assert_array_equal(v, batch)
+    np.testing.assert_array_equal(i, batch_idx)
+
+
+def test_lazy_event_shape_is_fixed_by_the_first_event():
+    with pytest.raises(ValueError, match=r"shape \(3, 2\), but the first event had shape \(2, 3\)"):
+        list(s.Resample(count=2, agg="last")(iter([(np.zeros((2, 3)), 0), (np.zeros((3, 2)), 1)])))
+    with pytest.raises(ValueError, match=r"a number, but the first event had shape \(1,\)"):
+        list(s.Resample(count=2, agg="last")(iter([(np.zeros(1), 0), (0.0, 1)])))
+    with pytest.raises(ValueError, match="irregular shape"):
+        list(s.Resample(count=1, agg="last")(iter([([[1.0, 2.0], [3.0]], 0)])))
+    with pytest.raises(TypeError, match="is a str"):
+        list(s.Resample(count=1, agg="last")(iter([([["a", 1.0], [1.0, 2.0]], 0)])))
+    with pytest.raises(TypeError, match="complex128"):
+        list(s.Resample(count=1, agg="last")(iter([(np.zeros((2, 3), complex), 0)])))
+    (v, _), = s.Resample(count=1, agg="last")(iter([([[None, 1.0], [2.0, 3.0]], 0)]))
+    np.testing.assert_array_equal(v, [[np.nan, 1.0], [2.0, 3.0]])

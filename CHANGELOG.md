@@ -120,9 +120,13 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   bar, the `Pipeline` layout, use `out.reshape(len(out), -1)`; `out[..., 0]`
   is the 2.8.0 result. A lazy resample of array events (`clock=True`,
   `freq=` or `count=`, any builtin per-column agg) yields each bar as an array
-  of the batch row's shape; 2.8.0 yielded a tuple of floats for a clock
-  resample (use `tuple(v.ravel())` for the old value). Scalar events still
-  give a float, or a tuple for `ohlc`, as any lazy operator does.
+  of the batch row's shape, whatever the event's dtype or memory layout
+  (lists of lists too), and every event must have the first event's shape.
+  For `(X,)` events 2.8.0 yielded a tuple of floats for a clock resample:
+  `tuple(v[:, 0])` (the opens) is the old value for `ohlc`, `tuple(v)` for
+  the other aggs. For events of two or more axes, such as `(2, 3)`, 2.8.0
+  raised `std::bad_cast`. Scalar events still give a float, or a tuple for
+  `ohlc`, as any lazy operator does.
 * A tuple given as a stream source always marks `(values, index)`, as an
   object `{values, index}` does in JavaScript. This holds for every stream
   source: `combine_latest` (`CombineLatest`), `merge` (`Merge`), `split`,
@@ -636,10 +640,11 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Fixed
 
-* A clock resample (`clock=True`) of a `(T, A0, A1)` input returned a wrong
-  `(T', A0)` array in 2.8.0 (any agg). It now resamples every column and
-  keeps the asset axes, `(T', A0, A1)`, or `(T', A0, A1, 4)` for `ohlc`, as
-  `freq=` and `count=` do.
+* A clock resample (`clock=True`) of an input with two or more asset axes,
+  such as `(T, A0, A1)` or `(T, A0, A1, A2)`, returned a wrong array in 2.8.0
+  for any agg: `(T', A0)`, or `(T',)` when `A0` is 1. It now resamples every
+  column and keeps the asset axes, `(T', A0, A1)`, or `(T', A0, A1, 4)` for
+  `ohlc`, as `freq=` and `count=` do.
 * A Python `Pipeline` batch feed of rank 3 or more raises `ValueError`
   ("Pipeline: the values of input 0 have shape [30,1,3], expected (T,) or
   (T, w)"), as JavaScript's `Pipeline` does. 2.8.0 read such a feed as
