@@ -120,10 +120,10 @@ Three reviewers split the branch by area. Each row closes when every finding in 
 
 | # | Issue | Status |
 |---|---|---|
-| H1 | C++ core and engine: live multi-producer ordering, push after `flush()`, int64 index overflow, 32-bit event counters, combine_latest over-reserve, output alignment not capped by `max_pending`, and minors. | decided (controller rulings, 2026-10-13); to fix |
+| H1 | C++ core and engine: live multi-producer ordering, push after `flush()`, int64 index overflow, 32-bit event counters, combine_latest over-reserve, output alignment not capped by `max_pending`, and minors. | done (95f91b3) |
 | H2 | Python: crash on datetime64/timedelta64 scalars and ctypes arrays, eager wide `Dropna`/`Select` with equal indexes, input-count error class, pandas Timestamp error, combine_latest iterator fractional index, docs and test fixes, and minors. | decided (controller rulings, 2026-10-13); to fix |
 | H3 | JavaScript: `PortfolioReport` freed while a Pipeline uses it, resample settings unchecked, unchecked heap allocation, bundler import, one-input multi-output container, per-event call cost, and minors. | decided (controller rulings, 2026-10-13); to fix |
-| H4 | Two Pipelines built from the same operators share their state (both languages). | decided (controller ruling, 2026-10-13): each Pipeline owns its operators' state; Changed line; to fix |
+| H4 | Two Pipelines built from the same operators share their state (both languages). | done (7c113e2): each Pipeline owns its operators' state; Changed line |
 | B9 | Python-only features with no JS form: direct array forms of Resample, Select, Filter, Dropna and Delay; a lazy Pipeline over iterators; `MARKET`. | decided (controller ruling, 2026-10-13, parity default): add them to JS; to implement |
 
 ## Future features (not in 3.0.0)
