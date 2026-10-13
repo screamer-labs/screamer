@@ -1,6 +1,7 @@
 #ifndef SCREAMER_SIGNAL_EHLERS
 #define SCREAMER_SIGNAL_EHLERS
 
+#include "screamer/common/finite_settings.h"
 #include <cmath>
 #include <optional>
 #include <stdexcept>
@@ -30,6 +31,7 @@ inline double ehlers_resolve_period(std::optional<double> period,
         }
         p = 2.0 / c;
     }
+    require_finite("period", p);
     if (!(p >= 2.0)) {
         throw std::invalid_argument("period must be at least 2 samples.");
     }

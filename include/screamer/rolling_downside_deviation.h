@@ -1,6 +1,7 @@
 #ifndef SCREAMER_ROLLING_DOWNSIDE_DEVIATION_H
 #define SCREAMER_ROLLING_DOWNSIDE_DEVIATION_H
 
+#include "screamer/common/finite_settings.h"
 #include <cmath>
 #include <limits>
 #include <stdexcept>
@@ -31,6 +32,7 @@ namespace screamer {
               start_policy_(detail::parse_start_policy(start_policy)),
               sum_d2_(window_size, start_policy)
         {
+            require_finite("mar", mar);
             if (window_size_ < 2) {
                 throw std::invalid_argument("Window size must be 2 or more.");
             }

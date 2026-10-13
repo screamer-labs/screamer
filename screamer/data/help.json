@@ -64,7 +64,7 @@
         "name": "net",
         "type": "float|null",
         "default": null,
-        "description": "Sum of the weights of each row, in [-gross, gross]. None (the default) keeps the signs of the scores and sets no net target."
+        "description": "Sum of the weights of each row, in [-gross, gross]. None (the default) keeps the signs of the scores and sets no net target. NaN means the same as None."
       }
     ],
     "nan_policy": "ignore",
@@ -2113,13 +2113,13 @@
         "name": "min_position",
         "type": "float",
         "default": -Infinity,
-        "description": "Inventory floor; sell fills are capped so the position never falls below it."
+        "description": "Inventory floor; sell fills are capped so the position never falls below it. The default, -inf, is no bound."
       },
       {
         "name": "max_position",
         "type": "float",
         "default": Infinity,
-        "description": "Inventory ceiling; buy fills are capped so the position never exceeds it."
+        "description": "Inventory ceiling; buy fills are capped so the position never exceeds it. The default, inf, is no bound."
       },
       {
         "name": "multiplier",
@@ -2221,13 +2221,13 @@
         "name": "min_position",
         "type": "float",
         "default": -Infinity,
-        "description": "Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units."
+        "description": "Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. The default, -inf, is no bound."
       },
       {
         "name": "max_position",
         "type": "float",
         "default": Infinity,
-        "description": "Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units."
+        "description": "Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. The default, inf, is no bound."
       },
       {
         "name": "multiplier",
@@ -2386,13 +2386,13 @@
         "name": "max_position",
         "type": "float",
         "default": Infinity,
-        "description": "Inventory ceiling; buy fills are capped so the position never exceeds it."
+        "description": "Inventory ceiling; buy fills are capped so the position never exceeds it. The default, inf, is no bound."
       },
       {
         "name": "min_position",
         "type": "float",
         "default": -Infinity,
-        "description": "Inventory floor; sell fills are capped so the position never falls below it."
+        "description": "Inventory floor; sell fills are capped so the position never falls below it. The default, -inf, is no bound."
       },
       {
         "name": "multiplier",
@@ -2513,13 +2513,13 @@
         "name": "min_position",
         "type": "float",
         "default": -Infinity,
-        "description": "Inventory floor; sell fills are capped so the position never falls below it."
+        "description": "Inventory floor; sell fills are capped so the position never falls below it. The default, -inf, is no bound."
       },
       {
         "name": "max_position",
         "type": "float",
         "default": Infinity,
-        "description": "Inventory ceiling; buy fills are capped so the position never exceeds it."
+        "description": "Inventory ceiling; buy fills are capped so the position never exceeds it. The default, inf, is no bound."
       },
       {
         "name": "multiplier",
@@ -2620,13 +2620,13 @@
         "name": "min_position",
         "type": "float",
         "default": -Infinity,
-        "description": "Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units."
+        "description": "Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. The default, -inf, is no bound."
       },
       {
         "name": "max_position",
         "type": "float",
         "default": Infinity,
-        "description": "Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units."
+        "description": "Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. The default, inf, is no bound."
       },
       {
         "name": "multiplier",
@@ -2785,13 +2785,13 @@
         "name": "min_position",
         "type": "float",
         "default": -Infinity,
-        "description": "Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units."
+        "description": "Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. The default, -inf, is no bound."
       },
       {
         "name": "max_position",
         "type": "float",
         "default": Infinity,
-        "description": "Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units."
+        "description": "Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. The default, inf, is no bound."
       },
       {
         "name": "multiplier",
@@ -2993,14 +2993,14 @@
         "name": "max_gross",
         "type": "float",
         "default": Infinity,
-        "description": "Largest gross exposure, sum of absolute position values over equity. Orders that exceed it are scaled down."
+        "description": "Largest gross exposure, sum of absolute position values over equity. Orders that exceed it are scaled down. The default, inf, is no cap."
       },
       {
         "name": "max_net",
         "type": "float",
         "default": Infinity,
         "min": 0.0,
-        "description": "Largest absolute net exposure, sum of position values over equity. Orders that exceed it are scaled down."
+        "description": "Largest absolute net exposure, sum of position values over equity. Orders that exceed it are scaled down. The default, inf, is no cap."
       },
       {
         "name": "fill_at",
@@ -3135,14 +3135,14 @@
         "name": "max_gross",
         "type": "float",
         "default": Infinity,
-        "description": "Largest gross exposure, sum of absolute position values over equity. Orders that exceed it are scaled down."
+        "description": "Largest gross exposure, sum of absolute position values over equity. Orders that exceed it are scaled down. The default, inf, is no cap."
       },
       {
         "name": "max_net",
         "type": "float",
         "default": Infinity,
         "min": 0.0,
-        "description": "Largest absolute net exposure, sum of position values over equity. Orders that exceed it are scaled down."
+        "description": "Largest absolute net exposure, sum of position values over equity. Orders that exceed it are scaled down. The default, inf, is no cap."
       }
     ],
     "nan_policy": "nan-aware",
@@ -3208,13 +3208,13 @@
         "name": "min_position",
         "type": "float",
         "default": -Infinity,
-        "description": "Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units."
+        "description": "Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. The default, -inf, is no bound."
       },
       {
         "name": "max_position",
         "type": "float",
         "default": Infinity,
-        "description": "Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units."
+        "description": "Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. The default, inf, is no bound."
       },
       {
         "name": "multiplier",
@@ -3496,13 +3496,13 @@
         "name": "min_position",
         "type": "float",
         "default": -Infinity,
-        "description": "Inventory floor; sell fills are capped so the position never falls below it."
+        "description": "Inventory floor; sell fills are capped so the position never falls below it. The default, -inf, is no bound."
       },
       {
         "name": "max_position",
         "type": "float",
         "default": Infinity,
-        "description": "Inventory ceiling; buy fills are capped so the position never exceeds it."
+        "description": "Inventory ceiling; buy fills are capped so the position never exceeds it. The default, inf, is no bound."
       },
       {
         "name": "multiplier",
@@ -3603,13 +3603,13 @@
         "name": "min_position",
         "type": "float",
         "default": -Infinity,
-        "description": "Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units."
+        "description": "Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. The default, -inf, is no bound."
       },
       {
         "name": "max_position",
         "type": "float",
         "default": Infinity,
-        "description": "Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units."
+        "description": "Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. The default, inf, is no bound."
       },
       {
         "name": "multiplier",
@@ -3683,7 +3683,7 @@
         "type": "float",
         "default": Infinity,
         "min": 0.0,
-        "description": "Cap each print's fill at this share of the print's size; the rest fills on later prints. The default fills the whole order on any print."
+        "description": "Cap each print's fill at this share of the print's size; the rest fills on later prints. The default fills the whole order on any print. inf is no cap."
       }
     ],
     "nan_policy": "nan-aware",
@@ -8711,13 +8711,13 @@
         "name": "lower",
         "type": "float|null",
         "default": null,
-        "description": "Smallest allowed value; smaller values are replaced by it. None means no lower bound."
+        "description": "Smallest allowed value; smaller values are replaced by it. None means no lower bound. NaN and -inf also mean no lower bound."
       },
       {
         "name": "upper",
         "type": "float|null",
         "default": null,
-        "description": "Largest allowed value; larger values are replaced by it. None means no upper bound."
+        "description": "Largest allowed value; larger values are replaced by it. None means no upper bound. NaN and inf also mean no upper bound."
       }
     ],
     "nan_policy": "ignore",
@@ -8798,7 +8798,7 @@
         "name": "fill",
         "type": "float",
         "default": 0.0,
-        "description": "Constant that replaces each NaN."
+        "description": "Constant that replaces each NaN. Any float, inf and -inf included; NaN leaves each NaN in place."
       }
     ],
     "nan_policy": "nan-aware",
@@ -11458,13 +11458,13 @@
         "name": "lower",
         "type": "float|null",
         "default": null,
-        "description": "Lower clipping threshold in standard deviations from the rolling mean (for example -3). None disables lower clipping."
+        "description": "Lower clipping threshold in standard deviations from the rolling mean (for example -3). None disables lower clipping. NaN and -inf also disable it."
       },
       {
         "name": "upper",
         "type": "float|null",
         "default": null,
-        "description": "Upper clipping threshold in standard deviations from the rolling mean (for example 3). None disables upper clipping."
+        "description": "Upper clipping threshold in standard deviations from the rolling mean (for example 3). None disables upper clipping. NaN and inf also disable it."
       },
       {
         "name": "output",

@@ -7,6 +7,7 @@
 #include <string>
 #include <tuple>
 #include "screamer/common/functor_base.h"
+#include "screamer/common/finite_settings.h"
 #include "screamer/common/float_info.h"
 #include "screamer/detail/pnl_account.h"
 #include "screamer/detail/slippage.h"
@@ -65,6 +66,10 @@ namespace screamer {
               sizer_(size, initial_capital, rebalance_band, multiplier),
               account_(multiplier, fee_per_contract)
         {
+            require_finite("spread", spread_);
+            require_finite("fee", fee_);
+            require_finite("min_position", min_position_, kTakesNegInf);
+            require_finite("max_position", max_position_, kTakesPosInf);
             if (spread_ < 0.0) throw std::invalid_argument("spread must be non-negative.");
             if (min_position_ > max_position_)
                 throw std::invalid_argument("min_position must not exceed max_position.");

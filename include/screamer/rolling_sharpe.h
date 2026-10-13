@@ -15,6 +15,7 @@
 // First valid output at sample index window_size - 1. Returns NaN
 // when std is zero.
 
+#include "screamer/common/finite_settings.h"
 #include <cmath>
 #include <limits>
 #include <stdexcept>
@@ -29,6 +30,7 @@ public:
         : WindowMomentsOp(window_size, detail::StartPolicy::Strict, detail::StartPolicy::Strict),
           scale_(std::sqrt(periods_per_year))
     {
+        require_finite("periods_per_year", periods_per_year);
         if (window_size < 2) {
             throw std::invalid_argument("Window size must be at least 2.");
         }

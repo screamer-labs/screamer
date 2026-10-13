@@ -1,6 +1,7 @@
 #ifndef SCREAMER_BACKTEST_L1TRADES_ORDERS_H
 #define SCREAMER_BACKTEST_L1TRADES_ORDERS_H
 
+#include "screamer/common/finite_settings.h"
 #include <algorithm>
 #include <limits>
 #include <stdexcept>
@@ -41,6 +42,12 @@ namespace screamer {
               taker_fee_per_contract_(taker_fee_per_contract),
               account_(multiplier)
         {
+            require_finite("maker_fee", maker_fee);
+            require_finite("taker_fee", taker_fee);
+            require_finite("maker_fee_per_contract", maker_fee_per_contract);
+            require_finite("taker_fee_per_contract", taker_fee_per_contract);
+            require_finite("min_position", min_position, kTakesNegInf);
+            require_finite("max_position", max_position, kTakesPosInf);
             if (min_position_ > max_position_)
                 throw std::invalid_argument("min_position must not exceed max_position.");
             reset();

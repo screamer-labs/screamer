@@ -26,6 +26,7 @@
 //   "flag"    : outlier flag (1.0 where an outlier is detected, else 0.0)
 //   "nan"     : input with outliers replaced by NaN
 
+#include "screamer/common/finite_settings.h"
 #include <cmath>
 #include <limits>
 #include <stdexcept>
@@ -60,6 +61,7 @@ public:
           value_window_(window_size),
           diff_window_(window_size)
     {
+        require_finite("n_sigma", n_sigma);
         if (window_size <= 0) {
             throw std::invalid_argument("Window size must be positive.");
         }

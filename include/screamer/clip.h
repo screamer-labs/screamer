@@ -1,6 +1,7 @@
 #ifndef SCREAMER_CLIP_H
 #define SCREAMER_CLIP_H
 
+#include "screamer/common/finite_settings.h"
 #include <limits>
 #include "screamer/common/base.h"
 #include <algorithm>
@@ -10,7 +11,11 @@ namespace screamer {
     class Clip : public ScreamerBase {
     public:
         Clip(std::optional<double> lower = std::nullopt, std::optional<double> upper = std::nullopt)
-            : lower_(lower), upper_(upper) {}
+            : lower_(lower), upper_(upper) {
+            // NaN is no bound, as None is, and so is -inf below or inf above.
+            if (lower) require_finite("lower", *lower, kTakesNegInf | kTakesNaN);
+            if (upper) require_finite("upper", *upper, kTakesPosInf | kTakesNaN);
+        }
 
     private:
         double process_scalar(double newValue) override {

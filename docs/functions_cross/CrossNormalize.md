@@ -27,7 +27,7 @@ parameters:
   type: float|null
   default: null
   description: Sum of the weights of each row, in [-gross, gross]. None (the default) keeps
-    the signs of the scores and sets no net target.
+    the signs of the scores and sets no net target. NaN means the same as None.
 nan_policy: ignore
 see_also:
 - CrossRank

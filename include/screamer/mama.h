@@ -11,6 +11,7 @@
 // adaptive MA) is a second pass at alpha / 2. Returns (mama, fama). Reuses
 // detail::HilbertCycle for I1 and Q1.
 
+#include "screamer/common/finite_settings.h"
 #include <cmath>
 #include <limits>
 #include "screamer/common/functor_base.h"
@@ -21,7 +22,10 @@ namespace screamer {
 class MAMA : public FunctorBase<MAMA, 1, 2> {
 public:
     explicit MAMA(double fast_limit = 0.5, double slow_limit = 0.05)
-        : fast_(fast_limit), slow_(slow_limit) {}
+        : fast_(fast_limit), slow_(slow_limit) {
+        require_finite("fast_limit", fast_limit);
+        require_finite("slow_limit", slow_limit);
+    }
 
     void reset() override {
         engine_.reset();

@@ -1,6 +1,7 @@
 #ifndef SCREAMER_HAWKES_INTENSITY_H
 #define SCREAMER_HAWKES_INTENSITY_H
 
+#include "screamer/common/finite_settings.h"
 #include <limits>
 #include <stdexcept>
 #include "screamer/common/base.h"
@@ -23,6 +24,8 @@ namespace screamer {
         HawkesIntensity(double decay = 0.9, double alpha = 1.0, double mu = 0.0)
             : decay_(decay), alpha_(alpha), mu_(mu)
         {
+            require_finite("alpha", alpha);
+            require_finite("mu", mu);
             if (!(decay_ > 0.0 && decay_ < 1.0)) {
                 throw std::invalid_argument("decay must be between 0 and 1 (exclusive)");
             }

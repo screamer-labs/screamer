@@ -45,12 +45,12 @@ parameters:
   type: float
   default: -.inf
   description: Lower bound on the position, in units. It applies after `size` has converted
-    the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units.
+    the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. The default, -inf, is no bound.
 - name: max_position
   type: float
   default: .inf
   description: Upper bound on the position, in units. It applies after `size` has converted
-    the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units.
+    the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. The default, inf, is no bound.
 - name: multiplier
   type: float
   default: 1.0

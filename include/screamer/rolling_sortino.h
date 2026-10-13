@@ -16,6 +16,7 @@
 // sum and running sum-of-squared-downside-deviations. O(W) per step
 // for the downside-RMS sweep.
 
+#include "screamer/common/finite_settings.h"
 #include <cmath>
 #include <limits>
 #include <stdexcept>
@@ -34,6 +35,8 @@ public:
           scale_(std::sqrt(periods_per_year)),
           target_(target)
     {
+        require_finite("periods_per_year", periods_per_year);
+        require_finite("target", target);
         if (window_size < 2) {
             throw std::invalid_argument("Window size must be at least 2.");
         }

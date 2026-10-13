@@ -13,7 +13,8 @@
    "fast": "ADOSC: fast must be an integer, got bool",
    "slow": "ADOSC: slow must be an integer, got bool"
   },
-  "name": "ADOSC"
+  "name": "ADOSC",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -26,7 +27,8 @@
   "bool_message": {
    "window_size": "ADX: window_size must be an integer, got bool"
   },
-  "name": "ADX"
+  "name": "ADX",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -39,7 +41,8 @@
   "bool_message": {
    "window_size": "ADXR: window_size must be an integer, got bool"
   },
-  "name": "ADXR"
+  "name": "ADXR",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -52,7 +55,8 @@
   "bool_message": {
    "window_size": "ATR: window_size must be an integer, got bool"
   },
-  "name": "ATR"
+  "name": "ATR",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -68,7 +72,8 @@
    "start_policy": "AmihudIlliquidity: start_policy must be a string, got bool",
    "window_size": "AmihudIlliquidity: window_size must be an integer, got bool"
   },
-  "name": "AmihudIlliquidity"
+  "name": "AmihudIlliquidity",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -81,7 +86,14 @@
   "bool_message": {
    "multiplier": "BacktestCarry: multiplier must be a number, got bool"
   },
-  "name": "BacktestCarry"
+  "name": "BacktestCarry",
+  "non_finite": {
+   "multiplier": {
+    "-inf": "BacktestCarry: multiplier must be finite, got -inf",
+    "inf": "BacktestCarry: multiplier must be finite, got inf",
+    "nan": "BacktestCarry: multiplier must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -127,7 +139,59 @@
    "taker_fee_per_contract": "BacktestL1Orders: taker_fee_per_contract must be a number, got bool",
    "tick_size": "BacktestL1Orders: tick_size must be a number, got bool"
   },
-  "name": "BacktestL1Orders"
+  "name": "BacktestL1Orders",
+  "non_finite": {
+   "maker_fee": {
+    "-inf": "BacktestL1Orders: maker_fee must be finite, got -inf",
+    "inf": "BacktestL1Orders: maker_fee must be finite, got inf",
+    "nan": "BacktestL1Orders: maker_fee must be finite, got nan"
+   },
+   "maker_fee_per_contract": {
+    "-inf": "BacktestL1Orders: maker_fee_per_contract must be finite, got -inf",
+    "inf": "BacktestL1Orders: maker_fee_per_contract must be finite, got inf",
+    "nan": "BacktestL1Orders: maker_fee_per_contract must be finite, got nan"
+   },
+   "max_position": {
+    "-inf": "BacktestL1Orders: max_position must be finite or inf, got -inf",
+    "inf": null,
+    "nan": "BacktestL1Orders: max_position must be finite or inf, got nan"
+   },
+   "min_position": {
+    "-inf": null,
+    "inf": "BacktestL1Orders: min_position must be finite or -inf, got inf",
+    "nan": "BacktestL1Orders: min_position must be finite or -inf, got nan"
+   },
+   "multiplier": {
+    "-inf": "BacktestL1Orders: multiplier must be finite, got -inf",
+    "inf": "BacktestL1Orders: multiplier must be finite, got inf",
+    "nan": "BacktestL1Orders: multiplier must be finite, got nan"
+   },
+   "participation_ratio": {
+    "-inf": "BacktestL1Orders: participation_ratio must be finite, got -inf",
+    "inf": "BacktestL1Orders: participation_ratio must be finite, got inf",
+    "nan": "BacktestL1Orders: participation_ratio must be finite, got nan"
+   },
+   "slippage": {
+    "-inf": "BacktestL1Orders: slippage must be finite, got -inf",
+    "inf": "BacktestL1Orders: slippage must be finite, got inf",
+    "nan": "BacktestL1Orders: slippage must be finite, got nan"
+   },
+   "taker_fee": {
+    "-inf": "BacktestL1Orders: taker_fee must be finite, got -inf",
+    "inf": "BacktestL1Orders: taker_fee must be finite, got inf",
+    "nan": "BacktestL1Orders: taker_fee must be finite, got nan"
+   },
+   "taker_fee_per_contract": {
+    "-inf": "BacktestL1Orders: taker_fee_per_contract must be finite, got -inf",
+    "inf": "BacktestL1Orders: taker_fee_per_contract must be finite, got inf",
+    "nan": "BacktestL1Orders: taker_fee_per_contract must be finite, got nan"
+   },
+   "tick_size": {
+    "-inf": "BacktestL1Orders: tick_size must be finite, got -inf",
+    "inf": "BacktestL1Orders: tick_size must be finite, got inf",
+    "nan": "BacktestL1Orders: tick_size must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -179,7 +243,69 @@
    "tick_size": "BacktestL1Target: tick_size must be a number, got bool",
    "trailing_stop": "BacktestL1Target: trailing_stop must be a number, got bool"
   },
-  "name": "BacktestL1Target"
+  "name": "BacktestL1Target",
+  "non_finite": {
+   "fee_per_contract": {
+    "-inf": "BacktestL1Target: fee_per_contract must be finite, got -inf",
+    "inf": "BacktestL1Target: fee_per_contract must be finite, got inf",
+    "nan": "BacktestL1Target: fee_per_contract must be finite, got nan"
+   },
+   "initial_capital": {
+    "-inf": "BacktestL1Target: initial_capital must be finite, got -inf",
+    "inf": "BacktestL1Target: initial_capital must be finite, got inf",
+    "nan": "BacktestL1Target: initial_capital must be finite, got nan"
+   },
+   "max_position": {
+    "-inf": "BacktestL1Target: max_position must be finite or inf, got -inf",
+    "inf": null,
+    "nan": "BacktestL1Target: max_position must be finite or inf, got nan"
+   },
+   "min_position": {
+    "-inf": null,
+    "inf": "BacktestL1Target: min_position must be finite or -inf, got inf",
+    "nan": "BacktestL1Target: min_position must be finite or -inf, got nan"
+   },
+   "multiplier": {
+    "-inf": "BacktestL1Target: multiplier must be finite, got -inf",
+    "inf": "BacktestL1Target: multiplier must be finite, got inf",
+    "nan": "BacktestL1Target: multiplier must be finite, got nan"
+   },
+   "rebalance_band": {
+    "-inf": "BacktestL1Target: rebalance_band must be finite, got -inf",
+    "inf": "BacktestL1Target: rebalance_band must be finite, got inf",
+    "nan": "BacktestL1Target: rebalance_band must be finite, got nan"
+   },
+   "slippage": {
+    "-inf": "BacktestL1Target: slippage must be finite, got -inf",
+    "inf": "BacktestL1Target: slippage must be finite, got inf",
+    "nan": "BacktestL1Target: slippage must be finite, got nan"
+   },
+   "stop_loss": {
+    "-inf": "BacktestL1Target: stop_loss must be finite, got -inf",
+    "inf": "BacktestL1Target: stop_loss must be finite, got inf",
+    "nan": "BacktestL1Target: stop_loss must be finite, got nan"
+   },
+   "take_profit": {
+    "-inf": "BacktestL1Target: take_profit must be finite, got -inf",
+    "inf": "BacktestL1Target: take_profit must be finite, got inf",
+    "nan": "BacktestL1Target: take_profit must be finite, got nan"
+   },
+   "taker_fee": {
+    "-inf": "BacktestL1Target: taker_fee must be finite, got -inf",
+    "inf": "BacktestL1Target: taker_fee must be finite, got inf",
+    "nan": "BacktestL1Target: taker_fee must be finite, got nan"
+   },
+   "tick_size": {
+    "-inf": "BacktestL1Target: tick_size must be finite, got -inf",
+    "inf": "BacktestL1Target: tick_size must be finite, got inf",
+    "nan": "BacktestL1Target: tick_size must be finite, got nan"
+   },
+   "trailing_stop": {
+    "-inf": "BacktestL1Target: trailing_stop must be finite, got -inf",
+    "inf": "BacktestL1Target: trailing_stop must be finite, got inf",
+    "nan": "BacktestL1Target: trailing_stop must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -225,7 +351,59 @@
    "taker_fee_per_contract": "BacktestL1TradesOrders: taker_fee_per_contract must be a number, got bool",
    "tick_size": "BacktestL1TradesOrders: tick_size must be a number, got bool"
   },
-  "name": "BacktestL1TradesOrders"
+  "name": "BacktestL1TradesOrders",
+  "non_finite": {
+   "maker_fee": {
+    "-inf": "BacktestL1TradesOrders: maker_fee must be finite, got -inf",
+    "inf": "BacktestL1TradesOrders: maker_fee must be finite, got inf",
+    "nan": "BacktestL1TradesOrders: maker_fee must be finite, got nan"
+   },
+   "maker_fee_per_contract": {
+    "-inf": "BacktestL1TradesOrders: maker_fee_per_contract must be finite, got -inf",
+    "inf": "BacktestL1TradesOrders: maker_fee_per_contract must be finite, got inf",
+    "nan": "BacktestL1TradesOrders: maker_fee_per_contract must be finite, got nan"
+   },
+   "max_position": {
+    "-inf": "BacktestL1TradesOrders: max_position must be finite or inf, got -inf",
+    "inf": null,
+    "nan": "BacktestL1TradesOrders: max_position must be finite or inf, got nan"
+   },
+   "min_position": {
+    "-inf": null,
+    "inf": "BacktestL1TradesOrders: min_position must be finite or -inf, got inf",
+    "nan": "BacktestL1TradesOrders: min_position must be finite or -inf, got nan"
+   },
+   "multiplier": {
+    "-inf": "BacktestL1TradesOrders: multiplier must be finite, got -inf",
+    "inf": "BacktestL1TradesOrders: multiplier must be finite, got inf",
+    "nan": "BacktestL1TradesOrders: multiplier must be finite, got nan"
+   },
+   "participation_ratio": {
+    "-inf": "BacktestL1TradesOrders: participation_ratio must be finite, got -inf",
+    "inf": "BacktestL1TradesOrders: participation_ratio must be finite, got inf",
+    "nan": "BacktestL1TradesOrders: participation_ratio must be finite, got nan"
+   },
+   "slippage": {
+    "-inf": "BacktestL1TradesOrders: slippage must be finite, got -inf",
+    "inf": "BacktestL1TradesOrders: slippage must be finite, got inf",
+    "nan": "BacktestL1TradesOrders: slippage must be finite, got nan"
+   },
+   "taker_fee": {
+    "-inf": "BacktestL1TradesOrders: taker_fee must be finite, got -inf",
+    "inf": "BacktestL1TradesOrders: taker_fee must be finite, got inf",
+    "nan": "BacktestL1TradesOrders: taker_fee must be finite, got nan"
+   },
+   "taker_fee_per_contract": {
+    "-inf": "BacktestL1TradesOrders: taker_fee_per_contract must be finite, got -inf",
+    "inf": "BacktestL1TradesOrders: taker_fee_per_contract must be finite, got inf",
+    "nan": "BacktestL1TradesOrders: taker_fee_per_contract must be finite, got nan"
+   },
+   "tick_size": {
+    "-inf": "BacktestL1TradesOrders: tick_size must be finite, got -inf",
+    "inf": "BacktestL1TradesOrders: tick_size must be finite, got inf",
+    "nan": "BacktestL1TradesOrders: tick_size must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -271,7 +449,59 @@
    "taker_fee_per_contract": "BacktestOHLCOrders: taker_fee_per_contract must be a number, got bool",
    "tick_size": "BacktestOHLCOrders: tick_size must be a number, got bool"
   },
-  "name": "BacktestOHLCOrders"
+  "name": "BacktestOHLCOrders",
+  "non_finite": {
+   "maker_fee": {
+    "-inf": "BacktestOHLCOrders: maker_fee must be finite, got -inf",
+    "inf": "BacktestOHLCOrders: maker_fee must be finite, got inf",
+    "nan": "BacktestOHLCOrders: maker_fee must be finite, got nan"
+   },
+   "maker_fee_per_contract": {
+    "-inf": "BacktestOHLCOrders: maker_fee_per_contract must be finite, got -inf",
+    "inf": "BacktestOHLCOrders: maker_fee_per_contract must be finite, got inf",
+    "nan": "BacktestOHLCOrders: maker_fee_per_contract must be finite, got nan"
+   },
+   "max_position": {
+    "-inf": "BacktestOHLCOrders: max_position must be finite or inf, got -inf",
+    "inf": null,
+    "nan": "BacktestOHLCOrders: max_position must be finite or inf, got nan"
+   },
+   "min_position": {
+    "-inf": null,
+    "inf": "BacktestOHLCOrders: min_position must be finite or -inf, got inf",
+    "nan": "BacktestOHLCOrders: min_position must be finite or -inf, got nan"
+   },
+   "multiplier": {
+    "-inf": "BacktestOHLCOrders: multiplier must be finite, got -inf",
+    "inf": "BacktestOHLCOrders: multiplier must be finite, got inf",
+    "nan": "BacktestOHLCOrders: multiplier must be finite, got nan"
+   },
+   "participation_ratio": {
+    "-inf": "BacktestOHLCOrders: participation_ratio must be finite, got -inf",
+    "inf": "BacktestOHLCOrders: participation_ratio must be finite, got inf",
+    "nan": "BacktestOHLCOrders: participation_ratio must be finite, got nan"
+   },
+   "slippage": {
+    "-inf": "BacktestOHLCOrders: slippage must be finite, got -inf",
+    "inf": "BacktestOHLCOrders: slippage must be finite, got inf",
+    "nan": "BacktestOHLCOrders: slippage must be finite, got nan"
+   },
+   "taker_fee": {
+    "-inf": "BacktestOHLCOrders: taker_fee must be finite, got -inf",
+    "inf": "BacktestOHLCOrders: taker_fee must be finite, got inf",
+    "nan": "BacktestOHLCOrders: taker_fee must be finite, got nan"
+   },
+   "taker_fee_per_contract": {
+    "-inf": "BacktestOHLCOrders: taker_fee_per_contract must be finite, got -inf",
+    "inf": "BacktestOHLCOrders: taker_fee_per_contract must be finite, got inf",
+    "nan": "BacktestOHLCOrders: taker_fee_per_contract must be finite, got nan"
+   },
+   "tick_size": {
+    "-inf": "BacktestOHLCOrders: tick_size must be finite, got -inf",
+    "inf": "BacktestOHLCOrders: tick_size must be finite, got inf",
+    "nan": "BacktestOHLCOrders: tick_size must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -329,7 +559,69 @@
    "tick_size": "BacktestOHLCTarget: tick_size must be a number, got bool",
    "trailing_stop": "BacktestOHLCTarget: trailing_stop must be a number, got bool"
   },
-  "name": "BacktestOHLCTarget"
+  "name": "BacktestOHLCTarget",
+  "non_finite": {
+   "fee_per_contract": {
+    "-inf": "BacktestOHLCTarget: fee_per_contract must be finite, got -inf",
+    "inf": "BacktestOHLCTarget: fee_per_contract must be finite, got inf",
+    "nan": "BacktestOHLCTarget: fee_per_contract must be finite, got nan"
+   },
+   "initial_capital": {
+    "-inf": "BacktestOHLCTarget: initial_capital must be finite, got -inf",
+    "inf": "BacktestOHLCTarget: initial_capital must be finite, got inf",
+    "nan": "BacktestOHLCTarget: initial_capital must be finite, got nan"
+   },
+   "max_position": {
+    "-inf": "BacktestOHLCTarget: max_position must be finite or inf, got -inf",
+    "inf": null,
+    "nan": "BacktestOHLCTarget: max_position must be finite or inf, got nan"
+   },
+   "min_position": {
+    "-inf": null,
+    "inf": "BacktestOHLCTarget: min_position must be finite or -inf, got inf",
+    "nan": "BacktestOHLCTarget: min_position must be finite or -inf, got nan"
+   },
+   "multiplier": {
+    "-inf": "BacktestOHLCTarget: multiplier must be finite, got -inf",
+    "inf": "BacktestOHLCTarget: multiplier must be finite, got inf",
+    "nan": "BacktestOHLCTarget: multiplier must be finite, got nan"
+   },
+   "rebalance_band": {
+    "-inf": "BacktestOHLCTarget: rebalance_band must be finite, got -inf",
+    "inf": "BacktestOHLCTarget: rebalance_band must be finite, got inf",
+    "nan": "BacktestOHLCTarget: rebalance_band must be finite, got nan"
+   },
+   "slippage": {
+    "-inf": "BacktestOHLCTarget: slippage must be finite, got -inf",
+    "inf": "BacktestOHLCTarget: slippage must be finite, got inf",
+    "nan": "BacktestOHLCTarget: slippage must be finite, got nan"
+   },
+   "stop_loss": {
+    "-inf": "BacktestOHLCTarget: stop_loss must be finite, got -inf",
+    "inf": "BacktestOHLCTarget: stop_loss must be finite, got inf",
+    "nan": "BacktestOHLCTarget: stop_loss must be finite, got nan"
+   },
+   "take_profit": {
+    "-inf": "BacktestOHLCTarget: take_profit must be finite, got -inf",
+    "inf": "BacktestOHLCTarget: take_profit must be finite, got inf",
+    "nan": "BacktestOHLCTarget: take_profit must be finite, got nan"
+   },
+   "taker_fee": {
+    "-inf": "BacktestOHLCTarget: taker_fee must be finite, got -inf",
+    "inf": "BacktestOHLCTarget: taker_fee must be finite, got inf",
+    "nan": "BacktestOHLCTarget: taker_fee must be finite, got nan"
+   },
+   "tick_size": {
+    "-inf": "BacktestOHLCTarget: tick_size must be finite, got -inf",
+    "inf": "BacktestOHLCTarget: tick_size must be finite, got inf",
+    "nan": "BacktestOHLCTarget: tick_size must be finite, got nan"
+   },
+   "trailing_stop": {
+    "-inf": "BacktestOHLCTarget: trailing_stop must be finite, got -inf",
+    "inf": "BacktestOHLCTarget: trailing_stop must be finite, got inf",
+    "nan": "BacktestOHLCTarget: trailing_stop must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -390,7 +682,74 @@
    "tick_size": "BacktestOHLCVTarget: tick_size must be a number, got bool",
    "trailing_stop": "BacktestOHLCVTarget: trailing_stop must be a number, got bool"
   },
-  "name": "BacktestOHLCVTarget"
+  "name": "BacktestOHLCVTarget",
+  "non_finite": {
+   "fee_per_contract": {
+    "-inf": "BacktestOHLCVTarget: fee_per_contract must be finite, got -inf",
+    "inf": "BacktestOHLCVTarget: fee_per_contract must be finite, got inf",
+    "nan": "BacktestOHLCVTarget: fee_per_contract must be finite, got nan"
+   },
+   "initial_capital": {
+    "-inf": "BacktestOHLCVTarget: initial_capital must be finite, got -inf",
+    "inf": "BacktestOHLCVTarget: initial_capital must be finite, got inf",
+    "nan": "BacktestOHLCVTarget: initial_capital must be finite, got nan"
+   },
+   "max_participation": {
+    "-inf": "BacktestOHLCVTarget: max_participation must be finite, got -inf",
+    "inf": "BacktestOHLCVTarget: max_participation must be finite, got inf",
+    "nan": "BacktestOHLCVTarget: max_participation must be finite, got nan"
+   },
+   "max_position": {
+    "-inf": "BacktestOHLCVTarget: max_position must be finite or inf, got -inf",
+    "inf": null,
+    "nan": "BacktestOHLCVTarget: max_position must be finite or inf, got nan"
+   },
+   "min_position": {
+    "-inf": null,
+    "inf": "BacktestOHLCVTarget: min_position must be finite or -inf, got inf",
+    "nan": "BacktestOHLCVTarget: min_position must be finite or -inf, got nan"
+   },
+   "multiplier": {
+    "-inf": "BacktestOHLCVTarget: multiplier must be finite, got -inf",
+    "inf": "BacktestOHLCVTarget: multiplier must be finite, got inf",
+    "nan": "BacktestOHLCVTarget: multiplier must be finite, got nan"
+   },
+   "rebalance_band": {
+    "-inf": "BacktestOHLCVTarget: rebalance_band must be finite, got -inf",
+    "inf": "BacktestOHLCVTarget: rebalance_band must be finite, got inf",
+    "nan": "BacktestOHLCVTarget: rebalance_band must be finite, got nan"
+   },
+   "slippage": {
+    "-inf": "BacktestOHLCVTarget: slippage must be finite, got -inf",
+    "inf": "BacktestOHLCVTarget: slippage must be finite, got inf",
+    "nan": "BacktestOHLCVTarget: slippage must be finite, got nan"
+   },
+   "stop_loss": {
+    "-inf": "BacktestOHLCVTarget: stop_loss must be finite, got -inf",
+    "inf": "BacktestOHLCVTarget: stop_loss must be finite, got inf",
+    "nan": "BacktestOHLCVTarget: stop_loss must be finite, got nan"
+   },
+   "take_profit": {
+    "-inf": "BacktestOHLCVTarget: take_profit must be finite, got -inf",
+    "inf": "BacktestOHLCVTarget: take_profit must be finite, got inf",
+    "nan": "BacktestOHLCVTarget: take_profit must be finite, got nan"
+   },
+   "taker_fee": {
+    "-inf": "BacktestOHLCVTarget: taker_fee must be finite, got -inf",
+    "inf": "BacktestOHLCVTarget: taker_fee must be finite, got inf",
+    "nan": "BacktestOHLCVTarget: taker_fee must be finite, got nan"
+   },
+   "tick_size": {
+    "-inf": "BacktestOHLCVTarget: tick_size must be finite, got -inf",
+    "inf": "BacktestOHLCVTarget: tick_size must be finite, got inf",
+    "nan": "BacktestOHLCVTarget: tick_size must be finite, got nan"
+   },
+   "trailing_stop": {
+    "-inf": "BacktestOHLCVTarget: trailing_stop must be finite, got -inf",
+    "inf": "BacktestOHLCVTarget: trailing_stop must be finite, got inf",
+    "nan": "BacktestOHLCVTarget: trailing_stop must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -442,7 +801,54 @@
    "slippage_unit": "BacktestPortfolioOHLCTarget: slippage_unit must be a string, got bool",
    "tick_size": "BacktestPortfolioOHLCTarget: tick_size must be a number or a sequence of numbers, got bool"
   },
-  "name": "BacktestPortfolioOHLCTarget"
+  "name": "BacktestPortfolioOHLCTarget",
+  "non_finite": {
+   "fee": {
+    "-inf": "BacktestPortfolioOHLCTarget: fee must be finite, got -inf",
+    "inf": "BacktestPortfolioOHLCTarget: fee must be finite, got inf",
+    "nan": "BacktestPortfolioOHLCTarget: fee must be finite, got nan"
+   },
+   "fee_per_contract": {
+    "-inf": "BacktestPortfolioOHLCTarget: fee_per_contract must be finite, got -inf",
+    "inf": "BacktestPortfolioOHLCTarget: fee_per_contract must be finite, got inf",
+    "nan": "BacktestPortfolioOHLCTarget: fee_per_contract must be finite, got nan"
+   },
+   "initial_capital": {
+    "-inf": "BacktestPortfolioOHLCTarget: initial_capital must be finite, got -inf",
+    "inf": "BacktestPortfolioOHLCTarget: initial_capital must be finite, got inf",
+    "nan": "BacktestPortfolioOHLCTarget: initial_capital must be finite, got nan"
+   },
+   "max_gross": {
+    "-inf": "BacktestPortfolioOHLCTarget: max_gross must be finite or inf, got -inf",
+    "inf": null,
+    "nan": "BacktestPortfolioOHLCTarget: max_gross must be finite or inf, got nan"
+   },
+   "max_net": {
+    "-inf": "BacktestPortfolioOHLCTarget: max_net must be finite or inf, got -inf",
+    "inf": null,
+    "nan": "BacktestPortfolioOHLCTarget: max_net must be finite or inf, got nan"
+   },
+   "multiplier": {
+    "-inf": "BacktestPortfolioOHLCTarget: multiplier must be finite, got -inf",
+    "inf": "BacktestPortfolioOHLCTarget: multiplier must be finite, got inf",
+    "nan": "BacktestPortfolioOHLCTarget: multiplier must be finite, got nan"
+   },
+   "rebalance_band": {
+    "-inf": "BacktestPortfolioOHLCTarget: rebalance_band must be finite, got -inf",
+    "inf": "BacktestPortfolioOHLCTarget: rebalance_band must be finite, got inf",
+    "nan": "BacktestPortfolioOHLCTarget: rebalance_band must be finite, got nan"
+   },
+   "slippage": {
+    "-inf": "BacktestPortfolioOHLCTarget: slippage must be finite, got -inf",
+    "inf": "BacktestPortfolioOHLCTarget: slippage must be finite, got inf",
+    "nan": "BacktestPortfolioOHLCTarget: slippage must be finite, got nan"
+   },
+   "tick_size": {
+    "-inf": "BacktestPortfolioOHLCTarget: tick_size must be finite, got -inf",
+    "inf": "BacktestPortfolioOHLCTarget: tick_size must be finite, got inf",
+    "nan": "BacktestPortfolioOHLCTarget: tick_size must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -488,7 +894,54 @@
    "slippage_unit": "BacktestPortfolioTarget: slippage_unit must be a string, got bool",
    "tick_size": "BacktestPortfolioTarget: tick_size must be a number or a sequence of numbers, got bool"
   },
-  "name": "BacktestPortfolioTarget"
+  "name": "BacktestPortfolioTarget",
+  "non_finite": {
+   "fee": {
+    "-inf": "BacktestPortfolioTarget: fee must be finite, got -inf",
+    "inf": "BacktestPortfolioTarget: fee must be finite, got inf",
+    "nan": "BacktestPortfolioTarget: fee must be finite, got nan"
+   },
+   "fee_per_contract": {
+    "-inf": "BacktestPortfolioTarget: fee_per_contract must be finite, got -inf",
+    "inf": "BacktestPortfolioTarget: fee_per_contract must be finite, got inf",
+    "nan": "BacktestPortfolioTarget: fee_per_contract must be finite, got nan"
+   },
+   "initial_capital": {
+    "-inf": "BacktestPortfolioTarget: initial_capital must be finite, got -inf",
+    "inf": "BacktestPortfolioTarget: initial_capital must be finite, got inf",
+    "nan": "BacktestPortfolioTarget: initial_capital must be finite, got nan"
+   },
+   "max_gross": {
+    "-inf": "BacktestPortfolioTarget: max_gross must be finite or inf, got -inf",
+    "inf": null,
+    "nan": "BacktestPortfolioTarget: max_gross must be finite or inf, got nan"
+   },
+   "max_net": {
+    "-inf": "BacktestPortfolioTarget: max_net must be finite or inf, got -inf",
+    "inf": null,
+    "nan": "BacktestPortfolioTarget: max_net must be finite or inf, got nan"
+   },
+   "multiplier": {
+    "-inf": "BacktestPortfolioTarget: multiplier must be finite, got -inf",
+    "inf": "BacktestPortfolioTarget: multiplier must be finite, got inf",
+    "nan": "BacktestPortfolioTarget: multiplier must be finite, got nan"
+   },
+   "rebalance_band": {
+    "-inf": "BacktestPortfolioTarget: rebalance_band must be finite, got -inf",
+    "inf": "BacktestPortfolioTarget: rebalance_band must be finite, got inf",
+    "nan": "BacktestPortfolioTarget: rebalance_band must be finite, got nan"
+   },
+   "slippage": {
+    "-inf": "BacktestPortfolioTarget: slippage must be finite, got -inf",
+    "inf": "BacktestPortfolioTarget: slippage must be finite, got inf",
+    "nan": "BacktestPortfolioTarget: slippage must be finite, got nan"
+   },
+   "tick_size": {
+    "-inf": "BacktestPortfolioTarget: tick_size must be finite, got -inf",
+    "inf": "BacktestPortfolioTarget: tick_size must be finite, got inf",
+    "nan": "BacktestPortfolioTarget: tick_size must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -543,7 +996,74 @@
    "tick_size": "BacktestPriceTarget: tick_size must be a number, got bool",
    "trailing_stop": "BacktestPriceTarget: trailing_stop must be a number, got bool"
   },
-  "name": "BacktestPriceTarget"
+  "name": "BacktestPriceTarget",
+  "non_finite": {
+   "fee": {
+    "-inf": "BacktestPriceTarget: fee must be finite, got -inf",
+    "inf": "BacktestPriceTarget: fee must be finite, got inf",
+    "nan": "BacktestPriceTarget: fee must be finite, got nan"
+   },
+   "fee_per_contract": {
+    "-inf": "BacktestPriceTarget: fee_per_contract must be finite, got -inf",
+    "inf": "BacktestPriceTarget: fee_per_contract must be finite, got inf",
+    "nan": "BacktestPriceTarget: fee_per_contract must be finite, got nan"
+   },
+   "initial_capital": {
+    "-inf": "BacktestPriceTarget: initial_capital must be finite, got -inf",
+    "inf": "BacktestPriceTarget: initial_capital must be finite, got inf",
+    "nan": "BacktestPriceTarget: initial_capital must be finite, got nan"
+   },
+   "max_position": {
+    "-inf": "BacktestPriceTarget: max_position must be finite or inf, got -inf",
+    "inf": null,
+    "nan": "BacktestPriceTarget: max_position must be finite or inf, got nan"
+   },
+   "min_position": {
+    "-inf": null,
+    "inf": "BacktestPriceTarget: min_position must be finite or -inf, got inf",
+    "nan": "BacktestPriceTarget: min_position must be finite or -inf, got nan"
+   },
+   "multiplier": {
+    "-inf": "BacktestPriceTarget: multiplier must be finite, got -inf",
+    "inf": "BacktestPriceTarget: multiplier must be finite, got inf",
+    "nan": "BacktestPriceTarget: multiplier must be finite, got nan"
+   },
+   "rebalance_band": {
+    "-inf": "BacktestPriceTarget: rebalance_band must be finite, got -inf",
+    "inf": "BacktestPriceTarget: rebalance_band must be finite, got inf",
+    "nan": "BacktestPriceTarget: rebalance_band must be finite, got nan"
+   },
+   "slippage": {
+    "-inf": "BacktestPriceTarget: slippage must be finite, got -inf",
+    "inf": "BacktestPriceTarget: slippage must be finite, got inf",
+    "nan": "BacktestPriceTarget: slippage must be finite, got nan"
+   },
+   "spread": {
+    "-inf": "BacktestPriceTarget: spread must be finite, got -inf",
+    "inf": "BacktestPriceTarget: spread must be finite, got inf",
+    "nan": "BacktestPriceTarget: spread must be finite, got nan"
+   },
+   "stop_loss": {
+    "-inf": "BacktestPriceTarget: stop_loss must be finite, got -inf",
+    "inf": "BacktestPriceTarget: stop_loss must be finite, got inf",
+    "nan": "BacktestPriceTarget: stop_loss must be finite, got nan"
+   },
+   "take_profit": {
+    "-inf": "BacktestPriceTarget: take_profit must be finite, got -inf",
+    "inf": "BacktestPriceTarget: take_profit must be finite, got inf",
+    "nan": "BacktestPriceTarget: take_profit must be finite, got nan"
+   },
+   "tick_size": {
+    "-inf": "BacktestPriceTarget: tick_size must be finite, got -inf",
+    "inf": "BacktestPriceTarget: tick_size must be finite, got inf",
+    "nan": "BacktestPriceTarget: tick_size must be finite, got nan"
+   },
+   "trailing_stop": {
+    "-inf": "BacktestPriceTarget: trailing_stop must be finite, got -inf",
+    "inf": "BacktestPriceTarget: trailing_stop must be finite, got inf",
+    "nan": "BacktestPriceTarget: trailing_stop must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -556,7 +1076,14 @@
   "bool_message": {
    "periods_per_year": "BacktestReport: periods_per_year must be a number, got bool"
   },
-  "name": "BacktestReport"
+  "name": "BacktestReport",
+  "non_finite": {
+   "periods_per_year": {
+    "-inf": "BacktestReport: periods_per_year must be finite, got -inf",
+    "inf": "BacktestReport: periods_per_year must be finite, got inf",
+    "nan": "BacktestReport: periods_per_year must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -569,7 +1096,14 @@
   "bool_message": {
    "periods_per_year": "BacktestStats: periods_per_year must be a number, got bool"
   },
-  "name": "BacktestStats"
+  "name": "BacktestStats",
+  "non_finite": {
+   "periods_per_year": {
+    "-inf": "BacktestStats: periods_per_year must be finite, got -inf",
+    "inf": "BacktestStats: periods_per_year must be finite, got inf",
+    "nan": "BacktestStats: periods_per_year must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -615,7 +1149,59 @@
    "taker_fee_per_contract": "BacktestTradesOrders: taker_fee_per_contract must be a number, got bool",
    "tick_size": "BacktestTradesOrders: tick_size must be a number, got bool"
   },
-  "name": "BacktestTradesOrders"
+  "name": "BacktestTradesOrders",
+  "non_finite": {
+   "maker_fee": {
+    "-inf": "BacktestTradesOrders: maker_fee must be finite, got -inf",
+    "inf": "BacktestTradesOrders: maker_fee must be finite, got inf",
+    "nan": "BacktestTradesOrders: maker_fee must be finite, got nan"
+   },
+   "maker_fee_per_contract": {
+    "-inf": "BacktestTradesOrders: maker_fee_per_contract must be finite, got -inf",
+    "inf": "BacktestTradesOrders: maker_fee_per_contract must be finite, got inf",
+    "nan": "BacktestTradesOrders: maker_fee_per_contract must be finite, got nan"
+   },
+   "max_position": {
+    "-inf": "BacktestTradesOrders: max_position must be finite or inf, got -inf",
+    "inf": null,
+    "nan": "BacktestTradesOrders: max_position must be finite or inf, got nan"
+   },
+   "min_position": {
+    "-inf": null,
+    "inf": "BacktestTradesOrders: min_position must be finite or -inf, got inf",
+    "nan": "BacktestTradesOrders: min_position must be finite or -inf, got nan"
+   },
+   "multiplier": {
+    "-inf": "BacktestTradesOrders: multiplier must be finite, got -inf",
+    "inf": "BacktestTradesOrders: multiplier must be finite, got inf",
+    "nan": "BacktestTradesOrders: multiplier must be finite, got nan"
+   },
+   "participation_ratio": {
+    "-inf": "BacktestTradesOrders: participation_ratio must be finite, got -inf",
+    "inf": "BacktestTradesOrders: participation_ratio must be finite, got inf",
+    "nan": "BacktestTradesOrders: participation_ratio must be finite, got nan"
+   },
+   "slippage": {
+    "-inf": "BacktestTradesOrders: slippage must be finite, got -inf",
+    "inf": "BacktestTradesOrders: slippage must be finite, got inf",
+    "nan": "BacktestTradesOrders: slippage must be finite, got nan"
+   },
+   "taker_fee": {
+    "-inf": "BacktestTradesOrders: taker_fee must be finite, got -inf",
+    "inf": "BacktestTradesOrders: taker_fee must be finite, got inf",
+    "nan": "BacktestTradesOrders: taker_fee must be finite, got nan"
+   },
+   "taker_fee_per_contract": {
+    "-inf": "BacktestTradesOrders: taker_fee_per_contract must be finite, got -inf",
+    "inf": "BacktestTradesOrders: taker_fee_per_contract must be finite, got inf",
+    "nan": "BacktestTradesOrders: taker_fee_per_contract must be finite, got nan"
+   },
+   "tick_size": {
+    "-inf": "BacktestTradesOrders: tick_size must be finite, got -inf",
+    "inf": "BacktestTradesOrders: tick_size must be finite, got inf",
+    "nan": "BacktestTradesOrders: tick_size must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -670,7 +1256,74 @@
    "tick_size": "BacktestTradesTarget: tick_size must be a number, got bool",
    "trailing_stop": "BacktestTradesTarget: trailing_stop must be a number, got bool"
   },
-  "name": "BacktestTradesTarget"
+  "name": "BacktestTradesTarget",
+  "non_finite": {
+   "fee_per_contract": {
+    "-inf": "BacktestTradesTarget: fee_per_contract must be finite, got -inf",
+    "inf": "BacktestTradesTarget: fee_per_contract must be finite, got inf",
+    "nan": "BacktestTradesTarget: fee_per_contract must be finite, got nan"
+   },
+   "initial_capital": {
+    "-inf": "BacktestTradesTarget: initial_capital must be finite, got -inf",
+    "inf": "BacktestTradesTarget: initial_capital must be finite, got inf",
+    "nan": "BacktestTradesTarget: initial_capital must be finite, got nan"
+   },
+   "max_participation": {
+    "-inf": "BacktestTradesTarget: max_participation must be finite or inf, got -inf",
+    "inf": null,
+    "nan": "BacktestTradesTarget: max_participation must be finite or inf, got nan"
+   },
+   "max_position": {
+    "-inf": "BacktestTradesTarget: max_position must be finite or inf, got -inf",
+    "inf": null,
+    "nan": "BacktestTradesTarget: max_position must be finite or inf, got nan"
+   },
+   "min_position": {
+    "-inf": null,
+    "inf": "BacktestTradesTarget: min_position must be finite or -inf, got inf",
+    "nan": "BacktestTradesTarget: min_position must be finite or -inf, got nan"
+   },
+   "multiplier": {
+    "-inf": "BacktestTradesTarget: multiplier must be finite, got -inf",
+    "inf": "BacktestTradesTarget: multiplier must be finite, got inf",
+    "nan": "BacktestTradesTarget: multiplier must be finite, got nan"
+   },
+   "rebalance_band": {
+    "-inf": "BacktestTradesTarget: rebalance_band must be finite, got -inf",
+    "inf": "BacktestTradesTarget: rebalance_band must be finite, got inf",
+    "nan": "BacktestTradesTarget: rebalance_band must be finite, got nan"
+   },
+   "slippage": {
+    "-inf": "BacktestTradesTarget: slippage must be finite, got -inf",
+    "inf": "BacktestTradesTarget: slippage must be finite, got inf",
+    "nan": "BacktestTradesTarget: slippage must be finite, got nan"
+   },
+   "stop_loss": {
+    "-inf": "BacktestTradesTarget: stop_loss must be finite, got -inf",
+    "inf": "BacktestTradesTarget: stop_loss must be finite, got inf",
+    "nan": "BacktestTradesTarget: stop_loss must be finite, got nan"
+   },
+   "take_profit": {
+    "-inf": "BacktestTradesTarget: take_profit must be finite, got -inf",
+    "inf": "BacktestTradesTarget: take_profit must be finite, got inf",
+    "nan": "BacktestTradesTarget: take_profit must be finite, got nan"
+   },
+   "taker_fee": {
+    "-inf": "BacktestTradesTarget: taker_fee must be finite, got -inf",
+    "inf": "BacktestTradesTarget: taker_fee must be finite, got inf",
+    "nan": "BacktestTradesTarget: taker_fee must be finite, got nan"
+   },
+   "tick_size": {
+    "-inf": "BacktestTradesTarget: tick_size must be finite, got -inf",
+    "inf": "BacktestTradesTarget: tick_size must be finite, got inf",
+    "nan": "BacktestTradesTarget: tick_size must be finite, got nan"
+   },
+   "trailing_stop": {
+    "-inf": "BacktestTradesTarget: trailing_stop must be finite, got -inf",
+    "inf": "BacktestTradesTarget: trailing_stop must be finite, got inf",
+    "nan": "BacktestTradesTarget: trailing_stop must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -689,7 +1342,24 @@
    "exit": "BandSignal: exit must be a number, got bool",
    "stop": "BandSignal: stop must be a number, got bool"
   },
-  "name": "BandSignal"
+  "name": "BandSignal",
+  "non_finite": {
+   "entry": {
+    "-inf": "BandSignal: entry must be finite, got -inf",
+    "inf": "BandSignal: entry must be finite, got inf",
+    "nan": "BandSignal: entry must be finite, got nan"
+   },
+   "exit": {
+    "-inf": "BandSignal: exit must be finite, got -inf",
+    "inf": "BandSignal: exit must be finite, got inf",
+    "nan": "BandSignal: exit must be finite, got nan"
+   },
+   "stop": {
+    "-inf": "BandSignal: stop must be finite or inf, got -inf",
+    "inf": null,
+    "nan": "BandSignal: stop must be finite or inf, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -719,7 +1389,39 @@
    "prior_sigma": "BayesianRegression: prior_sigma must be a number, got bool",
    "span": "BayesianRegression: span must be a number, got bool"
   },
-  "name": "BayesianRegression"
+  "name": "BayesianRegression",
+  "non_finite": {
+   "alpha": {
+    "-inf": "BayesianRegression: alpha must be finite, got -inf",
+    "inf": "BayesianRegression: alpha must be finite, got inf",
+    "nan": "BayesianRegression: alpha must be finite, got nan"
+   },
+   "com": {
+    "-inf": "BayesianRegression: com must be finite, got -inf",
+    "inf": "BayesianRegression: com must be finite, got inf",
+    "nan": "BayesianRegression: com must be finite, got nan"
+   },
+   "halflife": {
+    "-inf": "BayesianRegression: halflife must be finite, got -inf",
+    "inf": "BayesianRegression: halflife must be finite, got inf",
+    "nan": "BayesianRegression: halflife must be finite, got nan"
+   },
+   "prior_precision": {
+    "-inf": "BayesianRegression: prior_precision must be finite, got -inf",
+    "inf": "BayesianRegression: prior_precision must be finite, got inf",
+    "nan": "BayesianRegression: prior_precision must be finite, got nan"
+   },
+   "prior_sigma": {
+    "-inf": "BayesianRegression: prior_sigma must be finite, got -inf",
+    "inf": "BayesianRegression: prior_sigma must be finite, got inf",
+    "nan": "BayesianRegression: prior_sigma must be finite, got nan"
+   },
+   "span": {
+    "-inf": "BayesianRegression: span must be finite, got -inf",
+    "inf": "BayesianRegression: span must be finite, got inf",
+    "nan": "BayesianRegression: span must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -738,7 +1440,14 @@
    "start_policy": "BollingerBands: start_policy must be a string, got bool",
    "window_size": "BollingerBands: window_size must be an integer, got bool"
   },
-  "name": "BollingerBands"
+  "name": "BollingerBands",
+  "non_finite": {
+   "num_std": {
+    "-inf": "BollingerBands: num_std must be finite, got -inf",
+    "inf": "BollingerBands: num_std must be finite, got inf",
+    "nan": "BollingerBands: num_std must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -754,7 +1463,8 @@
    "start_policy": "BulkVolumeClassifier: start_policy must be a string, got bool",
    "window_size": "BulkVolumeClassifier: window_size must be an integer, got bool"
   },
-  "name": "BulkVolumeClassifier"
+  "name": "BulkVolumeClassifier",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -770,7 +1480,14 @@
    "cutoff_freq": "Butter: cutoff_freq must be a number, got bool",
    "order": "Butter: order must be an integer, got bool"
   },
-  "name": "Butter"
+  "name": "Butter",
+  "non_finite": {
+   "cutoff_freq": {
+    "-inf": "Butter: cutoff_freq must be finite, got -inf",
+    "inf": "Butter: cutoff_freq must be finite, got inf",
+    "nan": "Butter: cutoff_freq must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -789,7 +1506,19 @@
    "low_cutoff": "ButterBandpass: low_cutoff must be a number, got bool",
    "order": "ButterBandpass: order must be an integer, got bool"
   },
-  "name": "ButterBandpass"
+  "name": "ButterBandpass",
+  "non_finite": {
+   "high_cutoff": {
+    "-inf": "ButterBandpass: high_cutoff must be finite, got -inf",
+    "inf": "ButterBandpass: high_cutoff must be finite, got inf",
+    "nan": "ButterBandpass: high_cutoff must be finite, got nan"
+   },
+   "low_cutoff": {
+    "-inf": "ButterBandpass: low_cutoff must be finite, got -inf",
+    "inf": "ButterBandpass: low_cutoff must be finite, got inf",
+    "nan": "ButterBandpass: low_cutoff must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -808,7 +1537,19 @@
    "low_cutoff": "ButterBandstop: low_cutoff must be a number, got bool",
    "order": "ButterBandstop: order must be an integer, got bool"
   },
-  "name": "ButterBandstop"
+  "name": "ButterBandstop",
+  "non_finite": {
+   "high_cutoff": {
+    "-inf": "ButterBandstop: high_cutoff must be finite, got -inf",
+    "inf": "ButterBandstop: high_cutoff must be finite, got inf",
+    "nan": "ButterBandstop: high_cutoff must be finite, got nan"
+   },
+   "low_cutoff": {
+    "-inf": "ButterBandstop: low_cutoff must be finite, got -inf",
+    "inf": "ButterBandstop: low_cutoff must be finite, got inf",
+    "nan": "ButterBandstop: low_cutoff must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -824,7 +1565,14 @@
    "cutoff_freq": "ButterHighpass: cutoff_freq must be a number, got bool",
    "order": "ButterHighpass: order must be an integer, got bool"
   },
-  "name": "ButterHighpass"
+  "name": "ButterHighpass",
+  "non_finite": {
+   "cutoff_freq": {
+    "-inf": "ButterHighpass: cutoff_freq must be finite, got -inf",
+    "inf": "ButterHighpass: cutoff_freq must be finite, got inf",
+    "nan": "ButterHighpass: cutoff_freq must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -837,7 +1585,8 @@
   "bool_message": {
    "window_size": "CCI: window_size must be an integer, got bool"
   },
-  "name": "CCI"
+  "name": "CCI",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -856,7 +1605,19 @@
    "lower": "Clip: lower must be a number, got bool",
    "upper": "Clip: upper must be a number, got bool"
   },
-  "name": "Clip"
+  "name": "Clip",
+  "non_finite": {
+   "lower": {
+    "-inf": null,
+    "inf": "Clip: lower must be finite or -inf or nan, got inf",
+    "nan": null
+   },
+   "upper": {
+    "-inf": "Clip: upper must be finite or inf or nan, got -inf",
+    "inf": null,
+    "nan": null
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -872,7 +1633,19 @@
    "gross": "CrossNormalize: gross must be a number, got bool",
    "net": "CrossNormalize: net must be a number, got bool"
   },
-  "name": "CrossNormalize"
+  "name": "CrossNormalize",
+  "non_finite": {
+   "gross": {
+    "-inf": "CrossNormalize: gross must be finite, got -inf",
+    "inf": "CrossNormalize: gross must be finite, got inf",
+    "nan": "CrossNormalize: gross must be finite, got nan"
+   },
+   "net": {
+    "-inf": "CrossNormalize: net must be finite or nan, got -inf",
+    "inf": "CrossNormalize: net must be finite or nan, got inf",
+    "nan": null
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -885,7 +1658,8 @@
   "bool_message": {
    "scale": "CrossRank: scale must be a string, got bool"
   },
-  "name": "CrossRank"
+  "name": "CrossRank",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -898,7 +1672,8 @@
   "bool_message": {
    "count": "CrossTopBottom: count must be an integer, got bool"
   },
-  "name": "CrossTopBottom"
+  "name": "CrossTopBottom",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -914,7 +1689,19 @@
    "lower": "CrossWinsorize: lower must be a number, got bool",
    "upper": "CrossWinsorize: upper must be a number, got bool"
   },
-  "name": "CrossWinsorize"
+  "name": "CrossWinsorize",
+  "non_finite": {
+   "lower": {
+    "-inf": "CrossWinsorize: lower must be finite, got -inf",
+    "inf": "CrossWinsorize: lower must be finite, got inf",
+    "nan": "CrossWinsorize: lower must be finite, got nan"
+   },
+   "upper": {
+    "-inf": "CrossWinsorize: upper must be finite, got -inf",
+    "inf": "CrossWinsorize: upper must be finite, got inf",
+    "nan": "CrossWinsorize: upper must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -938,7 +1725,29 @@
    "halflife": "DEMA: halflife must be a number, got bool",
    "span": "DEMA: span must be a number, got bool"
   },
-  "name": "DEMA"
+  "name": "DEMA",
+  "non_finite": {
+   "alpha": {
+    "-inf": "DEMA: alpha must be finite, got -inf",
+    "inf": "DEMA: alpha must be finite, got inf",
+    "nan": "DEMA: alpha must be finite, got nan"
+   },
+   "com": {
+    "-inf": "DEMA: com must be finite, got -inf",
+    "inf": "DEMA: com must be finite, got inf",
+    "nan": "DEMA: com must be finite, got nan"
+   },
+   "halflife": {
+    "-inf": "DEMA: halflife must be finite, got -inf",
+    "inf": "DEMA: halflife must be finite, got inf",
+    "nan": "DEMA: halflife must be finite, got nan"
+   },
+   "span": {
+    "-inf": "DEMA: span must be finite, got -inf",
+    "inf": "DEMA: span must be finite, got inf",
+    "nan": "DEMA: span must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -951,7 +1760,8 @@
   "bool_message": {
    "window_size": "DX: window_size must be an integer, got bool"
   },
-  "name": "DX"
+  "name": "DX",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -969,7 +1779,19 @@
    "cutoff": "Decycler: cutoff must be a number, got bool",
    "period": "Decycler: period must be a number, got bool"
   },
-  "name": "Decycler"
+  "name": "Decycler",
+  "non_finite": {
+   "cutoff": {
+    "-inf": "Decycler: cutoff must be finite, got -inf",
+    "inf": "Decycler: cutoff must be finite, got inf",
+    "nan": "Decycler: cutoff must be finite, got nan"
+   },
+   "period": {
+    "-inf": "Decycler: period must be finite, got -inf",
+    "inf": "Decycler: period must be finite, got inf",
+    "nan": "Decycler: period must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -985,7 +1807,8 @@
    "start_policy": "Detrend: start_policy must be a string, got bool",
    "window_size": "Detrend: window_size must be an integer, got bool"
   },
-  "name": "Detrend"
+  "name": "Detrend",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -1001,7 +1824,8 @@
    "start_policy": "Diff: start_policy must be a string, got bool",
    "window_size": "Diff: window_size must be an integer, got bool"
   },
-  "name": "Diff"
+  "name": "Diff",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -1014,7 +1838,8 @@
   "bool_message": {
    "start_policy": "Diff2: start_policy must be a string, got bool"
   },
-  "name": "Diff2"
+  "name": "Diff2",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -1027,7 +1852,8 @@
   "bool_message": {
    "window_size": "DonchianChannels: window_size must be an integer, got bool"
   },
-  "name": "DonchianChannels"
+  "name": "DonchianChannels",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -1051,7 +1877,29 @@
    "halflife": "EwAlpha: halflife must be a number, got bool",
    "span": "EwAlpha: span must be a number, got bool"
   },
-  "name": "EwAlpha"
+  "name": "EwAlpha",
+  "non_finite": {
+   "alpha": {
+    "-inf": "EwAlpha: alpha must be finite, got -inf",
+    "inf": "EwAlpha: alpha must be finite, got inf",
+    "nan": "EwAlpha: alpha must be finite, got nan"
+   },
+   "com": {
+    "-inf": "EwAlpha: com must be finite, got -inf",
+    "inf": "EwAlpha: com must be finite, got inf",
+    "nan": "EwAlpha: com must be finite, got nan"
+   },
+   "halflife": {
+    "-inf": "EwAlpha: halflife must be finite, got -inf",
+    "inf": "EwAlpha: halflife must be finite, got inf",
+    "nan": "EwAlpha: halflife must be finite, got nan"
+   },
+   "span": {
+    "-inf": "EwAlpha: span must be finite, got -inf",
+    "inf": "EwAlpha: span must be finite, got inf",
+    "nan": "EwAlpha: span must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1075,7 +1923,29 @@
    "halflife": "EwBeta: halflife must be a number, got bool",
    "span": "EwBeta: span must be a number, got bool"
   },
-  "name": "EwBeta"
+  "name": "EwBeta",
+  "non_finite": {
+   "alpha": {
+    "-inf": "EwBeta: alpha must be finite, got -inf",
+    "inf": "EwBeta: alpha must be finite, got inf",
+    "nan": "EwBeta: alpha must be finite, got nan"
+   },
+   "com": {
+    "-inf": "EwBeta: com must be finite, got -inf",
+    "inf": "EwBeta: com must be finite, got inf",
+    "nan": "EwBeta: com must be finite, got nan"
+   },
+   "halflife": {
+    "-inf": "EwBeta: halflife must be finite, got -inf",
+    "inf": "EwBeta: halflife must be finite, got inf",
+    "nan": "EwBeta: halflife must be finite, got nan"
+   },
+   "span": {
+    "-inf": "EwBeta: span must be finite, got -inf",
+    "inf": "EwBeta: span must be finite, got inf",
+    "nan": "EwBeta: span must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1099,7 +1969,29 @@
    "halflife": "EwCorr: halflife must be a number, got bool",
    "span": "EwCorr: span must be a number, got bool"
   },
-  "name": "EwCorr"
+  "name": "EwCorr",
+  "non_finite": {
+   "alpha": {
+    "-inf": "EwCorr: alpha must be finite, got -inf",
+    "inf": "EwCorr: alpha must be finite, got inf",
+    "nan": "EwCorr: alpha must be finite, got nan"
+   },
+   "com": {
+    "-inf": "EwCorr: com must be finite, got -inf",
+    "inf": "EwCorr: com must be finite, got inf",
+    "nan": "EwCorr: com must be finite, got nan"
+   },
+   "halflife": {
+    "-inf": "EwCorr: halflife must be finite, got -inf",
+    "inf": "EwCorr: halflife must be finite, got inf",
+    "nan": "EwCorr: halflife must be finite, got nan"
+   },
+   "span": {
+    "-inf": "EwCorr: span must be finite, got -inf",
+    "inf": "EwCorr: span must be finite, got inf",
+    "nan": "EwCorr: span must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1123,7 +2015,29 @@
    "halflife": "EwCov: halflife must be a number, got bool",
    "span": "EwCov: span must be a number, got bool"
   },
-  "name": "EwCov"
+  "name": "EwCov",
+  "non_finite": {
+   "alpha": {
+    "-inf": "EwCov: alpha must be finite, got -inf",
+    "inf": "EwCov: alpha must be finite, got inf",
+    "nan": "EwCov: alpha must be finite, got nan"
+   },
+   "com": {
+    "-inf": "EwCov: com must be finite, got -inf",
+    "inf": "EwCov: com must be finite, got inf",
+    "nan": "EwCov: com must be finite, got nan"
+   },
+   "halflife": {
+    "-inf": "EwCov: halflife must be finite, got -inf",
+    "inf": "EwCov: halflife must be finite, got inf",
+    "nan": "EwCov: halflife must be finite, got nan"
+   },
+   "span": {
+    "-inf": "EwCov: span must be finite, got -inf",
+    "inf": "EwCov: span must be finite, got inf",
+    "nan": "EwCov: span must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1147,7 +2061,29 @@
    "halflife": "EwGarmanKlassVar: halflife must be a number, got bool",
    "span": "EwGarmanKlassVar: span must be a number, got bool"
   },
-  "name": "EwGarmanKlassVar"
+  "name": "EwGarmanKlassVar",
+  "non_finite": {
+   "alpha": {
+    "-inf": "EwGarmanKlassVar: alpha must be finite, got -inf",
+    "inf": "EwGarmanKlassVar: alpha must be finite, got inf",
+    "nan": "EwGarmanKlassVar: alpha must be finite, got nan"
+   },
+   "com": {
+    "-inf": "EwGarmanKlassVar: com must be finite, got -inf",
+    "inf": "EwGarmanKlassVar: com must be finite, got inf",
+    "nan": "EwGarmanKlassVar: com must be finite, got nan"
+   },
+   "halflife": {
+    "-inf": "EwGarmanKlassVar: halflife must be finite, got -inf",
+    "inf": "EwGarmanKlassVar: halflife must be finite, got inf",
+    "nan": "EwGarmanKlassVar: halflife must be finite, got nan"
+   },
+   "span": {
+    "-inf": "EwGarmanKlassVar: span must be finite, got -inf",
+    "inf": "EwGarmanKlassVar: span must be finite, got inf",
+    "nan": "EwGarmanKlassVar: span must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1171,7 +2107,29 @@
    "halflife": "EwGarmanKlassVol: halflife must be a number, got bool",
    "span": "EwGarmanKlassVol: span must be a number, got bool"
   },
-  "name": "EwGarmanKlassVol"
+  "name": "EwGarmanKlassVol",
+  "non_finite": {
+   "alpha": {
+    "-inf": "EwGarmanKlassVol: alpha must be finite, got -inf",
+    "inf": "EwGarmanKlassVol: alpha must be finite, got inf",
+    "nan": "EwGarmanKlassVol: alpha must be finite, got nan"
+   },
+   "com": {
+    "-inf": "EwGarmanKlassVol: com must be finite, got -inf",
+    "inf": "EwGarmanKlassVol: com must be finite, got inf",
+    "nan": "EwGarmanKlassVol: com must be finite, got nan"
+   },
+   "halflife": {
+    "-inf": "EwGarmanKlassVol: halflife must be finite, got -inf",
+    "inf": "EwGarmanKlassVol: halflife must be finite, got inf",
+    "nan": "EwGarmanKlassVol: halflife must be finite, got nan"
+   },
+   "span": {
+    "-inf": "EwGarmanKlassVol: span must be finite, got -inf",
+    "inf": "EwGarmanKlassVol: span must be finite, got inf",
+    "nan": "EwGarmanKlassVol: span must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1195,7 +2153,29 @@
    "halflife": "EwKurt: halflife must be a number, got bool",
    "span": "EwKurt: span must be a number, got bool"
   },
-  "name": "EwKurt"
+  "name": "EwKurt",
+  "non_finite": {
+   "alpha": {
+    "-inf": "EwKurt: alpha must be finite, got -inf",
+    "inf": "EwKurt: alpha must be finite, got inf",
+    "nan": "EwKurt: alpha must be finite, got nan"
+   },
+   "com": {
+    "-inf": "EwKurt: com must be finite, got -inf",
+    "inf": "EwKurt: com must be finite, got inf",
+    "nan": "EwKurt: com must be finite, got nan"
+   },
+   "halflife": {
+    "-inf": "EwKurt: halflife must be finite, got -inf",
+    "inf": "EwKurt: halflife must be finite, got inf",
+    "nan": "EwKurt: halflife must be finite, got nan"
+   },
+   "span": {
+    "-inf": "EwKurt: span must be finite, got -inf",
+    "inf": "EwKurt: span must be finite, got inf",
+    "nan": "EwKurt: span must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1219,7 +2199,29 @@
    "halflife": "EwKyleLambda: halflife must be a number, got bool",
    "span": "EwKyleLambda: span must be a number, got bool"
   },
-  "name": "EwKyleLambda"
+  "name": "EwKyleLambda",
+  "non_finite": {
+   "alpha": {
+    "-inf": "EwKyleLambda: alpha must be finite, got -inf",
+    "inf": "EwKyleLambda: alpha must be finite, got inf",
+    "nan": "EwKyleLambda: alpha must be finite, got nan"
+   },
+   "com": {
+    "-inf": "EwKyleLambda: com must be finite, got -inf",
+    "inf": "EwKyleLambda: com must be finite, got inf",
+    "nan": "EwKyleLambda: com must be finite, got nan"
+   },
+   "halflife": {
+    "-inf": "EwKyleLambda: halflife must be finite, got -inf",
+    "inf": "EwKyleLambda: halflife must be finite, got inf",
+    "nan": "EwKyleLambda: halflife must be finite, got nan"
+   },
+   "span": {
+    "-inf": "EwKyleLambda: span must be finite, got -inf",
+    "inf": "EwKyleLambda: span must be finite, got inf",
+    "nan": "EwKyleLambda: span must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1243,7 +2245,29 @@
    "halflife": "EwMean: halflife must be a number, got bool",
    "span": "EwMean: span must be a number, got bool"
   },
-  "name": "EwMean"
+  "name": "EwMean",
+  "non_finite": {
+   "alpha": {
+    "-inf": "EwMean: alpha must be finite, got -inf",
+    "inf": "EwMean: alpha must be finite, got inf",
+    "nan": "EwMean: alpha must be finite, got nan"
+   },
+   "com": {
+    "-inf": "EwMean: com must be finite, got -inf",
+    "inf": "EwMean: com must be finite, got inf",
+    "nan": "EwMean: com must be finite, got nan"
+   },
+   "halflife": {
+    "-inf": "EwMean: halflife must be finite, got -inf",
+    "inf": "EwMean: halflife must be finite, got inf",
+    "nan": "EwMean: halflife must be finite, got nan"
+   },
+   "span": {
+    "-inf": "EwMean: span must be finite, got -inf",
+    "inf": "EwMean: span must be finite, got inf",
+    "nan": "EwMean: span must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1267,7 +2291,29 @@
    "halflife": "EwParkinsonVar: halflife must be a number, got bool",
    "span": "EwParkinsonVar: span must be a number, got bool"
   },
-  "name": "EwParkinsonVar"
+  "name": "EwParkinsonVar",
+  "non_finite": {
+   "alpha": {
+    "-inf": "EwParkinsonVar: alpha must be finite, got -inf",
+    "inf": "EwParkinsonVar: alpha must be finite, got inf",
+    "nan": "EwParkinsonVar: alpha must be finite, got nan"
+   },
+   "com": {
+    "-inf": "EwParkinsonVar: com must be finite, got -inf",
+    "inf": "EwParkinsonVar: com must be finite, got inf",
+    "nan": "EwParkinsonVar: com must be finite, got nan"
+   },
+   "halflife": {
+    "-inf": "EwParkinsonVar: halflife must be finite, got -inf",
+    "inf": "EwParkinsonVar: halflife must be finite, got inf",
+    "nan": "EwParkinsonVar: halflife must be finite, got nan"
+   },
+   "span": {
+    "-inf": "EwParkinsonVar: span must be finite, got -inf",
+    "inf": "EwParkinsonVar: span must be finite, got inf",
+    "nan": "EwParkinsonVar: span must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1291,7 +2337,29 @@
    "halflife": "EwParkinsonVol: halflife must be a number, got bool",
    "span": "EwParkinsonVol: span must be a number, got bool"
   },
-  "name": "EwParkinsonVol"
+  "name": "EwParkinsonVol",
+  "non_finite": {
+   "alpha": {
+    "-inf": "EwParkinsonVol: alpha must be finite, got -inf",
+    "inf": "EwParkinsonVol: alpha must be finite, got inf",
+    "nan": "EwParkinsonVol: alpha must be finite, got nan"
+   },
+   "com": {
+    "-inf": "EwParkinsonVol: com must be finite, got -inf",
+    "inf": "EwParkinsonVol: com must be finite, got inf",
+    "nan": "EwParkinsonVol: com must be finite, got nan"
+   },
+   "halflife": {
+    "-inf": "EwParkinsonVol: halflife must be finite, got -inf",
+    "inf": "EwParkinsonVol: halflife must be finite, got inf",
+    "nan": "EwParkinsonVol: halflife must be finite, got nan"
+   },
+   "span": {
+    "-inf": "EwParkinsonVol: span must be finite, got -inf",
+    "inf": "EwParkinsonVol: span must be finite, got inf",
+    "nan": "EwParkinsonVol: span must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1315,7 +2383,29 @@
    "halflife": "EwResidualStd: halflife must be a number, got bool",
    "span": "EwResidualStd: span must be a number, got bool"
   },
-  "name": "EwResidualStd"
+  "name": "EwResidualStd",
+  "non_finite": {
+   "alpha": {
+    "-inf": "EwResidualStd: alpha must be finite, got -inf",
+    "inf": "EwResidualStd: alpha must be finite, got inf",
+    "nan": "EwResidualStd: alpha must be finite, got nan"
+   },
+   "com": {
+    "-inf": "EwResidualStd: com must be finite, got -inf",
+    "inf": "EwResidualStd: com must be finite, got inf",
+    "nan": "EwResidualStd: com must be finite, got nan"
+   },
+   "halflife": {
+    "-inf": "EwResidualStd: halflife must be finite, got -inf",
+    "inf": "EwResidualStd: halflife must be finite, got inf",
+    "nan": "EwResidualStd: halflife must be finite, got nan"
+   },
+   "span": {
+    "-inf": "EwResidualStd: span must be finite, got -inf",
+    "inf": "EwResidualStd: span must be finite, got inf",
+    "nan": "EwResidualStd: span must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1339,7 +2429,29 @@
    "halflife": "EwRms: halflife must be a number, got bool",
    "span": "EwRms: span must be a number, got bool"
   },
-  "name": "EwRms"
+  "name": "EwRms",
+  "non_finite": {
+   "alpha": {
+    "-inf": "EwRms: alpha must be finite, got -inf",
+    "inf": "EwRms: alpha must be finite, got inf",
+    "nan": "EwRms: alpha must be finite, got nan"
+   },
+   "com": {
+    "-inf": "EwRms: com must be finite, got -inf",
+    "inf": "EwRms: com must be finite, got inf",
+    "nan": "EwRms: com must be finite, got nan"
+   },
+   "halflife": {
+    "-inf": "EwRms: halflife must be finite, got -inf",
+    "inf": "EwRms: halflife must be finite, got inf",
+    "nan": "EwRms: halflife must be finite, got nan"
+   },
+   "span": {
+    "-inf": "EwRms: span must be finite, got -inf",
+    "inf": "EwRms: span must be finite, got inf",
+    "nan": "EwRms: span must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1363,7 +2475,29 @@
    "halflife": "EwRogersSatchellVar: halflife must be a number, got bool",
    "span": "EwRogersSatchellVar: span must be a number, got bool"
   },
-  "name": "EwRogersSatchellVar"
+  "name": "EwRogersSatchellVar",
+  "non_finite": {
+   "alpha": {
+    "-inf": "EwRogersSatchellVar: alpha must be finite, got -inf",
+    "inf": "EwRogersSatchellVar: alpha must be finite, got inf",
+    "nan": "EwRogersSatchellVar: alpha must be finite, got nan"
+   },
+   "com": {
+    "-inf": "EwRogersSatchellVar: com must be finite, got -inf",
+    "inf": "EwRogersSatchellVar: com must be finite, got inf",
+    "nan": "EwRogersSatchellVar: com must be finite, got nan"
+   },
+   "halflife": {
+    "-inf": "EwRogersSatchellVar: halflife must be finite, got -inf",
+    "inf": "EwRogersSatchellVar: halflife must be finite, got inf",
+    "nan": "EwRogersSatchellVar: halflife must be finite, got nan"
+   },
+   "span": {
+    "-inf": "EwRogersSatchellVar: span must be finite, got -inf",
+    "inf": "EwRogersSatchellVar: span must be finite, got inf",
+    "nan": "EwRogersSatchellVar: span must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1387,7 +2521,29 @@
    "halflife": "EwRogersSatchellVol: halflife must be a number, got bool",
    "span": "EwRogersSatchellVol: span must be a number, got bool"
   },
-  "name": "EwRogersSatchellVol"
+  "name": "EwRogersSatchellVol",
+  "non_finite": {
+   "alpha": {
+    "-inf": "EwRogersSatchellVol: alpha must be finite, got -inf",
+    "inf": "EwRogersSatchellVol: alpha must be finite, got inf",
+    "nan": "EwRogersSatchellVol: alpha must be finite, got nan"
+   },
+   "com": {
+    "-inf": "EwRogersSatchellVol: com must be finite, got -inf",
+    "inf": "EwRogersSatchellVol: com must be finite, got inf",
+    "nan": "EwRogersSatchellVol: com must be finite, got nan"
+   },
+   "halflife": {
+    "-inf": "EwRogersSatchellVol: halflife must be finite, got -inf",
+    "inf": "EwRogersSatchellVol: halflife must be finite, got inf",
+    "nan": "EwRogersSatchellVol: halflife must be finite, got nan"
+   },
+   "span": {
+    "-inf": "EwRogersSatchellVol: span must be finite, got -inf",
+    "inf": "EwRogersSatchellVol: span must be finite, got inf",
+    "nan": "EwRogersSatchellVol: span must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1411,7 +2567,29 @@
    "halflife": "EwSkew: halflife must be a number, got bool",
    "span": "EwSkew: span must be a number, got bool"
   },
-  "name": "EwSkew"
+  "name": "EwSkew",
+  "non_finite": {
+   "alpha": {
+    "-inf": "EwSkew: alpha must be finite, got -inf",
+    "inf": "EwSkew: alpha must be finite, got inf",
+    "nan": "EwSkew: alpha must be finite, got nan"
+   },
+   "com": {
+    "-inf": "EwSkew: com must be finite, got -inf",
+    "inf": "EwSkew: com must be finite, got inf",
+    "nan": "EwSkew: com must be finite, got nan"
+   },
+   "halflife": {
+    "-inf": "EwSkew: halflife must be finite, got -inf",
+    "inf": "EwSkew: halflife must be finite, got inf",
+    "nan": "EwSkew: halflife must be finite, got nan"
+   },
+   "span": {
+    "-inf": "EwSkew: span must be finite, got -inf",
+    "inf": "EwSkew: span must be finite, got inf",
+    "nan": "EwSkew: span must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1435,7 +2613,29 @@
    "halflife": "EwSpread: halflife must be a number, got bool",
    "span": "EwSpread: span must be a number, got bool"
   },
-  "name": "EwSpread"
+  "name": "EwSpread",
+  "non_finite": {
+   "alpha": {
+    "-inf": "EwSpread: alpha must be finite, got -inf",
+    "inf": "EwSpread: alpha must be finite, got inf",
+    "nan": "EwSpread: alpha must be finite, got nan"
+   },
+   "com": {
+    "-inf": "EwSpread: com must be finite, got -inf",
+    "inf": "EwSpread: com must be finite, got inf",
+    "nan": "EwSpread: com must be finite, got nan"
+   },
+   "halflife": {
+    "-inf": "EwSpread: halflife must be finite, got -inf",
+    "inf": "EwSpread: halflife must be finite, got inf",
+    "nan": "EwSpread: halflife must be finite, got nan"
+   },
+   "span": {
+    "-inf": "EwSpread: span must be finite, got -inf",
+    "inf": "EwSpread: span must be finite, got inf",
+    "nan": "EwSpread: span must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1459,7 +2659,29 @@
    "halflife": "EwStd: halflife must be a number, got bool",
    "span": "EwStd: span must be a number, got bool"
   },
-  "name": "EwStd"
+  "name": "EwStd",
+  "non_finite": {
+   "alpha": {
+    "-inf": "EwStd: alpha must be finite, got -inf",
+    "inf": "EwStd: alpha must be finite, got inf",
+    "nan": "EwStd: alpha must be finite, got nan"
+   },
+   "com": {
+    "-inf": "EwStd: com must be finite, got -inf",
+    "inf": "EwStd: com must be finite, got inf",
+    "nan": "EwStd: com must be finite, got nan"
+   },
+   "halflife": {
+    "-inf": "EwStd: halflife must be finite, got -inf",
+    "inf": "EwStd: halflife must be finite, got inf",
+    "nan": "EwStd: halflife must be finite, got nan"
+   },
+   "span": {
+    "-inf": "EwStd: span must be finite, got -inf",
+    "inf": "EwStd: span must be finite, got inf",
+    "nan": "EwStd: span must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1483,7 +2705,29 @@
    "halflife": "EwVar: halflife must be a number, got bool",
    "span": "EwVar: span must be a number, got bool"
   },
-  "name": "EwVar"
+  "name": "EwVar",
+  "non_finite": {
+   "alpha": {
+    "-inf": "EwVar: alpha must be finite, got -inf",
+    "inf": "EwVar: alpha must be finite, got inf",
+    "nan": "EwVar: alpha must be finite, got nan"
+   },
+   "com": {
+    "-inf": "EwVar: com must be finite, got -inf",
+    "inf": "EwVar: com must be finite, got inf",
+    "nan": "EwVar: com must be finite, got nan"
+   },
+   "halflife": {
+    "-inf": "EwVar: halflife must be finite, got -inf",
+    "inf": "EwVar: halflife must be finite, got inf",
+    "nan": "EwVar: halflife must be finite, got nan"
+   },
+   "span": {
+    "-inf": "EwVar: span must be finite, got -inf",
+    "inf": "EwVar: span must be finite, got inf",
+    "nan": "EwVar: span must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1507,7 +2751,29 @@
    "halflife": "EwYangZhangVar: halflife must be a number, got bool",
    "span": "EwYangZhangVar: span must be a number, got bool"
   },
-  "name": "EwYangZhangVar"
+  "name": "EwYangZhangVar",
+  "non_finite": {
+   "alpha": {
+    "-inf": "EwYangZhangVar: alpha must be finite, got -inf",
+    "inf": "EwYangZhangVar: alpha must be finite, got inf",
+    "nan": "EwYangZhangVar: alpha must be finite, got nan"
+   },
+   "com": {
+    "-inf": "EwYangZhangVar: com must be finite, got -inf",
+    "inf": "EwYangZhangVar: com must be finite, got inf",
+    "nan": "EwYangZhangVar: com must be finite, got nan"
+   },
+   "halflife": {
+    "-inf": "EwYangZhangVar: halflife must be finite, got -inf",
+    "inf": "EwYangZhangVar: halflife must be finite, got inf",
+    "nan": "EwYangZhangVar: halflife must be finite, got nan"
+   },
+   "span": {
+    "-inf": "EwYangZhangVar: span must be finite, got -inf",
+    "inf": "EwYangZhangVar: span must be finite, got inf",
+    "nan": "EwYangZhangVar: span must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1531,7 +2797,29 @@
    "halflife": "EwYangZhangVol: halflife must be a number, got bool",
    "span": "EwYangZhangVol: span must be a number, got bool"
   },
-  "name": "EwYangZhangVol"
+  "name": "EwYangZhangVol",
+  "non_finite": {
+   "alpha": {
+    "-inf": "EwYangZhangVol: alpha must be finite, got -inf",
+    "inf": "EwYangZhangVol: alpha must be finite, got inf",
+    "nan": "EwYangZhangVol: alpha must be finite, got nan"
+   },
+   "com": {
+    "-inf": "EwYangZhangVol: com must be finite, got -inf",
+    "inf": "EwYangZhangVol: com must be finite, got inf",
+    "nan": "EwYangZhangVol: com must be finite, got nan"
+   },
+   "halflife": {
+    "-inf": "EwYangZhangVol: halflife must be finite, got -inf",
+    "inf": "EwYangZhangVol: halflife must be finite, got inf",
+    "nan": "EwYangZhangVol: halflife must be finite, got nan"
+   },
+   "span": {
+    "-inf": "EwYangZhangVol: span must be finite, got -inf",
+    "inf": "EwYangZhangVol: span must be finite, got inf",
+    "nan": "EwYangZhangVol: span must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1555,7 +2843,29 @@
    "halflife": "EwZscore: halflife must be a number, got bool",
    "span": "EwZscore: span must be a number, got bool"
   },
-  "name": "EwZscore"
+  "name": "EwZscore",
+  "non_finite": {
+   "alpha": {
+    "-inf": "EwZscore: alpha must be finite, got -inf",
+    "inf": "EwZscore: alpha must be finite, got inf",
+    "nan": "EwZscore: alpha must be finite, got nan"
+   },
+   "com": {
+    "-inf": "EwZscore: com must be finite, got -inf",
+    "inf": "EwZscore: com must be finite, got inf",
+    "nan": "EwZscore: com must be finite, got nan"
+   },
+   "halflife": {
+    "-inf": "EwZscore: halflife must be finite, got -inf",
+    "inf": "EwZscore: halflife must be finite, got inf",
+    "nan": "EwZscore: halflife must be finite, got nan"
+   },
+   "span": {
+    "-inf": "EwZscore: span must be finite, got -inf",
+    "inf": "EwZscore: span must be finite, got inf",
+    "nan": "EwZscore: span must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1568,7 +2878,14 @@
   "bool_message": {
    "fill": "FillNa: fill must be a number, got bool"
   },
-  "name": "FillNa"
+  "name": "FillNa",
+  "non_finite": {
+   "fill": {
+    "-inf": null,
+    "inf": null,
+    "nan": null
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1590,7 +2907,19 @@
    "threshold": "FracDiff: threshold must be a number, got bool",
    "window_size": "FracDiff: window_size must be an integer, got bool"
   },
-  "name": "FracDiff"
+  "name": "FracDiff",
+  "non_finite": {
+   "d": {
+    "-inf": "FracDiff: d must be finite, got -inf",
+    "inf": "FracDiff: d must be finite, got inf",
+    "nan": "FracDiff: d must be finite, got nan"
+   },
+   "threshold": {
+    "-inf": "FracDiff: threshold must be finite, got -inf",
+    "inf": "FracDiff: threshold must be finite, got inf",
+    "nan": "FracDiff: threshold must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1612,7 +2941,14 @@
    "start_policy": "Hampel: start_policy must be a string, got bool",
    "window_size": "Hampel: window_size must be an integer, got bool"
   },
-  "name": "Hampel"
+  "name": "Hampel",
+  "non_finite": {
+   "n_sigma": {
+    "-inf": "Hampel: n_sigma must be finite, got -inf",
+    "inf": "Hampel: n_sigma must be finite, got inf",
+    "nan": "Hampel: n_sigma must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1631,7 +2967,24 @@
    "decay": "HawkesIntensity: decay must be a number, got bool",
    "mu": "HawkesIntensity: mu must be a number, got bool"
   },
-  "name": "HawkesIntensity"
+  "name": "HawkesIntensity",
+  "non_finite": {
+   "alpha": {
+    "-inf": "HawkesIntensity: alpha must be finite, got -inf",
+    "inf": "HawkesIntensity: alpha must be finite, got inf",
+    "nan": "HawkesIntensity: alpha must be finite, got nan"
+   },
+   "decay": {
+    "-inf": "HawkesIntensity: decay must be finite, got -inf",
+    "inf": "HawkesIntensity: decay must be finite, got inf",
+    "nan": "HawkesIntensity: decay must be finite, got nan"
+   },
+   "mu": {
+    "-inf": "HawkesIntensity: mu must be finite, got -inf",
+    "inf": "HawkesIntensity: mu must be finite, got inf",
+    "nan": "HawkesIntensity: mu must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1649,7 +3002,14 @@
    "n": "Hold: n must be an integer, got bool",
    "release": "Hold: release must be a number, got bool"
   },
-  "name": "Hold"
+  "name": "Hold",
+  "non_finite": {
+   "release": {
+    "-inf": "Hold: release must be finite or nan, got -inf",
+    "inf": "Hold: release must be finite or nan, got inf",
+    "nan": null
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1662,7 +3022,8 @@
   "bool_message": {
    "window_size": "HullMA: window_size must be an integer, got bool"
   },
-  "name": "HullMA"
+  "name": "HullMA",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -1684,7 +3045,14 @@
    "start_policy": "ImpulseClip: start_policy must be a string, got bool",
    "window_size": "ImpulseClip: window_size must be an integer, got bool"
   },
-  "name": "ImpulseClip"
+  "name": "ImpulseClip",
+  "non_finite": {
+   "n_sigma": {
+    "-inf": "ImpulseClip: n_sigma must be finite, got -inf",
+    "inf": "ImpulseClip: n_sigma must be finite, got inf",
+    "nan": "ImpulseClip: n_sigma must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1703,7 +3071,8 @@
    "slow": "KAMA: slow must be an integer, got bool",
    "window_size": "KAMA: window_size must be an integer, got bool"
   },
-  "name": "KAMA"
+  "name": "KAMA",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -1725,7 +3094,29 @@
    "observation_var": "KalmanFilter: observation_var must be a number, got bool",
    "process_var": "KalmanFilter: process_var must be a number, got bool"
   },
-  "name": "KalmanFilter"
+  "name": "KalmanFilter",
+  "non_finite": {
+   "initial_state": {
+    "-inf": "KalmanFilter: initial_state must be finite, got -inf",
+    "inf": "KalmanFilter: initial_state must be finite, got inf",
+    "nan": "KalmanFilter: initial_state must be finite, got nan"
+   },
+   "initial_variance": {
+    "-inf": "KalmanFilter: initial_variance must be finite, got -inf",
+    "inf": "KalmanFilter: initial_variance must be finite, got inf",
+    "nan": "KalmanFilter: initial_variance must be finite, got nan"
+   },
+   "observation_var": {
+    "-inf": "KalmanFilter: observation_var must be finite, got -inf",
+    "inf": "KalmanFilter: observation_var must be finite, got inf",
+    "nan": "KalmanFilter: observation_var must be finite, got nan"
+   },
+   "process_var": {
+    "-inf": "KalmanFilter: process_var must be finite, got -inf",
+    "inf": "KalmanFilter: process_var must be finite, got inf",
+    "nan": "KalmanFilter: process_var must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1744,7 +3135,24 @@
    "obs_var": "KalmanRegression: obs_var must be a number, got bool",
    "prior_var": "KalmanRegression: prior_var must be a number, got bool"
   },
-  "name": "KalmanRegression"
+  "name": "KalmanRegression",
+  "non_finite": {
+   "delta": {
+    "-inf": "KalmanRegression: delta must be finite, got -inf",
+    "inf": "KalmanRegression: delta must be finite, got inf",
+    "nan": "KalmanRegression: delta must be finite, got nan"
+   },
+   "obs_var": {
+    "-inf": "KalmanRegression: obs_var must be finite, got -inf",
+    "inf": "KalmanRegression: obs_var must be finite, got inf",
+    "nan": "KalmanRegression: obs_var must be finite, got nan"
+   },
+   "prior_var": {
+    "-inf": "KalmanRegression: prior_var must be finite, got -inf",
+    "inf": "KalmanRegression: prior_var must be finite, got inf",
+    "nan": "KalmanRegression: prior_var must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1760,7 +3168,14 @@
    "num_atr": "KeltnerChannels: num_atr must be a number, got bool",
    "window_size": "KeltnerChannels: window_size must be an integer, got bool"
   },
-  "name": "KeltnerChannels"
+  "name": "KeltnerChannels",
+  "non_finite": {
+   "num_atr": {
+    "-inf": "KeltnerChannels: num_atr must be finite, got -inf",
+    "inf": "KeltnerChannels: num_atr must be finite, got inf",
+    "nan": "KeltnerChannels: num_atr must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1776,7 +3191,8 @@
    "start_policy": "Lag: start_policy must be a string, got bool",
    "window_size": "Lag: window_size must be an integer, got bool"
   },
-  "name": "Lag"
+  "name": "Lag",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -1792,7 +3208,19 @@
    "scale": "Linear: scale must be a number, got bool",
    "shift": "Linear: shift must be a number, got bool"
   },
-  "name": "Linear"
+  "name": "Linear",
+  "non_finite": {
+   "scale": {
+    "-inf": "Linear: scale must be finite, got -inf",
+    "inf": "Linear: scale must be finite, got inf",
+    "nan": "Linear: scale must be finite, got nan"
+   },
+   "shift": {
+    "-inf": "Linear: shift must be finite, got -inf",
+    "inf": "Linear: shift must be finite, got inf",
+    "nan": "Linear: shift must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1811,7 +3239,24 @@
    "b": "Linear2: b must be a number, got bool",
    "c": "Linear2: c must be a number, got bool"
   },
-  "name": "Linear2"
+  "name": "Linear2",
+  "non_finite": {
+   "a": {
+    "-inf": "Linear2: a must be finite, got -inf",
+    "inf": "Linear2: a must be finite, got inf",
+    "nan": "Linear2: a must be finite, got nan"
+   },
+   "b": {
+    "-inf": "Linear2: b must be finite, got -inf",
+    "inf": "Linear2: b must be finite, got inf",
+    "nan": "Linear2: b must be finite, got nan"
+   },
+   "c": {
+    "-inf": "Linear2: c must be finite, got -inf",
+    "inf": "Linear2: c must be finite, got inf",
+    "nan": "Linear2: c must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1824,7 +3269,8 @@
   "bool_message": {
    "window_size": "LogReturn: window_size must be an integer, got bool"
   },
-  "name": "LogReturn"
+  "name": "LogReturn",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -1843,7 +3289,8 @@
    "signal": "MACD: signal must be an integer, got bool",
    "slow": "MACD: slow must be an integer, got bool"
   },
-  "name": "MACD"
+  "name": "MACD",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -1859,7 +3306,19 @@
    "fast_limit": "MAMA: fast_limit must be a number, got bool",
    "slow_limit": "MAMA: slow_limit must be a number, got bool"
   },
-  "name": "MAMA"
+  "name": "MAMA",
+  "non_finite": {
+   "fast_limit": {
+    "-inf": "MAMA: fast_limit must be finite, got -inf",
+    "inf": "MAMA: fast_limit must be finite, got inf",
+    "nan": "MAMA: fast_limit must be finite, got nan"
+   },
+   "slow_limit": {
+    "-inf": "MAMA: slow_limit must be finite, got -inf",
+    "inf": "MAMA: slow_limit must be finite, got inf",
+    "nan": "MAMA: slow_limit must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1872,7 +3331,8 @@
   "bool_message": {
    "window_size": "MFI: window_size must be an integer, got bool"
   },
-  "name": "MFI"
+  "name": "MFI",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -1885,7 +3345,8 @@
   "bool_message": {
    "window_size": "MinusDI: window_size must be an integer, got bool"
   },
-  "name": "MinusDI"
+  "name": "MinusDI",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -1898,7 +3359,8 @@
   "bool_message": {
    "window_size": "MinusDM: window_size must be an integer, got bool"
   },
-  "name": "MinusDM"
+  "name": "MinusDM",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -1914,7 +3376,8 @@
    "start_policy": "Momentum: start_policy must be a string, got bool",
    "window_size": "Momentum: window_size must be an integer, got bool"
   },
-  "name": "Momentum"
+  "name": "Momentum",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -1927,7 +3390,14 @@
   "bool_message": {
    "taps": "MovingAverage: taps must be a number or a sequence of numbers, got bool"
   },
-  "name": "MovingAverage"
+  "name": "MovingAverage",
+  "non_finite": {
+   "taps": {
+    "-inf": "MovingAverage: taps must be finite, got -inf",
+    "inf": "MovingAverage: taps must be finite, got inf",
+    "nan": "MovingAverage: taps must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1940,7 +3410,8 @@
   "bool_message": {
    "window_size": "NATR: window_size must be an integer, got bool"
   },
-  "name": "NATR"
+  "name": "NATR",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -1953,7 +3424,8 @@
   "bool_message": {
    "window_size": "PlusDI: window_size must be an integer, got bool"
   },
-  "name": "PlusDI"
+  "name": "PlusDI",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -1966,7 +3438,8 @@
   "bool_message": {
    "window_size": "PlusDM: window_size must be an integer, got bool"
   },
-  "name": "PlusDM"
+  "name": "PlusDM",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -1979,7 +3452,14 @@
   "bool_message": {
    "p": "Power: p must be a number, got bool"
   },
-  "name": "Power"
+  "name": "Power",
+  "non_finite": {
+   "p": {
+    "-inf": "Power: p must be finite, got -inf",
+    "inf": "Power: p must be finite, got inf",
+    "nan": "Power: p must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -1998,7 +3478,19 @@
    "gamma": "Propagator: gamma must be a number, got bool",
    "window_size": "Propagator: window_size must be an integer, got bool"
   },
-  "name": "Propagator"
+  "name": "Propagator",
+  "non_finite": {
+   "g0": {
+    "-inf": "Propagator: g0 must be finite, got -inf",
+    "inf": "Propagator: g0 must be finite, got inf",
+    "nan": "Propagator: g0 must be finite, got nan"
+   },
+   "gamma": {
+    "-inf": "Propagator: gamma must be finite, got -inf",
+    "inf": "Propagator: gamma must be finite, got inf",
+    "nan": "Propagator: gamma must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -2011,7 +3503,8 @@
   "bool_message": {
    "window_size": "ROC: window_size must be an integer, got bool"
   },
-  "name": "ROC"
+  "name": "ROC",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2024,7 +3517,8 @@
   "bool_message": {
    "window_size": "ROCP: window_size must be an integer, got bool"
   },
-  "name": "ROCP"
+  "name": "ROCP",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2037,7 +3531,8 @@
   "bool_message": {
    "window_size": "ROCR: window_size must be an integer, got bool"
   },
-  "name": "ROCR"
+  "name": "ROCR",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2050,7 +3545,8 @@
   "bool_message": {
    "lag": "RealizedSpread: lag must be an integer, got bool"
   },
-  "name": "RealizedSpread"
+  "name": "RealizedSpread",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2063,7 +3559,8 @@
   "bool_message": {
    "window_size": "Return: window_size must be an integer, got bool"
   },
-  "name": "Return"
+  "name": "Return",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2079,7 +3576,8 @@
    "start_policy": "RollSpread: start_policy must be a string, got bool",
    "window_size": "RollSpread: window_size must be an integer, got bool"
   },
-  "name": "RollSpread"
+  "name": "RollSpread",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2095,7 +3593,8 @@
    "lags": "RollingADF: lags must be an integer, got bool",
    "window_size": "RollingADF: window_size must be an integer, got bool"
   },
-  "name": "RollingADF"
+  "name": "RollingADF",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2111,7 +3610,8 @@
    "start_policy": "RollingAlpha: start_policy must be a string, got bool",
    "window_size": "RollingAlpha: window_size must be an integer, got bool"
   },
-  "name": "RollingAlpha"
+  "name": "RollingAlpha",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2124,7 +3624,8 @@
   "bool_message": {
    "window_size": "RollingArgmax: window_size must be an integer, got bool"
   },
-  "name": "RollingArgmax"
+  "name": "RollingArgmax",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2137,7 +3638,8 @@
   "bool_message": {
    "window_size": "RollingArgmin: window_size must be an integer, got bool"
   },
-  "name": "RollingArgmin"
+  "name": "RollingArgmin",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2153,7 +3655,8 @@
    "start_policy": "RollingBeta: start_policy must be a string, got bool",
    "window_size": "RollingBeta: window_size must be an integer, got bool"
   },
-  "name": "RollingBeta"
+  "name": "RollingBeta",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2169,7 +3672,14 @@
    "alpha": "RollingCVaR: alpha must be a number, got bool",
    "window_size": "RollingCVaR: window_size must be an integer, got bool"
   },
-  "name": "RollingCVaR"
+  "name": "RollingCVaR",
+  "non_finite": {
+   "alpha": {
+    "-inf": "RollingCVaR: alpha must be finite, got -inf",
+    "inf": "RollingCVaR: alpha must be finite, got inf",
+    "nan": "RollingCVaR: alpha must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -2185,7 +3695,14 @@
    "periods_per_year": "RollingCalmar: periods_per_year must be a number, got bool",
    "window_size": "RollingCalmar: window_size must be an integer, got bool"
   },
-  "name": "RollingCalmar"
+  "name": "RollingCalmar",
+  "non_finite": {
+   "periods_per_year": {
+    "-inf": "RollingCalmar: periods_per_year must be finite, got -inf",
+    "inf": "RollingCalmar: periods_per_year must be finite, got inf",
+    "nan": "RollingCalmar: periods_per_year must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -2201,7 +3718,8 @@
    "start_policy": "RollingCorr: start_policy must be a string, got bool",
    "window_size": "RollingCorr: window_size must be an integer, got bool"
   },
-  "name": "RollingCorr"
+  "name": "RollingCorr",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2217,7 +3735,8 @@
    "start_policy": "RollingCov: start_policy must be a string, got bool",
    "window_size": "RollingCov: window_size must be an integer, got bool"
   },
-  "name": "RollingCov"
+  "name": "RollingCov",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2236,7 +3755,14 @@
    "start_policy": "RollingDownsideDeviation: start_policy must be a string, got bool",
    "window_size": "RollingDownsideDeviation: window_size must be an integer, got bool"
   },
-  "name": "RollingDownsideDeviation"
+  "name": "RollingDownsideDeviation",
+  "non_finite": {
+   "mar": {
+    "-inf": "RollingDownsideDeviation: mar must be finite, got -inf",
+    "inf": "RollingDownsideDeviation: mar must be finite, got inf",
+    "nan": "RollingDownsideDeviation: mar must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -2249,7 +3775,8 @@
   "bool_message": {
    "window_size": "RollingGarmanKlassVar: window_size must be an integer, got bool"
   },
-  "name": "RollingGarmanKlassVar"
+  "name": "RollingGarmanKlassVar",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2262,7 +3789,8 @@
   "bool_message": {
    "window_size": "RollingGarmanKlassVol: window_size must be an integer, got bool"
   },
-  "name": "RollingGarmanKlassVol"
+  "name": "RollingGarmanKlassVol",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2275,7 +3803,8 @@
   "bool_message": {
    "window_size": "RollingHitRate: window_size must be an integer, got bool"
   },
-  "name": "RollingHitRate"
+  "name": "RollingHitRate",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2294,7 +3823,8 @@
    "min_scale": "RollingHurst: min_scale must be an integer, got bool",
    "window_size": "RollingHurst: window_size must be an integer, got bool"
   },
-  "name": "RollingHurst"
+  "name": "RollingHurst",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2310,7 +3840,14 @@
    "periods_per_year": "RollingInfoRatio: periods_per_year must be a number, got bool",
    "window_size": "RollingInfoRatio: window_size must be an integer, got bool"
   },
-  "name": "RollingInfoRatio"
+  "name": "RollingInfoRatio",
+  "non_finite": {
+   "periods_per_year": {
+    "-inf": "RollingInfoRatio: periods_per_year must be finite, got -inf",
+    "inf": "RollingInfoRatio: periods_per_year must be finite, got inf",
+    "nan": "RollingInfoRatio: periods_per_year must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -2323,7 +3860,8 @@
   "bool_message": {
    "window_size": "RollingIqr: window_size must be an integer, got bool"
   },
-  "name": "RollingIqr"
+  "name": "RollingIqr",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2339,7 +3877,8 @@
    "start_policy": "RollingKurt: start_policy must be a string, got bool",
    "window_size": "RollingKurt: window_size must be an integer, got bool"
   },
-  "name": "RollingKurt"
+  "name": "RollingKurt",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2355,7 +3894,8 @@
    "start_policy": "RollingKyleLambda: start_policy must be a string, got bool",
    "window_size": "RollingKyleLambda: window_size must be an integer, got bool"
   },
-  "name": "RollingKyleLambda"
+  "name": "RollingKyleLambda",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2371,7 +3911,8 @@
    "start_policy": "RollingLinearRegression: start_policy must be a string, got bool",
    "window_size": "RollingLinearRegression: window_size must be an integer, got bool"
   },
-  "name": "RollingLinearRegression"
+  "name": "RollingLinearRegression",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2387,7 +3928,8 @@
    "start_policy": "RollingMad: start_policy must be a string, got bool",
    "window_size": "RollingMad: window_size must be an integer, got bool"
   },
-  "name": "RollingMad"
+  "name": "RollingMad",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2400,7 +3942,8 @@
   "bool_message": {
    "window_size": "RollingMax: window_size must be an integer, got bool"
   },
-  "name": "RollingMax"
+  "name": "RollingMax",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2413,7 +3956,8 @@
   "bool_message": {
    "window_size": "RollingMaxDrawdown: window_size must be an integer, got bool"
   },
-  "name": "RollingMaxDrawdown"
+  "name": "RollingMaxDrawdown",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2429,7 +3973,8 @@
    "start_policy": "RollingMean: start_policy must be a string, got bool",
    "window_size": "RollingMean: window_size must be an integer, got bool"
   },
-  "name": "RollingMean"
+  "name": "RollingMean",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2442,7 +3987,8 @@
   "bool_message": {
    "window_size": "RollingMedian: window_size must be an integer, got bool"
   },
-  "name": "RollingMedian"
+  "name": "RollingMedian",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2458,7 +4004,8 @@
    "start_policy": "RollingMedianAD: start_policy must be a string, got bool",
    "window_size": "RollingMedianAD: window_size must be an integer, got bool"
   },
-  "name": "RollingMedianAD"
+  "name": "RollingMedianAD",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2471,7 +4018,8 @@
   "bool_message": {
    "window_size": "RollingMin: window_size must be an integer, got bool"
   },
-  "name": "RollingMin"
+  "name": "RollingMin",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2484,7 +4032,8 @@
   "bool_message": {
    "window_size": "RollingMinMax: window_size must be an integer, got bool"
   },
-  "name": "RollingMinMax"
+  "name": "RollingMinMax",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2503,7 +4052,8 @@
    "start_policy": "RollingOU: start_policy must be a string, got bool",
    "window_size": "RollingOU: window_size must be an integer, got bool"
   },
-  "name": "RollingOU"
+  "name": "RollingOU",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2519,7 +4069,14 @@
    "threshold": "RollingOmega: threshold must be a number, got bool",
    "window_size": "RollingOmega: window_size must be an integer, got bool"
   },
-  "name": "RollingOmega"
+  "name": "RollingOmega",
+  "non_finite": {
+   "threshold": {
+    "-inf": "RollingOmega: threshold must be finite, got -inf",
+    "inf": "RollingOmega: threshold must be finite, got inf",
+    "nan": "RollingOmega: threshold must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -2535,7 +4092,8 @@
    "start_policy": "RollingOrderImbalance: start_policy must be a string, got bool",
    "window_size": "RollingOrderImbalance: window_size must be an integer, got bool"
   },
-  "name": "RollingOrderImbalance"
+  "name": "RollingOrderImbalance",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2548,7 +4106,8 @@
   "bool_message": {
    "window_size": "RollingParkinsonVar: window_size must be an integer, got bool"
   },
-  "name": "RollingParkinsonVar"
+  "name": "RollingParkinsonVar",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2561,7 +4120,8 @@
   "bool_message": {
    "window_size": "RollingParkinsonVol: window_size must be an integer, got bool"
   },
-  "name": "RollingParkinsonVol"
+  "name": "RollingParkinsonVol",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2574,7 +4134,8 @@
   "bool_message": {
    "window_size": "RollingPercentile: window_size must be an integer, got bool"
   },
-  "name": "RollingPercentile"
+  "name": "RollingPercentile",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2593,7 +4154,8 @@
    "start_policy": "RollingPoly1: start_policy must be a string, got bool",
    "window_size": "RollingPoly1: window_size must be an integer, got bool"
   },
-  "name": "RollingPoly1"
+  "name": "RollingPoly1",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2612,7 +4174,8 @@
    "start_policy": "RollingPoly2: start_policy must be a string, got bool",
    "window_size": "RollingPoly2: window_size must be an integer, got bool"
   },
-  "name": "RollingPoly2"
+  "name": "RollingPoly2",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2628,7 +4191,14 @@
    "quantile": "RollingQuantile: quantile must be a number, got bool",
    "window_size": "RollingQuantile: window_size must be an integer, got bool"
   },
-  "name": "RollingQuantile"
+  "name": "RollingQuantile",
+  "non_finite": {
+   "quantile": {
+    "-inf": "RollingQuantile: quantile must be finite, got -inf",
+    "inf": "RollingQuantile: quantile must be finite, got inf",
+    "nan": "RollingQuantile: quantile must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -2647,7 +4217,8 @@
    "start_policy": "RollingRSI: start_policy must be a string, got bool",
    "window_size": "RollingRSI: window_size must be an integer, got bool"
   },
-  "name": "RollingRSI"
+  "name": "RollingRSI",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2660,7 +4231,8 @@
   "bool_message": {
    "window_size": "RollingRange: window_size must be an integer, got bool"
   },
-  "name": "RollingRange"
+  "name": "RollingRange",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2673,7 +4245,8 @@
   "bool_message": {
    "window_size": "RollingRank: window_size must be an integer, got bool"
   },
-  "name": "RollingRank"
+  "name": "RollingRank",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2689,7 +4262,8 @@
    "start_policy": "RollingResidualStd: start_policy must be a string, got bool",
    "window_size": "RollingResidualStd: window_size must be an integer, got bool"
   },
-  "name": "RollingResidualStd"
+  "name": "RollingResidualStd",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2705,7 +4279,8 @@
    "start_policy": "RollingRms: start_policy must be a string, got bool",
    "window_size": "RollingRms: window_size must be an integer, got bool"
   },
-  "name": "RollingRms"
+  "name": "RollingRms",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2718,7 +4293,8 @@
   "bool_message": {
    "window_size": "RollingRogersSatchellVar: window_size must be an integer, got bool"
   },
-  "name": "RollingRogersSatchellVar"
+  "name": "RollingRogersSatchellVar",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2731,7 +4307,8 @@
   "bool_message": {
    "window_size": "RollingRogersSatchellVol: window_size must be an integer, got bool"
   },
-  "name": "RollingRogersSatchellVol"
+  "name": "RollingRogersSatchellVol",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2747,7 +4324,14 @@
    "periods_per_year": "RollingSharpe: periods_per_year must be a number, got bool",
    "window_size": "RollingSharpe: window_size must be an integer, got bool"
   },
-  "name": "RollingSharpe"
+  "name": "RollingSharpe",
+  "non_finite": {
+   "periods_per_year": {
+    "-inf": "RollingSharpe: periods_per_year must be finite, got -inf",
+    "inf": "RollingSharpe: periods_per_year must be finite, got inf",
+    "nan": "RollingSharpe: periods_per_year must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -2775,7 +4359,19 @@
    "upper": "RollingSigmaClip: upper must be a number, got bool",
    "window_size": "RollingSigmaClip: window_size must be an integer, got bool"
   },
-  "name": "RollingSigmaClip"
+  "name": "RollingSigmaClip",
+  "non_finite": {
+   "lower": {
+    "-inf": null,
+    "inf": "RollingSigmaClip: lower must be finite or -inf or nan, got inf",
+    "nan": null
+   },
+   "upper": {
+    "-inf": "RollingSigmaClip: upper must be finite or inf or nan, got -inf",
+    "inf": null,
+    "nan": null
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -2791,7 +4387,8 @@
    "start_policy": "RollingSkew: start_policy must be a string, got bool",
    "window_size": "RollingSkew: window_size must be an integer, got bool"
   },
-  "name": "RollingSkew"
+  "name": "RollingSkew",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2810,7 +4407,19 @@
    "target": "RollingSortino: target must be a number, got bool",
    "window_size": "RollingSortino: window_size must be an integer, got bool"
   },
-  "name": "RollingSortino"
+  "name": "RollingSortino",
+  "non_finite": {
+   "periods_per_year": {
+    "-inf": "RollingSortino: periods_per_year must be finite, got -inf",
+    "inf": "RollingSortino: periods_per_year must be finite, got inf",
+    "nan": "RollingSortino: periods_per_year must be finite, got nan"
+   },
+   "target": {
+    "-inf": "RollingSortino: target must be finite, got -inf",
+    "inf": "RollingSortino: target must be finite, got inf",
+    "nan": "RollingSortino: target must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -2826,7 +4435,8 @@
    "start_policy": "RollingSpread: start_policy must be a string, got bool",
    "window_size": "RollingSpread: window_size must be an integer, got bool"
   },
-  "name": "RollingSpread"
+  "name": "RollingSpread",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2842,7 +4452,8 @@
    "start_policy": "RollingStd: start_policy must be a string, got bool",
    "window_size": "RollingStd: window_size must be an integer, got bool"
   },
-  "name": "RollingStd"
+  "name": "RollingStd",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2858,7 +4469,8 @@
    "start_policy": "RollingSum: start_policy must be a string, got bool",
    "window_size": "RollingSum: window_size must be an integer, got bool"
   },
-  "name": "RollingSum"
+  "name": "RollingSum",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2874,7 +4486,8 @@
    "start_policy": "RollingTLSBeta: start_policy must be a string, got bool",
    "window_size": "RollingTLSBeta: window_size must be an integer, got bool"
   },
-  "name": "RollingTLSBeta"
+  "name": "RollingTLSBeta",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2887,7 +4500,8 @@
   "bool_message": {
    "window_size": "RollingTSF: window_size must be an integer, got bool"
   },
-  "name": "RollingTSF"
+  "name": "RollingTSF",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2900,7 +4514,8 @@
   "bool_message": {
    "window_size": "RollingVWAP: window_size must be an integer, got bool"
   },
-  "name": "RollingVWAP"
+  "name": "RollingVWAP",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2916,7 +4531,8 @@
    "start_policy": "RollingVar: start_policy must be a string, got bool",
    "window_size": "RollingVar: window_size must be an integer, got bool"
   },
-  "name": "RollingVar"
+  "name": "RollingVar",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2929,7 +4545,8 @@
   "bool_message": {
    "window_size": "RollingYangZhangVar: window_size must be an integer, got bool"
   },
-  "name": "RollingYangZhangVar"
+  "name": "RollingYangZhangVar",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2942,7 +4559,8 @@
   "bool_message": {
    "window_size": "RollingYangZhangVol: window_size must be an integer, got bool"
   },
-  "name": "RollingYangZhangVol"
+  "name": "RollingYangZhangVol",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2958,7 +4576,8 @@
    "start_policy": "RollingZscore: start_policy must be a string, got bool",
    "window_size": "RollingZscore: window_size must be an integer, got bool"
   },
-  "name": "RollingZscore"
+  "name": "RollingZscore",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -2983,7 +4602,29 @@
    "lp_cutoff": "RoofingFilter: lp_cutoff must be a number, got bool",
    "lp_period": "RoofingFilter: lp_period must be a number, got bool"
   },
-  "name": "RoofingFilter"
+  "name": "RoofingFilter",
+  "non_finite": {
+   "hp_cutoff": {
+    "-inf": "RoofingFilter: hp_cutoff must be finite, got -inf",
+    "inf": "RoofingFilter: hp_cutoff must be finite, got inf",
+    "nan": "RoofingFilter: hp_cutoff must be finite, got nan"
+   },
+   "hp_period": {
+    "-inf": "RoofingFilter: hp_period must be finite, got -inf",
+    "inf": "RoofingFilter: hp_period must be finite, got inf",
+    "nan": "RoofingFilter: hp_period must be finite, got nan"
+   },
+   "lp_cutoff": {
+    "-inf": "RoofingFilter: lp_cutoff must be finite, got -inf",
+    "inf": "RoofingFilter: lp_cutoff must be finite, got inf",
+    "nan": "RoofingFilter: lp_cutoff must be finite, got nan"
+   },
+   "lp_period": {
+    "-inf": "RoofingFilter: lp_period must be finite, got -inf",
+    "inf": "RoofingFilter: lp_period must be finite, got inf",
+    "nan": "RoofingFilter: lp_period must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -3005,7 +4646,24 @@
    "lower": "SchmittTrigger: lower must be a number, got bool",
    "upper": "SchmittTrigger: upper must be a number, got bool"
   },
-  "name": "SchmittTrigger"
+  "name": "SchmittTrigger",
+  "non_finite": {
+   "initial": {
+    "-inf": "SchmittTrigger: initial must be finite or nan, got -inf",
+    "inf": "SchmittTrigger: initial must be finite or nan, got inf",
+    "nan": null
+   },
+   "lower": {
+    "-inf": "SchmittTrigger: lower must be finite, got -inf",
+    "inf": "SchmittTrigger: lower must be finite, got inf",
+    "nan": "SchmittTrigger: lower must be finite, got nan"
+   },
+   "upper": {
+    "-inf": "SchmittTrigger: upper must be finite, got -inf",
+    "inf": "SchmittTrigger: upper must be finite, got inf",
+    "nan": "SchmittTrigger: upper must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -3024,7 +4682,8 @@
    "fastk_period": "Stoch: fastk_period must be an integer, got bool",
    "smooth_k": "Stoch: smooth_k must be an integer, got bool"
   },
-  "name": "Stoch"
+  "name": "Stoch",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -3046,7 +4705,8 @@
    "smooth_k": "StochRSI: smooth_k must be an integer, got bool",
    "stoch_period": "StochRSI: stoch_period must be an integer, got bool"
   },
-  "name": "StochRSI"
+  "name": "StochRSI",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -3064,7 +4724,19 @@
    "cutoff": "SuperSmoother: cutoff must be a number, got bool",
    "period": "SuperSmoother: period must be a number, got bool"
   },
-  "name": "SuperSmoother"
+  "name": "SuperSmoother",
+  "non_finite": {
+   "cutoff": {
+    "-inf": "SuperSmoother: cutoff must be finite, got -inf",
+    "inf": "SuperSmoother: cutoff must be finite, got inf",
+    "nan": "SuperSmoother: cutoff must be finite, got nan"
+   },
+   "period": {
+    "-inf": "SuperSmoother: period must be finite, got -inf",
+    "inf": "SuperSmoother: period must be finite, got inf",
+    "nan": "SuperSmoother: period must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -3088,7 +4760,29 @@
    "halflife": "TEMA: halflife must be a number, got bool",
    "span": "TEMA: span must be a number, got bool"
   },
-  "name": "TEMA"
+  "name": "TEMA",
+  "non_finite": {
+   "alpha": {
+    "-inf": "TEMA: alpha must be finite, got -inf",
+    "inf": "TEMA: alpha must be finite, got inf",
+    "nan": "TEMA: alpha must be finite, got nan"
+   },
+   "com": {
+    "-inf": "TEMA: com must be finite, got -inf",
+    "inf": "TEMA: com must be finite, got inf",
+    "nan": "TEMA: com must be finite, got nan"
+   },
+   "halflife": {
+    "-inf": "TEMA: halflife must be finite, got -inf",
+    "inf": "TEMA: halflife must be finite, got inf",
+    "nan": "TEMA: halflife must be finite, got nan"
+   },
+   "span": {
+    "-inf": "TEMA: span must be finite, got -inf",
+    "inf": "TEMA: span must be finite, got inf",
+    "nan": "TEMA: span must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -3101,7 +4795,8 @@
   "bool_message": {
    "window_size": "TRIMA: window_size must be an integer, got bool"
   },
-  "name": "TRIMA"
+  "name": "TRIMA",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -3114,7 +4809,8 @@
   "bool_message": {
    "span": "TRIX: span must be an integer, got bool"
   },
-  "name": "TRIX"
+  "name": "TRIX",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -3133,7 +4829,8 @@
    "period2": "UltimateOscillator: period2 must be an integer, got bool",
    "period3": "UltimateOscillator: period3 must be an integer, got bool"
   },
-  "name": "UltimateOscillator"
+  "name": "UltimateOscillator",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -3149,7 +4846,14 @@
    "bucket_volume": "VPIN: bucket_volume must be a number, got bool",
    "n_buckets": "VPIN: n_buckets must be an integer, got bool"
   },
-  "name": "VPIN"
+  "name": "VPIN",
+  "non_finite": {
+   "bucket_volume": {
+    "-inf": "VPIN: bucket_volume must be finite, got -inf",
+    "inf": "VPIN: bucket_volume must be finite, got inf",
+    "nan": "VPIN: bucket_volume must be finite, got nan"
+   }
+  }
  },
  {
   "accepts_bool": {
@@ -3165,7 +4869,8 @@
    "start_policy": "WMA: start_policy must be a string, got bool",
    "window_size": "WMA: window_size must be an integer, got bool"
   },
-  "name": "WMA"
+  "name": "WMA",
+  "non_finite": {}
  },
  {
   "accepts_bool": {
@@ -3178,6 +4883,7 @@
   "bool_message": {
    "window_size": "WilliamsR: window_size must be an integer, got bool"
   },
-  "name": "WilliamsR"
+  "name": "WilliamsR",
+  "non_finite": {}
  }
 ]

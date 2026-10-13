@@ -1,13 +1,17 @@
 #ifndef SCREAMER_LINEAR_H
 #define SCREAMER_LINEAR_H
 
+#include "screamer/common/finite_settings.h"
 #include "screamer/common/base.h"
 #include <cstddef>
 namespace screamer {
 
     class Linear : public ScreamerBase {
     public:
-        Linear(double scale, double shift) : scale_(scale), shift_(shift) {}
+        Linear(double scale, double shift) : scale_(scale), shift_(shift) {
+            require_finite("scale", scale);
+            require_finite("shift", shift);
+        }
 
         double process_scalar(double newValue) override {
             return scale_ * newValue + shift_;

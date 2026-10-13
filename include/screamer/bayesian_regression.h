@@ -13,6 +13,7 @@
 // pred_mean / pred_std use data before t (the forecast). O(1) per step (2x2).
 // nan_policy: ignore - a NaN x or y emits an all-NaN row and leaves state untouched.
 
+#include "screamer/common/finite_settings.h"
 #include <cmath>
 #include <limits>
 #include <optional>
@@ -34,6 +35,8 @@ public:
         double prior_sigma = 1.0)
         : prior_precision_(prior_precision), prior_sigma_(prior_sigma)
     {
+        require_finite("prior_precision", prior_precision);
+        require_finite("prior_sigma", prior_sigma);
         const int provided = (com.has_value() ? 1 : 0) + (span.has_value() ? 1 : 0)
                            + (halflife.has_value() ? 1 : 0) + (alpha.has_value() ? 1 : 0);
         if (provided != 1)

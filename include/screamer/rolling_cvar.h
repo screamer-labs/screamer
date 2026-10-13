@@ -1,6 +1,7 @@
 #ifndef SCREAMER_ROLLING_CVAR_H
 #define SCREAMER_ROLLING_CVAR_H
 
+#include "screamer/common/finite_settings.h"
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -30,6 +31,7 @@ namespace screamer {
               buffer_(window_size, std::numeric_limits<double>::quiet_NaN()),
               ost_(window_size)
         {
+            require_finite("alpha", alpha);
             if (window_size_ <= 0) {
                 throw std::invalid_argument("Window size must be positive.");
             }

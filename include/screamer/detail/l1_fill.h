@@ -6,6 +6,7 @@
 #include <limits>
 #include <stdexcept>
 #include <tuple>
+#include "screamer/common/finite_settings.h"
 #include "screamer/common/float_info.h"
 #include "screamer/detail/pnl_account.h"
 #include "screamer/detail/slippage.h"
@@ -35,6 +36,11 @@ namespace screamer { namespace detail {
               taker_fee_per_contract_(taker_fee_per_contract),
               account_(multiplier)
         {
+            // An infinite position bound is no bound; fees are finite.
+            require_finite("maker_fee", maker_fee);
+            require_finite("taker_fee", taker_fee);
+            require_finite("min_position", min_pos, kTakesNegInf);
+            require_finite("max_position", max_pos, kTakesPosInf);
             if (min_pos_ > max_pos_)
                 throw std::invalid_argument("min_position must not exceed max_position.");
             if (!std::isfinite(maker_fee_per_contract_) ||

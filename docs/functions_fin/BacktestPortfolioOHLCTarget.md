@@ -79,13 +79,13 @@ parameters:
   type: float
   default: .inf
   description: Largest gross exposure, sum of absolute position values over equity. Orders
-    that exceed it are scaled down.
+    that exceed it are scaled down. The default, inf, is no cap.
 - name: max_net
   type: float
   default: .inf
   min: 0.0
   description: Largest absolute net exposure, sum of position values over equity. Orders that
-    exceed it are scaled down.
+    exceed it are scaled down. The default, inf, is no cap.
 - name: fill_at
   type: str
   default: open

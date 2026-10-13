@@ -1,6 +1,7 @@
 #ifndef SCREAMER_VPIN_H
 #define SCREAMER_VPIN_H
 
+#include "screamer/common/finite_settings.h"
 #include <cmath>
 #include <limits>
 #include <stdexcept>
@@ -28,6 +29,7 @@ namespace screamer {
             : bucket_volume_(bucket_volume), n_buckets_(n_buckets),
               imbalances_(n_buckets_ > 0 ? n_buckets_ : 1, 0.0)
         {
+            require_finite("bucket_volume", bucket_volume);
             if (bucket_volume_ <= 0.0) {
                 throw std::invalid_argument("bucket_volume must be positive.");
             }

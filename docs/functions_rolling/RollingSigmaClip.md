@@ -26,12 +26,12 @@ parameters:
   type: float|null
   default: null
   description: Lower clipping threshold in standard deviations from the rolling mean (for
-    example -3). None disables lower clipping.
+    example -3). None disables lower clipping. NaN and -inf also disable it.
 - name: upper
   type: float|null
   default: null
   description: Upper clipping threshold in standard deviations from the rolling mean (for
-    example 3). None disables upper clipping.
+    example 3). None disables upper clipping. NaN and inf also disable it.
 - name: output
   type: str
   default: clipped

@@ -16,6 +16,7 @@
 // Wilder-smoothed True Range). First valid output at sample index
 // `window_size` (ATR's warmup; EwMean has no warmup).
 
+#include "screamer/common/finite_settings.h"
 #include <cstddef>
 #include <limits>
 #include <optional>
@@ -36,6 +37,7 @@ public:
                std::nullopt, std::nullopt),
           atr_(window_size)
     {
+        require_finite("num_atr", num_atr);
         if (window_size < 2) {
             throw std::invalid_argument("Window size must be at least 2.");
         }

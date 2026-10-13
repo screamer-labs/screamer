@@ -1,7 +1,10 @@
 """Write wasm/smoke/null_oracle.json: for every operator setting, whether the
 Python binding takes None for it (as "not given") or raises TypeError, and
 whether it takes a bool (True) or raises TypeError, and that TypeError's
-message ("RollingMean: window_size must be an integer, got bool").
+message ("RollingMean: window_size must be an integer, got bool"). For every
+float setting it also records, for inf, -inf and NaN, the message of the
+refusal ("RollingMean: ... must be finite, got inf", include/screamer/common/
+finite_settings.h) or null when the setting takes the value.
 
 js/test/ops.test.ts passes null, and then true, for each setting and checks
 that JavaScript agrees. Each op is built from ``base``: its required settings filled in, and
@@ -84,6 +87,38 @@ def _message(cls, base, name, value):
     return None
 
 
+# The decay settings of the Ew family: one of them is given at a time.
+EW = {"com", "span", "halflife", "alpha"}
+FLOAT_TYPES = ("double", "std::optional<double>", "std::vector<double>")
+NON_FINITE = {"inf": float("inf"), "-inf": float("-inf"), "nan": float("nan")}
+
+
+def _finite_message(cls, base, name, value):
+    """The finite-setting refusal of `value` for setting `name`, or None when
+    the setting takes it (the op may still refuse another setting)."""
+    if name in EW:
+        base = {k: v for k, v in base.items() if k not in EW}
+    try:
+        cls(**dict(base, **{name: value}))
+    except ValueError as e:
+        if str(e).startswith(f"{cls.__name__}: {name} must be finite"):
+            return str(e)
+    except Exception:
+        pass
+    return None
+
+
+def _non_finite(cls, base, op):
+    out = {}
+    for cpp_type, arg in zip(op["ctor"], op["ctor_args"]):
+        if cpp_type not in FLOAT_TYPES:
+            continue
+        vector = cpp_type == "std::vector<double>"
+        out[arg["name"]] = {k: _finite_message(cls, base, arg["name"], [v] if vector else v)
+                            for k, v in NON_FINITE.items()}
+    return out
+
+
 def compute():
     with open(MANIFEST) as f:
         manifest = json.load(f)
@@ -98,7 +133,8 @@ def compute():
         bools = {a["name"]: _accepts(cls, base, a["name"], True) for a in args}
         out.append({"name": op["name"], "base": base, "accepts_none": settings,
                     "accepts_bool": bools,
-                    "bool_message": {a["name"]: _message(cls, base, a["name"], True) for a in args}})
+                    "bool_message": {a["name"]: _message(cls, base, a["name"], True) for a in args},
+                    "non_finite": _non_finite(cls, base, op)})
     return out
 
 

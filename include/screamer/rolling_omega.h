@@ -1,6 +1,7 @@
 #ifndef SCREAMER_ROLLING_OMEGA_H
 #define SCREAMER_ROLLING_OMEGA_H
 
+#include "screamer/common/finite_settings.h"
 #include <limits>
 #include <stdexcept>
 #include "screamer/common/base.h"
@@ -28,6 +29,7 @@ namespace screamer {
               sum_gain_(window_size, "strict"),
               sum_loss_(window_size, "strict")
         {
+            require_finite("threshold", threshold);
             if (window_size_ < 2) {
                 throw std::invalid_argument("Window size must be 2 or more.");
             }

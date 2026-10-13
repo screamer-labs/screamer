@@ -246,9 +246,9 @@ export interface BacktestL1OrdersOptions {
   participationRatio?: number;
   /** Instrument price grid (0 = continuous). A marketable order walks one tick past the displayed quote for the size beyond it; slippage offsets round up to whole ticks. @defaultValue `0.0` */
   tickSize?: number;
-  /** Inventory floor; sell fills are capped so the position never falls below it. @defaultValue `-Infinity` */
+  /** Inventory floor; sell fills are capped so the position never falls below it. The default, -inf, is no bound. @defaultValue `-Infinity` */
   minPosition?: number;
-  /** Inventory ceiling; buy fills are capped so the position never exceeds it. @defaultValue `Infinity` */
+  /** Inventory ceiling; buy fills are capped so the position never exceeds it. The default, inf, is no bound. @defaultValue `Infinity` */
   maxPosition?: number;
   /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. @defaultValue `1.0` */
   multiplier?: number;
@@ -277,8 +277,8 @@ export declare function BacktestL1Orders(options: BacktestL1OrdersOptions): Scre
  * @param fill Fill rule. "breach" (conservative) fills only when the market trades through your quote; "touch" (optimistic) also fills a participation partial once per lock episode.
  * @param participationRatio Fraction of the locked ask/bid size captured on a touch fill (front-of-queue at 1.0).
  * @param tickSize Instrument price grid (0 = continuous). A marketable order walks one tick past the displayed quote for the size beyond it; slippage offsets round up to whole ticks.
- * @param minPosition Inventory floor; sell fills are capped so the position never falls below it.
- * @param maxPosition Inventory ceiling; buy fills are capped so the position never exceeds it.
+ * @param minPosition Inventory floor; sell fills are capped so the position never falls below it. The default, -inf, is no bound.
+ * @param maxPosition Inventory ceiling; buy fills are capped so the position never exceeds it. The default, inf, is no bound.
  * @param multiplier Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
  * @param makerFeePerContract Fixed fee (or rebate when negative) charged per contract on maker fills.
  * @param takerFeePerContract Fixed fee (or rebate when negative) charged per contract on taker fills.
@@ -294,9 +294,9 @@ export interface BacktestL1TargetOptions {
   takerFee?: number;
   /** Instrument price grid (0 = continuous). A marketable order walks one tick past the displayed quote for the size beyond it; slippage offsets round up to whole ticks. @defaultValue `0.0` */
   tickSize?: number;
-  /** Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. @defaultValue `-Infinity` */
+  /** Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. The default, -inf, is no bound. @defaultValue `-Infinity` */
   minPosition?: number;
-  /** Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. @defaultValue `Infinity` */
+  /** Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. The default, inf, is no bound. @defaultValue `Infinity` */
   maxPosition?: number;
   /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. @defaultValue `1.0` */
   multiplier?: number;
@@ -332,8 +332,8 @@ export declare function BacktestL1Target(options: BacktestL1TargetOptions): Scre
  *
  * @param takerFee Fractional fee charged on each taker fill.
  * @param tickSize Instrument price grid (0 = continuous). A marketable order walks one tick past the displayed quote for the size beyond it; slippage offsets round up to whole ticks.
- * @param minPosition Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units.
- * @param maxPosition Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units.
+ * @param minPosition Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. The default, -inf, is no bound.
+ * @param maxPosition Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. The default, inf, is no bound.
  * @param multiplier Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
  * @param feePerContract Fixed fee (or rebate when negative) charged per contract on each fill.
  * @param slippage Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
@@ -360,9 +360,9 @@ export interface BacktestL1TradesOrdersOptions {
   participationRatio?: number;
   /** Instrument price grid (0 = continuous). A marketable order walks one tick past the displayed quote for the size beyond it; slippage offsets round up to whole ticks. @defaultValue `0.0` */
   tickSize?: number;
-  /** Inventory floor; sell fills are capped so the position never falls below it. @defaultValue `-Infinity` */
+  /** Inventory floor; sell fills are capped so the position never falls below it. The default, -inf, is no bound. @defaultValue `-Infinity` */
   minPosition?: number;
-  /** Inventory ceiling; buy fills are capped so the position never exceeds it. @defaultValue `Infinity` */
+  /** Inventory ceiling; buy fills are capped so the position never exceeds it. The default, inf, is no bound. @defaultValue `Infinity` */
   maxPosition?: number;
   /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. @defaultValue `1.0` */
   multiplier?: number;
@@ -391,8 +391,8 @@ export declare function BacktestL1TradesOrders(options: BacktestL1TradesOrdersOp
  * @param fill Fill rule for a trade at your price. "touch" fills a participation partial; "breach" fills only on a trade through.
  * @param participationRatio Fraction of an at-price trade's size captured (front-of-queue at 1.0).
  * @param tickSize Instrument price grid (0 = continuous). A marketable order walks one tick past the displayed quote for the size beyond it; slippage offsets round up to whole ticks.
- * @param minPosition Inventory floor; sell fills are capped so the position never falls below it.
- * @param maxPosition Inventory ceiling; buy fills are capped so the position never exceeds it.
+ * @param minPosition Inventory floor; sell fills are capped so the position never falls below it. The default, -inf, is no bound.
+ * @param maxPosition Inventory ceiling; buy fills are capped so the position never exceeds it. The default, inf, is no bound.
  * @param multiplier Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
  * @param makerFeePerContract Fixed fee (or rebate when negative) charged per contract on maker fills.
  * @param takerFeePerContract Fixed fee (or rebate when negative) charged per contract on taker fills.
@@ -414,9 +414,9 @@ export interface BacktestOHLCOrdersOptions {
   participationRatio?: number;
   /** Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step. @defaultValue `0.0` */
   tickSize?: number;
-  /** Inventory floor; sell fills are capped so the position never falls below it. @defaultValue `-Infinity` */
+  /** Inventory floor; sell fills are capped so the position never falls below it. The default, -inf, is no bound. @defaultValue `-Infinity` */
   minPosition?: number;
-  /** Inventory ceiling; buy fills are capped so the position never exceeds it. @defaultValue `Infinity` */
+  /** Inventory ceiling; buy fills are capped so the position never exceeds it. The default, inf, is no bound. @defaultValue `Infinity` */
   maxPosition?: number;
   /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. @defaultValue `1.0` */
   multiplier?: number;
@@ -445,8 +445,8 @@ export declare function BacktestOHLCOrders(options: BacktestOHLCOrdersOptions): 
  * @param fill Fill rule. "touch" fills when the bar's low/high reaches your quote price; "breach" requires the bar to trade through it.
  * @param participationRatio Fraction of the quoted size captured on each fill (front-of-queue at 1.0).
  * @param tickSize Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step.
- * @param minPosition Inventory floor; sell fills are capped so the position never falls below it.
- * @param maxPosition Inventory ceiling; buy fills are capped so the position never exceeds it.
+ * @param minPosition Inventory floor; sell fills are capped so the position never falls below it. The default, -inf, is no bound.
+ * @param maxPosition Inventory ceiling; buy fills are capped so the position never exceeds it. The default, inf, is no bound.
  * @param multiplier Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
  * @param makerFeePerContract Fixed fee (or rebate when negative) charged per contract on maker fills.
  * @param takerFeePerContract Fixed fee (or rebate when negative) charged per contract on taker fills.
@@ -462,9 +462,9 @@ export interface BacktestOHLCTargetOptions {
   takerFee?: number;
   /** Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step. @defaultValue `0.0` */
   tickSize?: number;
-  /** Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. @defaultValue `-Infinity` */
+  /** Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. The default, -inf, is no bound. @defaultValue `-Infinity` */
   minPosition?: number;
-  /** Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. @defaultValue `Infinity` */
+  /** Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. The default, inf, is no bound. @defaultValue `Infinity` */
   maxPosition?: number;
   /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. @defaultValue `1.0` */
   multiplier?: number;
@@ -504,8 +504,8 @@ export declare function BacktestOHLCTarget(options: BacktestOHLCTargetOptions): 
  *
  * @param takerFee Fractional fee charged on a market (taker) fill at the open.
  * @param tickSize Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step.
- * @param minPosition Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units.
- * @param maxPosition Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units.
+ * @param minPosition Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. The default, -inf, is no bound.
+ * @param maxPosition Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. The default, inf, is no bound.
  * @param multiplier Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
  * @param feePerContract Fixed fee (or rebate when negative) charged per contract on each fill.
  * @param slippage Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
@@ -530,9 +530,9 @@ export interface BacktestOHLCVTargetOptions {
   takerFee?: number;
   /** Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step. @defaultValue `0.0` */
   tickSize?: number;
-  /** Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. @defaultValue `-Infinity` */
+  /** Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. The default, -inf, is no bound. @defaultValue `-Infinity` */
   minPosition?: number;
-  /** Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. @defaultValue `Infinity` */
+  /** Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. The default, inf, is no bound. @defaultValue `Infinity` */
   maxPosition?: number;
   /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. @defaultValue `1.0` */
   multiplier?: number;
@@ -573,8 +573,8 @@ export declare function BacktestOHLCVTarget(options: BacktestOHLCVTargetOptions)
  * @param maxParticipation The most an order may trade on one bar, as a share of the bar's volume (0.1 = 10%). The rest carries to the next bars.
  * @param takerFee Fractional fee charged on a market (taker) fill at the open.
  * @param tickSize Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step.
- * @param minPosition Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units.
- * @param maxPosition Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units.
+ * @param minPosition Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. The default, -inf, is no bound.
+ * @param maxPosition Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. The default, inf, is no bound.
  * @param multiplier Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
  * @param feePerContract Fixed fee (or rebate when negative) charged per contract on each fill.
  * @param slippage Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
@@ -613,9 +613,9 @@ export interface BacktestPortfolioOHLCTargetOptions {
   rebalanceBand?: number;
   /** When the band trips: "drifted" trades only the assets beyond it, "all" rebalances every asset that has a target. @defaultValue `"drifted"` */
   rebalance?: string;
-  /** Largest gross exposure, sum of absolute position values over equity. Orders that exceed it are scaled down. @defaultValue `Infinity` */
+  /** Largest gross exposure, sum of absolute position values over equity. Orders that exceed it are scaled down. The default, inf, is no cap. @defaultValue `Infinity` */
   maxGross?: number;
-  /** Largest absolute net exposure, sum of position values over equity. Orders that exceed it are scaled down. @defaultValue `Infinity` */
+  /** Largest absolute net exposure, sum of position values over equity. Orders that exceed it are scaled down. The default, inf, is no cap. @defaultValue `Infinity` */
   maxNet?: number;
   /** Execution price on the execution bar: "open", "close", "typical" ((high + low + close) / 3), or "ohlc4". @defaultValue `"open"` */
   fillAt?: string;
@@ -643,8 +643,8 @@ export declare function BacktestPortfolioOHLCTarget(options: BacktestPortfolioOH
  * @param initialCapital Starting capital. Portfolio equity is this plus the summed pnl of all assets; weights are fractions of it.
  * @param rebalanceBand Trade a held asset back to its target when its holding drifts from it by more than this fraction of equity (0 = never). Needs size "weight" or "notional".
  * @param rebalance When the band trips: "drifted" trades only the assets beyond it, "all" rebalances every asset that has a target.
- * @param maxGross Largest gross exposure, sum of absolute position values over equity. Orders that exceed it are scaled down.
- * @param maxNet Largest absolute net exposure, sum of position values over equity. Orders that exceed it are scaled down.
+ * @param maxGross Largest gross exposure, sum of absolute position values over equity. Orders that exceed it are scaled down. The default, inf, is no cap.
+ * @param maxNet Largest absolute net exposure, sum of position values over equity. Orders that exceed it are scaled down. The default, inf, is no cap.
  * @param fillAt Execution price on the execution bar: "open", "close", "typical" ((high + low + close) / 3), or "ohlc4".
  * @param delay Bars between the bar a target is decided on (at its close) and the bar it executes on. 0 needs fill_at "close".
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestPortfolioOHLCTarget.html for the full reference.
@@ -673,9 +673,9 @@ export interface BacktestPortfolioTargetOptions {
   rebalanceBand?: number;
   /** When the band trips: "drifted" trades only the assets beyond it, "all" rebalances every asset that has a target. @defaultValue `"drifted"` */
   rebalance?: string;
-  /** Largest gross exposure, sum of absolute position values over equity. Orders that exceed it are scaled down. @defaultValue `Infinity` */
+  /** Largest gross exposure, sum of absolute position values over equity. Orders that exceed it are scaled down. The default, inf, is no cap. @defaultValue `Infinity` */
   maxGross?: number;
-  /** Largest absolute net exposure, sum of position values over equity. Orders that exceed it are scaled down. @defaultValue `Infinity` */
+  /** Largest absolute net exposure, sum of position values over equity. Orders that exceed it are scaled down. The default, inf, is no cap. @defaultValue `Infinity` */
   maxNet?: number;
 }
 
@@ -699,8 +699,8 @@ export declare function BacktestPortfolioTarget(options: BacktestPortfolioTarget
  * @param initialCapital Starting capital. Portfolio equity is this plus the summed pnl of all assets; weights are fractions of it.
  * @param rebalanceBand Trade a held asset back to its target when its holding drifts from it by more than this fraction of equity (0 = never). Needs size "weight" or "notional".
  * @param rebalance When the band trips: "drifted" trades only the assets beyond it, "all" rebalances every asset that has a target.
- * @param maxGross Largest gross exposure, sum of absolute position values over equity. Orders that exceed it are scaled down.
- * @param maxNet Largest absolute net exposure, sum of position values over equity. Orders that exceed it are scaled down.
+ * @param maxGross Largest gross exposure, sum of absolute position values over equity. Orders that exceed it are scaled down. The default, inf, is no cap.
+ * @param maxNet Largest absolute net exposure, sum of position values over equity. Orders that exceed it are scaled down. The default, inf, is no cap.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestPortfolioTarget.html for the full reference.
  */
 export declare function BacktestPortfolioTarget(fee?: number | number[], slippage?: number | number[], slippageUnit?: string, tickSize?: number | number[], multiplier?: number | number[], feePerContract?: number | number[], size?: string, initialCapital?: number, rebalanceBand?: number, rebalance?: string, maxGross?: number, maxNet?: number): ScreamerOp;
@@ -711,9 +711,9 @@ export interface BacktestPriceTargetOptions {
   spread?: number;
   /** Fractional taker fee charged on the traded notional. @defaultValue `0.0` */
   fee?: number;
-  /** Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. @defaultValue `-Infinity` */
+  /** Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. The default, -inf, is no bound. @defaultValue `-Infinity` */
   minPosition?: number;
-  /** Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. @defaultValue `Infinity` */
+  /** Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. The default, inf, is no bound. @defaultValue `Infinity` */
   maxPosition?: number;
   /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. @defaultValue `1.0` */
   multiplier?: number;
@@ -751,8 +751,8 @@ export declare function BacktestPriceTarget(options: BacktestPriceTargetOptions)
  *
  * @param spread Fractional bid-ask spread crossed on each trade (e.g. 0.0005 = 5 bps). Default 0 is frictionless.
  * @param fee Fractional taker fee charged on the traded notional.
- * @param minPosition Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units.
- * @param maxPosition Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units.
+ * @param minPosition Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. The default, -inf, is no bound.
+ * @param maxPosition Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. The default, inf, is no bound.
  * @param multiplier Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
  * @param feePerContract Fixed fee (or rebate when negative) charged per contract on each fill.
  * @param slippage Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
@@ -822,9 +822,9 @@ export interface BacktestTradesOrdersOptions {
   participationRatio?: number;
   /** Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step. @defaultValue `0.0` */
   tickSize?: number;
-  /** Inventory floor; sell fills are capped so the position never falls below it. @defaultValue `-Infinity` */
+  /** Inventory floor; sell fills are capped so the position never falls below it. The default, -inf, is no bound. @defaultValue `-Infinity` */
   minPosition?: number;
-  /** Inventory ceiling; buy fills are capped so the position never exceeds it. @defaultValue `Infinity` */
+  /** Inventory ceiling; buy fills are capped so the position never exceeds it. The default, inf, is no bound. @defaultValue `Infinity` */
   maxPosition?: number;
   /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. @defaultValue `1.0` */
   multiplier?: number;
@@ -853,8 +853,8 @@ export declare function BacktestTradesOrders(options: BacktestTradesOrdersOption
  * @param fill Fill rule for a trade at your price. "touch" fills a participation partial; "breach" fills only on a trade through.
  * @param participationRatio Fraction of an at-price trade's size captured (front-of-queue at 1.0).
  * @param tickSize Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step.
- * @param minPosition Inventory floor; sell fills are capped so the position never falls below it.
- * @param maxPosition Inventory ceiling; buy fills are capped so the position never exceeds it.
+ * @param minPosition Inventory floor; sell fills are capped so the position never falls below it. The default, -inf, is no bound.
+ * @param maxPosition Inventory ceiling; buy fills are capped so the position never exceeds it. The default, inf, is no bound.
  * @param multiplier Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
  * @param makerFeePerContract Fixed fee (or rebate when negative) charged per contract on maker fills.
  * @param takerFeePerContract Fixed fee (or rebate when negative) charged per contract on taker fills.
@@ -870,9 +870,9 @@ export interface BacktestTradesTargetOptions {
   takerFee?: number;
   /** Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step. @defaultValue `0.0` */
   tickSize?: number;
-  /** Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. @defaultValue `-Infinity` */
+  /** Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. The default, -inf, is no bound. @defaultValue `-Infinity` */
   minPosition?: number;
-  /** Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. @defaultValue `Infinity` */
+  /** Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. The default, inf, is no bound. @defaultValue `Infinity` */
   maxPosition?: number;
   /** Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees. @defaultValue `1.0` */
   multiplier?: number;
@@ -894,7 +894,7 @@ export interface BacktestTradesTargetOptions {
   initialCapital?: number;
   /** With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes. @defaultValue `0.0` */
   rebalanceBand?: number;
-  /** Cap each print's fill at this share of the print's size; the rest fills on later prints. The default fills the whole order on any print. @defaultValue `Infinity` */
+  /** Cap each print's fill at this share of the print's size; the rest fills on later prints. The default fills the whole order on any print. inf is no cap. @defaultValue `Infinity` */
   maxParticipation?: number;
 }
 
@@ -910,8 +910,8 @@ export declare function BacktestTradesTarget(options: BacktestTradesTargetOption
  *
  * @param takerFee Fractional fee charged on each taker fill at the print price.
  * @param tickSize Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step.
- * @param minPosition Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units.
- * @param maxPosition Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units.
+ * @param minPosition Lower bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of -2 with min_position=-0.5 holds -0.5 units. The default, -inf, is no bound.
+ * @param maxPosition Upper bound on the position, in units. It applies after `size` has converted the target to units, so a weight target of 2 with max_position=0.5 holds 0.5 units. The default, inf, is no bound.
  * @param multiplier Contract multiplier applied to mark-to-market PnL, fill slippage, and proportional fees.
  * @param feePerContract Fixed fee (or rebate when negative) charged per contract on each fill.
  * @param slippage Adverse price offset on every taker (market) fill, read in `slippage_unit`. A buy fills higher and a sell lower; resting limit fills never slip.
@@ -922,7 +922,7 @@ export declare function BacktestTradesTarget(options: BacktestTradesTargetOption
  * @param size How to read the target: "units" (a position), "notional" (a currency amount), or "weight" (a fraction of initial_capital + equity). It is converted to units at the execution price.
  * @param initialCapital Starting capital for size="weight" and for rebalance_band; equity is initial_capital plus the backtest's cumulative pnl.
  * @param rebalanceBand With size="notional" or "weight", recompute the units when the holding drifts from the target by more than this fraction of equity (0.05 = 5 points of weight). 0 keeps the units until the target value changes.
- * @param maxParticipation Cap each print's fill at this share of the print's size; the rest fills on later prints. The default fills the whole order on any print.
+ * @param maxParticipation Cap each print's fill at this share of the print's size; the rest fills on later prints. The default fills the whole order on any print. inf is no cap.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/BacktestTradesTarget.html for the full reference.
  */
 export declare function BacktestTradesTarget(takerFee?: number, tickSize?: number, minPosition?: number, maxPosition?: number, multiplier?: number, feePerContract?: number, slippage?: number, slippageUnit?: string, stopLoss?: number, takeProfit?: number, trailingStop?: number, size?: string, initialCapital?: number, rebalanceBand?: number, maxParticipation?: number): ScreamerOp;
@@ -1188,9 +1188,9 @@ export declare function Ceil(options?: CeilOptions): ScreamerOp;
 
 /** The settings of Clip by name, for `Clip({ ... })`. */
 export interface ClipOptions {
-  /** Smallest allowed value; smaller values are replaced by it. None means no lower bound. */
+  /** Smallest allowed value; smaller values are replaced by it. None means no lower bound. NaN and -inf also mean no lower bound. */
   lower?: number | null;
-  /** Largest allowed value; larger values are replaced by it. None means no upper bound. */
+  /** Largest allowed value; larger values are replaced by it. None means no upper bound. NaN and inf also mean no upper bound. */
   upper?: number | null;
 }
 
@@ -1204,8 +1204,8 @@ export declare function Clip(options: ClipOptions): ScreamerOp;
 /**
  * Bound each element below and/or above.
  *
- * @param lower Smallest allowed value; smaller values are replaced by it. None means no lower bound.
- * @param upper Largest allowed value; larger values are replaced by it. None means no upper bound.
+ * @param lower Smallest allowed value; smaller values are replaced by it. None means no lower bound. NaN and -inf also mean no lower bound.
+ * @param upper Largest allowed value; larger values are replaced by it. None means no upper bound. NaN and inf also mean no upper bound.
  * @see https://screamer.readthedocs.io/en/latest/functions_preprocessing/Clip.html for the full reference.
  */
 export declare function Clip(lower?: number | null, upper?: number | null): ScreamerOp;
@@ -1247,7 +1247,7 @@ export declare function CrossDemean(options?: CrossDemeanOptions): ScreamerOp;
 export interface CrossNormalizeOptions {
   /** Sum of the absolute weights of each row. @defaultValue `1.0` */
   gross?: number;
-  /** Sum of the weights of each row, in [-gross, gross]. None (the default) keeps the signs of the scores and sets no net target. */
+  /** Sum of the weights of each row, in [-gross, gross]. None (the default) keeps the signs of the scores and sets no net target. NaN means the same as None. */
   net?: number | null;
 }
 
@@ -1262,7 +1262,7 @@ export declare function CrossNormalize(options: CrossNormalizeOptions): Screamer
  * Scale each row of scores to portfolio weights with a chosen gross exposure, and optionally a net exposure.
  *
  * @param gross Sum of the absolute weights of each row.
- * @param net Sum of the weights of each row, in [-gross, gross]. None (the default) keeps the signs of the scores and sets no net target.
+ * @param net Sum of the weights of each row, in [-gross, gross]. None (the default) keeps the signs of the scores and sets no net target. NaN means the same as None.
  * @see https://screamer.readthedocs.io/en/latest/functions_cross/CrossNormalize.html for the full reference.
  */
 export declare function CrossNormalize(gross?: number, net?: number | null): ScreamerOp;
@@ -2490,7 +2490,7 @@ export declare function Ffill(options?: FfillOptions): ScreamerOp;
 
 /** The settings of FillNa by name, for `FillNa({ ... })`. */
 export interface FillNaOptions {
-  /** Constant that replaces each NaN. @defaultValue `0.0` */
+  /** Constant that replaces each NaN. Any float, inf and -inf included; NaN leaves each NaN in place. @defaultValue `0.0` */
   fill?: number;
 }
 
@@ -2504,7 +2504,7 @@ export declare function FillNa(options: FillNaOptions): ScreamerOp;
 /**
  * Replace NaN with a user-specified scalar.
  *
- * @param fill Constant that replaces each NaN.
+ * @param fill Constant that replaces each NaN. Any float, inf and -inf included; NaN leaves each NaN in place.
  * @see https://screamer.readthedocs.io/en/latest/functions_preprocessing/FillNa.html for the full reference.
  */
 export declare function FillNa(fill?: number): ScreamerOp;
@@ -4617,9 +4617,9 @@ export declare function RollingSharpe(windowSize?: number, periodsPerYear?: numb
 export interface RollingSigmaClipOptions {
   /** Number of most recent samples in the window. @defaultValue `20` */
   windowSize?: number;
-  /** Lower clipping threshold in standard deviations from the rolling mean (for example -3). None disables lower clipping. */
+  /** Lower clipping threshold in standard deviations from the rolling mean (for example -3). None disables lower clipping. NaN and -inf also disable it. */
   lower?: number | null;
-  /** Upper clipping threshold in standard deviations from the rolling mean (for example 3). None disables upper clipping. */
+  /** Upper clipping threshold in standard deviations from the rolling mean (for example 3). None disables upper clipping. NaN and inf also disable it. */
   upper?: number | null;
   /** Which value to return: "clipped" gives the input with outliers clipped to the bound, "mean" the rolling mean estimate, "std" the rolling standard deviation estimate, and "nan" the input with outliers replaced by NaN. @defaultValue `"clipped"` */
   output?: string;
@@ -4638,8 +4638,8 @@ export declare function RollingSigmaClip(options: RollingSigmaClipOptions): Scre
  * Clip samples that lie beyond lower or upper standard deviations from the rolling mean, or replace them with NaN.
  *
  * @param windowSize Number of most recent samples in the window.
- * @param lower Lower clipping threshold in standard deviations from the rolling mean (for example -3). None disables lower clipping.
- * @param upper Upper clipping threshold in standard deviations from the rolling mean (for example 3). None disables upper clipping.
+ * @param lower Lower clipping threshold in standard deviations from the rolling mean (for example -3). None disables lower clipping. NaN and -inf also disable it.
+ * @param upper Upper clipping threshold in standard deviations from the rolling mean (for example 3). None disables upper clipping. NaN and inf also disable it.
  * @param output Which value to return: "clipped" gives the input with outliers clipped to the bound, "mean" the rolling mean estimate, "std" the rolling standard deviation estimate, and "nan" the input with outliers replaced by NaN.
  * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingSigmaClip.html for the full reference.

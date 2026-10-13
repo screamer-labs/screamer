@@ -1,6 +1,7 @@
 #ifndef SCREAMER_BUTTERWORTH_H
 #define SCREAMER_BUTTERWORTH_H
 
+#include "screamer/common/finite_settings.h"
 #include <array>
 #include <cmath>
 #include "screamer/common/base.h"
@@ -19,6 +20,7 @@ namespace screamer {
         Butter(int order, double cutoff_freq) :
             order_(order), cutoff_freq_(cutoff_freq)
         {
+            require_finite("cutoff_freq", cutoff_freq);
             std::vector<double> b, a;
             butterworth_filter(order, cutoff_freq, b, a);
             irr.init(b, a);

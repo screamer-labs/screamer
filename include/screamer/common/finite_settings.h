@@ -23,6 +23,7 @@
 #include <cstddef>
 #include <cstring>
 #include <limits>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -38,95 +39,57 @@ struct NonFiniteAllowed {
 };
 
 inline constexpr NonFiniteAllowed kNonFiniteAllowed[] = {
-    // Backtest engines: infinite position limits, fees and caps.
-    {"BacktestL1Orders", "maker_fee", kTakesNonFinite},
-    {"BacktestL1Orders", "taker_fee", kTakesNonFinite},
-    {"BacktestL1Orders", "max_position", kTakesNonFinite},
-    {"BacktestL1Orders", "min_position", kTakesNonFinite},
-    {"BacktestL1Target", "taker_fee", kTakesNonFinite},
-    {"BacktestL1Target", "max_position", kTakesNonFinite},
-    {"BacktestL1Target", "min_position", kTakesNonFinite},
-    {"BacktestL1TradesOrders", "maker_fee", kTakesNonFinite},
-    {"BacktestL1TradesOrders", "taker_fee", kTakesNonFinite},
-    {"BacktestL1TradesOrders", "maker_fee_per_contract", kTakesNonFinite},
-    {"BacktestL1TradesOrders", "taker_fee_per_contract", kTakesNonFinite},
-    {"BacktestL1TradesOrders", "max_position", kTakesNonFinite},
-    {"BacktestL1TradesOrders", "min_position", kTakesNonFinite},
-    {"BacktestOHLCOrders", "maker_fee", kTakesNonFinite},
-    {"BacktestOHLCOrders", "taker_fee", kTakesNonFinite},
-    {"BacktestOHLCOrders", "max_position", kTakesNonFinite},
-    {"BacktestOHLCOrders", "min_position", kTakesNonFinite},
-    {"BacktestOHLCTarget", "taker_fee", kTakesNonFinite},
-    {"BacktestOHLCTarget", "max_position", kTakesNonFinite},
-    {"BacktestOHLCTarget", "min_position", kTakesNonFinite},
-    {"BacktestOHLCVTarget", "taker_fee", kTakesNonFinite},
-    {"BacktestOHLCVTarget", "max_position", kTakesNonFinite},
-    {"BacktestOHLCVTarget", "min_position", kTakesNonFinite},
+    // Position bounds: an infinite bound is no bound (the default).
+    {"BacktestL1Orders", "max_position", kTakesPosInf},
+    {"BacktestL1Orders", "min_position", kTakesNegInf},
+    {"BacktestL1Target", "max_position", kTakesPosInf},
+    {"BacktestL1Target", "min_position", kTakesNegInf},
+    {"BacktestL1TradesOrders", "max_position", kTakesPosInf},
+    {"BacktestL1TradesOrders", "min_position", kTakesNegInf},
+    {"BacktestOHLCOrders", "max_position", kTakesPosInf},
+    {"BacktestOHLCOrders", "min_position", kTakesNegInf},
+    {"BacktestOHLCTarget", "max_position", kTakesPosInf},
+    {"BacktestOHLCTarget", "min_position", kTakesNegInf},
+    {"BacktestOHLCVTarget", "max_position", kTakesPosInf},
+    {"BacktestOHLCVTarget", "min_position", kTakesNegInf},
+    {"BacktestPriceTarget", "max_position", kTakesPosInf},
+    {"BacktestPriceTarget", "min_position", kTakesNegInf},
+    {"BacktestTradesOrders", "max_position", kTakesPosInf},
+    {"BacktestTradesOrders", "min_position", kTakesNegInf},
+    {"BacktestTradesTarget", "max_position", kTakesPosInf},
+    {"BacktestTradesTarget", "min_position", kTakesNegInf},
+    // Exposure and participation caps: inf is no cap (the default).
     {"BacktestPortfolioOHLCTarget", "max_gross", kTakesPosInf},
     {"BacktestPortfolioOHLCTarget", "max_net", kTakesPosInf},
     {"BacktestPortfolioTarget", "max_gross", kTakesPosInf},
     {"BacktestPortfolioTarget", "max_net", kTakesPosInf},
-    {"BacktestPriceTarget", "fee", kTakesNonFinite},
-    {"BacktestPriceTarget", "max_position", kTakesNonFinite},
-    {"BacktestPriceTarget", "min_position", kTakesNonFinite},
-    {"BacktestPriceTarget", "spread", kTakesPosInf | kTakesNaN},
-    {"BacktestTradesOrders", "maker_fee", kTakesNonFinite},
-    {"BacktestTradesOrders", "taker_fee", kTakesNonFinite},
-    {"BacktestTradesOrders", "max_position", kTakesNonFinite},
-    {"BacktestTradesOrders", "min_position", kTakesNonFinite},
-    {"BacktestTradesTarget", "taker_fee", kTakesNonFinite},
-    {"BacktestTradesTarget", "max_position", kTakesNonFinite},
-    {"BacktestTradesTarget", "min_position", kTakesNonFinite},
     {"BacktestTradesTarget", "max_participation", kTakesPosInf},
+    // inf is no stop (the default).
     {"BandSignal", "stop", kTakesPosInf},
-    {"BayesianRegression", "prior_precision", kTakesPosInf | kTakesNaN},
-    {"BayesianRegression", "prior_sigma", kTakesPosInf | kTakesNaN},
-    {"Butter", "cutoff_freq", kTakesNonFinite},
-    {"Clip", "lower", kTakesNonFinite},
-    {"Clip", "upper", kTakesNonFinite},
-    {"CrossNormalize", "net", kTakesNaN},
-    {"Decycler", "period", kTakesPosInf},
-    {"FillNa", "fill", kTakesNonFinite},
-    {"FracDiff", "d", kTakesPosInf | kTakesNegInf},
-    {"FracDiff", "threshold", kTakesPosInf},
-    {"Hampel", "n_sigma", kTakesPosInf | kTakesNaN},
-    {"HawkesIntensity", "alpha", kTakesNonFinite},
-    {"HawkesIntensity", "mu", kTakesNonFinite},
-    {"Hold", "release", kTakesNaN},
-    {"ImpulseClip", "n_sigma", kTakesPosInf | kTakesNaN},
-    {"KalmanFilter", "initial_state", kTakesNonFinite},
-    {"KalmanFilter", "initial_variance", kTakesPosInf},
-    {"KalmanFilter", "observation_var", kTakesPosInf},
-    {"KalmanFilter", "process_var", kTakesPosInf},
-    {"KeltnerChannels", "num_atr", kTakesNonFinite},
-    {"Linear", "scale", kTakesNonFinite},
-    {"Linear", "shift", kTakesNonFinite},
-    {"Linear2", "a", kTakesNonFinite},
-    {"Linear2", "b", kTakesNonFinite},
-    {"Linear2", "c", kTakesNonFinite},
-    {"MAMA", "fast_limit", kTakesNonFinite},
-    {"MAMA", "slow_limit", kTakesNonFinite},
-    {"MovingAverage", "taps", kTakesNonFinite},
-    {"Power", "p", kTakesNonFinite},
-    {"Propagator", "g0", kTakesNonFinite},
-    {"Propagator", "gamma", kTakesNonFinite},
-    {"RollingCVaR", "alpha", kTakesNaN},
-    {"RollingCalmar", "periods_per_year", kTakesPosInf},
-    {"RollingDownsideDeviation", "mar", kTakesNonFinite},
-    {"RollingInfoRatio", "periods_per_year", kTakesPosInf},
-    {"RollingOmega", "threshold", kTakesNonFinite},
-    {"RollingQuantile", "quantile", kTakesNaN},
-    {"RollingSharpe", "periods_per_year", kTakesPosInf},
+    // Bounds: NaN is None (no bound), and so is an infinity on the bound's
+    // own side.
+    {"Clip", "lower", kTakesNegInf | kTakesNaN},
+    {"Clip", "upper", kTakesPosInf | kTakesNaN},
     {"RollingSigmaClip", "lower", kTakesNegInf | kTakesNaN},
     {"RollingSigmaClip", "upper", kTakesPosInf | kTakesNaN},
-    {"RollingSortino", "periods_per_year", kTakesPosInf},
-    {"RollingSortino", "target", kTakesNonFinite},
-    {"RoofingFilter", "hp_period", kTakesPosInf},
-    {"RoofingFilter", "lp_period", kTakesPosInf},
+    // NaN is None: no net target.
+    {"CrossNormalize", "net", kTakesNaN},
+    // The value that replaces NaN: any float (NaN leaves NaN in place).
+    {"FillNa", "fill", kTakesNonFinite},
+    // NaN is a documented output or state.
+    {"Hold", "release", kTakesNaN},
     {"SchmittTrigger", "initial", kTakesNaN},
-    {"SuperSmoother", "period", kTakesPosInf},
-    {"VPIN", "bucket_volume", kTakesPosInf | kTakesNaN},
 };
+
+// The check an operator's constructor makes on a float setting: a value that
+// is not finite raises std::invalid_argument unless `takes` (kTakes* bits)
+// allows it. The bindings replace the message with finite_setting_error's,
+// so `takes` must match the setting's kNonFiniteAllowed entry.
+inline void require_finite(const char* setting, double v, unsigned takes = 0u) {
+    if (std::isfinite(v)) return;
+    const unsigned bit = std::isnan(v) ? kTakesNaN : v > 0 ? kTakesPosInf : kTakesNegInf;
+    if (!(takes & bit)) throw std::invalid_argument(std::string(setting) + " must be finite");
+}
 
 namespace detail {
 

@@ -20,6 +20,7 @@
 // 1 -> 1, O(1) per step. Initial state = 0, initial variance = 1.0
 // by default; both are optional constructor parameters.
 
+#include "screamer/common/finite_settings.h"
 #include <stdexcept>
 #include <limits>
 #include "screamer/common/base.h"
@@ -38,6 +39,10 @@ public:
           initial_state_(initial_state),
           initial_variance_(initial_variance)
     {
+        require_finite("process_var", process_var);
+        require_finite("observation_var", observation_var);
+        require_finite("initial_state", initial_state);
+        require_finite("initial_variance", initial_variance);
         if (!(process_var >= 0.0)) {
             throw std::invalid_argument("process_var must be >= 0.");
         }

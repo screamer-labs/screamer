@@ -52,11 +52,11 @@ parameters:
 - name: min_position
   type: float
   default: -.inf
-  description: Inventory floor; sell fills are capped so the position never falls below it.
+  description: Inventory floor; sell fills are capped so the position never falls below it. The default, -inf, is no bound.
 - name: max_position
   type: float
   default: .inf
-  description: Inventory ceiling; buy fills are capped so the position never exceeds it.
+  description: Inventory ceiling; buy fills are capped so the position never exceeds it. The default, inf, is no bound.
 - name: multiplier
   type: float
   default: 1.0

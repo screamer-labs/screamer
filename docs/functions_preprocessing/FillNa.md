@@ -19,7 +19,7 @@ parameters:
 - name: fill
   type: float
   default: 0.0
-  description: Constant that replaces each NaN.
+  description: Constant that replaces each NaN. Any float, inf and -inf included; NaN leaves each NaN in place.
 nan_policy: nan-aware
 see_also:
 - Ffill

@@ -25,6 +25,7 @@
 // Negative d is fractional integration (the weights do not alternate
 // and decay more slowly); window_size is what bounds it.
 
+#include "screamer/common/finite_settings.h"
 #include <cmath>
 #include <limits>
 #include <stdexcept>
@@ -75,6 +76,8 @@ private:
     // Runs inside the member initialiser list, so invalid arguments
     // raise before any state is built.
     static std::vector<double> frac_weights(double d, int window_size, double threshold) {
+        require_finite("d", d);
+        require_finite("threshold", threshold);
         if (window_size < 1) {
             throw std::invalid_argument("Window size must be positive.");
         }

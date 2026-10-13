@@ -766,6 +766,40 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   documented as finite, refuse an infinity with `ValueError` (`RangeError`
   in JavaScript), as they refused NaN. 2.8.0 took `BollingerBands(20, inf)`,
   whose bands were infinite, and `SchmittTrigger(-inf, 3)`.
+* A float setting takes inf, -inf or NaN only where its page gives that value
+  a meaning; every other one raises `ValueError` (`RangeError` in JavaScript)
+  with the one finite message, "KeltnerChannels: num_atr must be finite, got
+  inf". The values that stay: an infinite position bound (`max_position=inf`,
+  `min_position=-inf`) and an infinite cap (`max_gross`, `max_net`,
+  `max_participation`, `BandSignal`'s `stop`); NaN for None and an infinity
+  on the bound's own side for `Clip` and `RollingSigmaClip`'s `lower` and
+  `upper`; NaN for None for `CrossNormalize`'s `net`; any float for
+  `FillNa`'s `fill`; NaN for `Hold`'s `release` and `SchmittTrigger`'s
+  `initial`. 2.8.0 took a non-finite value for these settings, which now
+  refuse it:
+  - backtest fees: `maker_fee`, `taker_fee`, `fee`, `maker_fee_per_contract`
+    and `taker_fee_per_contract`, and `BacktestPriceTarget`'s `spread`;
+  - position bounds on the wrong side or NaN: `max_position=-inf` or NaN,
+    `min_position=inf` or NaN;
+  - model and filter settings: `BayesianRegression`'s `prior_precision` and
+    `prior_sigma`, `Butter`'s `cutoff_freq`, the `period` of `Decycler` and
+    `SuperSmoother` and the `hp_period` and `lp_period` of `RoofingFilter`,
+    `FracDiff`'s `d` and `threshold`, `Hampel`'s and `ImpulseClip`'s
+    `n_sigma`, `HawkesIntensity`'s `alpha` and `mu`, all four `KalmanFilter`
+    settings, `KeltnerChannels`' `num_atr`, `MAMA`'s `fast_limit` and
+    `slow_limit`, `MovingAverage`'s `taps`, `Propagator`'s `g0` and `gamma`,
+    `VPIN`'s `bucket_volume`;
+  - arithmetic: `Linear`'s `scale` and `shift`, `Linear2`'s `a`, `b` and
+    `c`, `Power`'s `p`, `Clip`'s `lower=inf` and `upper=-inf`;
+  - statistics: `RollingCVaR`'s `alpha`, `RollingQuantile`'s `quantile`,
+    `periods_per_year` of `RollingCalmar`, `RollingInfoRatio`,
+    `RollingSharpe` and `RollingSortino`, `RollingSortino`'s `target`,
+    `RollingDownsideDeviation`'s `mar` and `RollingOmega`'s `threshold`.
+
+  Their results were NaN, infinite or meaningless (`KalmanFilter(1, 1,
+  initial_variance=inf)` gave all NaN, `SuperSmoother(period=inf)` all
+  zeros). Pass a finite value; for "no position bound" or "no cap" keep the
+  infinite default.
 * `Resample(fill="nan")` and `fill="carry"` raise `ValueError` (`RangeError`
   in JavaScript) under `count=` and `threshold=`: "resample: fill= applies to
   freq= (every=) and clock= bars; a count= bar is never empty". 2.8.0

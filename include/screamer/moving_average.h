@@ -17,6 +17,7 @@
 // len(taps) samples held by detail::FirCore. O(L) per step where
 // L = len(taps). First valid output at sample index L - 1.
 
+#include "screamer/common/finite_settings.h"
 #include <limits>
 #include <stdexcept>
 #include <vector>
@@ -57,6 +58,7 @@ private:
         if (taps.empty()) {
             throw std::invalid_argument("taps must be non-empty.");
         }
+        for (double t : taps) require_finite("taps", t);
         return taps;
     }
 

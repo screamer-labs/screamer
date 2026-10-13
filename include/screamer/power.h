@@ -1,6 +1,7 @@
 #ifndef SCREAMER_POWER_H
 #define SCREAMER_POWER_H
 
+#include "screamer/common/finite_settings.h"
 #include <cmath>
 #include "screamer/common/base.h"
 #include <cstddef>
@@ -8,7 +9,7 @@ namespace screamer {
 
     class Power : public ScreamerBase {
     public:
-        Power(double p) : p_(p) {}
+        Power(double p) : p_(p) { require_finite("p", p); }
 
         double process_scalar(double newValue) override {
             return std::pow(newValue, p_);

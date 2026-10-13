@@ -18,6 +18,7 @@
 // 1 -> 1. Composes RollingMean over the returns and a "rolling
 // max drawdown of the implied price path".
 
+#include "screamer/common/finite_settings.h"
 #include <cmath>
 #include <limits>
 #include <stdexcept>
@@ -36,6 +37,7 @@ public:
           rmd_(window_size),
           price_(1.0)
     {
+        require_finite("periods_per_year", periods_per_year);
         if (window_size < 2) {
             throw std::invalid_argument("Window size must be at least 2.");
         }

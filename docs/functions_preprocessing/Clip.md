@@ -21,12 +21,12 @@ parameters:
   type: float|null
   default: null
   description: Smallest allowed value; smaller values are replaced by it. None means no lower
-    bound.
+    bound. NaN and -inf also mean no lower bound.
 - name: upper
   type: float|null
   default: null
   description: Largest allowed value; larger values are replaced by it. None means no upper
-    bound.
+    bound. NaN and inf also mean no upper bound.
 nan_policy: ignore
 see_also:
 - RollingSigmaClip

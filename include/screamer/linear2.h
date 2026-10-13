@@ -11,13 +11,18 @@
 // "positive excess" (Relu(Linear2(1, -1, 0)(x, y))), or weighted
 // blends.
 
+#include "screamer/common/finite_settings.h"
 #include "screamer/common/functor_base.h"
 
 namespace screamer {
 
 class Linear2 : public FunctorBase<Linear2, 2, 1> {
 public:
-    Linear2(double a, double b, double c = 0.0) : a_(a), b_(b), c_(c) {}
+    Linear2(double a, double b, double c = 0.0) : a_(a), b_(b), c_(c) {
+        require_finite("a", a);
+        require_finite("b", b);
+        require_finite("c", c);
+    }
 
     ResultTuple call(const InputArray& inputs) override {
         return a_ * inputs[0] + b_ * inputs[1] + c_;

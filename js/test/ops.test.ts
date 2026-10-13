@@ -244,6 +244,57 @@ test("options: true agrees with Python True for every setting (null_oracle.json)
   assert.ok(n > 450);
 });
 
+test("options: inf, -inf and NaN agree with Python for every float setting (null_oracle.json)", async () => {
+  // G31: a float setting takes a non-finite value only where its docs give
+  // it a meaning (an infinite bound or cap, NaN for None); every other one is
+  // refused with the one finite message (finite_settings.h). An optional
+  // setting's NaN means "not given" in JavaScript, so it is not compared.
+  await ready();
+  const { readFileSync } = await import("node:fs");
+  const ops: any = await import("../src/generated/ops.ts");
+  const manifest: { name: string; ctor: string[]; ctor_args: { name: string }[] }[] =
+    JSON.parse(readFileSync(new URL("../../devtools/wasm/wasm_manifest.json", import.meta.url), "utf8"));
+  const optional = new Set(manifest.flatMap((op) =>
+    op.ctor_args.filter((_a, i) => op.ctor[i].startsWith("std::optional<")).map((a) => `${op.name}.${a.name}`)));
+  const vector = new Set(manifest.flatMap((op) =>
+    op.ctor_args.filter((_a, i) => op.ctor[i] === "std::vector<double>").map((a) => `${op.name}.${a.name}`)));
+  const oracle: { name: string; base: Record<string, number>;
+                  non_finite: Record<string, Record<string, string | null>> }[] =
+    JSON.parse(readFileSync(new URL("../../wasm/smoke/null_oracle.json", import.meta.url), "utf8"));
+  const camel = (k: string) => k.replace(/_([a-z])/g, (_m, c) => c.toUpperCase());
+  const EW = new Set(["com", "span", "halflife", "alpha"]);
+  const VALUES: Record<string, number> = { inf: Infinity, "-inf": -Infinity, nan: NaN };
+  // Python's message in JavaScript's words: the camelCase name and the
+  // spelling of the values.
+  const inJs = (msg: string, k: string) => msg.replace(`: ${k} must be`, `: ${camel(k)} must be`)
+    .replace(/(^|\s)(-?)inf\b/g, "$1$2Infinity").replace(/\bnan\b/g, "NaN");
+  let n = 0, refused = 0;
+  for (const { name, base, non_finite } of oracle) {
+    for (const [k, byValue] of Object.entries(non_finite)) {
+      const opts: Record<string, unknown> = {};
+      for (const [b, v] of Object.entries(base))
+        if (!(EW.has(k) && EW.has(b))) opts[camel(b)] = v;
+      for (const [text, message] of Object.entries(byValue)) {
+        if (text === "nan" && optional.has(`${name}.${k}`)) continue;
+        const v = VALUES[text];
+        let error: unknown = null;
+        try { ops[name]({ ...opts, [camel(k)]: vector.has(`${name}.${k}`) ? [v] : v }).dispose(); }
+        catch (e) { error = e; }
+        const isFinite = error instanceof RangeError && / must be finite/.test((error as Error).message);
+        if (message === null) {
+          assert.ok(!isFinite, `${name}(${k}=${text}): Python takes it, JavaScript says ${(error as Error)?.message}`);
+        } else {
+          assert.ok(error instanceof RangeError, `${name}(${k}=${text}): Python refuses it, JavaScript takes it`);
+          assert.equal((error as Error).message, inJs(message, k), `${name}(${k}=${text}) message`);
+          refused++;
+        }
+        n++;
+      }
+    }
+  }
+  assert.ok(n > 750 && refused > 720, `${n} values, ${refused} refused`);
+});
+
 test("options: a stream setting refuses a boolean (G25)", async () => {
   await ready();
   const { Input, resample, select, delay } = await import("../src/index.ts");

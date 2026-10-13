@@ -1,6 +1,7 @@
 #ifndef SCREAMER_ROLLING_QUANTILE_H
 #define SCREAMER_ROLLING_QUANTILE_H
 
+#include "screamer/common/finite_settings.h"
 #include "screamer/common/buffer.h"
 #include "screamer/common/base.h"
 #include "common/order_statistic_tree.h"
@@ -19,6 +20,7 @@ namespace screamer {
             buffer(window_size, -1), // std::numeric_limits<double>::quiet_NaN()
             ost(window_size)
         {
+            require_finite("quantile", quantile);
             if (window_size <= 0) {
                 throw std::invalid_argument("Window size must be positive.");
             }
