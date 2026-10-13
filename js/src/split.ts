@@ -86,7 +86,8 @@ function options(opts: unknown): { index?: unknown; n?: number } {
  * number (a boolean, a fractional or a non-finite source is a TypeError) from
  * 0 to 2147483646 (else a RangeError). There are `n` outputs, by default
  * max(sources) + 1; an `n` that would drop an event (n <= max(sources)) is a
- * RangeError.
+ * RangeError. A split makes at most 2**20 outputs: more is a RangeError,
+ * raised before anything is allocated.
  *
  * Returns `{ values, index }` objects: `values` a Float64Array for 1-D values, or
  * an NdArray of shape `[rows, ...]` that keeps the row shape; `index` a

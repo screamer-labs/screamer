@@ -1,30 +1,32 @@
-"""split with a source id too large for memory raises a clear ValueError.
+"""split makes at most 2**20 outputs (fix round 1, N2).
 
 split makes one output per source id up to the largest, so split([1.0],
-[2**31 - 2]) asks for 2**31 - 1 outputs. Where an allocation fails, the
-message says so ("split: 2147483647 outputs need more memory than is
-available; pass smaller source ids"); JavaScript raises the same RangeError
-(js/test/split.test.ts). The process runs under an address-space limit, which
-Linux enforces.
+[2**31 - 2]) asked for 2**31 - 1 outputs, which took more memory than a
+machine has (the OS killed the process on macOS). The output count is checked
+against the cap before anything is allocated: past it, ValueError names the
+count and the cap. JavaScript raises the same RangeError (js/test/split.test.ts).
 """
-import subprocess
-import sys
-
+import numpy as np
 import pytest
 
-CODE = r"""
-import resource
-resource.setrlimit(resource.RLIMIT_AS, (6 << 30, 6 << 30))
 import screamer as sc
-try:
-    sc.split([1.0], [2**31 - 2])
-except ValueError as e:
-    print("ValueError:", e)
-"""
+
+CAP = 2**20
 
 
-@pytest.mark.skipif(sys.platform != "linux", reason="RLIMIT_AS is enforced on Linux only")
-def test_split_with_a_huge_source_raises_a_clear_error():
-    r = subprocess.run([sys.executable, "-c", CODE], capture_output=True, text=True, timeout=120)
-    assert ("ValueError: split: 2147483647 outputs need more memory than is available; "
-            "pass smaller source ids") in r.stdout, r.stdout + r.stderr
+def test_split_refuses_more_outputs_than_the_cap():
+    with pytest.raises(ValueError, match=r"^split: 2147483647 outputs is more than the cap of 1048576 \(2\*\*20\); pass smaller source ids$"):
+        sc.split([1.0], [2**31 - 2])
+    with pytest.raises(ValueError, match=r"^split: 1048577 outputs is more than the cap"):
+        sc.split([1.0, 2.0], [0, CAP])
+    with pytest.raises(ValueError, match=r"^split: n=1048577 outputs is more than the cap"):
+        sc.split([1.0], [0], n=CAP + 1)
+    # n too small is reported first, as before.
+    with pytest.raises(ValueError, match="n=1 is too small for sources up to 2147483646"):
+        sc.split([1.0], [2**31 - 2], n=1)
+
+
+def test_split_at_the_cap_works():
+    out = sc.split(np.array([1.0, 2.0]), [0, CAP - 1])
+    assert len(out) == CAP
+    assert list(out[CAP - 1][0]) == [2.0]

@@ -143,6 +143,14 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Changed
 
+* `split` makes at most 2\*\*20 (1048576) outputs. One output per source id
+  up to the largest made `split([1.0], [2**31 - 2])` build 2\*\*31 - 1
+  outputs, which in Python grew until the operating system killed the
+  process, and threw the C++ text `RangeError: vector` in JavaScript. A
+  larger source or `n` raises `ValueError` (`RangeError` in JavaScript)
+  before anything is allocated: "split: 2147483647 outputs is more than the
+  cap of 1048576 (2\*\*20); pass smaller source ids". Old result: none;
+  renumber the sources densely.
 * Each `Pipeline` runs on its own copies of the operators it is built from
   (the same parameters, a fresh state), in Python and JavaScript. Two
   Pipelines built from the same nodes shared the operators' state in 2.8.0,
@@ -955,11 +963,6 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   the setting's `ValueError` ("RollingMean: window_size must be at most
   2147483647, got 18446744073709551616"); `to_json` writes it back as the
   same digits.
-* `split` with a large source id (one output per id up to it) threw the
-  C++ text `RangeError: vector` in JavaScript when the outputs did not fit
-  in memory. It raises `ValueError` (`RangeError` in JavaScript), "split:
-  2147483647 outputs need more memory than is available; pass smaller source
-  ids", in both languages.
 * The batch `combine_latest` reserved the sum of its inputs' rows times the
   joined width, so n aligned inputs reserved n times the output: in
   JavaScript, `combineLatest` of 16 inputs of 1e6 rows threw `RangeError`

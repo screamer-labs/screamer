@@ -27,7 +27,9 @@ row shape, `(rows, ...)`. A source is a whole number: a bool, a fractional or a
 non-finite source raises `TypeError`. It is from 0 to 2147483646, one less than
 the most outputs (2**31 - 1); another source raises `ValueError`. `n` sets the
 number of outputs, by default `max(sources) + 1`; an `n` at or below the largest
-source raises `ValueError`, since events would be dropped.
+source raises `ValueError`, since events would be dropped. A split makes at most
+2\*\*20 (1048576) outputs: more, from a large source or `n`, raises `ValueError`
+before anything is allocated.
 
 <!-- HELP_END -->
 

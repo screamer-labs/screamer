@@ -40,6 +40,18 @@ namespace screamer { namespace streams {
 
 constexpr std::uint32_t kMaxSplitOutputs = 2147483647u;            // 2**31 - 1
 constexpr std::uint32_t kMaxSplitSource = kMaxSplitOutputs - 1;    // 2**31 - 2
+// The most outputs a split makes: 2**20. Each output is an array pair, so
+// the outputs of a source id near 2**31 would take more memory than a
+// machine has; the count is checked before anything is allocated.
+constexpr std::size_t kSplitOutputCap = std::size_t(1) << 20;
+
+// More outputs than kSplitOutputCap; `what` is the count ("2147483647
+// outputs", "n=2000000 outputs").
+[[noreturn]] inline void throw_split_cap(const std::string& what) {
+    throw std::invalid_argument("split: " + what + " is more than the cap of " +
+                                std::to_string(kSplitOutputCap) +
+                                " (2**20); pass smaller source ids");
+}
 
 // A source that is not a whole number; `text` is the value or its kind.
 [[noreturn]] inline void throw_split_source_kind(const std::string& text) {
@@ -214,13 +226,18 @@ private:
     void count(std::uint32_t t) {
         top_ = t > top_ ? t : top_;
         if (t >= limit_) return;                       // finish reports n too small
+        if (t >= kSplitOutputCap) return;              // finish reports the cap
         if (t >= counts_.size()) grow(static_cast<std::size_t>(t) + 1);
         ++counts_[t];
     }
 
     // The number of outputs: n when given, else the largest tag + 1.
     void finish(bool has_n, double n) {
-        if (!has_n) return;
+        if (!has_n) {
+            if (total_ && top_ >= kSplitOutputCap)
+                throw_split_cap(std::to_string(std::uint64_t(top_) + 1) + " outputs");
+            return;
+        }
         if (!std::isfinite(n) || n != std::floor(n)) throw_split_n_kind(dag::number_text(n));
         if (total_ && n <= static_cast<double>(top_))
             throw std::invalid_argument("split: n=" + dag::number_text(n) +
@@ -230,6 +247,7 @@ private:
         if (n > static_cast<double>(kMaxSplitOutputs))
             throw std::invalid_argument("split: n must be at most 2**31 - 1, got " +
                                         dag::number_text(n));
+        if (n > static_cast<double>(kSplitOutputCap)) throw_split_cap("n=" + dag::number_text(n) + " outputs");
         grow(static_cast<std::size_t>(n));
     }
 

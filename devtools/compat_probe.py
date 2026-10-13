@@ -729,6 +729,7 @@ def cases():
     top = 2 ** 63 - 6
     table.update({
         "Pipeline two sessions from the same nodes": shared_ops,
+        "split n past 2**20": lambda: len(s.split([1.0], [0], n=2**20 + 1)),
         "Pipeline.from_json int past int64": from_json_big,
         "2in array beside 0-d array": lambda: s.Add()(v, np.array(1.0)),
         "2in 0-d array beside array": lambda: s.Add()(np.array(1.0), v),

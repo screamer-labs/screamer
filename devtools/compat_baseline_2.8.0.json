@@ -20330,6 +20330,9 @@
    "505fb61ce33ea9b3"
   ]
  ],
+ "split n past 2**20": [
+  "int"
+ ],
  "Pipeline.from_json int past int64": [
   "ERROR",
   "TypeError",
