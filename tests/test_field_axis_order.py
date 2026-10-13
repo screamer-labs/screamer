@@ -12,6 +12,8 @@ import pathlib
 import subprocess
 import sys
 
+from tests._oracle_fresh import assert_oracle_fresh
+
 import numpy as np
 import pytest
 
@@ -95,11 +97,7 @@ def _builds(make, xs):
 
 @pytest.mark.skipif(not GEN.exists(), reason="needs the source tree")
 def test_field_axis_oracle_is_fresh():
-    r = subprocess.run([sys.executable, str(GEN), "--stdout"], cwd=REPO_ROOT, capture_output=True)
-    assert r.returncode == 0, r.stderr.decode(errors="replace")
-    assert r.stdout == FIXTURE.read_bytes(), (
-        "wasm/smoke/field_axis_oracle.json is stale: re-run "
-        "python devtools/wasm/gen_field_axis_oracle.py and commit the result.")
+    assert_oracle_fresh(GEN, FIXTURE, REPO_ROOT)
 
 
 @pytest.mark.parametrize("name, n, layout", SERIES_OPS, ids=[c[0] for c in SERIES_OPS])

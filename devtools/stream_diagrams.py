@@ -13,6 +13,12 @@ Run it to (re)write the SVGs used by the multi-stream notebook:
 Output goes to docs/_static/diagrams/<operator>.svg.
 """
 import os
+
+if __name__ == "__main__":
+    # --help works without matplotlib installed.
+    import argparse
+    argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter).parse_args()
+
 import matplotlib
 matplotlib.use("Agg")
 # Deterministic SVG output: a fixed salt gives stable element ids, so re-running
@@ -137,6 +143,4 @@ def main():
 
 
 if __name__ == "__main__":
-    import argparse
-    argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter).parse_args()
     main()

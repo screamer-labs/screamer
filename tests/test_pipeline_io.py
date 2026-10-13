@@ -14,6 +14,8 @@ import pathlib
 import subprocess
 import sys
 
+from tests._oracle_fresh import assert_oracle_fresh
+
 import numpy as np
 import pytest
 
@@ -27,11 +29,7 @@ GEN = ROOT / "devtools" / "wasm" / "gen_pipeline_io_oracle.py"
 
 
 def test_the_oracle_for_javascript_is_fresh():
-    r = subprocess.run([sys.executable, str(GEN), "--stdout"], cwd=ROOT, capture_output=True)
-    assert r.returncode == 0, r.stderr.decode(errors="replace")
-    assert r.stdout == ORACLE.read_bytes(), (
-        "wasm/smoke/pipeline_io_oracle.json is stale: re-run "
-        "python devtools/wasm/gen_pipeline_io_oracle.py and commit the result.")
+    assert_oracle_fresh(GEN, ORACLE, ROOT)
 
 
 def _description(params):
