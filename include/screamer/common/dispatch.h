@@ -225,13 +225,14 @@ inline nb::object coerce_if_unsupported_dtype_array(nb::object obj, const std::s
 // Coerce any unsupported-dtype array elements of an N-input argument pack.
 // Preserves the fast path: returns `args` untouched (no rebuild) when nothing
 // needs coercion.
-inline nb::args coerce_args_if_unsupported(const nb::args& args, nb::handle self) {
+template <class S>
+inline nb::args coerce_args_if_unsupported(const nb::args& args, const S& op) {
     bool any = false;
     for (nb::handle a : args) {
         if (is_unsupported_dtype_array(a)) { any = true; break; }
     }
     if (!any) return args;
-    const std::string who = op_display_name(self);
+    const std::string who = op_display_name(nb::find(op));   // looked up only here
     nb::list lst;
     for (nb::handle a : args) {
         lst.append(coerce_if_unsupported_dtype_array(nb::borrow<nb::object>(a), who));
@@ -1120,7 +1121,7 @@ nb::object functor_Ni_1o(Op& self, const nb::args& raw_args) {
     // Coerce any nanobind-unsupported-dtype array (e.g. longdouble/float128)
     // to float64 before the array-vs-iterable routing below, so it is
     // processed as an array. No-op (returns raw_args) for supported dtypes.
-    nb::args args = detail::coerce_args_if_unsupported(raw_args, nb::find(self));
+    nb::args args = detail::coerce_args_if_unsupported(raw_args, self);
 
     if (auto ins = detail::maybe_read_packed<N>(args)) {
         return handle_input_Ni_1o_numpy(self, *ins);
@@ -1241,7 +1242,7 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
     // Coerce any nanobind-unsupported-dtype array (e.g. longdouble/float128)
     // to float64 before the array-vs-iterable routing below, so it is
     // processed as an array. No-op (returns raw_args) for supported dtypes.
-    nb::args args = detail::coerce_args_if_unsupported(raw_args, nb::find(self));
+    nb::args args = detail::coerce_args_if_unsupported(raw_args, self);
 
     if (auto ins = detail::maybe_read_packed<N>(args)) {
         return handle_input_Ni_Mo_numpy(self, *ins);

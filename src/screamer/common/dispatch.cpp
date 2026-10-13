@@ -22,6 +22,10 @@ nb::object make_dag_functor_node(nb::object self, nb::object args_tuple) {
 static nb::object screamer_route(ScreamerBase& self, nb::object obj);
 
 nb::object screamer_call(ScreamerBase& self, nb::object raw) {
+    // One number event: a float (np.float64 too, a float subclass) skips
+    // normalization and routing.
+    PyObject* p = raw.ptr();
+    if (PyFloat_Check(p)) return nb::steal(PyFloat_FromDouble(self.process_scalar(PyFloat_AsDouble(p))));
     nb::object obj = normalize_input(raw, self);
     try {
         return screamer_route(self, std::move(obj));

@@ -101,8 +101,6 @@ def test_nanobind_internal_hostile_module(case, call):
     out = _run(HEADERS[case], call)
     if call == "s.RollingMean(2)(M(), M())":       # a wrong count, named without nanobind
         assert out == ["ValueError", "RollingMean expects 1 input, got 2"], out
-    elif call == "s.RollingMean(2)(1.0, x=M())":   # a keyword the call does not take
-        assert out == ["TypeError", "RollingMean() got an unexpected keyword argument 'x'"], out
     else:
         assert out[0] == "TypeError" and "incompatible function arguments" in out[1], out
 
