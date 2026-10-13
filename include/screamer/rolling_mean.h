@@ -38,34 +38,8 @@ namespace screamer {
             double sum = state.sum();
             const auto policy = state.start_policy();
 
-            for (size_t i = 0; i < size; ++i) {
-                const double v = x[i];
-                if (isnan2(v)) {
-                    y[i] = std::numeric_limits<double>::quiet_NaN();
-                    continue;
-                }
-                const double old = buffer[index];
-                buffer[index] = v;
-                ++index;
-                if (index == capacity) index = 0;
-
-                if (count == capacity) {
-                    sum += v - old;
-                    y[i] = sum / capacity;
-                } else {
-                    sum += v;
-                    ++count;
-                    if (count == capacity) {
-                        y[i] = sum / capacity;
-                    } else if (policy == detail::StartPolicy::Strict) {
-                        y[i] = std::numeric_limits<double>::quiet_NaN();
-                    } else if (policy == detail::StartPolicy::Expanding) {
-                        y[i] = sum / count;      // grows with the samples seen
-                    } else {
-                        y[i] = sum / capacity;   // zero: pad the missing past
-                    }
-                }
-            }
+            for (size_t i = 0; i < size; ++i)
+                y[i] = detail::rolling_mean_step(buffer, capacity, index, count, sum, policy, x[i]);
             state.restore(index, count, sum);
         }
 

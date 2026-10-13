@@ -29,9 +29,9 @@ namespace screamer {
 
         // One event on the window's state, for both the batch column loop and
         // call() (StepperFunctorBase): the running values stay in registers
-        // in a batch call. The step is detail::RollingMean::append on the
-        // ratio, which ignores a NaN ratio (state untouched, NaN out), giving
-        // the "ignore" behavior.
+        // in a batch call. The step is detail::rolling_mean_step on the ratio,
+        // which ignores a NaN ratio (state untouched, NaN out), giving the
+        // "ignore" behavior.
         struct Stepper {
             double* buf;
             std::size_t cap;
@@ -47,30 +47,7 @@ namespace screamer {
                     return std::numeric_limits<double>::quiet_NaN();
                 }
                 const double ratio = std::abs(ret) / notional;
-                if (isnan2(ratio)) {
-                    return std::numeric_limits<double>::quiet_NaN();
-                }
-                const double old = buf[index];
-                buf[index] = ratio;
-                if (++index == cap) {
-                    index = 0;
-                }
-                if (count == cap) {
-                    sum += ratio - old;
-                    return sum / cap;
-                }
-                sum += ratio;
-                count++;
-                if (count == cap) {
-                    return sum / cap;
-                }
-                if (policy == detail::StartPolicy::Strict) {
-                    return std::numeric_limits<double>::quiet_NaN();
-                }
-                if (policy == detail::StartPolicy::Expanding) {
-                    return sum / count;
-                }
-                return sum / cap;   // StartPolicy::Zero
+                return detail::rolling_mean_step(buf, cap, index, count, sum, policy, ratio);
             }
         };
         Stepper stepper() {
