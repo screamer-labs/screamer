@@ -299,6 +299,7 @@ public:
                     // learns how each port relates to the input merge, so it
                     // proves a bar complete from the ports' frontiers.
                     auto rn = std::make_shared<ResampleNode<std::int64_t>>(ns.resample, *downstream);
+                    clock_nodes_.push_back(rn.get());
                     if (ns.inputs.size() == 2) {
                         if (order_memo.empty()) order_memo.assign(n, 0);
                         rn->set_clock_ports(merge_relation(s, ns.inputs[0], order_memo) & 1,
@@ -359,6 +360,7 @@ public:
     // Resets all stateful nodes and output buffers via a single polymorphic pass.
     // Called at the start of every run_batch so each batch sees a clean initial state.
     void reset() {
+        set_merge_order(false);
         poisoned_ = false;
         flushed_ = false;
         join_.reset();
@@ -382,19 +384,33 @@ public:
         flushed_ = true;
     }
 
+    // Whether one index-ordered merge feeds the inputs from here until the
+    // next reset() (a batch run, the lazy driver, a combine_latest stream):
+    // clock resamples may then prove a bar from the merge order. A live
+    // session leaves it off, as reset() does.
+    void set_merge_order(bool on) {
+        for (auto* n : clock_nodes_) n->set_merge_order(on);
+    }
+
     // Time-driven finalization: inject a watermark at every input sink so the
     // signal flows through the full graph topology. Resample nodes close their
     // open windows on the watermark (via on_watermark -> advance), and
     // combinators (CombineLatest, Filter) unblock buffered rows whose index is
     // now safe to release. Safe to call repeatedly with non-decreasing `now`.
-    // A later event below `now` raises (check_order). A node that rejects the
-    // watermark (a fill Resample past max_fill) poisons the session, as a
-    // rejected event does: other nodes took it already.
+    // A later event below `now` raises (check_order).
+    //
+    // A fill Resample whose gap to `now` passes max_fill raises FillLimitError
+    // before it changes any state, and the session goes on: the watermark is
+    // a promise (no event below `now`, kept by the floor), so the nodes that
+    // took it before the rejection hold valid state, and the nodes that did
+    // not take it only release their rows later. Any other rejection poisons
+    // the session.
     void advance(std::int64_t now) {
         check_live();
         flushed_ = false;
         if (!has_floor_ || now > floor_) { floor_ = now; has_floor_ = true; }
         try { for (auto* s : input_sinks_) if (s) s->on_watermark(now); }
+        catch (const FillLimitError&) { throw; }
         catch (...) { poisoned_ = true; throw; }
     }
 
@@ -527,8 +543,10 @@ public:
         std::vector<std::size_t> widths(num_in_, 1u);
         if (!in_widths.empty()) widths = in_widths;
 
-        // Reset all stateful state and clear output buffers.
+        // Reset all stateful state and clear output buffers. The merge below
+        // feeds the inputs in index order.
         reset();
+        set_merge_order(true);
 
         // Check every node against the input widths before any event is fed.
         {
@@ -838,6 +856,7 @@ private:
     // reset() does one polymorphic pass instead of multiple typed loops.
     std::vector<Resettable*>                      reset_nodes_;
     std::vector<OutputBuffer>                     outputs_;         // persistent output buffers
+    std::vector<ResampleNode<std::int64_t>*>      clock_nodes_;     // clock resamples (set_merge_order)
     std::vector<std::size_t>                      output_widths_;   // expected width for each output
 };
 

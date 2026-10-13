@@ -134,16 +134,20 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   `combine_latest` emitted rows in a mixed order, a `Pipeline` and `Resample`
   passed the rows through in input order, `split` returned decreasing output
   indexes, and a live push below an `advance(now)` was lost from aligned
-  outputs whose rows had settled with the older values. Sort each stream by its index first, for example
-  `order = np.argsort(index, kind="stable")`, then `values[order]` and
-  `index[order]`.
+  outputs whose rows had settled with the older values. Sort each stream by
+  its index first, for example `order = np.argsort(index, kind="stable")`,
+  then `values[order]` and `index[order]`. Across inputs a live session still
+  takes events in any order, each input in its own order.
 * A fill resample (`fill="nan"` or `"carry"`, `freq=` or `every=`) raises
   `ValueError` (JavaScript: `RangeError`) when one gap would emit more than
   `max_fill` empty bars (default 1,000,000), before it builds any bar: "a fill
   Resample would emit 2000000 empty bars for one gap, more than
-  max_fill=1000000". This holds in batch, lazy and live calls; in a live
-  session the rejection by `advance(now)` ends the session, as other node
-  rejections do. 2.8.0 filled every empty bucket, so a large gap, such as
+  max_fill=1000000". This holds in batch, lazy and live calls. The limit
+  counts the empty bars of one step (one event or one `advance(now)`), so a
+  live session that advances in small steps fills a gap that batch rejects.
+  A rejected `advance(now)` leaves the session usable, as a rejected event
+  does; later events must still come at or after `now`. 2.8.0 filled every
+  empty bucket, so a large gap, such as
   two events 2\*\*53 index units apart with `every=10` or a big
   `advance(now)` jump after a pause, allocated until the process ran out of
   memory. For the 2.8.0 result on a gap up to 2\*\*53 buckets, pass a larger
@@ -687,14 +691,16 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   at 5 behind a `Filter` whose mask moves past 5 only at 20, with clock ticks
   at 6, 9 and 12, gave the bar at 12 in 2.8.0 and gives the bar at 6 now.
   Clock events at one index give one bar, also when a value ahead of the
-  clock (a `Delay`) closed the first one. There is no setting for the 2.8.0
-  result, which depended on when the upstream node released the value.
+  clock (a `Delay`) closed the first one. A live session whose inputs come
+  in a different order across inputs (each in its own order) gives the batch
+  bars too. There is no setting for the 2.8.0 result, which depended on when
+  the upstream node released the value.
 * A clock `Resample` now passes watermarks on, so `advance(now)` releases the
   other outputs' aligned rows while the clock is silent, in a live session
   and a lazy call. In 2.8.0 those rows waited for the next clock tick, and
   the resample kept every value since the last tick in memory: a live session
   whose clock stopped grew by about 60 bytes per value, with or without
-  `advance()`. Memory is now flat.
+  `advance()`. With periodic `advance()` its memory is now flat.
 
 * A clock resample (`clock=True`) of an input with two or more asset axes,
   such as `(T, A0, A1)` or `(T, A0, A1, A2)`, returned a wrong array in 2.8.0

@@ -11,13 +11,39 @@ import {
 // clock) and y (2 columns): filter, dropna, select, combineLatest, delay,
 // RollingMean and resample (every with label left or right and fill skip, nan
 // or carry; count; threshold with a dropna driver; clock, with the clock c,
-// dropna(c) or a resample of c). 15% of cases are
-// unaligned, and in 40% the inputs end with rows that dropna or filter drop (a
-// NaN tail, a 0 mask tail). Three live sessions per case drain after each event with
-// probability 1, 0.3 and 0.05, with advance(now) between events; the
-// concatenated drains must equal batch. advance(now) stays at or below every
-// input's last event; cases with a clock resample run with it too (G19, G20).
-// The seeds are fixed.
+// dropna(c), a filter, an every, count or threshold resample of c,
+// combineLatest, or a nested clock resample). 15% of cases are unaligned, and
+// in 40% the inputs end with rows that dropna or filter drop (a NaN tail, a 0
+// mask tail). Three live sessions per case drain after each event with
+// probability 1, 0.3 and 0.05, with advance(now) between events; the first
+// pushes in index order and the other two let inputs run ahead of each other
+// (each input in its own order). The concatenated drains must equal batch.
+// advance(now) stays at or below every input's last event, and at or below
+// every input's next event. The seeds are fixed.
+
+// The events in a live push order: each input keeps its own order, and with
+// probability `skew` the next event comes from a random input instead of the
+// lowest index (ties by input order, as batch merges them). Each event
+// carries `bound`, the lowest next index over the inputs before it is pushed:
+// an advance(now) at or below it keeps every later push at or above now.
+type Ev = [number, number, number, string];
+function skewed<E extends Ev>(evs: E[], g: { r: () => number; int: (lo: number, hi: number) => number }, skew: number): [E, number][] {
+  const queues = new Map<number, E[]>();
+  for (const e of evs) { if (!queues.has(e[1])) queues.set(e[1], []); queues.get(e[1])!.push(e); }
+  const heads = new Map<number, number>([...queues.keys()].map((i) => [i, 0]));
+  const out: [E, number][] = [];
+  for (;;) {
+    const live = [...queues.keys()].filter((i) => heads.get(i)! < queues.get(i)!.length);
+    if (!live.length) return out;
+    const head = (i: number) => queues.get(i)![heads.get(i)!];
+    const bound = Math.min(...live.map((i) => head(i)[0]));
+    let i: number;
+    if (g.r() < skew) i = live[g.int(0, live.length)];
+    else i = live.reduce((a, b) => { const x = head(a), y = head(b); return y[0] < x[0] || (y[0] === x[0] && y[1] < x[1]) ? b : a; });
+    out.push([head(i), bound]);
+    heads.set(i, heads.get(i)! + 1);
+  }
+}
 
 function rngOf(seed: number) {
   let s = seed >>> 0 || 1;
@@ -80,9 +106,18 @@ function makeCase(seed: number) {
     if (r === 1) return resample(scalar(d), { count: g.int(1, 6), agg });
     if (r === 2) return resample(scalar(d), { threshold: 0.5 + g.r() * 3.5, driver: dropna(inp("b")), agg: "sum" });
     hasClock = true;
-    const rc = g.int(0, 3);
-    const clock = rc === 0 ? inp("c") : rc === 1 ? dropna(inp("c")) : resample(inp("c"), { every: g.int(2, 12), agg: "last" });
-    return resample(scalar(d), { clock: true, driver: clock, agg: "last" });
+    return resample(scalar(d), { clock: true, driver: clockSrc(d), agg: "last" });
+  };
+  const clockSrc = (d: number): any => {
+    const r = g.int(0, d < 2 ? 8 : 3);
+    if (r === 0) return inp("c");
+    if (r === 1) return dropna(inp("c"));
+    if (r === 2) return resample(inp("c"), { every: g.int(2, 12), agg: "last" });
+    if (r === 3) return filter(inp("c"), inp("m"));
+    if (r === 4) return resample(inp("c"), { count: g.int(1, 4), agg: "last" });
+    if (r === 5) return resample(inp("c"), { threshold: 0.5 + g.r() * 2.5, driver: dropna(inp("b")), agg: "last" });
+    if (r === 6) return select(combineLatest([inp("c"), inp("b")]), 0);
+    return resample(inp("c"), { clock: true, driver: clockSrc(d + 1), agg: "last" });   // a nested clock
   };
   const output = (): any => {
     const r = g.int(0, 4);
@@ -130,13 +165,13 @@ function runCase(seed: number): string | null {
     const evs: [number, number, number, string, any][] = [];
     names.forEach((k, i) => feeds[k].index.forEach((t, j) => evs.push([t, i, j, k, (feeds[k].values as any)[j]])));
     evs.sort((x, y) => x[0] - y[0] || x[1] - y[1] || x[2] - y[2]);
-    for (const prob of [1, 0.3, 0.05]) {
+    for (const [prob, skew] of [[1, 0], [0.3, 0.3], [0.05, 0.7]]) {
       const s = p.live();
       const parts: any[][] = [];
       let last: number | null = null;
-      for (const [t, , , k, v] of evs) {
-        if (last !== null && g.r() < 0.15 && last <= Math.min(t, horizon))
-          s.advance(last + g.int(0, Math.min(t, horizon) - last + 1));
+      for (const [[t, , , k, v], bound] of skewed(evs as any, g, skew) as any) {
+        const hi = Math.min(bound, horizon), lo = Math.min(last ?? hi, hi);
+        if (last !== null && g.r() < 0.15) s.advance(lo + g.int(0, hi - lo + 1));
         s.push(k, t, v);
         last = t;
         if (g.r() < prob) { const r = s.result(); parts.push(Array.isArray(r) ? r : [r]); }
@@ -170,9 +205,11 @@ for (let c = 0; c < N_CASES / CHUNK; c++) {
 // resample's bar at tick t holds the value events with index in (previous
 // tick, t], whatever releases them late (filter, a threshold, count or every
 // resample, combineLatest, dropna, RollingMean, a delay of either sign; the
-// clock through dropna, an every resample or a delay). Batch is checked
-// against that rule computed from the two streams alone, and three live
-// sessions (advance(now) between events and past the end) against batch.
+// clock through dropna, a filter, an every, count or threshold resample,
+// combineLatest, a delay or a nested clock resample). Batch is checked against
+// that rule computed from the two streams alone, and three live sessions
+// (inputs pushed ahead of each other in the last two, advance(now) between
+// events and past the end) against batch.
 
 function clockReference(vk: number[], vv: number[], ticks: number[], agg: string, fill: string) {
   const ts = [...new Set(ticks)].sort((x, y) => x - y);
@@ -217,12 +254,17 @@ function runClockCase(seed: number): string | null {
     if (r === 7) return dropna(value(d + 1));
     return RollingMean(2)(value(d + 1));
   };
-  const clock = (): any => {
-    const r = g.int(0, 4);
+  const clock = (d = 0): any => {
+    const r = g.int(0, d < 2 ? 9 : 1);
     if (r === 0) return inp("c");
     if (r === 1) return dropna(inp("c"));
     if (r === 2) return resample(inp("c"), { every: g.int(2, 9), agg: "last" });
-    return delay(inp("c"), g.int(-3, 4));
+    if (r === 3) return delay(inp("c"), g.int(-3, 4));
+    if (r === 4) return filter(clock(d + 1), inp("m"));
+    if (r === 5) return resample(clock(d + 1), { count: g.int(1, 4), agg: "last" });
+    if (r === 6) return resample(clock(d + 1), { threshold: 0.5 + g.r() * 2.5, driver: dropna(inp("d")), agg: "last" });
+    if (r === 7) return select(combineLatest([clock(d + 1), inp("d")]), 0);
+    return resample(inp("d"), { clock: true, driver: clock(d + 1), agg: "last" });   // a nested clock
   };
   const agg = ["last", "sum", "first"][g.int(0, 3)];
   const fill = ["skip", "nan", "carry"][g.int(0, 3)] as any;
@@ -246,12 +288,13 @@ function runClockCase(seed: number): string | null {
     names.forEach((k, i) => feeds[k].index.forEach((t, j) => evs.push([t, i, j, k])));
     evs.sort((x, y) => x[0] - y[0] || x[1] - y[1] || x[2] - y[2]);
     const horizon = Math.max(...names.map((k) => feeds[k].index[feeds[k].index.length - 1]));
-    for (const prob of [1, 0.3, 0.05]) {
+    for (const [prob, skew] of [[1, 0], [0.3, 0.3], [0.05, 0.7]]) {
       const s = pipes[0].live();
       const parts: any[][] = [];
       let last: number | null = null;
-      for (const [t, , j, k] of evs) {
-        if (last !== null && g.r() < 0.3) s.advance(last + g.int(0, t - last + 1));
+      for (const [[t, , j, k], bound] of skewed(evs, g, skew)) {
+        const lo = Math.min(last ?? bound, bound);
+        if (last !== null && g.r() < 0.3) s.advance(lo + g.int(0, bound - lo + 1));
         s.push(k, t, feeds[k].values[j]);
         last = t;
         if (g.r() < prob) parts.push(one(s.result()));

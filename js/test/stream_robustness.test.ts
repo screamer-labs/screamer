@@ -142,11 +142,70 @@ test("G22: advance(2**53) with every=10 and a fill raises cleanly", async () => 
     s.push("x", 0, 1);
     assert.throws(() => s.advance(2 ** 53),
       (e: any) => e instanceof RangeError && /a fill Resample would emit 900719925474098 empty bars/.test(e.message));
-    assert.throws(() => s.push("x", 1, 1), /rejected an event/);
     const s2 = p.live();
     s2.push("x", 0, 1); s2.advance(1000); s2.flush();
     assert.equal((s2.result() as Output).index.length, 100);
   } finally { p.dispose(); }
+});
+
+test("G22: a rejected advance leaves the session usable", async () => {
+  await ready();
+  const x = Input("x");
+  const p = new Pipeline([x], [RollingMean(1)(x), resample(x, { every: 10, fill: "nan", maxFill: 50 })], { alignOutputs: false });
+  try {
+    const s = p.live();
+    s.push("x", 0, 1); s.push("x", 5, 2);
+    assert.throws(() => s.advance(1000), (e: any) => e instanceof RangeError && FILL(99, 50).test(e.message));
+    assert.throws(() => s.push("x", 999, 3), /below an earlier advance\(1000\)/);
+    s.advance(300); s.advance(650);              // gaps of 29 and 35 bars: fine
+    s.push("x", 1000, 3); s.flush();
+    const [o0, o1] = s.result() as Output[];
+    assert.deepEqual(arr(o0.index), [0, 5, 1000]);
+    assert.deepEqual(arr(o1.index), Array.from({ length: 101 }, (_, i) => i * 10));
+  } finally { p.dispose(); }
+});
+
+test("G22: the fill limit counts one step", async () => {
+  await ready();
+  // Batch closes the gap 0 to 300 in one step and throws; a live session that
+  // advances in steps of 30 fills the same gap (the documented per-step rule).
+  const p = pipe((x) => resample(x, { every: 10, fill: "nan", maxFill: 4 }));
+  try {
+    assert.throws(() => p({ x: { values: [1, 2], index: [0, 300] } }), FILL(29, 4));
+    const s = p.live();
+    s.push("x", 0, 1);
+    for (let now = 30; now <= 300; now += 30) s.advance(now);
+    s.push("x", 300, 2); s.flush();
+    assert.deepEqual(arr((s.result() as Output).index), Array.from({ length: 31 }, (_, i) => i * 10));
+  } finally { p.dispose(); }
+});
+
+test("G26: live pushes out of order across inputs match batch", async () => {
+  await ready();
+  const a = Input("a"), c = Input("c");
+  const feeds = { a: { values: [1, 2], index: [50, 100] }, c: { values: [1, 1], index: [60, 120] } };
+  const p = new Pipeline([a, c], [resample(a, { clock: true, driver: c, agg: "last" })]);
+  const p2 = new Pipeline([a, c], [RollingMean(1)(a), resample(a, { clock: true, driver: c, agg: "last" })]);
+  try {
+    const want = p(feeds) as Output;
+    assert.deepEqual(arr(want.index), [60, 120]);
+    assert.deepEqual(arr(want.values), [1, 2]);
+    const s = p.live();
+    s.push("a", 50, 1); s.push("a", 100, 2); s.push("c", 60, 1); s.push("c", 120, 1); s.flush();
+    const got = s.result() as Output;
+    assert.deepEqual(arr(got.index), arr(want.index));
+    assert.deepEqual(arr(got.values), arr(want.values));
+    const want2 = one(p2(feeds));
+    const s2 = p2.live();
+    s2.push("a", 50, 1); s2.push("a", 100, 2); s2.advance(55);
+    const r1 = one(s2.result());
+    s2.push("c", 60, 1); s2.push("c", 120, 1); s2.flush();
+    const r2 = one(s2.result());
+    for (let j = 0; j < 2; j++) {
+      assert.deepEqual([...arr(r1[j].index), ...arr(r2[j].index)], arr(want2[j].index));
+      assert.deepEqual([...arr(r1[j].values), ...arr(r2[j].values)], arr(want2[j].values));
+    }
+  } finally { p.dispose(); p2.dispose(); }
 });
 
 test("G22: maxFill follows the count-setting rule", async () => {

@@ -36,6 +36,7 @@ public:
         gb.set_outputs({gb.add_combine_latest(std::move(ins), when_all, max_pending)});
         graph_ = std::make_unique<CompiledGraph>(gb.take());
         graph_->reset();
+        graph_->set_merge_order(true);   // step() feeds the smallest head first
     }
 
     // The source whose next event is due, or -1 when every source has a head

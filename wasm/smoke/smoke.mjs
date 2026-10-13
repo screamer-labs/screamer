@@ -1,18 +1,24 @@
 // Node smoke test for the screamer WASM build.
 //
-//   node wasm/smoke/smoke.mjs
+//   node wasm/smoke/smoke.mjs [path/to/screamer.mjs]
 //
-// Part A (coverage): construct EVERY manifest op with canonical args and run one
-// event through evalInto; assert no throw and finite-or-NaN outputs.
+// Part A (coverage): construct EVERY manifest op with its default args (from the
+// manifest) and run one event through evalInto (mapRowInto for a row op, with
+// 3 assets); assert no throw and finite-or-NaN outputs.
 // Part B (parity): drive the recorded Python-oracle series through a sample of
 // ops and assert the checked output matches within 1e-9.
 //
 // A construct/eval failure or a parity mismatch is a real finding and fails the run.
 
-import init from "../build/screamer.mjs";
 import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { dirname, join, resolve } from "node:path";
+
+// The module to test: wasm/build/screamer.mjs, or the path given as the first
+// argument (`npm test` passes js/src/generated/screamer.mjs, the copy the
+// package ships).
+const { default: init } = await import(
+  process.argv[2] ? pathToFileURL(resolve(process.argv[2])).href : "../build/screamer.mjs");
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = join(HERE, "..", "..");
@@ -23,93 +29,49 @@ const oracle = JSON.parse(readFileSync(join(HERE, "oracle.json"), "utf8"));
 
 const TOL = 1e-9;
 
-// Per-op canonical-arg overrides (WASM/JS ctor convention: positional, NaN for a
-// missing optional slot). Needed where the canonical defaults violate a ctor
-// invariant (fast<slow, cutoff ranges, enum-valued strings, "exactly one decay").
-// Each is documented with the reason the naive canonical would throw.
-const OVERRIDES = {
-  // fast must be strictly less than slow
-  ADOSC: [3, 10],
-  MACD: [12, 26, 9],
-  // fill string must be "touch" or "breach"
-  // (maker_fee, taker_fee, fill, participation_ratio, tick_size, min_position,
-  //  max_position, multiplier, maker_fee_per_contract, taker_fee_per_contract)
-  BacktestL1Orders: [1.0, 1.0, "touch", 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-  BacktestL1TradesOrders: [1.0, 1.0, "touch", 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-  BacktestOHLCOrders: [1.0, 1.0, "touch", 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-  BacktestTradesOrders: [1.0, 1.0, "touch", 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-  // Butterworth cutoffs must satisfy 0 < low < high < 1
-  ButterBandpass: [2, 0.1, 0.4],
-  ButterBandstop: [2, 0.1, 0.4],
-  ButterHighpass: [2, 0.25],
-  // output enum must be "cleaned"/"flag"/"nan"
-  Hampel: [3, 1.0, "cleaned", "strict"],
-  ImpulseClip: [3, 1.0, "cleaned", "strict"],
-  // decay must be in (0,1): (decay, alpha, mu)
-  HawkesIntensity: [0.5, 1.0, 0.0],
-  // window size must be at least 4
-  HullMA: [4],
-  // alpha must be in (0,1)
-  RollingCVaR: [3, 0.5],
-  // window_size must be >= 4 * min_scale; method must be "rs"
-  RollingHurst: [40, 4, "rs"],
-  // output enum must be "mrr"/"mean"/"relmean"/"std"
-  RollingOU: [3, "mean", "strict"],
-  // derivative order must be a valid small int
-  RollingPoly1: [3, 0, "strict"],
-  RollingPoly2: [3, 0, "strict"],
-  // method must be "wilder" or "cutler"
-  RollingRSI: [3, "wilder", "strict"],
-  // lower must be strictly less than upper: (lower, upper, initial)
-  SchmittTrigger: [0.0, 1.0, 0.0],
-  // ew_optional "exactly one of period/cutoff must be provided" (period slot)
-  RoofingFilter: [48, 10, NaN, NaN],
-  SuperSmoother: [10, NaN],
-  Decycler: [10, NaN],
-  // int window + 2 optional bounds + output enum ("clipped") + start policy
-  RollingSigmaClip: [20, NaN, NaN, "clipped", "strict"],
+// Constructor arguments come from the manifest's C++ defaults
+// (devtools/wasm/gen_wasm_manifest.py records each `"name"_a = default`), so
+// they follow the bindings and cannot go stale. A default the parser does not
+// read raises, naming the op and the text, so a new default form gets a rule
+// here instead of a silent wrong value. A missing default (none today) or an
+// optional slot without one takes the canonical value of its type.
+function parseDefault(name, type, text) {
+  if (text === null || text === undefined) {
+    if (type === "std::optional<double>") return NaN;     // a missing optional slot
+    return { int: 3, double: 1.0, "std::string": "strict", "std::vector<double>": [1.0] }[type];
+  }
+  const t = text.trim();
+  let m;
+  if ((m = /^"(.*)"$/.exec(t))) return m[1];
+  if ((m = /^(-?)std::numeric_limits<double>::infinity\(\)$/.exec(t))) return m[1] ? -Infinity : Infinity;
+  if ((m = /^screamer::PerAsset\{(.*)\}$/.exec(t)) || (m = /^std::vector<double>\{(.*)\}$/.exec(t)))
+    return m[1].split(",").map((x) => Number(x.trim()));
+  if (/^-?[0-9.]+(e-?[0-9]+)?$/i.test(t)) return Number(t);
+  throw new Error(`${name}: cannot read the default ${JSON.stringify(text)} of a ${type} parameter`);
+}
+
+// Values for parameters that have no default and that the canonical value of
+// their type does not satisfy, by parameter name. A name the constructor no
+// longer has raises, so an entry cannot go stale silently.
+const REQUIRED = {
+  SchmittTrigger: { lower: 0.0, upper: 1.0 },         // lower < upper
+  RoofingFilter: { hp_period: 48, lp_period: 10 },     // one of period or cutoff per filter
 };
 
-// Build canonical args for one manifest entry.
+// Build constructor args for one manifest entry from its defaults.
 function canonicalArgs(entry) {
-  const override = OVERRIDES[entry.name];
-  if (override) {
-    // An override is hand-written, so it goes stale the moment the op gains a
-    // constructor parameter. Say so directly instead of letting Embind report
-    // an arity mismatch that names no fix.
-    if (override.length !== entry.ctor.length) {
-      throw new Error(
-        `OVERRIDES entry has ${override.length} args but the constructor now takes ` +
-          `${entry.ctor.length} (${entry.ctor.join(", ")}); update it in wasm/smoke/smoke.mjs`,
-      );
-    }
-    return override;
+  const names = entry.ctor_args.map((a) => a.name);
+  const args = entry.ctor.map((type, i) => parseDefault(entry.name, type, entry.ctor_args[i]?.default ?? null));
+  for (const [param, value] of Object.entries(REQUIRED[entry.name] ?? {})) {
+    const i = names.indexOf(param);
+    if (i < 0) throw new Error(`REQUIRED names ${param}, which ${entry.name} no longer takes; update wasm/smoke/smoke.mjs`);
+    args[i] = value;
   }
-  const ctor = entry.ctor;
-  const args = ctor.map((t) => {
-    switch (t) {
-      case "int":
-        return 3;
-      case "double":
-        return 1.0;
-      case "std::string":
-        return "strict";
-      case "std::optional<double>":
-        return NaN; // missing optional slot
-      case "std::vector<double>":
-        return [1.0, 2.0, 3.0];
-      default:
-        throw new Error(`${entry.name}: unknown ctor type ${t}`);
-    }
-  });
-  // ew_optional ops usually require "exactly one" decay parameter; the naive
-  // all-NaN optional set throws. Provide a valid value in the LAST optional slot
-  // (alpha for the Ew* / DEMA / TEMA family; the trailing double is untouched).
-  if (entry.ctor_kind === "ew_optional") {
+  // ew_optional ops require exactly one decay parameter and default to none:
+  // set the last optional slot (alpha for the Ew* / DEMA / TEMA family).
+  if (entry.ctor_kind === "ew_optional" && args.every((a, i) => entry.ctor[i] !== "std::optional<double>" || Number.isNaN(a))) {
     let lastOpt = -1;
-    for (let i = 0; i < ctor.length; i++) {
-      if (ctor[i] === "std::optional<double>") lastOpt = i;
-    }
+    for (let i = 0; i < entry.ctor.length; i++) if (entry.ctor[i] === "std::optional<double>") lastOpt = i;
     if (lastOpt >= 0) args[lastOpt] = 0.5;
   }
   return args;
@@ -154,6 +116,21 @@ function evalOne(M, op, inputs) {
   }
 }
 
+// One event of a row op: fieldsIn() rows of k assets (1, 2, ...), field-major.
+function evalRow(M, op, k) {
+  const fi = op.fieldsIn(), fo = op.fieldsOut();
+  const inBuf = M.allocF64(fi * k);
+  const outBuf = M.allocF64(fo * k);
+  try {
+    M.viewF64(inBuf, fi * k).set(Array.from({ length: fi * k }, (_, i) => 1 + (i % k)));
+    op.mapRowInto(inBuf, outBuf, k);
+    return Array.from(M.viewF64(outBuf, fo * k));
+  } finally {
+    M.freeBuf(inBuf);
+    M.freeBuf(outBuf);
+  }
+}
+
 function isFiniteOrNaN(v) {
   return typeof v === "number" && (Number.isFinite(v) || Number.isNaN(v));
 }
@@ -171,8 +148,8 @@ async function main() {
     try {
       const args = canonicalArgs(entry);
       op = construct(M, name, args);
-      const nIn = op.nIn();
-      const out = evalOne(M, op, new Array(nIn).fill(1.0));
+      // A row op (variable width) maps one row of 3 assets per field.
+      const out = entry.row_op ? evalRow(M, op, 3) : evalOne(M, op, new Array(op.nIn()).fill(1.0));
       for (const v of out) {
         if (!isFiniteOrNaN(v)) {
           throw new Error(`non-finite output: ${JSON.stringify(out)}`);

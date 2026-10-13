@@ -139,6 +139,10 @@ it would exhaust memory. One fill bar costs at least 16 bytes in the graph and
 about as much again in the result, so the default keeps one gap near 32 MB for
 one column; it covers 11 days of one-second bars or 1.9 years of one-minute
 bars. Pass a larger integer, up to 2\*\*53, to fill longer gaps.
+The limit counts one step, so a live session that calls `advance(now)` in small
+steps fills a gap that a batch call over the same events rejects. A rejected
+`advance(now)` leaves the session usable; later events must still come at or
+after `now`.
 
 ### `fill=` edge cases
 

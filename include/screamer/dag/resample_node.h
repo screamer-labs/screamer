@@ -354,8 +354,11 @@ public:
     // receives an index below one the merge has passed (an Input, or functors,
     // Select, Dropna, a lag or a forward Delay of one), so any index seen on a
     // never-ahead port bounds it. `never_ahead`: the port's indexes never pass
-    // the merge (anything but a forward Delay). The defaults prove steps from
-    // each port's own frontier only.
+    // the merge (anything but a forward Delay). These relations hold only
+    // while one merge feeds the graph in index order (set_merge_order: a batch
+    // run, the lazy driver); a live session's pushes may come in any order
+    // across inputs, so there each step is proven from the ports' own
+    // frontiers and watermarks.
     void set_clock_ports(bool value_in_order, bool value_never_ahead,
                          bool clock_in_order, bool clock_never_ahead) {
         value_in_order_ = value_in_order;
@@ -363,6 +366,9 @@ public:
         ahead_ok_[0] = value_never_ahead;
         ahead_ok_[1] = clock_never_ahead;
     }
+
+    // Whether one merge feeds the graph's inputs in index order (see above).
+    void set_merge_order(bool on) { merge_order_ = on; }
 
 private:
     // ohlcv_bars without a plan: the plan comes from the first frame's width.
@@ -501,13 +507,13 @@ private:
     // No value event at or below t can still come.
     bool value_past(Index t) const {
         return (has_vfront_ && vfront_ > t) ||
-               (value_in_order_ && has_gfront_ && gfront_ > t);
+               (merge_order_ && value_in_order_ && has_gfront_ && gfront_ > t);
     }
 
     // Every tick still to come is at or above k.
     bool clock_reaches(Index k) const {
         return (has_cfront_ && cfront_ >= k) ||
-               (clock_in_order_ && has_gfront_ && gfront_ >= k);
+               (merge_order_ && clock_in_order_ && has_gfront_ && gfront_ >= k);
     }
 
     // A value event that may join the current bar now: the bar of the first
@@ -568,11 +574,11 @@ private:
         // The lowest index a bar may still have: the first pending tick, else
         // the clock frontier (every tick still to come is at or above it).
         Index f;
+        const bool g = merge_order_ && clock_in_order_ && has_gfront_;
         if (!ticks_.empty()) f = ticks_.front();
-        else if (has_cfront_ && clock_in_order_ && has_gfront_)
-            f = gfront_ > cfront_ ? gfront_ : cfront_;
+        else if (has_cfront_ && g) f = gfront_ > cfront_ ? gfront_ : cfront_;
         else if (has_cfront_) f = cfront_;
-        else if (clock_in_order_ && has_gfront_) f = gfront_;
+        else if (g) f = gfront_;
         else return;
         if (has_fwd_ && f <= fwd_) return;
         fwd_ = f; has_fwd_ = true;
@@ -732,6 +738,7 @@ private:
     bool has_vfront_ = false, has_cfront_ = false, has_gfront_ = false, has_fwd_ = false;
     bool has_last_tick_ = false;      // a tick has emitted (last_tick_)
     bool value_in_order_ = false, clock_in_order_ = false;
+    bool merge_order_ = false;        // the inputs come from one index-ordered merge
     bool ahead_ok_[2] = {false, false};
 };
 

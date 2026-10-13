@@ -47,9 +47,16 @@ struct ResamplePlanEntry {
 // Settable per Resample (max_fill, maxFill in JavaScript) from 1 to 2**53.
 inline constexpr std::int64_t kDefaultMaxFill = 1'000'000;
 
+// The fill-limit error (ValueError, RangeError in JavaScript). A Resample
+// raises it before it changes any state, so a live session that an advance()
+// rejects goes on (CompiledGraph::advance).
+struct FillLimitError : std::invalid_argument {
+    using std::invalid_argument::invalid_argument;
+};
+
 // The fill-limit error: `bars` empty bars for one gap (-1: beyond int64).
 [[noreturn]] inline void throw_fill_limit(std::int64_t bars, std::int64_t max_fill) {
-    throw std::invalid_argument(
+    throw FillLimitError(
         "a fill Resample would emit " +
         (bars < 0 ? std::string("more than 2**63") : std::to_string(bars)) +
         " empty bars for one gap, more than max_fill=" + std::to_string(max_fill) +

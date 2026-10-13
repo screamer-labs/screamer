@@ -181,16 +181,74 @@ def test_a_huge_advance_raises_cleanly():
     s = p.live().push("x", 0, 1.0)
     with pytest.raises(ValueError, match=r"a fill Resample would emit 900719925474098 empty bars"):
         s.advance(2**53)
-    # The watermark reached other nodes first, so the session ends, as after
-    # any rejection a node decides.
-    with pytest.raises(RuntimeError, match="rejected an event"):
-        s.push("x", 1, 1.0)
     s = p.live().push("x", 0, 1.0).advance(1000)          # 99 empty bars: fine
     v, k = s.flush().result()
     np.testing.assert_array_equal(k, np.arange(0, 1000, 10))
     s = p.live().push("x", 0, 1.0).advance(2**63 - 1)     # the end of input fills nothing
     v, k = s.result()
     np.testing.assert_array_equal(k, [0])
+
+
+def test_a_rejected_advance_leaves_the_session_usable():
+    # The resample checks the gap before it changes anything, so the session
+    # goes on, as after a rejected event; its time has moved to the rejected
+    # advance (no later event may come below it).
+    x = Input("x")
+    p = Pipeline([x], [sc.RollingMean(1)(x), sc.Resample(freq=10, fill="nan", max_fill=50)(x)],
+                 align_outputs=False)
+    s = p.live().push("x", 0, 1.0).push("x", 5, 2.0)
+    with pytest.raises(ValueError, match=FILL.format(99, 50)):
+        s.advance(1000)
+    with pytest.raises(ValueError, match=r"below an earlier advance\(1000\)"):
+        s.push("x", 999, 3.0)
+    s.advance(300).advance(650)                        # gaps of 29 and 35 bars: fine
+    s.push("x", 1000, 3.0).flush()
+    (_, k0), (_, k1) = s.result()
+    np.testing.assert_array_equal(k0, [0, 5, 1000])
+    np.testing.assert_array_equal(k1, np.arange(0, 1010, 10))
+
+
+def test_the_fill_limit_counts_one_step():
+    # The limit counts the empty bars that one event or one advance() closes.
+    # Batch closes the gap 0 to 300 in one step and raises; a live session that
+    # advances in steps of 30 fills the same gap (the documented per-step rule).
+    x = Input("x")
+    p = Pipeline([x], [sc.Resample(freq=10, fill="nan", max_fill=4)(x)])
+    with pytest.raises(ValueError, match=FILL.format(29, 4)):
+        p((np.array([1.0, 2.0]), np.array([0, 300])))
+    s = p.live().push("x", 0, 1.0)
+    for now in range(30, 301, 30):
+        s.advance(now)
+    s.push("x", 300, 2.0).flush()
+    _, k = s.result()
+    np.testing.assert_array_equal(k, np.arange(0, 310, 10))
+
+
+def test_live_pushes_out_of_order_across_inputs_match_batch():
+    # The reviewer's repro: each input in order, the inputs ahead of each
+    # other. The value at 100 must not join the bar at 60 (lookahead).
+    a, c = Input("a"), Input("c")
+    feeds = ((np.array([1.0, 2.0]), np.array([50, 100])), (np.ones(2), np.array([60, 120])))
+    p = Pipeline([a, c], [sc.Resample(a, c, clock=True, agg="last")])
+    v, k = p(*feeds)
+    np.testing.assert_array_equal(k, [60, 120])
+    np.testing.assert_array_equal(v, [1.0, 2.0])
+    s = p.live()
+    s.push("a", 50, 1.0).push("a", 100, 2.0).push("c", 60, 1.0).push("c", 120, 1.0).flush()
+    v2, k2 = s.result()
+    np.testing.assert_array_equal(k2, k)
+    np.testing.assert_array_equal(v2, v)
+    # With an aligned output beside it and an advance, no row settles early.
+    p2 = Pipeline([a, c], [sc.RollingMean(1)(a), sc.Resample(a, c, clock=True, agg="last")])
+    want = p2(*feeds)
+    s = p2.live()
+    s.push("a", 50, 1.0).push("a", 100, 2.0).advance(55)
+    r1 = s.result()
+    s.push("c", 60, 1.0).push("c", 120, 1.0).flush()
+    r2 = s.result()
+    for j in range(2):
+        np.testing.assert_array_equal(np.concatenate([r1[j][1], r2[j][1]]), want[j][1])
+        np.testing.assert_array_equal(np.concatenate([r1[j][0], r2[j][0]]), want[j][0])
 
 
 def test_max_fill_follows_the_count_setting_rule():

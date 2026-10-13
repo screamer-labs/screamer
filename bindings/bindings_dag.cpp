@@ -132,6 +132,7 @@ public:
         }
         merge_ = std::make_unique<streams::MergeSource<std::int64_t>>(child_ptrs_);
         cg_.reset();
+        cg_.set_merge_order(true);   // the merge feeds the inputs in index order
     }
 
     nb::object next() {

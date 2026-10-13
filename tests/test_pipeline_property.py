@@ -4,17 +4,20 @@ Each case builds 2 to 4 outputs from random trees over the inputs a, b
 (scalar, with NaN), m (a 0/1/NaN mask), c (a clock) and y (2 columns). The
 nodes are Filter, Dropna, Select, CombineLatest, Delay, RollingMean and
 Resample: every= with label left or right and fill skip, nan or carry; count=;
-threshold= with a Dropna driver; and clock= with the clock c, Dropna(c) or a
-Resample of c. Indexes repeat and 15% of cases
-are unaligned, and in 40% of cases the inputs end with rows that Dropna or
-Filter drop (a NaN tail, a 0 mask tail). Three live sessions per case drain after each event with
-probability 1, 0.3 and 0.05, with advance(now) between events; the
-concatenated drains must equal batch byte for byte, and lazy must equal batch.
+threshold= with a Dropna driver; and clock= with the clock c, Dropna(c), a
+Filter, an every=, count= or threshold= Resample of c, CombineLatest, or a
+nested clock resample. Indexes repeat and 15% of cases are unaligned, and in
+40% of cases the inputs end with rows that Dropna or Filter drop (a NaN tail,
+a 0 mask tail). Three live sessions per case drain after each event with
+probability 1, 0.3 and 0.05, with advance(now) between events; the first
+pushes in index order and the other two let inputs run ahead of each other
+(each input in its own order). The concatenated drains must equal batch byte
+for byte, and lazy must equal batch.
 
 advance(now) stays at or below every input's last event: past it, a fill
 resample closes windows that batch never opens, which is what advance means.
-Cases with a clock resample run with advance too (G19, G20). The seeds are
-fixed.
+It also stays at or below every input's next event, as a live session
+requires. The seeds are fixed.
 """
 import numpy as np
 import pytest
@@ -105,10 +108,18 @@ def make_case(rng, enable_clock=True):
         if r == 2:
             return sc.Resample(scalar_src(depth), sc.Dropna()(inp("b")), threshold=float(rng.uniform(0.5, 4)), agg="sum")
         has_clock.append(True)
-        r = rng.integers(0, 3)
-        clock = (inp("c") if r == 0 else sc.Dropna()(inp("c")) if r == 1
-                 else sc.Resample(every=int(rng.integers(2, 12)), agg="last")(inp("c")))
-        return sc.Resample(scalar_src(depth), clock, clock=True, agg="last")
+        return sc.Resample(scalar_src(depth), clock_src(depth), clock=True, agg="last")
+
+    def clock_src(depth):
+        r = rng.integers(0, 8 if depth < 2 else 3)
+        if r == 0: return inp("c")
+        if r == 1: return sc.Dropna()(inp("c"))
+        if r == 2: return sc.Resample(every=int(rng.integers(2, 12)), agg="last")(inp("c"))
+        if r == 3: return sc.Filter()(inp("c"), inp("m"))
+        if r == 4: return sc.Resample(count=int(rng.integers(1, 4)), agg="last")(inp("c"))
+        if r == 5: return sc.Resample(inp("c"), sc.Dropna()(inp("b")), threshold=float(rng.uniform(0.5, 3)), agg="last")
+        if r == 6: return sc.Select(0)(sc.CombineLatest()(inp("c"), inp("b")))
+        return sc.Resample(inp("c"), clock_src(depth + 1), clock=True, agg="last")   # a nested clock
 
     def output():
         r = rng.integers(0, 4)
@@ -136,6 +147,31 @@ def events(feeds, names):
             evs.append((int(k[j]), i, j, names[i], v[j]))
     evs.sort(key=lambda e: e[:3])
     return evs
+
+
+def skewed(evs, rng, skew):
+    """The events in a live push order: each input keeps its own order, and
+    with probability `skew` the next event comes from a random input instead of
+    the lowest index (ties by input order, as batch merges them), so inputs run
+    ahead of each other. Each event carries `bound`, the lowest next index over
+    the inputs before it is pushed: an advance(now) at or below it keeps every
+    later push at or above now."""
+    queues = {}
+    for e in evs:
+        queues.setdefault(e[1], []).append(e)
+    heads = {i: 0 for i in queues}
+    out = []
+    while True:
+        live = [i for i in queues if heads[i] < len(queues[i])]
+        if not live:
+            return out
+        bound = min(queues[i][heads[i]][0] for i in live)
+        if rng.random() < skew:
+            i = live[int(rng.integers(0, len(live)))]
+        else:
+            i = min(live, key=lambda i: queues[i][heads[i]][:3])
+        out.append(queues[i][heads[i]] + (bound,))
+        heads[i] += 1
 
 
 def lazy(p, feeds, m):
@@ -169,9 +205,12 @@ def run_case(seed, enable_clock=True, use_advance=True):
         parts = []
         prob = [1.0, 0.3, 0.05][trial]
         last = None
-        for q, (t, _, _, nm, v) in enumerate(evs):
-            if use_advance and last is not None and rng.random() < 0.15 and last <= min(t, horizon):
-                s.advance(int(rng.integers(last, min(t, horizon) + 1)))
+        # Trial 0 pushes in index order; trials 1 and 2 let inputs run ahead
+        # of each other (finding 1 of the Task 30 review).
+        for q, (t, _, _, nm, v, bound) in enumerate(skewed(evs, rng, [0.0, 0.3, 0.7][trial])):
+            hi = min(bound, horizon)
+            if use_advance and last is not None and rng.random() < 0.15:
+                s.advance(int(rng.integers(min(last, hi), hi + 1)))
             s.push(nm, t, v.tolist() if np.ndim(v) else float(v))
             last = t
             if rng.random() < prob:
@@ -215,10 +254,12 @@ def test_batch_lazy_live_agree_on_random_graphs(chunk):
 # events with index in (previous tick, t], whatever releases them late: the
 # value stream comes through a Filter, a threshold or count Resample, an
 # every= Resample, a CombineLatest, Dropna, RollingMean or a Delay of either
-# sign, and the clock through Dropna, an every= Resample or a Delay. Each case
-# checks batch against that rule computed from the two streams alone, and
-# lazy and three live sessions (drains with probability 1, 0.3 and 0.05,
-# advance(now) between events and past the end) against batch.
+# sign, and the clock through Dropna, a Filter, an every=, count= or
+# threshold= Resample, a CombineLatest, a Delay or a nested clock resample.
+# Each case checks batch against that rule computed from the two streams
+# alone, and lazy and three live sessions (drains with probability 1, 0.3 and
+# 0.05, inputs pushed ahead of each other in the last two, advance(now)
+# between events and past the end) against batch.
 # ---------------------------------------------------------------------------
 
 def _clock_reference(vk, vv, ticks, agg, fill):
@@ -276,12 +317,18 @@ def run_clock_case(seed):
         if r == 7: return sc.Dropna()(value(depth + 1))
         return sc.RollingMean(2)(value(depth + 1))
 
-    def clock():
-        r = int(rng.integers(0, 4))
+    def clock(depth=0):
+        r = int(rng.integers(0, 9 if depth < 2 else 1))
         if r == 0: return inp("c")
         if r == 1: return sc.Dropna()(inp("c"))
         if r == 2: return sc.Resample(every=int(rng.integers(2, 9)), agg="last")(inp("c"))
-        return sc.Delay(int(rng.integers(-3, 4)))(inp("c"))
+        if r == 3: return sc.Delay(int(rng.integers(-3, 4)))(inp("c"))
+        if r == 4: return sc.Filter()(clock(depth + 1), inp("m"))
+        if r == 5: return sc.Resample(count=int(rng.integers(1, 4)), agg="last")(clock(depth + 1))
+        if r == 6: return sc.Resample(clock(depth + 1), sc.Dropna()(inp("d")),
+                                      threshold=float(rng.uniform(0.5, 3)), agg="last")
+        if r == 7: return sc.Select(0)(sc.CombineLatest()(clock(depth + 1), inp("d")))
+        return sc.Resample(inp("d"), clock(depth + 1), clock=True, agg="last")   # a nested clock
 
     agg = ["last", "sum", "first"][int(rng.integers(0, 3))]
     fill = ["skip", "nan", "carry"][int(rng.integers(0, 3))]
@@ -307,12 +354,12 @@ def run_clock_case(seed):
             return ("lazy", d)
     evs = events(fl, names)
     horizon = max(int(k[-1]) for _, k in fl)
-    for prob in (1.0, 0.3, 0.05):
+    for prob, skew in ((1.0, 0.0), (0.3, 0.3), (0.05, 0.7)):
         s = p.live()
         parts, last = [], None
-        for t, _, _, nm, v in evs:
+        for t, _, _, nm, v, bound in skewed(evs, rng, skew):
             if last is not None and rng.random() < 0.3:
-                s.advance(int(rng.integers(last, t + 1)))
+                s.advance(int(rng.integers(min(last, bound), bound + 1)))
             s.push(nm, t, float(v))
             last = t
             if rng.random() < prob:
