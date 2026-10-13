@@ -1,0 +1,3 @@
+# A patch applies byte for byte: keep its line endings as committed (no
+# CRLF conversion on Windows checkouts).
+*.patch -text

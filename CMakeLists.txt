@@ -51,10 +51,17 @@ set(LOCAL_CACHE_DIR ${CMAKE_SOURCE_DIR}/_local_deps)
 # whose class has a non-str __module__. See
 # docs/superpowers/plans/2026-08-01-nanobind-migration.md.
 #
-# Pinned by commit, with a local patch: cmake/nanobind-surrogate-module.patch
-# makes nb_type_name() and nb_func_render_signature() tolerate a __module__ that
-# is not valid UTF-8 (for example '\udc80'), which crashes v2.13.0 and nanobind
-# master. The patch exists until upstream fixes nb_type_name; remove it then.
+# Pinned by commit, with a local patch, cmake/nanobind-surrogate-module.patch,
+# for two crashes of v2.13.0 and nanobind master that are not yet fixed upstream
+# (report both; remove each hunk when its fix lands):
+#  1. nb_type_name() and nb_func_render_signature() tolerate a __module__ that
+#     is not valid UTF-8 (for example '\udc80').
+#  2. make_mt_from_buffer_protocol() (nb_ndarray.cpp) divides view->strides[i]
+#     without a NULL check. A ctypes array and a NumPy datetime64/timedelta64
+#     scalar export a buffer with strides == NULL, so any nb::ndarray argument
+#     given one segfaulted. The patch reads NULL strides as C-contiguous.
+#     screamer also refuses those values before any ndarray cast (TypeError,
+#     cast_double.h is_foreign_value).
 # A version bump must re-check that the patch still applies (configure fails
 # loudly when it does not).
 set(SCREAMER_NANOBIND_VERSION "2.13.0")

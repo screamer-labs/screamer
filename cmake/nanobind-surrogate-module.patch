@@ -38,6 +38,40 @@ index 03b3e1c..84448b5 100644
                      }
                      if (!found) {
                          if (nb_signature_mode)
+diff --git a/src/nb_ndarray.cpp b/src/nb_ndarray.cpp
+index e140022..28e815c 100644
+--- a/src/nb_ndarray.cpp
++++ b/src/nb_ndarray.cpp
+@@ -552,14 +552,23 @@ static mt_unique_ptr_t make_mt_from_buffer_protocol(PyObject *o, bool ro) {
+     mt->dltensor.byte_offset = 0UL;
+ 
+     const int64_t itemsize = (int64_t) view->itemsize;
+-    for (int32_t i = 0; i < ndim; ++i) {
+-        int64_t stride = view->strides[i] / itemsize;
+-        if (stride * itemsize != view->strides[i]) {
+-            PyBuffer_Release(view.get());
+-            return mt_unique_ptr;
++    // An exporter may leave 'strides' NULL even when PyBUF_STRIDES was
++    // requested (ctypes arrays, NumPy datetime64 scalars); the buffer is then
++    // C-contiguous (screamer patch, cmake/nanobind-surrogate-module.patch).
++    int64_t contig = 1;
++    for (int32_t i = ndim - 1; i >= 0; --i) {
++        if (!view->strides) {
++            strides[i] = contig;
++        } else {
++            int64_t stride = view->strides[i] / itemsize;
++            if (stride * itemsize != view->strides[i]) {
++                PyBuffer_Release(view.get());
++                return mt_unique_ptr;
++            }
++            strides[i] = stride;
+         }
+-        strides[i] = stride;
+         shape[i] = (int64_t) view->shape[i];
++        contig *= shape[i];
+     }
+ 
+     mt->version = {dlpack::major_version, dlpack::minor_version};
 diff --git a/src/nb_type.cpp b/src/nb_type.cpp
 index 12a7c0a..9f7b98d 100644
 --- a/src/nb_type.cpp
