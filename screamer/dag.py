@@ -1,7 +1,5 @@
 """Computational DAG definition: symbolic Node handles (DAG-1)."""
 
-import sys
-
 import numpy as np
 
 __all__ = ["Node", "Input", "Pipeline"]
@@ -145,20 +143,23 @@ def _setting(name, x):
 
 
 def _is_sequence(x):
-    """A sequence of numbers as a stream source holds it: a list, a NumPy
-    array, or a pandas Series or Index."""
-    if isinstance(x, (list, np.ndarray)):
+    """A sequence as a stream source holds values or an index: any sized
+    sequence that is not text or a mapping (a list, a tuple, a range, a NumPy
+    array, a pandas Series or Index, ...). Its items are checked by the value
+    and index rules when they are read (a string item raises TypeError)."""
+    if isinstance(x, (str, bytes, bytearray, dict)):
+        return False
+    if isinstance(x, (list, tuple, range, np.ndarray)):
         return True
-    pd = sys.modules.get("pandas")
-    return pd is not None and isinstance(x, (pd.Series, pd.Index))
+    return hasattr(x, "__len__") and (hasattr(x, "__getitem__") or hasattr(x, "__array__"))
 
 
 def _is_vi_pair(x):
     """Whether a stream source is a (values, index) pair. A tuple marks it,
     as an object {values, index} does in JavaScript, and is never read as
-    values: a 2-tuple of two sequences (a list, an array, a pandas Series or
-    Index; the index may also be None, or a NumPy scalar for one event) is
-    (values, index), and any other tuple raises TypeError. Defined once, so every stream source (combine_latest,
+    values: a 2-tuple of two sequences (a list, a tuple, a range, an array, a
+    pandas Series or Index; the index may also be None, or a NumPy scalar for
+    one event) is (values, index), and any other tuple raises TypeError. Defined once, so every stream source (combine_latest,
     merge, split, resample, forecast_pairs and Pipeline feeds) applies the
     same rule."""
     if not isinstance(x, tuple):
@@ -174,8 +175,8 @@ def _is_vi_pair(x):
         got = f"a tuple holding {_kind_text(bad)}"
     raise TypeError(
         "a tuple marks a (values, index) stream: pass a 2-tuple of values and "
-        "index (each a list, an array or a pandas Series or Index), or the values "
-        f"alone as a list or an array; got {got}")
+        "index (each a sequence such as a list, a tuple, a range or an array), or "
+        f"the values alone as a list or an array; got {got}")
 
 
 def _kind_text(x):

@@ -269,3 +269,25 @@ def test_a_tuple_that_is_not_values_and_index_raises():
             s.CombineLatest()(bad, [1.0, 2.0])
     with pytest.raises(TypeError, match=r"a tuple marks a \(values, index\) stream"):
         s.split((1.0, 2.0), [0, 1])
+
+
+def test_a_range_or_tuple_index_and_a_tuple_of_tuples_are_pairs():
+    from screamer.streams import merge
+    v, i = s.CombineLatest()((np.array([1.0, 2.0, 3.0]), range(3)), (np.array([4.0, 5.0]), (0, 2)))
+    np.testing.assert_array_equal(i, [0, 1, 2])
+    np.testing.assert_array_equal(v, [[1, 4], [2, 4], [3, 5]])
+    w, j = s.CombineLatest()(((1.0, 2.0, 3.0), (0, 1, 2)), ((4.0, 5.0), (0, 2)))
+    np.testing.assert_array_equal(w, v)
+    np.testing.assert_array_equal(j, i)
+    mv, _, mi = merge(([1.0, 2.0], range(0, 4, 2)), ((3.0,), (1,)))
+    np.testing.assert_array_equal(mi, [0, 1, 2])
+    (a, ka), _ = s.split(((1.0, 2.0), range(5, 7)), [0, 1])
+    np.testing.assert_array_equal(ka, [5])
+    x = s.Input("x")
+    _, idx = s.Pipeline([x], [s.RollingMean(1)(x)])(([1.0, 2.0], range(7, 9)))
+    np.testing.assert_array_equal(idx, [7, 8])
+    d, di = s.Dropna()(([1.0, np.nan], [0, 1]))
+    np.testing.assert_array_equal(d, [1.0])
+    np.testing.assert_array_equal(di, [0])
+    with pytest.raises(TypeError):                     # a string item, by the value rules
+        s.CombineLatest()((("a", "b"), (0, 1)), ([1.0, 2.0], [0, 1]))

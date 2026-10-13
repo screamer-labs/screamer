@@ -111,15 +111,22 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Changed
 
-* A tuple given as a stream (to `combine_latest`, `merge`, `split`,
-  `resample`, `forecast_pairs` or a `Pipeline` feed) always marks
-  `(values, index)`, as an object `{values, index}` does in JavaScript: a
-  2-tuple of a values sequence and an index sequence (a list, an array, a
-  pandas Series or Index; the index may also be `None` or a NumPy scalar).
-  Any other tuple raises `TypeError` ("a tuple marks a (values, index)
-  stream ..."). 2.8.0 read a tuple of numbers, such as `(1.0, 2.0, 3.0)`, as
-  values, and read `([1.0, 2.0], [0, 1])` as two rows of values (or raised
-  `RuntimeError` "std::bad_cast"). For values, pass a list or an array.
+* A tuple given as a stream source always marks `(values, index)`, as an
+  object `{values, index}` does in JavaScript. This holds for every stream
+  source: `combine_latest` (`CombineLatest`), `merge` (`Merge`), `split`,
+  `dropna` (`Dropna`), `select` (`Select`), `Filter`, `delay` (`Delay`),
+  `resample` (`Resample`), `forecast_pairs`, `reshape` and `Pipeline` feeds.
+  A 2-tuple of two sequences (a list, a tuple, a range, an array, a pandas
+  Series or Index; the index may also be `None` or a NumPy scalar) is
+  `(values, index)`, and its items follow the value and index rules. Any
+  other tuple raises `TypeError` ("a tuple marks a (values, index) stream
+  ..."). 2.8.0 read a tuple of numbers, such as `(1.0, 2.0, 3.0)`, as values;
+  for values, pass a list or an array. 2.8.0 read a tuple whose values are
+  not an array as values too: `dropna(([1.0, nan], [0, 1]))` gave
+  `[[0.0, 1.0]]` (the index read as a row of values) and gives
+  `(array([1.0]), array([0]))` now; `([1.0, 2.0], [0, 1])` raised
+  `RuntimeError` "std::bad_cast" in `combine_latest` and `merge`. For the
+  2.8.0 reading of such a tuple as rows, pass `np.array(t)`.
 * An index whose length differs from its values in `combine_latest` raises
   `ValueError` ("combine_latest: input 0 has 30 rows of values but 5 index
   values"), as JavaScript's `combineLatest` raises `RangeError`. 2.8.0 raised
