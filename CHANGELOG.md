@@ -10,6 +10,7 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Added
 
+* JavaScript `forecastPairs`.
 * JavaScript `backtestReport`.
 * The microstructure operators `SignedVolume`, `RollingKyleLambda`,
   `EwKyleLambda`, `RollingOrderImbalance` and `QueueImbalance` are C++
@@ -90,6 +91,26 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Changed
 
+* `forecast_pairs` runs one graph defined in C++, shared with JavaScript's
+  `forecastPairs`, in every regime. Results are unchanged, except for a 2-D
+  `X` in duration mode (see "Fixed"). Other visible differences:
+  * A `count` or `duration` given as a string raises `TypeError`, as every
+    operator setting does (see "A string is never a number"); 2.8.0 read
+    `count="3"` with `int()`. Pass `int(count)`.
+  * A `count` below 1 raises `ValueError` "forecast_pairs: count must be at
+    least 1 and at most 2147483647, got 0", where 2.8.0 raised `ValueError`
+    with `Lag`'s message ("Size must be at least 1.", or "vector" for a
+    negative count). A graph node checks `count` when it is built, as 2.8.0
+    did.
+  * Inside a `Pipeline`, `forecast_pairs(X_node, y_node, ...)` is one graph
+    node. `to_dict()`, `to_json()`, `to_text()` and `to_dot()` show one
+    `forecast_pairs` node, where 2.8.0 showed its `Lag`, `Delay`, `Resample`,
+    `CombineLatest` and `Dropna` nodes, and `from_dict()` restores it.
+    Results are unchanged. A graph saved by 2.8.0 still loads.
+  * Given one `Node` and one array, it raises `TypeError` ("pass X and y both
+    as Nodes to build a graph"). In count mode 2.8.0 returned a node that a
+    `Pipeline` could not run; in duration mode it raised `Delay`'s
+    `TypeError`.
 * The microstructure operators report a wrong set of inputs with their own
   name and input names. `SignedVolume`, `QueueImbalance`, `RollingKyleLambda`
   and `EwKyleLambda` raise `TypeError` with messages such as
@@ -476,6 +497,11 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Fixed
 
+* `forecast_pairs` in duration mode with a 2-D `X` of `K` columns returns all
+  `K` shifted feature columns, as a `(rows, K)` array, as count mode does.
+  2.8.0 returned only the first column, as a 1-D array. A `(T, 1)`
+  `X` gives `(rows, 1)`, where 2.8.0 gave a 1-D array: the result has the rank
+  of `X` in both modes. For the 2.8.0 result, pass `X[:, 0]`.
 * JavaScript: an array of rows given to `positionTest` (a portfolio target)
   or `strategyTest` (an input) reads `null` as `NaN` and rejects a string
   with `TypeError`, as every other value path does. Before, `null` read as 0

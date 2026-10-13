@@ -340,3 +340,131 @@ def test_forecast_pairs_duration_lazy_matches_batch():
                                err_msg="lazy Xs != batch Xs (duration)")
     np.testing.assert_allclose(yl, yb, equal_nan=True,
                                err_msg="lazy ys != batch ys (duration)")
+
+
+# ---------------------------------------------------------------------------
+# One C++ graph: eager, lazy, live and a Pipeline node give identical results
+# ---------------------------------------------------------------------------
+
+def _same(a, b):
+    a, b = np.asarray(a), np.asarray(b)
+    return a.shape == b.shape and np.array_equal(a, b, equal_nan=True)
+
+
+def _regime_data(seed):
+    rng = np.random.default_rng(seed)
+    n = 60
+    xi = np.cumsum(rng.integers(1, 4, size=n)).astype(np.int64)
+    yi = np.cumsum(rng.integers(1, 5, size=n // 2)).astype(np.int64) + 2
+    xv = rng.standard_normal(n)
+    yv = rng.standard_normal(n // 2)
+    xv[rng.integers(0, n, size=4)] = np.nan
+    yv[rng.integers(0, n // 2, size=3)] = np.nan
+    return xv, xi, yv, yi
+
+
+def _live(pipe, xv, xi, yv, yi, drain_every):
+    """Push the events of X and y in index order (X first on a tie), draining
+    the result every `drain_every` events; the drains concatenated."""
+    events = sorted([(int(i), 0, v) for v, i in zip(xv, xi)] +
+                    [(int(i), 1, v) for v, i in zip(yv, yi)], key=lambda e: (e[0], e[1]))
+    sess = pipe.live()
+    parts = []
+    for k, (i, src, v) in enumerate(events, 1):
+        sess.push("X" if src == 0 else "y", i, v)
+        if k % drain_every == 0:
+            parts.append(sess.result())
+    sess.flush()
+    parts.append(sess.result())
+    vals = [p[0].reshape(len(p[1]), -1) for p in parts if len(p[1])]
+    idx = [p[1] for p in parts if len(p[1])]
+    return (np.concatenate(vals) if vals else np.empty((0, 2))), (
+        np.concatenate(idx) if idx else np.empty(0, np.int64))
+
+
+@pytest.mark.parametrize("seed", [0, 1, 2])
+@pytest.mark.parametrize("mode", [{"count": 1}, {"count": 3}, {"duration": 0},
+                                  {"duration": 4}, {"duration": 9}])
+@pytest.mark.parametrize("dropna", [False, True])
+def test_forecast_pairs_every_regime_is_identical(seed, mode, dropna):
+    from screamer import Input, Pipeline
+    xv, xi, yv, yi = _regime_data(seed)
+    if "count" in mode:          # count mode pairs row t with row t: one clock
+        yv, yi = xv[::-1].copy(), xi
+        eager = forecast_pairs(xv, yv, dropna=dropna, **mode)
+    else:
+        eager = forecast_pairs((xv, xi), (yv, yi), dropna=dropna, **mode)
+
+    gen = lambda v, i: ((float(a), int(b)) for a, b in zip(v, i))   # noqa: E731
+    rows = list(forecast_pairs(gen(xv, xi), gen(yv, yi), dropna=dropna, **mode))
+    lazy_vals = np.array([r[0] for r in rows]).reshape(len(rows), 2)
+    lazy_idx = np.array([r[1] for r in rows], dtype=np.int64)
+    assert _same(lazy_vals[:, 0], eager[0]) and _same(lazy_vals[:, 1], eager[1])
+
+    X_in, y_in = Input("X"), Input("y")
+    pipe = Pipeline([X_in, y_in], [forecast_pairs(X_in, y_in, dropna=dropna, **mode)])
+    batch_vals, batch_idx = pipe((xv, xi), (yv, yi))
+    assert _same(batch_vals, lazy_vals) and _same(batch_idx, lazy_idx)
+    for every in (1, 7, 10_000):
+        live_vals, live_idx = _live(pipe, xv, xi, yv, yi, every)
+        assert _same(live_vals, lazy_vals) and _same(live_idx, lazy_idx)
+
+
+def test_forecast_pairs_wide_features_equal_one_column_at_a_time():
+    rng = np.random.default_rng(5)
+    n = 40
+    X = rng.standard_normal((n, 3))
+    X[[3, 17], [0, 2]] = np.nan
+    y = rng.standard_normal(n)
+    idx = np.arange(n, dtype=np.int64) * 10
+    for dropna in (False, True):
+        Xs, ys = forecast_pairs(X, y, count=2, dropna=dropna)
+        Xd, yd = forecast_pairs((X, idx), (y, idx), duration=20, dropna=dropna)
+        assert Xs.shape[1] == 3 and Xd.shape[1] == 3
+        if not dropna:            # each column alone gives the same pairs
+            for c in range(3):
+                assert _same(Xs[:, c], forecast_pairs(X[:, c], y, count=2)[0])
+                # Duration samples with a carry resample, which carries a row
+                # only when all of it is NaN; compare on rows without NaN.
+                Xc = np.where(np.isnan(X), 0.0, X)
+                Xw = forecast_pairs((Xc, idx), (y, idx), duration=20)[0]
+                assert _same(Xw[:, c], forecast_pairs((Xc[:, c], idx), (y, idx), duration=20)[0])
+            assert _same(ys, y) and _same(yd, y[2:])   # y starts at the first delayed X
+    # a (T, 1) X keeps its rank in both modes
+    assert forecast_pairs(X[:, :1], y, count=1)[0].shape == (n, 1)
+    assert forecast_pairs((X[:, :1], idx), (y, idx), duration=10)[0].shape == (n - 1, 1)
+
+
+def test_forecast_pairs_node_round_trips_through_to_dict():
+    from screamer import Input, Pipeline
+    X_in, y_in = Input("X"), Input("y")
+    pipe = Pipeline([X_in, y_in], [forecast_pairs(X_in, y_in, duration=20, dropna=True)])
+    d = pipe.to_dict()
+    ops = [n for n in d["nodes"] if n["kind"] == "operator"]
+    assert [n["op"] for n in ops] == ["forecast_pairs"]
+    assert ops[0]["params"] == {"duration": 20, "dropna": True}
+    rng = np.random.default_rng(3)
+    idx = np.arange(30, dtype=np.int64) * 10
+    feeds = ((rng.standard_normal(30), idx), (rng.standard_normal(30), idx))
+    a, b = pipe(*feeds), Pipeline.from_dict(d)(*feeds)
+    assert _same(a[0], b[0]) and _same(a[1], b[1])
+
+
+def test_forecast_pairs_settings_and_errors():
+    from screamer import Input
+    v = np.arange(6.0)
+    with pytest.raises(TypeError, match="count must be a number, got str"):
+        forecast_pairs(v, v, count="1")
+    with pytest.raises(TypeError, match="duration must be a number, got str"):
+        forecast_pairs((v, None), (v, None), duration="1")
+    with pytest.raises(ValueError, match="count must be at least 1"):
+        forecast_pairs(v, v, count=0)
+    with pytest.raises(ValueError, match="count must be at least 1"):
+        forecast_pairs(v, v, count=-3)
+    with pytest.raises(ValueError, match="same length"):
+        forecast_pairs(v, v[:4], count=1)
+    with pytest.raises(TypeError, match="both as Nodes"):
+        forecast_pairs(Input("X"), v, count=1)
+    # a float setting is truncated and a bool is a number, as for Delay
+    assert _same(forecast_pairs(v, v, count=1.5)[0], forecast_pairs(v, v, count=1)[0])
+    assert _same(forecast_pairs(v, v, count=True)[0], forecast_pairs(v, v, count=1)[0])

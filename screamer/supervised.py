@@ -6,138 +6,40 @@ through, so the pairing is causal and needs no future values of y. The target mu
 itself be causal (known as of its own index), typically a rolling trailing quantity.
 These utilities are training-time only.
 
-All three regimes (eager, graph, lazy) are supported for both count and duration mode.
-Duration mode uses Resample(clock=) to emit the last delayed X at each y-tick; this
-is an as-of join on the index axis driven by the y clock.
+The graph is defined once in C++ (include/screamer/dag/forecast_pairs.h) and shared
+with JavaScript's forecastPairs. Every regime (eager, lazy, a graph node in a
+Pipeline, and so a live session) runs that graph; this module only adapts the inputs
+and splits the output columns.
 """
 from __future__ import annotations
 
-import numpy as np
-
-from .dag import _as_float64
-
-from . import Lag, Delay, CombineLatest, Dropna, Select
-from .dag import Input, Pipeline, is_node
+from .dag import _as_float64, _as_stream, _is_vi_pair, _setting, is_node, make_operator_node
 from .streams import _is_lazy_stream
 
 __all__ = ["forecast_pairs"]
 
 
-def _build_count_pipeline(count, dropna_flag):
-    """Build a reusable Pipeline for count-mode forecast_pairs.
-
-    Inputs: 'X' (1-D values), 'y' (1-D values).
-    Output: a single 2-column node [Xs, y], optionally filtered by Dropna.
-    """
-    X_in = Input("X")
-    y_in = Input("y")
-    Xs_node = Lag(int(count))(X_in)
-    combined = CombineLatest()(Xs_node, y_in)
-    if dropna_flag:
-        combined = Dropna(how="any")(combined)
-    return Pipeline([X_in, y_in], [combined])
+def _horizon(count, duration):
+    """count and duration as ints (None when absent), checked by the C++ rule.
+    A string is a TypeError, as for every operator setting; a float is
+    truncated, as Delay's duration is."""
+    from . import screamer_bindings as _b
+    if count is not None:
+        count = int(_setting("forecast_pairs: count", count))
+    if duration is not None:
+        duration = int(_setting("forecast_pairs: duration", duration))
+    _b._check_forecast_pairs_horizon(count, duration)
+    return count, duration
 
 
-def _forecast_pairs_count(X, y, count, dropna_flag):
-    """Count-mode forecast_pairs: works in eager, graph, and lazy regimes."""
-    if is_node(X) or is_node(y):
-        # Graph regime: build the computation graph and return a Node.
-        Xs_node = Lag(int(count))(X)
-        combined = CombineLatest()(Xs_node, y)
-        if dropna_flag:
-            combined = Dropna(how="any")(combined)
-        return combined
-
-    if _is_lazy_stream(X) or _is_lazy_stream(y):
-        # Lazy regime: build a Pipeline and run it lazily.
-        if not (_is_lazy_stream(X) and _is_lazy_stream(y)):
-            raise TypeError(
-                "forecast_pairs: cannot mix lazy iterator and concrete inputs; "
-                "pass both X and y as generators or both as arrays")
-        X_in = Input("X")
-        y_in = Input("y")
-        Xs_node = Lag(int(count))(X_in)
-        combined = CombineLatest()(Xs_node, y_in)
-        if dropna_flag:
-            combined = Dropna(how="any")(combined)
-        dag = Pipeline([X_in, y_in], [combined])
-        return dag(X, y)
-
-    # Eager regime: run the Pipeline in batch mode.
-    X = _as_float64(X)
-    y = _as_float64(y)
-    if len(X) != len(y):
-        raise ValueError("X and y must share the same length (time axis)")
-
-    if X.ndim > 1:
-        # Multi-column X: build an all-C++ Pipeline (CombineLatest + Dropna)
-        # so no data crosses the Python/C++ boundary per event.
-        # Lag handles 2-D natively; each feature column is Lag'd by count, then
-        # all feature columns and y are combined via CombineLatest and optionally
-        # filtered by Dropna. The output is a single (N+1)-wide array; the X
-        # columns are 0..N-1 and y is column N. Column extraction from the final
-        # batch result is shape-only I/O, not per-event Python logic.
-        N = X.shape[1]
-        col_inputs = [Input(f"X{i}") for i in range(N)]
-        y_in = Input("y")
-        lagged = [Lag(int(count))(c) for c in col_inputs]
-        combined = CombineLatest()(*lagged, y_in)
-        if dropna_flag:
-            combined = Dropna(how="any")(combined)
-        dag = Pipeline(col_inputs + [y_in], [combined])
-        col_feeds = [X[:, i] for i in range(N)]
-        result, _ = dag(*col_feeds, y)
-        # result is (rows, N+1): cols 0..N-1 are lagged features, col N is y.
-        return result[:, :N], result[:, N]
-
-    # 1-D X: build and run the Pipeline.
-    dag = _build_count_pipeline(count, dropna_flag)
-    result, _ = dag(X, y)
-    return result[:, 0], result[:, 1]
+def _graph(n_features, count, duration, dropna):
+    from . import screamer_bindings as _b
+    return _b._forecast_pairs_graph(n_features, count, duration, bool(dropna))
 
 
-def _forecast_pairs_duration(X, y, duration, dropna_flag):
-    """Duration-mode forecast_pairs: all regimes (eager, graph, lazy).
-
-    Shifts X's index by ``duration`` index units via Delay, then resamples at
-    each y-tick using Resample(clock=y, agg='last', fill='carry'). CombineLatest
-    pairs the resampled Xs with the corresponding y value at each clock tick.
-    Dropna filters rows where either Xs or y is NaN when requested.
-
-    Works in all three regimes by building a Pipeline of C++ nodes; no
-    Python-level data processing occurs.
-    """
-    from .streams import Resample
-
-    def _build_dag(X_in, y_in):
-        """Build the duration-mode pipeline on the given input nodes."""
-        Xs_node = Resample(Delay(int(duration))(X_in), y_in,
-                           clock=True, agg='last', fill='carry')
-        combined = CombineLatest()(Xs_node, y_in)
-        if dropna_flag:
-            return Dropna(how="any")(combined)
-        return combined
-
-    if is_node(X) or is_node(y):
-        # Graph regime: wire directly on the provided Node handles.
-        return _build_dag(X, y)
-
-    if _is_lazy_stream(X) or _is_lazy_stream(y):
-        # Lazy regime: run a Pipeline over the two iterator feeds.
-        X_in = Input("X")
-        y_in = Input("y")
-        dag = Pipeline([X_in, y_in], [_build_dag(X_in, y_in)])
-        return dag(iter(X), iter(y))
-
-    # Eager regime: X and y must be (values, index) tuples (duration is index-based).
-    if not (isinstance(X, tuple) and isinstance(y, tuple)):
-        raise TypeError("duration= mode needs X and y as (values, index) pairs")
-
-    X_in = Input("X")
-    y_in = Input("y")
-    dag = Pipeline([X_in, y_in], [_build_dag(X_in, y_in)])
-    result, _ = dag(X, y)
-    return result[:, 0], result[:, 1]
+def _split(values, n_features, wide):
+    """The output [X_shifted..., y] as (X_shifted, y); X_shifted keeps X's rank."""
+    return (values[:, :n_features] if wide else values[:, 0]), values[:, n_features]
 
 
 def forecast_pairs(X, y, *, count=None, duration=None, dropna=False):
@@ -164,8 +66,38 @@ def forecast_pairs(X, y, *, count=None, duration=None, dropna=False):
     Duration mode requires X and y to be ``(values, index)`` tuples in the eager
     regime; graph and lazy regimes carry the index implicitly through the pipeline.
     """
-    if (count is None) == (duration is None):
-        raise ValueError("pass exactly one of count= or duration=")
+    count, duration = _horizon(count, duration)
+
+    if is_node(X) or is_node(y):
+        # Graph regime: one node that Pipeline compiles into the C++ graph.
+        if not (is_node(X) and is_node(y)):
+            raise TypeError("forecast_pairs: pass X and y both as Nodes to build a graph")
+        return make_operator_node(forecast_pairs, (X, y),
+                                  {"count": count, "duration": duration, "dropna": dropna})
+
+    if _is_lazy_stream(X) or _is_lazy_stream(y):
+        if not (_is_lazy_stream(X) and _is_lazy_stream(y)):
+            raise TypeError(
+                "forecast_pairs: cannot mix lazy iterator and concrete inputs; "
+                "pass both X and y as generators or both as arrays")
+        from . import screamer_bindings as _b
+        return _b._LazyDriver(_graph(1, count, duration, dropna), [iter(X), iter(y)], 1)
+
     if duration is not None:
-        return _forecast_pairs_duration(X, y, duration, dropna)
-    return _forecast_pairs_count(X, y, count, dropna)
+        # Duration is index-based: X and y come with their index.
+        if not (isinstance(X, tuple) and isinstance(y, tuple)):
+            raise TypeError("duration= mode needs X and y as (values, index) pairs")
+        feeds = [_as_stream(X), _as_stream(y)]
+        values = feeds[0][1]
+        wide = _is_vi_pair(X) and values.ndim > 1
+    else:
+        X = _as_float64(X)
+        y = _as_float64(y)
+        from . import screamer_bindings as _b
+        _b._check_forecast_pairs_rows(len(X), len(y))
+        feeds = [_as_stream(X), _as_stream(y)]
+        wide = X.ndim > 1
+        values = X
+    n_features = values.shape[1] if wide else 1
+    (_, out), = _graph(n_features, count, duration, dropna).run_batch(feeds)
+    return _split(out, n_features, wide)

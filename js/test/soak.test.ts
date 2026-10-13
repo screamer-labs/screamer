@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   ready, current, Input, Pipeline,
   RollingMean, BollingerBands, BacktestPriceTarget, PortfolioReport, CrossRank, backtestReport,
+  forecastPairs,
 } from "../src/index.ts";
 
 // Soak tests: a program that builds a new op per call must run for months, so
@@ -122,6 +123,23 @@ test("soak: backtestReport, and its rejected calls, leave nothing behind", async
   const r = await retained(() => {
     backtestReport(out, { periodsPerYear: 252, index: [0, 1, 2] });
     try { backtestReport(out, { periodsPerYear: 0 }); } catch { /* rejected in C++ */ }
+  }, N_MIXED);
+  assert.ok(r.js < JS_BOUND, `JS heap grew by ${r.js} bytes`);
+  assert.ok(r.wasm < WASM_BOUND, `WASM heap grew by ${r.wasm} bytes`);
+});
+
+test("soak: forecastPairs, its graph node, and its rejected calls, leave nothing behind", async () => {
+  const xv = [1, 2, 3, 4, 5, 6], yv = [6, 5, 4, 3, 2, 1], ix = [0, 10, 20, 30, 40, 50];
+  const wide = { data: new Float64Array([1, 2, 3, 4, 5, 6, 7, 8]), shape: [4, 2] };
+  const r = await retained(() => {
+    forecastPairs(xv, yv, { count: 2, dropna: true });
+    forecastPairs(wide, [1, 2, 3, 4], { count: 1 });
+    forecastPairs({ values: xv, index: ix }, { values: yv, index: ix }, { duration: 10 });
+    try { forecastPairs(xv, yv, { count: 0 }); } catch { /* rejected in C++ */ }
+    try { forecastPairs(xv, [1], { count: 1 }); } catch { /* rejected in C++ */ }
+    const X = Input("X"), y = Input("y");
+    const d = new Pipeline([X, y], [forecastPairs(X, y, { count: 1 })]).live();
+    d.push("X", 0, 1); d.push("y", 0, 2); d.flush(); d.result();
   }, N_MIXED);
   assert.ok(r.js < JS_BOUND, `JS heap grew by ${r.js} bytes`);
   assert.ok(r.wasm < WASM_BOUND, `WASM heap grew by ${r.wasm} bytes`);

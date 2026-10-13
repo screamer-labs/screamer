@@ -42,7 +42,7 @@ is a training set where knowing `X` at time `t - count` lets a model predict
 ## Parameters
 
 - `X`: feature array (1-D or 2-D) for `count=` mode, or a `(values, index)`
-  tuple for `duration=` mode.
+  tuple for `duration=` mode, whose values may also be 1-D or 2-D.
 - `y`: target array (1-D) for `count=` mode, or a `(values, index)` tuple for
   `duration=` mode. Must be causal.
 - `count=` (int): shift `X` by this many events. Event-based; no index needed.
@@ -59,6 +59,7 @@ is a training set where knowing `X` at time `t - count` lets a model predict
 A two-tuple `(X_shifted, y)`:
 
 - `X_shifted`: the features delayed by the forecast horizon (`X[t-count]` at row `t`).
+  It has the rank of `X`: a 2-D `X` with `K` columns gives a `(rows, K)` array.
 - `y`: the target, passed through unchanged apart from any rows removed by `dropna`.
 
 The rows stay in time order. To map a row back to its time, keep your own index
@@ -68,7 +69,8 @@ mode.
 ## One-of constraint
 
 Exactly one of `count=` or `duration=` must be supplied. Passing both or
-neither raises `ValueError`.
+neither raises `ValueError`. `count` is at least 1. Both are numbers: a string
+raises `TypeError`, and a float is truncated, as `Delay` truncates its duration.
 
 ## Regimes
 
@@ -78,7 +80,8 @@ output across them. The function dispatches on the input type:
 - **Eager** (numpy arrays): call directly; returns `(X_shifted, y)` as numpy arrays.
 - **Graph** (Node inputs): pass `Input(...)` nodes; returns a Node. Wrap it in a
   `Pipeline` to run. The output node produces a 2-column array with columns
-  `[X_shifted, y]`; index 0 is `X_shifted`, index 1 is `y`.
+  `[X_shifted, y]`; index 0 is `X_shifted`, index 1 is `y`. In count mode the
+  node reads `X` as one column; pass a 2-D `X` in the eager form.
 - **Lazy** (generators of `(value, index)` events): returns a lazy iterator of
   `((xs_val, y_val), index)` events.
 
@@ -92,9 +95,20 @@ The function dispatches on the input type:
 - **Lazy** `(duration=)`: pass generators of `(value, index)` events; returns a lazy
   iterator of `((xs_val, y_val), index)` events.
 
-Internally, duration mode uses `Resample(Delay(duration)(X), clock=y, agg='last',
-fill='carry')` paired with `CombineLatest`, running entirely in the C++ graph engine
-across all three regimes.
+Every regime, and a live session of a `Pipeline` that holds the node, runs one
+graph defined in C++. Count mode lags each feature column with `Lag(count)`.
+Duration mode is `Resample(Delay(duration)(X), clock=y, agg='last', fill='carry')`:
+each `y` is paired with the last `X` whose index plus `duration` is at or before
+the index of `y`. Both modes then pair the shifted features with `y` through
+`CombineLatest`.
+
+## JavaScript
+
+`forecastPairs(X, y, { count | duration, dropna })` builds the same graph and
+returns `[X_shifted, y]`, with the same values as Python. In count mode `X` is a
+1-D array, a `[T, K]` NdArray or T rows, and `y` a 1-D array of the same length.
+In duration mode `X` and `y` are `{ values, index }` streams. Given `Input` nodes,
+it returns a Node for a `Pipeline`.
 
 ## Examples
 

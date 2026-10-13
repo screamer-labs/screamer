@@ -20,6 +20,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <optional>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -31,6 +33,7 @@
 #include "screamer/dag/max_pending.h"
 #include "screamer/dag/checked_index.h"
 #include "screamer/dag/resample_params.h"
+#include "screamer/dag/forecast_pairs.h"
 
 namespace screamer_wasm {
 
@@ -86,6 +89,34 @@ inline double checkedMaxPending(double v) {
 inline void throwMaxPendingKind(std::string kind) {
     screamer::dag::throw_max_pending_kind(kind, "maxPending");
 }
+// forecastPairs: the row rule of an eager call (dag/forecast_pairs.h).
+inline void checkForecastPairsRows(double xRows, double yRows) {
+    screamer::dag::check_forecast_pairs_rows(static_cast<std::size_t>(xRows),
+                                             static_cast<std::size_t>(yRows));
+}
+
+// A forecastPairs count or duration, a whole number (JavaScript truncates it)
+// that an int64 holds.
+inline std::int64_t horizon_int64(double v, const char* name) {
+    if (!(v >= -9223372036854775808.0 && v < 9223372036854775808.0))
+        throw std::invalid_argument(std::string("forecastPairs: ") + name +
+                                    " must be a finite number, got " +
+                                    screamer::dag::number_text(v));
+    return static_cast<std::int64_t>(v);
+}
+
+inline std::optional<std::int64_t> horizon(bool has, double v, const char* name) {
+    if (!has) return std::nullopt;
+    return horizon_int64(v, name);
+}
+
+// The forecastPairs horizon rule (dag/forecast_pairs.h), checked at the call.
+inline void checkForecastPairsHorizon(bool hasCount, double count, bool hasDuration,
+                                      double duration) {
+    screamer::dag::check_forecast_pairs_horizon(horizon(hasCount, count, "count"),
+                                                horizon(hasDuration, duration, "duration"));
+}
+
 inline double defaultMaxPending() { return static_cast<double>(screamer::dag::kDefaultMaxPending); }
 
 // Wraps a compiled graph (non-copyable engine type held by unique_ptr).
@@ -343,6 +374,16 @@ public:
                                screamer::dag::checked_max_pending(max_pending, "maxPending"));
     }
 
+    // The forecast_pairs nodes (dag/forecast_pairs.h); the graph owns its Lag.
+    // A horizon that is not given is passed as has* = false.
+    std::size_t addForecastPairs(std::size_t x, std::size_t y, std::size_t nFeatures,
+                                 bool hasCount, double count, bool hasDuration,
+                                 double duration, bool dropna) {
+        return screamer::dag::add_forecast_pairs(
+            b_, x, y, nFeatures, horizon(hasCount, count, "count"),
+            horizon(hasDuration, duration, "duration"), dropna);
+    }
+
     void setOutputs(std::vector<std::size_t> outs) {
         b_.set_outputs(std::move(outs));
     }
@@ -366,6 +407,10 @@ private:
     emscripten::function("checkedMaxPending", &screamer_wasm::checkedMaxPending); \
     emscripten::function("throwMaxPendingKind", &screamer_wasm::throwMaxPendingKind); \
     emscripten::function("defaultMaxPending", &screamer_wasm::defaultMaxPending); \
+    emscripten::function("checkForecastPairsRows",                             \
+                         &screamer_wasm::checkForecastPairsRows);              \
+    emscripten::function("checkForecastPairsHorizon",                          \
+                         &screamer_wasm::checkForecastPairsHorizon);           \
     emscripten::register_vector<std::size_t>("VectorSizeT");                    \
     emscripten::value_object<screamer_wasm::OutBufFlat>("OutBufFlat")           \
         .field("indexPtr", &screamer_wasm::OutBufFlat::indexPtr)               \
@@ -399,6 +444,7 @@ private:
         .function("addFilter",        &screamer_wasm::GraphBuilderWrap::addFilter) \
         .function("addDelay",         &screamer_wasm::GraphBuilderWrap::addDelay) \
         .function("addResample",      &screamer_wasm::GraphBuilderWrap::addResample) \
+        .function("addForecastPairs", &screamer_wasm::GraphBuilderWrap::addForecastPairs) \
         .function("setOutputs",       &screamer_wasm::GraphBuilderWrap::setOutputs) \
         .function("compile",          &screamer_wasm::GraphBuilderWrap::compile, \
                   emscripten::allow_raw_pointers(),                            \

@@ -13,6 +13,7 @@ import numpy as np
 from . import streams
 from .dag import Pipeline, Input
 from .dag_viz import build_graph
+from .supervised import forecast_pairs as _forecast_pairs
 
 SCHEMA_VERSION = 1
 
@@ -26,6 +27,7 @@ _OPERATORS = {
     "Resample": streams.resample,
     "Filter": lambda data, mask: streams.Filter()(data, mask),
     "Delay": lambda values, duration: streams.delay(values, duration=duration),
+    "forecast_pairs": _forecast_pairs,
     "combine_latest": streams.combine_latest,
     "dropna": streams.dropna,
     "select": streams.select,

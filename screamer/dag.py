@@ -396,6 +396,12 @@ class Pipeline:
                                               max_pending=self.max_pending)
                 elif name == "Delay":
                     nid = gb.add_delay(inp, int(_setting("duration", kwargs["duration"])))
+                elif name == "forecast_pairs":
+                    # The C++ graph definition (dag/forecast_pairs.h); a graph
+                    # node takes X as one column in count mode.
+                    nid = gb.add_forecast_pairs(inp[0], inp[1], 1, kwargs.get("count"),
+                                                kwargs.get("duration"),
+                                                bool(kwargs.get("dropna", False)))
                 else:
                     raise ValueError(
                         f"{name} is not supported as a DAG graph node")

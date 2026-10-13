@@ -31,6 +31,11 @@ running columns and summary for a few engine outputs (NaN and infinite
 values, annualized ratios, one row, no rows), which backtestReport must
 reproduce exactly. A non-finite number is written as null (NaN), "inf" or
 "-inf".
+
+A fifth fixture, wasm/smoke/oracle_forecast_pairs.json, holds forecast_pairs
+in count and duration mode (1-D and (T, K) features, NaN values, dropna, a y
+on its own clock): the inputs, the eager result, and the rows and index of the
+same graph as a Pipeline node, which forecastPairs must reproduce exactly.
 """
 
 import json
@@ -45,6 +50,7 @@ OUT = os.path.join(REPO, "wasm", "smoke", "oracle.json")
 OUT_REDUCER = os.path.join(REPO, "wasm", "smoke", "oracle_reducer.json")
 OUT_MICRO = os.path.join(REPO, "wasm", "smoke", "oracle_micro.json")
 OUT_BACKTEST = os.path.join(REPO, "wasm", "smoke", "oracle_backtest.json")
+OUT_FORECAST = os.path.join(REPO, "wasm", "smoke", "oracle_forecast_pairs.json")
 
 # Fixed, deterministic, all-positive input series (positive keeps Log/Sqrt finite).
 SERIES = [
@@ -249,6 +255,61 @@ def backtest_entries():
     return out
 
 
+def forecast_entries():
+    """forecast_pairs on fixed inputs: the inputs, the options, the eager
+    (X_shifted, y), and the Pipeline node's output rows and index."""
+    import numpy as np
+    from screamer.supervised import forecast_pairs
+
+    def nums(a):
+        return [None if math.isnan(v) else float(v) for v in np.ravel(a)]
+
+    rng = np.random.default_rng(21)
+    T = 40
+    xi = np.cumsum(rng.integers(1, 4, size=T)).astype(np.int64)
+    yi = np.cumsum(rng.integers(1, 6, size=T // 2)).astype(np.int64) + 1
+    xv = rng.standard_normal(T)
+    xv[[3, 12]] = np.nan
+    yc = rng.standard_normal(T)
+    yc[[5, 20]] = np.nan
+    yv = rng.standard_normal(T // 2)
+    yv[[4]] = np.nan
+    X = rng.standard_normal((T, 3))
+    X[[2, 9], [0, 2]] = np.nan
+    rows = np.arange(T, dtype=np.int64)
+    cases = [
+        ("count", xv, rows, yc, rows, {"count": 3}),
+        ("count dropna", xv, rows, yc, rows, {"count": 2, "dropna": True}),
+        ("count (T,K) dropna", X, rows, yc, rows, {"count": 2, "dropna": True}),
+        ("duration", xv, xi, yv, yi, {"duration": 4}),
+        ("duration dropna", xv, xi, yv, yi, {"duration": 7, "dropna": True}),
+        ("duration (T,K)", X, xi, yv, yi, {"duration": 0}),
+        ("duration empty", xv[:0], xi[:0], yv[:0], yi[:0], {"duration": 1}),
+    ]
+    out = []
+    for name, x, ix, y, iy, kw in cases:
+        if "count" in kw:
+            xs, ys = forecast_pairs(x, y, **kw)
+        else:
+            xs, ys = forecast_pairs((x, ix), (y, iy), **kw)
+        X_in, y_in = screamer.Input("X"), screamer.Input("y")
+        node = forecast_pairs(X_in, y_in, **kw)
+        if x.ndim == 1 or "duration" in kw:   # a count node reads X as one column
+            vals, idx = screamer.Pipeline([X_in, y_in], [node])((x, ix), (y, iy))
+        else:
+            vals, idx = None, None
+        out.append({
+            "name": name,
+            "options": kw,
+            "X": {"shape": list(x.shape), "values": nums(x), "index": [int(i) for i in ix]},
+            "y": {"values": nums(y), "index": [int(i) for i in iy]},
+            "X_shifted": {"shape": list(xs.shape), "values": nums(xs)},
+            "y_out": nums(ys),
+            "node": None if vals is None else {"values": nums(vals), "index": [int(i) for i in idx]},
+        })
+    return out
+
+
 def main():
     entries = []
     for name, factory, wasm_args in SAMPLE:
@@ -302,6 +363,12 @@ def main():
         json.dump(backtest, f, indent=1, allow_nan=False)
         f.write("\n")
     print(f"Wrote {len(backtest)} backtest_report entries -> {OUT_BACKTEST}")
+
+    forecast = forecast_entries()
+    with open(OUT_FORECAST, "w") as f:
+        json.dump(forecast, f, indent=1, allow_nan=False)
+        f.write("\n")
+    print(f"Wrote {len(forecast)} forecast_pairs entries -> {OUT_FORECAST}")
 
 
 if __name__ == "__main__":

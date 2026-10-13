@@ -12,6 +12,7 @@
 #include <nanobind/ndarray.h>
 #include <nanobind/stl/vector.h>
 #include <nanobind/stl/string.h>
+#include <nanobind/stl/optional.h>
 #include "screamer/common/eval_op.h"
 #include "screamer/dag/functor_node.h"
 #include "screamer/dag/collector.h"
@@ -20,6 +21,7 @@
 #include "screamer/dag/compiled_graph.h"
 #include "screamer/dag/output_join.h"
 #include "screamer/dag/checked_index.h"
+#include "screamer/dag/forecast_pairs.h"
 #include "screamer/streams/py_index.h"
 #include "screamer/streams/event.h"
 #include "screamer/streams/merge_source.h"
@@ -567,6 +569,21 @@ void init_bindings_dag(nb::module_& m) {
         .def("drain",            &PyCompiledGraph::drain, "align"_a = false)
         .def("run_batch",        &PyCompiledGraph::run_batch, "feeds"_a, "align"_a = false);
 
+    // The forecast_pairs graph (dag/forecast_pairs.h), compiled: inputs X and y,
+    // one output [X_shifted..., y]. The graph owns its operators.
+    m.def("_forecast_pairs_graph", [](std::size_t n_features,
+                                      std::optional<std::int64_t> count,
+                                      std::optional<std::int64_t> duration, bool dropna) {
+        PyCompiledGraph pcg;
+        pcg.cg = std::make_unique<dag::CompiledGraph>(
+            dag::forecast_pairs_graph(n_features, count, duration, dropna));
+        return pcg;
+    }, "n_features"_a, "count"_a.none(), "duration"_a.none(), "dropna"_a);
+    m.def("_check_forecast_pairs_rows", &dag::check_forecast_pairs_rows,
+          "x_rows"_a, "y_rows"_a);
+    m.def("_check_forecast_pairs_horizon", &dag::check_forecast_pairs_horizon,
+          "count"_a.none(), "duration"_a.none());
+
     // Live session: the per-event push, in C++ (name lookup, one conversion).
     // The Python _LiveDag subclasses this and adds result().
     struct PyLiveSession {
@@ -868,6 +885,13 @@ void init_bindings_dag(nb::module_& m) {
             return builder.add_resample(std::move(inputs), rp, max_pending);
         }
 
+        // The forecast_pairs nodes (dag/forecast_pairs.h); the graph owns its Lag.
+        std::size_t add_forecast_pairs(std::size_t x, std::size_t y, std::size_t n_features,
+                                       std::optional<std::int64_t> count,
+                                       std::optional<std::int64_t> duration, bool dropna) {
+            return dag::add_forecast_pairs(builder, x, y, n_features, count, duration, dropna);
+        }
+
         void set_max_pending(std::size_t n) { builder.set_max_pending(n); }
 
         void set_outputs(std::vector<std::size_t> outs) {
@@ -933,6 +957,9 @@ void init_bindings_dag(nb::module_& m) {
            "plan"_a = nb::list(), "threshold"_a = 0.0,
            "max_age"_a = -1,
            "max_pending"_a = dag::kDefaultMaxPending)
+        .def("add_forecast_pairs", &PyGraphBuilder::add_forecast_pairs,
+             "x"_a, "y"_a, "n_features"_a, "count"_a.none(), "duration"_a.none(),
+             "dropna"_a)
         .def("set_outputs", &PyGraphBuilder::set_outputs, "output_ids"_a)
         .def("set_max_pending", &PyGraphBuilder::set_max_pending, "max_pending"_a)
         .def("compile", [](PyGraphBuilder& b) { return b.compile(); })

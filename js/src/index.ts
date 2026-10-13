@@ -46,6 +46,8 @@ export {
 export * from "./generated/ops.js";
 export { backtestReport } from "./backtest.js";
 export type { BacktestReportOptions, BacktestReportResult } from "./backtest.js";
+export { forecastPairs } from "./supervised.js";
+export type { ForecastPairsOptions, ForecastValues, ForecastStream } from "./supervised.js";
 export {
   circularShift, segmentShuffle, positionTest,
   permuteBars, permuteReturns, strategyTest,

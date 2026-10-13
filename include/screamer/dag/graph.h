@@ -9,6 +9,7 @@
 #include "screamer/dag/resample_params.h"
 #include "screamer/dag/max_pending.h"
 #include <cstdint>
+#include <memory>
 #include <utility>
 
 namespace screamer { namespace dag {
@@ -35,6 +36,10 @@ struct GraphSpec {
     // The join cap of the graph: the default of its CombineLatest and Filter
     // nodes, and the cap of its output alignment (OutputJoin).
     std::size_t max_pending = kDefaultMaxPending;
+    // Operators the graph owns: the ones a C++ graph definition creates (the
+    // Lag of forecast_pairs). A binding's own operators stay with the binding.
+    // A copy of the spec shares them, so compile a spec once.
+    std::vector<std::shared_ptr<EvalOp>> owned_ops;
 };
 
 // Accumulates a GraphSpec; returns node ids.
@@ -55,6 +60,12 @@ public:
         ns.inputs = std::move(inputs);
         spec_.nodes.push_back(std::move(ns));
         return spec_.nodes.size() - 1;
+    }
+    // A functor node over an operator the graph owns (GraphSpec::owned_ops).
+    std::size_t add_owned_functor(std::shared_ptr<EvalOp> op, std::vector<std::size_t> inputs) {
+        EvalOp* raw = op.get();
+        spec_.owned_ops.push_back(std::move(op));
+        return add_functor(raw, std::move(inputs));
     }
     // The graph's join cap (GraphSpec::max_pending); set it before the nodes
     // that take it as their default.
@@ -131,6 +142,8 @@ public:
     }
     void set_outputs(std::vector<std::size_t> outs) { spec_.output_ids = std::move(outs); }
     const GraphSpec& spec() const { return spec_; }
+    // The spec, moved out; the builder is empty afterwards.
+    GraphSpec take() { GraphSpec s = std::move(spec_); spec_ = GraphSpec{}; return s; }
 
 private:
     GraphSpec spec_;
