@@ -129,13 +129,13 @@ most `max_pending` events. To join streams into one row instead, use
 ## Live, incremental sessions: `pipe.live()`
 
 `pipe(arrays)` and `pipe(generators)` both consume complete feeds. When you drive
-the pipeline yourself, one event at a time, `pipe.live()` opens a session object. It
-shares the pipeline's single engine and resets it on open, so use one
-session at a time (do not interleave it with a `pipe(...)` call). Each
-`Pipeline` runs on its own copies of its operators (the same parameters, a
-fresh state), so sessions and calls of two Pipelines built from the same
-nodes, and direct calls of the operators, never interfere. Each method
-returns the session, so calls chain.
+the pipeline yourself, one event at a time, `pipe.live()` opens a session object.
+Each session, and each lazy call `pipe(generators)`, runs on its own engine and
+its own copies of the operators (the same parameters, a fresh state), so
+several sessions of one pipeline, a batch call while a session is open, two
+Pipelines built from the same nodes, and direct calls of the operators never
+interfere. Opening a session costs about a compile of the graph (5 us for one
+operator, 35 us for twenty). Each method returns the session, so calls chain.
 
 - **`.push(input, index, value)`** feeds one event. `input` is an `Input` name
   (str) or its position (int) in the `inputs` list; `index` is the event's integer

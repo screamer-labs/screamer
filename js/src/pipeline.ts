@@ -64,6 +64,10 @@ export interface LiveDriver {
   advance(now: number): void;
   flush(): void;
   result(): Output | Output[];
+  /** Frees the session's engine and its operator copies now (else the
+   * garbage collector, or the Pipeline's dispose(), does). Idempotent. */
+  dispose(): void;
+  [Symbol.dispose](): void;
 }
 
 // The options of a Pipeline, checked: a plain object of known keys.
@@ -158,6 +162,26 @@ function heapU32(M: Screamer, arr: number[]): number {
   return ptr;
 }
 
+// One compiled engine: the graph, its address for the per-event exports, and
+// the copies of the operators it points into. The Pipeline has one for batch
+// calls, and every live session compiles one of its own, so sessions and
+// calls never share state. release() frees the graph, then the copies.
+class Engine implements Owned {
+  cg: any = null;
+  addr = 0;
+  copies: any[] = [];
+  onRelease: (() => void) | null = null;   // a session: leave the Pipeline's set
+  private done = false;
+  release(): void {
+    if (this.done) return;
+    this.done = true;
+    this.onRelease?.();
+    if (this.cg) { this.cg.delete(); this.cg = null; this.addr = 0; }
+    for (const c of this.copies) c.delete();
+    this.copies = [];
+  }
+}
+
 /**
  * A reusable N-in / M-out function you define once and call on stored data.
  * Build a symbolic graph from `Input(...)` nodes and op factories, then pass the
@@ -168,16 +192,11 @@ class PipelineImpl implements Owned {
   readonly outputs: Node[];
   private M: Screamer;
   private names: string[];
-  private cg: any = null;
-  // The graph's address, for the plain WASM exports of the per-event pushes
-  // (wasm/dag_bindings.cpp); 0 once released.
-  private cgAddr = 0;
-  // The Pipeline's own copies of its operators (and functor reducers), made
-  // from each op's factory at compile: the graph holds non-owning EvalOp*s
-  // into them, and release() deletes them. Two Pipelines built from the same
-  // nodes, or a Pipeline and a direct call of the op, never share state, and
-  // disposing the original op does not affect the Pipeline.
-  private copies: any[] = [];
+  // The engine of batch calls (a batch call runs to the end in one call, so
+  // nothing else sees it mid-run), and the open live sessions' engines.
+  private engine: Engine;
+  private sessions = new Set<Engine>();
+  private building: Engine | null = null;   // the engine compile() is building
   private _disposed = false;
   readonly alignOutputs: boolean;
   readonly maxPending: number;
@@ -215,11 +234,17 @@ class PipelineImpl implements Owned {
     checkStatefulSafety(this.outputs);
 
     this.names = this.inputs.map((n) => (n.op as any).input as string);
-    this.compile();
+    this.engine = this.compile();
   }
 
-  private compile(): void {
+  // Compiles the graph into a new engine, on new copies of the operators
+  // (each made from its op's factory): two engines, and so two Pipelines or
+  // two sessions, never share state, and disposing an original op affects
+  // none of them.
+  private compile(): Engine {
     const M: any = this.M;
+    const engine = new Engine();
+    this.building = engine;
     const gb = new M.GraphBuilder();
     const ids = new Map<Node, number>();
     wasmCall(() => gb.setMaxPending(this.maxPending));
@@ -252,16 +277,16 @@ class PipelineImpl implements Owned {
       const outVec = new M.VectorSizeT();
       for (const id of outIds) outVec.push_back(id);
       try { gb.setOutputs(outVec); } catch (e) { throw normalizeError(e); } finally { outVec.delete(); }
-      this.cg = wasmCall(() => gb.compile());
-      this.cgAddr = this.cg.address();
+      engine.cg = wasmCall(() => gb.compile());
+      engine.addr = engine.cg.address();
     } catch (e) {
-      // No graph: the copies made so far have no owner but this.
-      for (const c of this.copies) c.delete();
-      this.copies = [];
+      engine.release();   // the copies made so far
       throw e;
     } finally {
       gb.delete();
+      this.building = null;
     }
+    return engine;
   }
 
   // Dispatch an operator (combinator) node onto the matching GraphBuilder.add*
@@ -310,13 +335,13 @@ class PipelineImpl implements Owned {
     }
   }
 
-  // A new copy of a functor node's op from its factory, owned by this
-  // Pipeline (see `copies`).
+  // A new copy of a functor node's op from its factory, owned by the engine
+  // being compiled.
   private ownCopy(op: any): any {
     if (typeof op.make !== "function")
       throw new TypeError("a Pipeline needs an op built by its factory, which can copy it");
     const c = wasmCall(() => op.make());
-    this.copies.push(c);
+    this.building!.copies.push(c);
     return c;
   }
 
@@ -464,8 +489,8 @@ class PipelineImpl implements Owned {
       // Run the whole graph ONCE, then read each cached output. Running per
       // output would recompute the graph M times (O(M x) redundant compute).
       // Everything in this block is a call into WASM or a copy off its heap.
-      this.cg.runBatchStore(idxPtrs, valPtrs, lensPtr, rowsPtr, widthsPtr, nIn, this.alignOutputs);
-      return this.readStored();
+      this.engine.cg.runBatchStore(idxPtrs, valPtrs, lensPtr, rowsPtr, widthsPtr, nIn, this.alignOutputs);
+      return this.readStored(this.engine.cg);
     } catch (e) {
       throw normalizeError(e);
     } finally {
@@ -475,23 +500,23 @@ class PipelineImpl implements Owned {
 
   // Read the outputs the graph stored (runBatchStore or drainStore), then free
   // them. One output is one Output; aligned outputs share one index array.
-  private readStored(): Output | Output[] {
+  private readStored(cg: any): Output | Output[] {
     const M: any = this.M;
     try {
       const n = this.outputs.length;
-      if (n === 1) return this.marshalOut(this.cg.output(0));
+      if (n === 1) return this.marshalOut(cg.output(0));
       const results: Output[] = [];
-      if (this.cg.storedAligned()) {
+      if (cg.storedAligned()) {
         // The rows stay in the graph until clearStored(): copy them.
-        const ix = this.cg.alignedIndex();
+        const ix = cg.alignedIndex();
         const index = new Float64Array(M.viewF64(ix.indexPtr, ix.rows));
-        for (let o = 0; o < n; o++) results.push({ values: this.copyValues(this.cg.alignedOutput(o)), index });
+        for (let o = 0; o < n; o++) results.push({ values: this.copyValues(cg.alignedOutput(o)), index });
       } else {
-        for (let o = 0; o < n; o++) results.push(this.marshalOut(this.cg.output(o)));
+        for (let o = 0; o < n; o++) results.push(this.marshalOut(cg.output(o)));
       }
       return results;
     } finally {
-      this.cg.clearStored();
+      cg.clearStored();
     }
   }
 
@@ -525,16 +550,31 @@ class PipelineImpl implements Owned {
   // per input, optionally advance the watermark, flush at end of input, then
   // result() drains the accumulated output. Streaming this way is bit-identical
   // to the batch call() on the same data (the batch==stream invariant).
-  // `owner` is the callable Pipeline: the driver holds it, so the finalizer
-  // cannot free the graph while the driver is in use.
+  // The session runs on an engine of its own (compiled on new op copies), so
+  // a second session or a batch call never mixes with it. `owner` is the
+  // callable Pipeline: the driver holds it, so the finalizer cannot free the
+  // Pipeline (which frees its sessions' engines) while the driver is in use.
+  // The driver's dispose() frees its engine at once; else the finalizer or
+  // the Pipeline's dispose() does.
   live(owner: Pipeline): LiveDriver {
     this.checkLive();
     const M: any = this.M;
     const self = this;
-    // Start each live session from a clean slate: run_batch resets on entry but
-    // leaves outputs_ populated on exit, and a prior live session leaves node
-    // state, so reset here so the stream starts independent of any prior call.
-    this.cg.reset();
+    const engine = this.compile();
+    this.sessions.add(engine);
+    engine.onRelease = () => { self.sessions.delete(engine); };
+    const end = () => engine.release();
+    // The engine's address for a per-event export, read after the event's
+    // values are converted (a value's valueOf may dispose the Pipeline or the
+    // session; address 0 would reach C++ as an object).
+    const graphAddress = (): number => {
+      if (!engine.addr) throw new TypeError("pipeline used after dispose()");
+      return engine.addr;
+    };
+    const live = () => {
+      self.checkLive();
+      if (!engine.cg) throw new Error("live session used after dispose()");
+    };
     const pushWide = (i: number, index: number, values: ArrayLike<number> | NdArray): void => {
       const nd = asNd(values);   // a malformed NdArray raises RangeError
       let src: ArrayLike<number>;
@@ -557,7 +597,7 @@ class PipelineImpl implements Owned {
           view[j] = typeof x === "number" ? x
             : feedValue(x, "Pipeline", () => `item [${j}] of the values pushed to input ${i}`);
         }
-        const g = self.graphAddress();   // after the values: their conversion may dispose
+        const g = graphAddress();   // after the values: their conversion may dispose
         try { M._screamer_push_event_wide(g, i, t, buf, width); } catch (e) { throw normalizeError(e); }
       } finally {
         M.freeBuf(buf);
@@ -566,7 +606,7 @@ class PipelineImpl implements Owned {
     const driver: LiveDriver & { [OWNER]: Pipeline } = {
       [OWNER]: owner,
       push(name: string, index: number, value: number | ArrayLike<number> | NdArray): void {
-        self.checkLive();
+        live();
         const i = self.inputIndex(name);
         // A number is the hot path. A sequence is one wide event.
         if (value !== null && typeof value === "object" && isSequence(value)) {
@@ -578,43 +618,37 @@ class PipelineImpl implements Owned {
         // wrong kind.
         const v = typeof value === "number" ? value : feedValue(value, "Pipeline", () => `the value pushed to input ${i}`);
         const t = typeof index === "number" ? index : badIndex(M, index);
-        const g = self.graphAddress();   // after the value: its conversion may dispose
+        const g = graphAddress();   // after the value: its conversion may dispose
         try { M._screamer_push_event(g, i, t, v); } catch (e) { throw normalizeError(e); }
       },
       pushWide(name: string, index: number, values: ArrayLike<number> | NdArray): void {
-        self.checkLive();
+        live();
         pushWide(self.inputIndex(name), index, values);
       },
       advance(now: number): void {
-        self.checkLive();
+        live();
         const t = typeof now === "number" ? now : badIndex(M, now);
-        try { self.cg.advance(t); } catch (e) { throw normalizeError(e); }
+        try { engine.cg.advance(t); } catch (e) { throw normalizeError(e); }
       },
       flush(): void {
-        self.checkLive();
-        try { self.cg.flush(); } catch (e) { throw normalizeError(e); }
+        live();
+        try { engine.cg.flush(); } catch (e) { throw normalizeError(e); }
       },
       result(): Output | Output[] {
-        self.checkLive();
+        live();
         // Drains every output at once, aligned as the batch call aligns them.
         try {
-          self.cg.drainStore(self.alignOutputs);
-          return self.readStored();
+          engine.cg.drainStore(self.alignOutputs);
+          return self.readStored(engine.cg);
         } catch (e) {
           throw normalizeError(e);
         }
       },
+      dispose: end,
+      [Symbol.dispose]: end,
     };
+    releaseWith(driver, engine);
     return driver;
-  }
-
-  // The graph's address for a per-event export. Read after the event's values
-  // are converted: a value's valueOf may dispose the Pipeline, and address 0
-  // would reach C++ as an object. A released graph raises the TypeError a call
-  // on the released Embind object raised.
-  private graphAddress(): number {
-    if (!this.cgAddr) throw new TypeError("pipeline used after dispose()");
-    return this.cgAddr;
   }
 
   // Raises once the Pipeline is disposed; every live driver call checks it.
@@ -627,14 +661,8 @@ class PipelineImpl implements Owned {
   release(): void {
     if (this._disposed) return;
     this._disposed = true;
-    if (this.cg) {
-      this.cg.delete();
-      this.cg = null;
-      this.cgAddr = 0;
-    }
-    // The graph is gone: delete the op copies it pointed into.
-    for (const c of this.copies) c.delete();
-    this.copies = [];
+    this.engine.release();
+    for (const e of [...this.sessions]) e.release();
   }
 }
 

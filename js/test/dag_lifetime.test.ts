@@ -192,3 +192,25 @@ test("lifetime: a functor reducer is owned by each Pipeline", async () => {
     assertNanEq(vals(p1(new Float64Array([1, 1])) as Output), [1], "after dispose");
   } finally { p1.dispose(); p2.dispose(); }
 });
+
+// Fix round 1, N3: every live session runs on an engine of its own.
+test("lifetime: two sessions of one Pipeline do not mix; a batch call does not end a session", async () => {
+  await ready();
+  const x = Input("x");
+  const p = new Pipeline([x], [RollingSum(2)(x)]);
+  try {
+    const s3 = p.live(), s4 = p.live();
+    for (let t = 0; t < 3; t++) { s3.push("x", t, 1); s4.push("x", t, 100); }
+    p(new Float64Array([7, 7, 7]));                  // a batch call between pushes
+    s3.push("x", 3, 1);
+    s3.flush(); s4.flush();
+    assertNanEq(vals(s3.result() as Output), [NaN, 2, 2, 2], "s3");
+    assertNanEq(vals(s4.result() as Output), [NaN, 200, 200], "s4");
+    s3.dispose();
+    assert.throws(() => s3.push("x", 4, 1), /live session used after dispose/);
+    s3.dispose();                                    // idempotent
+    const s5 = p.live();
+    p.dispose();                                     // frees the open sessions too
+    assert.throws(() => s5.push("x", 0, 1), /pipeline used after dispose/);
+  } finally { p.dispose(); }
+});

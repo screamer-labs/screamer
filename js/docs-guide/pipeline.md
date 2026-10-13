@@ -141,8 +141,10 @@ earlier node"; a setting a factory refuses throws as the factory does.
 
 ## Streaming with `pipeline.live()`
 
-`pipeline.live()` returns an event-by-event driver over the same compiled graph. Push one event
-at a time, then flush and drain the result:
+`pipeline.live()` returns an event-by-event driver. Each driver runs on its own compiled engine
+and its own copies of the ops, so several drivers of one pipeline and batch calls never
+interfere; `driver.dispose()` frees its engine at once (else the garbage collector or
+`pipeline.dispose()` does). Push one event at a time, then flush and drain the result:
 
 ```js
 const driver = pipeline.live();

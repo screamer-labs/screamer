@@ -20330,6 +20330,27 @@
    "505fb61ce33ea9b3"
   ]
  ],
+ "Pipeline two sessions of one Pipeline": [
+  "pair",
+  [
+   "ndarray",
+   [
+    6
+   ],
+   "f",
+   505.0,
+   "eb987b8c58846ef7"
+  ],
+  [
+   "ndarray",
+   [
+    6
+   ],
+   "i",
+   6.0,
+   "57575834eeab2509"
+  ]
+ ],
  "split n past 2**20": [
   "int"
  ],

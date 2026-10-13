@@ -282,10 +282,10 @@ def _live_dag_class():
         name (str) or its positional index (int). push() is a C++ method: `value` is a
         number, or a sequence of numbers for one multi-column event."""
         def __init__(self, dag):
-            super().__init__(dag._cg, list(dag._input_order))
+            cg = dag._session_graph()            # the session's own engine and operators
+            super().__init__(cg, list(dag._input_order))
             self._dag = dag
-            self._cg = dag._cg
-            self._cg.reset()
+            self._cg = cg
 
         def advance(self, now):
             """Close every window whose boundary has passed by logical time `now`.
@@ -497,7 +497,7 @@ class Pipeline:
                     "outputs is not yet supported; use the batch call dag(arrays)")
             from . import screamer_bindings as _b
             iters = [iter(feeds[nm]) for nm in self._input_order]
-            return _b._LazyDriver(self._cg, iters, len(self.outputs))
+            return _b._LazyDriver(self._session_graph(), iters, len(self.outputs))
         if any(lazy):
             raise TypeError(
                 "dag(...) feeds must be either all lazy iterators or all concrete "
@@ -527,11 +527,17 @@ class Pipeline:
         passed with .advance(now) (e.g. on a clock tick, finalizing empty bars); force
         the current partial window with .flush(); collect aligned outputs with .result().
 
-        The session drives this Pipeline's single compiled engine (shared with __call__),
-        resetting it on open, so use one session at a time: do not interleave a live
-        session with a batch call or run two live sessions concurrently.
+        Each session runs on its own engine and its own copies of the operators, so
+        sessions, lazy calls and batch calls of one Pipeline never interfere.
         """
         return _live_dag_class()(self)
+
+    def _session_graph(self):
+        """A compiled engine of its own for a live session or a lazy call: the
+        graph compiled again on fresh copies of the operators. A batch call
+        runs on the Pipeline's engine; it resets it and runs to the end
+        without yielding, so nothing else sees that engine mid-run."""
+        return self._compile_cpp()[0]
 
     # -- inspection / visualization ------------------------------------------
     def __repr__(self):

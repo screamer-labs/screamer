@@ -156,9 +156,12 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   Pipelines built from the same nodes shared the operators' state in 2.8.0,
   so interleaved live sessions, or a batch call of one beside a session of
   the other, gave wrong values without an error; a direct call of the
-  operator changed a Pipeline's state too. In JavaScript, disposing the
-  operator no longer affects a Pipeline built from it. Old result: none; the
-  shared results were wrong.
+  operator changed a Pipeline's state too. Each `live()` session and each
+  lazy call also runs on an engine of its own: two sessions of one Pipeline
+  mixed their events in 2.8.0, and a batch call during a session reset it.
+  In JavaScript, disposing the operator no longer affects a Pipeline built
+  from it, and a live driver has `dispose()`. Old result: none; the shared
+  results were wrong.
 * An operator or `Dropna` given several streams in a `Pipeline` (each a
   separate stream of events, such as `Add()(a, b)` over two 2-column inputs)
   takes their events in index order, and events at one index in the order of
