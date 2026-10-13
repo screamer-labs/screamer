@@ -49,7 +49,8 @@ struct NodeSpec {
     // Width rules on the node's inputs, checked before any event is fed
     // (CompiledGraph::validate_widths).
     std::vector<WidthRule> width_rules;
-    std::size_t max_pending = kDefaultMaxPending;  // CombineLatest, Filter: reorder buffer cap
+    std::size_t max_pending = kDefaultMaxPending;  // reorder buffer cap: CombineLatest, Filter,
+                                                   // a Functor or DropNa with several inputs
     std::vector<std::size_t> inputs;      // producer node ids (edges into this node)
 };
 
@@ -77,6 +78,7 @@ public:
         NodeSpec ns;
         ns.kind   = NodeKind::Functor;
         ns.op     = op;
+        ns.max_pending = spec_.max_pending;   // several producers: their reorder cap
         ns.inputs = std::move(inputs);
         spec_.nodes.push_back(std::move(ns));
         return spec_.nodes.size() - 1;
@@ -102,6 +104,7 @@ public:
         NodeSpec ns;
         ns.kind    = NodeKind::DropNa;
         ns.how_all = how_all;
+        ns.max_pending = spec_.max_pending;   // several producers: their reorder cap
         ns.inputs  = std::move(inputs);
         spec_.nodes.push_back(std::move(ns));
         return spec_.nodes.size() - 1;

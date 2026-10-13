@@ -143,6 +143,16 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Changed
 
+* An operator or `Dropna` given several streams in a `Pipeline` (each a
+  separate stream of events, such as `Add()(a, b)` over two 2-column inputs)
+  takes their events in index order, and events at one index in the order of
+  its inputs. A live session used arrival order, so its rows could come out
+  unsorted, differ from batch, and give a `CombineLatest` beside it a row
+  from a later index. Batch results change where a producer lags (a `Delay`,
+  a `Resample`, a `CombineLatest` upstream: 2.8.0 gave such rows unsorted)
+  and in the order of events at one index when the node's inputs are not in
+  the Pipeline's input order. Old result: none; sort the 2.8.0 rows by index.
+  Events wait for the other streams, at most `max_pending` of them.
 * `flush()` ends a live session's input: a later `push()` or `advance()`
   raises `ValueError` (`RangeError` in JavaScript), "flush() ended this
   session's input; start a new live() session to push more events". In

@@ -24,6 +24,7 @@
 #include "screamer/dag/select_node.h"
 #include "screamer/dag/delay_node.h"
 #include "screamer/dag/lag_rows_node.h"
+#include "screamer/dag/ordered_merge_node.h"
 #include "screamer/dag/resample_node.h"
 #include "screamer/dag/resample_generic_node.h"
 #include "screamer/dag/frame.h"
@@ -255,9 +256,7 @@ public:
                 // path is preserved via one polymorphic hop.
                 auto fn = std::make_shared<FunctorNode<std::int64_t>>(*ns.op, *downstream);
                 reset_nodes_.push_back(fn.get());
-                node_input_sink[id] = [ptr = fn.get()](std::size_t) -> Sink<std::int64_t>* {
-                    return ptr;
-                };
+                node_input_sink[id] = ordered_input(s, id, *fn, order_memo);
                 owned_.push_back(fn);
                 break;
             }
@@ -275,9 +274,7 @@ public:
             }
             case NodeKind::DropNa: {
                 auto dn = std::make_shared<DropNaNode<std::int64_t>>(ns.how_all, *downstream);
-                node_input_sink[id] = [ptr = dn.get()](std::size_t) -> Sink<std::int64_t>* {
-                    return ptr;
-                };
+                node_input_sink[id] = ordered_input(s, id, *dn, order_memo);
                 owned_.push_back(dn);
                 break;
             }
@@ -412,6 +409,7 @@ public:
     // session leaves it off, as reset() does.
     void set_merge_order(bool on) {
         for (auto* n : clock_nodes_) n->set_merge_order(on);
+        for (auto* n : merge_nodes_) n->set_merge_order(on);
     }
 
     // Time-driven finalization: inject a watermark at every input sink so the
@@ -673,6 +671,29 @@ public:
 private:
     GraphSpec spec_;
 
+    // The input of node `id`, which takes its frames at `sink`: the sink
+    // itself for one producer, else the ports of an OrderedMergeNode in front
+    // of it, so the node takes its producers' events in index order whatever
+    // their arrival order (ordered_merge_node.h).
+    std::function<Sink<std::int64_t>*(std::size_t)> ordered_input(
+            const GraphSpec& s, std::size_t id, Sink<std::int64_t>& sink,
+            std::vector<unsigned char>& order_memo) {
+        const NodeSpec& ns = s.nodes[id];
+        if (ns.inputs.size() <= 1)
+            return [ptr = &sink](std::size_t) -> Sink<std::int64_t>* { return ptr; };
+        auto mn = std::make_shared<OrderedMergeNode<std::int64_t>>(
+            ns.inputs.size(), sink, ns.max_pending);
+        if (order_memo.empty()) order_memo.assign(s.nodes.size(), 0);
+        for (std::size_t k = 0; k < ns.inputs.size(); ++k) {
+            const unsigned r = merge_relation(s, ns.inputs[k], order_memo);
+            mn->set_port_relation(k, r & 1u, r & 2u);
+        }
+        reset_nodes_.push_back(mn.get());
+        merge_nodes_.push_back(mn.get());
+        owned_.push_back(mn);
+        return [ptr = mn.get()](std::size_t slot) -> Sink<std::int64_t>* { return &ptr->port(slot); };
+    }
+
     // How node `id`'s output relates to the merge of the graph's inputs, as
     // bits (memo[id] holds them plus 4 once computed):
     // 1, in order: it never emits an index below one the merge has passed (an
@@ -691,8 +712,12 @@ private:
             in_order = nd.delay_duration >= 0;
             not_ahead = nd.delay_duration <= 0;
             break;
-        case NodeKind::Functor: case NodeKind::Select: case NodeKind::DropNa:
-        case NodeKind::LagRows:
+        case NodeKind::Functor: case NodeKind::DropNa:
+            // Several producers go through an OrderedMergeNode, which holds an
+            // event until the merge has passed its index.
+            in_order = nd.inputs.size() <= 1;
+            break;
+        case NodeKind::Select: case NodeKind::LagRows:
             in_order = true;
             break;
         default: break;
@@ -974,6 +999,7 @@ private:
     std::vector<Resettable*>                      reset_nodes_;
     std::vector<OutputBuffer>                     outputs_;         // persistent output buffers
     std::vector<ResampleNode<std::int64_t>*>      clock_nodes_;     // clock resamples (set_merge_order)
+    std::vector<OrderedMergeNode<std::int64_t>*>  merge_nodes_;     // multi-producer inputs (set_merge_order)
     std::vector<std::size_t>                      output_widths_;   // expected width for each output
     std::vector<std::size_t>                      result_w_;        // each output's width while it has no rows
     std::vector<std::size_t>                      unknown_result_w_; // result_w_ with no input width known

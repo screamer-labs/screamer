@@ -2,8 +2,9 @@
 
 Each case builds 2 to 4 outputs from random trees over the inputs a, b
 (scalar, with NaN), m (a 0/1/NaN mask), c (a clock) and y (2 columns). The
-nodes are Filter, Dropna, Select, CombineLatest, Delay, RollingMean and
-Resample: every= with label left or right and fill skip, nan or carry; count=;
+nodes are Filter, Dropna, Select, CombineLatest, Delay, RollingMean,
+RollingCov and Dropna given two producers (two streams that the node takes
+in index order), and Resample: every= with label left or right and fill skip, nan or carry; count=;
 threshold= with a Dropna driver; and clock= with the clock c, Dropna(c), a
 Filter, an every=, count= or threshold= Resample of c, CombineLatest, or a
 nested clock resample. Indexes repeat and 15% of cases are unaligned, and in
@@ -24,6 +25,7 @@ import pytest
 
 import screamer as sc
 from screamer import Input, Pipeline
+from screamer.dag import make_operator_node
 
 def concat(parts, m):
     full = [p for p in parts if len(p[0][1])] or parts[-1:]
@@ -84,7 +86,12 @@ def make_case(rng, enable_clock=True):
         used.add(nm); return ins[nm]
 
     def scalar_src(depth=0):
-        r = rng.integers(0, 9 if depth < 2 else 3)
+        r = rng.integers(0, 11 if depth < 2 else 3)
+        if r == 9:                               # an operator with two producers
+            return sc.RollingCov(int(rng.integers(2, 4)))(wide_src(depth + 1), wide_src(depth + 1))
+        if r == 10:                              # a Dropna with two producers
+            return make_operator_node(sc.Dropna, (scalar_src(depth + 1), scalar_src(depth + 1)),
+                                      {"how": "any"})
         if r == 0: return inp("a")
         if r == 1: return inp("b")
         if r == 2: return sc.Select(int(rng.integers(0, 2)))(inp("y"))
@@ -94,6 +101,14 @@ def make_case(rng, enable_clock=True):
         if r == 6: return sc.RollingMean(int(rng.integers(1, 4)))(scalar_src(depth + 1))
         if r == 7: return sc.Select(int(rng.integers(0, 2)))(sc.CombineLatest()(scalar_src(depth + 1), scalar_src(depth + 1)))
         return resample(depth + 1)
+
+    def wide_src(depth):
+        """A 2-column stream."""
+        r = rng.integers(0, 4)
+        if r == 0: return inp("y")
+        if r == 1: return sc.Dropna()(inp("y"))
+        if r == 2: return sc.Delay(int(rng.integers(0, 6)))(inp("y"))
+        return sc.CombineLatest()(scalar_src(depth + 1), scalar_src(depth + 1))
 
     def resample(depth):
         r = rng.integers(0, 4 if enable_clock else 3)

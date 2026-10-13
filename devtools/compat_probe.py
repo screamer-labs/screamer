@@ -707,8 +707,19 @@ def cases():
         sess.flush()
         return sess.result()
 
+    def two_producers(op, fa, fb):
+        a, b = s.Input("a"), s.Input("b")
+        return s.Pipeline([a, b], [op(a, b)])(fa, fb)
+
     top = 2 ** 63 - 6
     table.update({
+        "Pipeline operator two producers at one index": lambda: two_producers(
+            lambda a, b: s.Sub()(b, a), (np.array([[1.0, 0.0]]), np.array([5])),
+            (np.array([[9.0, 0.0]]), np.array([5]))),
+        "Pipeline operator two producers delayed": lambda: two_producers(
+            lambda a, b: s.Add()(s.Delay(10)(a), b),
+            (np.array([[1.0, 2.0], [3.0, 4.0]]), np.array([0, 20])),
+            (np.array([[5.0, 6.0], [7.0, 8.0]]), np.array([5, 15]))),
         "Pipeline live push after flush": live_after_flush,
         "Delay past int64": lambda: s.Delay(10)(np.ones(2), np.array([0, top])),
         "Resample right label past int64": lambda: s.Resample(freq=10, label="right", agg="last")(

@@ -2,14 +2,15 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   ready, Input, Pipeline, select, resample, combineLatest, filter, delay, dropna,
-  RollingMean,
+  RollingMean, RollingCov,
 } from "../src/index.ts";
 
 // Randomized property: batch == live for multi-output Pipelines (B7), the
 // JavaScript twin of tests/test_pipeline_property.py. Each case builds 2 to 4
 // outputs from random trees over the inputs a, b (with NaN), m (a mask), c (a
 // clock) and y (2 columns): filter, dropna, select, combineLatest, delay,
-// RollingMean and resample (every with label left or right and fill skip, nan
+// RollingMean, RollingCov and dropna given two producers (two streams the node
+// takes in index order), and resample (every with label left or right and fill skip, nan
 // or carry; count; threshold with a dropna driver; clock, with the clock c,
 // dropna(c), a filter, an every, count or threshold resample of c,
 // combineLatest, or a nested clock resample). 15% of cases are unaligned, and
@@ -83,7 +84,9 @@ function makeCase(seed: number) {
   const inp = (k: string) => { used.add(k); return ins[k]; };
   const aggs = ["mean", "last", "sum", "first", "count"];
   const scalar = (d: number): any => {
-    const r = g.int(0, d < 2 ? 9 : 3);
+    const r = g.int(0, d < 2 ? 11 : 3);
+    if (r === 9) return RollingCov(g.int(2, 4))(wide(d + 1), wide(d + 1));   // two producers
+    if (r === 10) return dropna([scalar(d + 1), scalar(d + 1)]);           // two producers
     if (r === 0) return inp("a");
     if (r === 1) return inp("b");
     if (r === 2) return select(inp("y"), g.int(0, 2));
@@ -93,6 +96,14 @@ function makeCase(seed: number) {
     if (r === 6) return RollingMean(g.int(1, 4))(scalar(d + 1));
     if (r === 7) return select(combineLatest([scalar(d + 1), scalar(d + 1)]), g.int(0, 2));
     return rs(d + 1);
+  };
+  // A 2-column stream.
+  const wide = (d: number): any => {
+    const r = g.int(0, 4);
+    if (r === 0) return inp("y");
+    if (r === 1) return dropna(inp("y"));
+    if (r === 2) return delay(inp("y"), g.int(0, 6));
+    return combineLatest([scalar(d + 1), scalar(d + 1)]);
   };
   const rs = (d: number): any => {
     const r = g.int(0, clockOn ? 4 : 3);
