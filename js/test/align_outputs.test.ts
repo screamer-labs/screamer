@@ -351,7 +351,7 @@ test("alignOutputs: live drains at any timing equal batch, with a late or empty 
     }],
     ["rare resample", () => {
       const a = Input("a");
-      return { p: new Pipeline([a], [RollingMean(5)(a) as any, resample(a, { every: 500, agg: "mean" })], { maxPending: 100 }),
+      return { p: new Pipeline([a], [RollingMean(5)(a) as any, resample(a, { every: 500, agg: "mean" })], { maxPending: 2000 }),
                feeds: { values: xs, index: ix }, events: xs.map((v, i) => ["a", i, v] as Ev) };
     }],
     ["filter of an input", () => {

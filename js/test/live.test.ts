@@ -381,3 +381,24 @@ test("live: push and advance after flush() throw RangeError; a new session start
     assert.deepEqual(Array.from((t.result() as Output).index as any), [3, 4, 5]);
   } finally { p.dispose(); }
 });
+
+// The output alignment holds at most maxPending rows (the twin of
+// test_output_alignment_is_capped_by_max_pending).
+test("live: the output alignment is capped by maxPending; advance() keeps it bounded", async () => {
+  await ready();
+  const a = Input("a"), b = Input("b");
+  const p = new Pipeline([a, b], [RollingMean(1)(a), RollingMean(1)(b)], { maxPending: 100 });
+  try {
+    let s = p.live();
+    s.push("b", 0, 0);
+    assert.throws(() => { for (let t = 0; t < 200; t++) { s.push("a", t, t); s.result(); } },
+      (e: unknown) => e instanceof RangeError && /output alignment overflow: 101 rows wait/.test((e as Error).message));
+    s = p.live();
+    s.push("b", 0, 0);
+    for (let t = 0; t < 1000; t++) {
+      s.push("a", t, t);
+      if (t % 50 === 49) s.advance(t);
+      s.result();
+    }
+  } finally { p.dispose(); }
+});

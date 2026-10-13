@@ -192,7 +192,7 @@ private:
             cg_.drain_into(drained_);
             collect_single();
         } else {
-            take_joined(cg_.drain_aligned(drained_));
+            take_joined(cg_.drain_aligned(drained_, false));   // holds what batch holds
         }
     }
 

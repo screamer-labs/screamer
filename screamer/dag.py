@@ -320,7 +320,9 @@ class Pipeline:
       lengths may differ.
     - ``max_pending`` (default ``1_000_000``): the most events a join may hold
       while it waits for another stream (each ``CombineLatest`` and ``Filter``
-      node). More raises ``RuntimeError``. An integer from 1 to ``2**53``.
+      node, an operator or ``Dropna`` given several streams, and the rows a live
+      session holds in its output alignment while another output has not
+      moved). More raises ``RuntimeError``. An integer from 1 to ``2**53``.
 
     Call ``pipe(*feeds)`` (positional) or ``pipe(**named_feeds)`` (by Input name)
     to run the pipeline. Each feed may be a bare value array (positional, index

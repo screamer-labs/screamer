@@ -94,8 +94,10 @@ const [outA, outB] = p({
 `live().result()` returns the same shape as the batch call.
 
 `maxPending` (default 1,000,000) is the most events a join may hold while it waits for another
-stream: each `combineLatest` node without its own `maxPending`, each `filter` node, and the join
-of a cumulative `resample` with its driver. More throws `RangeError` and ends a live session. It
+stream: each `combineLatest` node without its own `maxPending`, each `filter` node, the join of a
+cumulative `resample` with its driver and of an operator or `dropna` given several streams, and
+the rows a live session holds in its output alignment while another output has not moved. More
+throws `RangeError` and ends a live session. It
 is an integer from 1 to 2\*\*53; another number throws `RangeError`, and a value that is not an
 integer `TypeError`.
 
@@ -171,9 +173,9 @@ every row.
 
 An input that gets no events holds the aligned rows. While an input is silent, for example a
 clock that stopped ticking or a feed that paused, the outputs fed by it do not move, so the
-other outputs' rows wait in memory until `advance(now)` or `flush()`. In a long-running session,
-call `advance(now)` from time to time: it moves every input to `now` and releases the rows
-below it.
+other outputs' rows wait in memory until `advance(now)` or `flush()`, at most `maxPending` of
+them (more throws `RangeError`). In a long-running session, call `advance(now)` from time to
+time: it moves every input to `now` and releases the rows below it.
 
 ## Combinators
 

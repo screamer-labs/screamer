@@ -143,6 +143,13 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Changed
 
+* `max_pending` also caps the rows a live session holds in its output
+  alignment: while one output does not move (a silent input), the
+  other outputs' rows wait for it, and more than `max_pending` of them raise
+  `RuntimeError` (`RangeError` in JavaScript), "output alignment overflow",
+  as a `CombineLatest` reorder buffer does. In 2.8.0 they grew without
+  bound. Old result: pass a larger `max_pending`, or call `advance(now)` from
+  time to time, which releases them.
 * An operator or `Dropna` given several streams in a `Pipeline` (each a
   separate stream of events, such as `Add()(a, b)` over two 2-column inputs)
   takes their events in index order, and events at one index in the order of

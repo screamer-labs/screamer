@@ -92,7 +92,8 @@ def test_aligned_outputs_share_one_index():
 
 def test_lazy_alignment_waits_for_a_late_output_without_a_cap():
     # Output a emits 50 rows before output b emits any; the rows wait, as
-    # they do in batch, whatever max_pending is (it caps the join nodes only).
+    # they do in batch, whatever max_pending is (it caps the join nodes and a
+    # live session's alignment).
     a, b = Input("a"), Input("b")
     feeds = [(np.arange(50.0), np.arange(50)), (np.array([7.0]), np.array([100]))]
     p = Pipeline([a, b], [a, b], max_pending=10)
@@ -269,7 +270,9 @@ def _drain_cases():
 def test_live_drains_and_lazy_equal_batch_whatever_the_timing(case, drains):
     make, feeds = list(_drain_cases())[case]
     inputs = [Input(nm) for nm in ("a", "m")[:len(feeds)]]
-    p = Pipeline(inputs, make(*inputs), max_pending=100)
+    # A live session's alignment holds the rows that wait for the every=500
+    # bar (up to the event that closes it), at most max_pending of them.
+    p = Pipeline(inputs, make(*inputs), max_pending=2000)
     want = p(*feeds)
     names = [i.op[1] for i in inputs]
     evs = _events(feeds, names)
