@@ -515,6 +515,60 @@ def cases():
         "CombineLatest lazy indexed two-value tuples": lambda: lz(CL()(
             iter([(1.0, 2), (3.0, 4)]), iter([(5.0, 6), (7.0, 8)]))),
     })
+
+    # A decreasing index on a stream (G26), the fill bars of one gap (G22), and
+    # a clock resample whose values come through a Filter (G20).
+    dv, dk = v[:4], np.array([0, 20, 10, 30])               # decreases at event 2
+
+    def pipe1(feed, op=lambda x: s.RollingMean(1)(x)):
+        x = s.Input("x")
+        return s.Pipeline([x], [op(x)])(feed)
+
+    def pipe2(fa, fb):
+        a, b = s.Input("a"), s.Input("b")
+        return s.Pipeline([a, b], [s.RollingMean(1)(a), s.RollingMean(1)(b)])(fa, fb)
+
+    def live_push(ks):
+        x = s.Input("x")
+        sess = s.Pipeline([x], [s.RollingMean(1)(x)]).live()
+        for val, k in zip(dv, ks):
+            sess.push("x", int(k), float(val))
+        sess.flush()
+        return sess.result()
+
+    def clock_via_filter():
+        x, m, c = s.Input("x"), s.Input("m"), s.Input("c")
+        node = s.Resample(s.Filter()(x, m), c, clock=True, agg="last")
+        return s.Pipeline([x, m, c], [node])(
+            (np.array([1.0]), np.array([5])),
+            (np.ones(3), np.array([0, 5, 20])),
+            (np.zeros(3), np.array([6, 9, 12])))
+
+    gap = np.array([0, 2_000_001])                           # 2e6 empty buckets
+    table.update({
+        "merge decreasing index": lambda: merge((dv, dk), (w[:2], idx[:2])),
+        "merge lazy decreasing index": lambda: lz(merge(vgen(dv, dk), vgen(w[:2], idx[:2]))),
+        "merge equal indexes": lambda: merge((dv, np.array([0, 10, 10, 30])), (w[:2], idx[:2])),
+        "CombineLatest decreasing index": lambda: CL()((dv, dk), (w[:2], idx[:2])),
+        "CombineLatest lazy decreasing index": lambda: lz(CL()(vgen(dv, dk), vgen(w[:2], idx[:2]))),
+        "Pipeline decreasing index": lambda: pipe1((dv, dk)),
+        "Pipeline 2 inputs decreasing index": lambda: pipe2((dv, dk), (w[:2], idx[:2])),
+        "Pipeline lazy decreasing index": lambda: lz(pipe1(vgen(dv, dk))),
+        "Pipeline live decreasing index": lambda: live_push(dk),
+        "Pipeline equal indexes": lambda: pipe1((dv, np.array([0, 10, 10, 30]))),
+        "Resample decreasing index": lambda: s.Resample(freq=10, agg="last")((dv, dk)),
+        "Resample count decreasing index": lambda: s.Resample(count=2, agg="last")((dv, dk)),
+        "Delay decreasing index": lambda: s.Delay(5)(dv, dk),
+        "Dropna decreasing index": lambda: s.Dropna()((dv, dk)),
+        "split decreasing index": lambda: s.split((dv, dk), [0, 1, 0, 1]),
+        "forecast_pairs decreasing index": lambda: s.forecast_pairs((dv, dk), (dv, dk), duration=5),
+        "Resample fill nan 2e6-bucket gap": lambda: s.Resample(freq=1, fill="nan")((v[:2], gap)),
+        "Resample fill carry 2e6-bucket gap": lambda: s.Resample(freq=1, fill="carry")((v[:2], gap)),
+        "Resample fill nan small gap": lambda: s.Resample(freq=10, fill="nan")((v[:2], np.array([0, 95]))),
+        "Resample fill max_fill=3e6": lambda: s.Resample(freq=1, fill="nan", max_fill=3_000_000)((v[:2], gap)),
+        "Resample fill max_fill=0": lambda: s.Resample(freq=1, fill="nan", max_fill=0)((v[:2], gap)),
+        "Resample clock value via Filter": clock_via_filter,
+    })
     return table
 
 
