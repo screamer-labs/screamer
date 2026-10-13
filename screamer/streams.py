@@ -426,11 +426,13 @@ def _dropna_via_cpp(vals, idx, how):
     if vals.ndim == 1:
         src = Input("x")
         dag = Pipeline([src], [dropna(src, how=how)])
+        dag._who = "dropna"
         out_vals, out_idx = dag((vals, real_idx))
     else:
         N = vals.shape[1]
         col_inputs = [Input(f"c{i}") for i in range(N)]
         dag = Pipeline(col_inputs, [dropna(combine_latest(*col_inputs), how=how)])
+        dag._who = "dropna"
         out_vals, out_idx = dag(*((vals[:, i], real_idx) for i in range(N)))
 
     return out_vals, (None if positional else out_idx)
@@ -552,6 +554,7 @@ class Filter:
 
         d, m = Input("d"), Input("m")
         dag = Pipeline(inputs=[d, m], outputs=[Filter()(d, m)])
+        dag._who = "Filter"
         survivors, idx = dag(data_array, mask_array)
     """
 
@@ -563,6 +566,7 @@ class Filter:
         from .dag import Input, Pipeline
         d, m = Input("data"), Input("mask")
         dag = Pipeline(inputs=[d, m], outputs=[Filter()(d, m)])
+        dag._who = "Filter"
         return dag(data, mask)
 
 
@@ -656,6 +660,7 @@ def _select_via_cpp(vals, idx, cols, scalar):
     col_inputs = [Input(f"c{i}") for i in range(N)]
     columns_arg = cols[0] if scalar else cols
     dag = Pipeline(col_inputs, [select(combine_latest(*col_inputs), columns=columns_arg)])
+    dag._who = "select"
     out_vals, out_idx = dag(*((vals[:, i], real_idx) for i in range(N)))
     return out_vals, (None if positional else out_idx)
 
@@ -977,6 +982,7 @@ def _resample_via_cpp(feed, *, every, count, threshold, agg, origin, label,
                     origin=origin, label=label, fill=fill, clock=clock,
                     max_fill=max_fill)
     dag = Pipeline([src], [node])
+    dag._who = "resample"
     return dag(feed)
 
 
@@ -995,6 +1001,7 @@ def _resample_clock_batch(vals, val_idx, clk_vals, clk_idx, *, agg, fill,
     node = resample(val_in, clk_in, clock=True, agg=agg, fill=fill,
                     origin=origin, label=label, max_age=max_age)
     dag = Pipeline([val_in, clk_in], [node])
+    dag._who = "resample"
     # The indexes go to the Pipeline as given; the engine applies the index rule.
     vals_f = _as_float64(vals, contiguous=True)
     clk_f = np.ascontiguousarray(clk_vals if clk_vals.ndim == 1 else clk_vals[:, 0],
@@ -1591,6 +1598,7 @@ def _delay_via_cpp(feed, *, duration):
     src = Input("x")
     node = delay(src, duration=duration)
     dag = Pipeline([src], [node])
+    dag._who = "delay"
     return dag(feed)
 
 

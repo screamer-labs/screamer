@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import * as screamer from "../src/index.ts";
 import { ready, Input, Pipeline, combineLatest, resample, select, dropna, filter, delay } from "../src/index.ts";
-import type { Node, Output } from "../src/index.ts";
+import type { NdArray, Node, Output } from "../src/index.ts";
 
 // Load the Python-oracle fixture (built by devtools/wasm/gen_dag_oracle.py).
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -126,9 +126,13 @@ for (const entry of entries) {
   test(`dag parity: ${entry.name}`, async () => {
     await ready();
 
-    const feeds: Record<string, { values: Float64Array; index: Float64Array }> = {};
+    // The fixture stores a wide feed's rows flat, one index value per row:
+    // the feed is an NdArray of those rows.
+    const feeds: Record<string, { values: Float64Array | NdArray; index: Float64Array }> = {};
     for (const [name, feed] of Object.entries(entry.feeds)) {
-      feeds[name] = { values: toF64(feed.values), index: Float64Array.from(feed.index) };
+      const values = toF64(feed.values), index = Float64Array.from(feed.index);
+      const w = index.length ? values.length / index.length : 1;
+      feeds[name] = { values: w === 1 ? values : { data: values, shape: [index.length, w] }, index };
     }
 
     const p = buildPipeline(entry.build);

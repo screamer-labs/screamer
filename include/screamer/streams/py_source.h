@@ -71,7 +71,9 @@ public:
                         where(event, "the index of event") + ": " + e.what());
                 }
             }
-            if (!nb::try_cast<double>(item, ev.value)) {
+            if (rows_) {
+                read_value(item, event, ev, "event");   // a number or a row
+            } else if (!nb::try_cast<double>(item, ev.value)) {
                 if (!item.is_none()) bad(event, "event", item);
                 ev.value = kNaN;                    // a missing value (A9)
             }
@@ -79,55 +81,7 @@ public:
             nb::tuple tup;
             if (!nb::try_cast<nb::tuple>(item, tup) || tup.size() < 2)
                 bad(event, "event", item, "a (value, index) pair");
-            nb::object val_obj = nb::borrow<nb::object>(tup[0]);
-
-            // Try scalar extraction first (common fast path).
-            // For wide events (tuple, list, or numpy array of floats), fall
-            // through to the sequence path.
-            PyObject* vp = val_obj.ptr();
-            bool is_scalar = false;
-            if (PyFloat_Check(vp) || PyLong_Check(vp)) {
-                if (!nb::try_cast<double>(val_obj, ev.value))
-                    bad(event, "the value of event", val_obj);
-                is_scalar = true;
-            } else if (vp == Py_None) {
-                ev.value = kNaN;                    // a missing value (A9)
-                is_scalar = true;
-            } else if (PyUnicode_Check(vp) || PyBytes_Check(vp) || PyByteArray_Check(vp)) {
-                bad(event, "the value of event", val_obj);   // text, not a sequence
-            }
-            if (!is_scalar && read_float64_buffer(vp, event)) {
-                ev.value = wide_values_[0];
-            } else if (!is_scalar && flatten_ && read_any_rank(val_obj, event)) {
-                ev.value = wide_values_[0];
-            } else if (!is_scalar) {
-                // Wide event: extract all values from the sequence.
-                nb::sequence seq;
-                if (nb::try_cast<nb::sequence>(val_obj, seq)) {
-                    const std::size_t n = static_cast<std::size_t>(nb::len(seq));
-                    if (n == 0)   // as a live push: an event has at least one value
-                        throw nb::value_error((std::string(owner_) + ": " +
-                            where(event, "the value of event") + " is empty").c_str());
-                    wide_values_.reserve(n);
-                    for (std::size_t j = 0; j < n; ++j) {
-                        nb::object x = seq[j];
-                        double d;
-                        if (!nb::try_cast<double>(x, d)) {
-                            if (x.is_none()) { wide_values_.push_back(kNaN); continue; }
-                            const std::string w = where(event, "the value of event");
-                            throw_if_wrong_kind(owner_, val_obj, w);
-                            throw_bad_shape(owner_, "item [" + std::to_string(j) + "] of " + w, x);
-                        }
-                        wide_values_.push_back(d);
-                    }
-                    ev.value = wide_values_[0];
-                    event_shape_.assign(1, n);
-                } else {
-                    // Last resort: try direct cast (handles numpy scalars, etc.)
-                    if (!nb::try_cast<double>(val_obj, ev.value))
-                        bad(event, "the value of event", val_obj);
-                }
-            }
+            read_value(nb::borrow<nb::object>(tup[0]), event, ev);
 
             if constexpr (std::is_integral_v<Index>) {
                 // The engine's index rule, as in a live push (py_index.h), with
@@ -187,7 +141,67 @@ public:
     std::string event_text(std::size_t event) const { return where(event, "event"); }
     const char* owner() const { return owner_; }
 
+    // Lets a positional source take rows as events (a sequence or an array
+    // of numbers), as an indexed source does. Off by default: a positional
+    // Pipeline stream holds numbers.
+    void set_rows(bool on) { rows_ = on; }
+
 private:
+    // Reads the value of an event: a number (None is NaN), or a row of
+    // numbers into wide_values_ with its shape in event_shape_.
+    // `what` names the value in an error: "the value of event" for an
+    // indexed event, "event" for a positional one.
+    void read_value(nb::object val_obj, std::size_t event, Event<Index>& ev,
+                    const char* what = "the value of event") {
+        // Try scalar extraction first (common fast path).
+        // For wide events (tuple, list, or numpy array of floats), fall
+        // through to the sequence path.
+        PyObject* vp = val_obj.ptr();
+        bool is_scalar = false;
+        if (PyFloat_Check(vp) || PyLong_Check(vp)) {
+            if (!nb::try_cast<double>(val_obj, ev.value))
+                bad(event, what, val_obj);
+            is_scalar = true;
+        } else if (vp == Py_None) {
+            ev.value = kNaN;                    // a missing value (A9)
+            is_scalar = true;
+        } else if (PyUnicode_Check(vp) || PyBytes_Check(vp) || PyByteArray_Check(vp)) {
+            bad(event, what, val_obj);   // text, not a sequence
+        }
+        if (!is_scalar && read_float64_buffer(vp, event)) {
+            ev.value = wide_values_[0];
+        } else if (!is_scalar && flatten_ && read_any_rank(val_obj, event)) {
+            ev.value = wide_values_[0];
+        } else if (!is_scalar) {
+            // Wide event: extract all values from the sequence.
+            nb::sequence seq;
+            if (nb::try_cast<nb::sequence>(val_obj, seq)) {
+                const std::size_t n = static_cast<std::size_t>(nb::len(seq));
+                if (n == 0)   // as a live push: an event has at least one value
+                    throw nb::value_error((std::string(owner_) + ": " +
+                        where(event, what) + " is empty").c_str());
+                wide_values_.reserve(n);
+                for (std::size_t j = 0; j < n; ++j) {
+                    nb::object x = seq[j];
+                    double d;
+                    if (!nb::try_cast<double>(x, d)) {
+                        if (x.is_none()) { wide_values_.push_back(kNaN); continue; }
+                        const std::string w = where(event, what);
+                        throw_if_wrong_kind(owner_, val_obj, w);
+                        throw_bad_shape(owner_, "item [" + std::to_string(j) + "] of " + w, x);
+                    }
+                    wide_values_.push_back(d);
+                }
+                ev.value = wide_values_[0];
+                event_shape_.assign(1, n);
+            } else {
+                // Last resort: try direct cast (handles numpy scalars, etc.)
+                if (!nb::try_cast<double>(val_obj, ev.value))
+                    bad(event, what, val_obj);
+            }
+        }
+    }
+
     // Reads a C-contiguous native float64 buffer of rank 1 (or more, under
     // set_flatten) into wide_values_ with one copy. Returns false, with no
     // error set, for any other object, which then takes the sequence path.
@@ -443,6 +457,7 @@ private:
     std::vector<double> wide_values_;   // populated when last event was wide
     std::vector<std::size_t> event_shape_;  // the last wide event's shape
     bool flatten_ = false;              // read a rank-2+ float64 array event
+    bool rows_ = false;                 // a positional event may be a row
     bool shape_fixed_ = false;          // read_any_rank: the event shape is complete
     screamer::TimeUnit* unit_;          // the call's index kind, shared; may be null
     static constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();

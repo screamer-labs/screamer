@@ -120,7 +120,7 @@ test("split: values given as rows split along time and keep the row shape", asyn
   const [{ values: e }] = split({ data: new Float64Array(0), shape: [0, 4] }, [], { n: 1 });
   assert.deepEqual((e as NdArray).shape, [0, 4]);
   assert.throws(() => split({ data: new Float64Array(6), shape: [3, 2] }, [0, 1]),
-    { name: "RangeError", message: "split: values/sources/index length differ" });
+    { name: "RangeError", message: "split: the stream has 3 rows of values but 2 sources" });
 });
 
 test("split: a wrong kind is a TypeError, a shape mismatch a RangeError", async () => {
@@ -147,7 +147,12 @@ test("split: a wrong kind is a TypeError, a shape mismatch a RangeError", async 
     name: "RangeError", message: "split: n=1 is too small for sources up to 2147483646; events would be dropped",
   });
   // lengths
-  assert.throws(() => split([1, 2], [0]), { name: "RangeError", message: "split: values/sources/index length differ" });
+  assert.throws(() => split([1, 2], [0]), { name: "RangeError", message: "split: the stream has 2 rows of values but 1 sources" });
+  // G32: one index value per row, a shorter and a longer index
+  assert.throws(() => split([1, 2, 3], [0, 0, 0], { index: [0, 1] }),
+    { name: "RangeError", message: "split: the stream has 3 rows of values but 2 index values" });
+  assert.throws(() => split([1, 2, 3], [0, 0, 0], { index: [0, 1, 2, 3] }),
+    { name: "RangeError", message: "split: the stream has 3 rows of values but 4 index values" });
   assert.throws(() => split([1, 2], [0, 1], { index: [1] }), RangeError);
   // index: a wrong kind, and rows (a shape error, as a 2-D NdArray index is)
   assert.throws(() => split([1, 2], [0, 1], { index: ["a", "b"] as any }), TypeError);

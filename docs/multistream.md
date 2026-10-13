@@ -151,7 +151,8 @@ bars, idx = Resample(freq=60_000, agg="ohlc")(panel, t)   # (T', K, 4)
 Other stream operators:
 
 - `Merge()(*values, index=None)` -> `(values, sources, index)`: one index-sorted,
-  source-tagged stream.
+  source-tagged stream. Wide streams merge row by row; every input has the
+  same row width.
 - `split(values, sources, index=None)` -> the inverse of `Merge`.
 - `Dropna(how="any")(values, index=None)` -> drop NaN events.
 - `Filter()(data, mask)` -> keep each data value whose aligned mask is nonzero.

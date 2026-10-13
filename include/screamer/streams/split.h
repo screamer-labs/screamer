@@ -88,8 +88,11 @@ inline void check_split_inputs(std::size_t values_ndim, std::size_t values_rows,
     if (has_index && index_ndim != 1)
         throw std::invalid_argument("split: index must be 1-D (one index per event), got " +
                                     std::to_string(index_ndim) + " dimensions");
-    if (sources_len != values_rows || (has_index && index_len != values_rows))
-        throw std::invalid_argument("split: values/sources/index length differ");
+    if (sources_len != values_rows)
+        throw std::invalid_argument("split: the stream has " + std::to_string(values_rows) +
+                                    " rows of values but " + std::to_string(sources_len) +
+                                    " sources");
+    if (has_index) dag::check_feed_length("split", -1, values_rows, index_len);
 }
 
 // The checked tags of one call, the number of outputs, and the events per

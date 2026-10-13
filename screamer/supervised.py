@@ -111,5 +111,5 @@ def forecast_pairs(X, y, *, count=None, duration=None, dropna=False):
         yv.ndim, len(yv), yv.shape[1] if yv.ndim > 1 else 1)
     if feeds is None:
         feeds = [_as_stream(xv), _as_stream(yv)]
-    (_, out), = _graph(count, duration, dropna).run_batch(feeds)
+    (_, out), = _graph(count, duration, dropna).run_batch(feeds, False, "forecast_pairs")
     return _split(out, xv)

@@ -247,11 +247,11 @@ def test_split_shape_rules():
         streams.split(np.zeros(2), [[0], [1]])
     with pytest.raises(ValueError, match="index must be 1-D"):
         streams.split(np.zeros(2), [0, 1], index=np.zeros((2, 1)))
-    with pytest.raises(ValueError, match="length differ"):
+    with pytest.raises(ValueError, match="^split: the stream has 2 rows of values but 1 sources$"):
         streams.split(np.zeros(2), [0])
-    with pytest.raises(ValueError, match="length differ"):
+    with pytest.raises(ValueError, match="^split: the stream has 2 rows of values but 3 sources$"):
         streams.split(np.zeros((2, 3)), [0, 1, 0])
-    with pytest.raises(ValueError, match="length differ"):
+    with pytest.raises(ValueError, match="^split: the stream has 2 rows of values but 1 index values$"):
         streams.split(np.zeros(2), [0, 1], index=[1])
     with pytest.raises(TypeError):
         streams.split(np.zeros(2), [0, 1], index=["a", "b"])

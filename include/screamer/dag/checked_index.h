@@ -79,6 +79,25 @@ inline std::int64_t checked_index_u64(std::uint64_t u) {
     return static_cast<std::int64_t>(u);
 }
 
+// ---- Feed length -----------------------------------------------------------
+// A (values, index) feed holds one index value per row of values. Every entry
+// point that takes the pair checks this before it reads either array: a
+// value error (ValueError in Python, RangeError in JavaScript) naming both
+// lengths. `who` names the entry point ("Pipeline", "merge", "split"); `input`
+// is the position of the feed, or -1 for an entry point with one stream.
+[[noreturn]] inline void throw_feed_length(const std::string& who, std::ptrdiff_t input,
+                                           std::size_t rows, std::size_t len) {
+    const std::string tail = std::to_string(rows) + " rows of values but " +
+                             std::to_string(len) + " index values";
+    throw std::invalid_argument(who + ": " +
+        (input >= 0 ? "input " + std::to_string(input) + " has " + tail : "the stream has " + tail));
+}
+
+inline void check_feed_length(const std::string& who, std::ptrdiff_t input,
+                              std::size_t rows, std::size_t len) {
+    if (rows != len) throw_feed_length(who, input, rows, len);
+}
+
 // ---- Index order -----------------------------------------------------------
 // The index of every stream source must not decrease; equal indexes are
 // allowed. A decrease is a value error (ValueError in Python, RangeError in

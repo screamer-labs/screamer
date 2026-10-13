@@ -329,7 +329,7 @@ class PipelineImpl implements Owned {
     }
   }
 
-  private normalizeFeeds(feeds: Feeds): Array<{ values: Float64Array; index: Float64Array; width: number }> {
+  private normalizeFeeds(feeds: Feeds): Array<{ values: Float64Array; index: Float64Array; rows: number; width: number }> {
     // An array or a typed array (not a DataView) holds values element by element.
     const isFlat = (v: unknown): boolean =>
       Array.isArray(v) || (ArrayBuffer.isView(v) && !(v instanceof DataView));
@@ -341,13 +341,13 @@ class PipelineImpl implements Owned {
       typeof (v as any).values !== "function";
     const expected = "expected an array of numbers, a typed array, an NdArray or {values, index}";
     // A non-number value or index raises TypeError naming its event and input.
-    const one = (feed: Feed, k: number): { values: Float64Array; index: Float64Array; width: number } => {
+    const one = (feed: Feed, k: number): { values: Float64Array; index: Float64Array; rows: number; width: number } => {
       let values: Float64Array;
       let index: Float64Array | undefined;
       const at = (i: number) => whereText("event", i, k);
       // Rows of the feed: the values' length, or an NdArray's first dimension;
       // and an NdArray's width, its second dimension, which an empty NdArray
-      // keeps (a flat array's width is its length over the index's).
+      // keeps (a flat array has width 1).
       let rows: number;
       let ndWidth: number | undefined;
       const read = (v: unknown): Float64Array => {
@@ -376,15 +376,13 @@ class PipelineImpl implements Owned {
       } else {
         throw new TypeError(`Pipeline: the feed for input '${this.names[k]}' is ${aKind(feed)}, ${expected}`);
       }
-      if (index) {
-        if (asNd((feed as any).values ?? feed) && index.length !== rows!)
-          throw new RangeError(`Pipeline: input ${k} has ${rows!} rows of values but ${index.length} index values`);
-      } else {
+      if (!index) {
         index = new Float64Array(rows!);
         for (let i = 0; i < rows!; i++) index[i] = i;
       }
-      const width = ndWidth ?? (index.length ? values.length / index.length : 1);
-      return { values, index, width };
+      // A flat array is one value per row; rows of several values come as an
+      // NdArray. The engine checks that the index has one value per row.
+      return { values, index, rows: rows!, width: ndWidth ?? 1 };
     };
 
     if (isValues(feeds) || isPair(feeds)) {
@@ -419,8 +417,9 @@ class PipelineImpl implements Owned {
     const idxBufs: number[] = [];
     const valBufs: number[] = [];
     const lens: number[] = [];
+    const rowCounts: number[] = [];
     const widths: number[] = [];
-    for (const { values, index, width } of norm) {
+    for (const { values, index, rows, width } of norm) {
       const len = index.length;
       const idxBuf = M.allocF64(len || 1);
       M.viewF64(idxBuf, len).set(index);
@@ -430,19 +429,21 @@ class PipelineImpl implements Owned {
       idxBufs.push(idxBuf);
       valBufs.push(valBuf);
       lens.push(len);
+      rowCounts.push(rows);
       widths.push(width);
     }
     const idxPtrs = heapU32(M, idxBufs);
     const valPtrs = heapU32(M, valBufs);
     const lensPtr = heapU32(M, lens);
+    const rowsPtr = heapU32(M, rowCounts);
     const widthsPtr = heapU32(M, widths);
-    buffers.push(idxPtrs, valPtrs, lensPtr, widthsPtr);
+    buffers.push(idxPtrs, valPtrs, lensPtr, rowsPtr, widthsPtr);
 
     try {
       // Run the whole graph ONCE, then read each cached output. Running per
       // output would recompute the graph M times (O(M x) redundant compute).
       // Everything in this block is a call into WASM or a copy off its heap.
-      this.cg.runBatchStore(idxPtrs, valPtrs, lensPtr, widthsPtr, nIn, this.alignOutputs);
+      this.cg.runBatchStore(idxPtrs, valPtrs, lensPtr, rowsPtr, widthsPtr, nIn, this.alignOutputs);
       return this.readStored();
     } catch (e) {
       throw normalizeError(e);

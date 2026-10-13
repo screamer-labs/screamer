@@ -78,6 +78,11 @@ inline OutBufFlat marshal_flat_at(const std::vector<screamer::dag::OutputBuffer>
 // type. JavaScript calls it only on that error path, so the message has one
 // source (checked_index.h).
 inline void throwIndexKind(std::string kind) { screamer::dag::throw_index_kind(kind); }
+// The feed-length rule (checked_index.h): one index value per row of values.
+inline void checkFeedLength(std::string who, int input, double rows, double len) {
+    screamer::dag::check_feed_length(who, input, static_cast<std::size_t>(rows),
+                                     static_cast<std::size_t>(len));
+}
 
 // maxPending under the engine's rule (max_pending.h): checkedMaxPending gives
 // the count of a number or throws; throwMaxPendingKind is the error for a
@@ -149,39 +154,60 @@ public:
                              reinterpret_cast<const double*>(valuesPtr), width);
     }
 
-    // Batch drive: feed `numInputs` input streams then marshal output `outIdx`.
-    // All array-of-pointers arguments are wasm addresses (uint32 each):
+    // The inputs of a batch drive, read from wasm addresses (uint32 each):
     //   idxPtrsPtr  -> numInputs double*  : per-input index-as-double arrays
     //   valPtrsPtr  -> numInputs double*  : per-input row-major value arrays
-    //   lensPtr     -> numInputs uint32   : per-input event counts
+    //   lensPtr     -> numInputs uint32   : per-input index lengths
+    //   rowsPtr     -> numInputs uint32   : per-input rows of values
     //   widthsPtr   -> numInputs uint32   : per-input column widths
-    // Indices are converted to int64 here (VectorSource wants const int64_t*).
-    OutBufFlat runBatchFlat(std::uintptr_t idxPtrsPtr, std::uintptr_t valPtrsPtr,
-                            std::uintptr_t lensPtr, std::uintptr_t widthsPtr,
-                            std::size_t numInputs, std::size_t outIdx) {
+    // Each index is converted to int64 under the engine's index rule, and
+    // must have one value per row (checked_index.h check_feed_length) before
+    // the engine reads the values.
+    struct BatchInputs {
+        std::vector<std::vector<std::int64_t>> idx_i64;
+        std::vector<const std::int64_t*> indices;
+        std::vector<const double*>       vals;
+        std::vector<std::size_t>         lens;
+        std::vector<std::size_t>         widths;
+    };
+    static BatchInputs batch_inputs(std::uintptr_t idxPtrsPtr, std::uintptr_t valPtrsPtr,
+                                    std::uintptr_t lensPtr, std::uintptr_t rowsPtr,
+                                    std::uintptr_t widthsPtr, std::size_t numInputs) {
         const auto* idxPtrs = reinterpret_cast<const std::uint32_t*>(idxPtrsPtr);
         const auto* valPtrs = reinterpret_cast<const std::uint32_t*>(valPtrsPtr);
         const auto* lens    = reinterpret_cast<const std::uint32_t*>(lensPtr);
+        const auto* rows    = reinterpret_cast<const std::uint32_t*>(rowsPtr);
         const auto* widths  = reinterpret_cast<const std::uint32_t*>(widthsPtr);
-
-        std::vector<std::vector<std::int64_t>> idx_i64(numInputs);
-        std::vector<const std::int64_t*> in_indices(numInputs);
-        std::vector<const double*>       in_vals(numInputs);
-        std::vector<std::size_t>         in_lens(numInputs);
-        std::vector<std::size_t>         in_widths(numInputs);
+        BatchInputs in;
+        in.idx_i64.resize(numInputs);
+        in.indices.resize(numInputs);
+        in.vals.resize(numInputs);
+        in.lens.resize(numInputs);
+        in.widths.resize(numInputs);
         for (std::size_t i = 0; i < numInputs; ++i) {
             const std::size_t len = lens[i];
             const auto* idx_d = reinterpret_cast<const double*>(idxPtrs[i]);
-            idx_i64[i].resize(len);
+            in.idx_i64[i].resize(len);
             for (std::size_t j = 0; j < len; ++j)
-                idx_i64[i][j] = screamer::dag::checked_index(idx_d[j]);
-            in_indices[i] = idx_i64[i].data();
-            in_vals[i]    = reinterpret_cast<const double*>(valPtrs[i]);
-            in_lens[i]    = len;
-            in_widths[i]  = widths[i];
+                in.idx_i64[i][j] = screamer::dag::checked_index(idx_d[j]);
+            // One index value per row, as Python's feeds (marshal_feeds).
+            screamer::dag::check_feed_length("Pipeline", static_cast<std::ptrdiff_t>(i),
+                                             rows[i], len);
+            in.indices[i] = in.idx_i64[i].data();
+            in.vals[i]    = reinterpret_cast<const double*>(valPtrs[i]);
+            in.lens[i]    = len;
+            in.widths[i]  = widths[i];
         }
-        return marshal_flat_at(
-            cg_->run_batch(in_indices, in_vals, in_lens, in_widths), outIdx);
+        return in;
+    }
+
+    // Batch drive: feed `numInputs` input streams then marshal output `outIdx`.
+    OutBufFlat runBatchFlat(std::uintptr_t idxPtrsPtr, std::uintptr_t valPtrsPtr,
+                            std::uintptr_t lensPtr, std::uintptr_t rowsPtr,
+                            std::uintptr_t widthsPtr, std::size_t numInputs,
+                            std::size_t outIdx) {
+        BatchInputs in = batch_inputs(idxPtrsPtr, valPtrsPtr, lensPtr, rowsPtr, widthsPtr, numInputs);
+        return marshal_flat_at(cg_->run_batch(in.indices, in.vals, in.lens, in.widths), outIdx);
     }
 
     // Batch drive ONCE, caching every OutputBuffer so a multi-output pipeline
@@ -193,30 +219,10 @@ public:
     // one index (dag::align_outputs, the rule Python uses): alignedIndex()
     // gives the index and output(i) the values of output i on it.
     void runBatchStore(std::uintptr_t idxPtrsPtr, std::uintptr_t valPtrsPtr,
-                       std::uintptr_t lensPtr, std::uintptr_t widthsPtr,
-                       std::size_t numInputs, bool align) {
-        const auto* idxPtrs = reinterpret_cast<const std::uint32_t*>(idxPtrsPtr);
-        const auto* valPtrs = reinterpret_cast<const std::uint32_t*>(valPtrsPtr);
-        const auto* lens    = reinterpret_cast<const std::uint32_t*>(lensPtr);
-        const auto* widths  = reinterpret_cast<const std::uint32_t*>(widthsPtr);
-
-        std::vector<std::vector<std::int64_t>> idx_i64(numInputs);   // freed on return
-        std::vector<const std::int64_t*> in_indices(numInputs);
-        std::vector<const double*>       in_vals(numInputs);
-        std::vector<std::size_t>         in_lens(numInputs);
-        std::vector<std::size_t>         in_widths(numInputs);
-        for (std::size_t i = 0; i < numInputs; ++i) {
-            const std::size_t len = lens[i];
-            const auto* idx_d = reinterpret_cast<const double*>(idxPtrs[i]);
-            idx_i64[i].resize(len);
-            for (std::size_t j = 0; j < len; ++j)
-                idx_i64[i][j] = screamer::dag::checked_index(idx_d[j]);
-            in_indices[i] = idx_i64[i].data();
-            in_vals[i]    = reinterpret_cast<const double*>(valPtrs[i]);
-            in_lens[i]    = len;
-            in_widths[i]  = widths[i];
-        }
-        cg_->run_batch_ref(in_indices, in_vals, in_lens, in_widths);
+                       std::uintptr_t lensPtr, std::uintptr_t rowsPtr,
+                       std::uintptr_t widthsPtr, std::size_t numInputs, bool align) {
+        BatchInputs in = batch_inputs(idxPtrsPtr, valPtrsPtr, lensPtr, rowsPtr, widthsPtr, numInputs);
+        cg_->run_batch_ref(in.indices, in.vals, in.lens, in.widths);
         store(align);   // a run ends with a flush: the join settles every row
     }
 
@@ -419,6 +425,7 @@ private:
 // object. Call inside EMSCRIPTEN_BINDINGS(screamer_dag).
 #define SCREAMER_REGISTER_DAG()                                                 \
     emscripten::function("throwIndexKind", &screamer_wasm::throwIndexKind);     \
+    emscripten::function("checkFeedLength", &screamer_wasm::checkFeedLength);   \
     emscripten::function("checkedMaxPending", &screamer_wasm::checkedMaxPending); \
     emscripten::function("throwMaxPendingKind", &screamer_wasm::throwMaxPendingKind); \
     emscripten::function("defaultMaxPending", &screamer_wasm::defaultMaxPending); \

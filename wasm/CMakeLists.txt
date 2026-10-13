@@ -36,6 +36,7 @@ add_executable(screamer
     "${CMAKE_CURRENT_SOURCE_DIR}/shape_bindings.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/split_bindings.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/join_bindings.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/merge_bindings.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/exception_message.cpp"
     ${PURE_SOURCES})
 

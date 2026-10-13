@@ -490,8 +490,12 @@ class Pipeline:
                 "iterator into an array.")
         streams = [_as_stream(feeds[nm]) for nm in self._input_order]
         if len(self.outputs) > 1 and self.align_outputs:
-            return _aligned(self._cg.run_batch(streams, True))
-        return _values_first(self._cg.run_batch(streams))
+            return _aligned(self._cg.run_batch(streams, True, self._who))
+        return _values_first(self._cg.run_batch(streams, False, self._who))
+
+    # The name a feed error gives: a stream operator that runs its eager
+    # call through a Pipeline names itself ("resample: input 0 has ...").
+    _who = "Pipeline"
 
     @staticmethod
     def _is_lazy(x):

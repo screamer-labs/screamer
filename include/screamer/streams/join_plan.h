@@ -249,12 +249,11 @@ inline JoinPlan plan_join(const std::vector<std::optional<Shape>>& heads,
     return p;
 }
 
-// The index of input i holds `len` values for `rows` rows of values.
+// The index of input i holds `len` values for `rows` rows of values: the
+// shared feed-length check (checked_index.h).
 inline void check_index_length(std::size_t i, std::size_t rows, std::size_t len,
                                const std::string& who = "combine_latest") {
-    if (rows != len)
-        throw std::invalid_argument(who + ": input " + std::to_string(i) + " has " + std::to_string(rows) +
-                                    " rows of values but " + std::to_string(len) + " index values");
+    dag::check_feed_length(who, static_cast<std::ptrdiff_t>(i), rows, len);
 }
 
 // The positional (no-index) iterator join: each step takes one event from

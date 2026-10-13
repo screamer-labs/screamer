@@ -13,6 +13,7 @@ import {
   combineArrays, combineAsync, combineIterators,
   type CombineEvent, type CombineInput, type CombineLayout, type CombineRow,
 } from "./combine.js";
+import { mergeArrays, mergeAsync, mergeIterators, type MergeEvent, type MergeResult } from "./merge.js";
 import {
   RESAMPLE_MODE_CODE,
   RESAMPLE_AGG_CODE,
@@ -126,15 +127,50 @@ export function combineLatest(inputs: unknown[], opts?: CombineLatestOpts): unkn
 
 // ---- merge -----------------------------------------------------------------
 
-// N-way index-sorted merge. Mirrors screamer/streams.py `merge`, which rejects
-// Node inputs: merge is input routing, not a graph node. Feed streams to a
-// Pipeline directly instead.
-export function merge(..._nodes: Node[]): Node {
-  throw new Error(
-    "merge is not supported as a Pipeline graph node (it is input routing; " +
-      "feed streams to a Pipeline directly)",
-  );
+/**
+ * Merge N streams into one in index order; equal indexes keep the input
+ * order. Every input has rows of one width (a 1-D stream has width 1).
+ *
+ * - Arrays (a typed array, an Array, T rows or an NdArray), or indexed
+ *   streams `{ values, index }`, the counterpart of Python's `(values, index)`
+ *   tuple. Without an index each input's index is its row numbers. Returns
+ *   `{ values, sources, index }`: the rows in merged order (a Float64Array,
+ *   or an NdArray `[rows, ...row shape]` for wide inputs), the input of each
+ *   row (a Uint32Array) and the merged index (null without one).
+ * - Iterators, or async iterables, of events: a value (a number, an Array, a
+ *   typed array or an NdArray), or `{ value, index }`. Returns an iterator,
+ *   or an async iterator, of `{ value, index, source }` events (index null
+ *   without one).
+ *
+ * Python's `merge` gives the same values. A merge is input routing, not a
+ * Pipeline node: feed the streams to a Pipeline directly.
+ */
+export function merge(inputs: MergeInput[]): MergeResult;
+export function merge(inputs: AsyncIterable<CombineEvent>[]): AsyncGenerator<MergeEvent, void, undefined>;
+export function merge(inputs: Iterable<CombineEvent>[]): Generator<MergeEvent, void, undefined>;
+export function merge(inputs: unknown, ...rest: unknown[]): unknown {
+  if (isNode(inputs) || rest.some(isNode) || (Array.isArray(inputs) && inputs.some(isNode)))
+    throw new Error(
+      "merge is not supported as a Pipeline graph node (it is input routing; " +
+        "feed streams to a Pipeline directly)",
+    );
+  if (!Array.isArray(inputs))
+    throw new TypeError(`merge: pass an array of inputs, got ${aKind(inputs)}`);
+  if (rest.length) throw new TypeError(`merge: takes one argument, the array of inputs, got ${rest.length + 1}`);
+  if (inputs.length === 0) throw new RangeError("merge: needs at least one stream");
+  const nAsync = inputs.filter(isAsyncIterable).length;
+  const nSync = inputs.filter((x) => !isAsyncIterable(x) && isIterator(x)).length;
+  if (nAsync && nSync)
+    throw new TypeError("merge: async and synchronous inputs cannot be mixed: pass every input as an async iterable, or none");
+  if (nAsync === inputs.length) return mergeAsync(inputs as AsyncIterable<unknown>[]);
+  if (nSync === inputs.length) return mergeIterators(inputs as Iterable<unknown>[]);
+  if (nAsync || nSync)
+    throw new TypeError("merge: cannot mix lazy iterator and concrete inputs; pass all iterators or all arrays");
+  return mergeArrays(inputs);
 }
+
+/** One input of the array form of merge: values, or `{ values, index }`. */
+export type MergeInput = CombineInput;
 
 // ---- select ----------------------------------------------------------------
 

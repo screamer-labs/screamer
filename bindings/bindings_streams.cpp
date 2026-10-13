@@ -13,6 +13,7 @@
 #include "screamer/streams/functor_node.h"
 #include "screamer/streams/driver.h"
 #include "screamer/streams/merge_source.h"
+#include "screamer/streams/merge_rows.h"
 #include "screamer/streams/combine_latest.h"
 #include "screamer/streams/py_source.h"
 #include "screamer/streams/split.h"
@@ -72,27 +73,20 @@ template <class Index>
 class MergeLazyPuller {
 public:
     MergeLazyPuller(nb::list iter_list, bool positional)
-        : positional_(positional), pending_source_(-1),
+        : positional_(positional), order_(iter_list.size(), /*check_order=*/false),
           unit_(std::make_unique<screamer::TimeUnit>()) {
-        std::size_t n = iter_list.size();
-        sources_.reserve(n);
-        child_ptrs_.reserve(n);
+        sources_.reserve(iter_list.size());
         for (nb::handle h : iter_list) {
             sources_.push_back(
                 std::make_unique<PySource<Index>>(nb::borrow<nb::object>(h), positional,
                                                   sources_.size(), "merge", unit_.get()));
-            child_ptrs_.push_back(sources_.back().get());
+            // An event may be a number or a row of any rank (a wide stream).
+            sources_.back()->set_rows(true);
+            sources_.back()->set_flatten(true);
         }
-        // Prime the heap with the first event from each child.
-        for (std::size_t i = 0; i < n; ++i) {
-            prime_child(i);
-        }
+        values_.resize(sources_.size());
     }
 
-    // Non-copyable: holds unique_ptr sources. Explicitly deleting the copy ctor
-    // makes std::is_copy_constructible report false, so nanobind does not try to
-    // synthesize a copy (the vector<unique_ptr> member's copy ctor is declared
-    // but uncompilable, which the builtin trait would otherwise treat as copyable).
     MergeLazyPuller(const MergeLazyPuller&) = delete;
     MergeLazyPuller& operator=(const MergeLazyPuller&) = delete;
 
@@ -104,51 +98,51 @@ public:
         return 0;
     }
     void clear() {
-        heap_ = {};
-        pending_source_ = -1;
+        cleared_ = true;
         for (auto& s : sources_) s->clear();
     }
 
     nb::object next() {
-        // Deferred refill: advance the winning source from the previous call.
-        if (pending_source_ >= 0) {
-            prime_child(static_cast<std::size_t>(pending_source_));
-            pending_source_ = -1;
+        if (cleared_) return nb::none();
+        // Pull the sources that owe an event: every source on the first call,
+        // then the one that gave the last event (MergeOrder, merge_rows.h).
+        for (std::ptrdiff_t i; (i = order_.want()) >= 0;) {
+            PySource<Index>& src = *sources_[static_cast<std::size_t>(i)];
+            if (auto e = src.next()) {
+                static const std::vector<std::size_t> kNumber;
+                width_.check(static_cast<std::size_t>(i), src.is_wide() ? src.event_shape() : kNumber,
+                             static_cast<std::ptrdiff_t>(src.events_read() - 1));
+                values_[static_cast<std::size_t>(i)] = e->value;
+                order_.offer(static_cast<std::size_t>(i), e->index);
+            } else {
+                order_.end(static_cast<std::size_t>(i));
+            }
         }
-        if (heap_.empty()) return nb::none();
-        Node top = heap_.top();
-        heap_.pop();
-        pending_source_ = static_cast<int>(top.source);
-        nb::object idx = positional_ ? nb::none() : nb::cast(top.index);
-        return nb::make_tuple(top.value, idx, top.source);
+        const std::ptrdiff_t w = order_.pop();
+        if (w < 0) return nb::none();
+        const std::size_t i = static_cast<std::size_t>(w);
+        const PySource<Index>& src = *sources_[i];
+        nb::object idx = positional_ ? nb::none() : nb::cast(order_.index_of(i));
+        nb::object value;
+        if (src.is_wide()) {
+            const std::vector<double>& row = src.wide_values();
+            double* data = new double[row.size()];
+            std::memcpy(data, row.data(), row.size() * sizeof(double));
+            value = owned_array(data, src.event_shape());
+        } else {
+            value = nb::float_(values_[i]);
+        }
+        return nb::make_tuple(value, idx, static_cast<std::uint32_t>(i));
     }
 
 private:
-    struct Node {
-        Index index;
-        std::uint32_t source;
-        double value;
-    };
-    // Min-heap: smaller index first; ties -> smaller source index (stable order).
-    struct Greater {
-        bool operator()(const Node& a, const Node& b) const {
-            if (a.index != b.index) return a.index > b.index;
-            return a.source > b.source;
-        }
-    };
-
-    void prime_child(std::size_t i) {
-        if (auto e = child_ptrs_[i]->next()) {
-            heap_.push(Node{e->index, static_cast<std::uint32_t>(i), e->value});
-        }
-    }
-
     bool positional_;
-    int pending_source_;
+    bool cleared_ = false;
+    MergeOrder<Index> order_;
+    MergeWidth width_{"merge"};
     std::unique_ptr<screamer::TimeUnit> unit_;   // the index kind of every source
     std::vector<std::unique_ptr<PySource<Index>>> sources_;
-    std::vector<Source<Index>*> child_ptrs_;
-    std::priority_queue<Node, std::vector<Node>, Greater> heap_;
+    std::vector<double> values_;                 // each source's pending number
 };
 
 template <class Index>
@@ -156,9 +150,8 @@ static nb::object run_chain(std::vector<ScreamerBase*> fns,
                             In1D<Index> index,
                             In1D<double> values,
                             bool return_index) {
-    if (index.shape(0) < values.shape(0)) {
-        throw std::runtime_error("run_chain: index array is shorter than values array");
-    }
+    dag::check_feed_length("run_chain", -1, static_cast<std::size_t>(values.shape(0)),
+                           static_cast<std::size_t>(index.shape(0)));
     std::size_t n = static_cast<std::size_t>(values.shape(0));
     const Index* kptr = index.data();
     const double* vptr = values.data();
@@ -200,7 +193,8 @@ static std::size_t build_vector_sources(
         std::vector<In1D<Index>>& indices,
         std::vector<In1D<double>>& vals,
         std::vector<std::unique_ptr<VectorSource<Index>>>& sources,
-        std::vector<Source<Index>*>& child_ptrs) {
+        std::vector<Source<Index>*>& child_ptrs,
+        const std::string& who = "combine_latest") {
     std::size_t n = index_arrays.size();
     if (value_arrays.size() != n) {
         throw std::runtime_error("streams: index/values list length mismatch");
@@ -213,9 +207,9 @@ static std::size_t build_vector_sources(
     for (std::size_t i = 0; i < n; ++i) {
         indices.push_back(nb::cast<In1D<Index>>(index_arrays[i]));
         vals.push_back(nb::cast<In1D<double>>(value_arrays[i]));
-        if (indices[i].shape(0) != vals[i].shape(0)) {
-            throw std::runtime_error("streams: a child's index/values length differ");
-        }
+        dag::check_feed_length(who, static_cast<std::ptrdiff_t>(i),
+                               static_cast<std::size_t>(vals[i].shape(0)),
+                               static_cast<std::size_t>(indices[i].shape(0)));
         std::size_t len = static_cast<std::size_t>(indices[i].shape(0));
         total += len;
         sources.push_back(std::make_unique<VectorSource<Index>>(
@@ -225,30 +219,53 @@ static std::size_t build_vector_sources(
     return total;
 }
 
+// The batch merge (merge_rows.h): values of any rank with time first, every
+// input with the same row shape, one index value per row. Returns (index,
+// values, sources); the values have shape (rows, *row_shape).
+using MergeValues = nb::ndarray<const double, nb::c_contig, nb::device::cpu>;
+
 template <class Index>
 static nb::object merge_batch(nb::list index_arrays, nb::list value_arrays) {
+    const std::size_t n = index_arrays.size();
+    if (value_arrays.size() != n)
+        throw std::runtime_error("streams: index/values list length mismatch");
     std::vector<In1D<Index>> indices;
-    std::vector<In1D<double>> vals;
-    std::vector<std::unique_ptr<VectorSource<Index>>> sources;
-    std::vector<Source<Index>*> child_ptrs;
-    std::size_t total = build_vector_sources<Index>(index_arrays, value_arrays,
-                                                    indices, vals, sources, child_ptrs);
-
-    Index* ok = new Index[total ? total : 1];
-    double* ov = new double[total ? total : 1];
-    std::uint32_t* os = new std::uint32_t[total ? total : 1];
-
-    MergeSource<Index> merge(child_ptrs);
-    std::size_t i = 0;
-    while (auto e = merge.next()) {
-        ok[i] = e->index;
-        ov[i] = e->value;
-        os[i] = e->source;
-        ++i;
+    std::vector<MergeValues> vals;
+    indices.reserve(n);
+    vals.reserve(n);
+    std::vector<const Index*> ip(n);
+    std::vector<const double*> vp(n);
+    std::vector<std::size_t> rows(n);
+    MergeWidth width("merge");
+    std::size_t total = 0;
+    for (std::size_t i = 0; i < n; ++i) {
+        indices.push_back(nb::cast<In1D<Index>>(index_arrays[i]));
+        vals.push_back(nb::cast<MergeValues>(value_arrays[i]));
+        const MergeValues& v = vals.back();
+        if (v.ndim() == 0)
+            throw nb::value_error(("merge: input " + std::to_string(i) +
+                                   " is one number; a stream has a time axis").c_str());
+        rows[i] = static_cast<std::size_t>(v.shape(0));
+        dag::check_feed_length("merge", static_cast<std::ptrdiff_t>(i), rows[i],
+                               static_cast<std::size_t>(indices.back().shape(0)));
+        std::vector<std::size_t> row_shape;
+        for (std::size_t d = 1; d < v.ndim(); ++d) row_shape.push_back(v.shape(d));
+        width.check(i, row_shape);
+        ip[i] = indices.back().data();
+        vp[i] = v.data();
+        total += rows[i];
     }
-    return nb::make_tuple(owned_array(ok, {total}),
-                          owned_array(ov, {total}),
-                          owned_array(os, {total}));
+    const std::size_t w = width.width();
+    std::unique_ptr<Index[]> ok(new Index[total ? total : 1]);
+    std::unique_ptr<double[]> ov(new double[total * w ? total * w : 1]);
+    std::unique_ptr<std::uint32_t[]> os(new std::uint32_t[total ? total : 1]);
+    merge_rows<Index>(ip, vp, rows, w, ok.get(), ov.get(), os.get());
+    std::vector<std::size_t> shape{total};
+    for (std::size_t d : width.shape()) shape.push_back(d);
+    nb::object index = owned_array(ok.release(), {total});
+    nb::object values = owned_array(ov.release(), shape);
+    nb::object sources = owned_array(os.release(), {total});
+    return nb::make_tuple(index, values, sources);
 }
 
 // split: the partition and its rules are include/screamer/streams/split.h,

@@ -23,6 +23,11 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   values. JavaScript `split` returns `{values, index}` objects, so its outputs
   feed `combineLatest` and a `Pipeline` as they are.
 * JavaScript `split`.
+* JavaScript `merge`, Python's `Merge`: `merge([a, b])` on arrays or
+  `{ values, index }` streams returns `{ values, sources, index }`, and on
+  iterators or async iterables of events an iterator of
+  `{ value, index, source }` events. The order and the rules are the shared
+  C++ ones Python uses.
 * `split` takes values of any rank with time first, `(T, ...)`, in Python and
   JavaScript: each event is a row, and each output keeps the row shape
   `(rows, ...)` (an `NdArray` in JavaScript). 2.8.0 raised `TypeError` for
@@ -800,6 +805,13 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   initial_variance=inf)` gave all NaN, `SuperSmoother(period=inf)` all
   zeros). Pass a finite value; for "no position bound" or "no cap" keep the
   infinite default.
+* `Merge` of lazy `(value, index)` events whose values are rows merges the
+  rows: each event comes out as `(row, index, source)`. 2.8.0 kept the first
+  value of each row and dropped the rest. To get that, take `row[0]`.
+* A JavaScript `Pipeline` feed `{ values, index }` with flat values (an
+  Array or a typed array) has one value per row. 2.8.0 read flat values that
+  were longer than the index as rows of `values.length / index.length`
+  columns. Pass rows as an `NdArray` (`{ data, shape: [T, K] }`).
 * `Resample(fill="nan")` and `fill="carry"` raise `ValueError` (`RangeError`
   in JavaScript) under `count=` and `threshold=`: "resample: fill= applies to
   freq= (every=) and clock= bars; a count= bar is never empty". 2.8.0
@@ -847,6 +859,22 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Fixed
 
+* A `(values, index)` feed whose index is shorter or longer than the values
+  raises `ValueError` (`RangeError` in JavaScript) naming both lengths, at
+  every entry point that takes the pair: a `Pipeline` batch call, `Merge`,
+  `CombineLatest`, `Resample`, `Delay`, `Dropna`, `Select`, `Filter`,
+  `split` and `forecast_pairs`, in both languages ("Pipeline: input 0 has 10
+  rows of values but 5 index values"). One C++ check runs before either
+  array is read. 2.8.0 read past the end of a shorter index, which gave
+  garbage indexes or a false "index decreases" error, and JavaScript read
+  flat values as rows.
+* `Merge` of wide streams, `(T, K)` arrays or iterators of row events,
+  merges them row by row in index order, as 1-D streams merge, in Python
+  (batch and iterator) and JavaScript. Every input must have the same row
+  width; another width raises `ValueError` (`RangeError` in JavaScript)
+  naming both widths. 2.8.0 raised `RuntimeError` ("std::bad_cast") for wide
+  arrays and `ValueError` for positional row events. A text index given to
+  `Merge` raises `TypeError` (2.8.0: `ValueError` from `int()`).
 * A clock `Resample` inside a `Pipeline` whose values come through a node
   that releases them late (a `Filter`, a `threshold=` or `count=` `Resample`,
   a `CombineLatest`) put a value that came out after a later clock tick into

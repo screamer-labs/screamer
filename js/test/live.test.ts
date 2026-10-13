@@ -227,7 +227,7 @@ function barFeeds(width: number) {
   const v = new Float64Array(n * width);
   for (let i = 0; i < v.length; i++) v[i] = i;
   return {
-    x: { values: v, index: Float64Array.from({ length: n }, (_, i) => i) },
+    x: { values: { data: v, shape: [n, width] }, index: Float64Array.from({ length: n }, (_, i) => i) },
     c: { values: [1, 1, 1, 1], index: [2, 5, 8, 11] },
   };
 }
@@ -275,7 +275,8 @@ test("live: a rejected ohlcv_bars width, then a new session, equals a fresh pipe
       rows.forEach((r, k) => s.push("x", k, r));
       s.flush();
       const live = s.result() as Output;   // before the batch call, which resets the engine
-      const batch = p({ values: Float64Array.from(rows.flat()), index: rows.map((_, k) => k) }) as Output;
+      const batch = p({ values: { data: Float64Array.from(rows.flat()), shape: [rows.length, w] },
+                        index: rows.map((_, k) => k) }) as Output;
       assert.equal(live.index.length, 3, `width ${w}`);
       assertNanEq(asFloat64(live), asFloat64(batch), `width ${w}`);
     }
@@ -308,7 +309,7 @@ test("pipeline: a functor fed by two nodes needs each to carry its columns", asy
   const a = Input("a");
   const p = new Pipeline([a], [Sub()(select(a, [0]), select(a, [1]))]);
   try {
-    assert.throws(() => p({ values: new Float64Array([1, 2, 3, 4]), index: [0, 1] }),
+    assert.throws(() => p({ values: { data: new Float64Array([1, 2, 3, 4]), shape: [2, 2] }, index: [0, 1] }),
       (e: unknown) => e instanceof RangeError && /CombineLatest/.test((e as Error).message));
     assert.throws(() => p.live().push("a", 0, [1, 2]),
       (e: unknown) => e instanceof RangeError && /CombineLatest/.test((e as Error).message));
@@ -323,9 +324,12 @@ test("pipeline: a batch feed of NdArray values is read, a bad shape is a RangeEr
   const p = new Pipeline([a], [a]);
   const data = new Float64Array([1, 2, 3, 4, 5, 6, 7, 8]);
   try {
-    const flat = p({ values: data, index: [0, 1] }) as Output;
+    // Flat values are one value per row (G32): never read as rows of the
+    // index's length.
+    assert.throws(() => p({ values: data, index: [0, 1] }),
+      { name: "RangeError", message: "Pipeline: input 0 has 8 rows of values but 2 index values" });
     const nd = p({ values: { data, shape: [2, 4] } as any, index: [0, 1] }) as Output;
-    assertNanEq(asFloat64(nd), asFloat64(flat), "keyed NdArray");
+    assertNanEq(asFloat64(nd), data, "keyed NdArray");
     assert.deepEqual((nd.values as any).shape, [2, 4]);
     assertNanEq(asFloat64(p({ values: { data, shape: [2, 4] } as any }) as Output), data, "no index");
     assertNanEq(asFloat64(p({ data, shape: [2, 4] } as any) as Output), data, "bare NdArray");

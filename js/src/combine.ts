@@ -32,7 +32,7 @@ export type CombineEvent = number | null | ArrayLike<number | null> | NdArray | 
 
 // ---- reading values ---------------------------------------------------------
 
-interface Block { data: Float64Array; shape: number[] }
+export interface Block { data: Float64Array; shape: number[] }
 
 const isView = (x: unknown) => ArrayBuffer.isView(x) && !(x instanceof DataView);
 const isRows = (x: unknown) =>
@@ -40,38 +40,38 @@ const isRows = (x: unknown) =>
 
 // Values with time first: an NdArray, T rows (each item read as feedValue reads
 // it: null is NaN, a string a TypeError), or a flat array or typed array.
-function block(x: unknown, where: string): Block {
+export function block(x: unknown, where: string, who = WHO): Block {
   const nd = asNd(x);
   if (nd) return { data: nd.data, shape: nd.shape };
   if (isRows(x)) {
-    const { data, T, K } = flattenRows(x as ArrayLike<unknown>, WHO, where);
+    const { data, T, K } = flattenRows(x as ArrayLike<unknown>, who, where);
     return { data, shape: [T, K] };
   }
   if (x instanceof BigInt64Array || x instanceof BigUint64Array)
-    throw new TypeError(`${WHO}: ${where} is ${aKind(x)}; values must be numbers`);
+    throw new TypeError(`${who}: ${where} is ${aKind(x)}; values must be numbers`);
   if (Array.isArray(x) || isView(x)) {
-    const data = toF64Checked(x as ArrayLike<unknown>, WHO, (i) => `item ${i} of ${where}`, true);
+    const data = toF64Checked(x as ArrayLike<unknown>, who, (i) => `item ${i} of ${where}`, true);
     return { data, shape: [data.length] };
   }
-  throwWrongKind(WHO, where, x, "an array, a typed array or an NdArray");
+  throwWrongKind(who, where, x, "an array, a typed array or an NdArray");
 }
 
 // An index that is not a number is a TypeError; the engine owns the message.
-function badIndex(index: unknown): never {
+export function badIndex(index: unknown): never {
   const M: any = current();
   wasmCall(() => M.throwIndexKind(kindName(index)));
   throw new TypeError("index must be a number");   // not reached
 }
 
 // A batch index: one number per row.
-function indexArray(x: unknown, where: string): Float64Array {
+export function indexArray(x: unknown, where: string, who = WHO): Float64Array {
   const nd = asNd(x);
   if (nd) {
-    if (nd.shape.length !== 1) throw new RangeError(`${WHO}: ${where} has shape [${nd.shape}], expected one number per row`);
+    if (nd.shape.length !== 1) throw new RangeError(`${who}: ${where} has shape [${nd.shape}], expected one number per row`);
     return nd.data;
   }
   if (x instanceof Float64Array) return x;
-  if (!Array.isArray(x) && !isView(x)) throwWrongKind(WHO, where, x, "an array of numbers");
+  if (!Array.isArray(x) && !isView(x)) throwWrongKind(who, where, x, "an array of numbers");
   const a = x as ArrayLike<unknown>, out = new Float64Array(a.length);
   for (let i = 0; i < a.length; i++) {
     const v = a[i];
@@ -82,7 +82,7 @@ function indexArray(x: unknown, where: string): Float64Array {
 
 // A plain object: the marker of an indexed stream ({values, index}) or event
 // ({value, index}), never inferred from the items of an array.
-const isPlainObject = (x: unknown): x is Record<string, unknown> => {
+export const isPlainObject = (x: unknown): x is Record<string, unknown> => {
   if (x === null || typeof x !== "object" || Array.isArray(x) || isView(x) || asNd(x) !== null) return false;
   const proto = Object.getPrototypeOf(x);
   return proto === Object.prototype || proto === null;
@@ -92,11 +92,12 @@ const isPlainObject = (x: unknown): x is Record<string, unknown> => {
 // error (an iterator checks every event). The own keys are walked without
 // building their array, in the order Object.keys gives them.
 const hasOwn = Object.prototype.hasOwnProperty;
-function checkKeys(x: Record<string, unknown>, keys: string[], where: string | (() => string)): void {
+export function checkKeys(x: Record<string, unknown>, keys: string[], where: string | (() => string),
+                          who = WHO): void {
   for (const key in x)
     if (hasOwn.call(x, key) && !keys.includes(key)) {
       const w = typeof where === "string" ? where : where();
-      throw new TypeError(`${WHO}: ${w} has an unknown key '${key}'; expected { ${keys.join(", ")} }`);
+      throw new TypeError(`${who}: ${w} has an unknown key '${key}'; expected { ${keys.join(", ")} }`);
     }
 }
 
@@ -153,24 +154,24 @@ export function combineArrays(inputs: unknown[], o: DirectOptions): { values: Nd
 /** One row of an iterator join and its index (null without an index). */
 export interface CombineRow { value: number | number[] | Float64Array | NdArray; index: number | null }
 
-const EMPTY = Symbol("empty");
+export const EMPTY = Symbol("empty");
 const EVENT_KEYS = ["value", "index"];
 
 // One event as flat values and its shape: a number (null is NaN), an
 // NdArray, a typed array, or an array of numbers or of rows.
-function event(x: unknown, where: () => string): Block {
-  if (x === null || typeof x !== "object") return { data: new Float64Array([feedValue(x, WHO, where)]), shape: [] };
+export function event(x: unknown, where: () => string, who = WHO): Block {
+  if (x === null || typeof x !== "object") return { data: new Float64Array([feedValue(x, who, where)]), shape: [] };
   const nd = asNd(x);
   if (nd) return { data: nd.data, shape: nd.shape };
   if (isRows(x)) {
-    const { data, T, K } = flattenRows(x as ArrayLike<unknown>, WHO, where());
+    const { data, T, K } = flattenRows(x as ArrayLike<unknown>, who, where());
     return { data, shape: [T, K] };
   }
   if (Array.isArray(x) || isView(x)) {
-    const data = toF64Checked(x as ArrayLike<unknown>, WHO, (i) => `item ${i} of ${where()}`, true);
+    const data = toF64Checked(x as ArrayLike<unknown>, who, (i) => `item ${i} of ${where()}`, true);
     return { data, shape: [data.length] };
   }
-  throwWrongKind(WHO, where(), x, "a number, an array, an NdArray or a { value, index } event");
+  throwWrongKind(who, where(), x, "a number, an array, an NdArray or a { value, index } event");
 }
 
 // The state of one iterator join, opened on the first event of each source:

@@ -29,6 +29,8 @@ export {
   merge,
 } from "./combinators.js";
 export type { CombineEvent, CombineInput, CombineLayout, CombineRow, CombineValues } from "./combine.js";
+export type { MergeEvent, MergeResult } from "./merge.js";
+export type { MergeInput } from "./combinators.js";
 export type {
   CombineLatestOpts,
   DropnaOpts,

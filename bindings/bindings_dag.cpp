@@ -385,12 +385,15 @@ static void cast_index(const AnyIndex& a, std::vector<std::int64_t>& out, F chec
 
 // `unit` holds the index kind of the whole call (py_index.h TimeUnit): every
 // non-empty index array of the call must be numbers, or times of one unit.
+// `len` receives the number of index values.
 static const std::int64_t* index_array(nb::handle obj, nb::object& keep,
-                                       std::vector<std::int64_t>& owned, TimeUnit& unit) {
+                                       std::vector<std::int64_t>& owned, TimeUnit& unit,
+                                       std::size_t& len) {
     In1D<std::int64_t> i64;
     if (nb::try_cast(obj, i64, /*convert=*/false)) {
         if (i64.shape(0)) note_number(&unit);
         keep = nb::borrow(obj);
+        len = i64.shape(0);
         return i64.data();
     }
     AnyIndex a;
@@ -421,6 +424,7 @@ static const std::int64_t* index_array(nb::handle obj, nb::object& keep,
             for (std::size_t i = 0; i < n; ++i) nat |= d[i] == INT64_MIN;
             if (nat) dag::throw_index_nat();
             keep = std::move(ticks);
+            len = n;
             return d;
         }
         // An object array (Python ints, a pandas object Index): each element
@@ -430,6 +434,7 @@ static const std::int64_t* index_array(nb::handle obj, nb::object& keep,
             owned.reserve(nb::len(obj));
             for (nb::handle e : obj) owned.push_back(py_index(e, &unit));
             keep = nb::borrow(obj);
+            len = owned.size();
             return owned.data();
         }
         dag::throw_index_kind(nb::hasattr(obj, "dtype")
@@ -437,6 +442,7 @@ static const std::int64_t* index_array(nb::handle obj, nb::object& keep,
             : nb::cast<std::string>(nb::type_name(obj.type())));
     }
     if (a.shape(0)) note_number(&unit);
+    len = a.shape(0);
     using C = nb::dlpack::dtype_code;
     const nb::dlpack::dtype dt = a.dtype();
     auto widen = [](auto v) { return static_cast<std::int64_t>(v); };
@@ -481,7 +487,8 @@ static void marshal_feeds(
         std::vector<const std::int64_t*>& kp,
         std::vector<const double*>& vp,
         std::vector<std::size_t>& lens,
-        std::vector<std::size_t>& widths) {
+        std::vector<std::size_t>& widths,
+        const std::string& who = "Pipeline") {
     const std::size_t n = nb::len(feeds);
     TimeUnit unit;                      // one index kind across every input
     ks.resize(n);
@@ -489,10 +496,14 @@ static void marshal_feeds(
     std::size_t f = 0;
     for (auto item : feeds) {
         nb::tuple t = nb::cast<nb::tuple>(item);
-        kp.push_back(index_array(t[0], ks[f], owned[f], unit));
+        std::size_t len = 0;
+        kp.push_back(index_array(t[0], ks[f], owned[f], unit, len));
         ++f;
         vs.push_back(nb::cast<InValues>(t[1]));
         check_feed_rank(vs.back(), f - 1);
+        // One index value per row, checked before the engine reads either.
+        dag::check_feed_length(who, static_cast<std::ptrdiff_t>(f - 1),
+                               static_cast<std::size_t>(vs.back().shape(0)), len);
         vp.push_back(vs.back().data());
         lens.push_back(static_cast<std::size_t>(vs.back().shape(0)));
         // Detect column width: 1 for 1-D arrays, shape[1] for 2-D arrays.
@@ -573,8 +584,12 @@ void init_bindings_dag(nb::module_& m) {
                           time_unit_base(nb::cast<std::string>(du[0])), nb::cast<int>(du[1]));
             } else if (kind == "O") {
                 for (nb::handle e : arr) py_index(e, &unit);
-            } else {
+            } else if (kind == "i" || kind == "u" || kind == "f") {
                 note_number(&unit);
+            } else {
+                // Text, complex or another kind: not an index (TypeError).
+                dag::throw_index_kind("an array of " +
+                                      nb::cast<std::string>(arr.attr("dtype").attr("name")));
             }
         }
     }, "indexes"_a);
@@ -585,8 +600,8 @@ void init_bindings_dag(nb::module_& m) {
         TimeUnit unit;
         nb::object keep;
         std::vector<std::int64_t> owned;
-        const std::int64_t* p = index_array(index, keep, owned, unit);
-        const std::size_t n = nb::len(index);
+        std::size_t n = 0;
+        const std::int64_t* p = index_array(index, keep, owned, unit, n);
         std::unique_ptr<std::int64_t[]> out(new std::int64_t[n ? n : 1]);
         if (n) std::memcpy(out.get(), p, n * sizeof(std::int64_t));
         return owned_array(out.release(), {n});
@@ -642,7 +657,9 @@ void init_bindings_dag(nb::module_& m) {
         // Runs the graph over the feeds. Returns the outputs as a list of
         // (index, values2d), or with `align` aligned on one index
         // (dag::align_outputs) as (index, [values2d, ...]).
-        nb::object run_batch(nb::list feeds, bool align) {
+        // `who` names the caller in a feed error ("Pipeline", or "resample"
+        // for a Pipeline that runs an eager stream operator).
+        nb::object run_batch(nb::list feeds, bool align, const std::string& who) {
             std::vector<nb::object> ks;
             std::vector<std::vector<std::int64_t>> owned;
             std::vector<InValues> vs;
@@ -650,7 +667,7 @@ void init_bindings_dag(nb::module_& m) {
             std::vector<const double*> vp;
             std::vector<std::size_t> lens;
             std::vector<std::size_t> widths;
-            marshal_feeds(feeds, ks, owned, vs, kp, vp, lens, widths);
+            marshal_feeds(feeds, ks, owned, vs, kp, vp, lens, widths, who);
             const std::vector<dag::OutputBuffer>& outs = cg->run_batch_ref(kp, vp, lens, widths);
             if (!align) return marshal_output_buffers(outs);
             std::vector<dag::OutputBuffer> bufs;   // the rows move out of the graph
@@ -669,7 +686,8 @@ void init_bindings_dag(nb::module_& m) {
         .def("flush",            &PyCompiledGraph::flush)
         .def("advance",          &PyCompiledGraph::advance, "now"_a.none())
         .def("drain",            &PyCompiledGraph::drain, "align"_a = false)
-        .def("run_batch",        &PyCompiledGraph::run_batch, "feeds"_a, "align"_a = false);
+        .def("run_batch",        &PyCompiledGraph::run_batch, "feeds"_a, "align"_a = false,
+             "who"_a = "Pipeline");
 
     // The forecast_pairs graph (dag/forecast_pairs.h), compiled: inputs X and y,
     // one output [X_shifted..., y].
