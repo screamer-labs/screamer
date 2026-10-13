@@ -64,10 +64,6 @@ def generate_init_py(module, output_path='screamer/__init__.py'):
     if not dag_names:
         raise RuntimeError("dag.__all__ missing or unparseable")
 
-    micro_names = read_public_names('screamer/microstructure.py')
-    if not micro_names:
-        raise RuntimeError("microstructure.__all__ missing or unparseable")
-
     backtest_names = read_public_names('screamer/backtest.py')
     if not backtest_names:
         raise RuntimeError("backtest.__all__ missing or unparseable")
@@ -101,10 +97,6 @@ from .dag import (
     {", ".join(dag_names)}
 )
 
-from .microstructure import (
-    {", ".join(micro_names)}
-)
-
 from .backtest import (
     {", ".join(backtest_names)}
 )
@@ -122,7 +114,7 @@ from .shape import (
 )
 
 __all__ = [
-    {", ".join([f'"{name}"' for name in public_members + stream_names + dag_names + micro_names + backtest_names + supervised_names + validation_names + shape_names])}
+    {", ".join([f'"{name}"' for name in public_members + stream_names + dag_names + backtest_names + supervised_names + validation_names + shape_names])}
 ]
 
 # Wrap functor classes so each instance records its constructor arguments

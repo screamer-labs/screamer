@@ -1229,5 +1229,102 @@ nb::object functor_call(Op& self, nb::args raw) {
     else return functor_Ni_Mo<Op>(self, args);
 }
 
+// ---------------------------------------------------------
+// Named inputs (Op::kInputNames): inputs by keyword
+// ---------------------------------------------------------
+namespace detail {
+// True when x alone can hold every field of an event: an array with two or
+// more axes, one tuple event, a list of events, an iterator of events, or a
+// Pipeline node (a stream of events).
+inline bool holds_all_fields(nb::handle x) {
+    PyObject* o = x.ptr();
+    if (screamer::is_dag_node(nb::borrow<nb::object>(x))) return true;
+    if (nb::hasattr(x, "ndim")) {
+        int nd = 0;
+        return nb::try_cast<int>(x.attr("ndim"), nd) && nd >= 2;
+    }
+    if (PyTuple_Check(o)) return true;
+    if (PyList_Check(o)) {
+        if (PyList_Size(o) == 0) return false;
+        PyObject* first = PyList_GetItem(o, 0);            // borrowed
+        return !(PyLong_Check(first) || PyFloat_Check(first) ||
+                 is_numpy_number_scalar_type(Py_TYPE(first)));
+    }
+    return nb::hasattr(x, "__iter__") || nb::hasattr(x, "__aiter__");
+}
+
+inline std::string quoted(const char* s) { return std::string("'") + s + "'"; }
+}  // namespace detail
+
+// The positional inputs of a call to an operator that names its inputs in
+// Op::kInputNames. Positional inputs fill the names from the left and
+// keywords fill the rest, as in a Python signature. Without keywords the
+// inputs pass through, so the packed and iterator forms keep working; one
+// input that cannot hold every field (a 1-D array, a number) is a missing
+// input.
+template <class Op>
+nb::args named_inputs(nb::handle self, const nb::args& args, const nb::kwargs& kwargs) {
+    constexpr auto& names = Op::kInputNames;
+    constexpr std::size_t N = names.size();
+    const std::size_t given = args.size();
+    const std::size_t n_kw = kwargs.size();
+    if (n_kw == 0 && given == N) return args;            // the common call, unchanged
+    // One dictionary lookup per name; the messages are built only on an error.
+    PyObject* value[N];
+    std::size_t found = 0;
+    for (std::size_t i = 0; i < N; ++i) {
+        value[i] = n_kw ? PyDict_GetItemString(kwargs.ptr(), names[i]) : nullptr;  // borrowed
+        found += value[i] != nullptr;
+    }
+    auto who = [&] { return op_display_name(self) + "()"; };
+    if (found != n_kw) {
+        for (auto [key, unused] : kwargs) {
+            const std::string k = nb::cast<std::string>(nb::str(key));
+            if (std::none_of(names.begin(), names.end(), [&](const char* n) { return k == n; }))
+                throw nb::type_error((who() + " got an unexpected keyword argument " +
+                                      detail::quoted(k.c_str())).c_str());
+        }
+    }
+    if (given > N)
+        throw nb::type_error((who() + " takes " + std::to_string(N) + " input" +
+                              (N == 1 ? "" : "s") + ", got " + std::to_string(given) +
+                              " positional").c_str());
+    for (std::size_t i = 0; i < given; ++i)
+        if (value[i])
+            throw nb::type_error((who() + " got multiple values for argument " +
+                                  detail::quoted(names[i])).c_str());
+    if (n_kw == 0 && given == 1 && detail::holds_all_fields(args[0])) return args;
+    if (given + n_kw < N) {
+        std::string missing;
+        std::size_t n_missing = 0;
+        for (std::size_t i = given; i < N; ++i)
+            if (!value[i]) missing += (n_missing++ ? ", " : "") + detail::quoted(names[i]);
+        throw nb::type_error((who() + " missing " + std::to_string(n_missing) + " required input" +
+                              (n_missing > 1 ? "s" : "") + ": " + missing).c_str());
+    }
+    nb::tuple merged = nb::steal<nb::tuple>(PyTuple_New(static_cast<Py_ssize_t>(N)));
+    for (std::size_t i = 0; i < N; ++i) {
+        PyObject* v = i < given ? args[i].ptr() : value[i];
+        Py_INCREF(v);
+        PyTuple_SetItem(merged.ptr(), static_cast<Py_ssize_t>(i), v);   // steals v
+    }
+    return nb::borrow<nb::args>(merged);
+}
+
+// __call__ of a FunctorBase operator with named inputs: the keywords become
+// positional inputs, then every call path of functor_call applies.
+template <class Op>
+nb::object functor_call_named(Op& self, nb::args args, nb::kwargs kwargs) {
+    return functor_call<Op>(self, named_inputs<Op>(nb::find(self), args, kwargs));
+}
+
+// __call__ of a ScreamerBase (one-input) operator with a named input.
+template <class Op>
+nb::object screamer_call_named(Op& self, nb::args args, nb::kwargs kwargs) {
+    static_assert(Op::kInputNames.size() == 1, "a ScreamerBase operator has one input");
+    nb::args in = named_inputs<Op>(nb::find(self), args, kwargs);
+    return screamer_call(self, nb::borrow<nb::object>(in[0]));
+}
+
 }  // namespace screamer
 #endif

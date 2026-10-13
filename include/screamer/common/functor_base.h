@@ -158,8 +158,11 @@ public:
 
     // The per-sample loop over call(), once for every operator. The calls are
     // qualified with Derived, so they bind statically and can be inlined: the
-    // CRTP contract is that Derived is the most-derived class, which holds for
-    // every operator (none is subclassed). An operator that overrides
+    // CRTP contract is that Derived is the most-derived class that changes
+    // the computation. A subclass that only renames an operator inherits this
+    // loop; one that changes it, such as detail::SwapTwoInputs
+    // (microstructure_synonyms.h), overrides call() and eval_column(). An
+    // operator that overrides
     // process_columns gets it first, as a whole-column batch path.
     SCREAMER_NOINLINE
     void eval_column(const double* const* in, const std::ptrdiff_t* in_stride,

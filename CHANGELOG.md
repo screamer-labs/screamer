@@ -10,6 +10,9 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Added
 
+* The microstructure operators `SignedVolume`, `RollingKyleLambda`,
+  `EwKyleLambda`, `RollingOrderImbalance` and `QueueImbalance` are C++
+  operators and available in JavaScript.
 * `Pipeline.live().push(input, index, value)` takes a sequence of numbers as one
   multi-column event, in Python and JavaScript; JavaScript's `pushWide` stays as
   an alias. The first event of an input after a reset fixes its width (a number

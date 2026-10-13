@@ -19,6 +19,11 @@ A second fixture, wasm/smoke/oracle_reducer.json, covers the dynamic-width
 reducer path that the fixed-width event ABI above cannot express: a
 (time, assets, 4) backtest engine output reduced by PortfolioReport, recorded
 both as one batch call and as a row-at-a-time stream.
+
+A third fixture, wasm/smoke/oracle_micro.json, covers the five microstructure
+operators that reuse another operator's kernel (SignedVolume, QueueImbalance,
+RollingOrderImbalance, RollingKyleLambda, EwKyleLambda): separate 1-D inputs,
+one packed (T, K, N) array, and a stream of scalar events.
 """
 
 import json
@@ -31,6 +36,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
 OUT = os.path.join(REPO, "wasm", "smoke", "oracle.json")
 OUT_REDUCER = os.path.join(REPO, "wasm", "smoke", "oracle_reducer.json")
+OUT_MICRO = os.path.join(REPO, "wasm", "smoke", "oracle_micro.json")
 
 # Fixed, deterministic, all-positive input series (positive keeps Log/Sqrt finite).
 SERIES = [
@@ -137,6 +143,50 @@ def reducer_entry():
     }
 
 
+def micro_entries():
+    """Python results of the five microstructure operators on fixed inputs.
+
+    Each entry records the JavaScript constructor arguments, the inputs (1-D
+    series and one packed (T, K, N) array) and the Python results for the
+    batch call on separate inputs, the packed call, and a scalar stream.
+    """
+    import numpy as np
+
+    rng = np.random.default_rng(5)
+    T, K = 40, 3
+    flow = rng.normal(size=(T, K))
+    ret = 0.8 * flow + rng.normal(scale=0.3, size=(T, K))
+    size = rng.exponential(1.0, size=(T, K, 2))
+    ops = [
+        ("SignedVolume", screamer.SignedVolume, (), [], [np.sign(flow), np.abs(ret)]),
+        ("QueueImbalance", screamer.QueueImbalance, (), [], [size[..., 0], size[..., 1]]),
+        ("RollingOrderImbalance", screamer.RollingOrderImbalance, (5,), [5], [flow]),
+        ("RollingKyleLambda", screamer.RollingKyleLambda, (8,), [8], [flow, ret]),
+        ("EwKyleLambda", lambda: screamer.EwKyleLambda(span=6.0), (), [None, 6.0, None, None],
+         [flow, ret]),
+    ]
+
+    def nums(a):
+        return [jsonify(float(v)) for v in np.ravel(a)]
+
+    out = []
+    for name, make, py_args, js_args, cols in ops:
+        series = [c[:, 0] for c in cols]
+        packed = np.stack(cols, axis=-1)
+        op = make(*py_args)
+        stream = [float(op(*[float(c[t]) for c in series])) for t in range(T)]
+        out.append({
+            "name": name,
+            "args": [jsonify(a) for a in js_args],
+            "series": [nums(c) for c in series],
+            "packed": {"shape": list(packed.shape), "data": nums(packed)},
+            "batch": nums(make(*py_args)(*series)),
+            "packed_expect": {"shape": [T, K], "data": nums(make(*py_args)(packed))},
+            "stream": [jsonify(v) for v in stream],
+        })
+    return out
+
+
 def main():
     entries = []
     for name, factory, wasm_args in SAMPLE:
@@ -178,6 +228,12 @@ def main():
         f"Wrote the {reducer['name']} reducer fixture "
         f"(shape {reducer['shape']}) -> {OUT_REDUCER}"
     )
+
+    micro = micro_entries()
+    with open(OUT_MICRO, "w") as f:
+        json.dump(micro, f, indent=1, allow_nan=False)
+        f.write("\n")
+    print(f"Wrote {len(micro)} microstructure entries -> {OUT_MICRO}")
 
 
 if __name__ == "__main__":

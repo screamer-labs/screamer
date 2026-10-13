@@ -1,6 +1,7 @@
 #include <nanobind/nanobind.h>
 #include "screamer/common/int_arg.h"
 #include <nanobind/stl/string.h>
+#include <nanobind/stl/optional.h>
 #include "screamer/common/dispatch.h"
 #include "screamer/hawkes_intensity.h"
 #include "screamer/ofi.h"
@@ -15,6 +16,7 @@
 #include "screamer/cont_ofi.h"
 #include "screamer/effective_spread.h"
 #include "screamer/realized_spread.h"
+#include "screamer/microstructure_synonyms.h"
 #include <string>
 
 namespace nb = nanobind;
@@ -93,5 +95,37 @@ void init_bindings_micro(nb::module_& m) {
         .def(nb::init<screamer::IntArg<int>>(), "lag"_a = 1)
         .def("__call__", &screamer::functor_call<screamer::RealizedSpread>)
         .def("reset", &screamer::RealizedSpread::reset, "Reset to the initial state.");
+
+    // Microstructure names for other operators' kernels
+    // (microstructure_synonyms.h). Their inputs also work as keywords.
+    nb::class_<screamer::SignedVolume, screamer::EvalOp>(m, "SignedVolume")
+        .def(nb::init<>())
+        .def("__call__", &screamer::functor_call_named<screamer::SignedVolume>)
+        .def("reset", &screamer::SignedVolume::reset, "Reset to the initial state.");
+
+    nb::class_<screamer::QueueImbalance, screamer::EvalOp>(m, "QueueImbalance")
+        .def(nb::init<>())
+        .def("__call__", &screamer::functor_call_named<screamer::QueueImbalance>)
+        .def("reset", &screamer::QueueImbalance::reset, "Reset to the initial state.");
+
+    nb::class_<screamer::RollingOrderImbalance, screamer::ScreamerBase>(m, "RollingOrderImbalance")
+        .def(nb::init<screamer::IntArg<int>, const std::string&>(),
+             "window_size"_a = 20, "start_policy"_a = "strict")
+        .def("__call__", &screamer::screamer_call_named<screamer::RollingOrderImbalance>)
+        .def("reset", &screamer::RollingOrderImbalance::reset, "Reset to the initial state.");
+
+    nb::class_<screamer::RollingKyleLambda, screamer::EvalOp>(m, "RollingKyleLambda")
+        .def(nb::init<screamer::IntArg<int>, const std::string&>(),
+             "window_size"_a = 20, "start_policy"_a = "strict")
+        .def("__call__", &screamer::functor_call_named<screamer::RollingKyleLambda>)
+        .def("reset", &screamer::RollingKyleLambda::reset, "Reset to the initial state.");
+
+    nb::class_<screamer::EwKyleLambda, screamer::EvalOp>(m, "EwKyleLambda")
+        .def(nb::init<std::optional<double>, std::optional<double>,
+                      std::optional<double>, std::optional<double>>(),
+             "com"_a = nb::none(), "span"_a = nb::none(),
+             "halflife"_a = nb::none(), "alpha"_a = nb::none())
+        .def("__call__", &screamer::functor_call_named<screamer::EwKyleLambda>)
+        .def("reset", &screamer::EwKyleLambda::reset, "Reset to the initial state.");
 
 }

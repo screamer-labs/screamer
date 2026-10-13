@@ -147,9 +147,8 @@ _NO_ARG_AUTO_EXCLUDE = set(ROW_OPS) | {
 # Linear2 takes constructor args (a, b, c) so it is not a no-arg class
 # and would not be picked up here - listed for clarity only.
 # get_constructor_arguments returns None for a class whose constructor cannot be
-# introspected from a pybind11 signature docstring - e.g. the pure-Python
-# microstructure operators (OFI, SignedVolume, ...) that have no __init__. Those
-# are not C++ functors, so they are outside this parameter sweep; skip them.
+# introspected from a signature docstring. Those are outside this parameter
+# sweep; skip them.
 no_arg_classes = [
     cls for cls in screamer_classes
     if (ctor_args := get_constructor_arguments(getattr(screamer_module, cls))) is not None

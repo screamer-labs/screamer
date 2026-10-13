@@ -51,7 +51,9 @@ means buyers dominated the window, a negative value that sellers did.
 
 `RollingOrderImbalance(window_size, start_policy)(signed_flow)` returns the sum
 of `signed_flow` over the most recent `window_size` observations. It equals
-`RollingSum(window_size, start_policy)(signed_flow)`.
+`RollingSum(window_size, start_policy)(signed_flow)`: it is a C++ operator that
+runs the `RollingSum` kernel. In Python the input also works as a keyword,
+`RollingOrderImbalance(20)(signed_flow=f)`.
 
 A common pipeline is:
 

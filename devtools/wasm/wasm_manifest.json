@@ -1988,6 +1988,37 @@
     "source": "bindings/bindings_ew.cpp"
   },
   {
+    "name": "EwKyleLambda",
+    "cpp_type": "screamer::EwKyleLambda",
+    "base": "FunctorBase",
+    "ctor": [
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>"
+    ],
+    "ctor_args": [
+      {
+        "name": "com",
+        "default": null
+      },
+      {
+        "name": "span",
+        "default": null
+      },
+      {
+        "name": "halflife",
+        "default": null
+      },
+      {
+        "name": "alpha",
+        "default": null
+      }
+    ],
+    "ctor_kind": "ew_optional",
+    "source": "bindings/bindings_micro.cpp"
+  },
+  {
     "name": "EwMean",
     "cpp_type": "screamer::EwMean",
     "base": "ScreamerBase",
@@ -3356,6 +3387,15 @@
     "source": "bindings/bindings_micro.cpp"
   },
   {
+    "name": "QueueImbalance",
+    "cpp_type": "screamer::QueueImbalance",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_args": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_micro.cpp"
+  },
+  {
     "name": "ROC",
     "cpp_type": "screamer::ROC",
     "base": "ScreamerBase",
@@ -3803,6 +3843,27 @@
     "source": "bindings/bindings_rolling.cpp"
   },
   {
+    "name": "RollingKyleLambda",
+    "cpp_type": "screamer::RollingKyleLambda",
+    "base": "FunctorBase",
+    "ctor": [
+      "int",
+      "std::string"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_micro.cpp"
+  },
+  {
     "name": "RollingLinearRegression",
     "cpp_type": "screamer::RollingLinearRegression",
     "base": "FunctorBase",
@@ -4012,6 +4073,27 @@
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp"
+  },
+  {
+    "name": "RollingOrderImbalance",
+    "cpp_type": "screamer::RollingOrderImbalance",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "std::string"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_micro.cpp"
   },
   {
     "name": "RollingParkinsonVar",
@@ -4652,6 +4734,15 @@
     "ctor_args": [],
     "ctor_kind": "transform",
     "source": "bindings/bindings_math.cpp"
+  },
+  {
+    "name": "SignedVolume",
+    "cpp_type": "screamer::SignedVolume",
+    "base": "FunctorBase",
+    "ctor": [],
+    "ctor_args": [],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_micro.cpp"
   },
   {
     "name": "Sin",

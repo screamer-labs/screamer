@@ -67,6 +67,13 @@ weighted regression slope of `return_` on `signed_flow`. It equals
 Exactly one of `com`, `span`, `halflife` and `alpha` sets the decay; passing none
 or more than one raises an error.
 
+`EwKyleLambda` is a C++ operator that runs the `EwBeta` kernel with the two
+inputs swapped. It takes every input form of a two-input operator: two separate
+inputs, one packed `(T, ..., 2)` array whose last axis holds `signed_flow` then
+`return_`, a list of events, or an iterator. In Python the inputs also work as
+keywords, `EwKyleLambda(span=20)(signed_flow=f, return_=r)`.
+JavaScript has no keyword arguments, so pass the two inputs in order.
+
 The first output is `NaN`, since a slope needs at least two observations. Later
 outputs are `NaN` when `signed_flow` has zero weighted variance.
 

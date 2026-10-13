@@ -58,6 +58,13 @@ least-squares slope of `return_` on `signed_flow` over the most recent
 in the opposite order. The output is `NaN` during warmup and when `signed_flow`
 has zero variance within the window.
 
+`RollingKyleLambda` is a C++ operator that runs the `RollingBeta` kernel with the
+two inputs swapped. It takes every input form of a two-input operator: two separate
+inputs, one packed `(T, ..., 2)` array whose last axis holds `signed_flow` then
+`return_`, a list of events, or an iterator. In Python the inputs also work as
+keywords, `RollingKyleLambda(60)(signed_flow=f, return_=r)`.
+JavaScript has no keyword arguments, so pass the two inputs in order.
+
 The two inputs must be sampled at the same steps. A common pipeline is:
 
 1. Compute `signed_flow` with `SignedVolume` (or `OFI`) on trade data.

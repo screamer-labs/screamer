@@ -34,6 +34,12 @@ and the result equals `Mul()(sign, volume)`. Pair a sign source
 result to `RollingKyleLambda` for price impact or to `RollingOrderImbalance` for
 net flow.
 
+`SignedVolume` is a C++ operator that runs the `Mul` kernel, so it takes every
+input form of a two-input operator: two separate inputs, one packed
+`(T, ..., 2)` array, a list of events, or an iterator. In Python the inputs also
+work as keywords, `SignedVolume()(sign=s, volume=v)`. JavaScript has no keyword
+arguments, so pass the two inputs in order.
+
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 

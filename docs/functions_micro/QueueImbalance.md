@@ -37,8 +37,12 @@ precede an up-move, which makes it a common short-horizon predictor. Pass the
 resting sizes at the top of the book: `QueueImbalance()(bid_size, ask_size)`.
 An empty book (both sizes 0) has no imbalance and returns 0.
 
-`QueueImbalance` is a synonym of [`OFI`](OFI.md): the same normalized imbalance,
-applied to resting queue sizes instead of trade volume.
+`QueueImbalance` is a C++ operator that runs the [`OFI`](OFI.md) kernel: the
+same normalized imbalance, applied to resting queue sizes instead of trade
+volume. It takes every input form of a two-input operator: two separate inputs,
+one packed `(T, ..., 2)` array, a list of events, or an iterator. In Python the
+inputs also work as keywords, `QueueImbalance()(bid_size=b, ask_size=a)`.
+JavaScript has no keyword arguments, so pass the two inputs in order.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
@@ -57,7 +61,7 @@ applied to resting queue sizes instead of trade volume.
     import numpy as np
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
-    from screamer.microstructure import QueueImbalance
+    from screamer import QueueImbalance
 
     rng = np.random.default_rng(2)
     n = 200

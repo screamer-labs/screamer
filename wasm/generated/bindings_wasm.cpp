@@ -110,6 +110,7 @@
 #include "screamer/max_drawdown.h"
 #include "screamer/mfi.h"
 #include "screamer/micro_price.h"
+#include "screamer/microstructure_synonyms.h"
 #include "screamer/minus_di.h"
 #include "screamer/minus_dm.h"
 #include "screamer/momentum.h"
@@ -355,6 +356,10 @@ inline screamer::EwKurt* make_EwKurt(double a0, double a1, double a2, double a3)
     return new screamer::EwKurt(screamer_wasm::opt(a0), screamer_wasm::opt(a1), screamer_wasm::opt(a2), screamer_wasm::opt(a3));
 }
 
+inline screamer::EwKyleLambda* make_EwKyleLambda(double a0, double a1, double a2, double a3) {
+    return new screamer::EwKyleLambda(screamer_wasm::opt(a0), screamer_wasm::opt(a1), screamer_wasm::opt(a2), screamer_wasm::opt(a3));
+}
+
 inline screamer::EwMean* make_EwMean(double a0, double a1, double a2, double a3) {
     return new screamer::EwMean(screamer_wasm::opt(a0), screamer_wasm::opt(a1), screamer_wasm::opt(a2), screamer_wasm::opt(a3));
 }
@@ -478,6 +483,11 @@ inline screamer::RollingKurt* make_RollingKurt(int a0, emscripten::val a1) {
     return new screamer::RollingKurt(a0, a1s);
 }
 
+inline screamer::RollingKyleLambda* make_RollingKyleLambda(int a0, emscripten::val a1) {
+    const std::string a1s = a1.as<std::string>();
+    return new screamer::RollingKyleLambda(a0, a1s);
+}
+
 inline screamer::RollingLinearRegression* make_RollingLinearRegression(int a0, emscripten::val a1) {
     const std::string a1s = a1.as<std::string>();
     return new screamer::RollingLinearRegression(a0, a1s);
@@ -502,6 +512,11 @@ inline screamer::RollingOU* make_RollingOU(int a0, emscripten::val a1, emscripte
     const std::string a1s = a1.as<std::string>();
     const std::string a2s = a2.as<std::string>();
     return new screamer::RollingOU(a0, a1s, a2s);
+}
+
+inline screamer::RollingOrderImbalance* make_RollingOrderImbalance(int a0, emscripten::val a1) {
+    const std::string a1s = a1.as<std::string>();
+    return new screamer::RollingOrderImbalance(a0, a1s);
 }
 
 inline screamer::RollingPoly1* make_RollingPoly1(int a0, int a1, emscripten::val a2) {
@@ -784,6 +799,8 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor(&make_EwGarmanKlassVol, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::EwKurt, emscripten::base<screamer::EvalOp>>("EwKurt")
         .constructor(&make_EwKurt, emscripten::allow_raw_pointers());
+    emscripten::class_<screamer::EwKyleLambda, emscripten::base<screamer::EvalOp>>("EwKyleLambda")
+        .constructor(&make_EwKyleLambda, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::EwMean, emscripten::base<screamer::EvalOp>>("EwMean")
         .constructor(&make_EwMean, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::EwParkinsonVar, emscripten::base<screamer::EvalOp>>("EwParkinsonVar")
@@ -948,6 +965,8 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor<double>();
     emscripten::class_<screamer::Propagator, emscripten::base<screamer::EvalOp>>("Propagator")
         .constructor<int, double, double>();
+    emscripten::class_<screamer::QueueImbalance, emscripten::base<screamer::EvalOp>>("QueueImbalance")
+        .constructor<>();
     emscripten::class_<screamer::ROC, emscripten::base<screamer::EvalOp>>("ROC")
         .constructor<int>();
     emscripten::class_<screamer::ROCP, emscripten::base<screamer::EvalOp>>("ROCP")
@@ -996,6 +1015,8 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor<int>();
     emscripten::class_<screamer::RollingKurt, emscripten::base<screamer::EvalOp>>("RollingKurt")
         .constructor(&make_RollingKurt, emscripten::allow_raw_pointers());
+    emscripten::class_<screamer::RollingKyleLambda, emscripten::base<screamer::EvalOp>>("RollingKyleLambda")
+        .constructor(&make_RollingKyleLambda, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingLinearRegression, emscripten::base<screamer::EvalOp>>("RollingLinearRegression")
         .constructor(&make_RollingLinearRegression, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingMad, emscripten::base<screamer::EvalOp>>("RollingMad")
@@ -1018,6 +1039,8 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor(&make_RollingOU, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingOmega, emscripten::base<screamer::EvalOp>>("RollingOmega")
         .constructor<int, double>();
+    emscripten::class_<screamer::RollingOrderImbalance, emscripten::base<screamer::EvalOp>>("RollingOrderImbalance")
+        .constructor(&make_RollingOrderImbalance, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingParkinsonVar, emscripten::base<screamer::EvalOp>>("RollingParkinsonVar")
         .constructor<int>();
     emscripten::class_<screamer::RollingParkinsonVol, emscripten::base<screamer::EvalOp>>("RollingParkinsonVol")
@@ -1083,6 +1106,8 @@ EMSCRIPTEN_BINDINGS(screamer) {
     emscripten::class_<screamer::Transform<(double (*)(double)) screamer::sigmoid>, emscripten::base<screamer::EvalOp>>("Sigmoid")
         .constructor<>();
     emscripten::class_<screamer::Transform<(double (*)(double))screamer::signum<double> >, emscripten::base<screamer::EvalOp>>("Sign")
+        .constructor<>();
+    emscripten::class_<screamer::SignedVolume, emscripten::base<screamer::EvalOp>>("SignedVolume")
         .constructor<>();
     emscripten::class_<screamer::Transform<(double (*)(double)) std::sin>, emscripten::base<screamer::EvalOp>>("Sin")
         .constructor<>();

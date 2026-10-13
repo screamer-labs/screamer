@@ -713,6 +713,16 @@ export declare function EwGarmanKlassVol(com?: number, span?: number, halflife?:
  */
 export declare function EwKurt(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
 /**
+ * Exponentially-weighted price-impact slope of return on signed order flow.
+ *
+ * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/EwKyleLambda.html for the full reference.
+ */
+export declare function EwKyleLambda(com?: number, span?: number, halflife?: number, alpha?: number): ScreamerOp;
+/**
  * Exponentially-weighted moving average (pandas adjust=True).
  *
  * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
@@ -1306,6 +1316,12 @@ export declare function Power(p?: number): ScreamerOp;
  */
 export declare function Propagator(windowSize?: number, g0?: number, gamma?: number): ScreamerOp;
 /**
+ * Normalized L1 book imbalance, (bid_size - ask_size) / (bid_size + ask_size).
+ *
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/QueueImbalance.html for the full reference.
+ */
+export declare function QueueImbalance(): ScreamerOp;
+/**
  * Rate of change 100 * (x[t] / x[t-k] - 1), in percent (TA-Lib ROC).
  *
  * @param windowSize Lookback k: the output compares each value with the value k steps earlier. TA-Lib uses 10.
@@ -1487,6 +1503,14 @@ export declare function RollingIqr(windowSize?: number): ScreamerOp;
  */
 export declare function RollingKurt(windowSize?: number, startPolicy?: string): ScreamerOp;
 /**
+ * Rolling-window price-impact slope of return on signed order flow (Kyle 1985).
+ *
+ * @param windowSize Number of most recent observations in the regression window.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/RollingKyleLambda.html for the full reference.
+ */
+export declare function RollingKyleLambda(windowSize?: number, startPolicy?: string): ScreamerOp;
+/**
  * Rolling OLS fit of y on x, returning slope, intercept, R-squared and the standard error of the fit.
  *
  * @param windowSize Number of most recent (y, x) pairs in the regression window. Must be at least 3, because the standard error divides by n - 2.
@@ -1570,6 +1594,14 @@ export declare function RollingOU(windowSize?: number, output?: string, startPol
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingOmega.html for the full reference.
  */
 export declare function RollingOmega(windowSize?: number, threshold?: number): ScreamerOp;
+/**
+ * Trailing-window sum of signed order flow (Chordia-Roll-Subrahmanyam imbalance).
+ *
+ * @param windowSize Number of most recent observations summed.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/RollingOrderImbalance.html for the full reference.
+ */
+export declare function RollingOrderImbalance(windowSize?: number, startPolicy?: string): ScreamerOp;
 /**
  * Var form of the Parkinson range-based volatility estimator (uses high & low).
  *
@@ -1825,6 +1857,12 @@ export declare function Sigmoid(): ScreamerOp;
  * @see https://screamer.readthedocs.io/en/latest/functions_math/Sign.html for the full reference.
  */
 export declare function Sign(): ScreamerOp;
+/**
+ * Aggressor-signed volume, sign * volume.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/SignedVolume.html for the full reference.
+ */
+export declare function SignedVolume(): ScreamerOp;
 /**
  * Sine of each element (radians).
  *

@@ -118,10 +118,6 @@ These parts work differently in the two packages, or in one package only. Each
 is tracked to be closed.
 
 * `combineLatest` in JavaScript has no `layout` argument.
-* The microstructure synonyms `SignedVolume`, `RollingKyleLambda`,
-  `EwKyleLambda`, `RollingOrderImbalance`, and `QueueImbalance` are Python
-  only; in JavaScript use `Mul`, `RollingBeta` and `EwBeta` (with the inputs
-  as return, then signed flow), `RollingSum`, and `OFI` directly.
 * Error classes differ: Python raises `ValueError` for inputs or events whose
   shapes do not match, where JavaScript throws `RangeError` (lengths, event
   shapes, asset shapes that do not broadcast). A wrong kind of input throws
@@ -135,6 +131,10 @@ is tracked to be closed.
 These differences follow each language's own convention. They are not gaps and
 are not tracked to be closed.
 
+* The microstructure operators `SignedVolume`, `RollingKyleLambda`,
+  `EwKyleLambda`, `RollingOrderImbalance` and `QueueImbalance` also take their
+  inputs as keywords in Python (`SignedVolume()(sign=s, volume=v)`).
+  JavaScript has no keyword arguments, so pass the inputs in order.
 * Awaiting a second `next()` on an async stream while the first is still
   running raises `RuntimeError` in Python. JavaScript queues the calls and
   answers them in order, as an async generator does.

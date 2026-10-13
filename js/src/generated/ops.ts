@@ -1351,6 +1351,24 @@ export function EwKurt(com: number = NaN, span: number = NaN, halflife: number =
 }
 
 /**
+ * Exponentially-weighted price-impact slope of return on signed order flow.
+ *
+ * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/EwKyleLambda.html for the full reference.
+ */
+export function EwKyleLambda(com: number = NaN, span: number = NaN, halflife: number = NaN, alpha: number = NaN): ScreamerOp {
+  const M = current();
+  if (_isText(com)) throw new TypeError(`com must be a number, got a string`);
+  if (_isText(span)) throw new TypeError(`span must be a number, got a string`);
+  if (_isText(halflife)) throw new TypeError(`halflife must be a number, got a string`);
+  if (_isText(alpha)) throw new TypeError(`alpha must be a number, got a string`);
+  return wrapOp(M, () => new M.EwKyleLambda(com, span, halflife, alpha));
+}
+
+/**
  * Exponentially-weighted moving average (pandas adjust=True).
  *
  * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
@@ -2389,6 +2407,16 @@ export function Propagator(windowSize: number = 20, g0: number = 1.0, gamma: num
 }
 
 /**
+ * Normalized L1 book imbalance, (bid_size - ask_size) / (bid_size + ask_size).
+ *
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/QueueImbalance.html for the full reference.
+ */
+export function QueueImbalance(): ScreamerOp {
+  const M = current();
+  return wrapOp(M, () => new M.QueueImbalance());
+}
+
+/**
  * Rate of change 100 * (x[t] / x[t-k] - 1), in percent (TA-Lib ROC).
  *
  * @param windowSize Lookback k: the output compares each value with the value k steps earlier. TA-Lib uses 10.
@@ -2703,6 +2731,20 @@ export function RollingKurt(windowSize: number = 20, startPolicy: string = "stri
 }
 
 /**
+ * Rolling-window price-impact slope of return on signed order flow (Kyle 1985).
+ *
+ * @param windowSize Number of most recent observations in the regression window.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/RollingKyleLambda.html for the full reference.
+ */
+export function RollingKyleLambda(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
+  const M = current();
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  return wrapOp(M, () => new M.RollingKyleLambda(windowSize, startPolicy));
+}
+
+/**
  * Rolling OLS fit of y on x, returning slope, intercept, R-squared and the standard error of the fit.
  *
  * @param windowSize Number of most recent (y, x) pairs in the regression window. Must be at least 3, because the standard error divides by n - 2.
@@ -2846,6 +2888,20 @@ export function RollingOmega(windowSize: number = 20, threshold: number = 0.0): 
   if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
   if (_isText(threshold)) throw new TypeError(`threshold must be a number, got a string`);
   return wrapOp(M, () => new M.RollingOmega(windowSize, threshold));
+}
+
+/**
+ * Trailing-window sum of signed order flow (Chordia-Roll-Subrahmanyam imbalance).
+ *
+ * @param windowSize Number of most recent observations summed.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/RollingOrderImbalance.html for the full reference.
+ */
+export function RollingOrderImbalance(windowSize: number = 20, startPolicy: string = "strict"): ScreamerOp {
+  const M = current();
+  if (_isText(windowSize)) throw new TypeError(`windowSize must be a number, got a string`);
+  if (typeof startPolicy !== "string") throw new TypeError(`startPolicy must be a string, got ${typeof startPolicy}`);
+  return wrapOp(M, () => new M.RollingOrderImbalance(windowSize, startPolicy));
 }
 
 /**
@@ -3290,6 +3346,16 @@ export function Sigmoid(): ScreamerOp {
 export function Sign(): ScreamerOp {
   const M = current();
   return wrapOp(M, () => new M.Sign());
+}
+
+/**
+ * Aggressor-signed volume, sign * volume.
+ *
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/SignedVolume.html for the full reference.
+ */
+export function SignedVolume(): ScreamerOp {
+  const M = current();
+  return wrapOp(M, () => new M.SignedVolume());
 }
 
 /**
