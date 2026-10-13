@@ -28,8 +28,14 @@ process, so use at least three runs per side::
 
 The operator cases are compared within a build: ``compare`` prints the time of
 the packed input over the time of the separate arrays in each build, and fails
-when the new build's ratio is over the gate (rule 4: two spellings of one call
-cost the same). ``bench_all_ops.py`` compares the operators across builds.
+when the new build's ratio is over the gate or missing (rule 4: two spellings
+of one call cost the same). ``bench_all_ops.py`` compares the operators across
+builds. ``compare`` also fails on an error of the new build, which ``run``
+records: a case that raises, or a packed call that raises or gives other
+values than the separate call; and on a case of the reference that the new
+run lacks. Check the gate itself with::
+
+    .venv/bin/python devtools/bench_pipeline.py selftest
 """
 import argparse
 import json
@@ -270,8 +276,16 @@ def construct(cls):
     return None
 
 
-def packed_cases(s, np):
-    """packed:<op>:<shape> and separate:<op>:<shape> for every multi-input operator."""
+# Extra constructions timed besides each operator's default one (name, args).
+EXTRA_OPS = (("WilliamsR", (20,)), ("WilliamsR", (50,)))
+
+
+def packed_cases(s, np, errors, untimed):
+    """packed:<op>:<shape> and separate:<op>:<shape> for every multi-input operator.
+
+    A pair whose packed call raises or differs from the separate call is added
+    to `errors` (the gate fails on it); a pair over MAX_OP_S a call to
+    `untimed`. A shape the separate call refuses is not a case."""
     import inspect
     rng = np.random.default_rng(1)
     base = np.cumsum(rng.standard_normal(T_OP)) + 1000.0
@@ -279,11 +293,17 @@ def packed_cases(s, np):
     xs[1] = np.maximum(xs[0], xs[1]) + 1.0
     xs[2] = np.minimum(xs[0], xs[2]) - 1.0
     out = {}
+    ops = []
     for name in sorted(n for n in dir(s) if not n.startswith("_")):
         cls = getattr(s, name)
-        if not inspect.isclass(cls):
-            continue
-        op = construct(cls)
+        if inspect.isclass(cls):
+            ops.append((name, construct(cls)))
+    for name, args in EXTRA_OPS:
+        try:
+            ops.append((f"{name}({', '.join(map(str, args))})", getattr(s, name)(*args)))
+        except Exception:
+            pass
+    for name, op in ops:
         if op is None:
             continue
         n_in = None
@@ -299,18 +319,24 @@ def packed_cases(s, np):
         for shape, cols in (("1d", xs[:n_in]),
                             ("2d", [x.reshape(OP_SHAPE_2D) for x in xs[:n_in]])):
             packed = np.ascontiguousarray(np.stack(cols, axis=-1))
+            key = f"{name}:{shape}"
             try:
                 t0 = time.perf_counter()
                 a = op(*cols)
                 slow = time.perf_counter() - t0 > MAX_OP_S
-                b = op(packed)
-                if not np.array_equal(np.asarray(a), np.asarray(b), equal_nan=True):
-                    print(f"{name} {shape}: packed and separate differ", file=sys.stderr)
-                    continue
             except Exception:
+                continue                        # the shape is not a case of this operator
+            try:
+                b = op(packed)
+            except Exception as e:
+                errors.append(f"packed:{key} raises {type(e).__name__}: {str(e)[:80]}")
+                continue
+            if not np.array_equal(np.asarray(a), np.asarray(b), equal_nan=True):
+                errors.append(f"packed:{key} differs from separate")
                 continue
             if slow:
-                print(f"{name} {shape}: values checked, not timed (over {MAX_OP_S} s a call)")
+                untimed.extend([f"separate:{key}", f"packed:{key}"])
+                print(f"{key}: values checked, not timed (over {MAX_OP_S} s a call)")
                 continue
             out[f"separate:{name}:{shape}"] = (lambda op=op, cols=cols: op(*cols))
             out[f"packed:{name}:{shape}"] = (lambda op=op, p=packed: op(p))
@@ -322,10 +348,11 @@ def run(path, src, only, packed):
     import numpy as np
     d = data(np)
     result = {"meta": {"screamer": s.__file__, "version": getattr(s, "__version__", "?")},
-              "ms": {}}
+              "ms": {}, "errors": [], "untimed": []}
     cases = {k: (lambda f=f: f(s, np, d)) for k, f in CASES.items()}
     if packed:
-        cases.update({k: (lambda f=f: f) for k, f in packed_cases(s, np).items()})
+        cases.update({k: (lambda f=f: f) for k, f in
+                      packed_cases(s, np, result["errors"], result["untimed"]).items()})
     for name, make in cases.items():
         if only and not any(o in name for o in only):
             continue
@@ -333,7 +360,10 @@ def run(path, src, only, packed):
             fn = make()
             fn()
         except Exception as e:
-            print(f"{name:44s} skipped: {type(e).__name__}: {str(e)[:60]}", flush=True)
+            # A case this build cannot run: an error of this build, which the
+            # gate fails on when this build is the new one.
+            result["errors"].append(f"{name} raises {type(e).__name__}: {str(e)[:80]}")
+            print(f"{name:44s} raises: {type(e).__name__}: {str(e)[:60]}", flush=True)
             continue
         ms = time_call(fn) * 1e3
         result["ms"][name] = ms
@@ -344,19 +374,32 @@ def run(path, src, only, packed):
 
 
 def load(spec):
-    runs = [json.load(open(p))["ms"] for p in spec.split(",")]
-    keys = set().union(*runs)
-    return {k: statistics.median(r[k] for r in runs if k in r) for k in keys}
+    """The per-case median of several runs, and their errors and untimed cases."""
+    runs = [json.load(open(p)) for p in spec.split(",")]
+    keys = set().union(*(r["ms"] for r in runs))
+    ms = {k: statistics.median(r["ms"][k] for r in runs if k in r["ms"]) for k in keys}
+    errors = sorted(set().union(*(r.get("errors", []) for r in runs)))
+    untimed = set().union(*(r.get("untimed", []) for r in runs))
+    return ms, errors, untimed
 
 
 def compare(ref_spec, new_spec, gate):
-    ref, new = load(ref_spec), load(new_spec)
-    fails = []
+    """Prints the cases of two builds; returns 1 when the gate fails: a case
+    over the gate, an error of the new build (a case that raises, a packed call
+    that raises or differs), a case of the reference that the new build lacks,
+    or a packed / separate ratio of the new build that is over the gate or
+    missing."""
+    (ref, _, _), (new, new_errors, new_untimed) = load(ref_spec), load(new_spec)
+    fails = [f"error: {e}" for e in new_errors]
     print(f"{'case':36s} {'ref ms':>10s} {'new ms':>10s} {'new/ref':>8s}")
     for k in sorted(k for k in set(ref) | set(new) if ":" not in k):
         r, n = ref.get(k), new.get(k)
-        if r is None or n is None:
-            print(f"{k:36s} {r or float('nan'):10.3f} {n or float('nan'):10.3f}")
+        if n is None:
+            fails.append(f"{k} missing from the new run")
+            print(f"{k:36s} {r:10.3f} {'missing':>10s}")
+            continue
+        if r is None:
+            print(f"{k:36s} {'-':>10s} {n:10.3f}")
             continue
         slower = n / r > gate
         if slower:
@@ -364,23 +407,68 @@ def compare(ref_spec, new_spec, gate):
         print(f"{k:36s} {r:10.3f} {n:10.3f} {n / r:8.3f}{' SLOWER' if slower else ''}")
     # The operator cases compare the two spellings within each build; the
     # operators' own speed across builds is bench_all_ops.py's.
-    pairs = sorted(k[len("packed:"):] for k in new if k.startswith("packed:"))
+    pairs = sorted({k.split(":", 1)[1] for k in set(ref) | set(new) if ":" in k})
     if pairs:
         print(f"\n{'packed / separate':36s} {'ref':>10s} {'new':>10s} {'new ms':>8s}")
     for k in pairs:
         def ratio(d):
             p, s = d.get("packed:" + k), d.get("separate:" + k)
             return p / s if p and s else float("nan")
-        slower = ratio(new) > gate
-        if slower:
-            fails.append("packed:" + k)
-        print(f"{k:36s} {ratio(ref):10.3f} {ratio(new):10.3f} {new['packed:' + k]:8.3f}"
-              f"{' SLOWER' if slower else ''}")
+        if "packed:" + k in new_untimed:
+            print(f"{k:36s} {ratio(ref):10.3f} {'untimed':>10s}")
+            continue
+        rn = ratio(new)
+        bad = not (rn <= gate)                  # a NaN ratio (a side missing) fails too
+        if bad:
+            fails.append("packed:" + k + (" missing" if rn != rn else ""))
+        p = new.get("packed:" + k, float("nan"))
+        print(f"{k:36s} {ratio(ref):10.3f} {rn:10.3f} {p:8.3f}{' FAIL' if bad else ''}")
     if fails:
-        print(f"{len(fails)} case(s) over the {gate:.2f}x gate: {', '.join(fails)}")
+        print(f"{len(fails)} failure(s) of the {gate:.2f}x gate: {', '.join(fails)}")
         return 1
     print(f"all cases within the {gate:.2f}x gate")
     return 0
+
+
+def selftest():
+    """Checks that compare passes a clean run and fails each kind of failure."""
+    import contextlib
+    import io
+    import tempfile
+    base = {"ms": {"pipe_a": 10.0, "separate:Op:1d": 1.0, "packed:Op:1d": 1.0},
+            "errors": [], "untimed": []}
+    def case(**change):
+        new = json.loads(json.dumps(base))
+        for k, v in change.items():
+            if k == "ms":
+                new["ms"].update(v)
+            else:
+                new[k] = v
+        return new
+    scenarios = {
+        "clean": (case(), 0),
+        "slower": (case(ms={"pipe_a": 12.0}), 1),
+        "error": (case(errors=["packed:Op:1d differs from separate"]), 1),
+        "missing case": ({**base, "ms": {k: v for k, v in base["ms"].items() if k != "pipe_a"}}, 1),
+        "missing packed": ({**base, "ms": {k: v for k, v in base["ms"].items()
+                                           if k != "packed:Op:1d"}}, 1),
+        "packed slower": (case(ms={"packed:Op:1d": 1.2}), 1),
+        "untimed": ({**base, "ms": {"pipe_a": 10.0},
+                     "untimed": ["separate:Op:1d", "packed:Op:1d"]}, 0),
+    }
+    ok = True
+    with tempfile.TemporaryDirectory() as d:
+        ref = os.path.join(d, "ref.json")
+        json.dump(base, open(ref, "w"))
+        for name, (new, want) in scenarios.items():
+            path = os.path.join(d, "new.json")
+            json.dump(new, open(path, "w"))
+            with contextlib.redirect_stdout(io.StringIO()):
+                got = compare(ref, path, 1.10)
+            ok &= got == want
+            print(f"{name:16s} exit {got}, expected {want}{'' if got == want else '  WRONG'}")
+    print("selftest", "passed" if ok else "FAILED")
+    return 0 if ok else 1
 
 
 def main():
@@ -396,9 +484,12 @@ def main():
     c.add_argument("ref")
     c.add_argument("new")
     c.add_argument("--gate", type=float, default=1.10)
+    sub.add_parser("selftest", help="check that compare fails each kind of failure")
     a = ap.parse_args()
     if a.cmd == "run":
         run(a.out, a.src, a.only, not a.no_packed)
+    elif a.cmd == "selftest":
+        sys.exit(selftest())
     else:
         sys.exit(compare(a.ref, a.new, a.gate))
 
