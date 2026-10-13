@@ -460,6 +460,20 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Fixed
 
+* A `Resample(every=..., fill="nan")` or `fill="carry"` fed through a
+  `CombineLatest` or a `Filter` hung at the end of the input and grew memory
+  until it was killed (`std::bad_alloc` in JavaScript), in a batch call and in
+  `live()`: the end-of-input watermark made it fill every empty bucket up to
+  the int64 maximum. The end of input now closes the open bucket only, as for
+  a resample fed directly, and `advance(now)` emits the buckets up to `now`.
+* A label-left `Resample(every=...)` whose first event came after a watermark
+  (rows that a `Dropna` or `Filter` dropped, or an `advance()`) told the nodes
+  downstream that no row would come below that watermark, then emitted its
+  first bar below it. A `CombineLatest` downstream then lost rows: with
+  `a = [NaN] * 10 + [1, 2, 3, 4, 5]` on index 0 to 14,
+  `CombineLatest()(a, Resample(every=100)(Dropna()(a)))` gave index 0 and 10 to
+  14 in 2.8.0, and now gives 0 to 14. Before its first event the resample now
+  holds its watermark at the bucket that event can open.
 * `Pipeline.from_dict()` and `from_json()` raised "unknown DAG operator" for a
   graph with a `Filter` or `Delay` node, which `to_dict()` saves. Both load now.
 * `live().result()` of a `Pipeline` with several aligned outputs aligned each

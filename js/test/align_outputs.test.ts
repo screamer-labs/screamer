@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  ready, Input, Pipeline, select, resample, combineLatest, filter, delay,
+  ready, Input, Pipeline, select, resample, combineLatest, filter, delay, dropna,
   RollingMean, IsNan, type Output,
 } from "../src/index.ts";
 
@@ -383,5 +383,86 @@ test("alignOutputs: live drains at any timing equal batch, with a late or empty 
     } finally {
       p.dispose();
     }
+  }
+});
+
+// Fix round 3: a resample before its first event holds its watermark at the
+// bucket that event can open, and the end-of-input watermark fills nothing.
+test("watermarks: a resample before its first event keeps the rows of the other outputs", async () => {
+  await ready();
+  const a = Input("a");
+  const xs = [...Array(10).fill(NaN), 1, 2, 3, 4, 5];
+  const ix = xs.map((_, i) => i);
+  const p = new Pipeline([a], [a, resample(dropna(a), { every: 100, agg: "mean" })]);
+  try {
+    const batch = p({ values: xs, index: ix }) as Output[];
+    assert.deepEqual(Array.from(batch[0].index), ix);
+    for (const advanceAt of [[], [3, 9]]) {
+      const s = p.live();
+      const parts: Output[][] = [];
+      xs.forEach((v, i) => {
+        if (advanceAt.includes(i)) s.advance(i);
+        s.push("a", i, v);
+        parts.push(s.result() as Output[]);
+      });
+      s.flush();
+      parts.push(s.result() as Output[]);
+      const full = parts.filter((q) => q[0].index.length);
+      assertSame(concat(full), batch, `advance at ${advanceAt}`);
+    }
+  } finally {
+    p.dispose();
+  }
+});
+
+test("watermarks: a flush through combineLatest or filter fills no bucket past the input", async () => {
+  await ready();
+  const b = Input("b"), m = Input("m");
+  const v = [1, 2, 3, 4], k = [42, 45, 48, 50];
+  for (const fill of ["carry", "nan", "skip"] as const) {
+    const direct = new Pipeline([b], [resample(b, { every: 4, agg: "last", fill })]);
+    const viaJoin = new Pipeline([b], [resample(select(combineLatest([b, b]), 0), { every: 4, agg: "last", fill })]);
+    const viaFilter = new Pipeline([b, m], [resample(filter(b, m), { every: 4, agg: "last", fill })]);
+    try {
+      const want = direct({ values: v, index: k }) as Output;
+      assert.deepEqual(Array.from(want.index), [40, 44, 48]);
+      assertSame(viaJoin({ values: v, index: k }) as Output, want, `${fill} via combineLatest`);
+      assertSame(viaFilter({ b: { values: v, index: k }, m: { values: [1, 1, 1, 1], index: k } }) as Output, want, `${fill} via filter`);
+      const s = viaJoin.live();
+      v.forEach((x, i) => s.push("b", k[i], x));
+      s.flush();
+      assertSame(s.result() as Output, want, `${fill} live`);
+    } finally {
+      direct.dispose(); viaJoin.dispose(); viaFilter.dispose();
+    }
+  }
+});
+
+test("watermarks: advance(now) emits the buckets up to now only", async () => {
+  await ready();
+  const a = Input("a");
+  const p = new Pipeline([a], [resample(a, { every: 10, agg: "last", fill: "nan" })]);
+  try {
+    const s = p.live();
+    s.push("a", 0, 1);
+    s.advance(1_000_000);                 // a large jump: 100,000 buckets, no more
+    let r = s.result() as Output;
+    assert.equal(r.index.length, 100_000);
+    assert.equal(r.index[r.index.length - 1], 999_990);
+    assert.ok(Array.from(r.values as Float64Array).slice(1).every(Number.isNaN));
+  } finally {
+    p.dispose();
+  }
+  // Without fill, a jump to 2**53 closes the open bucket only and returns at once.
+  const q = new Pipeline([a], [resample(a, { every: 10, agg: "last" })]);
+  try {
+    const s = q.live();
+    s.push("a", 5, 2);
+    s.advance(2 ** 53);
+    const r = s.result() as Output;
+    assert.deepEqual(Array.from(r.index), [0]);
+    assert.deepEqual(Array.from(r.values as Float64Array), [2]);
+  } finally {
+    q.dispose();
   }
 });

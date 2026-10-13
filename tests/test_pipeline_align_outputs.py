@@ -356,3 +356,123 @@ def test_max_pending_round_trips_through_to_dict():
     assert Pipeline.from_json(p.to_json()).max_pending == 12345
     del d["max_pending"]               # a graph saved before 3.0.0
     assert Pipeline.from_dict(d).max_pending == 1_000_000
+
+
+# ---------------------------------------------------------------------------
+# Fix round 3: watermarks never pass a row a node may still emit; no fill
+# toward the int64 maximum
+# ---------------------------------------------------------------------------
+
+def _live_every_event(p, feeds, names, advance_at=()):
+    s = p.live()
+    parts = []
+    for t, _, _, nm, v in _events(feeds, names):
+        if t in advance_at:
+            s.advance(t)
+        s.push(nm, t, v.tolist() if np.ndim(v) else float(v))
+        parts.append(s.result())
+    s.flush()
+    parts.append(s.result())
+    return _concat(parts)
+
+
+def test_resample_before_its_first_event_holds_the_watermark_at_its_bucket():
+    # The reported case: a NaN prefix that Dropna drops sends watermarks
+    # before the resample's first event, which opens the bucket [0, 100).
+    a = Input("a")
+    x = np.array([np.nan] * 10 + [1.0, 2, 3, 4, 5])
+    k = np.arange(15)
+    p = Pipeline([a], [a, sc.Resample(every=100, agg="mean")(sc.Dropna()(a))])
+    want = p((x, k))
+    np.testing.assert_array_equal(want[0][1], k)
+    _same(_live_every_event(p, [(x, k)], ["a"]), want)
+    _same(_live_every_event(p, [(x, k)], ["a"], advance_at={3, 9}), want)
+    for (lv, lk), (wv, wk) in zip(_lazy(p, [(x, k)]), want):
+        np.testing.assert_array_equal(lk, wk)
+        np.testing.assert_array_equal(lv, wv)
+    # A CombineLatest downstream of the same resample keeps the rows too.
+    q = Pipeline([a], [sc.CombineLatest()(a, sc.Resample(every=100)(sc.Dropna()(a)))])
+    np.testing.assert_array_equal(q((x, k))[1], k)
+
+
+def _producers():
+    """Each watermark producer, feeding a label-left resample beside `a`."""
+    def mask_of(a):
+        return sc.IsNan()(a)
+    return {
+        "dropna": lambda a: sc.Dropna()(a),
+        "filter": lambda a: sc.Filter()(a, sc.Not()(mask_of(a))),
+        "combine_latest": lambda a: sc.Select(0)(sc.CombineLatest()(sc.Dropna()(a), a)),
+        "delay": lambda a: sc.Delay(3)(sc.Dropna()(a)),
+        "select": lambda a: sc.Select(0)(sc.Dropna()(a)),
+        "resample every left": lambda a: sc.Resample(every=7, agg="last")(sc.Dropna()(a)),
+        "resample every right": lambda a: sc.Resample(every=7, agg="last", label="right")(sc.Dropna()(a)),
+        "resample count": lambda a: sc.Resample(count=3, agg="mean")(sc.Dropna()(a)),
+    }
+
+
+@pytest.mark.parametrize("name", list(_producers()))
+@pytest.mark.parametrize("label", ["left", "right"])
+@pytest.mark.parametrize("fill", ["skip", "nan", "carry"])
+def test_each_watermark_producer_feeding_a_resample(name, label, fill):
+    a = Input("a")
+    rng = np.random.default_rng(3)
+    x = rng.normal(size=80)
+    x[:12] = np.nan
+    x[rng.random(80) < 0.2] = np.nan
+    k = np.cumsum(rng.integers(0, 3, 80))
+    up = _producers()[name](a)
+    p = Pipeline([a], [a, sc.Resample(every=25, agg="mean", label=label, fill=fill)(up)])
+    want = p((x, k))
+    _same(_live_every_event(p, [(x, k)], ["a"]), want)
+    for (lv, lk), (wv, wk) in zip(_lazy(p, [(x, k)]), want):
+        np.testing.assert_array_equal(lk, wk)
+        np.testing.assert_array_equal(lv, wv)
+
+
+@pytest.mark.parametrize("fill", ["carry", "nan", "skip"])
+@pytest.mark.parametrize("gate", ["combine_latest", "filter"])
+def test_flush_does_not_fill_toward_the_int64_maximum(fill, gate):
+    # The end-of-input watermark of a CombineLatest or Filter flush closes the
+    # open bucket only, as a resample fed directly does (2.8.0 hung here).
+    b, m = Input("b"), Input("m")
+    v, k = np.array([1.0, 2, 3, 4]), np.array([42, 45, 48, 50])
+    if gate == "combine_latest":
+        up = sc.Select(0)(sc.CombineLatest()(b, b))
+        p = Pipeline([b], [sc.Resample(every=4, agg="last", fill=fill)(up)])
+        feeds = [(v, k)]
+    else:
+        p = Pipeline([b, m], [sc.Resample(every=4, agg="last", fill=fill)(sc.Filter()(b, m))])
+        feeds = [(v, k), (np.ones(4), k)]
+    direct = Pipeline([b], [sc.Resample(every=4, agg="last", fill=fill)(b)])((v, k))
+    got = p(*feeds)
+    _same([got], [direct])
+    s = p.live()
+    names = [i.op[1] for i in p.inputs]
+    for t, _, _, nm, val in _events(feeds, names):
+        s.push(nm, t, float(val))
+    s.flush()
+    _same([s.result()], [direct])
+    np.testing.assert_array_equal(direct[1], [40, 44, 48])
+
+
+def test_advance_emits_the_buckets_up_to_now_only():
+    a = Input("a")
+    p = Pipeline([a], [sc.Resample(every=10, agg="last", fill="nan")(a)])
+    s = p.live()
+    s.push("a", 0, 1.0)
+    s.advance(1_000_000)               # a large jump: 100_000 buckets, no more
+    v, k = s.result()
+    assert len(k) == 100_000 and k[0] == 0 and k[-1] == 999_990
+    assert v[0] == 1.0 and np.isnan(v[1:]).all()
+    s.push("a", 1_000_005, 2.0)
+    s.advance(2**63 - 1)               # the end of input: the open bucket only
+    v, k = s.result()
+    assert list(k) == [1_000_000] and list(v) == [2.0]
+    s.advance(2**62)                   # no bucket is open: nothing more
+    assert len(s.result()[1]) == 0
+    q = Pipeline([a], [sc.Resample(every=10, agg="last", fill="carry")(sc.Delay(5)(a))])
+    t = q.live()
+    t.push("a", 0, 1.0)
+    t.advance(2**63 - 1)               # Delay keeps the end-of-input watermark
+    assert list(t.result()[1]) == [0]

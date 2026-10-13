@@ -2,6 +2,7 @@
 #define SCREAMER_DAG_DELAY_NODE_H
 
 #include <cstdint>
+#include <limits>
 #include "screamer/dag/frame.h"
 #include <cstddef>
 
@@ -24,7 +25,16 @@ public:
     }
 
     void flush() override { downstream_.flush(); }
-    void on_watermark(Index w) override { downstream_.on_watermark(w + duration_); }
+    // The watermark moves with the rows; it saturates at the int64 range (the
+    // end-of-input watermark stays the int64 maximum).
+    void on_watermark(Index w) override {
+        std::int64_t out;
+        if (__builtin_add_overflow(static_cast<std::int64_t>(w), duration_, &out))
+            out = duration_ > 0 ? std::numeric_limits<std::int64_t>::max()
+                                : std::numeric_limits<std::int64_t>::min();
+        if (w == std::numeric_limits<Index>::max()) out = w;
+        downstream_.on_watermark(static_cast<Index>(out));
+    }
     void reset() override {}                      // stateless
 
     std::size_t n_in()  const override { return 1; }

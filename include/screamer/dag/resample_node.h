@@ -242,13 +242,20 @@ public:
     // left edge (<= w), so a later frame at index < w is still coming; we must
     // forward min(w, cur_label_). For label="right" the label is the right edge
     // (> w), so min(w, cur_label_) == w and forwarding w is already safe. Before
-    // any event has anchored a bucket (not started_) there is nothing pending, so
-    // forward w unchanged.
+    // any event has anchored a bucket (not started_), the first event can still open
+    // the bucket that holds w, so the forward is at most that bucket's label (a
+    // label-left bucket starts at or below w). The end-of-input watermark (the
+    // int64 maximum, sent at a flush) closes the current bucket only: an end of
+    // input has no trailing empty buckets, as a batch run has none.
     void on_watermark(Index w) override {
         advance(w);
         Index fwd = w;
         if (p_.mode == ResampleMode::ByIndex) {
-            if (started_ && cur_label_ < fwd) fwd = cur_label_;
+            if (started_) { if (cur_label_ < fwd) fwd = cur_label_; }
+            else if (w != std::numeric_limits<Index>::max()) {
+                const Index first = label_for(bucket_of(w));
+                if (first < fwd) fwd = first;
+            }
         } else {
             if (count_in_bucket_ > 0) {
                 Index pending = (p_.label == ResampleLabel::Left
@@ -265,14 +272,17 @@ public:
     void advance(Index now) {
         if (p_.mode != ResampleMode::ByIndex) return;
         if (!started_) return;
-        std::int64_t target =
-            floordiv(static_cast<std::int64_t>(now) - p_.origin, p_.width);
+        // The end-of-input watermark closes the current bucket and fills no
+        // trailing ones (a batch run ends the same way).
+        const bool end = now == std::numeric_limits<Index>::max();
+        std::int64_t target = end ? bucket_ + 1 : bucket_of(now);
         if (target <= bucket_) return;
         if (has_any()) emit(cur_label_);
         else if (p_.fill != ResampleFill::Skip) emit_fill(cur_label_);
-        if (p_.fill != ResampleFill::Skip)
+        if (p_.fill != ResampleFill::Skip && !end)
             for (std::int64_t b = bucket_ + 1; b < target; ++b) emit_fill(label_for(b));
         bucket_ = target; reset_accums(); set_index_label(target);
+        if (end) started_ = false;     // as after a flush: the next event anchors
     }
 
     // ByClock 2-port interface: port(0) = value stream, port(1) = clock stream.
@@ -612,6 +622,16 @@ private:
         } else if (have_emitted_) {
             downstream_.push(Frame<Index>{label, last_emitted_.data(), last_emitted_.size()});
         }
+    }
+
+    // The bucket that holds index k. k - origin is taken without overflow (a
+    // watermark can be any int64).
+    std::int64_t bucket_of(Index k) const {
+        std::int64_t d;
+        if (__builtin_sub_overflow(static_cast<std::int64_t>(k), p_.origin, &d))
+            d = static_cast<std::int64_t>(k) < 0 ? std::numeric_limits<std::int64_t>::min()
+                                                 : std::numeric_limits<std::int64_t>::max();
+        return floordiv(d, p_.width);
     }
 
     static std::int64_t floordiv(std::int64_t a, std::int64_t b) {
