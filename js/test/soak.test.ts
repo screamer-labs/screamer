@@ -166,17 +166,19 @@ test("soak: combineLatest arrays and streams, finished, dropped part way and rej
   const ix = new Float64Array([0, 1]);
   const r = await retained(() => {
     combineLatest([panel, sig], { layout: ["TA", "T"] });
-    combineLatest([[panel, ix], [sig, ix]], { emit: "on_any" });
+    combineLatest([{ values: panel, index: ix }, { values: sig, index: ix }], { emit: "on_any" });
     try { combineLatest([panel, sig], { layout: ["TX", "T"] }); } catch { /* rejected in C++ */ }
     [...combineLatest([[1, 2].values(), [3, 4].values()])];
-    [...combineLatest([[[[1, 2], 0], [[3, 4], 1]].values(), [[[5, 6], 0]].values()], { layout: "TA" })];
-    const part = combineLatest([[[1, 0], [2, 1], [3, 2]].values(), [[3, 0], [4, 2]].values()]);
+    [...combineLatest([[{ value: [1, 2], index: 0 }, { value: [3, 4], index: 1 }].values(),
+      [{ value: [5, 6], index: 0 }].values()], { layout: "TA" })];
+    const part = combineLatest([[{ value: 1, index: 0 }, { value: 2, index: 1 }, { value: 3, index: 2 }].values(),
+      [{ value: 3, index: 0 }, { value: 4, index: 2 }].values()]);
     part.next();                                 // started, never finished
     const pos = combineLatest([[panel.data.subarray(0, 3), panel.data.subarray(3)].values(), sig.values()],
                               { layout: ["TA", "T"] });
     pos.next();                                  // started, never finished
     try { [...combineLatest([[1, 2].values(), [3].values()])]; } catch { /* out of step */ }
-    try { [...combineLatest([[[1, 0.5]].values()])]; } catch { /* rejected in C++ */ }
+    try { [...combineLatest([[{ value: 1, index: 0.5 }].values()])]; } catch { /* rejected in C++ */ }
   }, N_MIXED);
   assert.ok(r.js < JS_BOUND, `JS heap grew by ${r.js} bytes`);
   assert.ok(r.wasm < WASM_BOUND, `WASM heap grew by ${r.wasm} bytes`);
@@ -185,7 +187,7 @@ test("soak: combineLatest arrays and streams, finished, dropped part way and rej
 test("soak: combineLatest async streams dropped part way leave nothing behind", async () => {
   async function* src(xs: unknown[]) { for (const x of xs) yield x; }
   const r = await retained(() => {
-    const it = combineLatest([src([[1, 0], [2, 1]]), src([[3, 0]])]);
+    const it = combineLatest([src([{ value: 1, index: 0 }, { value: 2, index: 1 }]), src([{ value: 3, index: 0 }])]);
     void it.next();                              // started, never finished
   }, N_MIXED);
   assert.ok(r.js < JS_BOUND, `JS heap grew by ${r.js} bytes`);

@@ -17,6 +17,11 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   alpha"). Only a plain object counts, and it must be the only argument. An
   operator without parameters takes an empty object.
 * JavaScript `combineLatest` joins arrays and streams directly, with `layout`.
+  An indexed input is marked with an object, as a `Pipeline` feed is:
+  `{values, index}` for an array and `{value, index}` for an event of an
+  iterator, the counterparts of Python's tuples. A plain Array is always
+  values. JavaScript `split` returns `{values, index}` objects, so its outputs
+  feed `combineLatest` and a `Pipeline` as they are.
 * JavaScript `split`.
 * `split` takes values of any rank with time first, `(T, ...)`, in Python and
   JavaScript: each event is a row, and each output keeps the row shape
@@ -106,6 +111,14 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Changed
 
+* An index whose length differs from its values in `combine_latest` raises
+  `ValueError` ("combine_latest: input 0 has 30 rows of values but 5 index
+  values"), as JavaScript's `combineLatest` raises `RangeError`. 2.8.0 raised
+  `RuntimeError` ("streams: a child's index/values length differ"); catch
+  `ValueError` instead.
+* A JavaScript `Pipeline` feed `{values, index: null}` is positional, as
+  Python's `(values, None)` is and as `{values}` already was; 2.8.0 threw
+  `TypeError`. To get the error, check for a null index before the call.
 * JavaScript `combineLatest` checks its options: an unknown option raises
   `TypeError`, and an `emit` other than `"when_all"` or `"on_any"` raises
   `RangeError` (`TypeError` when it is not a string). 2.8.0 ignored an

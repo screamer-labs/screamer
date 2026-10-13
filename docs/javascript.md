@@ -140,6 +140,14 @@ is tracked to be closed.
 These differences follow each language's own convention. They are not gaps and
 are not tracked to be closed.
 
+* An indexed stream is marked, never inferred from its items. Python marks it
+  with a tuple: `(values, index)` for an array, `(value, index)` for an event
+  of an iterator. JavaScript has no tuple, so it marks it with an object:
+  `{values, index}` for an array (as a `Pipeline` feed, `combineLatest` input
+  or `split` output) and `{value, index}` for an event of an iterator (as a
+  `combineLatest` source). A plain Array, a typed array or an `NdArray` is
+  always values in both languages: `[[1, 2], [3, 4]]` is two rows of two
+  values, as the Python list `[[1, 2], [3, 4]]` is.
 * The microstructure operators `SignedVolume`, `RollingKyleLambda`,
   `EwKyleLambda`, `RollingOrderImbalance` and `QueueImbalance` also take their
   inputs as keywords in Python (`SignedVolume()(sign=s, volume=v)`).

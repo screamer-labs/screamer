@@ -11,7 +11,7 @@ import type { NdArray } from "./ndarray.js";
 import { aKind } from "./kinds.js";
 import {
   combineArrays, combineAsync, combineIterators,
-  type CombineInput, type CombineLayout, type CombineRow,
+  type CombineEvent, type CombineInput, type CombineLayout, type CombineRow,
 } from "./combine.js";
 import {
   RESAMPLE_MODE_CODE,
@@ -74,21 +74,24 @@ const isIterator = (x: any) =>
  * - `Node` inputs build a graph node for a Pipeline (the only form that takes
  *   `maxPending`, and the one that takes no `layout`).
  * - Arrays (a typed array, an Array, T rows or an NdArray) are paired by
- *   position and must have one length. `[values, index]` pairs, values a
- *   typed array or an NdArray, join as of their indexes. Returns
- *   `[values, index]`: values an NdArray `[rows, ...fields]` or
- *   `[rows, ...assets, fields]`, index a Float64Array, or null without one.
- * - Iterators, or async iterables, of events: bare events are paired by
- *   position, `[value, index]` events join as of their indexes (so a
- *   positional event of two values is a typed array or an NdArray). Returns
- *   an iterator, or an async iterator, of `[row, index]`.
+ *   position and must have one length along time. An indexed stream is an
+ *   object `{ values, index }`, the counterpart of Python's `(values, index)`
+ *   tuple; indexed streams join as of their indexes. A plain Array is always
+ *   values. Returns `{ values, index }`: values an NdArray
+ *   `[rows, ...fields]` or `[rows, ...assets, fields]`, index a Float64Array,
+ *   or null without one.
+ * - Iterators, or async iterables, of events: bare events (a number, an
+ *   Array, a typed array or an NdArray) are paired by position; an event
+ *   `{ value, index }`, the counterpart of Python's `(value, index)` tuple,
+ *   joins as of its index. Returns an iterator, or an async iterator, of
+ *   `{ value, index }` rows (index null without one).
  *
  * Python's `combine_latest` gives the same values.
  */
 export function combineLatest(nodes: Node[], opts?: CombineLatestOpts): Node;
-export function combineLatest(inputs: CombineInput[], opts?: CombineLatestOpts): [NdArray, Float64Array | null];
-export function combineLatest(inputs: AsyncIterable<unknown>[], opts?: CombineLatestOpts): AsyncGenerator<CombineRow, void, undefined>;
-export function combineLatest(inputs: Iterable<unknown>[], opts?: CombineLatestOpts): Generator<CombineRow, void, undefined>;
+export function combineLatest(inputs: CombineInput[], opts?: CombineLatestOpts): { values: NdArray; index: Float64Array | null };
+export function combineLatest(inputs: AsyncIterable<CombineEvent>[], opts?: CombineLatestOpts): AsyncGenerator<CombineRow, void, undefined>;
+export function combineLatest(inputs: Iterable<CombineEvent>[], opts?: CombineLatestOpts): Generator<CombineRow, void, undefined>;
 export function combineLatest(inputs: unknown[], opts?: CombineLatestOpts): unknown {
   if (!Array.isArray(inputs))
     throw new TypeError(`combineLatest: pass an array of inputs, got ${aKind(inputs)}`);

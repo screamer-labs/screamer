@@ -142,7 +142,7 @@ the same way an op does.
 
 **`combineLatest(nodes, opts?)`**: as-of latest-value join across N node streams on possibly
 different index axes. `emit: "when_all"` (the default) emits once every input has produced a
-value; `emit: "on_any"` emits on any input event. Given arrays, `[values, index]` pairs or
+value; `emit: "on_any"` emits on any input event. Given arrays, `{values, index}` streams or
 iterators instead of nodes, `combineLatest` joins them directly, with an optional `layout`, as
 Python's `combine_latest` does.
 

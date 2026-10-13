@@ -54,7 +54,7 @@ test("split: every fixture case matches Python exactly", async () => {
   for (const c of cases) {
     const parts = run(c);
     assert.equal(parts.length, c.parts.length, `${c.name}: number of outputs`);
-    parts.forEach(([v, k], i) => {
+    parts.forEach(({ values: v, index: k }, i) => {
       const want = c.parts[i];
       if (c.shape.length > 1) {
         const nd = v as NdArray;
@@ -74,8 +74,8 @@ test("split: n larger than max(sources)+1 gives empty trailing outputs", async (
   await ready();
   const parts = split([1, 2, 3], [0, 1, 0], { n: 4 });
   assert.equal(parts.length, 4);
-  assert.deepEqual(parts.map(([v]) => Array.from(v as Float64Array)), [[1, 3], [2], [], []]);
-  assert.deepEqual(parts.map(([, k]) => k), [null, null, null, null]);
+  assert.deepEqual(parts.map(({ values: v }) => Array.from(v as Float64Array)), [[1, 3], [2], [], []]);
+  assert.deepEqual(parts.map(({ index: k }) => k), [null, null, null, null]);
 });
 
 test("split: n too small is a RangeError with Python's message", async () => {
@@ -92,16 +92,16 @@ test("split: n too small is a RangeError with Python's message", async () => {
 
 test("split: values take null as NaN, an NdArray of one dimension, and a typed array", async () => {
   await ready();
-  const [[a], [b]] = split([1, null, 3], [0, 1, 0]);
+  const [{ values: a }, { values: b }] = split([1, null, 3], [0, 1, 0]);
   assert.deepEqual(Array.from(a as Float64Array), [1, 3]);
   assert.ok(Number.isNaN((b as Float64Array)[0]));
-  const [[c]] = split({ data: new Float64Array([4, 5]), shape: [2] }, new Uint32Array([0, 0]));
+  const [{ values: c }] = split({ data: new Float64Array([4, 5]), shape: [2] }, new Uint32Array([0, 0]));
   assert.deepEqual(Array.from(c as Float64Array), [4, 5]);
 });
 
 test("split: the outputs are copies, not views of the WASM heap", async () => {
   await ready();
-  const [[v, k]] = split([1, 2], [0, 0], { index: [10, 20] });
+  const [{ values: v, index: k }] = split([1, 2], [0, 0], { index: [10, 20] });
   assert.equal((v as Float64Array).buffer.byteLength, (v as Float64Array).byteLength);
   assert.equal(k!.buffer.byteLength, k!.byteLength);
 });
@@ -110,14 +110,14 @@ test("split: values given as rows split along time and keep the row shape", asyn
   await ready();
   const parts = split([[1, 2], [3, null], [5, 6]], [1, 0, 1], { index: [10, 20, 30] });
   assert.equal(parts.length, 2);
-  const [a, ka] = parts[0], [b, kb] = parts[1];
+  const { values: a, index: ka } = parts[0], { values: b, index: kb } = parts[1];
   assert.deepEqual((a as NdArray).shape, [1, 2]);
   assert.deepEqual(Array.from((a as NdArray).data), [3, NaN]);
   assert.deepEqual((b as NdArray).shape, [2, 2]);
   assert.deepEqual(Array.from((b as NdArray).data), [1, 2, 5, 6]);
   assert.deepEqual(Array.from(ka!), [20]);
   assert.deepEqual(Array.from(kb!), [10, 30]);
-  const [[e]] = split({ data: new Float64Array(0), shape: [0, 4] }, [], { n: 1 });
+  const [{ values: e }] = split({ data: new Float64Array(0), shape: [0, 4] }, [], { n: 1 });
   assert.deepEqual((e as NdArray).shape, [0, 4]);
   assert.throws(() => split({ data: new Float64Array(6), shape: [3, 2] }, [0, 1]),
     { name: "RangeError", message: "split: values/sources/index length differ" });

@@ -7,7 +7,7 @@ import { aKind, feedValue, kindName, toF64Checked, whereText } from "./kinds.js"
 import { releaseWith, type Owned } from "./runtime.js";
 
 // One bound feed for an Input: a values stream and its integer index axis.
-type Feed = Float64Array | number[] | NdArray | { values: Float64Array | number[] | NdArray; index?: Float64Array | number[] };
+type Feed = Float64Array | number[] | NdArray | { values: Float64Array | number[] | NdArray; index?: Float64Array | number[] | null };
 type Feeds = Feed | Record<string, Feed>;
 
 export interface Output {
@@ -354,7 +354,7 @@ class PipelineImpl implements Owned {
         values = read(feed);
       } else if (isPair(feed)) {
         values = read((feed as any).values);
-        if ((feed as any).index !== undefined) index = indexArray(this.M, (feed as any).index);
+        if ((feed as any).index != null) index = indexArray(this.M, (feed as any).index);
       } else {
         throw new TypeError(`Pipeline: the feed for input '${this.names[k]}' is ${aKind(feed)}, ${expected}`);
       }

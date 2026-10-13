@@ -14,8 +14,12 @@ export interface SplitOptions {
   n?: number;
 }
 
-/** One output: its rows of values (an NdArray when values have rows), and its index or null. */
-export type SplitOutput = [Float64Array | NdArray, Float64Array | null];
+/**
+ * One output: its rows of values (an NdArray when values have rows), and its
+ * index or null. An indexed stream in the shape combineLatest and a Pipeline
+ * take, the counterpart of Python's `(values, index)` tuple.
+ */
+export interface SplitOutput { values: Float64Array | NdArray; index: Float64Array | null }
 
 const WHO = "split";
 
@@ -84,7 +88,7 @@ function options(opts: unknown): { index?: unknown; n?: number } {
  * max(sources) + 1; an `n` that would drop an event (n <= max(sources)) is a
  * RangeError.
  *
- * Returns `[values, index]` pairs: `values` a Float64Array for 1-D values, or
+ * Returns `{ values, index }` objects: `values` a Float64Array for 1-D values, or
  * an NdArray of shape `[rows, ...]` that keeps the row shape; `index` a
  * Float64Array, or null without an index. Python's `split` gives the same
  * values.
@@ -127,8 +131,8 @@ export function split(
     for (let i = 0; i < counts.length; i++) {
       const c = counts[i];
       const data = allV.slice(at * width, (at + c) * width);
-      out.push([v.shape.length > 1 ? { data, shape: [c, ...rowShape] } : data,
-        allK ? allK.slice(at, at + c) : null]);
+      out.push({ values: v.shape.length > 1 ? { data, shape: [c, ...rowShape] } : data,
+        index: allK ? allK.slice(at, at + c) : null });
       at += c;
     }
     return out;

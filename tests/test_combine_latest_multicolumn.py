@@ -210,3 +210,35 @@ def test_lazy_positional_rows_of_one_value_match_batch():
 def test_lazy_positional_event_of_another_size_raises():
     with pytest.raises(ValueError, match="has 3 values, but its first event had 2"):
         list(s.CombineLatest()(iter([[1.0, 2.0], [1.0, 2.0, 3.0]]), iter([1.0, 2.0])))
+
+
+def test_positional_batch_counts_rows_along_the_layout_t_axis():
+    at = np.arange(3.0 * T).reshape(3, T)                # (A, T)
+    v, i = s.CombineLatest(layout=("AT", "T"))(at, sig)
+    assert i is None and v.shape == (T, 3, 2)
+    np.testing.assert_array_equal(v[..., 0], at.T)
+    np.testing.assert_array_equal(v[..., 1], np.repeat(sig[:, None], 3, axis=1))
+    both, _ = s.CombineLatest(layout="AT")(at, at)
+    assert both.shape == (T, 3, 2)
+    tfa = np.arange(T * 6.0).reshape(T, 2, 3)            # (T, F, A)
+    w, _ = s.CombineLatest(layout=("TFA", "T"))(tfa, sig)
+    np.testing.assert_array_equal(w[..., :2], tfa.transpose(0, 2, 1))
+    with pytest.raises(ValueError, match="lengths must match"):
+        s.CombineLatest(layout=("AT", "T"))(at, sig[:5])
+
+
+def test_index_length_differs_from_values_raises_value_error():
+    with pytest.raises(ValueError, match="input 0 has 12 rows of values but 4 index values"):
+        s.CombineLatest()((sig, np.arange(4)), (sig, np.arange(T)))
+
+
+def test_two_value_lists_are_rows_and_tuples_are_value_index():
+    # A list is always values; the tuple marks (value, index).
+    rows = list(s.CombineLatest()(iter([[1.0, 2.0], [3.0, 4.0]]), iter([[5.0, 6.0], [7.0, 8.0]])))
+    np.testing.assert_array_equal(np.array([r for r, _ in rows]), [[1, 2, 5, 6], [3, 4, 7, 8]])
+    assert [i for _, i in rows] == [None, None]
+    pairs = list(s.CombineLatest()(iter([(1.0, 2), (3.0, 4)]), iter([(5.0, 6), (7.0, 8)])))
+    assert pairs == [((3.0, 5.0), 6), ((3.0, 7.0), 8)]
+    batch, idx = s.CombineLatest()([np.array([1.0, 2.0]), np.array([3.0, 4.0])], [[5.0, 6.0], [7.0, 8.0]])
+    assert idx is None
+    np.testing.assert_array_equal(batch, [[1, 2, 5, 6], [3, 4, 7, 8]])

@@ -28,7 +28,7 @@ export {
   delay,
   merge,
 } from "./combinators.js";
-export type { CombineInput, CombineLayout, CombineRow } from "./combine.js";
+export type { CombineEvent, CombineInput, CombineLayout, CombineRow, CombineValues } from "./combine.js";
 export type {
   CombineLatestOpts,
   DropnaOpts,

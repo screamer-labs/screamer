@@ -203,7 +203,8 @@ def _normalize_streams(streams, who):
 
 def _streams_to_indexed(streams, who):
     """(kind, index_list, vals_list, positional). Uniform positional or indexed;
-    no-index requires equal length; mixing positional and indexed raises."""
+    mixing positional and indexed raises. Positional streams have no index list
+    (None): C++ pairs them by position and checks their lengths."""
     indexed = [s[1] is not None for s in streams]
     if any(indexed) and not all(indexed):
         raise ValueError(
@@ -211,9 +212,8 @@ def _streams_to_indexed(streams, who):
             "stream an index, or none")
     vals = [_as_float64(s[0], contiguous=True) for s in streams]
     if not any(indexed):
-        _b._check_aligned_lengths([len(s[0]) for s in streams])
-        idx = [np.arange(len(streams[0][0]), dtype=np.int64) for _ in streams]
-        return "i64", idx, vals, True
+        # Paired by position in C++, along the T axis each layout names.
+        return "i64", None, vals, True
     kind, idx, _ = _normalize_streams([(s[1], s[0]) for s in streams], who)
     return kind, idx, vals, False
 

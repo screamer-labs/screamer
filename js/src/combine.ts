@@ -1,5 +1,5 @@
 // The direct forms of combineLatest: Python's combine_latest on arrays,
-// [values, index] pairs, iterators and async iterators. The layout join, the
+// {values, index} streams, iterators and async iterators. The layout join, the
 // as-of join and the assembly of rows are C++ (include/screamer/streams/
 // join_plan.h and include/screamer/dag/combine_stream.h, bound in
 // wasm/join_bindings.cpp), shared with Python; this module reads the inputs
@@ -17,10 +17,18 @@ export type CombineLayout = string | Array<string | null>;
 
 export interface DirectOptions { whenAll: boolean; layout: CombineLayout | null }
 
-/** One input of the array form: values, or a `[values, index]` pair. */
-export type CombineInput =
-  | Float64Array | ArrayLike<number | null> | NdArray | ArrayLike<ArrayLike<number | null>>
-  | [Float64Array | NdArray, ArrayLike<number> | null];
+/** Values with time first: a typed array, an Array, T rows or an NdArray. */
+export type CombineValues = Float64Array | ArrayLike<number | null> | NdArray | ArrayLike<ArrayLike<number | null>>;
+
+/**
+ * One input of the array form: values (paired by position), or an indexed
+ * stream `{ values, index }`, the counterpart of Python's `(values, index)`
+ * tuple. A plain Array is always values.
+ */
+export type CombineInput = CombineValues | { values: CombineValues; index?: ArrayLike<number> | null };
+
+/** An event of an iterator: a value, or `{ value, index }` for an indexed source. */
+export type CombineEvent = number | null | ArrayLike<number | null> | NdArray | { value: unknown; index: number };
 
 // ---- reading values ---------------------------------------------------------
 
@@ -72,24 +80,32 @@ function indexArray(x: unknown, where: string): Float64Array {
   return out;
 }
 
-// [values, index]: values a typed array or an NdArray (an array of plain
-// arrays is rows), index an array, a typed array, an NdArray or null.
-function isPair(x: unknown): x is [unknown, unknown] {
-  if (!Array.isArray(x) || x.length !== 2) return false;
-  const [v, i] = x;
-  return (isView(v) || asNd(v) !== null) && (i === null || Array.isArray(i) || isView(i) || asNd(i) !== null);
+// A plain object: the marker of an indexed stream ({values, index}) or event
+// ({value, index}), never inferred from the items of an array.
+const isPlainObject = (x: unknown): x is Record<string, unknown> => {
+  if (x === null || typeof x !== "object" || Array.isArray(x) || isView(x) || asNd(x) !== null) return false;
+  const proto = Object.getPrototypeOf(x);
+  return proto === Object.prototype || proto === null;
+};
+
+function checkKeys(x: Record<string, unknown>, keys: string[], where: string): void {
+  for (const key of Object.keys(x))
+    if (!keys.includes(key))
+      throw new TypeError(`${WHO}: ${where} has an unknown key '${key}'; expected { ${keys.join(", ")} }`);
 }
 
 // ---- the array form ---------------------------------------------------------
 
-/** The join of arrays: `[values, index]`, index null without an index. */
-export function combineArrays(inputs: unknown[], o: DirectOptions): [NdArray, Float64Array | null] {
+/** The join of arrays: `{ values, index }`, index null without an index. */
+export function combineArrays(inputs: unknown[], o: DirectOptions): { values: NdArray; index: Float64Array | null } {
   const M: any = current();
   const blocks: Block[] = [], indexes: Array<Float64Array | null> = [];
   inputs.forEach((x, k) => {
-    if (isPair(x)) {
-      blocks.push(block(x[0], `the values of input ${k}`));
-      indexes.push(x[1] === null ? null : indexArray(x[1], `the index of input ${k}`));
+    if (isPlainObject(x)) {
+      checkKeys(x, ["values", "index"], `input ${k}`);
+      if (!("values" in x)) throw new TypeError(`${WHO}: input ${k} is an object without values; expected { values, index }`);
+      blocks.push(block(x.values, `the values of input ${k}`));
+      indexes.push(x.index == null ? null : indexArray(x.index, `the index of input ${k}`));
     } else {
       blocks.push(block(x, `input ${k}`));
       indexes.push(null);
@@ -119,7 +135,7 @@ export function combineArrays(inputs: unknown[], o: DirectOptions): [NdArray, Fl
     const size = shape.reduce((a: number, b: number) => a * b, 1);
     const values = new Float64Array(M.viewF64(out.values, out.rows * size));
     const idx = new Float64Array(M.viewF64(out.index, out.rows));
-    return [{ data: values, shape: [out.rows, ...shape] }, indexed ? idx : null];
+    return { values: { data: values, shape: [out.rows, ...shape] }, index: indexed ? idx : null };
   } finally {
     for (const p of ptrs) M.freeBuf(p);
     if (out) { M.freeBuf(out.index); M.freeBuf(out.values); }
@@ -129,7 +145,7 @@ export function combineArrays(inputs: unknown[], o: DirectOptions): [NdArray, Fl
 // ---- the iterator forms -----------------------------------------------------
 
 /** One row of an iterator join and its index (null without an index). */
-export type CombineRow = [number | number[] | Float64Array | NdArray, number | null];
+export interface CombineRow { value: number | number[] | Float64Array | NdArray; index: number | null }
 
 const EMPTY = Symbol("empty");
 
@@ -147,14 +163,11 @@ function event(x: unknown, where: () => string): Block {
     const data = toF64Checked(x as ArrayLike<unknown>, WHO, (i) => `item ${i} of ${where()}`, true);
     return { data, shape: [data.length] };
   }
-  throwWrongKind(WHO, where(), x, "a number, an array or an NdArray");
+  throwWrongKind(WHO, where(), x, "a number, an array, an NdArray or a { value, index } event");
 }
 
-// An indexed event: [value, index] with a number index.
-const isIndexed = (x: unknown) => Array.isArray(x) && x.length === 2 && typeof x[1] === "number";
-
 // The state of one iterator join, opened on the first event of each source:
-// the C++ JoinStream and one heap buffer per input for an event.
+// the C++ JoinStream, which owns one event buffer per source.
 class Joiner {
   readonly indexed: boolean;
   private M: any = current();
@@ -164,16 +177,19 @@ class Joiner {
   private wide = false;
   private rowSize = 0;
   private rowShape: number[] = [];
+  private sizes = 0;
+  private zipRow = -1;
   private count: number[];
 
   constructor(heads: unknown[], o: DirectOptions, held: StreamHold) {
-    const kinds = new Set(heads.filter((h) => h !== EMPTY).map(isIndexed));
+    const kinds = new Set(heads.filter((h) => h !== EMPTY).map(isPlainObject));
     if (kinds.size > 1)
-      throw new RangeError(`${WHO}: cannot mix positional (bare-value) and indexed ([value, index]) sources; ` +
+      throw new RangeError(`${WHO}: cannot mix positional (bare-value) and indexed ({ value, index }) sources; ` +
         "give every source an index, or none");
     this.indexed = kinds.has(true);
+    this.count = heads.map(() => 0);
     const shapes = heads.map((h, i) =>
-      h === EMPTY ? null : [1, ...event(this.indexed ? (h as unknown[])[0] : h, () => `event 0 of input ${i}`).shape]);
+      h === EMPTY ? null : [1, ...event(this.indexed ? this.split(i, h).value : h, () => `event 0 of input ${i}`).shape]);
     this.js = wasmCall(() => new this.M.JoinStream(shapes, o.layout, this.indexed, o.whenAll));
     // Frees the stream's WASM state when the stream is collected unfinished;
     // the closure holds this Joiner, never the generator.
@@ -183,26 +199,34 @@ class Joiner {
       this.wide = js.wide();
       this.rowSize = js.rowSize();
       this.rowShape = js.rowShape();
+      this.sizes = js.sizes();
       for (let i = 0; i < heads.length; i++) {
         this.widths.push(js.width(i));
-        this.bufs.push(this.M.allocF64(Math.max(1, this.widths[i])));
+        this.bufs.push(js.eventBuffer(i));
       }
     } catch (e) {
       this.close();
       throw e;
     }
-    this.count = heads.map(() => 0);
   }
 
   close(): void {
     if (!this.js) return;
-    for (const p of this.bufs) this.M.freeBuf(p);
     this.js.delete();
     this.js = null;
   }
 
-  // Event x of input i into its heap buffer; returns its number of values.
-  // A number is written as it is. A wrong count is passed on for C++ to
+  // An event of an indexed source: { value, index } with a number index.
+  private split(i: number, x: unknown): { value: unknown; index: number } {
+    if (!isPlainObject(x) || !("value" in x))
+      throwWrongKind(WHO, `event ${this.count[i]} of input ${i}`, x, "a { value, index } event");
+    checkKeys(x, ["value", "index"], `event ${this.count[i]} of input ${i}`);
+    const t = typeof x.index === "number" ? x.index : badIndex(x.index);
+    return { value: x.value, index: t };
+  }
+
+  // Event x of input i into its buffer; returns its number of values. A
+  // number is written as it is. A wrong count is passed on for C++ to
   // reject, without a write.
   private load(i: number, x: unknown): number {
     const k = this.count[i]++;
@@ -214,40 +238,39 @@ class Joiner {
   }
 
   // A joined row of rowSize values at heap offset `p` (in doubles), as JavaScript.
-  private rowAt(heap: Float64Array, p: number): Float64Array | NdArray {
+  private rowAt(heap: Float64Array, p: number): CombineRow["value"] {
+    if (!this.wide) {
+      const w = this.rowSize, a = new Array<number>(w);
+      for (let j = 0; j < w; j++) a[j] = heap[p + j];
+      return a;
+    }
     const data = heap.slice(p, p + this.rowSize);
     return this.rowShape.length > 1 ? { data, shape: this.rowShape } : data;
   }
 
-  // Positional: one step, one event from every source.
-  zip(items: unknown[]): CombineRow {
-    if (!this.wide) {
-      const row = items.map((x, i) => {
-        if (typeof x === "number") return x;
-        const k = this.count[i];
-        const e = event(x, () => `event ${k} of input ${i}`);
-        if (e.data.length !== 1)
-          throw new RangeError(`${WHO}: an event of input ${i} has ${e.data.length} values, but its first event had 1`);
-        return e.data[0];
-      });
-      for (let i = 0; i < items.length; i++) this.count[i]++;
-      return [row, null];
+  // Positional: one step, an item per source (EMPTY when it has ended).
+  // Returns the joined row, or null when every source has ended; the C++
+  // zip raises when only some have.
+  zip(items: unknown[]): CombineRow | null {
+    const s = this.sizes >> 3;
+    for (let i = 0; i < items.length; i++) {
+      const n = items[i] === EMPTY ? -1 : this.load(i, items[i]);
+      this.M.HEAPF64[s + i] = n;   // read HEAPF64 after load: an event read may grow memory
     }
     try {
-      for (let i = 0; i < items.length; i++) this.js.put(i, this.bufs[i], this.load(i, items[i]));
-      const p = this.js.row();
-      return [this.rowAt(this.M.HEAPF64, p >> 3), null];
+      if (!this.js.zip()) return null;
+      // A positional join writes its row to one fixed place: read it once.
+      if (this.zipRow < 0) this.zipRow = this.js.rowValues() >> 3;
+      return { value: this.rowAt(this.M.HEAPF64, this.zipRow), index: null };
     } catch (e) { throw normalizeError(e); }
   }
 
   // Indexed: the next event of source i. With `run`, feeds the join and
   // returns its status (see take).
   offer(i: number, item: unknown, run: boolean): number {
-    if (!Array.isArray(item) || item.length !== 2)
-      throwWrongKind(WHO, `event ${this.count[i]} of input ${i}`, item, "a [value, index] pair");
-    const t = typeof item[1] === "number" ? item[1] : badIndex(item[1]);
-    const n = this.load(i, item[0]);
-    try { return this.js.offer(i, t, this.bufs[i], n, run); } catch (e) { throw normalizeError(e); }
+    const { value, index } = this.split(i, item);
+    const n = this.load(i, value);
+    try { return this.js.offer(i, index, n, run); } catch (e) { throw normalizeError(e); }
   }
 
   // Indexed: source i has ended.
@@ -270,19 +293,14 @@ class Joiner {
       const ix = this.js.rowIndex() >> 3, vals = this.js.rowValues() >> 3, w = this.rowSize;
       for (let r = 0; r < m; r++) {
         const p = vals + r * w;
-        let row: CombineRow[0];
-        if (this.wide) row = this.rowAt(heap, p);
-        else if (w === 1) row = heap[p];                   // one input: a number, as in Python
-        else { const a = new Array<number>(w); for (let j = 0; j < w; j++) a[j] = heap[p + j]; row = a; }
-        rows.push([row, heap[ix + r]]);
+        // One input of one field: a number, as Python gives a float.
+        const value = !this.wide && w === 1 ? heap[p] : this.rowAt(heap, p);
+        rows.push({ value, index: heap[ix + r] });
       }
     }
     return { rows, want: (status % n1) - 1 };
   }
 }
-
-const OUT_OF_STEP = `${WHO}: positional (no-index) sources must stay in step and end together; ` +
-  "one source ran out before the others";
 
 // The sync join. Nothing is read before the first next(); when the stream
 // ends for any reason, every source not yet ended is closed with return().
@@ -301,13 +319,10 @@ function* runSync(srcs: Iterable<unknown>[], o: DirectOptions, held: StreamHold)
     if (heads.every((h) => h === EMPTY)) return;
     j = new Joiner(heads, o, held);
     if (!j.indexed) {
-      if (heads.some((h) => h === EMPTY)) throw new RangeError(OUT_OF_STEP);
-      for (let items = heads; ; ) {
-        yield j.zip(items);
-        items = its.map((_, i) => pull(i));
-        const done = ended.filter(Boolean).length;
-        if (done === its.length) return;
-        if (done) throw new RangeError(OUT_OF_STEP);
+      for (let items = heads; ; items = its.map((_, i) => (ended[i] ? EMPTY : pull(i)))) {
+        const row = j.zip(items);
+        if (!row) return;
+        yield row;
       }
     }
     heads.forEach((h, i) => (h === EMPTY ? j!.end(i, false) : j!.offer(i, h, false)));
@@ -343,20 +358,21 @@ async function* runAsync(srcs: AsyncIterable<unknown>[], o: DirectOptions, held:
     if (r.done) { ended[i] = true; return EMPTY; }
     return r.value;
   };
-  const pullAll = async () => { const out = []; for (let i = 0; i < its.length; i++) out.push(await pull(i)); return out; };
+  const pullAll = async () => {
+    const out = [];
+    for (let i = 0; i < its.length; i++) out.push(ended[i] ? EMPTY : await pull(i));
+    return out;
+  };
   let failed = false;
   try {
     const heads = await pullAll();
     if (heads.every((h) => h === EMPTY)) return;
     j = new Joiner(heads, o, held);
     if (!j.indexed) {
-      if (heads.some((h) => h === EMPTY)) throw new RangeError(OUT_OF_STEP);
-      for (let items = heads; ; ) {
-        yield j.zip(items);
-        items = await pullAll();
-        const done = ended.filter(Boolean).length;
-        if (done === its.length) return;
-        if (done) throw new RangeError(OUT_OF_STEP);
+      for (let items = heads; ; items = await pullAll()) {
+        const row = j.zip(items);
+        if (!row) return;
+        yield row;
       }
     }
     heads.forEach((h, i) => (h === EMPTY ? j!.end(i, false) : j!.offer(i, h, false)));

@@ -464,38 +464,39 @@ static nb::object joined_values(const JoinPlan& plan, std::vector<double>&& flat
     return owned_array(out.release(), shape);
 }
 
-// The batch combine_latest: index arrays (sorted, one per input) and value
-// arrays of any rank, each read by its layout. Returns (index, values).
+// The batch combine_latest: value arrays of any rank, each read by its
+// layout, and index arrays (sorted, one per input), or None for positional
+// inputs (paired by position along the T axis their layouts name). Returns
+// (index, values).
 template <class Index>
-static nb::object combine_latest_batch(nb::list index_arrays, nb::list value_arrays,
+static nb::object combine_latest_batch(nb::handle index_arrays, nb::list value_arrays,
                                        bool when_all, nb::handle layout) {
     using InAny = nb::ndarray<const double, nb::c_contig, nb::device::cpu>;
-    const std::size_t n = index_arrays.size();
-    if (n == 0) throw std::runtime_error("combine_latest: needs at least one stream");
-    if (value_arrays.size() != n) throw std::runtime_error("streams: index/values list length mismatch");
+    const std::size_t n = value_arrays.size();
     std::vector<In1D<Index>> indices;
     std::vector<InAny> vals;
     std::vector<std::optional<Shape>> shapes;
     for (std::size_t i = 0; i < n; ++i) {
-        indices.push_back(nb::cast<In1D<Index>>(index_arrays[i]));
         vals.push_back(nb::cast<InAny>(value_arrays[i]));
-        Shape s;
-        for (std::size_t d = 0; d < vals[i].ndim(); ++d) s.push_back(vals[i].shape(d));
-        shapes.push_back(std::move(s));
+        Shape sh;
+        for (std::size_t d = 0; d < vals[i].ndim(); ++d) sh.push_back(vals[i].shape(d));
+        shapes.push_back(std::move(sh));
     }
     const JoinPlan plan = plan_join(shapes, join_layouts(layout, n));
     std::vector<const Index*> ip;
-    std::vector<const double*> dp;
     std::vector<std::size_t> lens;
-    for (std::size_t i = 0; i < n; ++i) {
-        const std::size_t len = indices[i].shape(0);
-        if (plan.inputs[i].length != len)
-            throw std::runtime_error("streams: a child's index/values length differ");
-        ip.push_back(indices[i].data());
-        dp.push_back(vals[i].data());
-        lens.push_back(len);
+    if (!index_arrays.is_none()) {
+        nb::list idx = nb::cast<nb::list>(index_arrays);
+        if (idx.size() != n) throw std::runtime_error("streams: index/values list length mismatch");
+        for (std::size_t i = 0; i < n; ++i) {
+            indices.push_back(nb::cast<In1D<Index>>(idx[i]));
+            ip.push_back(indices[i].data());
+            lens.push_back(indices[i].shape(0));
+        }
     }
-    JoinedRows<Index> rows = combine_latest_rows<Index>(plan, ip, lens, dp, when_all);
+    std::vector<const double*> dp;
+    for (const InAny& v : vals) dp.push_back(v.data());
+    JoinedRows<Index> rows = combine_latest_join<Index>(plan, std::move(ip), std::move(lens), dp, when_all);
     const std::size_t m = rows.index.size();
     nb::object index = vector_array(std::move(rows.index), {m});
     return nb::make_tuple(index, joined_values(plan, std::move(rows.values), m));
@@ -536,105 +537,104 @@ struct PyJoinPlan {
 
 };
 
-// The positional (no-index) iterator combine_latest: each step takes one
-// event from every source, so the sources must stay in step and end
-// together. One field per source yields (tuple_of_floats, None); a wide join
-// yields (row_array, None), the row (width,) or (*A, F).
+// The positional (no-index) iterator combine_latest over Python iterators:
+// each step reads one item from every source as doubles and hands the step to
+// the shared PositionalZip (join_plan.h), which checks it and joins the row.
+// One field per source yields (tuple_of_floats, None); a wide join yields
+// (row_array, None), the row (width,) or (*A, F).
 class CombineZip {
 public:
     CombineZip(nb::list sources, const PyJoinPlan& plan, nb::object as_float64)
-        : plan_(plan.plan), as_float64_(std::move(as_float64)) {
+        : zip_(plan.plan), as_float64_(std::move(as_float64)) {
         for (nb::handle h : sources) its_.push_back(nb::borrow<nb::object>(h));
-        items_.resize(its_.size());
-        if (plan_.wide) row_.resize(plan_.width);
+        const std::size_t n = its_.size();
+        items_.resize(n);
+        keep_.resize(n);
+        slot_.resize(n);
+        events_.resize(n);
+        sizes_.resize(n);
+        out_.resize(plan.plan.row_size());
     }
 
     nb::object next() {
+        const JoinPlan& plan = zip_.plan();
         const std::size_t n = its_.size();
-        std::size_t ended = 0;
         for (std::size_t i = 0; i < n; ++i) {
-            if (!its_[i].is_valid()) { ++ended; items_[i] = nb::object(); continue; }
-            PyObject* x = PyIter_Next(its_[i].ptr());
-            if (!x) {
-                if (PyErr_Occurred()) throw nb::python_error();
-                ++ended;
-                items_[i] = nb::object();
-            } else {
-                items_[i] = nb::steal(x);
-            }
+            PyObject* x = its_[i].is_valid() ? PyIter_Next(its_[i].ptr()) : nullptr;
+            if (!x && PyErr_Occurred()) throw nb::python_error();
+            items_[i] = x ? nb::steal(x) : nb::object();
         }
-        if (ended == n) throw nb::stop_iteration();
-        if (ended)
-            throw nb::value_error(
-                "combine_latest: positional (no-index) sources must stay in step "
-                "and end together; one source ran out before the others");
-        if (!plan_.wide) {
+        for (std::size_t i = 0; i < n; ++i) {
+            keep_[i] = nb::object();
+            if (!items_[i].is_valid()) { events_[i] = nullptr; continue; }
+            read_event(i, plan.wide);
+        }
+        if (!zip_.step(events_.data(), sizes_.data(), out_.data())) throw nb::stop_iteration();
+        if (!plan.wide) {
             nb::object t = nb::steal(PyTuple_New(static_cast<Py_ssize_t>(n)));
             if (!t.is_valid()) throw nb::python_error();
             for (std::size_t i = 0; i < n; ++i) {
-                double d;
-                if (is_text(items_[i])) throw_text_value("", items_[i]);
-                if (!read_double(items_[i], d)) {
-                    // An event of one value in a container, such as a row of a (T, 1) array.
-                    if (!nb::hasattr(items_[i], "__len__")) throw_text_value("", items_[i]);
-                    double v;
-                    read_event(i, &v);
-                    d = v;
-                }
-                PyObject* f = PyFloat_FromDouble(d);
+                PyObject* f = PyFloat_FromDouble(out_[i]);
                 if (!f) throw nb::python_error();
                 if (PyTuple_SetItem(t.ptr(), static_cast<Py_ssize_t>(i), f) != 0) throw nb::python_error();
             }
             return nb::make_tuple(t, nb::none());
         }
-        for (std::size_t i = 0; i < n; ++i) read_event(i, row_.data() + plan_.start[i]);
-        std::vector<double> out;
-        if (plan_.assets.empty()) {
-            out = row_;
-        } else {
-            out.resize(plan_.row_size());
-            plan_.assemble(row_.data(), 1, out.data());
-        }
-        return nb::make_tuple(vector_array(std::move(out), plan_.row_shape()), nb::none());
-    }
-
-    // Event i of this step (float64 as as_float64 reads it, any rank) as its
-    // flat values at `dst`.
-    void read_event(std::size_t i, double* dst) {
-        using InAny = nb::ndarray<const double, nb::c_contig, nb::device::cpu>;
-        if (plan_.inputs[i].width == 1 && PyFloat_Check(items_[i].ptr())) {   // a float: no array
-            *dst = PyFloat_AsDouble(items_[i].ptr());
-            return;
-        }
-        InAny e;
-        nb::object keep = items_[i];
-        if (!nb::try_cast(keep, e, /*convert=*/false)) {
-            keep = as_float64_(items_[i]);
-            e = nb::cast<InAny>(keep);
-        }
-        plan_.check_event(i, e.size());
-        plan_.read(i, e.data(), dst);
+        return nb::make_tuple(vector_array(std::vector<double>(out_), plan.row_shape()), nb::none());
     }
 
     int traverse(visitproc visit, void* arg) const {
         if (int r = gc_visit_all(its_, visit, arg)) return r;
         if (int r = gc_visit_all(items_, visit, arg)) return r;
+        if (int r = gc_visit_all(keep_, visit, arg)) return r;
         return gc_visit(as_float64_, visit, arg);
     }
     void clear() {
         auto its = std::move(its_);
         auto items = std::move(items_);
+        auto keep = std::move(keep_);
         nb::object f = std::move(as_float64_);
         its_.clear();
         items_.clear();
+        keep_.clear();
     }
 
 private:
-    JoinPlan plan_;
-    std::vector<nb::object> its_;
-    std::vector<nb::object> items_;
+    // Item i of this step as doubles: a number (None is NaN) in its slot, or
+    // an array (float64 as as_float64 reads it, any rank) held in keep_.
+    void read_event(std::size_t i, bool wide) {
+        using InAny = nb::ndarray<const double, nb::c_contig, nb::device::cpu>;
+        const nb::object& x = items_[i];
+        if (PyFloat_Check(x.ptr())) {                     // a float: no array
+            slot_[i] = PyFloat_AsDouble(x.ptr());
+            events_[i] = &slot_[i];
+            sizes_[i] = 1;
+            return;
+        }
+        if (is_text(x)) throw_text_value("", x);
+        // One field: a number, the value rule of a scalar (None is NaN).
+        if (!wide && !nb::hasattr(x, "__len__")) {
+            if (!read_double(x, slot_[i])) throw_text_value("", x);
+            events_[i] = &slot_[i];
+            sizes_[i] = 1;
+            return;
+        }
+        InAny e;
+        keep_[i] = x;
+        if (!nb::try_cast(keep_[i], e, /*convert=*/false)) {
+            keep_[i] = as_float64_(x);
+            e = nb::cast<InAny>(keep_[i]);
+        }
+        events_[i] = e.data();
+        sizes_[i] = e.size();
+    }
+
+    PositionalZip zip_;
+    std::vector<nb::object> its_, items_, keep_;
     nb::object as_float64_;
-    std::vector<double> row_;
+    std::vector<double> slot_, out_;
+    std::vector<const double*> events_;
+    std::vector<std::size_t> sizes_;
 };
 
 template <class Index>
@@ -685,11 +685,9 @@ void init_bindings_streams(nb::module_& m) {
           "index_arrays"_a, "value_arrays"_a);
     m.def("_split", &split_py, "values"_a, "sources"_a, "index"_a.none(), "n"_a.none());
     m.def("_combine_latest_i64", &combine_latest_batch<std::int64_t>,
-          "index_arrays"_a, "value_arrays"_a, "when_all"_a, "layout"_a.none() = nb::none());
+          "index_arrays"_a.none(), "value_arrays"_a, "when_all"_a, "layout"_a.none() = nb::none());
     m.def("_combine_latest_f64", &combine_latest_batch<double>,
-          "index_arrays"_a, "value_arrays"_a, "when_all"_a, "layout"_a.none() = nb::none());
-    m.def("_check_aligned_lengths",
-          [](const std::vector<std::size_t>& lengths) { check_aligned_lengths(lengths); }, "lengths"_a);
+          "index_arrays"_a.none(), "value_arrays"_a, "when_all"_a, "layout"_a.none() = nb::none());
     nb::class_<PyJoinPlan>(m, "_JoinPlan")
         .def(nb::init<nb::list, nb::handle>(), "shapes"_a, "layout"_a.none())
         .def_prop_ro("wide", [](const PyJoinPlan& p) { return p.plan.wide; })

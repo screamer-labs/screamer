@@ -115,17 +115,17 @@ events. Inside a `Pipeline`, streams carry fields only and any layout raises
 `ValueError`.
 
 In JavaScript, `combineLatest` takes the inputs as one array and the options
-as an object, with the same join. Arrays, `NdArray`s and `[values, index]`
-pairs give `[values, index]`, with the values an `NdArray`; iterators and
-async iterables of events give an iterator of `[row, index]`:
+as an object, with the same join. An indexed input is an object: `{values,
+index}` for an array, and `{value, index}` for an event of an iterator, as
+the tuple marks it in Python. A plain Array is always values. Arrays and
+`{values, index}` inputs give `{values, index}`, with the values an
+`NdArray`; iterators and async iterables give an iterator of `{value, index}`
+rows:
 
 ```js
-const [rows, idx] = combineLatest([panel, market], { layout: ["TA", "T"] });   // rows.shape [T, K, 2]
+const { values } = combineLatest([panel, market], { layout: ["TA", "T"] });   // values.shape [T, K, 2]
+const joined = combineLatest([{ values: a, index: ia }, { values: b, index: ib }]);
 ```
-
-In an iterator, an event `[value, index]` with a number index joins as of
-its index, and any other event is paired by position. A positional event of
-two values is therefore a typed array or an `NdArray`.
 
 Inside a `Pipeline`, `emit="on_any"` can emit a row before a multi-column input
 has delivered its first event, for example when a `Dropna` upstream drops that

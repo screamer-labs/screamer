@@ -9,6 +9,7 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 #include "screamer/common/shape.h"
 #include "screamer/streams/combine_latest.h"
@@ -248,6 +249,50 @@ inline JoinPlan plan_join(const std::vector<std::optional<Shape>>& heads,
     return p;
 }
 
+// The index of input i holds `len` values for `rows` rows of values.
+inline void check_index_length(std::size_t i, std::size_t rows, std::size_t len,
+                               const std::string& who = "combine_latest") {
+    if (rows != len)
+        throw std::invalid_argument(who + ": input " + std::to_string(i) + " has " + std::to_string(rows) +
+                                    " rows of values but " + std::to_string(len) + " index values");
+}
+
+// The positional (no-index) iterator join: each step takes one event from
+// every source, so the sources must stay in step and end together.
+class PositionalZip {
+public:
+    explicit PositionalZip(const JoinPlan& plan, std::string who = "combine_latest")
+        : plan_(plan), who_(std::move(who)), row_(plan.width) {}
+
+    // One step. events[i] points at source i's event, sizes[i] values in the
+    // source's own layout, or is null when source i has ended. Returns false
+    // when every source has ended, and raises when only some have; else
+    // writes the joined row (plan.row_size() values) to `out`.
+    bool step(const double* const* events, const std::size_t* sizes, double* out) {
+        const std::size_t n = plan_.inputs.size();
+        std::size_t ended = 0;
+        for (std::size_t i = 0; i < n; ++i) if (!events[i]) ++ended;
+        if (ended == n) return false;
+        if (ended)
+            throw std::invalid_argument(who_ + ": positional (no-index) sources must stay in step "
+                                        "and end together; one source ran out before the others");
+        for (std::size_t i = 0; i < n; ++i) {
+            plan_.check_event(i, sizes[i], who_);
+            plan_.put(i, events[i], row_.data());
+        }
+        if (plan_.assets.empty()) std::copy(row_.begin(), row_.end(), out);
+        else plan_.assemble(row_.data(), 1, out);
+        return true;
+    }
+
+    const JoinPlan& plan() const { return plan_; }
+
+private:
+    JoinPlan plan_;
+    std::string who_;
+    std::vector<double> row_;
+};
+
 // The rows of a batch combine_latest: one per distinct index, sorted.
 template <class Index>
 struct JoinedRows {
@@ -302,6 +347,32 @@ JoinedRows<Index> combine_latest_rows(const JoinPlan& plan, const std::vector<co
         }
     }
     return out;
+}
+
+// The batch combine_latest of inputs whose data `plan` reads. `index` holds
+// one sorted index per input (index_lens[i] values), or is empty for
+// positional inputs: they are paired by position, so they need the same
+// number of rows along the T axis their layouts name, and each gets its row
+// numbers as index.
+template <class Index>
+JoinedRows<Index> combine_latest_join(const JoinPlan& plan, std::vector<const Index*> index,
+                                      std::vector<std::size_t> index_lens,
+                                      const std::vector<const double*>& data, bool when_all,
+                                      const std::string& who = "combine_latest") {
+    const std::size_t n = plan.inputs.size();
+    std::vector<std::vector<Index>> rows;
+    if (index.empty()) {
+        index_lens.clear();
+        for (const JoinInput& in : plan.inputs) index_lens.push_back(in.length);
+        check_aligned_lengths(index_lens, who);
+        rows.assign(n, std::vector<Index>(index_lens[0]));
+        for (std::size_t i = 0; i < n; ++i) {
+            for (std::size_t r = 0; r < index_lens[i]; ++r) rows[i][r] = static_cast<Index>(r);
+            index.push_back(rows[i].data());
+        }
+    }
+    for (std::size_t i = 0; i < n; ++i) check_index_length(i, plan.inputs[i].length, index_lens[i], who);
+    return combine_latest_rows<Index>(plan, index, index_lens, data, when_all);
 }
 
 }}  // namespace screamer::streams
