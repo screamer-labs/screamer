@@ -18101,5 +18101,77 @@
   "ERROR",
   "TypeError",
   "combine_latest: cannot mix lazy iterator and concrete inputs; pass all"
+ ],
+ "CombineLatest index length mismatch": [
+  "ERROR",
+  "RuntimeError",
+  "streams: a child's index/values length differ"
+ ],
+ "CombineLatest layout AT,AT": [
+  "ERROR",
+  "TypeError",
+  "CombineLatest.__init__() got an unexpected keyword argument 'layout'"
+ ],
+ "CombineLatest list of two rows": [
+  "ERROR",
+  "RuntimeError",
+  "std::bad_cast"
+ ],
+ "CombineLatest lazy positional two-value lists": [
+  "ERROR",
+  "TypeError",
+  "float() argument must be a string or a real number, not 'list'"
+ ],
+ "CombineLatest lazy indexed two-value tuples": [
+  "list",
+  2,
+  [
+   [
+    "tuple",
+    2,
+    [
+     [
+      "tuple",
+      2,
+      [
+       [
+        "float",
+        3.0
+       ],
+       [
+        "float",
+        5.0
+       ]
+      ]
+     ],
+     [
+      "int"
+     ]
+    ]
+   ],
+   [
+    "tuple",
+    2,
+    [
+     [
+      "tuple",
+      2,
+      [
+       [
+        "float",
+        3.0
+       ],
+       [
+        "float",
+        7.0
+       ]
+      ]
+     ],
+     [
+      "int"
+     ]
+    ]
+   ]
+  ]
  ]
 }

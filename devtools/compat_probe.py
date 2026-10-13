@@ -480,6 +480,13 @@ def cases():
         "CombineLatest lazy one empty": lambda: lz(CL(emit="on_any")(vgen(v[:3], idx), iter([]))),
         "CombineLatest lazy all empty": lambda: lz(CL()(iter([]), iter([]))),
         "CombineLatest lazy and array": lambda: CL()(rows(v), w),
+        "CombineLatest index length mismatch": lambda: CL()((v, idx[:5]), (w, idx)),
+        "CombineLatest layout AT,AT": lambda: CL(layout="AT")(P.T.copy(), P.T.copy()),
+        "CombineLatest list of two rows": lambda: CL()([X[0, :2], X[1, :2]], [w[:2], v[:2]]),
+        "CombineLatest lazy positional two-value lists": lambda: lz(CL()(
+            iter([[1.0, 2.0], [3.0, 4.0]]), iter([[5.0, 6.0], [7.0, 8.0]]))),
+        "CombineLatest lazy indexed two-value tuples": lambda: lz(CL()(
+            iter([(1.0, 2), (3.0, 4)]), iter([(5.0, 6), (7.0, 8)]))),
     })
     return table
 
