@@ -72,8 +72,10 @@ public:
         const std::array<const double*, 3> x{in[0] + in_offset[0], in[1] + in_offset[1],
                                              in[2] + in_offset[2]};
         if (in_stride[0] == 1 && in_stride[1] == 1 && in_stride[2] == 1)
-            return run_block<false>(out + out_offset, out_stride, x, in_stride, size);
-        return run_block<true>(out + out_offset, out_stride, x, in_stride, size);
+            return run_block<1>(out + out_offset, out_stride, x, in_stride, size);
+        if (in_stride[0] == 3 && in_stride[1] == 3 && in_stride[2] == 3)
+            return run_block<3>(out + out_offset, out_stride, x, in_stride, size);
+        return run_block<0>(out + out_offset, out_stride, x, in_stride, size);
     }
 
     ResultTuple call(const InputArray& inputs) override {
@@ -116,22 +118,23 @@ private:
         return mid - lo == sizeof(double) && hi - mid == sizeof(double);
     }
 
-    // process_columns on (high, low, close) at x, input k read with stride
-    // xs[k] (1 unless Strided), into y with stride y_stride.
-    template <bool Strided>
+    // process_columns on (high, low, close) at x, input k read with stride S
+    // when S > 0 (1, or 3 for the fields of a packed (T, 3) array, known at
+    // compile time) and xs[k] when S == 0, into y with stride y_stride.
+    template <std::ptrdiff_t S>
     bool run_block(double* y, std::ptrdiff_t y_stride, const std::array<const double*, 3>& x,
                    const std::array<int64_t, 3>& xs, size_t size) {
-        const std::ptrdiff_t sh = Strided ? xs[0] : 1;
-        const std::ptrdiff_t sl = Strided ? xs[1] : 1;
-        const std::ptrdiff_t sc = Strided ? xs[2] : 1;
+        const std::ptrdiff_t sh = S > 0 ? S : xs[0];
+        const std::ptrdiff_t sl = S > 0 ? S : xs[1];
+        const std::ptrdiff_t sc = S > 0 ? S : xs[2];
         const double* high = x[0];
         const double* low = x[1];
         const double* close = x[2];
         bool nan;
-        if (!Strided) {
+        if (S == 1) {
             nan = detail::has_nan(high, size) || detail::has_nan(low, size) ||
                   detail::has_nan(close, size);
-        } else if (sh == 3 && sl == 3 && sc == 3 && packed_fields(high, low, close)) {
+        } else if (S == 3 && packed_fields(high, low, close)) {
             // The rows of a packed (T, 3) array: its 3 * size values are one
             // contiguous block, checked in one pass.
             nan = detail::has_nan(std::min({high, low, close}, std::less<>()), 3 * size);
@@ -143,26 +146,46 @@ private:
             return false;
         }
 
-        // Rolling high goes straight into a unit-stride output, else into scratch.
-        double* highs = y;
-        if (y_stride != 1) {
-            highs_.resize(size);
-            highs = highs_.data();
-        }
-        lows_.resize(size);
-        detail::block_max_min<Strided>(highs, lows_.data(), high, low, size, window_size_, sh, sl);
-
         const size_t warmup = static_cast<size_t>(window_size_) - 1;
-        for (size_t i = 0; i < size; ++i) {
-            double r;
-            if (i < warmup) {
-                r = std::numeric_limits<double>::quiet_NaN();
-            } else {
-                const double range = highs[i] - lows_[i];
-                const double c = close[(std::ptrdiff_t) i * sc];
-                r = (range <= 0.0) ? 0.0 : -100.0 * (highs[i] - c) / range;
+        const double* const xs2[2] = {high, low};
+        const std::ptrdiff_t ss[2] = {sh, sl};
+        auto value = [&](size_t i, double h, double l) {
+            if (i < warmup) return std::numeric_limits<double>::quiet_NaN();
+            const double range = h - l;
+            const double c = close[static_cast<std::ptrdiff_t>(i) * (S > 0 ? S : sc)];
+            return (range <= 0.0) ? 0.0 : -100.0 * (h - c) / range;
+        };
+        if (S == 1) {
+            // Separate arrays: the rolling high and low go to buffers, and the
+            // value loop runs on contiguous arrays, which the compiler
+            // vectorizes.
+            double* highs = y;
+            if (y_stride != 1) {
+                highs_.resize(size);
+                highs = highs_.data();
             }
-            y[(std::ptrdiff_t) i * y_stride] = r;
+            lows_.resize(size);
+            double* const lows = lows_.data();
+            double* const ys[2] = {highs, lows};
+            detail::block_extrema<S, true, false>(xs2, ss, size, window_size_,
+                                                  detail::ToArrays<2>{ys});
+            for (size_t i = 0; i < size; ++i)
+                y[static_cast<std::ptrdiff_t>(i) * y_stride] = value(i, highs[i], lows[i]);
+        } else {
+            // Strided fields: the value of row i is made as the block pass
+            // reads row i, so close comes from the cache lines just loaded.
+            struct Fused {
+                const decltype(value)& value;
+                double* y;
+                std::ptrdiff_t y_stride;
+                double e[2];
+                void put(size_t k, size_t, double v) { e[k] = v; }
+                void row(size_t i) {
+                    y[static_cast<std::ptrdiff_t>(i) * y_stride] = value(i, e[0], e[1]);
+                }
+            };
+            detail::block_extrema<S, true, false>(xs2, ss, size, window_size_,
+                                                  Fused{value, y, y_stride, {}});
         }
 
         // Leave state where the per-sample loop would have left it.
@@ -177,12 +200,12 @@ private:
     }
 
     const int window_size_;
-    detail::MaxDeque max_deque_;
-    detail::MinDeque min_deque_;
-    int n_seen_ = 0;
     // Batch scratch, reused across columns and calls: rolling lows, and
     // rolling highs when the output is strided.
     std::vector<double> lows_, highs_;
+    detail::MaxDeque max_deque_;
+    detail::MinDeque min_deque_;
+    int n_seen_ = 0;
 };
 
 }  // namespace screamer

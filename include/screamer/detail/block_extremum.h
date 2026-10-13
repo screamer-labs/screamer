@@ -31,6 +31,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <utility>
 #include <vector>
 
 namespace screamer {
@@ -60,114 +61,100 @@ inline bool has_nan(const double* x, std::size_t size, std::ptrdiff_t stride) {
 }
 
 
-// IsMax selects max (true) or min (false).
-// y[i] = extremum of x[max(0, i - window + 1) .. i], matching the deque's
-// output during warmup as well as afterwards.
-template <bool IsMax>
-void block_extremum(double* y, const double* x, std::size_t size, int window) {
+// The block decomposition for K series at once: out.put(k, i, e) receives
+// e = extremum of x[k][max(0, i - window + 1) .. i], a max where IsMax[k] and
+// a min otherwise, and out.row(i) follows the K puts of row i, for i = 0, 1,
+// ..., matching the deque's output during warmup as well as afterwards. Both
+// run while sample i is being read, so a caller that combines the extrema
+// with other fields of row i reads them from the cache lines just loaded
+// (ToArrays stores them instead). The series
+// are stepped together, which overlaps their dependency chains. Sample i of
+// series k is x[k][i * s], with s = S when S > 0 (a stride known at compile
+// time, such as 3 for a field of a packed (T, 3) array, which the compiler
+// reads as one row) and s = stride[k] when S == 0.
+template <std::ptrdiff_t S, bool... IsMax, class Out>
+void block_extrema(const double* const* x, const std::ptrdiff_t* stride, std::size_t size,
+                   int window, Out&& out) {
+    constexpr std::size_t K = sizeof...(IsMax);
+    constexpr bool kMax[K] = {IsMax...};
     const std::size_t w = static_cast<std::size_t>(window);
     if (size == 0) {
         return;
     }
+    std::ptrdiff_t s[K];
+    for (std::size_t k = 0; k < K; ++k) s[k] = S > 0 ? S : stride[k];
+    auto at = [&](std::size_t k, std::size_t i) {
+        return x[k][static_cast<std::ptrdiff_t>(i) * (S > 0 ? S : s[k])];
+    };
+    auto better = [](std::size_t k, double a, double b) {
+        return kMax[k] ? (a > b ? a : b) : (a < b ? a : b);
+    };
 
-    auto better = [](double a, double b) { return IsMax ? (a > b ? a : b) : (a < b ? a : b); };
-
-    // Suffix maxima of the current block and of the previous one. The window
+    // Suffix extrema of the current block and of the previous one. The window
     // for sample i reaches back into the previous block, so both are live.
-    std::vector<double> suffix_current(w);
-    std::vector<double> suffix_previous(w);
+    std::vector<double> scratch(2 * K * w);
+    double* cur[K];
+    double* prev[K];
+    for (std::size_t k = 0; k < K; ++k) {
+        cur[k] = scratch.data() + (2 * k) * w;
+        prev[k] = scratch.data() + (2 * k + 1) * w;
+    }
 
     for (std::size_t start = 0; start < size; start += w) {
         const std::size_t end = std::min(start + w, size);
         const std::size_t length = end - start;
 
-        // Backward pass: suffix_current[j] is the extremum of x[start+j .. end-1].
-        double running = x[end - 1];
-        suffix_current[length - 1] = running;
-        for (std::size_t j = length - 1; j-- > 0;) {
-            running = better(running, x[start + j]);
-            suffix_current[j] = running;
+        // Backward pass: cur[k][j] is the extremum of x[k][start+j .. end-1].
+        double running[K];
+        for (std::size_t k = 0; k < K; ++k) {
+            running[k] = at(k, end - 1);
+            cur[k][length - 1] = running[k];
         }
-
-        // Forward pass: prefix is the extremum of x[start .. i].
-        double prefix = x[start];
-        for (std::size_t j = 0; j < length; ++j) {
-            const std::size_t i = start + j;
-            prefix = (j == 0) ? x[i] : better(prefix, x[i]);
-
-            if (i + 1 < w) {
-                // Warmup: the window is x[0 .. i], which is this block's prefix
-                // because a short window cannot have crossed a block boundary.
-                y[i] = prefix;
-            } else {
-                const std::size_t low = i + 1 - w;
-                y[i] = (low >= start)
-                    ? better(suffix_current[low - start], prefix)
-                    : better(suffix_previous[low - (start - w)], prefix);
+        for (std::size_t j = length - 1; j-- > 0;) {
+            for (std::size_t k = 0; k < K; ++k) {
+                running[k] = better(k, running[k], at(k, start + j));
+                cur[k][j] = running[k];
             }
         }
 
-        suffix_previous.swap(suffix_current);
+        // Forward pass: prefix is the extremum of x[k][start .. i].
+        double prefix[K];
+        for (std::size_t j = 0; j < length; ++j) {
+            const std::size_t i = start + j;
+            for (std::size_t k = 0; k < K; ++k) {
+                prefix[k] = (j == 0) ? at(k, i) : better(k, prefix[k], at(k, i));
+                if (i + 1 < w) {
+                    // Warmup: the window is x[0 .. i], which is this block's
+                    // prefix because a short window cannot have crossed a
+                    // block boundary.
+                    out.put(k, i, prefix[k]);
+                } else {
+                    const std::size_t low = i + 1 - w;
+                    out.put(k, i, (low >= start)
+                        ? better(k, cur[k][low - start], prefix[k])
+                        : better(k, prev[k][low - (start - w)], prefix[k]));
+                }
+            }
+            out.row(i);
+        }
+
+        for (std::size_t k = 0; k < K; ++k) std::swap(cur[k], prev[k]);
     }
 }
 
-// block_extremum<true> of xh into ymax and block_extremum<false> of xl into
-// ymin, in one pass over the blocks: the same values, with each pair of
-// inputs read together (the high and low fields of one row of a packed array
-// share a cache line). With Strided, sample i of xh is xh[i * sh], and of xl
-// xl[i * sl].
-template <bool Strided = false>
-void block_max_min(double* ymax, double* ymin, const double* xh, const double* xl,
-                   std::size_t size, int window, std::ptrdiff_t sh = 1, std::ptrdiff_t sl = 1) {
-    const std::size_t w = static_cast<std::size_t>(window);
-    const std::ptrdiff_t ah = Strided ? sh : 1, al = Strided ? sl : 1;
-    auto hi = [xh, ah](std::size_t i) { return xh[static_cast<std::ptrdiff_t>(i) * ah]; };
-    auto lo = [xl, al](std::size_t i) { return xl[static_cast<std::ptrdiff_t>(i) * al]; };
-    if (size == 0) {
-        return;
-    }
-    auto max = [](double a, double b) { return a > b ? a : b; };
-    auto min = [](double a, double b) { return a < b ? a : b; };
+// The output of block_extrema into K arrays: y[k][i].
+template <std::size_t K>
+struct ToArrays {
+    double* const* y;
+    void put(std::size_t k, std::size_t i, double e) const { y[k][i] = e; }
+    void row(std::size_t) const {}
+};
 
-    // As block_extremum: the suffix extrema of the current block and the
-    // previous one, for each input.
-    std::vector<double> hcur(w), hprev(w), lcur(w), lprev(w);
-    for (std::size_t start = 0; start < size; start += w) {
-        const std::size_t end = std::min(start + w, size);
-        const std::size_t length = end - start;
-
-        double rh = hi(end - 1), rl = lo(end - 1);
-        hcur[length - 1] = rh;
-        lcur[length - 1] = rl;
-        for (std::size_t j = length - 1; j-- > 0;) {
-            rh = max(rh, hi(start + j));
-            rl = min(rl, lo(start + j));
-            hcur[j] = rh;
-            lcur[j] = rl;
-        }
-
-        double ph = hi(start), pl = lo(start);
-        for (std::size_t j = 0; j < length; ++j) {
-            const std::size_t i = start + j;
-            ph = (j == 0) ? hi(i) : max(ph, hi(i));
-            pl = (j == 0) ? lo(i) : min(pl, lo(i));
-            if (i + 1 < w) {
-                ymax[i] = ph;
-                ymin[i] = pl;
-            } else {
-                const std::size_t low = i + 1 - w;
-                if (low >= start) {
-                    ymax[i] = max(hcur[low - start], ph);
-                    ymin[i] = min(lcur[low - start], pl);
-                } else {
-                    ymax[i] = max(hprev[low - (start - w)], ph);
-                    ymin[i] = min(lprev[low - (start - w)], pl);
-                }
-            }
-        }
-        hprev.swap(hcur);
-        lprev.swap(lcur);
-    }
+// IsMax selects max (true) or min (false): y[i] = extremum of
+// x[max(0, i - window + 1) .. i] (block_extrema of one contiguous series).
+template <bool IsMax>
+void block_extremum(double* y, const double* x, std::size_t size, int window) {
+    block_extrema<1, IsMax>(&x, nullptr, size, window, ToArrays<1>{&y});
 }
 
 // Same decomposition, returning the *position* of the extremum within the
