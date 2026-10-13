@@ -143,6 +143,14 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Changed
 
+* Each `Pipeline` runs on its own copies of the operators it is built from
+  (the same parameters, a fresh state), in Python and JavaScript. Two
+  Pipelines built from the same nodes shared the operators' state in 2.8.0,
+  so interleaved live sessions, or a batch call of one beside a session of
+  the other, gave wrong values without an error; a direct call of the
+  operator changed a Pipeline's state too. In JavaScript, disposing the
+  operator no longer affects a Pipeline built from it. Old result: none; the
+  shared results were wrong.
 * `max_pending` also caps the rows a live session holds in its output
   alignment: while one output does not move (a silent input), the
   other outputs' rows wait for it, and more than `max_pending` of them raise
@@ -932,6 +940,16 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Fixed
 
+* A 0-d NumPy array beside an array in a multi-input call raised
+  `RuntimeError` ("Input array must have at least one dimension") or NumPy's
+  "iteration over a 0-d array", depending on the order, and a number after
+  an array (`Add()(x, 1.0)`) gave another message than before it. Every
+  order raises the `TypeError` a number before an array gives: "Add: cannot
+  combine inputs of types (ndarray, 0-d ndarray); pass all numbers, all
+  arrays, or all sequences".
+* A lazy event given as a list nested deeper than 64 levels (NumPy's most
+  dimensions) could exhaust the C stack and crash the process. It raises
+  `ValueError` ("... is nested more than 64 levels deep").
 * `Pipeline.from_json` read a whole number past the int64 range as a float,
   so `"window_size": 18446744073709551616` raised `TypeError` ("must be an
   integer"). It reads as an integer, as Python's `json` reads it, and gives
@@ -1285,6 +1303,14 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Performance
 
+* Python iterator sources (lazy calls, `merge`, `combine_latest` and stream
+  operators over generators) take each item with `PyIter_Next`: no
+  attribute lookup, bound method or `StopIteration` exception per event. A
+  nested-list event no longer builds a position string per item. A
+  `Pipeline` reset (every batch call) allocates nothing for a
+  `CombineLatest` and clears the reorder buffers without a pop per entry.
+  `Pipeline.from_json`, `from_dict` and the JavaScript `fromJSON` check a
+  description in time linear in its size (was quadratic in the node count).
 * JavaScript: streaming one value at a time (`op(x)`) is about 2.3 times faster; heap views are made in JavaScript instead of through Embind.
 * `permute_bars` and `permute_returns` on one series write 8 copies per pass
   and are 1.2 to 2 times faster; the copies are unchanged.

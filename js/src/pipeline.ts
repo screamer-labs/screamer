@@ -173,9 +173,12 @@ class PipelineImpl implements Owned {
   // The graph's address, for the plain WASM exports of the per-event pushes
   // (wasm/dag_bindings.cpp); 0 once released.
   private cgAddr = 0;
-  // Retained op wrappers: the Embind graph holds only non-owning EvalOp*s, so
-  // the wrappers (which own the C++ ops) must stay alive for the graph lifetime.
-  private ops: any[] = [];
+  // The Pipeline's own copies of its operators (and functor reducers), made
+  // from each op's factory at compile: the graph holds non-owning EvalOp*s
+  // into them, and release() deletes them. Two Pipelines built from the same
+  // nodes, or a Pipeline and a direct call of the op, never share state, and
+  // disposing the original op does not affect the Pipeline.
+  private copies: any[] = [];
   private _disposed = false;
   readonly alignOutputs: boolean;
   readonly maxPending: number;
@@ -233,8 +236,7 @@ class PipelineImpl implements Owned {
         const inp = node.inputs.map(build);
         const vec = new M.VectorSizeT();
         for (const id of inp) vec.push_back(id);
-        try { nid = gb.addFunctor(M.opPtr(op.functor), vec); } catch (e) { throw normalizeError(e); } finally { vec.delete(); }
-        this.ops.push(op.wrapper); // retain for the graph's lifetime
+        try { nid = gb.addFunctor(M.opPtr(this.ownCopy(op)), vec); } catch (e) { throw normalizeError(e); } finally { vec.delete(); }
       } else if (op?.combinator !== undefined) {
         nid = this.buildCombinator(gb, op, node.inputs.map(build));
       } else {
@@ -253,6 +255,11 @@ class PipelineImpl implements Owned {
       try { gb.setOutputs(outVec); } catch (e) { throw normalizeError(e); } finally { outVec.delete(); }
       this.cg = wasmCall(() => gb.compile());
       this.cgAddr = this.cg.address();
+    } catch (e) {
+      // No graph: the copies made so far have no owner but this.
+      for (const c of this.copies) c.delete();
+      this.copies = [];
+      throw e;
     } finally {
       gb.delete();
     }
@@ -304,9 +311,19 @@ class PipelineImpl implements Owned {
     }
   }
 
+  // A new copy of a functor node's op from its factory, owned by this
+  // Pipeline (see `copies`).
+  private ownCopy(op: any): any {
+    if (typeof op.make !== "function")
+      throw new TypeError("a Pipeline needs an op built by its factory, which can copy it");
+    const c = wasmCall(() => op.make());
+    this.copies.push(c);
+    return c;
+  }
+
   // Build a resample node: marshal the fixed-plan entries into a flat int32 heap
   // buffer ([agg0, col0, agg1, col1, ...]) and resolve a functor reducer's
-  // EvalOp*, retaining its wrapper for the graph's lifetime.
+  // EvalOp* (the Pipeline's own copy).
   private buildResample(gb: any, vec: any, p: any): number {
     const M: any = this.M;
     const maxFill = maxFillCount(M, p.maxFill);   // checked before any allocation
@@ -320,9 +337,8 @@ class PipelineImpl implements Owned {
       planPtr = heapU32(M, flat);
     }
     if (p.reducer) {
-      const rop = p.reducer.op;
-      reducerPtr = wasmCall(() => M.opPtr(rop.functor));
-      this.ops.push(rop.wrapper); // retain reducer op for the graph's lifetime
+      const copy = this.ownCopy(p.reducer.op);
+      reducerPtr = wasmCall(() => M.opPtr(copy));
     }
     try {
       return wasmCall(() => gb.addResample(
@@ -617,9 +633,9 @@ class PipelineImpl implements Owned {
       this.cg = null;
       this.cgAddr = 0;
     }
-    // Release our retention; the wrappers' FinalizationRegistry (or an explicit
-    // user dispose) frees the underlying C++ ops.
-    this.ops = [];
+    // The graph is gone: delete the op copies it pointed into.
+    for (const c of this.copies) c.delete();
+    this.copies = [];
   }
 }
 

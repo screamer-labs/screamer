@@ -256,6 +256,17 @@ def _check_stateful_safety(outputs):
         stack.extend(node.inputs)
 
 
+def _own_copy(op):
+    """The Pipeline's own copy of an operator: a new instance with the same
+    parameters, in its initial state. The compiled graph runs on it, so two
+    Pipelines built from the same nodes, or a Pipeline and a direct call of the
+    operator, never share state."""
+    fresh = getattr(op, "_fresh", None)
+    if fresh is None:
+        raise TypeError(f"a Pipeline needs an operator it can copy, got {type(op).__name__}")
+    return fresh()
+
+
 _LIVE_CLASS = None
 
 
@@ -444,7 +455,7 @@ class Pipeline:
                         # Arbitrary functor reducer (an EvalOp): agg code is ignored
                         # (pass 0); the reducer op drives GenericResampleNode.
                         nid = gb.add_resample(inp, mode, 0, label, width, origin,
-                                              count, agg_val, fill=fill,
+                                              count, _own_copy(agg_val), fill=fill,
                                               threshold=threshold_val,
                                               max_age=max_age_val,
                                               max_pending=self.max_pending,
@@ -461,7 +472,7 @@ class Pipeline:
                         f"{name} is not supported as a DAG graph node")
             else:                                    # functor instance (EvalOp)
                 inp = [build(i) for i in node.inputs]
-                nid = gb.add_functor(op, inp)
+                nid = gb.add_functor(_own_copy(op), inp)
             ids[node_id] = nid
             return nid
 

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { ready, Input, Pipeline, Diff, RollingMean, Add } from "../src/index.ts";
+import { ready, Input, Pipeline, Diff, RollingMean, RollingSum, ExpandingMean, Add, resample } from "../src/index.ts";
 import type { Output } from "../src/index.ts";
 
 // Op-lifetime safety: the Embind DAG layer holds only a non-owning `EvalOp*`
@@ -132,4 +132,63 @@ test("lifetime: a declared-and-used input left unfed at call time throws", async
   );
 
   p.dispose();
+});
+
+// --- Each Pipeline owns its operators' state (H4) --------------------------
+// The twin of tests/test_pipeline_owns_state.py.
+
+const vals = (o: Output) => Array.from(o.values as Float64Array);
+
+test("lifetime: two Pipelines from the same nodes have their own state", async () => {
+  await ready();
+  const x = Input("x");
+  const y = RollingSum(2)(x);
+  const p1 = new Pipeline([x], [y]), p2 = new Pipeline([x], [y]);
+  try {
+    const s1 = p1.live(), s2 = p2.live();
+    for (let t = 0; t < 4; t++) { s1.push("x", t, 1); s2.push("x", t, 100); }
+    s1.flush(); s2.flush();
+    assertNanEq(vals(s1.result() as Output), [NaN, 2, 2, 2], "p1");
+    assertNanEq(vals(s2.result() as Output), [NaN, 200, 200, 200], "p2");
+    // A batch call of p1 does not reset a session of p2.
+    const t2 = p2.live();
+    t2.push("x", 0, 1); t2.push("x", 1, 1);
+    p1(new Float64Array([5, 5, 5]));
+    t2.push("x", 2, 1); t2.flush();
+    assertNanEq(vals(t2.result() as Output), [NaN, 2, 2], "p2 after p1 batch");
+  } finally { p1.dispose(); p2.dispose(); }
+});
+
+test("lifetime: disposing or calling the original op does not affect the Pipeline", async () => {
+  await ready();
+  const op = RollingSum(2);
+  const x = Input("x");
+  const p = new Pipeline([x], [op(x)]);
+  try {
+    const s = p.live();
+    s.push("x", 0, 1);
+    assert.ok(Number.isNaN(op(50) as number));       // the op's own state
+    s.push("x", 1, 1); s.flush();
+    assertNanEq(vals(s.result() as Output), [NaN, 2], "session");
+    assert.equal(op(50), 100);                       // unaffected by the session
+    op.dispose();                                    // the Pipeline keeps its copy
+    assertNanEq(vals(p(new Float64Array([1, 2, 3])) as Output), [NaN, 3, 5], "after dispose");
+  } finally { p.dispose(); }
+});
+
+test("lifetime: a functor reducer is owned by each Pipeline", async () => {
+  await ready();
+  const x = Input("x");
+  const agg = ExpandingMean();
+  const node = resample(x, { every: 2, reducer: agg(Input("_")) as any });
+  const p1 = new Pipeline([x], [node]), p2 = new Pipeline([x], [node]);
+  try {
+    const s1 = p1.live(), s2 = p2.live();
+    for (let t = 0; t < 4; t++) { s1.push("x", t, 1); s2.push("x", t, 10); }
+    s1.flush(); s2.flush();
+    assertNanEq(vals(s1.result() as Output), [1, 1], "p1");
+    assertNanEq(vals(s2.result() as Output), [10, 10], "p2");
+    agg.dispose();
+    assertNanEq(vals(p1(new Float64Array([1, 1])) as Output), [1], "after dispose");
+  } finally { p1.dispose(); p2.dispose(); }
 });

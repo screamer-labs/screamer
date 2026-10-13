@@ -599,11 +599,11 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp, finalize 
   const dispatch = (...args: any[]): any => {
     if (disposed) throw new Error("operation used after dispose()");
     // Define-then-bind: if any argument is a symbolic Node, defer the call and
-    // return a functor Node holding BOTH the raw C++ op (for `opPtr` at graph
-    // compile) and this wrapper (so the Pipeline can pin its lifetime; the
-    // Embind layer keeps only a non-owning EvalOp*).
+    // return a functor Node holding the raw C++ op, this wrapper and the op's
+    // factory. A Pipeline compiles a copy of its own from the factory, so it
+    // shares no state with this op or another Pipeline.
     if (args.some(isNode)) {
-      return new Node({ functor: raw, wrapper: op }, args.filter(isNode));
+      return new Node({ functor: raw, wrapper: op, make }, args.filter(isNode));
     }
     const kind = streamKind(args, nIn);
     if (kind) {
