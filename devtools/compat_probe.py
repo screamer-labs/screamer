@@ -639,6 +639,46 @@ def cases():
         "Resample count fill=nan": lambda: s.Resample(count=2, fill="nan")(v),
         "Resample threshold fill=carry": lambda: s.Resample(v, np.ones(T), threshold=2.0, fill="carry"),
     })
+
+    # Task 34: Merge of wide streams (G27), a non-finite setting a page gives
+    # no meaning (G31), an index of another length (G32), the packed
+    # portfolio engines (G33), and the shared saved form (B8).
+    # A short index that is a slice of a longer buffer: 2.8.0 read the
+    # buffer's next values, which keeps its row reproducible.
+    short = (np.arange(100) * 10)[:5]
+
+    def short_index_pipeline():
+        x = s.Input("x")
+        return s.Pipeline([x], [s.Lag(1)(x)])((v[:10], short))
+
+    def pipeline_json_inf():
+        x = s.Input("x")
+        p = s.Pipeline([x], [s.Clip(lower=float("-inf"), upper=101.0)(x)])
+        return s.Pipeline.from_json(p.to_json())(v)
+
+    prices = np.abs(X) + 1.0
+    weights = np.full((T, K), 1.0 / K)
+    table.update({
+        "Merge wide batch": lambda: s.Merge()((X[:5], idx[:5]), (X[5:9] + 1, idx[:4] + 5)),
+        "Merge wide positional": lambda: s.Merge()(X[:5], X[5:8]),
+        "Merge wide mixed widths": lambda: s.Merge()((X[:5], idx[:5]), (X[:4, :2], idx[:4])),
+        "Merge wide lazy indexed": lambda: list(s.Merge()(
+            gen([(X[t], int(idx[t])) for t in range(4)]), gen([(X[t] + 1, int(idx[t]) + 5) for t in range(3)]))),
+        "Merge wide lazy positional": lambda: list(s.Merge()(gen(X[:3]), gen(X[3:5]))),
+        "Merge text index": lambda: s.Merge()((v[:2], np.array(["a", "b"])), (v[:2], np.arange(2))),
+        "KeltnerChannels num_atr=inf": lambda: s.KeltnerChannels(5, float("inf")),
+        "MAMA fast_limit=inf": lambda: s.MAMA(float("inf")),
+        "RollingQuantile quantile=nan": lambda: s.RollingQuantile(5, float("nan"))(v),
+        "BacktestL1Target taker_fee=inf": lambda: s.BacktestL1Target(taker_fee=float("inf")),
+        "BacktestL1Target max_position=inf": lambda: s.BacktestL1Target(max_position=float("inf")),
+        "Clip lower=-inf": lambda: s.Clip(lower=float("-inf"), upper=100.0)(v),
+        "Pipeline short index": short_index_pipeline,
+        "Merge short index": lambda: s.Merge()((v[:10], short), (v[:3], idx[:3])),
+        "Resample short index": lambda: s.Resample(freq=10)((v[:10], short)),
+        "split short index": lambda: s.split(v[:10], np.zeros(10, dtype=int), index=short),
+        "BacktestPortfolioTarget packed": lambda: s.BacktestPortfolioTarget()(np.stack([weights, prices], -1)),
+        "Pipeline to_json -inf setting": pipeline_json_inf,
+    })
     return table
 
 

@@ -19950,5 +19950,256 @@
    210.0,
    "839f741dfb03e8f1"
   ]
+ ],
+ "Merge wide batch": [
+  "ERROR",
+  "RuntimeError",
+  "std::bad_cast"
+ ],
+ "Merge wide positional": [
+  "ERROR",
+  "RuntimeError",
+  "std::bad_cast"
+ ],
+ "Merge wide mixed widths": [
+  "ERROR",
+  "RuntimeError",
+  "std::bad_cast"
+ ],
+ "Merge wide lazy indexed": [
+  "list",
+  7,
+  [
+   [
+    "tuple",
+    3,
+    [
+     [
+      "float",
+      99.563564753
+     ],
+     [
+      "int"
+     ],
+     [
+      "int"
+     ]
+    ]
+   ],
+   [
+    "tuple",
+    3,
+    [
+     [
+      "float",
+      100.563564753
+     ],
+     [
+      "int"
+     ],
+     [
+      "int"
+     ]
+    ]
+   ],
+   [
+    "tuple",
+    3,
+    [
+     [
+      "float",
+      99.067654024
+     ],
+     [
+      "int"
+     ],
+     [
+      "int"
+     ]
+    ]
+   ],
+   [
+    "tuple",
+    3,
+    [
+     [
+      "float",
+      100.067654024
+     ],
+     [
+      "int"
+     ],
+     [
+      "int"
+     ]
+    ]
+   ],
+   [
+    "tuple",
+    3,
+    [
+     [
+      "float",
+      100.651126903
+     ],
+     [
+      "int"
+     ],
+     [
+      "int"
+     ]
+    ]
+   ],
+   [
+    "tuple",
+    3,
+    [
+     [
+      "float",
+      101.651126903
+     ],
+     [
+      "int"
+     ],
+     [
+      "int"
+     ]
+    ]
+   ],
+   [
+    "tuple",
+    3,
+    [
+     [
+      "float",
+      98.447617023
+     ],
+     [
+      "int"
+     ],
+     [
+      "int"
+     ]
+    ]
+   ]
+  ]
+ ],
+ "Merge wide lazy positional": [
+  "ERROR",
+  "RuntimeError",
+  "std::bad_cast"
+ ],
+ "Merge text index": [
+  "ERROR",
+  "ValueError",
+  "invalid literal for int() with base 10: np.str_('a')"
+ ],
+ "KeltnerChannels num_atr=inf": [
+  "KeltnerChannels"
+ ],
+ "MAMA fast_limit=inf": [
+  "MAMA"
+ ],
+ "RollingQuantile quantile=nan": [
+  "ndarray",
+  [
+   30
+  ],
+  "f",
+  0.0,
+  "f9b3e2846e2bb629"
+ ],
+ "BacktestL1Target taker_fee=inf": [
+  "BacktestL1Target"
+ ],
+ "BacktestL1Target max_position=inf": [
+  "BacktestL1Target"
+ ],
+ "Clip lower=-inf": [
+  "ndarray",
+  [
+   30
+  ],
+  "f",
+  2940.556297,
+  "c7364a5478d8aee7"
+ ],
+ "Pipeline short index": [
+  "pair",
+  [
+   "ndarray",
+   [
+    10
+   ],
+   "f",
+   909.057553,
+   "740f29d9f914aa3a"
+  ],
+  [
+   "ndarray",
+   [
+    10
+   ],
+   "i",
+   450.0,
+   "2150848c5744aee2"
+  ]
+ ],
+ "Merge short index": [
+  "ERROR",
+  "RuntimeError",
+  "streams: a child's index/values length differ"
+ ],
+ "Resample short index": [
+  "pair",
+  [
+   "ndarray",
+   [
+    10
+   ],
+   "f",
+   1009.904351,
+   "18bf37a0413f9ca4"
+  ],
+  [
+   "ndarray",
+   [
+    10
+   ],
+   "i",
+   450.0,
+   "2150848c5744aee2"
+  ]
+ ],
+ "split short index": [
+  "ERROR",
+  "RuntimeError",
+  "split: values/sources/index length differ"
+ ],
+ "BacktestPortfolioTarget packed": [
+  "ERROR",
+  "TypeError",
+  "this operator takes 2 inputs, got 1."
+ ],
+ "Pipeline to_json -inf setting": [
+  "pair",
+  [
+   "ndarray",
+   [
+    30
+   ],
+   "f",
+   2947.158348,
+   "ae50232b66182c2c"
+  ],
+  [
+   "ndarray",
+   [
+    30
+   ],
+   "i",
+   435.0,
+   "c6aa67295a3a2366"
+  ]
  ]
 }
