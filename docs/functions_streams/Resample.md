@@ -114,6 +114,10 @@ Only **internal** empty buckets (gaps between two events) are filled by `Resampl
 itself. Trailing empty buckets after the last event are not synthesized here; that
 needs a clock, via either [`pipe.live().advance(now)`](#pipeline-live) or a clock input
 wired into a `Pipeline`. The [`pipe.live()` reference](#pipeline-live) has a worked example.
+Inside a `Pipeline`, rows that a `Dropna` or `Filter` drops move time forward as
+`advance()` does: a bucket they pass is closed, and filled when empty. At the end of
+the input the open bucket is emitted only if it has data, so a `Dropna`, a `Filter`
+and a `CombineLatest` that drop the same last rows give the same bars.
 
 `fill=` is meaningful only under `freq=`. With `count=`, a bar is defined by
 holding `N` events, so empty bars cannot exist by construction and `fill=` has no

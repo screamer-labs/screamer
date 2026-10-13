@@ -464,8 +464,9 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   `CombineLatest` or a `Filter` hung at the end of the input and grew memory
   until it was killed (`std::bad_alloc` in JavaScript), in a batch call and in
   `live()`: the end-of-input watermark made it fill every empty bucket up to
-  the int64 maximum. The end of input now closes the open bucket only, as for
-  a resample fed directly, and `advance(now)` emits the buckets up to `now`.
+  the int64 maximum. The end of input now emits the open bucket only if it has
+  data, as for a resample fed directly, and `advance(now)` emits the buckets up
+  to `now`.
 * A label-left `Resample(every=...)` whose first event came after a watermark
   (rows that a `Dropna` or `Filter` dropped, or an `advance()`) told the nodes
   downstream that no row would come below that watermark, then emitted its

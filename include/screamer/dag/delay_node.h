@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <limits>
+#include "screamer/common/checked_arith.h"
 #include "screamer/dag/frame.h"
 #include <cstddef>
 
@@ -28,10 +29,7 @@ public:
     // The watermark moves with the rows; it saturates at the int64 range (the
     // end-of-input watermark stays the int64 maximum).
     void on_watermark(Index w) override {
-        std::int64_t out;
-        if (__builtin_add_overflow(static_cast<std::int64_t>(w), duration_, &out))
-            out = duration_ > 0 ? std::numeric_limits<std::int64_t>::max()
-                                : std::numeric_limits<std::int64_t>::min();
+        std::int64_t out = screamer::saturating_add(static_cast<std::int64_t>(w), duration_);
         if (w == std::numeric_limits<Index>::max()) out = w;
         downstream_.on_watermark(static_cast<Index>(out));
     }

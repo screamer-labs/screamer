@@ -11,7 +11,8 @@ import {
 // clock) and y (2 columns): filter, dropna, select, combineLatest, delay,
 // RollingMean and resample (every with label left or right and fill skip, nan
 // or carry; count; threshold with a dropna driver; clock). 15% of cases are
-// unaligned. Three live sessions per case drain after each event with
+// unaligned, and in 40% the inputs end with rows that dropna or filter drop (a
+// NaN tail, a 0 mask tail). Three live sessions per case drain after each event with
 // probability 1, 0.3 and 0.05, with advance(now) between events; the
 // concatenated drains must equal batch. advance(now) stays at or below every
 // input's last event, and cases with a clock resample run without it. The
@@ -43,6 +44,13 @@ function makeCase(seed: number) {
   feeds.c = { values: Array.from({ length: nc }, () => 1), index: idx(nc, g.int(0, 80)).map((v) => v * 3) };
   const ny = g.int(1, 40);
   feeds.y = { values: Array.from({ length: ny }, () => [g.r() < 0.1 ? NaN : g.r(), g.r() < 0.1 ? NaN : g.r()]), index: idx(ny, g.int(0, 40)) };
+  if (g.r() < 0.4) {                    // inputs that end with dropped rows
+    const tail = (len: number) => len - g.int(1, Math.floor(len / 2) + 2);
+    const av = feeds.a.values as number[], bv = feeds.b.values as number[], mv = feeds.m.values as number[];
+    av.fill(NaN, Math.max(0, tail(av.length)));
+    bv.fill(NaN, Math.max(0, tail(bv.length)));
+    mv.fill(0, Math.max(0, tail(mv.length)));
+  }
   const ins: Record<string, any> = { a: Input("a"), b: Input("b"), m: Input("m"), c: Input("c"), y: Input("y") };
   const used = new Set<string>();
   const inp = (k: string) => { used.add(k); return ins[k]; };

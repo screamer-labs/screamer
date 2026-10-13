@@ -476,3 +476,82 @@ def test_advance_emits_the_buckets_up_to_now_only():
     t.push("a", 0, 1.0)
     t.advance(2**63 - 1)               # Delay keeps the end-of-input watermark
     assert list(t.result()[1]) == [0]
+
+
+# ---------------------------------------------------------------------------
+# Fix round 4: the end of input emits the open bucket only if it has data, so
+# the bars do not depend on what drops the last rows
+# ---------------------------------------------------------------------------
+
+def _tail_graphs(fill, label, agg):
+    """The same resample fed the rows of `a` that are not NaN, four ways."""
+    def R():
+        return sc.Resample(every=4, fill=fill, label=label, agg=agg)
+    a, m = Input("a"), Input("m")
+    return {
+        "dropna": Pipeline([a], [R()(sc.Dropna()(a))]),
+        "filter": Pipeline([a, m], [R()(sc.Filter()(a, m))]),
+        "combine_latest": Pipeline([a], [R()(sc.Select(0)(sc.CombineLatest()(sc.Dropna()(a), sc.Dropna()(a))))]),
+        "direct": Pipeline([a], [R()(a)]),
+    }
+
+
+def _tail_feeds(name, x, k):
+    keep = ~np.isnan(x)
+    if name == "direct":
+        return [(x[keep], k[keep])]
+    if name == "filter":
+        return [(x, k), (keep.astype(float), k)]
+    return [(x, k)]
+
+
+def _live_tail(p, feeds, end):
+    names = [i.op[1] for i in p.inputs]
+    s = p.live()
+    parts = []
+    for t, _, _, nm, v in _events(feeds, names):
+        s.push(nm, t, float(v))
+        parts.append(s.result())
+    if end == "advance":
+        s.advance(2**63 - 1)
+    else:
+        s.flush()
+    parts.append(s.result())
+    return _concat([(q,) for q in parts])[0]
+
+
+@pytest.mark.parametrize("agg", ["mean", sc.Last()])
+@pytest.mark.parametrize("label", ["left", "right"])
+@pytest.mark.parametrize("fill", ["skip", "nan", "carry"])
+def test_input_that_ends_with_dropped_rows_fills_no_trailing_bucket(fill, label, agg):
+    # The reviewer's case: rows 6 to 9 are dropped, so the bucket [8, 12) has
+    # no data. Every graph gives bars 0 and 4 (label left), in batch, lazy and
+    # live, whether live ends with flush() or advance(2**63 - 1).
+    x = np.array([1.0, 2, 3, 4, 5, 6] + [np.nan] * 4)
+    k = np.arange(10, dtype=np.int64)
+    graphs = _tail_graphs(fill, label, agg)
+    want = graphs["direct"](*_tail_feeds("direct", x, k))
+    np.testing.assert_array_equal(want[1], [0, 4] if label == "left" else [4, 8])
+    for name, p in graphs.items():
+        feeds = _tail_feeds(name, x, k)
+        _same([p(*feeds)], [want])
+        for end in ("flush", "advance"):
+            _same([_live_tail(p, feeds, end)], [want])
+        (lv, lk), = _lazy(p, feeds)
+        np.testing.assert_array_equal(lk, want[1])
+        np.testing.assert_array_equal(lv, np.asarray(want[0]).ravel())
+
+
+@pytest.mark.parametrize("fill", ["nan", "carry"])
+def test_dropped_rows_between_bars_still_fill_the_gap(fill):
+    a = Input("a")
+    x = np.array([1.0] + [np.nan] * 10 + [2.0])
+    k = np.arange(12, dtype=np.int64)
+    p = Pipeline([a], [a, sc.Resample(every=4, fill=fill, agg="last")(sc.Dropna()(a))])
+    want = p((x, k))
+    direct = Pipeline([a], [sc.Resample(every=4, fill=fill, agg="last")(a)])((x[[0, 11]], k[[0, 11]]))
+    np.testing.assert_array_equal(direct[1], [0, 4, 8])
+    alone = Pipeline([a], [sc.Resample(every=4, fill=fill, agg="last")(sc.Dropna()(a))])
+    _same([alone((x, k))], [direct])
+    _same(_live_every_event(p, [(x, k)], ["a"]), want)
+    _same(_live_every_event(p, [(x, k)], ["a"], advance_at={5, 9, 11}), want)

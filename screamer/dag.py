@@ -236,7 +236,9 @@ def _live_dag_class():
             self._cg.reset()
 
         def advance(self, now):
-            """Close every window whose boundary has passed by logical time `now`."""
+            """Close every window whose boundary has passed by logical time `now`.
+
+            ``advance(2**63 - 1)`` acts as the end of input, the same as ``flush()``."""
             self._advance(now)
             return self
 

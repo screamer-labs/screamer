@@ -112,7 +112,8 @@ returns the session, so calls chain.
   before the first event; call it with non-decreasing `now`.
 - **`.flush()`** finalizes the current partial window(s) on demand, for example at
   the end of a processing loop. The end-of-input flush that `pipe(...)` performs
-  implicitly is the special case.
+  implicitly is the special case. `advance(2**63 - 1)` acts as the end of input,
+  the same as `.flush()`.
 - **`.result()`** returns the output accumulated so far, in the same shape
   `pipe(...)` returns, and drains the internal buffers. Aligned outputs keep
   each output's latest value from one call to the next, so the rows of repeated

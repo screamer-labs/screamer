@@ -5,6 +5,7 @@
 #include <limits>
 #include <stdexcept>
 #include <vector>
+#include "screamer/common/checked_arith.h"
 #include "screamer/common/float_info.h"
 #include "screamer/dag/frame.h"
 #include "screamer/dag/resample_params.h"
@@ -245,8 +246,8 @@ public:
     // any event has anchored a bucket (not started_), the first event can still open
     // the bucket that holds w, so the forward is at most that bucket's label (a
     // label-left bucket starts at or below w). The end-of-input watermark (the
-    // int64 maximum, sent at a flush) closes the current bucket only: an end of
-    // input has no trailing empty buckets, as a batch run has none.
+    // int64 maximum, sent at a flush) emits the current bucket only if it has
+    // data, as flush() does: trailing empty buckets are never filled.
     void on_watermark(Index w) override {
         advance(w);
         Index fwd = w;
@@ -272,13 +273,13 @@ public:
     void advance(Index now) {
         if (p_.mode != ResampleMode::ByIndex) return;
         if (!started_) return;
-        // The end-of-input watermark closes the current bucket and fills no
-        // trailing ones (a batch run ends the same way).
+        // The end-of-input watermark emits the current bucket if it has data
+        // and fills no empty bucket, as flush() does: they are all trailing.
         const bool end = now == std::numeric_limits<Index>::max();
         std::int64_t target = end ? bucket_ + 1 : bucket_of(now);
         if (target <= bucket_) return;
         if (has_any()) emit(cur_label_);
-        else if (p_.fill != ResampleFill::Skip) emit_fill(cur_label_);
+        else if (p_.fill != ResampleFill::Skip && !end) emit_fill(cur_label_);
         if (p_.fill != ResampleFill::Skip && !end)
             for (std::int64_t b = bucket_ + 1; b < target; ++b) emit_fill(label_for(b));
         bucket_ = target; reset_accums(); set_index_label(target);
@@ -627,11 +628,8 @@ private:
     // The bucket that holds index k. k - origin is taken without overflow (a
     // watermark can be any int64).
     std::int64_t bucket_of(Index k) const {
-        std::int64_t d;
-        if (__builtin_sub_overflow(static_cast<std::int64_t>(k), p_.origin, &d))
-            d = static_cast<std::int64_t>(k) < 0 ? std::numeric_limits<std::int64_t>::min()
-                                                 : std::numeric_limits<std::int64_t>::max();
-        return floordiv(d, p_.width);
+        return floordiv(screamer::saturating_sub(static_cast<std::int64_t>(k), p_.origin),
+                        p_.width);
     }
 
     static std::int64_t floordiv(std::int64_t a, std::int64_t b) {

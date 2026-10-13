@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   ready, Input, Pipeline, select, resample, combineLatest, filter, delay, dropna,
-  RollingMean, IsNan, type Output,
+  RollingMean, IsNan, ExpandingSum, type Output,
 } from "../src/index.ts";
 
 // Pipeline alignOutputs (B7): the outputs of a multi-output Pipeline on one
@@ -464,5 +464,63 @@ test("watermarks: advance(now) emits the buckets up to now only", async () => {
     assert.deepEqual(Array.from(r.values as Float64Array), [2]);
   } finally {
     q.dispose();
+  }
+});
+
+// Fix round 4: the end of input emits the open bucket only if it has data, so
+// the bars do not depend on what drops the last rows.
+test("watermarks: an input that ends with dropped rows fills no trailing bucket", async () => {
+  await ready();
+  const xs = [1, 2, 3, 4, 5, 6, NaN, NaN, NaN, NaN];
+  const ix = xs.map((_, i) => i);
+  const keep = xs.map((x) => (Number.isNaN(x) ? 0 : 1));
+  const kept = ix.filter((i) => keep[i]);
+  for (const fill of ["skip", "nan", "carry"] as const) {
+    for (const label of ["left", "right"] as const) {
+      for (const functor of [false, true]) {
+        const R = (n: any) => functor
+          ? resample(n, { every: 4, fill, label, reducer: ExpandingSum()(Input("__r__")) as any })
+          : resample(n, { every: 4, fill, label, agg: "mean" });
+        const a = Input("a"), m = Input("m");
+        const graphs: Array<[string, Pipeline, any, Array<[string, number, number]>]> = [
+          ["direct", new Pipeline([a], [R(a)]), { values: kept.map((i) => xs[i]), index: kept },
+            kept.map((i) => ["a", i, xs[i]])],
+          ["dropna", new Pipeline([a], [R(dropna(a))]), { values: xs, index: ix },
+            ix.map((i) => ["a", i, xs[i]])],
+          ["filter", new Pipeline([a, m], [R(filter(a, m))]),
+            { a: { values: xs, index: ix }, m: { values: keep, index: ix } },
+            ix.flatMap((i) => [["a", i, xs[i]], ["m", i, keep[i]]] as Array<[string, number, number]>)],
+          ["combineLatest", new Pipeline([a], [R(select(combineLatest([dropna(a), dropna(a)]), 0))]),
+            { values: xs, index: ix }, ix.map((i) => ["a", i, xs[i]])],
+        ];
+        const what = `${fill} ${label} ${functor ? "functor" : "mean"}`;
+        try {
+          const want = graphs[0][1](graphs[0][2]) as Output;
+          assert.deepEqual(Array.from(want.index), label === "left" ? [0, 4] : [4, 8], what);
+          for (const [name, p, feed, events] of graphs) {
+            assertSame(p(feed) as Output, want, `${what} ${name} batch`);
+            for (const end of ["flush", "advance"]) {
+              const s = p.live();
+              const idx: number[] = [], vals: number[] = [];
+              const take = () => {
+                const r = s.result() as Output;
+                idx.push(...Array.from(r.index));
+                vals.push(...Array.from(r.values as Float64Array));
+              };
+              for (const [nm, t, v] of events) { s.push(nm, t, v); take(); }
+              if (end === "advance") s.advance(9);   // the last index, then flush
+              s.flush();
+              take();
+              s.flush();
+              take();
+              assert.deepEqual(idx, Array.from(want.index), `${what} ${name} live ${end}`);
+              assert.ok(same(vals, Array.from(want.values as Float64Array)), `${what} ${name} live ${end}`);
+            }
+          }
+        } finally {
+          for (const g of graphs) g[1].dispose();
+        }
+      }
+    }
   }
 });

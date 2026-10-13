@@ -5,7 +5,8 @@ Each case builds 2 to 4 outputs from random trees over the inputs a, b
 nodes are Filter, Dropna, Select, CombineLatest, Delay, RollingMean and
 Resample: every= with label left or right and fill skip, nan or carry; count=;
 threshold= with a Dropna driver; and clock=. Indexes repeat and 15% of cases
-are unaligned. Three live sessions per case drain after each event with
+are unaligned, and in 40% of cases the inputs end with rows that Dropna or
+Filter drop (a NaN tail, a 0 mask tail). Three live sessions per case drain after each event with
 probability 1, 0.3 and 0.05, with advance(now) between events; the
 concatenated drains must equal batch byte for byte, and lazy must equal batch.
 
@@ -65,6 +66,10 @@ def make_case(rng, enable_clock=True):
     nc = int(rng.integers(1, 15))
     ny = int(rng.integers(1, 40))
     yv = rng.normal(size=(ny, 2)); yv[rng.random((ny, 2)) < 0.1] = np.nan
+    if rng.random() < 0.4:                       # inputs that end with dropped rows
+        x[n - int(rng.integers(1, n // 2 + 2)):] = np.nan
+        bv[nb - int(rng.integers(1, nb // 2 + 2)):] = np.nan
+        mv[nm_ - int(rng.integers(1, nm_ // 2 + 2)):] = 0.0
     feeds = {"a": (x, idx(n, int(rng.integers(0, 30)))), "b": (bv, idx(nb, int(rng.integers(0, 60)))),
              "m": (mv, idx(nm_, int(rng.integers(0, 30)))), "c": (np.ones(nc), idx(nc, int(rng.integers(0, 80))) * 3),
              "y": (yv, idx(ny, int(rng.integers(0, 40))))}
