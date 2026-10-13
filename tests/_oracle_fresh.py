@@ -2,10 +2,10 @@
 
 Each oracle is the output of a generator script run on the Python binding. The
 generator runs in a child process, so it gets the test's import path. The
-numbers are compared to 1e-9 relative, as the JavaScript tests compare them:
-GCC builds do not fuse multiply-adds and clang builds do (D4), so a value can
-differ in its last digits between a Linux and a macOS build while the oracle is
-still current.
+numbers are compared to 1e-9 (relative, or absolute near zero), as the
+JavaScript tests compare them: GCC builds do not fuse multiply-adds and clang
+builds do (D4), so a value can differ in its last digits between a Linux and a
+macOS build while the oracle is still current.
 """
 import json
 import math
@@ -21,7 +21,7 @@ def _same(a, b, path="$"):
             return f"{path}: {a!r} != {b!r}"
         if math.isnan(a) and math.isnan(b):
             return None
-        return None if math.isclose(a, b, rel_tol=1e-9, abs_tol=1e-300) else f"{path}: {a!r} != {b!r}"
+        return None if math.isclose(a, b, rel_tol=1e-9, abs_tol=1e-9) else f"{path}: {a!r} != {b!r}"
     if type(a) is not type(b):
         return f"{path}: {a!r} != {b!r}"
     if isinstance(a, dict):
