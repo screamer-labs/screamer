@@ -338,3 +338,18 @@ test("pipeline: a batch feed of NdArray values is read, a bad shape is a RangeEr
     p.dispose();
   }
 });
+
+// A value's valueOf can dispose the Pipeline while push converts it; the push
+// then raises a TypeError and never reaches the released graph.
+test("live: a push whose value disposes the Pipeline raises TypeError", async () => {
+  await ready();
+  for (const wide of [false, true]) {
+    const x = Input("x");
+    const p = new Pipeline([x], [wide ? select(x, [0, 1]) : RollingMean(3)(x)]);
+    const live = p.live();
+    live.push("x", 0, wide ? [1.0, 1.0] : 1.0);
+    const evil = { valueOf: () => { p.dispose(); return 2.0; } };
+    assert.throws(() => live.push("x", 1, (wide ? [evil, 3.0] : evil) as any), TypeError);
+    p.dispose();
+  }
+});

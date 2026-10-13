@@ -535,7 +535,8 @@ class PipelineImpl implements Owned {
           view[j] = typeof x === "number" ? x
             : feedValue(x, "Pipeline", () => `item [${j}] of the values pushed to input ${i}`);
         }
-        try { M._screamer_push_event_wide(self.cgAddr, i, t, buf, width); } catch (e) { throw normalizeError(e); }
+        const g = self.graphAddress();   // after the values: their conversion may dispose
+        try { M._screamer_push_event_wide(g, i, t, buf, width); } catch (e) { throw normalizeError(e); }
       } finally {
         M.freeBuf(buf);
       }
@@ -555,7 +556,8 @@ class PipelineImpl implements Owned {
         // wrong kind.
         const v = typeof value === "number" ? value : feedValue(value, "Pipeline", () => `the value pushed to input ${i}`);
         const t = typeof index === "number" ? index : badIndex(M, index);
-        try { M._screamer_push_event(self.cgAddr, i, t, v); } catch (e) { throw normalizeError(e); }
+        const g = self.graphAddress();   // after the value: its conversion may dispose
+        try { M._screamer_push_event(g, i, t, v); } catch (e) { throw normalizeError(e); }
       },
       pushWide(name: string, index: number, values: ArrayLike<number> | NdArray): void {
         self.checkLive();
@@ -582,6 +584,15 @@ class PipelineImpl implements Owned {
       },
     };
     return driver;
+  }
+
+  // The graph's address for a per-event export. Read after the event's values
+  // are converted: a value's valueOf may dispose the Pipeline, and address 0
+  // would reach C++ as an object. A released graph raises the TypeError a call
+  // on the released Embind object raised.
+  private graphAddress(): number {
+    if (!this.cgAddr) throw new TypeError("pipeline used after dispose()");
+    return this.cgAddr;
   }
 
   // Raises once the Pipeline is disposed; every live driver call checks it.
