@@ -13,7 +13,7 @@ import re
 import numpy as np
 
 from . import screamer_bindings as _b
-from .dag import is_node, make_operator_node, _is_vi_pair, _as_float64, _setting
+from .dag import is_node, make_operator_node, _is_vi_pair, _as_float64, _refuse_text, _setting
 
 __all__ = [
     "to_pandas",
@@ -36,7 +36,7 @@ def _is_lazy_stream(x):
     return hasattr(x, "__next__") and not isinstance(x, (list, tuple, np.ndarray))
 
 
-def _as_vi(x, idx):
+def _as_vi(x, idx, who=""):
     """Normalize a data input to (values_ndarray, index_or_None).
 
     Accepts:
@@ -45,6 +45,8 @@ def _as_vi(x, idx):
     """
     if _is_vi_pair(x):
         return x[0], x[1]
+    if not hasattr(x, "dtype") and not isinstance(x, (list, tuple)):
+        _refuse_text(x, who)   # a time or a ctypes object is not values
     return np.asarray(x), idx
 
 
@@ -90,12 +92,12 @@ def _classify_lazy_sources(values, who):
     return (not indexed), sources, kind
 
 
-def _to_streams(inputs, index):
+def _to_streams(inputs, index, who=""):
     """Normalize each input to a (values, index) tuple. `index` is None (all
     positional) or a list aligned with inputs (per-stream index array or None)."""
     if index is not None and len(index) != len(inputs):
         raise ValueError("index list length must match the number of streams")
-    return [_as_vi(x, None if index is None else index[i])
+    return [_as_vi(x, None if index is None else index[i], who)
             for i, x in enumerate(inputs)]
 
 
@@ -123,8 +125,14 @@ def from_pandas(obj, layout=None):
     DataFrame whose two-level columns hold every ``(asset, field)`` pair, which
     gives ``(T, A, F)``. pandas always materializes an index (a RangeIndex for
     a default one), so a positional stream does not round-trip to index=None
-    through to_pandas/from_pandas.
+    through to_pandas/from_pandas. Any other object raises TypeError.
     """
+    mod = getattr(type(obj), "__module__", None)
+    if not (isinstance(mod, str) and mod.split(".")[0] == "pandas"
+            and hasattr(obj, "to_numpy") and hasattr(obj, "index")):
+        name = type(obj).__name__
+        article = "an" if name[:1].lower() in "aeiou" else "a"
+        raise TypeError(f"from_pandas: pass a pandas Series or DataFrame, got {article} {name}")
     if layout is None:
         return np.asarray(obj.to_numpy()), np.asarray(obj.index)
     from .shape import frame_axes, reshape_array
@@ -181,7 +189,7 @@ def _normalize_streams(streams, who):
         kind, k = _index_dtype_kind(idx)
         kinds.append(kind)
         norm_index.append(k)
-        norm_vals.append(_as_float64(values, contiguous=True))
+        norm_vals.append(_as_float64(values, contiguous=True, who=who))
     if len(set(kinds)) == 1:
         return kinds[0], norm_index, norm_vals
     # Int and float indexes are both plain numbers (the one-kind check above
@@ -211,7 +219,7 @@ def _streams_to_indexed(streams, who):
         raise ValueError(
             f"{who}: cannot align positional and indexed streams; give every "
             "stream an index, or none")
-    vals = [_as_float64(s[0], contiguous=True) for s in streams]
+    vals = [_as_float64(s[0], contiguous=True, who=who) for s in streams]
     if not any(indexed):
         # Paired by position in C++, along the T axis each layout names.
         return "i64", None, vals, True
@@ -233,7 +241,7 @@ def _merge_to_indexed(values, index, who):
     n = len(values)
     if n == 0:
         raise ValueError(f"{who}: needs at least one stream")
-    streams = _to_streams(values, index)   # (values, index) passthrough; raw wrapped with index[i]
+    streams = _to_streams(values, index, who)   # (values, index) passthrough; raw wrapped with index[i]
     for k, (v, _) in enumerate(streams):
         # A number is one event, not a stream (as in JavaScript).
         if np.ndim(v) == 0 and not hasattr(v, "__next__"):
@@ -244,7 +252,7 @@ def _merge_to_indexed(values, index, who):
         raise ValueError(
             f"{who}: cannot mix positional and indexed streams; give every "
             "stream an index, or none")
-    vals = [_as_float64(s[0], contiguous=True) for s in streams]
+    vals = [_as_float64(s[0], contiguous=True, who=who) for s in streams]
     if not any(has_idx):
         # Positional: use row-number per stream (no equal-length check for merge)
         idx_list = [np.arange(len(v), dtype=np.int64) for v in vals]
@@ -302,24 +310,6 @@ def merge(*values, index=None):
 
 
 
-def _combine_latest_asof_lazy(sources, emit):
-    """Indexed combine_latest over lazy (value, index) sources: as-of alignment
-    driven by the C++ combine_latest node through the Stage-2 lazy Pipeline. Yields
-    ``(row_tuple, index)`` - identical to the batch combine_latest.
-
-    The C++ node delays emission by one index step and collapses same-index
-    events, so no external per-index deduplication is needed here. A non-integer
-    index is rejected by the int64-indexed engine (the C++ PySource), which is
-    correct: truncating a fractional index before alignment would collapse
-    distinct indices and diverge from batch.
-    """
-    from .dag import Input, Pipeline
-    ins = [Input(f"_cl{i}") for i in range(len(sources))]
-    dag = Pipeline(inputs=ins, outputs=[combine_latest(*ins, emit=emit)])
-    # The driver of a lazy Pipeline call, its errors naming combine_latest.
-    yield from _b._LazyDriver(dag._cg, [iter(s) for s in sources], 1, "combine_latest")
-
-
 def _combine_latest_lazy(values, emit, layout=None):
     """Dispatch gate for lazy combine_latest: classify sources on first next().
 
@@ -330,10 +320,12 @@ def _combine_latest_lazy(values, emit, layout=None):
     assembles the rows. Positional sources are paired by position in C++
     (``_CombineZip``): each step takes one event from every source, so they
     must stay in step and end together. Indexed ((value, index)) sources take
-    the as-of Pipeline path.
+    the as-of join in C++ (``_CombineLatestLazy``): the merge iterator's order
+    and the batch join's rows, on an int64 or a float64 index as the first
+    event's index is (as the batch form's first index picks its kind).
     """
     import itertools
-    positional, sources, _ = _classify_lazy_sources(values, "combine_latest")
+    positional, sources, kind = _classify_lazy_sources(values, "combine_latest")
     heads = []
     for k, src in enumerate(sources):
         h = next(src, _EMPTY)
@@ -342,25 +334,14 @@ def _combine_latest_lazy(values, emit, layout=None):
             sources[k] = itertools.chain([h], src)
     if all(h is _EMPTY for h in heads):
         return
-    plan = _b._JoinPlan([None if h is _EMPTY else (1,) + np.shape(_as_float64(h if positional else h[0]))
+    plan = _b._JoinPlan([None if h is _EMPTY else
+                         (1,) + np.shape(_as_float64(h if positional else h[0], who="combine_latest"))
                          for h in heads], layout)
     if positional:
         yield from _b._CombineZip(sources, plan, _as_float64)
         return
-    # Wide events enter the Pipeline as flat rows; the node concatenates them.
-    if plan.wide:
-        sources = [_flat_events(src, plan, k) for k, src in enumerate(sources)]
-    for row, i in _combine_latest_asof_lazy(sources, emit):
-        if plan.wide:
-            row = plan.row(_as_float64(row)) if plan.assets else _as_float64(row)
-        yield row, i
-
-
-def _flat_events(src, plan, k):
-    """The (value, index) events of source k with each value as its flat row."""
-    if plan.in_order(k):
-        return ((np.ravel(_as_float64(v)), i) for v, i in src)
-    return ((plan.flat(k, _as_float64(v)), i) for v, i in src)
+    cls = _b._CombineLatestLazy_f64 if kind == "f64" else _b._CombineLatestLazy_i64
+    yield from cls(sources, plan, emit == "when_all")
 
 
 def combine_latest(*values, index=None, emit="when_all", layout=None, max_pending=None):
@@ -407,7 +388,7 @@ def combine_latest(*values, index=None, emit="when_all", layout=None, max_pendin
         raise TypeError(
             "combine_latest: cannot mix lazy iterator and concrete inputs; pass "
             "all generators or all arrays")
-    streams = _to_streams(values, index)
+    streams = _to_streams(values, index, "combine_latest")
     kind, idx, vals, positional = _streams_to_indexed(streams, "combine_latest")
     # The layout join, the as-of join and the assembly all run in C++
     # (include/screamer/streams/join_plan.h).
@@ -417,129 +398,116 @@ def combine_latest(*values, index=None, emit="when_all", layout=None, max_pendin
 
 
 
-def _dropna_via_cpp(vals, idx, how):
-    """Route eager dropna through the C++ DropNaNode via a Pipeline.
+def _positional_rows(events):
+    """The (value, None) events of a positional lazy source with their row
+    numbers as index, as a batch call numbers its rows."""
+    for i, (v, _k) in enumerate(events):
+        yield v, i
 
-    vals: float64 ndarray, 1-D or 2-D
-    idx: index array or None (positional)
-    how: "any" | "all"
 
-    Returns (out_vals, out_idx) where out_idx mirrors the caller's positional
-    convention: None when the input index was None, otherwise the surviving
-    subset of the input index.
+def _lazy_heads(sources):
+    """Peeks the first (value, index) event of each lazy source. Returns
+    (heads, sources) with each source re-chained with its head; an empty
+    source has the head _EMPTY."""
+    import itertools
+    heads, chained = [], []
+    for src in sources:
+        it = iter(src)
+        head = next(it, _EMPTY)
+        heads.append(head)
+        chained.append(it if head is _EMPTY else itertools.chain([head], it))
+    return heads, chained
 
-    1-D: builds a one-input Pipeline([x], [dropna(x, how=how)]).
-    2-D: packs N columns via combine_latest then drops via
-    Pipeline([c0..cN], [dropna(combine_latest(c0..cN), how=how)]).
-    All NaN-gate logic runs in the C++ DropNaNode; no numpy mask compute here.
-    """
+
+def _run_lazy_pipeline(dag, sources, who):
+    """Runs a lazy one-node Pipeline over (value, index) sources, where index
+    None marks a positional source (rows numbered as in a batch call). Every
+    source must be positional, or none. Yields (value, index) events, the index
+    None again for positional sources. A width-1 event (a one-element array or
+    list) reads as a number, as before."""
+    heads, sources = _lazy_heads(sources)
+    found = [h for h in heads if h is not _EMPTY]
+    if not found:
+        return
+    positional = {h[1] is None for h in found}
+    if len(positional) > 1:
+        raise ValueError(f"{who}: cannot mix positional and indexed streams; give "
+                         "every stream an index, or none")
+    positional = positional.pop()
+    if positional:
+        sources = [_positional_rows(src) for src in sources]
+    head_val = found[0][0]
+    if not isinstance(head_val, (float, int)) and head_val is not None \
+            and np.size(_as_float64(head_val, who=who)) == 1:
+        sources = [((float(np.ravel(_as_float64(v, who=who))[0]), k) for v, k in src)
+                   for src in sources]
+    for v, k in dag(*sources):
+        yield v, (None if positional else k)
+
+
+def _one_node_pipeline(n, build, who):
+    """A Pipeline of n inputs feeding one stream node, build(*inputs)."""
     from .dag import Input, Pipeline
-    positional = idx is None
-    real_idx = np.arange(len(vals), dtype=np.int64) if positional else idx
+    ins = [Input(f"_{who}{i}") for i in range(n)]
+    dag = Pipeline(ins, [build(*ins)])
+    dag._who = who
+    return dag
 
-    if vals.ndim == 1:
-        src = Input("x")
-        dag = Pipeline([src], [dropna(src, how=how)])
-        dag._who = "dropna"
-        out_vals, out_idx = dag((vals, real_idx))
-    else:
-        N = vals.shape[1]
-        col_inputs = [Input(f"c{i}") for i in range(N)]
-        dag = Pipeline(col_inputs, [dropna(combine_latest(*col_inputs), how=how)])
-        dag._who = "dropna"
-        out_vals, out_idx = dag(*((vals[:, i], real_idx) for i in range(N)))
 
+def _run_eager_pipeline(dag, streams, who):
+    """Runs a one-node Pipeline on (values, index) streams, index None for a
+    positional stream (every stream positional, or none). Returns (values,
+    index), the index None for positional streams."""
+    has_idx = [k is not None for _, k in streams]
+    if any(has_idx) and not all(has_idx):
+        raise ValueError(f"{who}: cannot mix positional and indexed streams; give "
+                         "every stream an index, or none")
+    positional = not any(has_idx)
+    feeds = [v if positional else (v, k) for v, k in streams]
+    out_vals, out_idx = dag(*feeds)
     return out_vals, (None if positional else out_idx)
 
 
-def _dropna_lazy_cpp(events, how):
-    """Route lazy dropna through the C++ DropNaNode via the Pipeline lazy path.
-
-    Generator function: no events are consumed until the first next() call.
-    Peeks the first event to determine dimensionality and index type.
-
-    1-D events (scalar values): drives a one-input Pipeline.
-    2-D events (multi-value rows): tees the stream into N per-column iterators
-    and drives an N-input combine_latest + dropna Pipeline.  The N tee'd iterators
-    are advanced in lockstep by the C++ lazy driver, so the tee buffer is at most O(N)
-    elements (constant in stream length - O(1) per event).
-
-    Positional feeds (index=None) are converted to row-number indices
-    internally and the None index is restored on output.
-    """
-    import itertools
-    from .dag import Input, Pipeline
-
-    try:
-        head = next(events)
-    except StopIteration:
-        return
-
-    head_val, head_idx = head
-    all_events = itertools.chain([head], events)
-    N = np.atleast_1d(_as_float64(head_val)).size
-    positional = head_idx is None
-
-    if positional:
-        def _add_rownum(evs):
-            for i, (v, _k) in enumerate(evs):
-                yield v, i
-        working_events = _add_rownum(all_events)
-    else:
-        working_events = all_events
-
-    if N == 1:
-        # 1-D: ensure the value passed to the C++ lazy driver is a Python float
-        def _as_scalar(evs):
-            for v, k in evs:
-                yield float(np.atleast_1d(_as_float64(v))[0]), k
-        src = Input("x")
-        dag = Pipeline([src], [dropna(src, how=how)])
-        inner = dag(_as_scalar(working_events))
-    else:
-        # 2-D: tee N copies; each copy is consumed once per event (lockstep)
-        tees = itertools.tee(working_events, N)
-
-        def _col(teed, col):
-            for row_val, k in teed:
-                r = np.atleast_1d(_as_float64(row_val))
-                yield float(r[col]), k
-
-        col_iters = [_col(tees[i], i) for i in range(N)]
-        col_inputs = [Input(f"c{i}") for i in range(N)]
-        dag = Pipeline(col_inputs, [dropna(combine_latest(*col_inputs), how=how)])
-        inner = dag(*col_iters)
-
-    if positional:
-        for v, _k in inner:
-            yield v, None
-    else:
-        yield from inner
-
-
-def dropna(values, index=None, how="any"):
-    """Drop events whose value is NaN. `values` may be 1-D (M,) or 2-D (M, N).
+def dropna(*values, index=None, how="any"):
+    """Drop events whose value is NaN. Each input may be 1-D (M,) or 2-D (M, N).
 
     how="any" (default) drops a row if any component is NaN; how="all" only if
-    all are. Values-first + polymorphic: raw arrays, (values, index) tuple, or
-    graph Node.
+    all are. Values-first + polymorphic: raw arrays, (values, index) tuples,
+    iterators of (value, index) events, or graph Nodes. Several inputs are
+    several streams: their events are merged in index order (ties in input
+    order) and each is dropped on its own, as the Dropna node of a Pipeline does.
     index=None means positional (no index allocation). Returns (values, index) /
     Node restricted to the surviving rows. Surviving values are returned
     as float64. Causal and cardinality-changing: batch and streaming drop the
     same rows.
-    When ``values`` is a ``(values, index)`` tuple it carries its own index;
-    ``index=`` applies only to raw arrays.
+    An index is passed as a ``(values, index)`` tuple, or with ``index=`` for a
+    single raw array.
     """
     if how not in ("any", "all"):
         raise ValueError('dropna: how must be "any" or "all"')
-    if is_node(values):
-        return make_operator_node(Dropna, (values,), {"how": how})
-    if _is_lazy_stream(values):
-        return _dropna_lazy_cpp(values, how)
-    vals, idx = _as_vi(values, index)
-    vals = _as_float64(vals)
-    out_vals, out_idx = _dropna_via_cpp(vals, idx, how)
-    return out_vals, out_idx
+    if not values:
+        raise ValueError("dropna: needs at least one stream")
+    if any(is_node(v) for v in values):
+        return make_operator_node(Dropna, values, {"how": how})
+    build = lambda *ins: dropna(*ins, how=how)
+    if all(_is_lazy_stream(v) for v in values):
+        if index is not None:
+            raise TypeError("dropna: index= applies to arrays; an iterator carries "
+                            "its index in each (value, index) event")
+        return _run_lazy_pipeline(_one_node_pipeline(len(values), build, "dropna"),
+                                  values, "dropna")
+    if any(_is_lazy_stream(v) for v in values):
+        raise TypeError("dropna: cannot mix lazy iterator and concrete inputs; pass "
+                        "all generators or all arrays")
+    if index is not None and len(values) > 1:
+        raise TypeError("dropna: index= applies to one input; pass each of several "
+                        "inputs as a (values, index) tuple")
+    streams = []
+    for v in values:
+        vals, idx = _as_vi(v, index, "dropna")
+        streams.append((_as_float64(vals, contiguous=True, who="dropna"), idx))
+    return _run_eager_pipeline(_one_node_pipeline(len(values), build, "dropna"),
+                               streams, "dropna")
 
 
 class Filter:
@@ -604,7 +572,7 @@ def split(values, sources, index=None, n=None):
     if _is_vi_pair(values):
         index = values[1]          # the tuple carries its own index
         values = values[0]
-    values = _as_float64(values, contiguous=True)
+    values = _as_float64(values, contiguous=True, who="split")
     # A list or tuple is read item by item in C++, and a native integer, bool
     # or float64 array as it is, so the kind of each source is checked before
     # any conversion (a bool is a wrong kind). Anything else is read as
@@ -644,116 +612,33 @@ def _normalize_columns(columns):
     return cols, scalar
 
 
-def _select_via_cpp(vals, idx, cols, scalar):
-    """Route eager select through the C++ SelectNode via a Pipeline.
-
-    vals: float64 ndarray, 1-D or 2-D
-    idx: index array or None (positional)
-    cols: validated list of non-negative int column indices
-    scalar: True when a bare int was given (result is 1-D)
-
-    Returns (picked_vals, out_idx) where out_idx mirrors the input: None for
-    positional, original idx array otherwise.
-
-    1-D input: trivial passthrough or reshape; no SelectNode needed.
-    2-D input: packs N columns via combine_latest then picks via
-    Pipeline([c0..cN], [select(combine_latest(c0..cN), columns=columns)]).
-    All column-pick logic runs in the C++ SelectNode; no numpy column-pick here.
-    """
-    from .dag import Input, Pipeline
-
-    if vals.ndim == 1:
-        # Width-1 passthrough: no column-pick compute, only scalar/list reshape.
-        picked = vals if scalar else vals.reshape(-1, 1)
-        return picked, idx
-
-    # 2-D: route through SelectNode via Pipeline.
-    positional = idx is None
-    real_idx = np.arange(len(vals), dtype=np.int64) if positional else idx
-    N = vals.shape[1]
-    col_inputs = [Input(f"c{i}") for i in range(N)]
-    columns_arg = cols[0] if scalar else cols
-    dag = Pipeline(col_inputs, [select(combine_latest(*col_inputs), columns=columns_arg)])
-    dag._who = "select"
-    out_vals, out_idx = dag(*((vals[:, i], real_idx) for i in range(N)))
-    return out_vals, (None if positional else out_idx)
-
-
 def _select_lazy_cpp(events, columns):
-    """Route lazy select through the C++ SelectNode via the Pipeline lazy path.
+    """Lazy select: a width-1 stream passes through (column 0) in Python; a
+    wide stream runs the C++ SelectNode through a one-input lazy Pipeline.
 
     Generator function: no events are consumed until the first next() call.
-    Peeks the first event to determine dimensionality and index type.
-
-    1-D events (scalar values): passthrough with column 0 projection in Python
-    (no SelectNode needed for a width-1 stream).
-    2-D events (multi-value rows): tees the stream into N per-column iterators
-    and drives an N-input combine_latest + select Pipeline.  The N tee'd iterators
-    are advanced in lockstep by the C++ lazy driver, so the tee buffer is at most O(N)
-    elements (constant in stream length - O(1) per event).
-
-    Positional feeds (index=None) are converted to row-number indices
-    internally and the None index is restored on output.
+    The first event fixes the width; positional feeds (index None) are
+    numbered by row internally and get the None index back on output.
     """
-    import itertools
-    from .dag import Input, Pipeline
-
     cols, scalar = _normalize_columns(columns)
-
-    try:
-        head = next(events)
-    except StopIteration:
+    heads, (events,) = _lazy_heads([events])
+    head = heads[0]
+    if head is _EMPTY:
         return
-
-    head_val, head_idx = head
-    all_events = itertools.chain([head], events)
-    N = np.atleast_1d(_as_float64(head_val)).size
-    positional = head_idx is None
-
-    # Validate column range against the first event's width.
+    N = np.size(_as_float64(head[0], who="select"))
     for c in cols:
         if c >= N:
             raise ValueError(
                 f"select: column {c} out of range for width {N}")
-
     if N == 1:
-        # 1-D: width-1 passthrough; SelectNode adds no value here.
-        for v, k in all_events:
-            val = float(np.atleast_1d(_as_float64(v))[0])
-            if scalar:
-                yield val, k
-            else:
-                yield [val], k
+        # Width 1: column 0 is the value itself.
+        for v, k in events:
+            val = float(np.ravel(_as_float64(v, who="select"))[0])
+            yield (val if scalar else [val]), k
         return
-
-    # 2-D: convert positional None indices to row numbers before feeding the Pipeline.
-    if positional:
-        def _add_rownum(evs):
-            for i, (v, _k) in enumerate(evs):
-                yield v, i
-        working_events = _add_rownum(all_events)
-    else:
-        working_events = all_events
-
-    # Tee N copies (lockstep); each copy is consumed once per event.
-    tees = itertools.tee(working_events, N)
-
-    def _col(teed, col):
-        for row_val, k in teed:
-            r = np.atleast_1d(_as_float64(row_val))
-            yield float(r[col]), k
-
-    col_iters = [_col(tees[i], i) for i in range(N)]
-    col_inputs = [Input(f"c{i}") for i in range(N)]
     columns_arg = cols[0] if scalar else cols
-    dag = Pipeline(col_inputs, [select(combine_latest(*col_inputs), columns=columns_arg)])
-    inner = dag(*col_iters)
-
-    if positional:
-        for v, _k in inner:
-            yield v, None
-    else:
-        yield from inner
+    dag = _one_node_pipeline(1, lambda x: select(x, columns=columns_arg), "select")
+    yield from _run_lazy_pipeline(dag, [events], "select")
 
 
 def select(values, columns, index=None):
@@ -772,8 +657,8 @@ def select(values, columns, index=None):
         return make_operator_node(Select, (values,), {"columns": columns})
     if _is_lazy_stream(values):
         return _select_lazy_cpp(values, columns)
-    vals, idx = _as_vi(values, index)
-    vals = _as_float64(vals)
+    vals, idx = _as_vi(values, index, "select")
+    vals = _as_float64(vals, contiguous=True, who="select")
     cols, scalar = _normalize_columns(columns)
     # Validate columns in Python before building the Pipeline (preserves exact
     # ValueError message regardless of which regime is active).
@@ -782,8 +667,14 @@ def select(values, columns, index=None):
         if c >= width:
             raise ValueError(
                 f"select: column {c} out of range for width {width}")
-    picked, out_idx = _select_via_cpp(vals, idx, cols, scalar)
-    return picked, out_idx   # index is unchanged (row-preserving)
+    if vals.ndim == 1:
+        # Width 1: column 0 is the values; a new array, never the input's.
+        return (vals.copy() if scalar else vals.reshape(-1, 1).copy()), idx
+    # A wide stream runs the C++ SelectNode through a one-input Pipeline,
+    # which keeps every row (equal indexes too).
+    columns_arg = cols[0] if scalar else cols
+    dag = _one_node_pipeline(1, lambda x: select(x, columns=columns_arg), "select")
+    return _run_eager_pipeline(dag, [(vals, idx)], "select")
 
 
 _RESAMPLE_AGGS = ("first", "last", "min", "max", "sum", "count", "mean", "ohlc",
@@ -1017,7 +908,7 @@ def _resample_clock_batch(vals, val_idx, clk_vals, clk_idx, *, agg, fill,
     dag = Pipeline([val_in, clk_in], [node])
     dag._who = "resample"
     # The indexes go to the Pipeline as given; the engine applies the index rule.
-    vals_f = _as_float64(vals, contiguous=True)
+    vals_f = _as_float64(vals, contiguous=True, who="resample")
     clk_f = np.ascontiguousarray(clk_vals if clk_vals.ndim == 1 else clk_vals[:, 0],
                                   dtype=np.float64)
     return dag((vals_f, val_idx), (clk_f, clk_idx))
@@ -1160,7 +1051,7 @@ def _resample_lazy_functor(values, *, every, count, agg, origin, label, fill,
     head = next(it, _EMPTY)
     if head is _EMPTY:
         return
-    v0 = _as_float64(head[0])
+    v0 = _as_float64(head[0], who="resample")
     if v0.ndim > 0:
         raise ValueError(
             f"resample: a functor agg aggregates one column; got events of shape {v0.shape}. "
@@ -1295,12 +1186,12 @@ def resample(values, driver=None, index=None, *, freq=None, every=None, count=No
             return _resample_clock_lazy(values, driver, agg=agg, fill=fill,
                                         origin=origin, label=label,
                                         max_age=max_age)
-        vals, val_idx = _as_vi(values, index)
-        vals = _as_float64(vals)
+        vals, val_idx = _as_vi(values, index, "resample")
+        vals = _as_float64(vals, who="resample")
         if max_age is not None and vals.ndim != 1:
             raise ValueError("resample: max_age requires a 1-D value stream")
-        clk_vals, clk_idx = _as_vi(driver, None)
-        clk_vals = _as_float64(clk_vals)
+        clk_vals, clk_idx = _as_vi(driver, None, "resample")
+        clk_vals = _as_float64(clk_vals, who="resample")
         if val_idx is None:
             val_idx = np.arange(len(vals), dtype=np.int64)
         if clk_idx is None:
@@ -1356,13 +1247,13 @@ def resample(values, driver=None, index=None, *, freq=None, every=None, count=No
         if driver is None:
             raise ValueError(
                 "resample: threshold= requires a driver stream as the second argument")
-        vals, idx_in = _as_vi(values, index)
-        vals = _as_float64(vals)
+        vals, idx_in = _as_vi(values, index, "resample")
+        vals = _as_float64(vals, who="resample")
         if vals.ndim != 1:
             raise ValueError(
                 "resample: threshold= requires a 1-D value stream; "
                 f"got shape {vals.shape}")
-        drv = _as_float64(driver)
+        drv = _as_float64(driver, who="resample")
         if drv.ndim != 1:
             raise ValueError(
                 "resample: threshold= requires a 1-D driver stream; "
@@ -1393,8 +1284,8 @@ def resample(values, driver=None, index=None, *, freq=None, every=None, count=No
         # the Stage-2 lazy Pipeline; no Python windowing accumulator runs here.
         return _resample_lazy(values, every=every, count=count, agg=agg,
                               origin=origin, label=label, fill=fill, max_fill=max_fill)
-    vals, idx_in = _as_vi(values, index)
-    vals = _as_float64(vals)
+    vals, idx_in = _as_vi(values, index, "resample")
+    vals = _as_float64(vals, who="resample")
     # Multi-column bar aggs require specific input widths.
     if agg in _BAR_AGGS_2COL:
         if vals.ndim != 2 or vals.shape[1] != 2:
@@ -1490,15 +1381,17 @@ class CombineLatest:
 class Dropna:
     """Drop NaN events.  Config-first form of :func:`dropna`.
 
-    ``Dropna(how="any")(values, index=None)`` is equivalent to
-    ``dropna(values, index, how="any")``.
+    ``Dropna(how="any")(*values, index=None)`` is equivalent to
+    ``dropna(*values, index=index, how="any")``. Each positional argument is
+    one stream; an index goes in a ``(values, index)`` tuple (or ``index=``
+    for one raw array).
     """
 
     def __init__(self, how="any"):
         self._how = how
 
-    def __call__(self, values, index=None):
-        return dropna(values, index, how=self._how)
+    def __call__(self, *values, index=None):
+        return dropna(*values, index=index, how=self._how)
 
 
 class Select:
@@ -1603,7 +1496,7 @@ def delay(values, index=None, *, duration):
     duration = int(_setting("delay: duration", duration, True))
     if is_node(values):
         return make_operator_node(Delay, (values,), {"duration": duration})
-    values, index = _as_vi(values, index)
+    values, index = _as_vi(values, index, "delay")
     if index is None:
         raise TypeError(
             "Delay requires an explicit index (duration is time-based); "

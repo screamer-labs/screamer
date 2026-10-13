@@ -675,6 +675,122 @@ private:
     std::vector<std::size_t> sizes_;
 };
 
+// The indexed iterator combine_latest over Python iterators of (value, index)
+// events: the sources merge in index order (ties in input order) as the merge
+// iterator does, every event updates its input's latest values, and events at
+// one index collapse into one row (the last wins), as the batch join
+// (combine_latest_rows, join_plan.h) does. The float64 instantiation takes a
+// fractional index, so the iterator form accepts the indexes the batch form
+// accepts (the index kind of the first event picks the instantiation, as the
+// batch form's first index does). Yields (tuple_of_floats,
+// index) for one field per input, else (row_array, index), the row (width,)
+// or (*A, F).
+template <class Index>
+class CombineLatestLazy {
+public:
+    CombineLatestLazy(nb::list iter_list, const PyJoinPlan& plan, bool when_all)
+        : plan_(plan.plan), order_(iter_list.size(), /*check_order=*/false),
+          cl_(plan_.widths(), when_all), unit_(std::make_unique<screamer::TimeUnit>()) {
+        for (nb::handle h : iter_list) {
+            sources_.push_back(std::make_unique<PySource<Index>>(
+                nb::borrow<nb::object>(h), false, sources_.size(), "combine_latest", unit_.get()));
+            sources_.back()->set_rows(true);
+            sources_.back()->set_flatten(true);
+        }
+        values_.resize(sources_.size());
+        for (std::size_t i = 0; i < sources_.size(); ++i) scratch_.emplace_back(plan_.inputs[i].width);
+    }
+
+    CombineLatestLazy(const CombineLatestLazy&) = delete;
+    CombineLatestLazy& operator=(const CombineLatestLazy&) = delete;
+
+    int traverse(visitproc visit, void* arg) const {
+        for (const auto& s : sources_)
+            if (int r = s->traverse(visit, arg)) return r;
+        return 0;
+    }
+    void clear() {
+        cleared_ = true;
+        for (auto& s : sources_) s->clear();
+    }
+
+    nb::object next() {
+        if (cleared_ || done_) throw nb::stop_iteration();
+        for (;;) {
+            for (std::ptrdiff_t i; (i = order_.want()) >= 0;) {
+                PySource<Index>& src = *sources_[static_cast<std::size_t>(i)];
+                if (auto e = src.next()) {
+                    values_[static_cast<std::size_t>(i)] = e->value;
+                    order_.offer(static_cast<std::size_t>(i), e->index);
+                } else {
+                    order_.end(static_cast<std::size_t>(i));
+                }
+            }
+            const std::ptrdiff_t w = order_.pop();
+            if (w < 0) {                         // the end: the held row, if any
+                done_ = true;
+                if (!buffered_) throw nb::stop_iteration();
+                return held();
+            }
+            const std::size_t i = static_cast<std::size_t>(w);
+            const PySource<Index>& src = *sources_[i];
+            const double* v = &values_[i];
+            std::size_t size = 1;
+            if (src.is_wide()) {
+                v = src.wide_values().data();
+                size = src.wide_values().size();
+            }
+            plan_.check_event(i, size);
+            plan_.read(i, v, scratch_[i].data());
+            if (!cl_.on_event(static_cast<std::uint32_t>(i), scratch_[i].data())) continue;
+            const Index at = order_.index_of(i);
+            if (buffered_ && at == at_) {        // the same index: the last row wins
+                row_ = cl_.latest();
+                continue;
+            }
+            nb::object out = buffered_ ? held() : nb::object();
+            row_ = cl_.latest();
+            at_ = at;
+            buffered_ = true;
+            if (out.is_valid()) return out;
+        }
+    }
+
+private:
+    // The held row and its index as the yielded pair.
+    nb::object held() const {
+        nb::object idx = nb::cast(at_);
+        if (!plan_.wide) {
+            nb::object t = nb::steal(PyTuple_New(static_cast<Py_ssize_t>(row_.size())));
+            if (!t.is_valid()) throw nb::python_error();
+            for (std::size_t j = 0; j < row_.size(); ++j) {
+                PyObject* f = PyFloat_FromDouble(row_[j]);
+                if (!f) throw nb::python_error();
+                if (PyTuple_SetItem(t.ptr(), static_cast<Py_ssize_t>(j), f) != 0) throw nb::python_error();
+            }
+            return nb::make_tuple(t, idx);
+        }
+        if (plan_.assets.empty())
+            return nb::make_tuple(vector_array(std::vector<double>(row_), {row_.size()}), idx);
+        std::vector<double> out(plan_.row_size());
+        plan_.assemble(row_.data(), 1, out.data());
+        return nb::make_tuple(vector_array(std::move(out), plan_.row_shape()), idx);
+    }
+
+    JoinPlan plan_;
+    MergeOrder<Index> order_;
+    CombineLatest cl_;
+    std::unique_ptr<screamer::TimeUnit> unit_;   // the index kind of every source
+    std::vector<std::unique_ptr<PySource<Index>>> sources_;
+    std::vector<double> values_;                  // each source's pending number
+    std::vector<std::vector<double>> scratch_;    // each source's event in flat-row order
+    std::vector<double> row_;                     // the held row
+    Index at_{};
+    bool buffered_ = false;
+    bool done_ = false;
+    bool cleared_ = false;
+};
+
 template <class Index>
 class CombineLatestPuller {
 public:
@@ -737,6 +853,16 @@ void init_bindings_streams(nb::module_& m) {
         .def(nb::init<nb::list, const PyJoinPlan&, nb::object>(), "sources"_a, "plan"_a, "as_float64"_a)
         .def("__iter__", [](nb::handle self) { return self; })
         .def("__next__", &CombineZip::next);
+    nb::class_<CombineLatestLazy<std::int64_t>>(m, "_CombineLatestLazy_i64",
+                                          nb::type_slots(gc_slots<CombineLatestLazy<std::int64_t>>))
+        .def(nb::init<nb::list, const PyJoinPlan&, bool>(), "sources"_a, "plan"_a, "when_all"_a)
+        .def("__iter__", [](nb::handle self) { return self; })
+        .def("__next__", &CombineLatestLazy<std::int64_t>::next);
+    nb::class_<CombineLatestLazy<double>>(m, "_CombineLatestLazy_f64",
+                                          nb::type_slots(gc_slots<CombineLatestLazy<double>>))
+        .def(nb::init<nb::list, const PyJoinPlan&, bool>(), "sources"_a, "plan"_a, "when_all"_a)
+        .def("__iter__", [](nb::handle self) { return self; })
+        .def("__next__", &CombineLatestLazy<double>::next);
     nb::class_<CombineLatestPuller<std::int64_t>>(m, "_CombineLatestPuller_i64")
         .def(nb::init<nb::list, nb::list, bool>())
         .def("next", &CombineLatestPuller<std::int64_t>::next);

@@ -142,12 +142,12 @@ class TestDropna:
     idx = np.array([0, 1, 2, 3, 4])
 
     def test_batch_any_equals_function(self):
-        assert _eq(Dropna()(self.x, self.idx), dropna(self.x, self.idx))
+        assert _eq(Dropna()((self.x, self.idx)), dropna((self.x, self.idx)))
 
     def test_batch_how_all_equals_function(self):
         x2d = np.column_stack([self.x, self.x])
-        assert _eq(Dropna(how="all")(x2d, self.idx),
-                   dropna(x2d, self.idx, how="all"))
+        assert _eq(Dropna(how="all")((x2d, self.idx)),
+                   dropna((x2d, self.idx), how="all"))
 
     def test_batch_stream_input(self):
         s = (self.x, self.idx)

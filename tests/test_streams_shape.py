@@ -142,7 +142,7 @@ def test_dropna_lazy_equals_batch():
     from screamer.streams import Dropna as _Dropna
     vals = np.array([1.0, np.nan, 3.0, np.nan, 5.0])
     idx = np.array([10, 11, 12, 13, 14])
-    bv, bk = _Dropna()(vals, idx)                          # raw -> (values, index)
+    bv, bk = _Dropna()((vals, idx))                        # (values, index) -> (values, index)
     gen = ((float(v), int(k)) for v, k in zip(vals, idx))
     out = _Dropna()(gen)
     assert hasattr(out, "__next__") and not isinstance(out, tuple)

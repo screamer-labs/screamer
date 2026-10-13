@@ -85,15 +85,17 @@ def test_combine_latest_lazy_positional_unequal_raises():
         list(out)                                              # error surfaces at exhaustion
 
 
-def test_combine_latest_lazy_fractional_index_raises():
-    """The lazy as-of path is int64-indexed: a fractional index would truncate
-    before alignment (collapsing distinct indices, changing row count/values), so
-    it must fail loudly rather than diverge from batch. Integer-valued floats pass."""
+def test_combine_latest_lazy_fractional_index_equals_batch():
+    """A fractional float index is joined on its float value, as the batch form
+    joins it (no truncation). Integer-valued floats pass as well."""
     from screamer.streams import CombineLatest as _CL
-    ga = ((float(v), 0.5 * k) for v, k in zip([10.0, 20.0, 30.0], [1, 3, 5]))  # 0.5,1.5,2.5
-    gb = ((float(v), 0.5 * k) for v, k in zip([1.0, 2.0, 3.0], [1, 3, 5]))
-    with pytest.raises(TypeError):
-        list(_CL()(ga, gb))
+    a, b = np.array([10.0, 20.0, 30.0]), np.array([1.0, 2.0, 3.0])
+    ka, kb = np.array([0.5, 1.5, 2.5]), np.array([0.0, 1.0, 2.0])
+    bv, bk = _CL()((a, ka), (b, kb))
+    rows = list(_CL()(zip(a, ka), zip(b, kb)))
+    assert [r[0] for r in rows] == [tuple(v) for v in bv]
+    assert [r[1] for r in rows] == list(bk)
+    assert all(type(r[1]) is float for r in rows)
     # integer-valued float indices are lossless and must NOT raise
     ha = ((float(v), float(k)) for v, k in zip([10.0, 20.0], [1, 2]))
     hb = ((float(v), float(k)) for v, k in zip([1.0, 2.0], [1, 2]))
@@ -133,9 +135,9 @@ def test_combine_latest_lazy_indexed_is_incremental():
     before the first result. The merge node gates each frame on the minimum per-port
     watermark, so finalizing row@0 needs BOTH ports to reach index 1: it releases
     a@1 only once b@1 proves index 0 is settled. Delivering b@1 in global order costs
-    the merge one 1-ahead peek on the leading source (a@2). So the first next()
-    consumes 3 of 4 items from the leading source and 2 of 4 from the other, never
-    all 4. The first row's value is still the correct as-of pair ((1.0, 10.0), 0)."""
+    the merge one event of each source past index 0. So the first next() consumes
+    2 of 4 items from each source, never all 4. The first row's value is still
+    the correct as-of pair ((1.0, 10.0), 0)."""
     from screamer.streams import CombineLatest as _CL
     pulled = {"a": [], "b": []}
 
@@ -148,4 +150,4 @@ def test_combine_latest_lazy_indexed_is_incremental():
     assert pulled == {"a": [], "b": []}  # construction consumes nothing
     row = next(it)
     assert row == ((1.0, 10.0), 0)                                     # correct as-of value
-    assert pulled["a"] == [1.0, 2.0, 3.0] and pulled["b"] == [10.0, 20.0]  # not the whole stream
+    assert pulled["a"] == [1.0, 2.0] and pulled["b"] == [10.0, 20.0]  # not the whole stream
