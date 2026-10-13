@@ -175,13 +175,13 @@ private:
             // Strided fields: the value of row i is made as the block pass
             // reads row i, so close comes from the cache lines just loaded.
             struct Fused {
-                const decltype(value)& value;
+                const decltype(value)& val;
                 double* y;
                 std::ptrdiff_t y_stride;
                 double e[2];
                 void put(size_t k, size_t, double v) { e[k] = v; }
                 void row(size_t i) {
-                    y[static_cast<std::ptrdiff_t>(i) * y_stride] = value(i, e[0], e[1]);
+                    y[static_cast<std::ptrdiff_t>(i) * y_stride] = val(i, e[0], e[1]);
                 }
             };
             detail::block_extrema<S, true, false>(xs2, ss, size, window_size_,

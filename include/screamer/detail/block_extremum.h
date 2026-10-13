@@ -76,7 +76,9 @@ template <std::ptrdiff_t S, bool... IsMax, class Out>
 void block_extrema(const double* const* x, const std::ptrdiff_t* stride, std::size_t size,
                    int window, Out&& out) {
     constexpr std::size_t K = sizeof...(IsMax);
-    constexpr bool kMax[K] = {IsMax...};
+    // static: the capture-less lambda below reads it with a runtime index,
+    // which odr-uses it, and only a static local needs no capture for that.
+    static constexpr bool kMax[K] = {IsMax...};
     const std::size_t w = static_cast<std::size_t>(window);
     if (size == 0) {
         return;
