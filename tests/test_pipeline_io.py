@@ -242,3 +242,44 @@ def test_a_functor_fed_another_number_of_inputs_raises():
 def s_sub(a, b):
     from screamer import Sub
     return Sub()(a, b)
+
+
+def _bit_floats(n, seed=34):
+    rng = np.random.default_rng(seed)
+    bits = rng.integers(0, 2 ** 63, size=n, dtype=np.uint64) | (rng.integers(0, 2, size=n, dtype=np.uint64) << 63)
+    vals = bits.view(np.float64)
+    vals = vals[np.isfinite(vals)].tolist()
+    return vals + [5e-324, -5e-324, 2.225073858507201e-308, 2.2250738585072014e-308,
+                   1.7976931348623157e308, -0.0, 1e22, 1e23, 9007199254740993.0, 0.1, 1 / 3]
+
+
+@pytest.mark.parametrize("locale_name", [None, "de_DE.UTF-8", "fr_FR.UTF-8", "ar_SA.UTF-8"])
+def test_every_double_is_written_as_json_dumps_and_read_back_bit_exact(locale_name):
+    import locale
+    old = locale.setlocale(locale.LC_NUMERIC)
+    if locale_name:
+        try:
+            locale.setlocale(locale.LC_NUMERIC, locale_name)
+        except locale.Error:
+            pytest.skip(f"{locale_name} is not installed")
+    try:
+        floats = _bit_floats(20000)
+        d = _description({"scale": floats})
+        text = _b._graph_to_json(d, None)
+        back = _b._graph_from_json(text)["nodes"][1]["params"]["scale"]
+    finally:
+        locale.setlocale(locale.LC_NUMERIC, old)
+    assert text == json.dumps(d)
+    assert np.array(back).view(np.uint64).tolist() == np.array(floats).view(np.uint64).tolist()
+
+
+def test_numbers_beyond_the_double_range_read_as_python_reads_them():
+    d = _description({"scale": 1.0})
+    for token, want in [("1e309", math.inf), ("-1e309", -math.inf), ("1e-400", 0.0),
+                        ("123456789012345678901234567890", 1.2345678901234568e29),
+                        ("-9223372036854775808", -9223372036854775808), ("9223372036854775808", 9.223372036854776e18)]:
+        text = json.dumps(d).replace('"scale": 1.0', f'"scale": {token}')
+        got = _b._graph_from_json(text)["nodes"][1]["params"]["scale"]
+        # An integer beyond int64 is read as the nearest double (Python's
+        # json keeps the int); every other value is json's.
+        assert got == want and float(got) == float(json.loads(text)["nodes"][1]["params"]["scale"])

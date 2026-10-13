@@ -27,11 +27,14 @@
 // languages write the same text for the same description.
 
 #include <cerrno>
+#include <cfloat>
+#include <iomanip>
+#include <locale>
+#include <sstream>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
-#include <clocale>
 #include <cstdlib>
 #include <stdexcept>
 #include <string>
@@ -40,27 +43,67 @@
 
 namespace screamer { namespace dag { namespace json {
 
-// The JSON text never depends on the C locale: a number is written and read
-// with '.' as its decimal point whatever LC_NUMERIC says (a German locale
-// writes and reads ','). The C library's conversions are used, with the
-// locale's decimal point swapped in and out.
+// The JSON text never depends on the locale, and nothing here reads global
+// locale state (LC_NUMERIC, localeconv): numbers go through streams imbued
+// with std::locale::classic(), whose num_put and num_get use the "C" rules
+// on every thread whatever the process locale. (std::to_chars and
+// std::from_chars for double would do the same, but libc++ provides
+// from_chars for double only in recent releases, and to_chars needs macOS
+// 13.3, newer than the wheels' deployment target.)
 namespace detail {
-inline std::string locale_point() {
-    const std::lconv* lc = std::localeconv();
-    return (lc && lc->decimal_point && *lc->decimal_point) ? lc->decimal_point : ".";
-}
-// A JSON number's text as a double: '.' becomes the locale's decimal point
-// for strtod.
+
+// A JSON number's text (checked by the parser) as the nearest double. A value
+// beyond the double range is infinite and one below it zero or subnormal, as
+// Python's float() gives; the streams flag both (libc++ and libstdc++ set
+// failbit, and libstdc++ gives DBL_MAX for an overflow), so the flag is read
+// against the value.
 inline double read_double(const std::string& text) {
-    const std::string point = locale_point();
-    if (point == ".") return std::strtod(text.c_str(), nullptr);
-    std::string t;
-    for (char c : text) {
-        if (c == '.') t += point;
-        else t += c;
-    }
-    return std::strtod(t.c_str(), nullptr);
+    std::istringstream is(text);
+    is.imbue(std::locale::classic());
+    double d = 0.0;
+    is >> d;
+    if (is.fail() && (std::isinf(d) || std::fabs(d) == DBL_MAX))
+        d = (text[0] == '-') ? -HUGE_VAL : HUGE_VAL;
+    return d;
 }
+
+// Decimal text of an integer, without the C library's (locale-aware) printf.
+inline std::string int_text(std::int64_t v) {
+    char buf[24];
+    char* p = buf + sizeof buf;
+    const bool neg = v < 0;
+    // Work in unsigned: -INT64_MIN does not fit int64.
+    std::uint64_t u = neg ? 0 - static_cast<std::uint64_t>(v) : static_cast<std::uint64_t>(v);
+    do { *--p = static_cast<char>('0' + u % 10); u /= 10; } while (u);
+    if (neg) *--p = '-';
+    return std::string(p, buf + sizeof buf);
+}
+
+// The shortest scientific text of `v` ("d.ddde±xx", the "C" rules) that
+// reads back to `v`: its digits and decimal exponent.
+inline void shortest_digits(double v, std::string& digits, int& exp10) {
+    std::ostringstream os;
+    os.imbue(std::locale::classic());
+    os << std::scientific;
+    std::string t;
+    for (int prec = 1; prec <= 17; ++prec) {
+        os.str(std::string());
+        os << std::setprecision(prec - 1) << v;
+        t = os.str();
+        if (read_double(t) == v) break;
+    }
+    const std::size_t e = t.find('e');
+    digits.clear();
+    for (std::size_t k = 0; k < e; ++k)
+        if (t[k] >= '0' && t[k] <= '9') digits += t[k];
+    int x = 0;
+    std::size_t k = e + 1;
+    const bool neg = t[k] == '-';
+    if (t[k] == '-' || t[k] == '+') ++k;
+    for (; k < t.size(); ++k) x = x * 10 + (t[k] - '0');
+    exp10 = neg ? -x : x;
+}
+
 }  // namespace detail
 
 // ---- Values ----------------------------------------------------------------
@@ -302,10 +345,17 @@ private:
         const std::string text = t_.substr(start, p_ - start);
         if (whole) {
             // An integer that fits int64 stays an integer; a larger one is a float.
-            errno = 0;
-            char* end = nullptr;
-            const long long v = std::strtoll(text.c_str(), &end, 10);
-            if (errno == 0 && end && *end == '\0') return Value::integer(static_cast<std::int64_t>(v));
+            const bool neg = text[0] == '-';
+            const std::uint64_t limit = neg ? 9223372036854775808ULL : 9223372036854775807ULL;
+            std::uint64_t u = 0;
+            bool fits = true;
+            for (std::size_t k = neg ? 1 : 0; k < text.size() && fits; ++k) {
+                const std::uint64_t d = static_cast<std::uint64_t>(text[k] - '0');
+                if (u > (limit - d) / 10) fits = false;
+                else u = u * 10 + d;
+            }
+            if (fits)
+                return Value::integer(neg ? static_cast<std::int64_t>(0 - u) : static_cast<std::int64_t>(u));
         }
         return Value::number(json::detail::read_double(text));
     }
@@ -325,22 +375,10 @@ inline std::string float_text(double v) {
     if (std::isnan(v)) return "NaN";
     if (std::isinf(v)) return v > 0 ? "Infinity" : "-Infinity";
     if (v == 0.0) return std::signbit(v) ? "-0.0" : "0.0";
-    char buf[40];
-    int prec = 1;
-    for (; prec <= 17; ++prec) {
-        std::snprintf(buf, sizeof buf, "%.*e", prec - 1, v);
-        if (std::strtod(buf, nullptr) == v) break;
-    }
-    // buf is [-]d[<point>ddd]e[+-]xx, the point the locale's: its digits
-    // and the decimal exponent.
-    std::string s(buf);
-    const bool neg = s[0] == '-';
-    if (neg) s.erase(0, 1);
-    const std::size_t e = s.find('e');
-    const int exp10 = std::atoi(s.c_str() + e + 1);
+    const bool neg = std::signbit(v);
     std::string digits;
-    for (std::size_t k = 0; k < e; ++k)
-        if (s[k] >= '0' && s[k] <= '9') digits += s[k];
+    int exp10 = 0;
+    json::detail::shortest_digits(std::fabs(v), digits, exp10);
     while (digits.size() > 1 && digits.back() == '0') digits.pop_back();
     const int decpt = exp10 + 1;   // value = 0.digits * 10^decpt
     const int n = static_cast<int>(digits.size());
@@ -349,9 +387,11 @@ inline std::string float_text(double v) {
         out += digits[0];
         if (n > 1) out += "." + digits.substr(1);
         const int x = decpt - 1;
-        char eb[8];
-        std::snprintf(eb, sizeof eb, "e%c%02d", x < 0 ? '-' : '+', x < 0 ? -x : x);
-        out += eb;
+        const int ax = x < 0 ? -x : x;
+        out += 'e';
+        out += x < 0 ? '-' : '+';
+        if (ax < 10) out += '0';
+        out += json::detail::int_text(ax);
     } else if (decpt <= 0) {
         out += "0." + std::string(static_cast<std::size_t>(-decpt), '0') + digits;
     } else if (decpt >= n) {
@@ -421,7 +461,7 @@ inline void write(std::string& out, const Value& v, int indent, int level) {
     switch (v.kind) {
     case K::Null: out += "null"; return;
     case K::Bool: out += v.b ? "true" : "false"; return;
-    case K::Int: out += std::to_string(v.i); return;
+    case K::Int: out += json::detail::int_text(v.i); return;
     case K::Float: out += float_text(v.d); return;
     case K::String: write_string(out, v.s); return;
     case K::Array:
