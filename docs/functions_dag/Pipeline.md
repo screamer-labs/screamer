@@ -236,13 +236,25 @@ inline, falling back to the text tree when graphviz is not available.
 ## Saving and loading a pipeline
 
 `pipe.to_json()` serializes the pipeline to JSON (its inputs, nodes with their
-parameters, outputs, and `align_outputs`), and `Pipeline.from_json(text)` rebuilds a
-runnable `Pipeline` from it. This round-trips exactly, so a pipeline can be saved as a
-config file and reloaded. `to_dict` / `from_dict` give the same round-trip with a
-plain dict. A functor reducer of a `Resample`, as in `agg=RollingMean(5)`, is
-saved as its name and parameters, `{"functor": "RollingMean", "params":
-{"window_size": 5}}`, and loading builds a new one, so the restored pipeline
-shares no state with the original.
+parameters, outputs, `align_outputs` and `max_pending`), and
+`Pipeline.from_json(text)` rebuilds a runnable `Pipeline` from it. This
+round-trips exactly, so a pipeline can be saved as a config file and reloaded.
+`to_dict` / `from_dict` give the same round-trip with a plain dict. A functor
+reducer of a `Resample`, as in `agg=RollingMean(5)`, is saved as its name and
+parameters, `{"functor": "RollingMean", "params": {"window_size": 5}}`, and
+loading builds a new one, so the restored pipeline shares no state with the
+original.
+
+The format is shared with JavaScript: a pipeline saved by `to_json()` loads
+with `Pipeline.fromJSON(text)` in `@screamer-labs/screamer`, and one saved by
+its `toJSON()` loads here, with the same results. Parameters keep their
+Python names in both languages (`window_size`, not `windowSize`). A setting
+that is not finite, such as `Clip(lower=-inf)`, is written as `-Infinity`,
+which Python's `json` module reads; strict JSON readers do not. `from_json`
+and `from_dict` check the description first and raise `ValueError` naming
+the problem, such as "unknown functor class: 'NoSuchOp'" or "Pipeline
+description: node 1: input 7 is not an earlier node"; each node's settings
+are then checked by its constructor.
 
 ```{eval-rst}
 .. exec_code::

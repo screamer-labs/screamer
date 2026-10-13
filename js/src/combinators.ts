@@ -106,8 +106,11 @@ export function combineLatest(inputs: unknown[], opts?: CombineLatestOpts): unkn
       throw new RangeError("combineLatest: layout applies to arrays and iterators; " +
         "streams inside a Pipeline carry fields only");
     // Unset: the Pipeline's maxPending. The engine checks the value at compile.
+    // `spec`: the node as Python's to_dict writes it (Pipeline.toJSON).
+    const spec = { op: "CombineLatest", params: { emit: o.whenAll ? "when_all" : "on_any",
+                                                  ...(o.maxPending !== undefined ? { max_pending: o.maxPending } : {}) } };
     return new Node(
-      { combinator: "combineLatest", params: { whenAll: o.whenAll, maxPending: o.maxPending } },
+      { combinator: "combineLatest", params: { whenAll: o.whenAll, maxPending: o.maxPending }, spec },
       inputs as Node[],
     );
   }
@@ -201,7 +204,8 @@ function normalizeColumns(columns: number | number[]): number[] {
 export function select(node: Node, columns: number | number[]): Node {
   if (!isNode(node)) throw new Error("select: first argument must be a Node");
   const cols = normalizeColumns(columns);
-  return new Node({ combinator: "select", params: { columns: cols } }, [node]);
+  const spec = { op: "Select", params: { columns: Array.isArray(columns) ? [...columns] : columns } };
+  return new Node({ combinator: "select", params: { columns: cols }, spec }, [node]);
 }
 
 // ---- dropna ----------------------------------------------------------------
@@ -217,7 +221,8 @@ export function dropna(nodes: Node | Node[], opts: DropnaOpts = {}): Node {
   if (arr.length === 0 || !arr.every(isNode)) {
     throw new Error("dropna: pass one Node or a non-empty array of Nodes");
   }
-  return new Node({ combinator: "dropna", params: { howAll: opts.how === "all" } }, arr);
+  const spec = { op: "Dropna", params: { how: opts.how ?? "any" } };
+  return new Node({ combinator: "dropna", params: { howAll: opts.how === "all" }, spec }, arr);
 }
 
 // ---- filter ----------------------------------------------------------------
@@ -228,7 +233,7 @@ export function filter(data: Node, mask: Node): Node {
   if (!isNode(data) || !isNode(mask)) {
     throw new Error("filter: both data and mask must be Nodes");
   }
-  return new Node({ combinator: "filter", params: {} }, [data, mask]);
+  return new Node({ combinator: "filter", params: {}, spec: { op: "Filter", params: {} } }, [data, mask]);
 }
 
 // ---- delay -----------------------------------------------------------------
@@ -237,7 +242,8 @@ export function filter(data: Node, mask: Node): Node {
 export function delay(node: Node, k: number): Node {
   if (!isNode(node)) throw new Error("delay: first argument must be a Node");
   setting("delay: duration", k, true, true);
-  return new Node({ combinator: "delay", params: { duration: Math.trunc(k) } }, [node]);
+  const duration = Math.trunc(k);
+  return new Node({ combinator: "delay", params: { duration }, spec: { op: "Delay", params: { duration } } }, [node]);
 }
 
 // ---- resample --------------------------------------------------------------
@@ -355,5 +361,20 @@ export function resample(node: Node, opts: ResampleOpts = {}): Node {
   // builder (C++) joins value and driver into one [value, driver] row first; a
   // clock driver goes to the node's own clock port.
   const inputs = opts.driver && isNode(opts.driver) ? [node, opts.driver] : [node];
-  return new Node({ combinator: "resample", params }, inputs);
+  // The node as Python's to_dict writes it (Pipeline.toJSON): the mode's own
+  // setting, then agg, origin, label and fill, and the optional ones given.
+  const sp: Record<string, unknown> = {};
+  if (modeCode === RESAMPLE_MODE_CODE.by_clock) sp.clock = true;
+  else if (modeCode === RESAMPLE_MODE_CODE.by_cumulative) sp.threshold = thresholdVal;
+  else {
+    if (opts.every !== undefined && opts.every !== null) sp.every = width;
+    if (modeCode === RESAMPLE_MODE_CODE.by_count) sp.count = countVal;
+  }
+  sp.agg = reducer ?? agg;   // a reducer node is written as its functor (toJSON)
+  sp.origin = origin;
+  sp.label = opts.label ?? "left";
+  sp.fill = opts.fill ?? "skip";
+  if (modeCode === RESAMPLE_MODE_CODE.by_clock && maxAgeVal >= 0) sp.max_age = maxAgeVal;
+  if (opts.maxFill !== undefined && opts.maxFill !== null) sp.max_fill = opts.maxFill;
+  return new Node({ combinator: "resample", params, spec: { op: "Resample", params: sp } }, inputs);
 }

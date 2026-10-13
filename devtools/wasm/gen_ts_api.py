@@ -235,6 +235,14 @@ def _factory_body(name: str, params: list[dict], wrapper: str = "wrapOp") -> str
             lines.append(f"  else if (arguments.length > {len(params)}) _tooMany(\"{name}\", {len(params)}, arguments.length);")
         else:
             lines.append(f"  if (arguments.length > {len(params)}) _tooMany(\"{name}\", {len(params)}, arguments.length);")
+    # The settings as the caller gave them, before the defaults, by their
+    # Python names: the "params" of a functor node in Pipeline.toJSON, as
+    # Python records them (_functor_params.bind_params). An optional
+    # setting's NaN, like null, is "not given".
+    given = ", ".join(f"(Number.isNaN({p['name']}) ? undefined : {p['name']})" if p["nullable"]
+                      else p["name"] for p in params)
+    lines.append(f"  const _given: unknown[] = [{given}];")
+    spec_tail = f'"{name}", [{", ".join(chr(34) + p["orig_name"] + chr(34) for p in params)}], _given'
     # undefined is the default; null is too where Python takes None (an
     # optional setting); a required setting has no default.
     for p in params:
@@ -284,10 +292,10 @@ def _factory_body(name: str, params: list[dict], wrapper: str = "wrapOp") -> str
                              for p in floats)
             lines.append(f"  }} catch (e) {{ throw _finite(M, \"{name}\", [{names}], [{vals}], e); }}")
     if not vecs:
-        lines.append(f"{ind}  return {wrapper}(M, () => new M.{name}({', '.join(call_args)}));")
+        lines.append(f"{ind}  return _params({wrapper}(M, () => new M.{name}({', '.join(call_args)})), {spec_tail});")
         close_try()
         return "\n".join(lines)
-    lines.append(f"  return {wrapper}(M, () => {{")
+    lines.append(f"  return _params({wrapper}(M, () => {{")
     # The vectors are deleted however the constructor ends, so a rejected
     # argument does not leak them.
     vs = [f"_v{idx}" for idx, p in enumerate(params) if p["is_vec"]]
@@ -304,7 +312,7 @@ def _factory_body(name: str, params: list[dict], wrapper: str = "wrapOp") -> str
     for v in vs:
         lines.append(f"      {v}.delete();")
     lines.append("    }")
-    lines.append("  });")
+    lines.append(f"  }}), {spec_tail});")
     if floats:   # indent the block inside the try
         start = lines.index("  try {") + 1
         lines[start:] = [("  " + l) for l in lines[start:]]
@@ -389,6 +397,19 @@ const _finite = (M: any, op: string, names: string[], values: unknown[], e: unkn
   });
   const msg = M.finiteSettingError(op, ns, vs);
   return msg ? new RangeError(msg) : e;
+};
+// Records the settings the caller gave on the op, by their Python names
+// (`screamerSpec`: { cls, params }), for Pipeline.toJSON. An array setting
+// is copied.
+const _params = (op: ScreamerOp, cls: string, names: string[], given: unknown[]): ScreamerOp => {
+  const params: Record<string, unknown> = {};
+  names.forEach((n, i) => {
+    const v = given[i];
+    if (v === undefined || v === null) return;
+    params[n] = Array.isArray(v) || ArrayBuffer.isView(v) ? Array.from(v as ArrayLike<unknown>) : v;
+  });
+  Object.defineProperty(op, "screamerSpec", { value: { cls, params } });
+  return op;
 };
 const _tooMany = (op: string, n: number, nArgs: number): never => {
   throw new TypeError(`${op}: takes at most ${n} arguments, got ${nArgs}`);

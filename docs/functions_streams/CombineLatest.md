@@ -35,6 +35,12 @@ Feeding `CombineLatest` lazy iterators of `(value, index)` events returns a
 lazy iterator (a no-index source is numbered by a per-source arrival counter);
 feeding arrays or `(values, index)` tuples returns the eager `(aligned, index)` pair.
 
+Inside a `Pipeline`, `CombineLatest(max_pending=N)` sets this join's own cap on
+the events it holds while it waits for another input (an integer from 1 to
+2\*\*53); without it, the join takes the `Pipeline`'s `max_pending`. JavaScript's
+`combineLatest(nodes, { maxPending })` is the same setting. It applies to
+`Input` nodes only: with arrays or iterators it raises `TypeError`.
+
 ## Examples
 
 Two streams, `a` and `b`, tick at different indices. `CombineLatest` produces

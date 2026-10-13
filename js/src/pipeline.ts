@@ -5,6 +5,7 @@ import { current } from "./index.js";
 import { normalizeError, wasmCall } from "./errors.js";
 import { aKind, feedValue, kindName, toF64Checked, whereText } from "./kinds.js";
 import { releaseWith, type Owned } from "./runtime.js";
+import { build, checkDict, checkJson, describe, describeJson } from "./pipeline_io.js";
 
 // One bound feed for an Input: a values stream and its integer index axis.
 type Feed = Float64Array | number[] | NdArray | { values: Float64Array | number[] | NdArray; index?: Float64Array | number[] | null };
@@ -626,6 +627,16 @@ export interface Pipeline {
   (feeds: Feeds): Output | Output[];
   live(): LiveDriver;
   dispose(): void;
+  /**
+   * The JSON text of this pipeline, as Python's `to_json(indent)` writes it
+   * (one shared C++ writer): its inputs, nodes with their settings, outputs,
+   * `align_outputs` and `max_pending`. `Pipeline.fromJSON` (or Python's
+   * `Pipeline.from_json`) rebuilds it. `indent` null writes one line. Note
+   * that `JSON.stringify(pipeline)` gives this text as a JSON string.
+   */
+  toJSON(indent?: number | null): string;
+  /** The description as a plain object, as Python's `to_dict()` gives it. */
+  toDict(): Record<string, unknown>;
   readonly inputs: Node[];
   readonly outputs: Node[];
   readonly alignOutputs: boolean;
@@ -650,9 +661,36 @@ export const Pipeline = function (inputs: Node[], outputs: Node[], opts?: Pipeli
   // The compiled graph is freed by dispose() or when `fn` is collected.
   (fn as any).dispose = releaseWith(fn, impl);
   (fn as any).live = () => impl.live(fn);
+  (fn as any).toDict = () => describe(impl.inputs, impl.outputs, impl.alignOutputs, impl.maxPending);
+  // JSON.stringify(pipeline) calls toJSON with the property key (a string):
+  // that call gets the default indent.
+  (fn as any).toJSON = (indent: unknown = 2) =>
+    describeJson(describe(impl.inputs, impl.outputs, impl.alignOutputs, impl.maxPending),
+                 typeof indent === "string" ? 2 : (indent as number | null));
   Object.defineProperty(fn, "inputs", { value: impl.inputs, enumerable: true });
   Object.defineProperty(fn, "outputs", { value: impl.outputs, enumerable: true });
   Object.defineProperty(fn, "alignOutputs", { value: impl.alignOutputs, enumerable: true });
   Object.defineProperty(fn, "maxPending", { value: impl.maxPending, enumerable: true });
   return fn;
-} as unknown as { new (inputs: Node[], outputs: Node[], opts?: PipelineOptions): Pipeline };
+} as unknown as PipelineConstructor;
+
+export interface PipelineConstructor {
+  new (inputs: Node[], outputs: Node[], opts?: PipelineOptions): Pipeline;
+  /**
+   * The pipeline a JSON text describes: the text `toJSON()` or Python's
+   * `to_json()` writes. The description is checked against the shared schema
+   * (a malformed text or description throws `RangeError` naming the problem),
+   * and each node is built by its factory, which checks its settings.
+   */
+  fromJSON(text: string): Pipeline;
+  /** The pipeline a description object gives, as Python's `from_dict`. */
+  fromDict(description: Record<string, unknown>): Pipeline;
+}
+
+// The pipeline of a checked description.
+const fromChecked = (d: Record<string, any>): Pipeline => {
+  const { inputs, outputs, opts } = build(d);
+  return new Pipeline(inputs, outputs, opts);
+};
+Pipeline.fromJSON = (text: string) => fromChecked(checkJson(text));
+Pipeline.fromDict = (description: Record<string, unknown>) => fromChecked(checkDict(description));

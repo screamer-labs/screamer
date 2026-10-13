@@ -371,8 +371,10 @@ class Pipeline:
                 name = getattr(fn, "__name__", "")
                 inp = [build(i) for i in node.inputs]
                 if name == "CombineLatest":
+                    # The node's own cap, else the Pipeline's.
+                    cap = kwargs.get("max_pending")
                     nid = gb.add_combine_latest(inp, kwargs.get("emit") == "when_all",
-                                               self.max_pending)
+                                               self.max_pending if cap is None else cap)
                 elif name == "Filter":
                     nid = gb.add_filter(inp)
                 elif name == "Dropna":

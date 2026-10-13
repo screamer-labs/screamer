@@ -358,7 +358,7 @@ def _flat_events(src, plan, k):
     return ((plan.flat(k, _as_float64(v)), i) for v, i in src)
 
 
-def combine_latest(*values, index=None, emit="when_all", layout=None):
+def combine_latest(*values, index=None, emit="when_all", layout=None, max_pending=None):
     """As-of latest-value join of N streams: one row per distinct index (same-index
     events coalesce). Values-first + polymorphic: raw arrays, (values, index)
     tuples, or graph Nodes.
@@ -378,6 +378,9 @@ def combine_latest(*values, index=None, emit="when_all", layout=None):
     as in :func:`reshape`; inputs with asset axes broadcast them and concatenate
     their fields. By default a 1-D or 2-D input is fields and a 3-D input is
     ``(T, A, F)``.
+
+    ``max_pending`` (Node inputs only) is the join's own cap on the events it
+    holds while it waits for another input; unset, the Pipeline's.
     """
     if emit not in ("when_all", "on_any"):
         raise ValueError('combine_latest: emit must be "when_all" or "on_any"')
@@ -386,7 +389,13 @@ def combine_latest(*values, index=None, emit="when_all", layout=None):
             raise ValueError(
                 "CombineLatest(layout=...) applies to arrays and iterators; "
                 "streams inside a Pipeline carry fields only")
-        return make_operator_node(CombineLatest, values, {"emit": emit})
+        params = {"emit": emit}
+        if max_pending is not None:
+            params["max_pending"] = _b._max_pending(max_pending, "CombineLatest: max_pending")
+        return make_operator_node(CombineLatest, values, params)
+    if max_pending is not None:
+        raise TypeError("CombineLatest: max_pending applies to Node inputs, the join "
+                        "inside a Pipeline")
     if values and all(_is_lazy_stream(v) for v in values):
         return _combine_latest_lazy(values, emit, layout)
     if any(_is_lazy_stream(v) for v in values):
@@ -1453,7 +1462,7 @@ class Merge:
 class CombineLatest:
     """As-of latest-value join.  Config-first form of :func:`combine_latest`.
 
-    ``CombineLatest(emit="when_all", layout=None)(*values, index=None)`` is
+    ``CombineLatest(emit="when_all", layout=None, max_pending=None)(*values, index=None)`` is
     equivalent to ``combine_latest(*values, index=None, emit=..., layout=...)``.
 
     ``func=`` is not available on the class surface; apply a functor to the
@@ -1461,12 +1470,16 @@ class CombineLatest:
     ``Sub()(CombineLatest()(a, b))``.
     """
 
-    def __init__(self, emit="when_all", layout=None):
+    def __init__(self, emit="when_all", layout=None, max_pending=None):
+        if max_pending is not None:      # a setting raises at construction
+            max_pending = _b._max_pending(max_pending, "CombineLatest: max_pending")
         self._emit = emit
         self._layout = layout
+        self._max_pending = max_pending
 
     def __call__(self, *values, index=None):
-        return combine_latest(*values, index=index, emit=self._emit, layout=self._layout)
+        return combine_latest(*values, index=index, emit=self._emit, layout=self._layout,
+                              max_pending=self._max_pending)
 
 
 class Dropna:

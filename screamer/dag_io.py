@@ -5,10 +5,15 @@ functor with params and the ids of the nodes feeding it), its outputs, and
 ``align_outputs`` and ``max_pending``. ``from_dict`` rebuilds a runnable Pipeline, so a graph round-trips
 as a config file. Reuses the same graph walk as the visualizer so structure and
 labels stay consistent.
-"""
-import json
 
+The schema and the JSON text are C++ (include/screamer/dag/graph_json.h),
+shared with JavaScript's ``Pipeline.toJSON`` and ``Pipeline.fromJSON``: a
+description is checked there and given in its normal form, and this module
+builds the nodes from it with the Python constructors.
+"""
 import numpy as np
+
+from . import screamer_bindings as _b
 
 from . import streams
 from .dag import Pipeline, Input
@@ -17,9 +22,9 @@ from .supervised import forecast_pairs as _forecast_pairs
 
 SCHEMA_VERSION = 1
 
-# Operators that can be graph nodes (mirrors Pipeline._compile_cpp's support).
-# CamelCase keys: current serialized format (operator identity = class name).
-# lowercase keys: backward compat for graphs serialized before step 3E.
+# Operators that can be graph nodes (mirrors Pipeline._compile_cpp's support),
+# by the canonical names of the schema (graph_json.h), which also reads the
+# lowercase names of graphs saved before step 3E.
 _OPERATORS = {
     "CombineLatest": streams.combine_latest,
     "Dropna": streams.dropna,
@@ -28,10 +33,6 @@ _OPERATORS = {
     "Filter": lambda data, mask: streams.Filter()(data, mask),
     "Delay": lambda values, duration: streams.delay(values, duration=duration),
     "forecast_pairs": _forecast_pairs,
-    "combine_latest": streams.combine_latest,
-    "dropna": streams.dropna,
-    "select": streams.select,
-    "resample": streams.resample,
 }
 
 
@@ -91,7 +92,9 @@ def to_dict(dag):
 
 
 def to_json(dag, indent=2):
-    return json.dumps(to_dict(dag), indent=indent)
+    """The JSON text of :func:`to_dict`, as ``json.dumps(to_dict(dag), indent=indent)``
+    writes it (written by the shared C++ writer, which JavaScript uses too)."""
+    return _b._graph_to_json(to_dict(dag), indent)
 
 
 def _functor(spec):
@@ -99,7 +102,7 @@ def _functor(spec):
     import screamer
     cls = getattr(screamer, spec["functor"], None) if isinstance(spec["functor"], str) else None
     if cls is None or not getattr(cls, "_screamer_wrapped", False):
-        raise ValueError(f"unknown functor class: {spec['functor']!r}")
+        _b._unknown_functor(str(spec["functor"]))
     params = {k: _decode(v) for k, v in dict(spec.get("params", {})).items()}
     args = params.pop("args", [])
     return cls(*args, **params)
@@ -118,10 +121,12 @@ def _decode(value):
 
 def from_dict(data):
     """Rebuild a runnable ``Pipeline`` from a dict produced by :func:`to_dict`."""
-    version = data.get("screamer_dag")
-    if version != SCHEMA_VERSION:
-        raise ValueError(
-            f"unsupported screamer_dag version: {version!r} (expected {SCHEMA_VERSION})")
+    return _build(_b._graph_check(data))
+
+
+def _build(data):
+    """The Pipeline of a description in its normal form (graph_json.h
+    check_graph): canonical operator names, params on every node."""
     import screamer  # functor classes live on the top-level namespace (wrapped)
 
     built = {}  # node id -> rebuilt Node
@@ -129,33 +134,30 @@ def from_dict(data):
         nid, kind = spec["id"], spec["kind"]
         if kind == "input":
             built[nid] = Input(spec["name"])
-        elif kind == "operator":
-            op = spec["op"]
-            if op not in _OPERATORS:
-                raise ValueError(f"unknown DAG operator: {op!r}")
-            feeds = [built[i] for i in spec["in"]]
-            params = {k: _decode(v) for k, v in spec.get("params", {}).items()}
-            built[nid] = _OPERATORS[op](*feeds, **params)
-        elif kind == "functor":
+            continue
+        feeds = [built[i] for i in spec["in"]]
+        params = {k: _decode(v) for k, v in spec["params"].items()}
+        if kind == "operator":
+            built[nid] = _OPERATORS[spec["op"]](*feeds, **params)
+        else:
             cls = getattr(screamer, spec["cls"], None)
-            if cls is None:
-                raise ValueError(f"unknown functor class: {spec['cls']!r}")
-            feeds = [built[i] for i in spec["in"]]
-            params = {k: _decode(v) for k, v in spec.get("params", {}).items()}
+            if cls is None or not getattr(cls, "_screamer_wrapped", False):
+                _b._unknown_functor(spec["cls"])
             args = params.pop("args", [])  # positional fallback for schema-less functors
             built[nid] = cls(*args, **params)(*feeds)
-        else:
-            raise ValueError(f"unknown node kind: {kind!r}")
 
     name_to_node = {spec["name"]: built[spec["id"]]
                     for spec in data["nodes"] if spec["kind"] == "input"}
     inputs = [name_to_node[name] for name in data["inputs"]]
     outputs = [built[i] for i in data["outputs"]]
-    kwargs = {"align_outputs": data.get("align_outputs", True)}
+    kwargs = {"align_outputs": data["align_outputs"]}
     if "max_pending" in data:              # absent in graphs saved before 3.0.0
         kwargs["max_pending"] = data["max_pending"]
     return Pipeline(inputs, outputs, **kwargs)
 
 
 def from_json(text):
-    return from_dict(json.loads(text))
+    """Rebuild a runnable ``Pipeline`` from the text :func:`to_json` writes."""
+    if not isinstance(text, str):
+        raise TypeError(f"Pipeline.from_json takes the JSON text (a str), got {type(text).__name__}")
+    return _build(_b._graph_from_json(text))

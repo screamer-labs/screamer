@@ -22,6 +22,7 @@
 #include "screamer/dag/compiled_graph.h"
 #include "screamer/dag/output_join.h"
 #include "screamer/dag/checked_index.h"
+#include "screamer/dag/graph_json.h"
 #include "screamer/dag/forecast_pairs.h"
 #include "screamer/streams/py_index.h"
 #include "screamer/streams/event.h"
@@ -542,7 +543,84 @@ static double count_setting(nb::handle x, const std::string& name) {
     return dag::checked_count_setting(d, name);
 }
 
+// ---- The saved form of a Pipeline (graph_json.h) ---------------------------
+// Python objects to and from json::Value, as the json module reads them: a
+// dict with str keys, a list or tuple, a bool, an int, a float, a str, None.
+static dag::json::Value to_json_value(nb::handle x, int depth = 0) {
+    using V = dag::json::Value;
+    if (depth > 512) throw nb::value_error("Pipeline description: values nested too deeply");
+    PyObject* p = x.ptr();
+    if (x.is_none()) return V::null();
+    if (PyBool_Check(p)) return V::boolean(p == Py_True);
+    if (PyLong_Check(p)) {
+        int overflow = 0;
+        const long long v = PyLong_AsLongLongAndOverflow(p, &overflow);
+        if (overflow) return V::number(PyLong_AsDouble(p));
+        return V::integer(static_cast<std::int64_t>(v));
+    }
+    if (PyFloat_Check(p)) return V::number(PyFloat_AsDouble(p));
+    if (PyUnicode_Check(p)) return V::string(nb::cast<std::string>(x));
+    if (PyDict_Check(p)) {
+        V o = V::object();
+        for (auto kv : nb::borrow<nb::dict>(x)) {
+            if (!PyUnicode_Check(kv.first.ptr()))
+                throw nb::type_error(("keys must be str, not " +
+                    nb::cast<std::string>(nb::type_name(kv.first.type()))).c_str());
+            o.set(nb::cast<std::string>(kv.first), to_json_value(kv.second, depth + 1));
+        }
+        return o;
+    }
+    if (PyList_Check(p) || PyTuple_Check(p)) {
+        V a = V::array();
+        for (nb::handle e : x) a.a.push_back(to_json_value(e, depth + 1));
+        return a;
+    }
+    // A NumPy scalar or array (a setting given as np.int64(20) or
+    // np.array([0, 1])): its Python value, as to_dict writes it.
+    if (nb::hasattr(x, "tolist") && nb::hasattr(x, "dtype"))
+        return to_json_value(x.attr("tolist")(), depth + 1);
+    throw nb::type_error(("Object of type " + nb::cast<std::string>(nb::type_name(x.type())) +
+                          " is not JSON serializable").c_str());
+}
+
+static nb::object from_json_value(const dag::json::Value& v) {
+    using K = dag::json::Value::Kind;
+    switch (v.kind) {
+    case K::Null: return nb::none();
+    case K::Bool: return nb::bool_(v.b);
+    case K::Int: return nb::int_(v.i);
+    case K::Float: return nb::float_(v.d);
+    case K::String: return nb::str(v.s.c_str(), v.s.size());
+    case K::Array: {
+        nb::list l;
+        for (const auto& e : v.a) l.append(from_json_value(e));
+        return std::move(l);
+    }
+    case K::Object: {
+        nb::dict d;
+        for (const auto& kv : v.o) d[nb::str(kv.first.c_str(), kv.first.size())] = from_json_value(kv.second);
+        return std::move(d);
+    }
+    }
+    return nb::none();
+}
+
 void init_bindings_dag(nb::module_& m) {
+    // A Pipeline description checked against the shared schema, in its
+    // normal form (dict in, dict out); from JSON text; and to JSON text as
+    // json.dumps writes it (indent None: one line).
+    m.def("_graph_check", [](nb::handle d) {
+        return from_json_value(dag::check_graph(to_json_value(d)));
+    }, "description"_a);
+    m.def("_graph_from_json", [](const std::string& text) {
+        return from_json_value(dag::check_graph(dag::json::parse(text)));
+    }, "text"_a);
+    m.def("_graph_to_json", [](nb::handle d, nb::handle indent) {
+        const int ind = indent.is_none() ? -1 : nb::cast<int>(indent);
+        return dag::json::dump(dag::check_graph(to_json_value(d)), ind);
+    }, "description"_a, "indent"_a.none());
+    m.def("_unknown_functor", [](const std::string& name) { dag::throw_unknown_functor(name); },
+          "name"_a);
     // The engine's index rule raises TypeError in Python.
     nb::register_exception_translator(
         [](const std::exception_ptr& p, void*) {

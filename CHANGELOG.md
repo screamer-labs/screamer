@@ -23,6 +23,15 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   values. JavaScript `split` returns `{values, index}` objects, so its outputs
   feed `combineLatest` and a `Pipeline` as they are.
 * JavaScript `split`.
+* JavaScript `pipeline.toJSON()`, `pipeline.toDict()`, `Pipeline.fromJSON(text)`
+  and `Pipeline.fromDict(object)`, with Python's format: a pipeline saved in
+  one language loads in the other and gives the same results. The schema, the
+  JSON reader and the writer are one C++ implementation that Python's
+  `to_json` and `from_json` use too; `to_json` writes the text `json.dumps`
+  wrote. Settings keep their Python names in the saved form.
+* `CombineLatest(max_pending=N)` for `Input` nodes in Python, the per-node cap
+  JavaScript's `combineLatest(nodes, { maxPending })` has; it is saved with
+  the pipeline.
 * `BacktestPortfolioTarget` and `BacktestPortfolioOHLCTarget` take one packed
   `(T, K, F)` array, the fields last in the order of the separate arguments
   (rule 4), in Python and JavaScript (an `NdArray` `[T, K, F]`), with the
@@ -810,6 +819,13 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   initial_variance=inf)` gave all NaN, `SuperSmoother(period=inf)` all
   zeros). Pass a finite value; for "no position bound" or "no cap" keep the
   infinite default.
+* `Pipeline.from_json` and `Pipeline.from_dict` check the description first
+  and raise `ValueError` naming the problem ("unknown functor class:
+  'NoSuchOp'", "Pipeline description: node 1: input 7 is not an earlier
+  node", "invalid Pipeline JSON: ... at line 1, column 2"). 2.8.0 raised
+  `KeyError`, `TypeError` or `json.JSONDecodeError` (a `ValueError`) from
+  inside the loader for these. `from_json` takes a `str`; for a dict use
+  `from_dict`.
 * `Merge` of lazy `(value, index)` events whose values are rows merges the
   rows: each event comes out as `(row, index, source)`. 2.8.0 kept the first
   value of each row and dropped the rest. To get that, take `row[0]`.

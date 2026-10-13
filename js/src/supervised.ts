@@ -63,7 +63,12 @@ function horizon(opts: unknown): Horizon {
 
 // One forecastPairs graph node over X (any width) and y.
 function pairsNode(X: Node, y: Node, h: Horizon): Node {
-  return new Node({ combinator: "forecastPairs", params: { ...h } }, [X, y]);
+  // `spec`: the node as Python's to_dict writes it (Pipeline.toJSON).
+  const sp: Record<string, unknown> = {};
+  if (h.count !== undefined) sp.count = h.count;
+  if (h.duration !== undefined) sp.duration = h.duration;
+  sp.dropna = h.dropna;
+  return new Node({ combinator: "forecastPairs", params: { ...h }, spec: { op: "forecast_pairs", params: sp } }, [X, y]);
 }
 
 interface Block { data: Float64Array; ndim: number; T: number; K: number; wide: boolean }

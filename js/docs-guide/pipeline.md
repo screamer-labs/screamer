@@ -65,6 +65,10 @@ p({
 A pipeline with one output returns a single `{ values, index }` object; a pipeline with several
 outputs returns an array of them, one per declared output.
 
+Each feed has one index value per row of values. A flat array or typed array is one value per
+row; rows of several values come as an `NdArray` (`{ data, shape: [T, K] }`). An index of
+another length throws `RangeError` naming both lengths.
+
 ### Several outputs: `alignOutputs`
 
 `new Pipeline(inputs, outputs, { alignOutputs })` sets how several outputs come back.
@@ -98,6 +102,32 @@ integer `TypeError`.
 Dispose the pipeline with `pipeline.dispose()` when you are done with it. See
 [Lifecycle](./lifecycle.md) for why you should not separately dispose the ops that went into
 building the graph.
+
+## Saving and loading: `toJSON` and `Pipeline.fromJSON`
+
+`pipeline.toJSON()` writes the pipeline as JSON text: its inputs, its nodes with their settings,
+its outputs, `alignOutputs` and `maxPending`. `Pipeline.fromJSON(text)` builds a new, runnable
+pipeline from that text, each node by its factory, so the copy shares no state with the original.
+`toDict()` and `Pipeline.fromDict(object)` do the same with a plain object.
+
+```js
+const x = Input("x");
+const p = new Pipeline([x], [resample(RollingMean(5)(x), { every: 10, agg: "ohlc" })]);
+const text = p.toJSON();              // save this string to a file
+const q = Pipeline.fromJSON(text);    // the same pipeline, the same results
+```
+
+The format is Python's: a pipeline saved by Python's `to_json()` loads here, and one saved here
+loads with Python's `Pipeline.from_json`, with the same results. The settings keep their Python
+names (`window_size`, not `windowSize`), and the text is the one Python writes for the same
+graph (JavaScript writes `3` where Python writes `3.0`, as it has one number type). A setting that
+is not finite, such as `Clip({ lower: -Infinity })`, is written as `-Infinity`, which
+`JSON.parse` does not read; `Pipeline.fromJSON` does. `toJSON(null)` writes one line. As for any
+object with a `toJSON` method, `JSON.stringify(pipeline)` gives this text as a JSON string.
+
+A text or description that does not describe a pipeline throws `RangeError` naming the problem,
+such as "unknown functor class: 'NoSuchOp'" or "Pipeline description: node 1: input 7 is not an
+earlier node"; a setting a factory refuses throws as the factory does.
 
 ## Streaming with `pipeline.live()`
 
