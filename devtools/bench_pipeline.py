@@ -276,6 +276,11 @@ def construct(cls):
     return None
 
 
+# Operators that take one array per input by design and refuse a packed
+# argument ("this operator takes N inputs, got 1"): the portfolio engines read
+# one (T, K) array per input.
+NO_PACKED = {"BacktestPortfolioTarget", "BacktestPortfolioOHLCTarget"}
+
 # Extra constructions timed besides each operator's default one (name, args).
 EXTRA_OPS = (("WilliamsR", (20,)), ("WilliamsR", (50,)))
 
@@ -294,9 +299,15 @@ def packed_cases(s, np, errors, untimed):
     xs[2] = np.minimum(xs[0], xs[2]) - 1.0
     out = {}
     ops = []
+    # The operators: EvalOp classes (a stream combinator such as Filter is
+    # not one), and of those, the ones that take a packed argument.
+    evalop = getattr(getattr(s, "screamer_bindings", None), "EvalOp", None)
+    if evalop is None:
+        import importlib
+        evalop = importlib.import_module(s.__name__ + ".screamer_bindings").EvalOp
     for name in sorted(n for n in dir(s) if not n.startswith("_")):
         cls = getattr(s, name)
-        if inspect.isclass(cls):
+        if inspect.isclass(cls) and issubclass(cls, evalop) and name not in NO_PACKED:
             ops.append((name, construct(cls)))
     for name, args in EXTRA_OPS:
         try:
