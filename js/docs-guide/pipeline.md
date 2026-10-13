@@ -121,7 +121,9 @@ has passed by `now`, empty ones included (filled per `fill`). `flush()` is the e
 
 An input keeps the width of its first event (a number is width 1); an event of another width
 throws `RangeError`. `pushWide` is an alias of `push` for arrays. An index is a `number` with a
-whole value inside the int64 range; any other index throws `TypeError`. A `null` value is `NaN`,
+whole value inside the int64 range; any other index throws `TypeError`. An index below the
+input's previous event, or below an earlier `advance(now)`, throws `RangeError`, and the session
+goes on as if the event had not been sent; equal indexes are allowed. A `null` value is `NaN`,
 and a string (even `"3"`) throws `TypeError`; parse text first with `Number()`. A rejection that happens
 after part of the graph took the event (a `combineLatest` buffer that overflows, for example)
 makes every later call, `result()` included, throw until a new `live()` session starts.
@@ -133,6 +135,12 @@ pipeline aligns its outputs. Aligned outputs keep each output's latest value fro
 `result()` to the next, so the rows of repeated calls, put end to end, are the batch rows. A
 call returns a row only once every output has moved past its index; after `flush()` it returns
 every row.
+
+An input that gets no events holds the aligned rows. While an input is silent, for example a
+clock that stopped ticking or a feed that paused, the outputs fed by it do not move, so the
+other outputs' rows wait in memory until `advance(now)` or `flush()`. In a long-running session,
+call `advance(now)` from time to time: it moves every input to `now` and releases the rows
+below it.
 
 ## Combinators
 
@@ -154,7 +162,10 @@ const joined = combineLatest([a, b]); // -> a wide 2-column stream, latest a & l
 
 **`resample(node, opts)`**: causal windowed downsample. `every` buckets by a fixed index width;
 `count` buckets by a fixed number of arrivals; `agg` picks the reducer (`"mean"`, `"last"`,
-`"sum"`, `"ohlc"`, and others).
+`"sum"`, `"ohlc"`, and others). With `fill: "nan"` or `"carry"`, `maxFill` (default
+1,000,000) bounds the empty bars of one gap: an event or an `advance(now)` that would close
+more empty buckets at once throws `RangeError` before it builds any bar, as Python's
+`max_fill` does.
 
 ```js
 import { resample } from "@screamer-labs/screamer";

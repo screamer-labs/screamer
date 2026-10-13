@@ -210,6 +210,11 @@ export interface ResampleOpts {
   label?: "left" | "right";
   fill?: keyof typeof RESAMPLE_FILL_CODE;
   maxAge?: number;
+  // The most empty bars one gap may fill (fill "nan" or "carry"): an event or
+  // an advance(now) that would close more empty buckets at once throws a
+  // RangeError before it builds any bar. Default 1,000,000; an integer from 1
+  // to 2**53. Python's max_fill.
+  maxFill?: number;
   // Aggregation: a builtin string agg, or a functor reducer as a functor Node
   // (an op applied to a placeholder). `reducer` is the explicit functor slot.
   agg?: string;
@@ -229,6 +234,7 @@ export interface ResampleParams {
   count: number;
   threshold: number;
   maxAge: number;
+  maxFill?: number;   // unset: the engine's default; checked at compile
   plan: Array<[number, number]> | null;
   reducer: Node | null;
 }
@@ -260,7 +266,7 @@ export function resample(node: Node, opts: ResampleOpts = {}): Node {
     modeCode = RESAMPLE_MODE_CODE.by_index; // 0
   }
 
-  for (const k of ["threshold", "every", "count", "origin", "maxAge"] as const)
+  for (const k of ["threshold", "every", "count", "origin", "maxAge", "maxFill"] as const)
     setting(`resample: ${k}`, (opts as any)[k]);
   const labelCode = RESAMPLE_LABEL_CODE[opts.label ?? "left"]; // right -> 1 else 0
   const width = opts.every !== undefined && opts.every !== null ? Math.trunc(opts.every) : 1;
@@ -300,6 +306,7 @@ export function resample(node: Node, opts: ResampleOpts = {}): Node {
     width, origin, count: countVal, threshold: thresholdVal, maxAge: maxAgeVal,
     plan, reducer,
   };
+  if (opts.maxFill !== undefined && opts.maxFill !== null) params.maxFill = opts.maxFill;
 
   // A driver is the node's second input. For a cumulative resample the graph
   // builder (C++) joins value and driver into one [value, driver] row first; a

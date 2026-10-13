@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include "screamer/common/checked_arith.h"
 #include "screamer/common/eval_op.h"
 
 namespace screamer { namespace dag {
@@ -35,6 +36,38 @@ struct ResamplePlanEntry {
     std::size_t  input_col;  // which input column to reduce (0-based)
 };
 
+// The most empty bars a fill Resample (fill nan or carry, every=) emits for
+// one gap: the empty buckets that one event, or one advance(now), closes at
+// once. A larger gap raises before any bar is built, so a gap of 2**53
+// buckets (an index in nanoseconds with every=10, or a long pause before an
+// advance) fails at once instead of exhausting memory. Each fill bar costs at
+// least 16 bytes in the graph (its index and one value) and about as much
+// again in the result, so the default bounds one gap near 32 MB for one
+// column: 1e6 one-second bars cover 11 days, 1e6 one-minute bars 1.9 years.
+// Settable per Resample (max_fill, maxFill in JavaScript) from 1 to 2**53.
+inline constexpr std::int64_t kDefaultMaxFill = 1'000'000;
+
+// The fill-limit error: `bars` empty bars for one gap (-1: beyond int64).
+[[noreturn]] inline void throw_fill_limit(std::int64_t bars, std::int64_t max_fill) {
+    throw std::invalid_argument(
+        "a fill Resample would emit " +
+        (bars < 0 ? std::string("more than 2**63") : std::to_string(bars)) +
+        " empty bars for one gap, more than max_fill=" + std::to_string(max_fill) +
+        " (maxFill in JavaScript); raise max_fill, or check that every= and the "
+        "index have the same unit");
+}
+
+// Checks the empty bars that closing bucket `from` and moving to bucket `to`
+// emits: the buckets strictly between them, plus `from` itself when it is
+// empty. Runs before any bar is pushed.
+inline void check_fill_gap(std::int64_t from, std::int64_t to, bool from_empty,
+                           std::int64_t max_fill) {
+    std::int64_t d;
+    if (!checked_sub(to, from, d)) throw_fill_limit(-1, max_fill);
+    const std::int64_t bars = d - 1 + (from_empty ? 1 : 0);
+    if (bars > max_fill) throw_fill_limit(bars, max_fill);
+}
+
 struct ResampleParams {
     ResampleMode  mode  = ResampleMode::ByIndex;
     ResampleAgg   agg   = ResampleAgg::Last;
@@ -46,6 +79,8 @@ struct ResampleParams {
     double        threshold = 0.0; // ByCumulative: close when cum_driver >= threshold
     // ByClock as-of freshness limit in index units; -1 disables expiry.
     std::int64_t  max_age = -1;
+    // ByIndex with a fill: the most empty bars one gap may emit.
+    std::int64_t  max_fill = kDefaultMaxFill;
     // When non-null, the bucket reducer is this arbitrary functor (GenericResample
     // path) instead of the builtin `agg` enum. The pointee is owned by Python; the
     // graph builder holds a py::object ref so it outlives the compiled graph.

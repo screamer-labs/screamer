@@ -499,6 +499,35 @@ static void marshal_feeds(
     }
 }
 
+// A count setting (max_pending, max_fill) from Python under the engine's rule
+// (max_pending.h checked_count_setting): an integer from 1 to 2**53. A bool or
+// another kind is a TypeError.
+static double count_setting(nb::handle x, const std::string& name) {
+    PyObject* p = x.ptr();
+    const std::string type = nb::cast<std::string>(nb::type_name(x.type()));
+    if (PyBool_Check(p) || x.is_none() || PyUnicode_Check(p) || PyBytes_Check(p) ||
+        type.find("complex") != std::string::npos)
+        dag::throw_max_pending_kind(type, name);
+    if (PyFloat_Check(p)) return dag::checked_count_setting(PyFloat_AsDouble(p), name);
+    if (PyObject* ix = PyNumber_Index(p)) {         // int, NumPy integer
+        int overflow = 0;
+        const long long v = PyLong_AsLongLongAndOverflow(ix, &overflow);
+        Py_DECREF(ix);
+        if (overflow || v > 9007199254740992LL)
+            throw nb::value_error((name + " must be at least 1 and at most 2**53, got " +
+                                   nb::cast<std::string>(nb::str(x))).c_str());
+        if (v == -1 && PyErr_Occurred()) throw nb::python_error();
+        return dag::checked_count_setting(static_cast<double>(v), name);
+    }
+    PyErr_Clear();
+    const double d = PyFloat_AsDouble(p);            // NumPy floating
+    if (d == -1.0 && PyErr_Occurred()) {
+        PyErr_Clear();
+        dag::throw_max_pending_kind(type, name);
+    }
+    return dag::checked_count_setting(d, name);
+}
+
 void init_bindings_dag(nb::module_& m) {
     // The engine's index rule raises TypeError in Python.
     nb::register_exception_translator(
@@ -512,30 +541,13 @@ void init_bindings_dag(nb::module_& m) {
     // A Pipeline's max_pending under the engine's rule (max_pending.h): an
     // integer from 1 to 2**53. A bool or another kind is a TypeError.
     m.def("_max_pending", [](nb::handle x) -> std::size_t {
-        PyObject* p = x.ptr();
-        const std::string type = nb::cast<std::string>(nb::type_name(x.type()));
-        if (PyBool_Check(p) || x.is_none() || PyUnicode_Check(p) || PyBytes_Check(p) ||
-            type.find("complex") != std::string::npos)
-            dag::throw_max_pending_kind(type);
-        if (PyFloat_Check(p)) return dag::checked_max_pending(PyFloat_AsDouble(p));
-        if (PyObject* ix = PyNumber_Index(p)) {         // int, NumPy integer
-            int overflow = 0;
-            const long long v = PyLong_AsLongLongAndOverflow(ix, &overflow);
-            Py_DECREF(ix);
-            if (overflow || v > 9007199254740992LL)
-                throw nb::value_error(("max_pending must be at least 1 and at most 2**53, got " +
-                                       nb::cast<std::string>(nb::str(x))).c_str());
-            if (v == -1 && PyErr_Occurred()) throw nb::python_error();
-            return dag::checked_max_pending(static_cast<double>(v));
-        }
-        PyErr_Clear();
-        const double d = PyFloat_AsDouble(p);            // NumPy floating
-        if (d == -1.0 && PyErr_Occurred()) {
-            PyErr_Clear();
-            dag::throw_max_pending_kind(type);
-        }
-        return dag::checked_max_pending(d);
+        return dag::checked_max_pending(count_setting(x, "max_pending"));
     }, "max_pending"_a.none());
+    // A fill Resample's max_fill, under the same rule.
+    m.def("_max_fill", [](nb::handle x) -> std::int64_t {
+        return dag::checked_max_fill(count_setting(x, "max_fill"));
+    }, "max_fill"_a.none());
+    m.attr("_DEFAULT_MAX_FILL") = dag::kDefaultMaxFill;
     // The string rule for values (cast_double.h refuse_text), for the Python
     // float64 conversions in screamer/dag.py and screamer/streams.py.
     m.def("_refuse_text", [](nb::handle x) { refuse_text(x); }, "values"_a.none());
@@ -957,7 +969,7 @@ void init_bindings_dag(nb::module_& m) {
                                  int label, std::int64_t width, std::int64_t origin,
                                  std::int64_t count, nb::object reducer, int fill,
                                  nb::list plan, double threshold, std::int64_t max_age,
-                                 std::size_t max_pending) {
+                                 std::size_t max_pending, std::int64_t max_fill) {
             dag::ResampleParams rp;
             rp.mode      = static_cast<dag::ResampleMode>(mode);    // 0=ByIndex, 1=ByCount, 2=ByCumulative
             rp.agg       = static_cast<dag::ResampleAgg>(agg);      // 0..9 First..SumNeg
@@ -968,6 +980,7 @@ void init_bindings_dag(nb::module_& m) {
             rp.count     = count;
             rp.threshold = threshold;
             rp.max_age   = max_age;
+            rp.max_fill  = dag::checked_max_fill(static_cast<double>(max_fill));
             // Optional per-column reducer plan (multi-column bar aggs).
             // Each plan entry is a (agg_code, input_col) tuple.
             for (auto item : plan) {
@@ -1057,16 +1070,18 @@ void init_bindings_dag(nb::module_& m) {
                                 int mode, int agg, int label,
                                 std::int64_t width, std::int64_t origin, std::int64_t count,
                                 nb::object reducer, int fill, nb::list plan, double threshold,
-                                std::int64_t max_age, std::size_t max_pending) {
+                                std::int64_t max_age, std::size_t max_pending,
+                                std::int64_t max_fill) {
             return b.add_resample(std::move(inputs), mode, agg, label, width, origin,
                                   count, reducer, fill, plan, threshold, max_age,
-                                  max_pending);
+                                  max_pending, max_fill);
         }, "inputs"_a, "mode"_a, "agg"_a, "label"_a,
            "width"_a, "origin"_a, "count"_a,
            "reducer"_a = nb::none(), "fill"_a = 0,
            "plan"_a = nb::list(), "threshold"_a = 0.0,
            "max_age"_a = -1,
-           "max_pending"_a = dag::kDefaultMaxPending)
+           "max_pending"_a = dag::kDefaultMaxPending,
+           "max_fill"_a = dag::kDefaultMaxFill)
         .def("add_forecast_pairs", &PyGraphBuilder::add_forecast_pairs,
              "x"_a, "y"_a, "count"_a.none(), "duration"_a.none(),
              "dropna"_a)

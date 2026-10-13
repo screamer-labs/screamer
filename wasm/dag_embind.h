@@ -89,6 +89,15 @@ inline double checkedMaxPending(double v) {
 inline void throwMaxPendingKind(std::string kind) {
     screamer::dag::throw_max_pending_kind(kind, "maxPending");
 }
+// maxFill of a fill resample, under the same rule (resample_params.h).
+inline double checkedMaxFill(double v) {
+    screamer::dag::checked_max_fill(v, "maxFill");
+    return v;
+}
+inline void throwMaxFillKind(std::string kind) {
+    screamer::dag::throw_max_pending_kind(kind, "maxFill");
+}
+inline double defaultMaxFill() { return static_cast<double>(screamer::dag::kDefaultMaxFill); }
 // forecastPairs: the input rule of an eager call (dag/forecast_pairs.h).
 inline void checkForecastPairsInputs(bool countMode, double xNdim, double xRows, double xCols,
                                      double yNdim, double yRows, double yCols) {
@@ -341,7 +350,8 @@ public:
                             int label, int fill, double width, double origin,
                             double count, double threshold, double max_age,
                             std::uintptr_t planPtr, std::size_t planLen,
-                            std::uintptr_t reducerPtr, double max_pending) {
+                            std::uintptr_t reducerPtr, double max_pending,
+                            double max_fill) {
         screamer::dag::ResampleParams rp;
         rp.mode      = static_cast<screamer::dag::ResampleMode>(mode);
         rp.agg       = static_cast<screamer::dag::ResampleAgg>(agg);
@@ -352,6 +362,7 @@ public:
         rp.count     = static_cast<std::int64_t>(count);
         rp.threshold = threshold;
         rp.max_age   = static_cast<std::int64_t>(max_age);
+        rp.max_fill  = screamer::dag::checked_max_fill(max_fill, "maxFill");
         if (planLen && planPtr) {
             const auto* p = reinterpret_cast<const std::int32_t*>(planPtr);
             rp.plan.reserve(planLen);
@@ -408,6 +419,9 @@ private:
     emscripten::function("checkedMaxPending", &screamer_wasm::checkedMaxPending); \
     emscripten::function("throwMaxPendingKind", &screamer_wasm::throwMaxPendingKind); \
     emscripten::function("defaultMaxPending", &screamer_wasm::defaultMaxPending); \
+    emscripten::function("checkedMaxFill", &screamer_wasm::checkedMaxFill);     \
+    emscripten::function("throwMaxFillKind", &screamer_wasm::throwMaxFillKind); \
+    emscripten::function("defaultMaxFill", &screamer_wasm::defaultMaxFill);     \
     emscripten::function("checkForecastPairsInputs",                           \
                          &screamer_wasm::checkForecastPairsInputs);            \
     emscripten::function("checkForecastPairsHorizon",                          \

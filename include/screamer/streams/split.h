@@ -144,11 +144,15 @@ public:
         std::vector<std::size_t> pos(counts_.size(), 0);
         // One loop per case, so the per-event loop has no branch.
         if (width == 1 && k) {
+            Index prev = total_ ? k[0] : Index{};
             for (std::size_t j = 0; j < total_; ++j) {
+                const Index kj = k[j];
+                if (kj < prev) index_decreases(j, k);
+                prev = kj;
                 const std::uint32_t s = tags_[j];
                 const std::size_t p = pos[s]++;
                 vout[s][p] = v[j];
-                kout[s][p] = k[j];
+                kout[s][p] = kj;
             }
         } else if (width == 1) {
             for (std::size_t j = 0; j < total_; ++j) {
@@ -160,12 +164,22 @@ public:
                 const std::uint32_t s = tags_[j];
                 const std::size_t p = pos[s]++;
                 if (width) std::memcpy(vout[s] + p * width, v + j * width, width * sizeof(double));
-                if (k) kout[s][p] = k[j];
+                if (k) {
+                    if (j != 0 && k[j] < k[j - 1]) index_decreases(j, k);
+                    kout[s][p] = k[j];
+                }
             }
         }
     }
 
 private:
+    // The index of the stream must not decrease (checked_index.h), checked in
+    // the scatter loop; the caller's output buffers own their storage.
+    template <class Index>
+    [[noreturn]] static void index_decreases(std::size_t j, const Index* k) {
+        dag::throw_index_decreases(std::string("the split stream"), j, k[j - 1], k[j]);
+    }
+
     // The outputs a given n allows (n itself is checked in finish): a tag at or
     // beyond it is not counted, so a small n never sizes counts_ by a large tag.
     static std::size_t count_limit(bool has_n, double n) {

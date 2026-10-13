@@ -131,7 +131,8 @@ public:
 
             if constexpr (std::is_integral_v<Index>) {
                 // The engine's index rule, as in a live push (py_index.h), with
-                // the event's position in the message.
+                // the event's position in the message. The index must not
+                // decrease (checked_index.h), checked after the kind rules.
                 try {
                     ev.index = static_cast<Index>(screamer::py_index(tup[1], unit_));
                 } catch (const screamer::dag::IndexTypeError& e) {
@@ -152,6 +153,9 @@ public:
                         ": " + e.what());
                 }
             }
+            if (event != 0 && ev.index < last_index_)
+                dag::throw_index_decreases(input_, event, last_index_, ev.index);
+            last_index_ = ev.index;
         }
         return ev;
     }
@@ -433,6 +437,7 @@ private:
     bool positional_;
     std::int64_t counter_;
     std::size_t event_;                 // items read, for error messages
+    Index last_index_{};                // the last indexed event's index
     std::size_t input_;                 // this source's input position
     const char* owner_;                 // "Pipeline", "stream"
     std::vector<double> wide_values_;   // populated when last event was wide

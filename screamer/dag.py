@@ -397,6 +397,9 @@ class Pipeline:
                     fill = _RESAMPLE_FILL_CODE[kwargs.get("fill", "skip")]
                     threshold_val = float(threshold) if threshold is not None else 0.0
                     max_age_val = int(max_age) if max_age is not None else -1
+                    max_fill = kwargs.get("max_fill")
+                    max_fill_val = (_b._DEFAULT_MAX_FILL if max_fill is None
+                                    else _b._max_fill(max_fill))
                     if isinstance(agg_val, str) and agg_val in _BAR_AGG_FIXED_PLANS:
                         # Multi-column bar agg with a fixed plan (ohlc_bars, ohlcv, ohlcv2).
                         plan = _BAR_AGG_FIXED_PLANS[agg_val]
@@ -404,7 +407,8 @@ class Pipeline:
                                               count, fill=fill, plan=plan,
                                               threshold=threshold_val,
                                               max_age=max_age_val,
-                                              max_pending=self.max_pending)
+                                              max_pending=self.max_pending,
+                                              max_fill=max_fill_val)
                     elif isinstance(agg_val, str) and agg_val == "ohlcv_bars":
                         # ohlcv_bars: plan depends on input width (unknown at graph-build
                         # time). Pass agg=10 (OhlcvBars enum value) with an empty plan;
@@ -413,14 +417,16 @@ class Pipeline:
                         nid = gb.add_resample(inp, mode, 10, label, width, origin,
                                               count, fill=fill, threshold=threshold_val,
                                               max_age=max_age_val,
-                                              max_pending=self.max_pending)
+                                              max_pending=self.max_pending,
+                                              max_fill=max_fill_val)
                     elif isinstance(agg_val, str):
                         # Builtin string agg: enum code, no functor reducer.
                         nid = gb.add_resample(inp, mode, _RESAMPLE_AGG_CODE[agg_val],
                                               label, width, origin, count, fill=fill,
                                               threshold=threshold_val,
                                               max_age=max_age_val,
-                                              max_pending=self.max_pending)
+                                              max_pending=self.max_pending,
+                                              max_fill=max_fill_val)
                     else:
                         # Arbitrary functor reducer (an EvalOp): agg code is ignored
                         # (pass 0); the reducer op drives GenericResampleNode.
@@ -428,7 +434,8 @@ class Pipeline:
                                               count, agg_val, fill=fill,
                                               threshold=threshold_val,
                                               max_age=max_age_val,
-                                              max_pending=self.max_pending)
+                                              max_pending=self.max_pending,
+                                              max_fill=max_fill_val)
                 elif name == "Delay":
                     nid = gb.add_delay(inp, int(_setting("duration", kwargs["duration"])))
                 elif name == "forecast_pairs":

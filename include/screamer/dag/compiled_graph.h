@@ -17,6 +17,7 @@
 #include <string>
 #include <vector>
 #include "screamer/dag/broadcast.h"
+#include "screamer/dag/checked_index.h"
 #include "screamer/dag/combine_latest_node.h"
 #include "screamer/dag/dropna_node.h"
 #include "screamer/dag/filter_node.h"
@@ -199,8 +200,11 @@ public:
         // input_sinks_[sig_idx] = downstream Sink for that input.
         input_sinks_.assign(num_in_, nullptr);
         in_width_.assign(num_in_, 0);
+        in_last_.assign(num_in_, 0);
+        in_count_.assign(num_in_, 0);
 
         // Wire in reverse-topological order (consumers first).
+        std::vector<unsigned char> order_memo;   // merge_relation, for clock resamples
         for (auto id : topo) {
             const auto& ns = s.nodes[id];
 
@@ -291,10 +295,17 @@ public:
                     owned_.push_back(rn);
                 } else if (ns.resample.mode == ResampleMode::ByClock) {
                     // ByClock: 2-port node (value port 0, clock port 1).
-                    // Each producer routes into the appropriate port.
-                    // Events arrive in global index order (MergeSource), so no
-                    // reorder buffer is needed inside the node.
+                    // Each producer routes into the appropriate port. The node
+                    // learns how each port relates to the input merge, so it
+                    // proves a bar complete from the ports' frontiers.
                     auto rn = std::make_shared<ResampleNode<std::int64_t>>(ns.resample, *downstream);
+                    if (ns.inputs.size() == 2) {
+                        if (order_memo.empty()) order_memo.assign(n, 0);
+                        rn->set_clock_ports(merge_relation(s, ns.inputs[0], order_memo) & 1,
+                                            merge_relation(s, ns.inputs[0], order_memo) & 2,
+                                            merge_relation(s, ns.inputs[1], order_memo) & 1,
+                                            merge_relation(s, ns.inputs[1], order_memo) & 2);
+                    }
                     reset_nodes_.push_back(rn.get());
                     // Initialize ports eagerly here so the lambda captures are stable.
                     rn->port(0);  // creates clock_ports_ on the node
@@ -352,6 +363,8 @@ public:
         flushed_ = false;
         join_.reset();
         std::fill(in_width_.begin(), in_width_.end(), std::size_t(0));
+        std::fill(in_count_.begin(), in_count_.end(), std::size_t(0));
+        has_floor_ = false;
         for (auto* n : reset_nodes_) n->reset();
         for (std::size_t o = 0; o < outputs_.size(); ++o) {
             outputs_[o].indices.clear();
@@ -374,10 +387,15 @@ public:
     // open windows on the watermark (via on_watermark -> advance), and
     // combinators (CombineLatest, Filter) unblock buffered rows whose index is
     // now safe to release. Safe to call repeatedly with non-decreasing `now`.
+    // A later event below `now` raises (check_order). A node that rejects the
+    // watermark (a fill Resample past max_fill) poisons the session, as a
+    // rejected event does: other nodes took it already.
     void advance(std::int64_t now) {
         check_live();
         flushed_ = false;
-        for (auto* s : input_sinks_) if (s) s->on_watermark(now);
+        if (!has_floor_ || now > floor_) { floor_ = now; has_floor_ = true; }
+        try { for (auto* s : input_sinks_) if (s) s->on_watermark(now); }
+        catch (...) { poisoned_ = true; throw; }
     }
 
     // Routes a single width-1 event into the graph without resetting state.
@@ -386,8 +404,10 @@ public:
         if (input_idx >= num_in_)
             throw std::runtime_error("push_event: input index out of range");
         check_live();
+        check_order(input_idx, index);
         flushed_ = false;
         if (in_width_[input_idx] != 1) set_width(input_idx, 1);
+        note_order(input_idx, index);
         double v = value;
         Frame<std::int64_t> f{index, &v, 1};
         try { input_sinks_[input_idx]->push(f); }
@@ -403,8 +423,10 @@ public:
         if (width == 0)
             throw std::invalid_argument("a wide event needs at least one value, got none");
         check_live();
+        check_order(input_idx, index);
         flushed_ = false;
         if (in_width_[input_idx] != width) set_width(input_idx, width);
+        note_order(input_idx, index);
         Frame<std::int64_t> f{index, values, width};
         try { input_sinks_[input_idx]->push(f); }
         catch (...) { poisoned_ = true; throw; }
@@ -525,6 +547,7 @@ public:
             const std::int64_t* k = in_indices[0];
             const double* v = in_vals[0];
             for (std::size_t r = 0, n = in_lens[0]; r < n; ++r) {
+                if (r != 0 && k[r] < k[r - 1]) throw_index_decreases(std::size_t(0), r, k[r - 1], k[r]);
                 Frame<std::int64_t> f{k[r], v + r * w, w};
                 sink->push(f);
             }
@@ -541,7 +564,7 @@ public:
         child_ptrs.reserve(num_in_);
         for (std::size_t i = 0; i < num_in_; ++i) {
             srcs.push_back(std::make_unique<streams::VectorSource<std::int64_t>>(
-                in_indices[i], in_vals[i], in_lens[i]));
+                in_indices[i], in_vals[i], in_lens[i], i));
             child_ptrs.push_back(srcs.back().get());
         }
         streams::MergeSource<std::int64_t> merge(child_ptrs);
@@ -575,6 +598,58 @@ public:
 
 private:
     GraphSpec spec_;
+
+    // How node `id`'s output relates to the merge of the graph's inputs, as
+    // bits (memo[id] holds them plus 4 once computed):
+    // 1, in order: it never emits an index below one the merge has passed (an
+    //    Input, or functors, Select, Dropna, a row lag or a forward Delay that
+    //    emit each event as they take it, over such nodes);
+    // 2, never ahead: it never emits an index or watermark above the merge's
+    //    (every node keeps or lowers its inputs' indexes, but a forward Delay).
+    static unsigned merge_relation(const GraphSpec& s, std::size_t id,
+                                   std::vector<unsigned char>& memo) {
+        if (memo[id] & 4) return memo[id] & 3u;
+        const NodeSpec& nd = s.nodes[id];
+        bool in_order = false, not_ahead = true;
+        switch (nd.kind) {
+        case NodeKind::Input: in_order = true; break;
+        case NodeKind::Delay:
+            in_order = nd.delay_duration >= 0;
+            not_ahead = nd.delay_duration <= 0;
+            break;
+        case NodeKind::Functor: case NodeKind::Select: case NodeKind::DropNa:
+        case NodeKind::LagRows:
+            in_order = true;
+            break;
+        default: break;
+        }
+        for (std::size_t in : nd.inputs) {
+            const unsigned r = merge_relation(s, in, memo);
+            in_order = in_order && (r & 1u);
+            not_ahead = not_ahead && (r & 2u);
+        }
+        memo[id] = static_cast<unsigned char>(4u | (in_order ? 1u : 0u) | (not_ahead ? 2u : 0u));
+        return memo[id] & 3u;
+    }
+
+    // A live event's index: not below the input's last event (the index of a
+    // stream must not decrease) nor below an earlier advance(now). Checked
+    // before the event reaches a node; note_order records it once the event
+    // passed the width check, so a rejected event leaves no trace.
+    void check_order(std::size_t i, std::int64_t index) const {
+        if (in_count_[i] != 0 && index < in_last_[i])
+            throw_index_decreases(i, in_count_[i], in_last_[i], index);
+        if (has_floor_ && index < floor_)
+            throw std::invalid_argument(
+                "the index of input " + std::to_string(i) + " is " + std::to_string(index) +
+                " at event " + std::to_string(in_count_[i]) + ", below an earlier advance(" +
+                std::to_string(floor_) + "); an event cannot come before the time the "
+                "session has advanced to");
+    }
+    void note_order(std::size_t i, std::int64_t index) {
+        in_last_[i] = index;
+        ++in_count_[i];
+    }
 
     // Wiring (built once in constructor, persistent across all run_batch calls).
     //
@@ -751,6 +826,10 @@ private:
     bool flushed_ = false;                 // the input ended (flush) since the last event
     OutputJoin join_;                      // the output alignment across drains
     std::vector<std::size_t> in_width_;   // per input, 0 = not set yet
+    std::vector<std::int64_t> in_last_;    // per input, the last live event's index
+    std::vector<std::size_t> in_count_;    // per input, live events taken since reset()
+    std::int64_t floor_ = 0;               // the highest advance(now) since reset()
+    bool has_floor_ = false;
     std::size_t num_in_ = 0;
     std::vector<std::shared_ptr<void>>            owned_;           // all heap nodes/broadcasts
     std::vector<Sink<std::int64_t>*>              input_sinks_;     // per input signature index

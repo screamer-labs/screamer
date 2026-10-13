@@ -4,6 +4,8 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
+#include <cstdlib>
 #include <stdexcept>
 #include <string>
 
@@ -75,6 +77,59 @@ inline std::int64_t checked_index(double d) {
 inline std::int64_t checked_index_u64(std::uint64_t u) {
     if (u > static_cast<std::uint64_t>(INT64_MAX)) throw_index_out_of_range();
     return static_cast<std::int64_t>(u);
+}
+
+// ---- Index order -----------------------------------------------------------
+// The index of every stream source must not decrease; equal indexes are
+// allowed. A decrease is a value error (ValueError in Python, RangeError in
+// JavaScript) that names the source and the event. One rule and one message
+// for every stream entry point, checked where each source is read: the array
+// and Python iterator readers (VectorSource, PySource) under every merge, the
+// single-input batch loop and the live push of CompiledGraph, and split.
+
+// The error paths stay out of line, so the per-event loops that check the
+// order keep their size (functor_base.h defines the same macro).
+#ifndef SCREAMER_NOINLINE
+#if defined(__GNUC__) || defined(__clang__)
+#define SCREAMER_NOINLINE __attribute__((noinline))
+#elif defined(_MSC_VER)
+#define SCREAMER_NOINLINE __declspec(noinline)
+#else
+#define SCREAMER_NOINLINE
+#endif
+#endif
+
+namespace detail {
+inline std::string index_text(std::int64_t k) { return std::to_string(k); }
+inline std::string index_text(double k) {
+    char buf[32];
+    if (k == std::floor(k) && std::fabs(k) < 1e15) {   // a whole number, as written
+        std::snprintf(buf, sizeof buf, "%.0f", k);
+        return buf;
+    }
+    for (int prec = 1; prec <= 17; ++prec) {
+        std::snprintf(buf, sizeof buf, "%.*g", prec, k);
+        if (std::strtod(buf, nullptr) == k) break;
+    }
+    return buf;
+}
+}  // namespace detail
+
+// `source` names the stream ("input 1", "the split stream"), `event` is the
+// 0-based position of the event within that source.
+template <class Index>
+[[noreturn]] SCREAMER_NOINLINE void throw_index_decreases(const std::string& source,
+                                                         std::size_t event, Index prev, Index now) {
+    throw std::invalid_argument(
+        "the index of " + source + " decreases at event " + std::to_string(event) +
+        ", from " + detail::index_text(prev) + " to " + detail::index_text(now) +
+        "; a stream's index must be non-decreasing (equal indexes are allowed)");
+}
+
+template <class Index>
+[[noreturn]] SCREAMER_NOINLINE void throw_index_decreases(std::size_t input, std::size_t event,
+                                                         Index prev, Index now) {
+    throw_index_decreases("input " + std::to_string(input), event, prev, now);
 }
 
 }} // namespace screamer::dag

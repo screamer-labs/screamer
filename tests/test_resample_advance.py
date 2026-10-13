@@ -177,7 +177,7 @@ def test_advance_idempotent_and_extends_open_target_bucket():
     live.advance(350)   # closes 0(10), 100(nan), 200(nan); bucket 3 (label 300) open
     live.advance(350)   # repeat same now -> no double-emit
     live.advance(360)   # still inside bucket 3 -> no-op
-    live.push("x", 320, 30.0)   # real event lands in the open target bucket 3
+    live.push("x", 370, 30.0)   # real event lands in the open target bucket 3
     live.advance(450)   # closes bucket 3 with the real value (label 300, value 30)
     live.flush()        # bucket 4 (label 400) empty and open -> nothing
     v, k = live.result()

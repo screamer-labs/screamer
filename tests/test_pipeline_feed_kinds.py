@@ -98,8 +98,8 @@ def test_mixed_time_units_in_one_feed_raise():
         p((np.array([1.0, 2.0]),
            np.array([np.datetime64(1, "s"), np.datetime64(5, "ns")], dtype=object)))
     # A NumPy array has one unit: NumPy converts a list of mixed units.
-    _, idx = p((np.array([1.0, 2.0]), [np.datetime64(1, "s"), np.datetime64(5, "ns")]))
-    np.testing.assert_array_equal(idx, [10**9, 5])
+    _, idx = p((np.array([1.0, 2.0]), [np.datetime64(1, "s"), np.datetime64(2 * 10**9, "ns")]))
+    np.testing.assert_array_equal(idx, [10**9, 2 * 10**9])
 
 
 def _pipe2():

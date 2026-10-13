@@ -219,7 +219,7 @@ static std::size_t build_vector_sources(
         std::size_t len = static_cast<std::size_t>(indices[i].shape(0));
         total += len;
         sources.push_back(std::make_unique<VectorSource<Index>>(
-            indices[i].data(), vals[i].data(), len));
+            indices[i].data(), vals[i].data(), len, i));
         child_ptrs.push_back(sources.back().get());
     }
     return total;

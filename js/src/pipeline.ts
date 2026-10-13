@@ -41,6 +41,14 @@ export function maxPendingCount(M: Screamer, v: unknown): number {
   return wasmCall(() => (M as any).checkedMaxPending(v));
 }
 
+// A resample's maxFill under the same rule (resample_params.h); unset, the
+// engine's default.
+function maxFillCount(M: Screamer, v: unknown): number {
+  if (v === undefined) return (M as any).defaultMaxFill();
+  if (typeof v !== "number") wasmCall(() => (M as any).throwMaxFillKind(kindName(v)));
+  return wasmCall(() => (M as any).checkedMaxFill(v));
+}
+
 // Event-by-event streaming driver returned by `pipeline.live()`. Push feeds one
 // event at a time, flush at end of input, then drain the result.
 export interface LiveDriver {
@@ -290,6 +298,7 @@ class PipelineImpl implements Owned {
   // EvalOp*, retaining its wrapper for the graph's lifetime.
   private buildResample(gb: any, vec: any, p: any): number {
     const M: any = this.M;
+    const maxFill = maxFillCount(M, p.maxFill);   // checked before any allocation
     let planPtr = 0;
     let planLen = 0;
     let reducerPtr = 0;
@@ -308,7 +317,7 @@ class PipelineImpl implements Owned {
       return wasmCall(() => gb.addResample(
         vec, p.modeCode, p.aggCode, p.labelCode, p.fillCode,
         p.width, p.origin, p.count, p.threshold, p.maxAge,
-        planPtr, planLen, reducerPtr, this.maxPending,
+        planPtr, planLen, reducerPtr, this.maxPending, maxFill,
       ));
     } finally {
       if (planPtr) M.freeBuf(planPtr);

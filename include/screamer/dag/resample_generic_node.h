@@ -129,6 +129,8 @@ public:
         const bool end = now == std::numeric_limits<Index>::max();
         std::int64_t target = end ? bucket_ + 1 : bucket_of(now);
         if (target <= bucket_) return;                   // still inside the current bucket
+        if (p_.fill != ResampleFill::Skip && !end)
+            check_fill_gap(bucket_, target, !has_, p_.max_fill);
         // Close the current bucket: real row if it saw events, else a fill row.
         // At the end of input an empty bucket is trailing: as flush(), no fill.
         if (has_) emit(cur_label_);
@@ -160,6 +162,8 @@ private:
         if (!started_) {
             started_ = true; bucket_ = nb; clear_bucket(); set_index_label(nb);
         } else if (nb != bucket_) {
+            if (p_.fill != ResampleFill::Skip)
+                check_fill_gap(bucket_, nb, !has_, p_.max_fill);
             if (has_) emit(cur_label_);
             // A parked empty current bucket (e.g. advance() left it open with no
             // event) is filled too, matching advance()+fill semantics.

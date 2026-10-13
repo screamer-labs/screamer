@@ -4,7 +4,8 @@ Each case builds 2 to 4 outputs from random trees over the inputs a, b
 (scalar, with NaN), m (a 0/1/NaN mask), c (a clock) and y (2 columns). The
 nodes are Filter, Dropna, Select, CombineLatest, Delay, RollingMean and
 Resample: every= with label left or right and fill skip, nan or carry; count=;
-threshold= with a Dropna driver; and clock=. Indexes repeat and 15% of cases
+threshold= with a Dropna driver; and clock= with the clock c, Dropna(c) or a
+Resample of c. Indexes repeat and 15% of cases
 are unaligned, and in 40% of cases the inputs end with rows that Dropna or
 Filter drop (a NaN tail, a 0 mask tail). Three live sessions per case drain after each event with
 probability 1, 0.3 and 0.05, with advance(now) between events; the
@@ -12,8 +13,8 @@ concatenated drains must equal batch byte for byte, and lazy must equal batch.
 
 advance(now) stays at or below every input's last event: past it, a fill
 resample closes windows that batch never opens, which is what advance means.
-Cases with a clock resample run without advance (tracked separately).
-The seeds are fixed.
+Cases with a clock resample run with advance too (G19, G20). The seeds are
+fixed.
 """
 import numpy as np
 import pytest
@@ -104,7 +105,10 @@ def make_case(rng, enable_clock=True):
         if r == 2:
             return sc.Resample(scalar_src(depth), sc.Dropna()(inp("b")), threshold=float(rng.uniform(0.5, 4)), agg="sum")
         has_clock.append(True)
-        return sc.Resample(scalar_src(depth), inp("c"), clock=True, agg="last")
+        r = rng.integers(0, 3)
+        clock = (inp("c") if r == 0 else sc.Dropna()(inp("c")) if r == 1
+                 else sc.Resample(every=int(rng.integers(2, 12)), agg="last")(inp("c")))
+        return sc.Resample(scalar_src(depth), clock, clock=True, agg="last")
 
     def output():
         r = rng.integers(0, 4)
@@ -150,9 +154,7 @@ def run_case(seed, enable_clock=True, use_advance=True):
     rng = np.random.default_rng(seed)
     inputs, outs, feeds, names, has_clock = make_case(rng, enable_clock)
     # advance(now) never passes an input's last event: past it, a fill resample
-    # closes windows that batch never opens (the meaning of advance). With a
-    # clock resample, advance is left out (tracked separately).
-    use_advance = use_advance and not has_clock
+    # closes windows that batch never opens (the meaning of advance).
     horizon = min(int(k[-1]) for _, k in feeds)
     align = rng.random() < 0.85
     p = Pipeline(inputs, outs, align_outputs=align)
@@ -203,6 +205,135 @@ def test_batch_lazy_live_agree_on_random_graphs(chunk):
     bad = []
     for seed in range(chunk * CHUNK, (chunk + 1) * CHUNK):
         r = run_case(seed, enable_clock=True, use_advance=True)
+        if r:
+            bad.append((seed, r))
+    assert not bad, bad[:3]
+
+
+# ---------------------------------------------------------------------------
+# Clock resamples (G19, G20). A clock Resample's bar at tick t holds the value
+# events with index in (previous tick, t], whatever releases them late: the
+# value stream comes through a Filter, a threshold or count Resample, an
+# every= Resample, a CombineLatest, Dropna, RollingMean or a Delay of either
+# sign, and the clock through Dropna, an every= Resample or a Delay. Each case
+# checks batch against that rule computed from the two streams alone, and
+# lazy and three live sessions (drains with probability 1, 0.3 and 0.05,
+# advance(now) between events and past the end) against batch.
+# ---------------------------------------------------------------------------
+
+def _clock_reference(vk, vv, ticks, agg, fill):
+    out_k, out_v, last, prev = [], [], None, None
+    for t in np.unique(ticks):
+        sel = (vk <= t) if prev is None else ((vk > prev) & (vk <= t))
+        prev = t
+        xs = [float(x) for x in vv[sel] if not np.isnan(x)]
+        if xs:
+            if agg == "sum":
+                val = 0.0
+                for x in xs:
+                    val += x
+            else:
+                val = xs[-1] if agg == "last" else xs[0]
+            out_k.append(t); out_v.append(val); last = val
+        elif fill == "nan":
+            out_k.append(t); out_v.append(np.nan)
+        elif fill == "carry" and last is not None:
+            out_k.append(t); out_v.append(last)
+    return np.array(out_v, float), np.array(out_k, np.int64)
+
+
+def run_clock_case(seed):
+    rng = np.random.default_rng(seed)
+    n = int(rng.integers(5, 80))
+
+    def idx(k, start):
+        return (start + np.cumsum(rng.integers(0, 4, k))).astype(np.int64)
+    xa = rng.normal(size=n)
+    xa[rng.random(n) < 0.2] = np.nan
+    nc = int(rng.integers(1, 25))
+    feeds = {"a": (xa, idx(n, int(rng.integers(0, 20)))),
+             "m": ((rng.random(n) > 0.4).astype(float), idx(n, int(rng.integers(0, 20)))),
+             "d": (rng.uniform(0, 2, n), idx(n, int(rng.integers(0, 20)))),
+             "c": (np.ones(nc), idx(nc, int(rng.integers(0, 40))) * 2)}
+    ins = {k: Input(k) for k in feeds}
+    used = set()
+
+    def inp(k):
+        used.add(k)
+        return ins[k]
+
+    def value(depth=0):
+        r = int(rng.integers(0, 9 if depth < 2 else 1))
+        if r == 0: return inp("a")
+        if r == 1: return sc.Filter()(value(depth + 1), inp("m"))
+        if r == 2: return sc.Resample(value(depth + 1), sc.Dropna()(inp("d")),
+                                      threshold=float(rng.uniform(0.5, 3)), agg="last")
+        if r == 3: return sc.Delay(int(rng.integers(-4, 5)))(value(depth + 1))
+        if r == 4: return sc.Select(0)(sc.CombineLatest()(value(depth + 1), inp("d")))
+        if r == 5: return sc.Resample(count=int(rng.integers(1, 4)), agg="last")(value(depth + 1))
+        if r == 6: return sc.Resample(every=int(rng.integers(1, 9)), agg="last",
+                                      label=["left", "right"][int(rng.integers(0, 2))])(value(depth + 1))
+        if r == 7: return sc.Dropna()(value(depth + 1))
+        return sc.RollingMean(2)(value(depth + 1))
+
+    def clock():
+        r = int(rng.integers(0, 4))
+        if r == 0: return inp("c")
+        if r == 1: return sc.Dropna()(inp("c"))
+        if r == 2: return sc.Resample(every=int(rng.integers(2, 9)), agg="last")(inp("c"))
+        return sc.Delay(int(rng.integers(-3, 4)))(inp("c"))
+
+    agg = ["last", "sum", "first"][int(rng.integers(0, 3))]
+    fill = ["skip", "nan", "carry"][int(rng.integers(0, 3))]
+    vnode, cnode = value(), clock()
+    out = sc.Resample(vnode, cnode, clock=True, agg=agg, fill=fill)
+    outs = [out] + ([sc.RollingMean(1)(inp("a"))] if rng.random() < 0.5 else [])
+    names = sorted(used)
+    inputs, fl = [ins[k] for k in names], [feeds[k] for k in names]
+    p = Pipeline(inputs, outs)
+    want = p(*fl)
+    bars = Pipeline(inputs, outs, align_outputs=False)(*fl)
+    bars = bars[0] if len(outs) > 1 else bars
+    (vv, vk), (_, ck) = Pipeline(inputs, [vnode, cnode], align_outputs=False)(*fl)
+    rv, rk = _clock_reference(np.asarray(vk), np.asarray(vv).reshape(-1), np.asarray(ck), agg, fill)
+    if not (np.array_equal(rk, bars[1]) and np.array_equal(rv, bars[0], equal_nan=True)):
+        return ("reference", f"{list(bars[1])[:12]} vs {list(rk)[:12]}")
+    m = len(outs)
+    if m == 1:
+        want = (want,)
+    if all(np.ndim(v) == 1 for v, _ in want):
+        d = same(lazy(p, fl, m), want)
+        if d:
+            return ("lazy", d)
+    evs = events(fl, names)
+    horizon = max(int(k[-1]) for _, k in fl)
+    for prob in (1.0, 0.3, 0.05):
+        s = p.live()
+        parts, last = [], None
+        for t, _, _, nm, v in evs:
+            if last is not None and rng.random() < 0.3:
+                s.advance(int(rng.integers(last, t + 1)))
+            s.push(nm, t, float(v))
+            last = t
+            if rng.random() < prob:
+                r = s.result()
+                parts.append(r if m > 1 else (r,))
+        if rng.random() < 0.5:
+            s.advance(horizon + int(rng.integers(0, 50)))
+        s.flush()
+        r = s.result()
+        parts.append(r if m > 1 else (r,))
+        d = same(concat(parts, m), want)
+        if d:
+            return ("live", f"drain probability {prob}: {d}")
+    return None
+
+
+@pytest.mark.parametrize("chunk", range(8))
+def test_clock_resample_follows_its_rule_in_batch_lazy_and_live(chunk):
+    bad = []
+    for seed in range(chunk * 25, (chunk + 1) * 25):
+        r = run_clock_case(seed)
         if r:
             bad.append((seed, r))
     assert not bad, bad[:3]

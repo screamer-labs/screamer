@@ -333,7 +333,7 @@ def split_entries():
     int_index = np.cumsum(rng.integers(1, 4, size=T))
     float_index = int_index * 0.25
     odd_index = float_index.copy()
-    odd_index[[2, 11]] = [np.nan, -np.inf]
+    odd_index[[0, 2, -1]] = [-np.inf, np.nan, np.inf]   # the index may not decrease
     rows = rng.standard_normal((T, 3))
     rows[[5, 6], [0, 2]] = np.nan
     cube = rng.standard_normal((T, 2, 2))

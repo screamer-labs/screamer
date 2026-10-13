@@ -89,13 +89,18 @@ event by event, `pipe.live()` opens a session:
   `Timedelta`) is read as int64 ticks of its own unit, as a batch call reads a
   datetime64 array. Every index of a session, on every input and in
   `.advance()`, keeps the kind and unit of the first one: plain numbers, or
-  times of one unit. Any other index, and NaT, raises `TypeError`;
+  times of one unit. Any other index, and NaT, raises `TypeError`. An index
+  below the input's previous event or an earlier `.advance(now)` raises
+  `ValueError`; equal indexes are allowed;
 - `.advance(now)` moves logical time to `now`, closing every window whose boundary
   has passed (this finalizes time-based bars even when no new data arrives, such as
   an empty minute bar closed by a clock tick);
 - `.flush()` finalizes the current partial window on demand, for example at the end
   of a loop;
-- `.result()` collects the aligned output so far.
+- `.result()` collects the aligned output so far. An input that gets no events
+  (a silent clock, a paused feed) holds the other outputs' aligned rows in
+  memory until `.advance(now)` or `.flush()`, so a long-running session calls
+  `.advance(now)` from time to time.
 
 An event that a node cannot take raises before any node sees it, and the session
 continues as if it had not been sent. A few rejections can only happen after part

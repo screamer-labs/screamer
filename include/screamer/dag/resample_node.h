@@ -11,6 +11,7 @@
 #include "screamer/dag/resample_params.h"
 #include <algorithm>
 #include <cstddef>
+#include <deque>
 #include <string>
 #include <utility>
 
@@ -173,16 +174,18 @@ public:
         if (p_.mode == ResampleMode::ByIndex) {
             if (has_any()) emit(cur_label_);
         } else if (p_.mode == ResampleMode::ByClock) {
-            // ByClock: if a clock tick was deferred (pending_clock_tick_), emit it
-            // now — end-of-stream means no future events can arrive at the same index.
-            // After that, any remaining buffered value events are discarded (they
-            // arrived AFTER the last clock tick and have no bucket to close them).
-            if (pending_clock_tick_) {
-                do_clock_tick(pending_clock_tick_index_);
-                pending_clock_tick_ = false;
+            // The end of input: no value event can still come, so every pending
+            // tick emits, in order, each with the values up to its index. The
+            // values after the last tick have no tick to close them and are
+            // dropped (the clock drives emission; no clock tick = no bar).
+            while (!ticks_.empty()) {
+                const Index t = ticks_.front();
+                take_buffered_upto(t);
+                emit_clock_bar(t);
+                ticks_.pop_front();
             }
-            // Trailing partial bucket after the last clock tick is NOT emitted
-            // (the clock drives emission; no clock tick = no bar).
+            buf_idx_.clear();
+            buf_vals_.clear();
         } else if (p_.mode == ResampleMode::ByCumulative) {
             // Emit trailing partial bucket if any events landed in it.
             if (count_in_bucket_ > 0)
@@ -216,12 +219,12 @@ public:
         have_last_finite_ = false;
         last_finite_index_ = Index{};
         cum_driver_ = 0.0;
-        prev_clock_tick_set_ = false;
-        prev_clock_tick_ = Index{};
-        clock_value_buf_.clear();
         clock_port_flush_count_ = 0;
-        pending_clock_tick_ = false;
-        pending_clock_tick_index_ = Index{};
+        ticks_.clear();
+        buf_idx_.clear();
+        buf_vals_.clear();
+        has_vfront_ = has_cfront_ = has_gfront_ = has_fwd_ = has_last_tick_ = false;
+        vfront_ = cfront_ = gfront_ = fwd_ = last_tick_ = Index{};
     }
 
     std::size_t n_in()  const override {
@@ -278,6 +281,8 @@ public:
         const bool end = now == std::numeric_limits<Index>::max();
         std::int64_t target = end ? bucket_ + 1 : bucket_of(now);
         if (target <= bucket_) return;
+        if (p_.fill != ResampleFill::Skip && !end)
+            check_fill_gap(bucket_, target, !has_any(), p_.max_fill);
         if (has_any()) emit(cur_label_);
         else if (p_.fill != ResampleFill::Skip && !end) emit_fill(cur_label_);
         if (p_.fill != ResampleFill::Skip && !end)
@@ -289,8 +294,23 @@ public:
     // ByClock 2-port interface: port(0) = value stream, port(1) = clock stream.
     // Used by the compiled graph to wire two separate input nodes directly into
     // the ResampleNode without combining them into a single frame first.
-    // Events from both ports arrive in global index order (the compiled graph's
-    // MergeSource guarantees this), so no reorder buffer is needed.
+    //
+    // A bar at clock tick t holds the value events with index in (previous
+    // tick, t]. The ports may lag each other (a Filter or a threshold Resample
+    // releases values late; a clock can come out of a Resample), so the node
+    // proves each step from the ports' frontiers, never from arrival order:
+    // - tick t emits once no value event at or below t can still come: a value
+    //   event or a value-port watermark above t, or (value_in_order) any index
+    //   above t seen on a port that is never ahead of the merge;
+    // - a value event joins the first pending tick at or above its index, or,
+    //   with no tick pending, the next tick once no tick below its index can
+    //   still come (the clock frontier, a clock event or watermark, has reached
+    //   it); until then it waits in a buffer.
+    // Each port's watermark moves its frontier, and the node forwards the
+    // lowest index it may still emit: the first pending tick, else the clock
+    // frontier. So batch, lazy and live give the same bars whatever the drain
+    // and advance() timing, and advance(now) releases other outputs' rows
+    // while the clock is silent.
     //
     // The port objects are created lazily on first call to port(). Non-movable:
     // if the node is moved after port() was called the Port's back-references
@@ -301,13 +321,8 @@ public:
         std::size_t port_idx;  // 0 = value, 1 = clock
         ClockPort(ResampleNode& n, std::size_t i) : node(n), port_idx(i) {}
         void push(const Frame<Index>& f) override {
-            if (port_idx == 0) {
-                // Value port: accumulate all value columns.
-                node.push_by_clock_value(f.index, f.values, f.width);
-            } else {
-                // Clock port: close the bucket at this index (clock value ignored).
-                node.push_by_clock_tick(f.index);
-            }
+            if (port_idx == 0) node.push_by_clock_value(f.index, f.values, f.width);
+            else node.push_by_clock_tick(f.index);         // the clock value is ignored
         }
         void flush() override {
             node.clock_port_flush_count_++;
@@ -318,7 +333,7 @@ public:
                 node.flush();
             }
         }
-        void on_watermark(Index /*w*/) override {}
+        void on_watermark(Index w) override { node.on_clock_watermark(port_idx, w); }
         std::size_t n_in()  const override { return 1; }
         std::size_t n_out() const override { return 0; }
     };
@@ -333,6 +348,21 @@ public:
         return clock_ports_[i];
     }
     friend class CompiledGraph;
+
+    // ByClock: how each port's producer relates to the merge of the graph's
+    // inputs (CompiledGraph sets it at wiring). `in_order`: the port never
+    // receives an index below one the merge has passed (an Input, or functors,
+    // Select, Dropna, a lag or a forward Delay of one), so any index seen on a
+    // never-ahead port bounds it. `never_ahead`: the port's indexes never pass
+    // the merge (anything but a forward Delay). The defaults prove steps from
+    // each port's own frontier only.
+    void set_clock_ports(bool value_in_order, bool value_never_ahead,
+                         bool clock_in_order, bool clock_never_ahead) {
+        value_in_order_ = value_in_order;
+        clock_in_order_ = clock_in_order;
+        ahead_ok_[0] = value_never_ahead;
+        ahead_ok_[1] = clock_never_ahead;
+    }
 
 private:
     // ohlcv_bars without a plan: the plan comes from the first frame's width.
@@ -372,14 +402,23 @@ private:
         if (!started_) {
             started_ = true; bucket_ = nb; reset_accums(); set_index_label(nb);
         } else if (nb != bucket_) {
-            if (has_any()) emit(cur_label_);
-            else if (p_.fill != ResampleFill::Skip) emit_fill(cur_label_);
-            if (p_.fill != ResampleFill::Skip)
-                for (std::int64_t b = bucket_ + 1; b < nb; ++b)
-                    emit_fill(label_for(b));
-            bucket_ = nb; reset_accums(); set_index_label(nb);
+            move_to_bucket(nb);
         }
         accums_[0].add(v);
+    }
+
+    // Closes the current bucket and fills the empty ones before bucket nb
+    // (fill nan or carry), after checking the gap against max_fill.
+    void move_to_bucket(std::int64_t nb) {
+        if (p_.fill != ResampleFill::Skip) {
+            check_fill_gap(bucket_, nb, !has_any(), p_.max_fill);
+            if (has_any()) emit(cur_label_);
+            else emit_fill(cur_label_);
+            for (std::int64_t b = bucket_ + 1; b < nb; ++b) emit_fill(label_for(b));
+        } else if (has_any()) {
+            emit(cur_label_);
+        }
+        bucket_ = nb; reset_accums(); set_index_label(nb);
     }
 
     void push_by_count(Index k, double v) {
@@ -399,12 +438,7 @@ private:
         if (!started_) {
             started_ = true; bucket_ = nb; reset_accums(); set_index_label(nb);
         } else if (nb != bucket_) {
-            if (has_any()) emit(cur_label_);
-            else if (p_.fill != ResampleFill::Skip) emit_fill(cur_label_);
-            if (p_.fill != ResampleFill::Skip)
-                for (std::int64_t b = bucket_ + 1; b < nb; ++b)
-                    emit_fill(label_for(b));
-            bucket_ = nb; reset_accums(); set_index_label(nb);
+            move_to_bucket(nb);
         }
         for (std::size_t c = 0; c < num_accums_; ++c)
             accums_[c].add(vals[c]);
@@ -454,20 +488,98 @@ private:
         return tick - last <= static_cast<std::uint64_t>(p_.max_age);
     }
 
-    // ByClock: buffer a value event for deferred accumulation.
-    // Events are buffered (with their timeline index k) so that clock ticks can
-    // drain only the events whose index falls within the closing bucket.
-    // This supports the case where value events arrive with a shifted index
-    // (e.g., from a Delay node inside the same compiled graph), which can cause
-    // events to arrive in original-index order but out of timeline-index order.
-    // vals is the value portion of the frame (all but the last is_clock column).
-    // num_val_cols is the count of value columns (frame.width - 1).
-    //
-    // Tie-order fix (C1): before buffering, check if a pending clock tick at a
-    // STRICTLY EARLIER index can now be emitted safely (the current value event
-    // arrives at a higher index, proving no same-index value events remain for
-    // the pending tick). This makes the output independent of whether the value
-    // or clock input is listed first in Pipeline([...]).
+    // ByClock frontiers (see ClockPort). vfront_: the highest value index or
+    // value-port watermark; cfront_: the same for the clock port; gfront_:
+    // the highest index seen on a port that is never ahead of the merge.
+    void note_front(std::size_t port, Index k) {
+        Index& f = port == 0 ? vfront_ : cfront_;
+        bool& has = port == 0 ? has_vfront_ : has_cfront_;
+        if (!has || k > f) { f = k; has = true; }
+        if (ahead_ok_[port] && (!has_gfront_ || k > gfront_)) { gfront_ = k; has_gfront_ = true; }
+    }
+
+    // No value event at or below t can still come.
+    bool value_past(Index t) const {
+        return (has_vfront_ && vfront_ > t) ||
+               (value_in_order_ && has_gfront_ && gfront_ > t);
+    }
+
+    // Every tick still to come is at or above k.
+    bool clock_reaches(Index k) const {
+        return (has_cfront_ && cfront_ >= k) ||
+               (clock_in_order_ && has_gfront_ && gfront_ >= k);
+    }
+
+    // A value event that may join the current bar now: the bar of the first
+    // pending tick (at or above k, since ticks below the value frontier have
+    // emitted), or, with no tick pending, the bar of the next tick.
+    bool joins_now(Index k) const {
+        return ticks_.empty() ? clock_reaches(k) : k <= ticks_.front();
+    }
+
+    // Folds one value event into the current bar.
+    void add_clock_value(Index k, const double* row, std::size_t n) {
+        if (!p_.plan.empty()) {
+            for (std::size_t c = 0; c < num_accums_ && c < n; ++c) accums_[c].add(row[c]);
+        } else if (n) {
+            accums_[0].add(row[0]);
+        }
+        // max_age is intentionally restricted to scalar last-value as-of
+        // joins. A finite source observation updates its event-time stamp;
+        // NaNs do not refresh freshness.
+        if (p_.max_age >= 0 && n && !screamer::isnan2(row[0]) &&
+                (!have_last_finite_ || k > last_finite_index_)) {
+            have_last_finite_ = true;
+            last_finite_index_ = k;
+        }
+    }
+
+    // Moves the buffered values at or below t (a prefix: values arrive in
+    // index order) into the current bar.
+    void take_buffered_upto(Index t) {
+        while (!buf_idx_.empty() && buf_idx_.front() <= t) take_buffered();
+    }
+    void take_buffered() {
+        const Index k = buf_idx_.front();
+        const std::size_t n = buf_width_;
+        buf_row_.assign(buf_vals_.begin(), buf_vals_.begin() + static_cast<std::ptrdiff_t>(n));
+        add_clock_value(k, buf_row_.data(), n);
+        buf_idx_.pop_front();
+        buf_vals_.erase(buf_vals_.begin(), buf_vals_.begin() + static_cast<std::ptrdiff_t>(n));
+    }
+
+    // Emits every pending tick that is proven complete and moves the buffered
+    // values that the current bar may take.
+    void settle_clock() {
+        while (!ticks_.empty()) {
+            const Index t = ticks_.front();
+            take_buffered_upto(t);
+            if (!value_past(t)) return;
+            emit_clock_bar(t);
+            ticks_.pop_front();
+        }
+        while (!buf_idx_.empty() && clock_reaches(buf_idx_.front())) take_buffered();
+    }
+
+    // A watermark on port 0 (value) or 1 (clock): no later event below w.
+    void on_clock_watermark(std::size_t port, Index w) {
+        note_front(port, w);
+        settle_clock();
+        // The lowest index a bar may still have: the first pending tick, else
+        // the clock frontier (every tick still to come is at or above it).
+        Index f;
+        if (!ticks_.empty()) f = ticks_.front();
+        else if (has_cfront_ && clock_in_order_ && has_gfront_)
+            f = gfront_ > cfront_ ? gfront_ : cfront_;
+        else if (has_cfront_) f = cfront_;
+        else if (clock_in_order_ && has_gfront_) f = gfront_;
+        else return;
+        if (has_fwd_ && f <= fwd_) return;
+        fwd_ = f; has_fwd_ = true;
+        downstream_.on_watermark(f);
+    }
+
+    // ByClock: a value event. vals holds num_val_cols values.
     void push_by_clock_value(Index k, const double* vals, std::size_t num_val_cols) {
         if (p_.max_age >= 0 && num_val_cols != 1) {
             throw std::invalid_argument(
@@ -488,90 +600,40 @@ private:
                 "a resample plan takes " + std::to_string(num_accums_) +
                 " column(s), but its input has " + std::to_string(num_val_cols));
         }
-        // Deferred-tick: if there is a pending clock tick at a strictly smaller
-        // index than the incoming value, emit it now before buffering the value.
-        // Equal index: do NOT emit — the value still belongs in the pending bucket.
-        if (pending_clock_tick_ &&
-                static_cast<std::int64_t>(k) > static_cast<std::int64_t>(pending_clock_tick_index_)) {
-            do_clock_tick(pending_clock_tick_index_);
-            pending_clock_tick_ = false;
+        const std::size_t nc = p_.plan.empty() ? (num_val_cols >= 1 ? 1u : 0u) : num_accums_;
+        const std::size_t n = std::min(nc, num_val_cols);
+        note_front(0, k);
+        settle_clock();                     // ticks below k are complete
+        if (buf_idx_.empty() && joins_now(k)) {
+            add_clock_value(k, vals, n);
+            return;
         }
-        // Buffer the event (copy values) so the clock tick can drain it correctly.
-        // Buffering handles the case where events arrive out of timeline order
-        // (e.g., Delay shifting indices inside the same compiled graph).
-        std::size_t nc = p_.plan.empty() ? (num_val_cols >= 1 ? 1u : 0u) : num_accums_;
-        clock_value_buf_.push_back({k, std::vector<double>(vals, vals + std::min(nc, num_val_cols))});
+        // A tick below k may still come: wait in the buffer.
+        buf_width_ = n;
+        buf_idx_.push_back(k);
+        buf_vals_.insert(buf_vals_.end(), vals, vals + n);
+        settle_clock();
     }
 
-    // ByClock: a clock event registers a pending tick at index k. The actual
-    // bucket is emitted only when a STRICTLY LATER event arrives (value or clock),
-    // ensuring that same-index value events are included regardless of Pipeline
-    // input order (MergeSource tie-breaking by source index).
-    //
-    // do_clock_tick(k) performs the immediate emission: drains buffered value
-    // events with index <= k into the accumulator, emits/fills, and resets.
+    // ByClock: a clock event at k. Ticks at one index give one bar, and a
+    // tick at or below one that has emitted adds no bar, whatever the arrival
+    // order of the two ports.
     void push_by_clock_tick(Index k) {
-        // Deferred-tick: if there is already a pending tick, the new tick at k
-        // proves a strictly later event has arrived — emit the earlier pending tick.
-        if (pending_clock_tick_ &&
-                static_cast<std::int64_t>(k) > static_cast<std::int64_t>(pending_clock_tick_index_)) {
-            do_clock_tick(pending_clock_tick_index_);
-            pending_clock_tick_ = false;
-        }
-        // Register k as the new pending tick (replace if same index, defer if later).
-        pending_clock_tick_ = true;
-        pending_clock_tick_index_ = k;
+        note_front(1, k);
+        const bool fresh = ticks_.empty() ? !has_last_tick_ || k > last_tick_
+                                          : k > ticks_.back();
+        if (fresh) ticks_.push_back(k);
+        settle_clock();
     }
 
-    // Immediately emit the clock bucket at index k. Drains value events with
-    // index <= k from the buffer, accumulates them, emits the reducer output or
-    // the fill value, then resets the accumulator state.
-    void do_clock_tick(Index k) {
-        // Drain buffered value events with index <= k (they belong to this bucket).
-        auto rem_it = clock_value_buf_.begin();
-        for (auto it = clock_value_buf_.begin(); it != clock_value_buf_.end(); ++it) {
-            if (static_cast<std::int64_t>(it->first) <= static_cast<std::int64_t>(k)) {
-                // This event belongs to the closing bucket: accumulate it.
-                const auto& row = it->second;
-                if (!p_.plan.empty()) {
-                    for (std::size_t c = 0; c < num_accums_ && c < row.size(); ++c)
-                        accums_[c].add(row[c]);
-                } else {
-                    if (!row.empty()) accums_[0].add(row[0]);
-                }
-                // max_age is intentionally restricted to scalar last-value as-of
-                // joins. A finite source observation updates its event-time stamp;
-                // NaNs do not refresh freshness.
-                if (p_.max_age >= 0 && !row.empty() &&
-                        !screamer::isnan2(row[0]) &&
-                        (!have_last_finite_ || it->first > last_finite_index_)) {
-                    have_last_finite_ = true;
-                    last_finite_index_ = it->first;
-                }
-                // count_in_bucket_ is not used for ByClock decision logic (has_real
-                // checks accum.count instead); reset happens at the end of each tick.
-            } else {
-                // Future event: keep in buffer. Guard against self-move: if rem_it
-                // and it point to the same element (no elements were drained yet),
-                // skip the assignment to avoid std::vector self-move UB.
-                if (rem_it != it) *rem_it = std::move(*it);
-                ++rem_it;
-            }
-        }
-        clock_value_buf_.erase(rem_it, clock_value_buf_.end());
-
-        // I1 fix (ByClock only): for fill='carry' as-of semantics, a bucket whose
-        // only value events are NaN should carry the last real value rather than
-        // emit NaN. Use count > 0 (non-NaN events) rather than has_any() to decide
-        // between emit and carry. Other modes (ByIndex/ByCount/ByCumulative) use
-        // has_any() and are unaffected (do_clock_tick is ByClock-exclusive).
+    // Emits the bar of tick k from the current bar's values (the reducer
+    // output, or the fill when it had no finite value), then starts the next.
+    void emit_clock_bar(Index k) {
         bool has_real = false;
         for (const auto& a : accums_) if (a.count > 0) { has_real = true; break; }
-
-        // Check after draining the current bucket: an observation in (prev, k]
-        // can still be too old at a sparse clock tick. Preserve the leading
-        // carry behavior before the first finite observation; only an observed
-        // value can expire.
+        // An observation in (prev, k] can still be too old at a sparse clock
+        // tick. Preserve the leading carry behavior before the first finite
+        // observation; only an observed value can expire.
         const bool stale = p_.max_age >= 0 && have_last_finite_ &&
             !clock_value_is_fresh(k);
         if (stale) {
@@ -589,8 +651,8 @@ private:
         }
         reset_accums();
         count_in_bucket_ = 0;
-        prev_clock_tick_set_ = true;
-        prev_clock_tick_ = k;
+        last_tick_ = k;
+        has_last_tick_ = true;
     }
 
     Index label_for(std::int64_t nb) const {
@@ -657,23 +719,20 @@ private:
     std::int64_t count_in_bucket_ = 0;
     Index first_index_{}, last_index_{};
     double cum_driver_ = 0.0;         // ByCumulative: running driver accumulator
-    bool prev_clock_tick_set_ = false;  // ByClock: whether a clock tick has fired
-    Index prev_clock_tick_{};           // ByClock: index of the last clock tick
-    // ByClock value-event buffer: stores (index, values) pairs for deferred
-    // accumulation. Clock ticks drain events with index <= tick; the rest stay.
-    // Enables correct operation when value events arrive with shifted indices
-    // (e.g., from a Delay node in the same compiled graph causing out-of-order
-    // event delivery at the ResampleNode).
-    std::vector<std::pair<Index, std::vector<double>>> clock_value_buf_;
     // ByClock 2-port wiring (created lazily on first port() call).
     std::vector<ClockPort> clock_ports_;
     std::size_t clock_port_flush_count_ = 0;
-    // ByClock deferred-tick state (C1 tie-order fix): a clock tick at
-    // pending_clock_tick_index_ is held until a strictly later event arrives,
-    // so same-index value events (regardless of Pipeline input order) are always
-    // included in the bucket before it closes.
-    bool pending_clock_tick_ = false;
-    Index pending_clock_tick_index_{};
+    // ByClock state (see ClockPort). The current bar's values are in accums_.
+    std::deque<Index> ticks_;          // pending ticks, increasing
+    std::deque<Index> buf_idx_;        // values that wait for the clock frontier
+    std::deque<double> buf_vals_;      // their values, buf_width_ each
+    std::size_t buf_width_ = 0;
+    std::vector<double> buf_row_;      // scratch: one buffered row
+    Index vfront_{}, cfront_{}, gfront_{}, fwd_{}, last_tick_{};
+    bool has_vfront_ = false, has_cfront_ = false, has_gfront_ = false, has_fwd_ = false;
+    bool has_last_tick_ = false;      // a tick has emitted (last_tick_)
+    bool value_in_order_ = false, clock_in_order_ = false;
+    bool ahead_ok_[2] = {false, false};
 };
 
 }} // namespace screamer::dag

@@ -314,14 +314,19 @@ JoinedRows<Index> combine_latest_rows(const JoinPlan& plan, const std::vector<co
     // Each source's event value is its row position; the row's values are read
     // from the input's data.
     std::vector<std::vector<double>> positions(n);
-    std::vector<std::unique_ptr<VectorSource<Index>>> sources;
+    std::vector<std::unique_ptr<VectorSource<Index, false>>> sources;
     std::vector<Source<Index>*> children;
     std::vector<std::vector<double>> scratch(n);
     std::size_t total = 0;
     for (std::size_t i = 0; i < n; ++i) {
         positions[i].resize(lens[i]);
-        for (std::size_t r = 0; r < lens[i]; ++r) positions[i][r] = static_cast<double>(r);
-        sources.push_back(std::make_unique<VectorSource<Index>>(index[i], positions[i].data(), lens[i]));
+        // The row positions, and the index order (checked_index.h) in the same loop.
+        const Index* k = index[i];
+        for (std::size_t r = 0; r < lens[i]; ++r) {
+            if (r != 0 && k[r] < k[r - 1]) dag::throw_index_decreases(i, r, k[r - 1], k[r]);
+            positions[i][r] = static_cast<double>(r);
+        }
+        sources.push_back(std::make_unique<VectorSource<Index, false>>(index[i], positions[i].data(), lens[i], i));
         children.push_back(sources.back().get());
         scratch[i].resize(plan.inputs[i].width);
         total += lens[i];

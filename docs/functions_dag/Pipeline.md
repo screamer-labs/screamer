@@ -120,7 +120,9 @@ returns the session, so calls chain.
 
 - **`.push(input, index, value)`** feeds one event. `input` is an `Input` name
   (str) or its position (int) in the `inputs` list; `index` is the event's integer
-  index; `value` is the float value.
+  index; `value` is the float value. An index below the input's previous event,
+  or below an earlier `.advance(now)`, raises `ValueError` and the session goes on
+  as if the event had not been sent. Equal indexes are allowed.
 - **`.advance(now)`** moves logical time to `now` (an integer index), closing every
   windowing node whose bucket boundary has passed by `now`. This finalizes
   time-based bars even when no event fell in them, for example an empty minute bar
@@ -136,6 +138,12 @@ returns the session, so calls chain.
   calls, put end to end, are the rows of one call at the end. A call returns a
   row only once every output has moved past its index (another output could
   still change it); after `.flush()` it returns every row.
+
+An input that gets no events holds the aligned rows. While an input is silent,
+for example a clock that stopped ticking or a feed that paused, the outputs fed
+by it do not move, so the other outputs' rows wait in memory until
+`.advance(now)` or `.flush()`. In a long-running session, call `.advance(now)`
+from time to time: it moves every input to `now` and releases the rows below it.
 
 Feeding the same events in index order and then calling `.flush()` reproduces the
 batch result exactly. `.advance()` (and a clock input wired into the pipeline)

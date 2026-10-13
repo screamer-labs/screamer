@@ -130,6 +130,16 @@ and a `CombineLatest` that drop the same last rows give the same bars.
 holding `N` events, so empty bars cannot exist by construction and `fill=` has no
 effect.
 
+`max_fill=` (default 1,000,000) bounds the empty bars of one gap: the empty
+buckets that one event, or one `advance(now)`, closes at once. A larger gap
+raises `ValueError` (`RangeError` in JavaScript, where the option is `maxFill`)
+before any bar is built, in batch, lazy and live calls alike. A gap that large
+is usually a unit mistake, such as a nanosecond index with `freq=10`, and filling
+it would exhaust memory. One fill bar costs at least 16 bytes in the graph and
+about as much again in the result, so the default keeps one gap near 32 MB for
+one column; it covers 11 days of one-second bars or 1.9 years of one-minute
+bars. Pass a larger integer, up to 2\*\*53, to fill longer gaps.
+
 ### `fill=` edge cases
 
 - **Leading buckets** (before the first event) are never synthesized on the eager
@@ -271,6 +281,10 @@ value resumes the join. `max_age=None` (the default) preserves unbounded carry.
   `threshold=`; passing two mode selectors raises `ValueError`.
 - Events with index exactly equal to the clock tick are **included** in that bar
   (the interval is closed on the right: `(prev_tick, tick]`).
+- Inside a `Pipeline` this holds when a node releases values late, such as a
+  `Filter`, a `threshold=` or `count=` `Resample`, or a `CombineLatest` upstream:
+  a tick emits its bar once no value at or below it can still come. Clock events
+  at one index give one bar.
 - There is no trailing partial bucket: only explicit clock ticks trigger emission.
 - Works in eager, `Pipeline` graph, and lazy iterator regimes with identical results.
 

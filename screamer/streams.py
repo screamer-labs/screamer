@@ -950,7 +950,7 @@ def _resample_freq_to_engine(freq, index):
 
 
 def _resample_via_cpp(feed, *, every, count, threshold, agg, origin, label,
-                      fill="skip", clock=False):
+                      fill="skip", clock=False, max_fill=None):
     """Run resample on the C++ engine via a one-node Pipeline, for batch OR lazy input.
 
     Builds the minimal ``Input -> Resample`` graph the Node regime already uses,
@@ -971,7 +971,8 @@ def _resample_via_cpp(feed, *, every, count, threshold, agg, origin, label,
     from .dag import Input, Pipeline
     src = Input("x")
     node = resample(src, every=every, count=count, threshold=threshold, agg=agg,
-                    origin=origin, label=label, fill=fill, clock=clock)
+                    origin=origin, label=label, fill=fill, clock=clock,
+                    max_fill=max_fill)
     dag = Pipeline([src], [node])
     return dag(feed)
 
@@ -1111,21 +1112,24 @@ def _resample_validate(freq, every, count, threshold, agg, label, fill="skip",
 
 
 
-def _resample_lazy(values, *, every, count, agg, origin, label, fill):
+def _resample_lazy(values, *, every, count, agg, origin, label, fill, max_fill=None):
     """Lazy resample; events whose value is an array of assets are resampled per
     column and come back in the same shape (the C++ driver reads and shapes
     them)."""
     if not isinstance(agg, str):
         return _resample_lazy_functor(values, every=every, count=count, agg=agg,
-                                      origin=origin, label=label, fill=fill)
+                                      origin=origin, label=label, fill=fill,
+                                      max_fill=max_fill)
     from .dag import Input, Pipeline
     src = Input("x")
     dag = Pipeline([src], [resample(src, every=every, count=count, agg=agg,
-                                    origin=origin, label=label, fill=fill)])
+                                    origin=origin, label=label, fill=fill,
+                                    max_fill=max_fill)])
     return _lazy_resample_rows(dag, [iter(values)], agg)
 
 
-def _resample_lazy_functor(values, *, every, count, agg, origin, label, fill):
+def _resample_lazy_functor(values, *, every, count, agg, origin, label, fill,
+                           max_fill=None):
     """Lazy resample with a functor agg, which aggregates one column."""
     import itertools
     it = iter(values)
@@ -1139,12 +1143,12 @@ def _resample_lazy_functor(values, *, every, count, agg, origin, label, fill):
             "Resample each column with its own functor, or use a builtin agg.")
     yield from _resample_via_cpp(itertools.chain([head], it), every=every, count=count,
                                  threshold=None, agg=agg, origin=origin, label=label,
-                                 fill=fill)
+                                 fill=fill, max_fill=max_fill)
 
 
 def resample(values, driver=None, index=None, *, freq=None, every=None, count=None,
              threshold=None, clock=False, agg="last", origin=0, label="left",
-             fill="skip", max_age=None):
+             fill="skip", max_age=None, max_fill=None):
     """Causal windowed downsample of a 1-D value stream.
 
     Pass exactly one of ``freq``, ``every``, or ``count`` to bound the bars.
@@ -1205,6 +1209,11 @@ def resample(values, driver=None, index=None, *, freq=None, every=None, count=No
     so a functor reducer starts each real bar clean. The trailing partial bucket is
     still emitted once at end of input. Integer index-space.
 
+    ``max_fill`` bounds the empty bars that one gap may fill: a fill resample
+    whose event (or ``advance(now)``) would close more empty buckets at once
+    raises ``ValueError`` before it builds any bar. The default is 1,000,000;
+    pass an integer from 1 to 2**53 to change it.
+
     Values-first + polymorphic: raw arrays, (values, index) tuple, or graph Node.
     The returned index is always the bar labels (a real array, never None) - even
     for a positional (no-index) input, which resamples by row position.
@@ -1218,6 +1227,11 @@ def resample(values, driver=None, index=None, *, freq=None, every=None, count=No
                        max_age)
     if max_age is not None:
         max_age = int(max_age)
+    if max_fill is not None:
+        max_fill = _b._max_fill(max_fill)
+    # Only a set max_fill enters a graph node, so a default graph's to_dict
+    # is unchanged.
+    fill_kw = {} if max_fill is None else {"max_fill": max_fill}
     # Translate freq= into every=/count= using the index context.  After this
     # block every and count follow the existing internal convention so all
     # downstream code is unchanged.
@@ -1247,7 +1261,7 @@ def resample(values, driver=None, index=None, *, freq=None, every=None, count=No
                 "clock": True, "agg": agg,
                 "every": None, "count": None,
                 "origin": origin, "label": label, "fill": fill,
-                "max_age": max_age})
+                "max_age": max_age, **fill_kw})
         # Eager / lazy path: merge value and clock events into a tagged stream
         # [value..., is_clock] where is_clock=0 for value events, 1 for clock.
         # The merged stream is fed to the C++ ResampleNode(ByClock) which
@@ -1301,7 +1315,7 @@ def resample(values, driver=None, index=None, *, freq=None, every=None, count=No
                 return make_operator_node(Resample, (values, driver), {
                     "threshold": threshold, "agg": agg,
                     "every": None, "count": None,
-                    "origin": origin, "label": label, "fill": fill})
+                    "origin": origin, "label": label, "fill": fill, **fill_kw})
             elif driver is None:
                 # Internal path: called from _resample_via_cpp with a single Input
                 # that already carries the combined width-2 frame (value+driver).
@@ -1309,7 +1323,7 @@ def resample(values, driver=None, index=None, *, freq=None, every=None, count=No
                 return make_operator_node(Resample, (values,), {
                     "threshold": threshold, "agg": agg,
                     "every": None, "count": None,
-                    "origin": origin, "label": label, "fill": fill})
+                    "origin": origin, "label": label, "fill": fill, **fill_kw})
             else:
                 raise ValueError(
                     "resample: threshold= requires a driver Node as the second argument")
@@ -1341,19 +1355,19 @@ def resample(values, driver=None, index=None, *, freq=None, every=None, count=No
             np.column_stack([vals, drv]), dtype=np.float64)
         out_v, out_idx = _resample_via_cpp(
             (combined_vals, idx), every=None, count=None, threshold=threshold,
-            agg=agg, origin=origin, label=label, fill=fill)
+            agg=agg, origin=origin, label=label, fill=fill, max_fill=max_fill)
         return out_v, out_idx
 
     if is_node(values):
         return make_operator_node(Resample, (values,), {
             "every": every, "count": count, "agg": agg,
-            "origin": origin, "label": label, "fill": fill})
+            "origin": origin, "label": label, "fill": fill, **fill_kw})
     if _is_lazy_stream(values):
         # Rule A: a lazy iterator of (value, index) events -> a lazy iterator of
         # (bar_value, bar_label). Drive the same C++ resample node as batch through
         # the Stage-2 lazy Pipeline; no Python windowing accumulator runs here.
         return _resample_lazy(values, every=every, count=count, agg=agg,
-                              origin=origin, label=label, fill=fill)
+                              origin=origin, label=label, fill=fill, max_fill=max_fill)
     vals, idx_in = _as_vi(values, index)
     vals = _as_float64(vals)
     # Multi-column bar aggs require specific input widths.
@@ -1398,7 +1412,7 @@ def resample(values, driver=None, index=None, *, freq=None, every=None, count=No
     # from _BAR_AGG_FIXED_PLANS or the dynamic OhlcvBars sentinel in C++.
     out_v, out_idx = _resample_via_cpp(
         (vals, idx), every=every, count=count, threshold=None, agg=agg,
-        origin=origin, label=label, fill=fill)
+        origin=origin, label=label, fill=fill, max_fill=max_fill)
     if columns is not None:
         out_v = np.asarray(out_v).reshape(
             (len(out_idx),) + columns + ((4,) if agg == "ohlc" else ()))
@@ -1498,7 +1512,8 @@ class Resample:
 
     def __new__(cls, values_or_freq=None, driver=None, *,
                 freq=None, every=None, count=None, threshold=None, clock=False,
-                agg="last", origin=0, label="left", fill="skip", max_age=None):
+                agg="last", origin=0, label="left", fill="skip", max_age=None,
+                max_fill=None):
         # Detect whether the first positional arg is data (cumulative-driver or
         # clock-mode shorthand form) or a config param (classic config-first form).
         # When data IS provided, compute and return the result directly.
@@ -1513,20 +1528,21 @@ class Resample:
             return resample(values_or_freq, driver,
                             freq=freq, every=every, count=count, threshold=threshold,
                             clock=clock, agg=agg, origin=origin, label=label,
-                            fill=fill, max_age=max_age)
+                            fill=fill, max_age=max_age, max_fill=max_fill)
         if _is_data and driver is not None:
             # A driver (second positional arg) with no mode selector: route through
             # resample() which will raise the "requires threshold= or clock=True" error.
             return resample(values_or_freq, driver,
                             freq=freq, every=every, count=count, threshold=threshold,
                             clock=clock, agg=agg, origin=origin, label=label,
-                            fill=fill, max_age=max_age)
+                            fill=fill, max_age=max_age, max_fill=max_fill)
         # Classic config-first: return a Resample instance.
         return super().__new__(cls)
 
     def __init__(self, values_or_freq=None, driver=None, *,
                  freq=None, every=None, count=None, threshold=None, clock=False,
-                 agg="last", origin=0, label="left", fill="skip", max_age=None):
+                 agg="last", origin=0, label="left", fill="skip", max_age=None,
+                 max_fill=None):
         # Skip init when __new__ already returned a non-Resample result.
         if not isinstance(self, Resample):
             return
@@ -1536,9 +1552,11 @@ class Resample:
                         isinstance(values_or_freq, (int, float,
                                                     np.integer, np.floating)))
                     else freq)
+        if max_fill is not None:               # a setting raises at construction
+            max_fill = _b._max_fill(max_fill)
         self._cfg = dict(freq=eff_freq, every=every, count=count, threshold=threshold,
                          clock=clock, agg=agg, origin=origin, label=label, fill=fill,
-                         max_age=max_age)
+                         max_age=max_age, max_fill=max_fill)
 
     def __call__(self, values, index=None):
         # Classic config-first form: Resample(cfg)(values, index=None)

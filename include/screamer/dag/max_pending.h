@@ -46,13 +46,25 @@ inline std::string number_text(double v) {
     return buf;
 }
 
-// max_pending from a number: a whole number from 1 to 2**53. A fractional or
-// non-finite number is a TypeError; a whole number out of range a ValueError.
-inline std::size_t checked_max_pending(double v, const std::string& name = "max_pending") {
+// A count setting (max_pending, max_fill) from a number: a whole number from
+// 1 to 2**53. A fractional or non-finite number is a TypeError; a whole number
+// out of range a ValueError. `name` is the binding's name of the setting.
+inline double checked_count_setting(double v, const std::string& name) {
     if (!std::isfinite(v) || v != std::floor(v)) throw_max_pending_kind(number_text(v), name);
     if (v < 1 || v > kMaxMaxPending)
         throw std::invalid_argument(
             name + " must be at least 1 and at most 2**53, got " + number_text(v));
+    return v;
+}
+
+// A fill Resample's max_fill (resample_params.h kDefaultMaxFill).
+inline std::int64_t checked_max_fill(double v, const std::string& name = "max_fill") {
+    return static_cast<std::int64_t>(checked_count_setting(v, name));
+}
+
+// max_pending from a number, under the count-setting rule.
+inline std::size_t checked_max_pending(double v, const std::string& name = "max_pending") {
+    checked_count_setting(v, name);
     // A cap beyond what size_t holds (a 32-bit WebAssembly build) holds no
     // fewer events than memory can.
     if (v >= static_cast<double>(SIZE_MAX)) return SIZE_MAX;
