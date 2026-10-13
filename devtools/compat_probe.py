@@ -395,6 +395,22 @@ def cases():
         "split n negative empty": lambda: s.split(v[:0], tags[:0], n=-1),
         "split n negative": lambda: s.split(v, tags, n=-1),
         "split n 2**40": lambda: s.split(v[:0], tags[:0], n=2**40),
+        "split (T,K) values with index": lambda: s.split(X, tags, index=idx, n=4),
+        "split (T,1) values": lambda: s.split(X[:, :1], tags),
+        "split (T,2,2) values": lambda: s.split(np.arange(T * 4.0).reshape(T, 2, 2), tags),
+        "split (0,K) values": lambda: s.split(X[:0], tags[:0], n=2),
+        "split list of rows": lambda: s.split([[1.0, 2.0], [3.0, None]], [1, 0]),
+        "split bool list sources": lambda: s.split(v[:2], [True, False]),
+        "split mixed bool list sources": lambda: s.split(v[:2], [True, 2]),
+        "split np.int64 list sources": lambda: s.split(v[:4], list(tags[:4])),
+        "split object sources": lambda: s.split(v[:3], np.array([0, 1, 0], dtype=object)),
+        "split float32 sources": lambda: s.split(v[:3], np.array([0, 1, 0], dtype=np.float32)),
+        "split source 2**31-1": lambda: s.split(v[:1], [2**31 - 1]),
+        "split int64 source 2**40": lambda: s.split(v[:1], np.array([2**40])),
+        "split uint64 source 2**40": lambda: s.split(v[:1], np.array([2**40], dtype=np.uint64)),
+        "split 2-D index": lambda: s.split(v[:2], [0, 1], index=np.zeros((2, 1))),
+        "split n 2.0": lambda: s.split(v, tags, n=2.0),
+        "split n np.int64": lambda: s.split(v, tags, n=np.int64(4)),
     })
     return table
 
