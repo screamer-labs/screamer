@@ -1121,10 +1121,11 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   `WilliamsR(20)` 0.58 / 0.58 (0.77 / 0.95), `WilliamsR(20)` on
   `(2000, 100)` fields 0.82 / 0.83 (1.02 / 1.08), `Where()` on `(2000, 100)`
   0.33 / 0.35 (0.39 / 0.47), `ContOFI()` 0.33 / 0.33 (1.35 / 1.39). Over
-  the 94 operator and shape pairs the separate call takes 0.90 of its time
-  (geometric mean) and the packed call 0.87, and the packed call is within
-  1.05x of the separate one (was up to 1.23x; 2.8.0 up to 4x), `VPIN` aside,
-  which runs at one of two speeds per process in either spelling.
+  93 multi-input operators, 1-D and `(2000, 100)`, the separate call takes
+  0.88 of its time (geometric mean) and the packed call 0.86, and the packed
+  call is within 1.07x of the separate one (was up to 1.52x; 2.8.0 up to
+  4x). `VPIN`, about 1 s a call, runs at one of two speeds in either
+  spelling.
 * JavaScript calls the per-event steps of a live `Pipeline` and of the
   `combineLatest` iterators as plain WASM exports instead of Embind methods,
   and checks the keys of a `{ value, index }` event without building a
