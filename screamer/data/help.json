@@ -13843,7 +13843,7 @@
     "topics": [
       "streams"
     ],
-    "details": "The inverse of `Merge`: partition a source-tagged stream back into one stream per\nsource. `split(*Merge()(a_v, b_v, index=[a_k, b_k]))` reconstructs the original\nstreams.",
+    "details": "The inverse of `Merge`: partition a source-tagged stream back into one stream per\nsource. `split(*Merge()(a_v, b_v, index=[a_k, b_k]))` reconstructs the original\nstreams.\n\nEvent `i` goes to output `sources[i]`, in event order. A source is a whole\nnumber from 0 to 4294967295; any other source raises `TypeError`. `n` sets the\nnumber of outputs, by default `max(sources) + 1`; an `n` at or below the largest\nsource raises `ValueError`, since events would be dropped.",
     "examples": [],
     "doc_path": "functions_streams/split"
   },

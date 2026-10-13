@@ -655,32 +655,32 @@ def split(values, sources, index=None, n=None):
     Returns a list of ``(values, index)`` pairs. Positional (index=None) uses
     ``None`` for the per-source index.
     ``n`` sets how many output streams to produce (default: max(sources)+1); pass
-    it explicitly to include sources that emitted nothing.
+    it explicitly to include sources that emitted nothing. A source is a whole
+    number from 0 to 4294967295 (else TypeError), and an ``n`` at or below the
+    largest source raises ValueError.
     """
+    # Argument adaptation only: the rules (shapes, the source rule, n) and the
+    # partition are C++ (include/screamer/streams/split.h), shared with the
+    # JavaScript split.
     if _is_vi_pair(values):
         index = values[1]          # the tuple carries its own index
         values = values[0]
     values = _as_float64(values, contiguous=True)
-    if getattr(getattr(sources, "dtype", None), "kind", "O") in ("U", "S", "O"):
-        _b._refuse_text(sources if hasattr(sources, "dtype") else np.asarray(sources))
-    sources = np.ascontiguousarray(sources, dtype=np.uint32)
+    # A native integer or bool array goes to C++ as it is; anything else as
+    # float64 (a string is a TypeError, None is NaN), which holds every valid
+    # source exactly.
+    kind = getattr(getattr(sources, "dtype", None), "kind", None)
+    if kind is not None and kind in "biu" and sources.dtype.isnative:
+        sources = np.ascontiguousarray(sources)
+    else:
+        sources = _as_float64(sources, contiguous=True)
     if n is not None:
         _setting("split: n", n)
-    if n is None:
-        n = int(sources.max()) + 1 if sources.size else 0
-    elif sources.size and n <= int(sources.max()):
-        raise ValueError(
-            f"split: n={n} is too small for sources up to {int(sources.max())}; "
-            "events would be dropped")
-    if index is None:
-        # positional: partition values only; a row-number index rides along the
-        # C++ partition and is dropped to None on the way out.
-        placeholder = np.arange(values.shape[0], dtype=np.int64)
-        parts = _b._split_i64(values, sources, placeholder, n)
-        return [(v, None) for (v, _k) in parts]
-    kind, idx = _index_dtype_kind(index)
-    fn = _b._split_f64 if kind == "f64" else _b._split_i64
-    return list(fn(values, sources, idx, n))
+    if index is not None:
+        if getattr(getattr(index, "dtype", None), "kind", "O") in ("U", "S", "O"):
+            _b._refuse_text(index if hasattr(index, "dtype") else np.asarray(index))
+        index = _index_dtype_kind(index)[1]
+    return _b._split(values, sources, index, n)
 
 
 def _normalize_columns(columns):

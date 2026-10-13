@@ -36,6 +36,10 @@ A fifth fixture, wasm/smoke/oracle_forecast_pairs.json, holds forecast_pairs
 in count and duration mode (1-D and (T, K) features, NaN values, dropna, a y
 on its own clock): the inputs, the eager result, and the rows and index of the
 same graph as a Pipeline node, which forecastPairs must reproduce exactly.
+
+A sixth fixture, wasm/smoke/oracle_split.json, holds split's per-source
+values and index for tagged streams (positional and indexed, NaN values, an
+n larger than max(sources)+1, no events), which split must reproduce exactly.
 """
 
 import json
@@ -51,6 +55,7 @@ OUT_REDUCER = os.path.join(REPO, "wasm", "smoke", "oracle_reducer.json")
 OUT_MICRO = os.path.join(REPO, "wasm", "smoke", "oracle_micro.json")
 OUT_BACKTEST = os.path.join(REPO, "wasm", "smoke", "oracle_backtest.json")
 OUT_FORECAST = os.path.join(REPO, "wasm", "smoke", "oracle_forecast_pairs.json")
+OUT_SPLIT = os.path.join(REPO, "wasm", "smoke", "oracle_split.json")
 
 # Fixed, deterministic, all-positive input series (positive keeps Log/Sqrt finite).
 SERIES = [
@@ -307,6 +312,45 @@ def forecast_entries():
     return out
 
 
+def split_entries():
+    """split on fixed tagged streams: the inputs, n (None for the default) and
+    each output's values and index (None when positional)."""
+    import numpy as np
+
+    def nums(a):
+        return [None if math.isnan(v) else float(v) for v in np.ravel(a)]
+
+    rng = np.random.default_rng(22)
+    T = 30
+    values = rng.standard_normal(T)
+    values[[4, 17]] = np.nan
+    sources = rng.integers(0, 4, size=T)
+    int_index = np.cumsum(rng.integers(1, 4, size=T))
+    float_index = int_index * 0.25
+    cases = [
+        ("positional", values, sources, None, None),
+        ("int index", values, sources, int_index, None),
+        ("float index", values, sources, float_index, None),
+        ("n larger than max(sources)+1", values, sources, int_index, 7),
+        ("one source", values[:5], np.zeros(5, dtype=np.int64), None, None),
+        ("no events", values[:0], sources[:0], None, None),
+        ("no events, n=2", values[:0], sources[:0], int_index[:0], 2),
+    ]
+    out = []
+    for name, v, src, idx, n in cases:
+        parts = screamer.split(v, src, index=idx, n=n)
+        out.append({
+            "name": name,
+            "values": nums(v),
+            "sources": [int(x) for x in src],
+            "index": None if idx is None else nums(idx),
+            "n": n,
+            "parts": [{"values": nums(pv), "index": None if pi is None else nums(pi)}
+                      for pv, pi in parts],
+        })
+    return out
+
+
 def main():
     entries = []
     for name, factory, wasm_args in SAMPLE:
@@ -366,6 +410,12 @@ def main():
         json.dump(forecast, f, indent=1, allow_nan=False)
         f.write("\n")
     print(f"Wrote {len(forecast)} forecast_pairs entries -> {OUT_FORECAST}")
+
+    split = split_entries()
+    with open(OUT_SPLIT, "w") as f:
+        json.dump(split, f, indent=1, allow_nan=False)
+        f.write("\n")
+    print(f"Wrote {len(split)} split entries -> {OUT_SPLIT}")
 
 
 if __name__ == "__main__":

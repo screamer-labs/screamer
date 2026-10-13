@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   ready, current, Input, Pipeline,
   RollingMean, BollingerBands, BacktestPriceTarget, PortfolioReport, CrossRank, backtestReport,
-  forecastPairs,
+  forecastPairs, split,
 } from "../src/index.ts";
 
 // Soak tests: a program that builds a new op per call must run for months, so
@@ -140,6 +140,19 @@ test("soak: forecastPairs, its graph node, and its rejected calls, leave nothing
     const X = Input("X"), y = Input("y");
     const d = new Pipeline([X, y], [forecastPairs(X, y, { count: 1 })]).live();
     d.push("X", 0, 1); d.push("y", 0, 2); d.flush(); d.result();
+  }, N_MIXED);
+  assert.ok(r.js < JS_BOUND, `JS heap grew by ${r.js} bytes`);
+  assert.ok(r.wasm < WASM_BOUND, `WASM heap grew by ${r.wasm} bytes`);
+});
+
+test("soak: split, and its rejected calls, leave nothing behind", async () => {
+  const v = [1, 2, null, 4, 5], src = [0, 2, 1, 0, 2], ix = [1, 2, 3, 4, 5];
+  const r = await retained(() => {
+    split(v, src);
+    split(v, src, { index: ix, n: 4 });
+    try { split(v, src, { n: 2 }); } catch { /* rejected in C++ */ }
+    try { split(v, [0, 0.5, 0, 0, 0]); } catch { /* rejected in C++ */ }
+    try { split(v, src, { index: [1] }); } catch { /* rejected in C++ */ }
   }, N_MIXED);
   assert.ok(r.js < JS_BOUND, `JS heap grew by ${r.js} bytes`);
   assert.ok(r.wasm < WASM_BOUND, `WASM heap grew by ${r.wasm} bytes`);

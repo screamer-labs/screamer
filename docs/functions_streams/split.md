@@ -21,6 +21,11 @@ The inverse of `Merge`: partition a source-tagged stream back into one stream pe
 source. `split(*Merge()(a_v, b_v, index=[a_k, b_k]))` reconstructs the original
 streams.
 
+Event `i` goes to output `sources[i]`, in event order. A source is a whole
+number from 0 to 4294967295; any other source raises `TypeError`. `n` sets the
+number of outputs, by default `max(sources) + 1`; an `n` at or below the largest
+source raises `ValueError`, since events would be dropped.
+
 <!-- HELP_END -->
 
 ```{eval-rst}
@@ -46,3 +51,10 @@ Merge two streams, then split them apart again and read back the first source.
    streams = split(merged_v, merged_s, index=merged_k)
    print(streams[0][0])   # values of source 0
 ```
+
+## JavaScript
+
+`split(values, sources, { index, n })` takes the same arguments, with the index
+as an option, and returns `[values, index]` pairs of `Float64Array`s (`index`
+is `null` without one), with the same values as Python. An `n` that would drop
+an event raises `RangeError`.

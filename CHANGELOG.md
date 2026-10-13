@@ -10,6 +10,7 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Added
 
+* JavaScript `split`.
 * JavaScript `forecastPairs`.
 * JavaScript `backtestReport`.
 * The microstructure operators `SignedVolume`, `RollingKyleLambda`,
@@ -91,6 +92,21 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Changed
 
+* `split` runs its checks and its partition in C++, shared with JavaScript's
+  `split`. Results for valid inputs are unchanged. Other changes:
+  * A source must be a whole number from 0 to 4294967295. A fractional, NaN,
+    `None`, negative or larger source raises `TypeError` ("split: a source
+    must be a whole number from 0 to 4294967295, got 0.5"), as an index does.
+    2.8.0 truncated a fractional source, sent a NaN source to output 0, and
+    raised `OverflowError` or nanobind's `TypeError` for a negative or too
+    large one. Pass `np.floor(sources).astype(int)` for the truncated result.
+  * A 2-D `values` or `sources` array raises `ValueError` ("split: values
+    must be 1-D (one value per event), got 2 dimensions"); 2.8.0 raised
+    nanobind's `TypeError`. A length mismatch and a negative `n` raise
+    `ValueError` with the 2.8.0 message, where 2.8.0 raised `RuntimeError`.
+  * `n` is at most 2**31 - 1; a larger `n` raises `ValueError`, where 2.8.0
+    raised nanobind's `TypeError`.
+  * A positional call no longer builds and drops a row-number index.
 * `forecast_pairs` runs one graph defined in C++, shared with JavaScript's
   `forecastPairs`, in every regime. Results for valid inputs are unchanged,
   except for a 2-D `X` in duration mode (see "Fixed"). Other changes:

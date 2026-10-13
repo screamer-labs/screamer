@@ -72,8 +72,8 @@ parameters, which are the same in both packages, but their examples are in
 Python. A JavaScript constructor takes the parameters positionally, in the order
 the page lists them, so `EwMean(span=20)` becomes `EwMean(undefined, 20)`;
 passing `undefined` keeps a parameter's default. Helpers that take options,
-such as `positionTest`, take them as an object. A few Python helpers have no
-JavaScript counterpart yet: `split` and the pandas conversions. The
+such as `positionTest`, take them as an object. The pandas
+conversions have no JavaScript counterpart. The
 JavaScript-specific parts, such as module loading, async iterables, pipelines,
 and memory management, are covered in the JavaScript guide.
 

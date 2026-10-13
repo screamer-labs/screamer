@@ -6,6 +6,7 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
 #include <nanobind/stl/vector.h>
+#include <nanobind/stl/optional.h>
 #include "screamer/common/base.h"
 #include "screamer/streams/event.h"
 #include "screamer/streams/vector_source.h"
@@ -15,6 +16,8 @@
 #include "screamer/streams/merge_source.h"
 #include "screamer/streams/combine_latest.h"
 #include "screamer/streams/py_source.h"
+#include "screamer/streams/split.h"
+#include "screamer/common/int_arg.h"
 #include "screamer/common/gc.h"
 #include <algorithm>
 #include <cstddef>
@@ -238,53 +241,80 @@ static nb::object merge_batch(nb::list index_arrays, nb::list value_arrays) {
                           owned_array(os, {total}));
 }
 
-// Partition a tagged (values, sources, index) stream back into n per-source
-// (values, index) pairs - the inverse of merge_batch. One counting pass sizes
-// each output, a second scatters into it, O(N) total. Source order within each
-// output is preserved (stable).
+// split: the partition and its rules are include/screamer/streams/split.h,
+// shared with the WebAssembly binding. Python adapts the arguments
+// (screamer/streams.py split): values as float64, sources as a native integer
+// or bool array or as float64, the index as int64 or float64 or None. Returns
+// [(values, index_or_None), ...], one pair per output.
+using AnyArray = nb::ndarray<nb::ro, nb::c_contig, nb::device::cpu>;
+
 template <class Index>
-static nb::object split_batch(In1D<double> values,
-                              In1D<std::uint32_t> sources,
-                              In1D<Index> index, int n) {
-    const std::size_t total = static_cast<std::size_t>(values.shape(0));
-    if (static_cast<std::size_t>(sources.shape(0)) != total ||
-        static_cast<std::size_t>(index.shape(0)) != total) {
-        throw std::runtime_error("split: values/sources/index length differ");
-    }
-    if (n < 0) {
-        throw std::runtime_error("split: n must be non-negative");
-    }
-    const double* v = values.data();
-    const std::uint32_t* s = sources.data();
-    const Index* k = index.data();
-
-    std::vector<std::size_t> counts(static_cast<std::size_t>(n), 0);
-    for (std::size_t j = 0; j < total; ++j) {
-        if (s[j] >= static_cast<std::uint32_t>(n)) {
-            throw std::runtime_error("split: a source tag is >= n; events would be dropped");
-        }
-        counts[s[j]]++;
-    }
-
+static nb::list split_outputs(const SplitPlan& plan, const double* v, const Index* k) {
+    const std::size_t n = plan.outputs();
+    std::vector<double*> vptr(n);
+    std::vector<Index*> kptr(k ? n : 0);
     nb::list out;
-    std::vector<double*> vptr(static_cast<std::size_t>(n));
-    std::vector<Index*> kptr(static_cast<std::size_t>(n));
-    std::vector<std::size_t> pos(static_cast<std::size_t>(n), 0);
-    for (int i = 0; i < n; ++i) {
-        double* ov = new double[counts[i] ? counts[i] : 1];
-        Index* ok = new Index[counts[i] ? counts[i] : 1];
-        vptr[i] = ov;
-        kptr[i] = ok;
-        out.append(nb::make_tuple(owned_array(ov, {counts[i]}),
-                                  owned_array(ok, {counts[i]})));  // holds the buffers alive
+    for (std::size_t i = 0; i < n; ++i) {
+        const std::size_t c = plan.counts()[i];
+        vptr[i] = new double[c ? c : 1];
+        nb::object ov = owned_array(vptr[i], {c});      // owns the buffer from here
+        if (k) {
+            kptr[i] = new Index[c ? c : 1];
+            out.append(nb::make_tuple(ov, owned_array(kptr[i], {c})));
+        } else {
+            out.append(nb::make_tuple(ov, nb::none()));
+        }
     }
-    for (std::size_t j = 0; j < total; ++j) {
-        const std::uint32_t src = s[j];
-        vptr[src][pos[src]] = v[j];
-        kptr[src][pos[src]] = k[j];
-        pos[src]++;
-    }
+    plan.scatter(v, k, vptr.data(), kptr.data());
     return out;
+}
+
+static SplitPlan split_plan(const AnyArray& s, std::size_t total, bool has_n, double n) {
+    using C = nb::dlpack::dtype_code;
+    const nb::dlpack::dtype dt = s.dtype();
+    const void* p = s.data();
+    if (dt.code == static_cast<std::uint8_t>(C::Bool))
+        return SplitPlan(static_cast<const bool*>(p), total, has_n, n);
+    if (dt.code == static_cast<std::uint8_t>(C::UInt)) {
+        if (dt.bits == 8)  return SplitPlan(static_cast<const std::uint8_t*>(p), total, has_n, n);
+        if (dt.bits == 16) return SplitPlan(static_cast<const std::uint16_t*>(p), total, has_n, n);
+        if (dt.bits == 32) return SplitPlan(static_cast<const std::uint32_t*>(p), total, has_n, n);
+        if (dt.bits == 64) return SplitPlan(static_cast<const std::uint64_t*>(p), total, has_n, n);
+    } else if (dt.code == static_cast<std::uint8_t>(C::Int)) {
+        if (dt.bits == 8)  return SplitPlan(static_cast<const std::int8_t*>(p), total, has_n, n);
+        if (dt.bits == 16) return SplitPlan(static_cast<const std::int16_t*>(p), total, has_n, n);
+        if (dt.bits == 32) return SplitPlan(static_cast<const std::int32_t*>(p), total, has_n, n);
+        if (dt.bits == 64) return SplitPlan(static_cast<const std::int64_t*>(p), total, has_n, n);
+    } else if (dt.code == static_cast<std::uint8_t>(C::Float) && dt.bits == 64) {
+        return SplitPlan(static_cast<const double*>(p), total, has_n, n);
+    }
+    throw nb::type_error("split: sources must be an integer, bool or float64 array");
+}
+
+static nb::list split_py(nb::ndarray<const double, nb::c_contig, nb::device::cpu> values,
+                         AnyArray sources, nb::handle index,
+                         std::optional<IntArg<std::int64_t>> n) {
+    const bool has_index = !index.is_none();
+    AnyArray idx;
+    if (has_index && !nb::try_cast(index, idx, /*convert=*/false))
+        throw nb::type_error("split: index must be an int64 or float64 array");
+    check_split_inputs(values.ndim(), values.ndim() ? values.shape(0) : 1,
+                       sources.ndim(), sources.ndim() ? sources.shape(0) : 1,
+                       has_index, has_index ? idx.ndim() : 0,
+                       has_index && idx.ndim() ? idx.shape(0) : 0);
+    const std::size_t total = values.shape(0);
+    const bool has_n = n.has_value();
+    const double nd = has_n ? static_cast<double>(static_cast<std::int64_t>(*n)) : 0.0;
+    const SplitPlan plan = split_plan(sources, total, has_n, nd);
+    const double* v = values.data();
+    if (!has_index) return split_outputs<double>(plan, v, nullptr);
+    const nb::dlpack::dtype dt = idx.dtype();
+    using C = nb::dlpack::dtype_code;
+    if (dt.code == static_cast<std::uint8_t>(C::Int) && dt.bits == 64)
+        return split_outputs(plan, v, static_cast<const std::int64_t*>(idx.data()));
+    if (dt.code == static_cast<std::uint8_t>(C::Float) && dt.bits == 64)
+        return split_outputs(plan, v, static_cast<const double*>(idx.data()));
+    throw nb::type_error("split: index must be an int64 or float64 array");
 }
 
 template <class Index>
@@ -403,10 +433,7 @@ void init_bindings_streams(nb::module_& m) {
           "index_arrays"_a, "value_arrays"_a);
     m.def("_merge_f64", &merge_batch<double>,
           "index_arrays"_a, "value_arrays"_a);
-    m.def("_split_i64", &split_batch<std::int64_t>,
-          "values"_a, "sources"_a, "index"_a, "n"_a);
-    m.def("_split_f64", &split_batch<double>,
-          "values"_a, "sources"_a, "index"_a, "n"_a);
+    m.def("_split", &split_py, "values"_a, "sources"_a, "index"_a.none(), "n"_a.none());
     m.def("_combine_latest_i64", &combine_latest_batch<std::int64_t>,
           "index_arrays"_a, "value_arrays"_a, "when_all"_a);
     m.def("_combine_latest_f64", &combine_latest_batch<double>,
