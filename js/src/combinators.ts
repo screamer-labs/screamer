@@ -141,17 +141,19 @@ export function merge(..._nodes: Node[]): Node {
 // Validate columns (a non-negative int or a sequence of them). Mirrors
 // screamer/streams.py `_normalize_columns`.
 // An operator setting is a number; a string is a wrong kind, never parsed (R-a).
-// A number setting: a string or a boolean is a wrong kind (TypeError). `bools`
-// false leaves a boolean to a later check with its own message (maxFill,
-// maxPending: "must be an integer", as in Python).
-function setting(name: string, v: unknown, bools = true): void {
-  if (typeof v === "string" || v instanceof String) throw new TypeError(`${name} must be a number, got a string`);
+// A number setting (with `integer`, an integer setting): a string or a
+// boolean is a wrong kind (TypeError). `bools` false leaves a boolean to a
+// later check with its own message (maxFill, maxPending, checked in C++).
+// `name` is "<op>: <setting>".
+function setting(name: string, v: unknown, bools = true, integer = false): void {
+  const want = integer ? "an integer" : "a number";
+  if (typeof v === "string" || v instanceof String) throw new TypeError(`${name} must be ${want}, got a string`);
   if (bools && (typeof v === "boolean" || v instanceof Boolean))
-    throw new TypeError(`${name} must be a number, got a boolean`);
+    throw new TypeError(`${name} must be ${want}, got boolean`);
 }
 
 function normalizeColumns(columns: number | number[]): number[] {
-  (Array.isArray(columns) ? columns : [columns]).forEach((c) => setting("select: columns", c));
+  (Array.isArray(columns) ? columns : [columns]).forEach((c) => setting("select: columns", c, true, true));
   const cols = Array.isArray(columns) ? columns.map((c) => Math.trunc(c)) : [Math.trunc(columns)];
   for (const c of cols) {
     if (c < 0) throw new Error(`select: column index must be non-negative, got ${c}`);
@@ -198,7 +200,7 @@ export function filter(data: Node, mask: Node): Node {
 // Re-stamp each event's index by `k` index units; values unchanged.
 export function delay(node: Node, k: number): Node {
   if (!isNode(node)) throw new Error("delay: first argument must be a Node");
-  setting("delay: duration", k);
+  setting("delay: duration", k, true, true);
   return new Node({ combinator: "delay", params: { duration: Math.trunc(k) } }, [node]);
 }
 
@@ -272,7 +274,7 @@ export function resample(node: Node, opts: ResampleOpts = {}): Node {
   }
 
   for (const k of ["threshold", "every", "count", "origin", "maxAge", "maxFill"] as const)
-    setting(`resample: ${k}`, (opts as any)[k], k !== "maxFill");
+    setting(`resample: ${k}`, (opts as any)[k], k !== "maxFill", k !== "threshold");
   const labelCode = RESAMPLE_LABEL_CODE[opts.label ?? "left"]; // right -> 1 else 0
   const width = opts.every !== undefined && opts.every !== null ? Math.trunc(opts.every) : 1;
   const origin = Math.trunc(opts.origin ?? 0);

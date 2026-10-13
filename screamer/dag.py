@@ -134,11 +134,17 @@ def _as_float64(x, contiguous=False):
     return (np.ascontiguousarray if contiguous else np.asarray)(x, dtype=np.float64)
 
 
-def _setting(name, x):
-    """An operator setting that must be a number: a string is a wrong kind
-    (TypeError), never parsed, and so is a bool. Returns `x`."""
-    if isinstance(x, (str, bytes, bytearray, bool, np.bool_)):
-        raise TypeError(f"{name} must be a number, got {type(x).__name__}")
+def _setting(name, x, integer=False):
+    """An operator setting that must be a number (with `integer`, an
+    integer): a string is a wrong kind (TypeError), never parsed, and so is a
+    bool (a NumPy bool or a 0-d bool array too). `name` is "<op>: <setting>".
+    Returns `x`."""
+    want = "an integer" if integer else "a number"
+    if isinstance(x, (str, bytes, bytearray)):
+        raise TypeError(f"{name} must be {want}, got {type(x).__name__}")
+    if isinstance(x, (bool, np.bool_)) or (
+            isinstance(x, np.ndarray) and x.ndim == 0 and x.dtype.kind == "b"):
+        raise TypeError(f"{name} must be {want}, got bool")
     return x
 
 
@@ -327,7 +333,7 @@ class Pipeline:
         self.outputs = list(outputs)
         self.align_outputs = align_outputs
         from . import screamer_bindings as _b
-        self.max_pending = _b._max_pending(max_pending)
+        self.max_pending = _b._max_pending(max_pending, "Pipeline: max_pending")
         for n in self.inputs:
             if not is_node(n) or not (isinstance(n.op, tuple) and n.op[0] == "input"):
                 raise ValueError("every entry in inputs must be an Input(...) node")
@@ -377,7 +383,7 @@ class Pipeline:
                     nid = gb.add_select(inp, cols)
                 elif name == "Resample":
                     for key in ("threshold", "every", "count", "origin", "max_age"):
-                        _setting(key, kwargs.get(key))
+                        _setting(f"resample: {key}", kwargs.get(key), key != "threshold")
                     threshold = kwargs.get("threshold")
                     max_age = kwargs.get("max_age")
                     clock = kwargs.get("clock", False)
@@ -437,7 +443,7 @@ class Pipeline:
                                               max_pending=self.max_pending,
                                               max_fill=max_fill_val)
                 elif name == "Delay":
-                    nid = gb.add_delay(inp, int(_setting("duration", kwargs["duration"])))
+                    nid = gb.add_delay(inp, int(_setting("Delay: duration", kwargs["duration"], True)))
                 elif name == "forecast_pairs":
                     # The C++ graph definition (dag/forecast_pairs.h).
                     nid = gb.add_forecast_pairs(inp[0], inp[1], kwargs.get("count"),

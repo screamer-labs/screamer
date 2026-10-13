@@ -124,6 +124,14 @@ public:
     }
     std::size_t add_resample(std::vector<std::size_t> inputs, ResampleParams rp,
                              std::size_t max_pending) {
+        // fill= fills empty bars, which only freq= (every=) and clock= have:
+        // a count= or threshold= bar always holds events.
+        if (rp.fill != ResampleFill::Skip &&
+            (rp.mode == ResampleMode::ByCount || rp.mode == ResampleMode::ByCumulative))
+            throw std::invalid_argument(
+                std::string("resample: fill= applies to freq= (every=) and clock= bars; a ") +
+                (rp.mode == ResampleMode::ByCount ? "count=" : "threshold=") +
+                " bar is never empty, so pass fill=\"skip\" (the default)");
         if (rp.mode == ResampleMode::ByCumulative && inputs.size() == 2)
             inputs = {add_combine_latest(std::move(inputs), true, max_pending)};
         NodeSpec ns;

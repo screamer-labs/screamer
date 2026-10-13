@@ -148,6 +148,7 @@ def _build_params(op: dict):
                 "default": _ts_default(cpp_type, arg_default),
                 "is_vec": cpp_type == "std::vector<double>",
                 "is_str": cpp_type == "std::string",
+                "is_int": cpp_type == "int",
                 # Python takes None for exactly these (as "not given"); so does
                 # JavaScript with null. Every other setting refuses null.
                 "nullable": cpp_type.startswith("std::optional<"),
@@ -191,7 +192,7 @@ def _kind(p: dict) -> str:
         return "a string"
     if p["is_vec"]:
         return "a number or an array of numbers"
-    return "a number"
+    return "an integer" if p.get("is_int") else "a number"
 
 
 def _options_type(name: str, params: list[dict], help_entry: dict | None) -> list[str]:
@@ -254,6 +255,10 @@ def _factory_body(name: str, params: list[dict], wrapper: str = "wrapOp") -> str
         if p["is_str"]:
             lines.append(f'  if (typeof {n} !== "string") throw new TypeError(`{name}: {n} must be a string, '
                          f'got ${{{n} instanceof String ? "a String object" : _what({n})}}`);')
+        elif p.get("is_int"):
+            # A fraction, NaN or an infinity is not an integer, as in Python.
+            lines.append(f'  if (typeof {n} !== "number" || !Number.isInteger({n})) throw new TypeError(`{name}: {n} must be {_kind(p)}, '
+                         f'got ${{typeof {n} === "number" ? {n} : _what({n})}}`);')
         elif not p["is_vec"]:
             lines.append(f'  if (typeof {n} !== "number") throw new TypeError(`{name}: {n} must be {_kind(p)}, got ${{_what({n})}}`);')
     # Copy array parameters once, now: the closure below runs again for every

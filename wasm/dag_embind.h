@@ -82,20 +82,21 @@ inline void throwIndexKind(std::string kind) { screamer::dag::throw_index_kind(k
 // maxPending under the engine's rule (max_pending.h): checkedMaxPending gives
 // the count of a number or throws; throwMaxPendingKind is the error for a
 // value that is not a number. defaultMaxPending is the engine's default.
-inline double checkedMaxPending(double v) {
-    screamer::dag::checked_max_pending(v, "maxPending");
+// `name` is "<op>: <setting>", for the message.
+inline double checkedMaxPending(double v, std::string name) {
+    screamer::dag::checked_max_pending(v, name);
     return v;
 }
-inline void throwMaxPendingKind(std::string kind) {
-    screamer::dag::throw_max_pending_kind(kind, "maxPending");
+inline void throwMaxPendingKind(std::string kind, std::string name) {
+    screamer::dag::throw_max_pending_kind(kind, name);
 }
 // maxFill of a fill resample, under the same rule (resample_params.h).
-inline double checkedMaxFill(double v) {
-    screamer::dag::checked_max_fill(v, "maxFill");
+inline double checkedMaxFill(double v, std::string name) {
+    screamer::dag::checked_max_fill(v, name);
     return v;
 }
-inline void throwMaxFillKind(std::string kind) {
-    screamer::dag::throw_max_pending_kind(kind, "maxFill");
+inline void throwMaxFillKind(std::string kind, std::string name) {
+    screamer::dag::throw_max_pending_kind(kind, name);
 }
 inline double defaultMaxFill() { return static_cast<double>(screamer::dag::kDefaultMaxFill); }
 // forecastPairs: the input rule of an eager call (dag/forecast_pairs.h).
@@ -317,13 +318,13 @@ public:
 
     // The graph's join cap (GraphSpec::max_pending), checked; call it first.
     void setMaxPending(double max_pending) {
-        b_.set_max_pending(screamer::dag::checked_max_pending(max_pending, "maxPending"));
+        b_.set_max_pending(screamer::dag::checked_max_pending(max_pending, "Pipeline: maxPending"));
     }
 
     std::size_t addCombineLatest(std::vector<std::size_t> inputs, bool when_all,
                                  double max_pending) {
         return b_.add_combine_latest(std::move(inputs), when_all,
-                                     screamer::dag::checked_max_pending(max_pending, "maxPending"));
+                                     screamer::dag::checked_max_pending(max_pending, "combineLatest: maxPending"));
     }
 
     std::size_t addDropna(std::vector<std::size_t> inputs, bool how_all) {
@@ -362,7 +363,7 @@ public:
         rp.count     = static_cast<std::int64_t>(count);
         rp.threshold = threshold;
         rp.max_age   = static_cast<std::int64_t>(max_age);
-        rp.max_fill  = screamer::dag::checked_max_fill(max_fill, "maxFill");
+        rp.max_fill  = screamer::dag::checked_max_fill(max_fill, "resample: maxFill");
         if (planLen && planPtr) {
             const auto* p = reinterpret_cast<const std::int32_t*>(planPtr);
             rp.plan.reserve(planLen);
@@ -378,7 +379,7 @@ public:
         // A cumulative resample with [value, driver] as two inputs: the builder
         // joins them first (GraphBuilder::add_resample).
         return b_.add_resample(std::move(inputs), rp,
-                               screamer::dag::checked_max_pending(max_pending, "maxPending"));
+                               screamer::dag::checked_max_pending(max_pending, "Pipeline: maxPending"));
     }
 
     // The forecast_pairs nodes (dag/forecast_pairs.h). A horizon that is not

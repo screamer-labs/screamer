@@ -453,9 +453,9 @@ def test_forecast_pairs_node_round_trips_through_to_dict():
 def test_forecast_pairs_settings_and_errors():
     from screamer import Input
     v = np.arange(6.0)
-    with pytest.raises(TypeError, match="count must be a number, got str"):
+    with pytest.raises(TypeError, match="count must be an integer, got str"):
         forecast_pairs(v, v, count="1")
-    with pytest.raises(TypeError, match="duration must be a number, got str"):
+    with pytest.raises(TypeError, match="duration must be an integer, got str"):
         forecast_pairs((v, None), (v, None), duration="1")
     with pytest.raises(ValueError, match="count must be at least 1"):
         forecast_pairs(v, v, count=0)
@@ -468,7 +468,7 @@ def test_forecast_pairs_settings_and_errors():
     # a float setting is truncated; a bool is not a number setting (G25)
     assert _same(forecast_pairs(v, v, count=1.5)[0], forecast_pairs(v, v, count=1)[0])
     for flag in (True, np.True_):
-        with pytest.raises(TypeError, match="count must be a number, got bool"):
+        with pytest.raises(TypeError, match="count must be an integer, got bool"):
             forecast_pairs(v, v, count=flag)
 
 

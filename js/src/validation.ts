@@ -25,6 +25,14 @@ const asTyped = (x: ArrayLike<number>): ArrayLike<number> => (Array.isArray(x) ?
 // reject (a seed must be an integer in [0, 2^53)).
 const num = (v: unknown): number => (typeof v === "number" ? v : NaN);
 
+// A number argument is not a boolean: TypeError "<function>: <argument> must be
+// an integer, got boolean", as in Python. Each entry is [value, integer].
+function noBools(who: string, args: Record<string, [unknown, boolean]>): void {
+  for (const [name, [v, integer]] of Object.entries(args))
+    if (typeof v === "boolean" || (Array.isArray(v) && v.some((e) => typeof e === "boolean")))
+      throw new TypeError(`${who}: ${name} must be ${integer ? "an integer" : "a number"}, got boolean`);
+}
+
 // Run a C++ surrogate generator: copy `x` to the heap, write a (T x ncols)
 // row-major block, and copy it back out.
 function surrogates(
@@ -72,6 +80,7 @@ export function circularShift(
   x: ArrayLike<number>, n: number,
   opts: { minShift?: number; seed?: number } = {},
 ): NdArray {
+  noBools("circularShift", { n: [n, true], minShift: [opts.minShift, true], seed: [opts.seed, true] });
   const m = opts.minShift;
   if (m != null && (!Number.isInteger(m) || m < 1)) throw new RangeError("min_shift must be at least 1");
   return shiftBlock(x, m ?? -1, opts.seed ?? 0, 0, n);
@@ -86,6 +95,7 @@ export function circularShift(
 export function segmentShuffle(
   x: ArrayLike<number>, n: number, opts: { seed?: number } = {},
 ): NdArray {
+  noBools("segmentShuffle", { n: [n, true], seed: [opts.seed, true] });
   return shuffleBlock(x, opts.seed ?? 0, 0, n);
 }
 
@@ -427,6 +437,8 @@ export function positionTest(
   market: any[],
   opts: PositionTestOptions = {},
 ): PositionTestResult | PositionFamilyResult {
+  noBools("positionTest", { n: [opts.n, true], minShift: [opts.minShift, true], seed: [opts.seed, true],
+                           periodsPerYear: [opts.periodsPerYear, false] });
   const M = current();
   const portfolio = !!(engine as any).rowOp;
   const tgt = positionTarget(target, portfolio);
@@ -613,6 +625,7 @@ export function permuteBars(
   low: ArrayLike<number> | NdArray, close: ArrayLike<number> | NdArray, n: number,
   opts: PermuteOptions = {},
 ): NdArray[] {
+  noBools("permuteBars", { n: [n, true], seed: [opts.seed, true] });
   const seed = num(opts.seed ?? 0), mode = opts.mode ?? "log", vm = opts.volumeMode ?? "keep";
   checkModes(mode, vm);
   const o = series(open, "open"), h = series(high, "high"), l = series(low, "low");
@@ -632,6 +645,7 @@ export function permuteBars(
 export function permuteReturns(
   x: ArrayLike<number> | NdArray, n: number, opts: PermuteOptions = {},
 ): NdArray | NdArray[] {
+  noBools("permuteReturns", { n: [n, true], seed: [opts.seed, true] });
   const seed = num(opts.seed ?? 0), mode = opts.mode ?? "log", vm = opts.volumeMode ?? "keep";
   checkModes(mode, vm);
   const xs = series(x, "x");
@@ -725,6 +739,9 @@ export function strategyTest(
   inputs: StrategyInput[],
   opts: StrategyTestOptions = {},
 ): StrategyTestResult {
+  noBools("strategyTest", { n: [opts.n, true], ohlc: [opts.ohlc, true], price: [opts.price, true],
+                           volume: [opts.volume, true], minShift: [opts.minShift, true],
+                           seed: [opts.seed, true], periodsPerYear: [opts.periodsPerYear, false] });
   const n = opts.n ?? 500;
   const method = opts.method ?? "bars";
   const metric = opts.metric ?? "sharpe";
@@ -817,6 +834,7 @@ function checkPnl(x: Float64Array): void {
  * `probabilistic_sharpe`.
  */
 export function probabilisticSharpe(pnl: ArrayLike<number> | NdArray, benchmark = 0): number {
+  noBools("probabilisticSharpe", { benchmark: [benchmark, false] });
   const M = current();
   const x = pnlOf(pnl);
   checkPnl(x);
@@ -901,6 +919,8 @@ export function walkForward(
   market: ArrayLike<number>[],
   opts: WalkForwardOptions,
 ): WalkForwardResult {
+  noBools("walkForward", { train: [opts.train, true], test: [opts.test, true],
+                          periodsPerYear: [opts.periodsPerYear, false] });
   const M = current();
   const metric = opts.metric ?? "sharpe";
   const { custom, name, hasLarger, larger } = metricArgs(metric, opts.largerIsBetter);

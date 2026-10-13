@@ -104,7 +104,8 @@ def compute():
         if found:
             n, k, res = found
             cases.append({"name": op["name"], "base": base, "inputs": n, "assets": k,
-                          "fields": int(res.shape[2]), "tail": values(res[T - TAIL:])})
+                          "fields": int(res.shape[2]), "row_op": bool(op.get("row_op")),
+                          "tail": values(res[T - TAIL:])})
     return {"T": T, "tail": TAIL, "inputs": [values(x) for x in xs], "cases": cases}
 
 

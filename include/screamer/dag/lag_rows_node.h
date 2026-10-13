@@ -48,7 +48,8 @@ public:
             return;
         }
         // Warm-up: store the event, then emit the NaN row, so an event that
-        // the ring cannot store (out of memory) leaves the node as it was.
+        // the ring cannot store (out of memory), or that downstream rejects,
+        // leaves the node as it was.
         const bool first = width_ == 0;                // the first event after a reset
         if (first) {
             if (f.width == 0)
@@ -64,7 +65,16 @@ public:
             if (first) width_ = 0;
             throw;
         }
-        downstream_.push(Frame<Index>{f.index, nan_row_.data(), width_});
+        // A downstream that rejects the row: take the event back out, so the
+        // node is as it was, as in the steady state.
+        try {
+            downstream_.push(Frame<Index>{f.index, nan_row_.data(), width_});
+        } catch (...) {
+            ring_.resize(ring_.size() - width_);
+            --filled_;
+            if (first) width_ = 0;
+            throw;
+        }
     }
 
     void flush() override { downstream_.flush(); }

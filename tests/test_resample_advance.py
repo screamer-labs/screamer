@@ -239,7 +239,7 @@ def test_advance_then_later_event_fills_parked_bucket_generic():
 
 def test_advance_noop_count_mode():
     src = Input("x")
-    node = Resample(count=2, agg="last", fill="nan")(src)
+    node = Resample(count=2, agg="last")(src)
     dag = Pipeline([src], [node])
     live = dag.live()
     live.push("x", 0, 10.0)

@@ -32,13 +32,13 @@ const WHO = "forecastPairs";
 // The graph parameters of one call, checked.
 interface Horizon { count?: number; duration?: number; dropna: boolean }
 
-// A count or duration: a number (a string is a wrong kind, as for every
-// setting), truncated as delay() truncates its duration.
+// A count or duration: an integer setting (a string or a boolean is a wrong
+// kind, as for every setting), truncated as delay() truncates its duration.
 function horizonValue(name: string, v: unknown): number | undefined {
   if (v === undefined || v === null) return undefined;
-  if (typeof v !== "number" && typeof v !== "boolean")
-    throw new TypeError(`${WHO}: ${name} must be a number, got ${aKind(v)}`);
-  return Math.trunc(Number(v));
+  if (typeof v !== "number")
+    throw new TypeError(`${WHO}: ${name} must be an integer, got ${typeof v === "boolean" ? "boolean" : aKind(v)}`);
+  return Math.trunc(v);
 }
 
 // The options as a plain object of known keys; the engine checks the horizon.

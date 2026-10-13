@@ -162,5 +162,6 @@ test("split: a wrong kind is a TypeError, a shape mismatch a RangeError", async 
   assert.throws(() => split([1], [0], { n: 1.5 }), { name: "TypeError", message: "split: n must be an integer, got 1.5" });
   assert.throws(() => split([1], [0], { n: 2 ** 31 }), RangeError);
   assert.throws(() => split([1], [0], 3 as any), TypeError);
-  assert.equal(split([1], [0], { n: true as any }).length, 1);
+  assert.throws(() => split([1], [0], { n: true as any }),
+    { name: "TypeError", message: "split: n must be an integer, got boolean" });
 });

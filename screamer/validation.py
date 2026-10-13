@@ -49,23 +49,40 @@ __all__ = ["position_test", "strategy_test", "circular_shift", "segment_shuffle"
 _INT64 = (-2**63, 2**63 - 1)
 
 
-def _int64(x):
+def _no_bool(x, name, integer):
+    """A number argument is not a bool (a NumPy bool or a 0-d bool array
+    either): TypeError "<function>: <argument> must be an integer, got bool"."""
+    if isinstance(x, (bool, np.bool_)) or (
+            isinstance(x, np.ndarray) and x.ndim == 0 and x.dtype.kind == "b"):
+        raise TypeError(f"{name} must be {'an integer' if integer else 'a number'}, got bool")
+    return x
+
+
+def _int64(x, name):
     """An integer argument for C++: values outside int64 are clamped, so they
     fail the range check of their argument with its own message."""
-    return min(max(int(x), _INT64[0]), _INT64[1])
+    return min(max(int(_no_bool(x, name, True)), _INT64[0]), _INT64[1])
+
+
+def _int(x, name):
+    """An integer argument, not a bool."""
+    return int(_no_bool(x, name, True))
+
+
+def _float(x, name):
+    """A float argument, not a bool."""
+    return float(_no_bool(x, name, False))
 
 
 def _count(x, name):
     """A count such as n: an integer, not a bool (TypeError otherwise)."""
-    if isinstance(x, (bool, np.bool_)):
-        raise TypeError(f"{name} must be an integer, not bool")
-    return _int64(operator.index(x))
+    return _int64(operator.index(_no_bool(x, name, True)), name)
 
 
-def _number(x):
+def _number(x, name):
     """A size argument for C++ as a float, which checks it is an integer; a
-    string becomes NaN, which fails that check."""
-    return float("nan") if isinstance(x, (str, bytes)) else float(x)
+    string becomes NaN, which fails that check. A bool is a TypeError."""
+    return float("nan") if isinstance(x, (str, bytes)) else float(_no_bool(x, name, True))
 
 
 def _flag(x):
@@ -164,10 +181,10 @@ def circular_shift(x, n, min_shift=None, seed=0):
     same columns on every platform.
     """
     x = _as_series(x, "x")
-    m = -1 if min_shift is None else int(min_shift)
+    m = -1 if min_shift is None else _int(min_shift, "circular_shift: min_shift")
     if min_shift is not None and m < 1:
         raise ValueError("min_shift must be at least 1")
-    return _circular_shift(x, m, _int64(seed), 0, int(n))
+    return _circular_shift(x, m, _int64(seed, "circular_shift: seed"), 0, _int(n, "circular_shift: n"))
 
 
 def segment_shuffle(x, n, seed=0):
@@ -179,7 +196,8 @@ def segment_shuffle(x, n, seed=0):
     the same trades with the same sides, sizes, and holding periods, at random
     times. The same ``seed`` gives the same columns on every platform.
     """
-    return _segment_shuffle(_as_series(x, "x"), _int64(seed), 0, int(n))
+    return _segment_shuffle(_as_series(x, "x"), _int64(seed, "segment_shuffle: seed"), 0,
+                            _int(n, "segment_shuffle: n"))
 
 
 class PositionTestResult(NamedTuple):
@@ -279,9 +297,11 @@ def position_test(
     market = [_as_float64(m, contiguous=True) for m in market]
     run, reset, score = _engine_calls(engine, market, metric)
     observed, null, p_value, family, observed_stats, null_stats, shift = _position_test(
-        run, reset, score, target if target.ndim == 2 else data, data, market, _count(n, "n"),
-        method, name, custom, _flag(larger_is_better),
-        None if min_shift is None else _int64(min_shift), _int64(seed), float(periods_per_year),
+        run, reset, score, target if target.ndim == 2 else data, data, market,
+        _count(n, "position_test: n"), method, name, custom, _flag(larger_is_better),
+        None if min_shift is None else _int64(min_shift, "position_test: min_shift"),
+        _int64(seed, "position_test: seed"),
+        _float(periods_per_year, "position_test: periods_per_year"),
         isinstance(engine, RowOp))
     return PositionTestResult(observed, null, p_value, name, method, shift, family,
                               observed_stats, null_stats)
@@ -328,7 +348,8 @@ def permute_bars(open, high, low, close, n, mode="log", seed=0, volume=None,
     o, h, l, c = (_as_series(a, name) for a, name in
                   ((open, "open"), (high, "high"), (low, "low"), (close, "close")))
     v = _EMPTY if volume is None else _as_series(volume, "volume")
-    out = _permute_bars(o, h, l, c, mode, _int64(seed), 0, int(n), v,
+    out = _permute_bars(o, h, l, c, mode, _int64(seed, "permute_bars: seed"), 0,
+                        _int(n, "permute_bars: n"), v,
                         volume_mode == "notional")
     return out[:4] if volume is None else (*out[:4], out[5])
 
@@ -350,7 +371,8 @@ def permute_returns(x, n, mode="log", seed=0, volume=None, volume_mode="keep"):
     """
     _check_modes(mode, volume_mode)
     v = _EMPTY if volume is None else _as_series(volume, "volume")
-    out = _permute_returns(_as_series(x, "x"), mode, _int64(seed), 0, int(n), v,
+    out = _permute_returns(_as_series(x, "x"), mode, _int64(seed, "permute_returns: seed"), 0,
+                           _int(n, "permute_returns: n"), v,
                            volume_mode == "notional")
     return out[0] if volume is None else (out[0], out[2])
 
@@ -446,13 +468,15 @@ def strategy_test(
 
     score = _metric_call(metric)
 
-    positions = lambda pos: [_int64(i) for i in pos]  # noqa: E731
+    positions = lambda pos: [_int64(i, "strategy_test: ohlc") for i in pos]  # noqa: E731
     observed, null, p_value, observed_stats, null_stats = _strategy_test(
-        run, score, data, _count(n, "n"), method, positions(ohlc), _int64(price), mode,
-        None if volume is None else _int64(volume), volume_mode,
+        run, score, data, _count(n, "strategy_test: n"), method, positions(ohlc),
+        _int64(price, "strategy_test: price"), mode,
+        None if volume is None else _int64(volume, "strategy_test: volume"), volume_mode,
         [] if columns is None else positions(columns), positions(fixed),
-        name, custom, _flag(larger_is_better), None if min_shift is None else _int64(min_shift),
-        _int64(seed), float(periods_per_year))
+        name, custom, _flag(larger_is_better),
+        None if min_shift is None else _int64(min_shift, "strategy_test: min_shift"),
+        _int64(seed, "strategy_test: seed"), _float(periods_per_year, "strategy_test: periods_per_year"))
     return StrategyTestResult(observed, null, p_value, name, method, observed_stats, null_stats)
 
 
@@ -473,7 +497,8 @@ def probabilistic_sharpe(pnl, benchmark=0.0):
     (Bailey and Lopez de Prado 2012), so a short or fat-tailed record counts
     for less. ``benchmark`` is a per-step Sharpe ratio. NaN values are skipped.
     """
-    return float(_probabilistic_sharpe(_pnl_of(pnl), float(benchmark)))
+    return float(_probabilistic_sharpe(_pnl_of(pnl),
+                                       _float(benchmark, "probabilistic_sharpe: benchmark")))
 
 
 def deflated_sharpe(pnl, trial_sharpes):
@@ -557,6 +582,8 @@ def walk_forward(
     prices = [_as_float64(p, contiguous=True) for p in prices]
     run, reset, score = _engine_calls(engine, prices, metric)
     target, choice, fold_start, scores, output, stats = _walk_forward(
-        run, reset, score, targets, targets, prices, _number(train), _number(test), name, custom,
-        _flag(larger_is_better), bool(anchored), float(periods_per_year), isinstance(engine, RowOp))
+        run, reset, score, targets, targets, prices, _number(train, "walk_forward: train"),
+        _number(test, "walk_forward: test"), name, custom,
+        _flag(larger_is_better), bool(anchored),
+        _float(periods_per_year, "walk_forward: periods_per_year"), isinstance(engine, RowOp))
     return WalkForwardResult(target, choice, fold_start, scores, output, stats, name)

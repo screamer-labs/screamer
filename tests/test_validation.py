@@ -1005,7 +1005,7 @@ def test_strategy_test_range_of_n_and_integer_arguments():
     for n in (2**32 + 3, 2**60, 2**63, 2**80):
         with pytest.raises(ValueError, match=r"^n is too large: at most 2147483647 runs$"):
             s.strategy_test(hold, c, method="returns", n=n)
-    with pytest.raises(TypeError, match="n must be an integer, not bool"):
+    with pytest.raises(TypeError, match="n must be an integer, got bool"):
         s.strategy_test(hold, c, method="returns", n=True)
     assert s.strategy_test(hold, c, method="returns", n=np.int64(3)).null.size == 3
     # integers outside int64 fail their own range check, not the signature
@@ -1131,7 +1131,7 @@ def test_position_test_range_of_n():
         for n in (2**32 + 3, 2**60, 2**63, 2**80):
             with pytest.raises(ValueError, match=r"^n is too large: at most 2147483647 runs$"):
                 s.position_test(s.BacktestPriceTarget(), target, c, n=n)
-        with pytest.raises(TypeError, match="n must be an integer, not bool"):
+        with pytest.raises(TypeError, match="n must be an integer, got bool"):
             s.position_test(s.BacktestPriceTarget(), target, c, n=True)
     assert s.position_test(s.BacktestPriceTarget(), tgt, c, n=np.int64(3)).null_stats["sharpe"].size == 3
 

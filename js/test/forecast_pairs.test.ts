@@ -142,7 +142,7 @@ test("forecastPairs: options and inputs are checked as in Python", async () => {
   assert.throws(() => forecastPairs(v, v, { count: 0 }), (e: any) =>
     e instanceof RangeError && /count must be at least 1/.test(e.message));
   assert.throws(() => forecastPairs(v, v, { count: "1" as any }), (e: any) =>
-    e instanceof TypeError && e.message === "forecastPairs: count must be a number, got a string");
+    e instanceof TypeError && e.message === "forecastPairs: count must be an integer, got a string");
   assert.throws(() => forecastPairs(v, v, { count: 1, every: 2 } as any), (e: any) =>
     e instanceof TypeError && e.message === "forecastPairs: unknown option 'every'");
   assert.throws(() => forecastPairs(v, v, { count: 1, dropna: 1 as any }), TypeError);

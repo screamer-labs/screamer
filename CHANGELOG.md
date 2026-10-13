@@ -408,7 +408,8 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   `resample`, `delay`, `Filter`), `reshape` and `from_pandas`, and the
   validation and backtest helpers. An operator setting given as a string
   raises `TypeError` too: an operator's number settings (`RollingMean("3")`
-  raises "an integer setting must be a number, got str", and `Lag(b"2")`),
+  raises "RollingMean: window_size must be an integer, got str", and
+  `Lag(b"2")`),
   its per-asset and list settings, alone or as an element
   (`MovingAverage(["0.5", "0.5"])`, `BacktestPortfolioTarget(fee="0.01")`),
   and `threshold`, `every`, `count`, `origin`, `max_age`, a `delay`
@@ -718,21 +719,54 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   gain exact. To get TA-Lib's `HT_PHASOR` values,
   multiply each component by its gain (see the `HilbertPhasor` page).
 
-* A bool is not a number setting, in Python as in JavaScript. An operator's
-  integer, float, per-asset and list settings refuse `True`, `False` and
-  NumPy bools with `TypeError`: `RollingMean(True)` raises "an integer
-  setting must be a number, got bool", `BollingerBands(20, True)` "a number
-  setting must be a number, got bool", and `MovingAverage([True, 0.5])` and
-  `BacktestPortfolioTarget(fee=True)` raise too. So do the stream settings:
+* A bool is not a number, in Python as in JavaScript. A number setting or a
+  function's number argument refuses `True`, `False`, a NumPy bool and a 0-d
+  NumPy bool array with `TypeError`, and the message names the operator (or
+  function) and the setting: "RollingMean: window_size must be an integer,
+  got bool", "BollingerBands: num_std must be a number, got bool". This
+  covers every operator's integer, float, string, per-asset and list
+  settings (`MovingAverage([True, 0.5])` and
+  `BacktestPortfolioTarget(fee=True)` raise too); the stream settings,
   `Resample`'s `freq`, `every`, `count`, `threshold`, `origin` and
   `max_fill`, a `Delay` duration, `Select` columns, `split`'s `n`,
   `forecast_pairs`' `count` and `duration`, and a `Pipeline`'s
-  `max_pending`. In
-  JavaScript, `resample`'s `count`, `every`, `threshold`, `origin` and
-  `maxAge`, a `delay` duration and `select` columns throw `TypeError` for
-  `true` and `false`, as the operator settings already did. 2.8.0 read a
-  bool as 1 or 0: `RollingMean(True)` had a window of 1. Pass `int(flag)`
-  (`Number(flag)` in JavaScript).
+  `max_pending`; and the number arguments of `probabilistic_sharpe`
+  (`benchmark`), `circular_shift`, `segment_shuffle`, `permute_bars`,
+  `permute_returns`, `position_test`, `strategy_test` (`n`, `seed`,
+  `min_shift`, the column positions, `periods_per_year`), `walk_forward`
+  (`train`, `test`, `periods_per_year`) and `backtest_report`
+  (`periods_per_year`). JavaScript does the same for its counterparts
+  (`resample`'s `count`, `every`, `threshold`, `origin` and `maxAge`,
+  `delay`, `select`, `split`'s `n`, `forecastPairs`' `count` and `duration`,
+  `probabilisticSharpe`, `circularShift`, `segmentShuffle`, `permuteBars`,
+  `permuteReturns`, `positionTest`, `strategyTest`, `walkForward` and
+  `backtestReport`), with "boolean" for the type: "RollingMean: windowSize
+  must be an integer, got boolean". 2.8.0 read a bool as 1 or 0:
+  `RollingMean(True)` had a window of 1 and `probabilistic_sharpe(pnl, True)`
+  a benchmark of 1. Pass `int(flag)` (`Number(flag)` in JavaScript).
+* A setting of the wrong kind names the operator and the setting in Python,
+  in the form JavaScript uses: "BollingerBands: num_std must be a number, got
+  str", "RollingMean: start_policy must be a string, got int",
+  "RollingMean: window_size must be an integer, got 2.5". 2.8.0 raised
+  nanobind's "incompatible function arguments" for these; the type of the
+  error, `TypeError`, is unchanged. An integer setting says "must be an
+  integer" in both languages, also for a string or null.
+* A JavaScript integer setting refuses a fraction, NaN and an infinity with
+  `TypeError` ("RollingMean: windowSize must be an integer, got 2.5"), as
+  Python does. 2.8.0 truncated it: `RollingMean(2.5)` had a window of 2.
+  Pass `Math.trunc(x)`.
+* `BollingerBands`' `num_std` and `SchmittTrigger`'s `lower` and `upper`,
+  documented as finite, refuse an infinity with `ValueError` (`RangeError`
+  in JavaScript), as they refused NaN. 2.8.0 took `BollingerBands(20, inf)`,
+  whose bands were infinite, and `SchmittTrigger(-inf, 3)`.
+* `Resample(fill="nan")` and `fill="carry"` raise `ValueError` (`RangeError`
+  in JavaScript) under `count=` and `threshold=`: "resample: fill= applies to
+  freq= (every=) and clock= bars; a count= bar is never empty". 2.8.0
+  accepted them and ignored them. Leave `fill` out (`"skip"`) there.
+* A JavaScript `Pipeline` call takes one argument, the feed or the feeds by
+  input name; a second argument, such as an index, throws `TypeError`.
+  2.8.0 ignored it, so `p(values, index)` ran on the row numbers. Pass
+  `p({ values, index })`.
 * `Resample(fill="carry")` carries each column on its own, under `freq=` (and
   `every=`) and `clock=`, in Python and JavaScript, eager, lazy, in a
   `Pipeline` and live: a NaN cell of a bar takes its column's last non-NaN
@@ -754,9 +788,10 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   of an empty `(0, 3)` stream `(0, 3)` (2.8.0: `(0,)`). An empty
   `live().result()` keeps each output's width, aligned or not, and an output
   whose width the graph fixes (an operator's outputs, a `Select`, a reducer
-  `Resample`) has it before any event. Only a one-column output is `(0,)`,
-  and so is an output whose width comes from a live input that has had no
-  event yet. For the 2.8.0 shape, take `values.reshape(0)` when
+  `Resample`) has it before any event. Only a one-column output is `(0,)`.
+  An output whose width comes from a live input that has had no event yet
+  has the width it would have for a one-column input (`(0,)`, or `(0, 4)`
+  for `ohlc`). For the 2.8.0 shape, take `values.reshape(0)` when
   `len(values) == 0`.
 * `Pipeline.to_dict()` holds a `Resample`'s functor reducer as its name and
   parameters, `{"functor": "RollingMean", "params": {"window_size": 5}}`, so
@@ -764,8 +799,9 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   `to_json()` raised "Object of type RollingMean is not JSON serializable".
   `from_dict()` and `from_json()` build a new functor from it, so the
   restored pipeline shares no state with the original (2.8.0's `from_dict()`
-  reused the object). To get the object, build it from the entry:
-  `getattr(screamer, d["functor"])(**d["params"])`.
+  reused the object). To get the object, restore the pipeline with
+  `Pipeline.from_dict(d)`, which builds each functor, positional and nested
+  parameters included.
 
 ### Fixed
 

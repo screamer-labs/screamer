@@ -1,6 +1,7 @@
 """Write wasm/smoke/null_oracle.json: for every operator setting, whether the
 Python binding takes None for it (as "not given") or raises TypeError, and
-whether it takes a bool (True) or raises TypeError.
+whether it takes a bool (True) or raises TypeError, and that TypeError's
+message ("RollingMean: window_size must be an integer, got bool").
 
 js/test/ops.test.ts passes null, and then true, for each setting and checks
 that JavaScript agrees. Each op is built from ``base``: its required settings filled in, and
@@ -57,14 +58,30 @@ def _base(cls, args):
 
 def _accepts(cls, base, name, value):
     """Whether the op takes `value` for setting `name`: False for a TypeError.
-    Another error means the value was taken and the op refused the rest."""
+    Another error means the value was taken and the op refused the rest. A
+    bool must be refused as a bool ("<Op>: <setting> must be ..., got bool"):
+    a TypeError for another reason (a stale `base`) stops the generator."""
     try:
         cls(**dict(base, **{name: value}))
-    except TypeError:
+    except TypeError as e:
+        if value is True and not str(e).startswith(f"{cls.__name__}: {name} must be ") \
+                or value is True and not str(e).endswith(", got bool"):
+            raise SystemExit(f"{cls.__name__}({name}=True): unexpected TypeError: {e}")
         return False
     except Exception:
         pass
     return True
+
+
+def _message(cls, base, name, value):
+    """The TypeError message for `value` as setting `name`, or None."""
+    try:
+        cls(**dict(base, **{name: value}))
+    except TypeError as e:
+        return str(e)
+    except Exception:
+        pass
+    return None
 
 
 def compute():
@@ -80,7 +97,8 @@ def compute():
         settings = {a["name"]: _accepts(cls, base, a["name"], None) for a in args}
         bools = {a["name"]: _accepts(cls, base, a["name"], True) for a in args}
         out.append({"name": op["name"], "base": base, "accepts_none": settings,
-                    "accepts_bool": bools})
+                    "accepts_bool": bools,
+                    "bool_message": {a["name"]: _message(cls, base, a["name"], True) for a in args}})
     return out
 
 

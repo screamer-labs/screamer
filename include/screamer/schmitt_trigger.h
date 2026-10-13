@@ -22,6 +22,7 @@
 //
 // O(1) per step. One scalar of state.
 
+#include <cmath>
 #include <limits>
 #include <stdexcept>
 #include "screamer/common/base.h"
@@ -34,12 +35,12 @@ public:
     SchmittTrigger(double lower, double upper, double initial = 0.0)
         : lower_(lower), upper_(upper), initial_(initial)
     {
+        if (!std::isfinite(lower) || !std::isfinite(upper)) {
+            throw std::invalid_argument("lower and upper must be finite.");
+        }
         if (!(lower < upper)) {
             throw std::invalid_argument(
                 "lower must be strictly less than upper.");
-        }
-        if (isnan2(lower) || isnan2(upper)) {
-            throw std::invalid_argument("lower and upper must be finite.");
         }
         if (!(initial == 0.0 || initial == 1.0 || isnan2(initial))) {
             throw std::invalid_argument(

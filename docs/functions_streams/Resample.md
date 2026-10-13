@@ -129,9 +129,10 @@ Inside a `Pipeline`, rows that a `Dropna` or `Filter` drops move time forward as
 the input the open bucket is emitted only if it has data, so a `Dropna`, a `Filter`
 and a `CombineLatest` that drop the same last rows give the same bars.
 
-`fill=` is meaningful only under `freq=`. With `count=`, a bar is defined by
-holding `N` events, so empty bars cannot exist by construction and `fill=` has no
-effect.
+`fill=` applies under `freq=` (`every=`) and `clock=`. A `count=` bar holds `N`
+events and a `threshold=` bar holds the events that reach the threshold, so
+neither is ever empty, and `fill="nan"` or `"carry"` with them raises
+`ValueError` (`RangeError` in JavaScript).
 
 `max_fill=` (default 1,000,000) bounds the empty bars of one gap: the empty
 buckets that one event, or one `advance(now)`, closes at once. A larger gap

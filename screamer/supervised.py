@@ -27,9 +27,9 @@ def _horizon(count, duration):
     truncated, as Delay's duration is."""
     from . import screamer_bindings as _b
     if count is not None:
-        count = int(_setting("forecast_pairs: count", count))
+        count = int(_setting("forecast_pairs: count", count, True))
     if duration is not None:
-        duration = int(_setting("forecast_pairs: duration", duration))
+        duration = int(_setting("forecast_pairs: duration", duration, True))
     _b._check_forecast_pairs_horizon(count, duration)
     return count, duration
 

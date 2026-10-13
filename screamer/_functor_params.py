@@ -140,12 +140,79 @@ def format_call(cls_name, params):
     return f"{cls_name}({', '.join(parts)})"
 
 
+def _is_bool(x):
+    """A Python bool, a NumPy bool or a 0-d NumPy bool array: not a number."""
+    if isinstance(x, bool):
+        return True
+    import numpy as np
+    return isinstance(x, np.bool_) or (
+        isinstance(x, np.ndarray) and x.ndim == 0 and x.dtype.kind == "b")
+
+
+def _wrong_kind(value, vector):
+    """The type name of a value that is not a number setting, or None."""
+    if _is_bool(value):
+        return "bool"
+    if isinstance(value, (str, bytes, bytearray)):
+        return type(value).__name__
+    if vector and (isinstance(value, (list, tuple)) or getattr(value, "ndim", 0)):
+        for item in value:
+            kind = _wrong_kind(item, False)
+            if kind:
+                return kind
+    return None
+
+
+_WANTS = {"int": "an integer", "float": "a number", "float|null": "a number",
+          "float|list[float]": "a number or a sequence of numbers",
+          "float[]": "a number or a sequence of numbers"}
+
+
+def setting_error(cls_name, args, kwargs):
+    """The message for a number setting of the wrong kind in a constructor
+    call, "<Op>: <setting> must be a number, got bool", or None.
+
+    The C++ casters know neither the operator nor the setting, so the class
+    finds the setting here, after the constructor raised TypeError.
+    """
+    entry = _load_help().get(cls_name) or {}
+    params = bind_params(cls_name, args, kwargs)
+    if "args" in params:              # more arguments than settings: not a kind error
+        return None
+    for p in entry.get("parameters", []):
+        if p.get("type") == "str" and p["name"] in params:
+            value = params[p["name"]]
+            if not isinstance(value, str) and not (value is None and p.get("default") is None):
+                kind = "bool" if _is_bool(value) else type(value).__name__
+                return f"{cls_name}: {p['name']} must be a string, got {kind}"
+            continue
+        want = _WANTS.get(p.get("type"))
+        if want is None or p["name"] not in params:
+            continue
+        value = params[p["name"]]
+        kind = _wrong_kind(value, "sequence" in want)
+        if kind is None and want == "an integer" and isinstance(value, float):
+            kind = repr(float(value))
+        if kind is None and value is None and p.get("default", 0) is not None:
+            kind = "None"
+        if kind:
+            return f"{cls_name}: {p['name']} must be {want}, got {kind}"
+    return None
+
+
 def _make_wrapper(name, base):
     """Build a same-named subclass of ``base`` that captures its init args."""
     cls = type(name, (base,), {"__doc__": build_docstring(name), "__module__": "screamer"})
 
     def __init__(self, *args, **kwargs):
-        super(cls, self).__init__(*args, **kwargs)
+        try:
+            super(cls, self).__init__(*args, **kwargs)
+        except TypeError:
+            # A setting of the wrong kind: name the operator and the setting.
+            msg = setting_error(name, args, kwargs)
+            if msg is None:
+                raise
+            raise TypeError(msg) from None
         self._screamer_params = bind_params(name, args, kwargs)
 
     def __repr__(self):

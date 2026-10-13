@@ -228,7 +228,7 @@ def test_split_n_rules():
         streams.split(v[:0], [], n=2**31)
     with pytest.raises(ValueError, match="at most 2\\*\\*31 - 1"):
         streams.split(v[:0], [], n=2**70)
-    with pytest.raises(TypeError, match="n must be a number"):
+    with pytest.raises(TypeError, match="split: n must be an integer, got str"):
         streams.split(v, src, n="4")
     for bad, text in [(2.0, "2.0"), (1.5, "1.5"), (np.float64(4.0), "np.float64\\(4.0\\)")]:
         with pytest.raises(TypeError, match=f"^split: n must be an integer, got {text}$"):
@@ -236,7 +236,7 @@ def test_split_n_rules():
     assert len(streams.split(v, src, n=6)) == 6
     assert len(streams.split(v, src, n=np.int64(5))) == 5
     for flag in (True, np.True_):          # a bool is not a number setting (G25)
-        with pytest.raises(TypeError, match="split: n must be a number, got bool"):
+        with pytest.raises(TypeError, match="split: n must be an integer, got bool"):
             streams.split(v[:1], [0], n=flag)
 
 

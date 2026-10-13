@@ -99,7 +99,7 @@ test("round 2: String objects, operator number settings and maxPending refuse st
   assert.throws(() => p.live().push("a", 0, new String("3") as any), TypeError);
   assert.throws(() => p.live().push("a", 0, [new String("3")] as any), TypeError);
   for (const bad of ["3", new String("3")]) {
-    assert.throws(() => RollingMean(bad as any), (e: unknown) => e instanceof TypeError && (e as Error).message === "RollingMean: windowSize must be a number, got a string");
+    assert.throws(() => RollingMean(bad as any), (e: unknown) => e instanceof TypeError && (e as Error).message === "RollingMean: windowSize must be an integer, got a string");
   }
   const x = Input("x"), y = Input("y");
   assert.throws(() => combineLatest([x, y], { maxPending: "3" as any }), TypeError);

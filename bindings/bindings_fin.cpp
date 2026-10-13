@@ -713,6 +713,8 @@ using EngineRows = nb::ndarray<const double, nb::device::cpu>;
 nb::object backtest_report_py(EngineRows v, nb::handle ppy) {
     screamer::check_engine_rows(v.ndim(), v.ndim() == 2 ? v.shape(1) : 0);
     double periods_per_year;
+    if (screamer::bool_kind(ppy.ptr()))
+        throw nb::type_error("backtest_report: periods_per_year must be a number, got bool");
     if (!nb::try_cast<double>(ppy, periods_per_year))
         screamer::throw_wrong_kind("backtest_report", "periods_per_year", ppy);
     screamer::BacktestReport rep(periods_per_year);

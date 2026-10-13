@@ -93,6 +93,7 @@ export function backtestReport(
   wasmCall(() => M.checkEngineRows(ndim, ncols));
   const o = opts ?? {};
   const ppy = o.periodsPerYear === undefined ? 1 : o.periodsPerYear;
+  if (typeof ppy === "boolean") throw new TypeError(`${WHO}: periodsPerYear must be a number, got boolean`);
   if (typeof ppy !== "number") throwWrongKind(WHO, "periodsPerYear", ppy);
   const index = o.index == null ? null
     : toF64Checked(o.index as ArrayLike<unknown>, WHO, (i) => `index item ${i}`);

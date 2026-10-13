@@ -603,7 +603,7 @@ def split(values, sources, index=None, n=None):
         else:
             sources = _as_float64(sources, contiguous=True)
     if n is not None:
-        _setting("split: n", n)
+        _setting("split: n", n, True)
     if index is not None:
         if getattr(getattr(index, "dtype", None), "kind", "O") in ("U", "S", "O"):
             _b._refuse_text(index if hasattr(index, "dtype") else np.asarray(index))
@@ -618,8 +618,8 @@ def _normalize_columns(columns):
     eager result is then 1-D). Negative indices are rejected explicitly.
     """
     scalar = np.ndim(columns) == 0
-    cols = ([int(_setting("select: columns", columns))] if scalar
-            else [int(_setting("select: columns", c)) for c in columns])
+    cols = ([int(_setting("select: columns", columns, True))] if scalar
+            else [int(_setting("select: columns", c, True)) for c in columns])
     for c in cols:
         if c < 0:
             raise ValueError(f"select: column index must be non-negative, got {c}")
@@ -935,8 +935,8 @@ def _resample_freq_to_engine(freq, index):
     datetime64 index -> offset/timedelta -> int64 units via _resample_datetime_freq.
     Raises on a non-positive width or a nonsensical (index dtype, freq type) pair.
     """
-    if isinstance(freq, (bool, np.bool_)):
-        _setting("resample: freq", freq)                 # a bool is not a number
+    if not isinstance(freq, str):
+        _setting("resample: freq", freq, True)           # a bool is not a number
     if index is not None and np.asarray(index).dtype.kind == "M":   # datetime64
         return _resample_datetime_freq(freq, index)
     if isinstance(freq, (str, np.timedelta64)) or hasattr(freq, "total_seconds"):
@@ -1045,7 +1045,7 @@ def _resample_validate(freq, every, count, threshold, agg, label, fill="skip",
         if max_age < 0:
             raise ValueError("resample: max_age must be a non-negative integer")
     for name, x in (("threshold", threshold), ("every", every), ("count", count)):
-        _setting(f"resample: {name}", x)
+        _setting(f"resample: {name}", x, name != "threshold")
     # Exactly one of freq, every, count, threshold, clock must be provided.
     given = sum(x is not None for x in [freq, every, count, threshold])
     if clock:
@@ -1192,9 +1192,9 @@ def resample(values, driver=None, index=None, *, freq=None, every=None, count=No
     ``"right"``).  NaN values are ignored.
 
     ``fill`` controls empty **internal** buckets (a gap between two events where
-    one or more buckets have no samples). It is meaningful only under ``every=``;
-    with ``count=`` a bar is defined by having ``N`` events, so empty bars cannot
-    occur and ``fill`` has no effect.
+    one or more buckets have no samples). It applies under ``freq=`` (``every=``)
+    and ``clock=``; a ``count=`` or ``threshold=`` bar is never empty, so a
+    ``fill`` other than ``"skip"`` raises ``ValueError`` there.
 
     * ``"skip"`` (default): no row for an empty bucket (legacy behavior).
     * ``"nan"``: an all-NaN row at each empty bucket's label.
@@ -1575,7 +1575,7 @@ def delay(values, index=None, *, duration):
 
     Requires an explicit index (duration is time-based). Returns (values, index +
     duration) as a concrete stream, or a graph Node when `values` is a Node."""
-    duration = int(_setting("delay: duration", duration))
+    duration = int(_setting("delay: duration", duration, True))
     if is_node(values):
         return make_operator_node(Delay, (values,), {"duration": duration})
     values, index = _as_vi(values, index)
@@ -1604,7 +1604,7 @@ class Delay:
     __name__ = "Delay"
 
     def __init__(self, duration):
-        self._duration = int(_setting("Delay: duration", duration))
+        self._duration = int(_setting("Delay: duration", duration, True))
 
     def __call__(self, values, index=None):
         return delay(values, index, duration=self._duration)

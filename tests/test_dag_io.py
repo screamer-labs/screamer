@@ -249,8 +249,9 @@ def _io_cases():
             lambda x, f=fill: Resample(freq=2, agg="mean", fill=f, label="right")(x))
     for name, make in reducers.items():
         cases[f"Resample freq agg={name}"] = one(lambda x, m=make: Resample(freq=5, agg=m())(x))
-        cases[f"Resample count agg={name} fill"] = one(
-            lambda x, m=make: Resample(count=3, agg=m(), fill="carry")(x))
+        cases[f"Resample count agg={name}"] = one(lambda x, m=make: Resample(count=3, agg=m())(x))
+        cases[f"Resample freq agg={name} fill"] = one(
+            lambda x, m=make: Resample(freq=5, agg=m(), fill="carry")(x))
     return cases
 
 

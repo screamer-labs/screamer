@@ -62,8 +62,8 @@ function fillSources(items: ArrayLike<unknown>, out: Float64Array): void {
   }
 }
 
-// The options as a plain object of known keys; n a number (a boolean as 0 or
-// 1, as Python takes a bool). C++ checks that n is a whole number.
+// The options as a plain object of known keys; n a number (a boolean is a
+// wrong kind, as in Python). C++ checks that n is a whole number.
 function options(opts: unknown): { index?: unknown; n?: number } {
   const o = opts ?? {};
   const proto = typeof o === "object" ? Object.getPrototypeOf(o) : undefined;
@@ -72,9 +72,9 @@ function options(opts: unknown): { index?: unknown; n?: number } {
   for (const key of Object.keys(o))
     if (key !== "index" && key !== "n") throw new TypeError(`${WHO}: unknown option '${key}'`);
   const { index, n } = o as SplitOptions;
-  if (n !== undefined && n !== null && typeof n !== "number" && typeof n !== "boolean")
-    throw new TypeError(`${WHO}: n must be an integer, got ${aKind(n)}`);
-  return { index: index ?? undefined, n: n == null ? undefined : Number(n) };
+  if (n !== undefined && n !== null && typeof n !== "number")
+    throw new TypeError(`${WHO}: n must be an integer, got ${typeof n === "boolean" ? "boolean" : aKind(n)}`);
+  return { index: index ?? undefined, n: n == null ? undefined : n };
 }
 
 /**

@@ -44,7 +44,7 @@ public:
         if (window_size < 2) {
             throw std::invalid_argument("Window size must be 2 or more.");
         }
-        if (!(num_std >= 0.0)) {  // also rejects NaN
+        if (!(num_std >= 0.0 && std::isfinite(num_std))) {  // also rejects NaN and inf
             throw std::invalid_argument("num_std must be a non-negative finite number.");
         }
         reset();

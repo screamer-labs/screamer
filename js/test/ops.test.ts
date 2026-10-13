@@ -148,7 +148,7 @@ test("options: a number setting takes only a number", async () => {
     assert.throws(() => Hold({ n: 3, release: bad as any }), { name: "TypeError", message }, `option ${what}`);
   }
   assert.throws(() => RollingMean({ windowSize: [3] as any }), { name: "TypeError",
-    message: "RollingMean: windowSize must be a number, got an array" });
+    message: "RollingMean: windowSize must be an integer, got an array" });
 });
 
 test("options: an NdArray where the settings belong says so", async () => {
@@ -186,7 +186,7 @@ test("options: undefined is the default; null is only where Python takes None", 
   assert.deepEqual(run(EwMean(null, 20)), want);
   assert.deepEqual(run(RollingMean(undefined, undefined)), run(RollingMean()));
   assert.deepEqual(run(MovingAverage({ taps: undefined })), run(MovingAverage()));
-  assert.throws(() => RollingMean(null as any), { name: "TypeError", message: "RollingMean: windowSize must be a number, got null" });
+  assert.throws(() => RollingMean(null as any), { name: "TypeError", message: "RollingMean: windowSize must be an integer, got null" });
   assert.throws(() => RollingMean(3, null as any), { name: "TypeError", message: "RollingMean: startPolicy must be a string, got null" });
   assert.throws(() => MovingAverage({ taps: null as any }), { name: "TypeError",
     message: "MovingAverage: taps must be a number or an array of numbers, got null" });
@@ -220,18 +220,24 @@ test("options: true agrees with Python True for every setting (null_oracle.json)
   await ready();
   const { readFileSync } = await import("node:fs");
   const ops: any = await import("../src/generated/ops.ts");
-  const oracle: { name: string; base: Record<string, number>; accepts_bool: Record<string, boolean> }[] =
+  const oracle: { name: string; base: Record<string, number>; accepts_bool: Record<string, boolean>;
+                  bool_message: Record<string, string | null> }[] =
     JSON.parse(readFileSync(new URL("../../wasm/smoke/null_oracle.json", import.meta.url), "utf8"));
   const camel = (k: string) => k.replace(/_([a-z])/g, (_m, c) => c.toUpperCase());
+  // Python's message in JavaScript's words: the camelCase name, "boolean"
+  // and "an array of numbers".
+  const inJs = (msg: string, k: string) => msg.replace(`: ${k} must be`, `: ${camel(k)} must be`)
+    .replace(/, got bool$/, ", got boolean").replace("a sequence of numbers", "an array of numbers");
   let n = 0;
-  for (const { name, base, accepts_bool } of oracle) {
+  for (const { name, base, accepts_bool, bool_message } of oracle) {
     const opts: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(base)) opts[camel(k)] = v;
     for (const [k, accepts] of Object.entries(accepts_bool)) {
-      let refused = false;
+      let refused = false, message = "";
       try { ops[name]({ ...opts, [camel(k)]: true }).dispose(); }
-      catch (e) { refused = e instanceof TypeError; }
+      catch (e) { refused = e instanceof TypeError; message = (e as Error).message; }
       assert.equal(!refused, accepts, `${name}(${k}=true): Python ${accepts ? "takes" : "refuses"} True`);
+      if (!accepts) assert.equal(message, inJs(bool_message[k] as string, k), `${name}(${k}=true) message`);
       n++;
     }
   }
@@ -242,9 +248,10 @@ test("options: a stream setting refuses a boolean (G25)", async () => {
   await ready();
   const { Input, resample, select, delay } = await import("../src/index.ts");
   const x = Input("x");
-  const msg = (what: string) => ({ name: "TypeError", message: `${what} must be a number, got a boolean` });
+  const msg = (what: string, want = "an integer") => ({ name: "TypeError", message: `${what} must be ${want}, got boolean` });
   assert.throws(() => resample(x, { count: true as any }), msg("resample: count"));
   assert.throws(() => resample(x, { every: true as any }), msg("resample: every"));
+  assert.throws(() => resample(x, { threshold: true as any }), msg("resample: threshold", "a number"));
   assert.throws(() => select(x, true as any), msg("select: columns"));
   assert.throws(() => delay(x, true as any), msg("delay: duration"));
 });

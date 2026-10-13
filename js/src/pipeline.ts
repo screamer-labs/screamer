@@ -36,17 +36,18 @@ export interface PipelineOptions {
 
 // maxPending as the engine's count (an integer from 1 to 2**53); the engine
 // owns the rule and its messages (max_pending.h).
-export function maxPendingCount(M: Screamer, v: unknown): number {
-  if (typeof v !== "number") wasmCall(() => (M as any).throwMaxPendingKind(kindName(v)));
-  return wasmCall(() => (M as any).checkedMaxPending(v));
+// `who` names the op and setting for the message ("Pipeline: maxPending").
+export function maxPendingCount(M: Screamer, v: unknown, who = "Pipeline: maxPending"): number {
+  if (typeof v !== "number") wasmCall(() => (M as any).throwMaxPendingKind(kindName(v), who));
+  return wasmCall(() => (M as any).checkedMaxPending(v, who));
 }
 
 // A resample's maxFill under the same rule (resample_params.h); unset, the
 // engine's default.
 function maxFillCount(M: Screamer, v: unknown): number {
   if (v === undefined) return (M as any).defaultMaxFill();
-  if (typeof v !== "number") wasmCall(() => (M as any).throwMaxFillKind(kindName(v)));
-  return wasmCall(() => (M as any).checkedMaxFill(v));
+  if (typeof v !== "number") wasmCall(() => (M as any).throwMaxFillKind(kindName(v), "resample: maxFill"));
+  return wasmCall(() => (M as any).checkedMaxFill(v, "resample: maxFill"));
 }
 
 // Event-by-event streaming driver returned by `pipeline.live()`. Push feeds one
@@ -260,7 +261,7 @@ class PipelineImpl implements Owned {
       switch (kind) {
         case "combineLatest": {
           // A node's own maxPending, else the Pipeline's.
-          const cap = p.maxPending === undefined ? this.maxPending : maxPendingCount(M, p.maxPending);
+          const cap = p.maxPending === undefined ? this.maxPending : maxPendingCount(M, p.maxPending, "combineLatest: maxPending");
           return wasmCall(() => gb.addCombineLatest(vec, !!p.whenAll, cap));
         }
         case "dropna":
@@ -618,7 +619,14 @@ export interface Pipeline {
 // returns the callable wrapper, so `new Pipeline(...)` yields the same thing).
 export const Pipeline = function (inputs: Node[], outputs: Node[], opts?: PipelineOptions): Pipeline {
   const impl = new PipelineImpl(inputs, outputs, opts);
-  const fn = ((feeds: Feeds) => impl.call(feeds)) as Pipeline;
+  // One argument: the feed, or the feeds keyed by input name. A second
+  // positional argument (an index, a second input) is a TypeError.
+  const fn = (function (this: unknown, feeds: Feeds) {
+    if (arguments.length > 1)
+      throw new TypeError(`Pipeline: takes one argument, the feeds, got ${arguments.length}; ` +
+        "pass an index as {values, index} and several inputs as an object keyed by input name");
+    return impl.call(feeds);
+  }) as Pipeline;
   // The compiled graph is freed by dispose() or when `fn` is collected.
   (fn as any).dispose = releaseWith(fn, impl);
   (fn as any).live = () => impl.live(fn);

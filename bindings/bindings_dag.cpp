@@ -506,8 +506,9 @@ static void marshal_feeds(
 // another kind is a TypeError.
 static double count_setting(nb::handle x, const std::string& name) {
     PyObject* p = x.ptr();
-    const std::string type = nb::cast<std::string>(nb::type_name(x.type()));
-    if (screamer::bool_kind(p) || x.is_none() || PyUnicode_Check(p) || PyBytes_Check(p) ||
+    const char* b = screamer::bool_kind(p);
+    const std::string type = b ? std::string(b) : nb::cast<std::string>(nb::type_name(x.type()));
+    if (b || x.is_none() || PyUnicode_Check(p) || PyBytes_Check(p) ||
         type.find("complex") != std::string::npos)
         dag::throw_max_pending_kind(type, name);
     if (PyFloat_Check(p)) return dag::checked_count_setting(PyFloat_AsDouble(p), name);
@@ -542,13 +543,13 @@ void init_bindings_dag(nb::module_& m) {
     m.attr("_DEFAULT_MAX_PENDING") = dag::kDefaultMaxPending;
     // A Pipeline's max_pending under the engine's rule (max_pending.h): an
     // integer from 1 to 2**53. A bool or another kind is a TypeError.
-    m.def("_max_pending", [](nb::handle x) -> std::size_t {
-        return dag::checked_max_pending(count_setting(x, "max_pending"));
-    }, "max_pending"_a.none());
+    m.def("_max_pending", [](nb::handle x, const std::string& who) -> std::size_t {
+        return dag::checked_max_pending(count_setting(x, who), who);
+    }, "max_pending"_a.none(), "who"_a = "Pipeline: max_pending");
     // A fill Resample's max_fill, under the same rule.
-    m.def("_max_fill", [](nb::handle x) -> std::int64_t {
-        return dag::checked_max_fill(count_setting(x, "max_fill"));
-    }, "max_fill"_a.none());
+    m.def("_max_fill", [](nb::handle x, const std::string& who) -> std::int64_t {
+        return dag::checked_max_fill(count_setting(x, who), who);
+    }, "max_fill"_a.none(), "who"_a = "resample: max_fill");
     m.attr("_DEFAULT_MAX_FILL") = dag::kDefaultMaxFill;
     // The string rule for values (cast_double.h refuse_text), for the Python
     // float64 conversions in screamer/dag.py and screamer/streams.py.

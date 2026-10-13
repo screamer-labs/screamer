@@ -214,7 +214,17 @@ def test_fill_carry_every_regime_agrees():
     np.testing.assert_array_equal(live.result()[0], batch[0])
 
 
-def test_fill_carry_leaves_count_bars_as_they_are():
-    # fill= applies to freq= and clock= bars; a count= bar is never empty.
-    v, _ = Resample(count=1, fill="carry")(WIDE)
-    np.testing.assert_array_equal(v, WIDE)
+@pytest.mark.parametrize("fill", ["nan", "carry"])
+def test_fill_is_refused_under_count_and_threshold(fill):
+    # fill= applies to freq= and clock= bars; a count= or threshold= bar is
+    # never empty, so fill= other than "skip" raises (2.8.0 ignored it).
+    from screamer.dag import Input, Pipeline
+    with pytest.raises(ValueError, match="a count= bar is never empty"):
+        Resample(count=1, fill=fill)(WIDE)
+    v = np.arange(4.0)
+    with pytest.raises(ValueError, match="a threshold= bar is never empty"):
+        Resample(v, np.ones(4), threshold=1.0, fill=fill)
+    x = Input("x")
+    with pytest.raises(ValueError, match="a count= bar is never empty"):
+        Pipeline([x], [Resample(count=2, fill=fill)(x)])
+    np.testing.assert_array_equal(Resample(count=1, fill="skip")(WIDE)[0], WIDE)

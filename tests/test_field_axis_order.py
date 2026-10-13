@@ -100,3 +100,28 @@ def test_field_axis_oracle_is_fresh():
     assert r.stdout == FIXTURE.read_bytes(), (
         "wasm/smoke/field_axis_oracle.json is stale: re-run "
         "python devtools/wasm/gen_field_axis_oracle.py and commit the result.")
+
+
+@pytest.mark.parametrize("name, n, layout", SERIES_OPS, ids=[c[0] for c in SERIES_OPS])
+def test_field_axis_is_last_on_two_asset_axes_and_async(name, n, layout):
+    """(T, A, K) gives (T, A, K, F), and an async stream of (K,) events gives
+    the rows of the (T, K) batch."""
+    import asyncio
+    make = lambda: getattr(s, name)(**default_kwargs(name))  # noqa: E731
+    cols = [series(k + 7, 1e3, layout)[:n] for k in range(2 * K)]
+    X = [np.stack([c[i] for c in cols], axis=1) for i in range(n)]      # (T, 2K)
+    X3 = [x.reshape(T, 2, K) for x in X]
+    wide = make()(*X)
+    deep = make()(*X3)
+    assert deep.shape == (T, 2, K, wide.shape[-1])
+    np.testing.assert_array_equal(deep.reshape(wide.shape), wide)
+
+    async def events(x):
+        for row in x[:, :K]:
+            yield row
+
+    async def collect():
+        return [r async for r in make()(*[events(x) for x in X])]
+
+    rows = asyncio.run(collect())
+    np.testing.assert_array_equal(np.stack(rows), wide[:, :K])

@@ -6,12 +6,15 @@
 // IntArg<T> is an integer setting (a window, a lag, a count). It converts like
 // the built-in nanobind integer caster (an int, a NumPy integer, anything with
 // __index__ or __int__ that is not a float), except that a str, bytes or
-// bytearray, a bool and a NumPy bool are a wrong kind: a string is never a
-// number (R-a), so RollingMean("3") raises TypeError instead of parsing it, and
-// a bool is not a number setting, so RollingMean(True) raises TypeError as the
-// JavaScript factory does. FloatArg is a float setting with the same bool rule;
-// a string already fails the float caster. Bindings use IntArg<T> in place of
-// T and FloatArg in place of double in nb::init<...>; each converts implicitly.
+// bytearray, a bool, a NumPy bool and a 0-d NumPy bool array are a wrong kind:
+// a string is never a number (R-a), so RollingMean("3") raises TypeError
+// instead of parsing it, and a bool is not a number setting, so
+// RollingMean(True) raises TypeError as the JavaScript factory does. FloatArg
+// is a float setting with the same bool rule; a string already fails the float
+// caster. Bindings use IntArg<T> in place of T and FloatArg in place of double
+// in nb::init<...>; each converts implicitly. A caster does not know the
+// operator or the setting, so its message is the tail ("must be an integer,
+// got bool"); the Python class (screamer/_functor_params.py) names both.
 
 #include <Python.h>
 #include <nanobind/nanobind.h>
@@ -22,29 +25,57 @@
 
 namespace screamer {
 
-// NumPy's bool type, once NumPy is loaded (else null). Found once and kept:
-// NumPy is never unloaded, and its type outlives every object of it.
-inline PyObject* numpy_bool_type() {
-    static PyObject* type = nullptr;
-    if (type) return type;
+// A NumPy type by name (bool_, ndarray), once NumPy is loaded (else null).
+// Found once and kept: NumPy is never unloaded, and its types outlive every
+// object of them.
+inline PyObject* numpy_type(const char* attr, PyObject*& cache) {
+    if (cache) return cache;
     PyObject* name = PyUnicode_FromString("numpy");
     PyObject* np = name ? PyImport_GetModule(name) : nullptr;
     Py_XDECREF(name);
     if (np) {
-        PyObject* t = PyObject_GetAttrString(np, "bool_");
+        PyObject* t = PyObject_GetAttrString(np, attr);
         Py_DECREF(np);
-        if (t) { type = t; }           // keeps the reference
+        if (t) cache = t;              // keeps the reference
     }
     PyErr_Clear();
-    return type;
+    return cache;
 }
 
-// "bool" for a Python bool, "numpy.bool" for a NumPy bool, else null.
+// Whether `o` is a 0-d NumPy array of dtype bool, which converts to a number
+// as a bool does.
+inline bool is_bool_array_0d(PyObject* o, PyObject* ndarray) {
+    if (!PyType_IsSubtype(Py_TYPE(o), reinterpret_cast<PyTypeObject*>(ndarray))) return false;
+    bool yes = false;
+    if (PyObject* nd = PyObject_GetAttrString(o, "ndim")) {
+        if (PyLong_AsLong(nd) == 0) {
+            if (PyObject* dt = PyObject_GetAttrString(o, "dtype")) {
+                if (PyObject* kind = PyObject_GetAttrString(dt, "kind")) {
+                    const char* k = PyUnicode_Check(kind) ? PyUnicode_AsUTF8AndSize(kind, nullptr) : nullptr;
+                    yes = k && std::strcmp(k, "b") == 0;
+                    Py_DECREF(kind);
+                }
+                Py_DECREF(dt);
+            }
+        }
+        Py_DECREF(nd);
+    }
+    PyErr_Clear();
+    return yes;
+}
+
+// "bool" for a Python bool, a NumPy bool or a 0-d NumPy bool array (the type
+// name screamer/dag.py _setting uses), else null.
 inline const char* bool_kind(PyObject* o) {
     if (PyBool_Check(o)) return "bool";
     if (PyLong_CheckExact(o) || PyFloat_Check(o)) return nullptr;
-    PyObject* np_bool = numpy_bool_type();
-    return np_bool && reinterpret_cast<PyObject*>(Py_TYPE(o)) == np_bool ? "numpy.bool" : nullptr;
+    static PyObject* np_bool = nullptr;
+    static PyObject* np_ndarray = nullptr;
+    PyObject* b = numpy_type("bool_", np_bool);
+    if (!b) return nullptr;                       // NumPy is not loaded
+    if (reinterpret_cast<PyObject*>(Py_TYPE(o)) == b) return "bool";
+    PyObject* nd = numpy_type("ndarray", np_ndarray);
+    return nd && is_bool_array_0d(o, nd) ? "bool" : nullptr;
 }
 
 template <class T>
@@ -56,7 +87,7 @@ struct IntArg {
     operator T() const {
         if (text)
             throw nanobind::type_error(
-                (std::string("an integer setting must be a number, got ") + text).c_str());
+                (std::string("must be an integer, got ") + text).c_str());
         return value;
     }
 };
@@ -67,7 +98,7 @@ struct FloatArg {
     operator double() const {
         if (text)
             throw nanobind::type_error(
-                (std::string("a number setting must be a number, got ") + text).c_str());
+                (std::string("must be a number, got ") + text).c_str());
         return value;
     }
 };
@@ -80,8 +111,7 @@ struct FloatVecArg {
     operator std::vector<double>() const {
         if (text)
             throw nanobind::type_error(
-                (std::string("a number setting must be a number or a sequence of numbers, got an element of type ") +
-                 text).c_str());
+                (std::string("must be a number or a sequence of numbers, got ") + text).c_str());
         return value;
     }
 };
