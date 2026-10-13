@@ -170,3 +170,11 @@ test("split: a wrong kind is a TypeError, a shape mismatch a RangeError", async 
   assert.throws(() => split([1], [0], { n: true as any }),
     { name: "TypeError", message: "split: n must be an integer, got boolean" });
 });
+
+test("split with a source id too large for the heap throws a clear RangeError", async () => {
+  await ready();
+  assert.throws(() => split([1.0], [2 ** 31 - 2]),
+    (e: unknown) => e instanceof RangeError &&
+      (e as Error).message === "split: 2147483647 outputs need more memory than is available; pass smaller source ids");
+  assert.equal(split([1.0], [3]).length, 4);   // the heap is fine afterwards
+});

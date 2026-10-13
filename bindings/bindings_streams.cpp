@@ -302,21 +302,27 @@ static nb::list split_outputs(const SplitPlan& plan, const AnyF64& values, const
         shape[d] = values.shape(d);
         width *= shape[d];
     }
-    std::vector<double*> vptr(n);
-    std::vector<Index*> kptr(k ? n : 0);
-    nb::list out;
-    for (std::size_t i = 0; i < n; ++i) {
-        const std::size_t c = plan.counts()[i];
-        shape[0] = c;
-        vptr[i] = new double[c * width ? c * width : 1];
-        nb::object ov = owned_array(vptr[i], shape);      // owns the buffer from here
-        if (k) {
-            kptr[i] = new Index[c ? c : 1];
-            out.append(nb::make_tuple(ov, owned_array(kptr[i], {c})));
-        } else {
-            out.append(nb::make_tuple(ov, nb::none()));
+    std::vector<double*> vptr;
+    std::vector<Index*> kptr;
+    split_alloc(n, [&] {
+        vptr.resize(n);
+        kptr.resize(k ? n : 0);
+    });
+    // The list is made at its size, so a list that does not fit fails here.
+    PyObject* lst = PyList_New(static_cast<Py_ssize_t>(n));
+    if (!lst) { PyErr_Clear(); throw_split_memory(n); }
+    nb::list out = nb::steal<nb::list>(lst);
+    split_alloc(n, [&] {
+        for (std::size_t i = 0; i < n; ++i) {
+            const std::size_t c = plan.counts()[i];
+            shape[0] = c;
+            vptr[i] = new double[c * width ? c * width : 1];
+            nb::object ov = owned_array(vptr[i], shape);      // owns the buffer from here
+            nb::object pair = k ? nb::make_tuple(ov, owned_array(kptr[i] = new Index[c ? c : 1], {c}))
+                                : nb::make_tuple(ov, nb::none());
+            PyList_SetItem(out.ptr(), static_cast<Py_ssize_t>(i), pair.release().ptr());   // steals
         }
-    }
+    });
     plan.scatter(values.data(), width, k, vptr.data(), kptr.data());
     return out;
 }

@@ -932,6 +932,11 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Fixed
 
+* `split` with a large source id (one output per id up to it) threw the
+  C++ text `RangeError: vector` in JavaScript when the outputs did not fit
+  in memory. It raises `ValueError` (`RangeError` in JavaScript), "split:
+  2147483647 outputs need more memory than is available; pass smaller source
+  ids", in both languages.
 * The batch `combine_latest` reserved the sum of its inputs' rows times the
   joined width, so n aligned inputs reserved n times the output: in
   JavaScript, `combineLatest` of 16 inputs of 1e6 rows threw `RangeError`

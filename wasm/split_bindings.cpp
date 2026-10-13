@@ -27,8 +27,13 @@ emscripten::val splitInto(std::uintptr_t v, std::size_t valuesNdim, std::size_t 
                                           hasIndex, indexNdim, indexLen);
     const SplitPlan plan(reinterpret_cast<const double*>(s), rows, hasN, n);
     const std::size_t outputs = plan.outputs();
-    std::vector<double*> vptr(outputs), kptr(hasIndex ? outputs : 0);
-    std::vector<double> counts(outputs);
+    std::vector<double*> vptr, kptr;
+    std::vector<double> counts;
+    screamer::streams::split_alloc(outputs, [&] {
+        vptr.resize(outputs);
+        kptr.resize(hasIndex ? outputs : 0);
+        counts.resize(outputs);
+    });
     std::size_t at = 0;
     for (std::size_t i = 0; i < outputs; ++i) {
         vptr[i] = reinterpret_cast<double*>(outV) + at * width;

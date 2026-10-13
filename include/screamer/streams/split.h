@@ -28,6 +28,7 @@
 #include <cstdint>
 #include <cstring>
 #include <stdexcept>
+#include <new>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -53,6 +54,23 @@ constexpr std::uint32_t kMaxSplitSource = kMaxSplitOutputs - 1;    // 2**31 - 2
 // An n that is not a whole number; `text` is the value or its kind.
 [[noreturn]] inline void throw_split_n_kind(const std::string& text) {
     throw dag::SettingTypeError("split: n must be an integer, got " + text);
+}
+
+// More outputs than memory holds (a large source id makes one output per id
+// up to it).
+[[noreturn]] inline void throw_split_memory(std::size_t outputs) {
+    throw std::invalid_argument(
+        "split: " + std::to_string(outputs) + " outputs need more memory than is "
+        "available; pass smaller source ids");
+}
+
+// Runs `f`, which allocates the storage of `outputs` outputs; an allocation
+// that fails raises throw_split_memory.
+template <class F>
+inline auto split_alloc(std::size_t outputs, F&& f) -> decltype(f()) {
+    try { return f(); }
+    catch (const std::bad_alloc&) { throw_split_memory(outputs); }
+    catch (const std::length_error&) { throw_split_memory(outputs); }
 }
 
 // One source tag.
@@ -196,7 +214,7 @@ private:
     void count(std::uint32_t t) {
         top_ = t > top_ ? t : top_;
         if (t >= limit_) return;                       // finish reports n too small
-        if (t >= counts_.size()) counts_.resize(static_cast<std::size_t>(t) + 1, 0);
+        if (t >= counts_.size()) grow(static_cast<std::size_t>(t) + 1);
         ++counts_[t];
     }
 
@@ -212,7 +230,11 @@ private:
         if (n > static_cast<double>(kMaxSplitOutputs))
             throw std::invalid_argument("split: n must be at most 2**31 - 1, got " +
                                         dag::number_text(n));
-        counts_.resize(static_cast<std::size_t>(n), 0);
+        grow(static_cast<std::size_t>(n));
+    }
+
+    void grow(std::size_t size) {
+        split_alloc(size, [&] { counts_.resize(size, 0); });
     }
 
     std::size_t total_;
