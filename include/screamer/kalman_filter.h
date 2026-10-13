@@ -58,6 +58,7 @@ public:
     void reset() override {
         x_ = initial_state_;
         P_ = initial_variance_;
+        diffuse_pending_ = std::isinf(initial_variance_);
     }
 
     double process_scalar(double z) override {
@@ -67,16 +68,20 @@ public:
         if (isnan2(z)) {
             return std::numeric_limits<double>::quiet_NaN();
         }
-        // Predict.
-        const double P_pred = P_ + process_var_;
-        if (std::isinf(P_pred)) {
-            // A diffuse prior (initial_variance = inf): the limit of the
-            // update as P -> inf. The gain is 1, the state is the
-            // observation and its variance the observation variance.
+        if (diffuse_pending_) {
+            // A diffuse prior (initial_variance = inf), decided by the
+            // setting: the first observation is the limit of the update as
+            // P -> inf. The gain is 1, the state is the observation and its
+            // variance the observation variance. A finite variance never
+            // takes this path, so it gives the 2.8.0 results bit for bit
+            // (NaN where its arithmetic overflows).
             x_ = z;
             P_ = observation_var_;
+            diffuse_pending_ = false;
             return x_;
         }
+        // Predict.
+        const double P_pred = P_ + process_var_;
         // Update.
         const double K = P_pred / (P_pred + observation_var_);
         x_ = x_ + K * (z - x_);
@@ -91,6 +96,7 @@ private:
     const double initial_variance_;
     double x_ = 0.0;
     double P_ = 0.0;
+    bool diffuse_pending_ = false;   // inf initial_variance, before the first observation
 };
 
 }  // namespace screamer
