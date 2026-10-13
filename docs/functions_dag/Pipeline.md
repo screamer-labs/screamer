@@ -105,11 +105,13 @@ returns the session, so calls chain.
 - **`.push(input, index, value)`** feeds one event. `input` is an `Input` name
   (str) or its position (int) in the `inputs` list; `index` is the event's integer
   index; `value` is the float value.
-- **`.advance(now)`** moves logical time to `now` (an integer index), closing every
-  windowing node whose bucket boundary has passed by `now`. This finalizes
-  time-based bars even when no event fell in them, for example an empty minute bar
-  closed by a clock tick. It is a no-op for event-count (`count=`) windows and
-  before the first event; call it with non-decreasing `now`.
+- **`.advance(now)`** moves logical time to `now` (an integer index). A windowing
+  node whose open bucket ends at or before `now` emits that bar now, without
+  waiting for the next event. An empty bucket is never emitted by `advance`: with
+  `fill="nan"` or `"carry"` it is filled when the next event opens a later bucket,
+  since only empty buckets between two bars are filled. So `advance` changes when a
+  bar comes out, never which bars. It is a no-op for event-count (`count=`) windows
+  and before the first event; call it with non-decreasing `now`.
 - **`.flush()`** finalizes the current partial window(s) on demand, for example at
   the end of a processing loop. The end-of-input flush that `pipe(...)` performs
   implicitly is the special case. `advance(2**63 - 1)` acts as the end of input,
@@ -122,10 +124,9 @@ returns the session, so calls chain.
   still change it); after `.flush()` it returns every row.
 
 Feeding the same events in index order and then calling `.flush()` reproduces the
-batch result exactly. `.advance()` (and a clock input wired into the pipeline)
-additionally let a windowing node emit bars a purely event-driven pass would not,
-the empty leading and trailing bars in
-[`Resample`](../functions_streams/Resample.md), for instance.
+batch result exactly, with or without `.advance()` calls in between. To emit a bar
+for every period, empty ones included, as the periods pass, drive a clock
+resample (`Resample(values, clock, clock=True)`): each clock event closes a bar.
 
 ```{eval-rst}
 .. exec_code::
@@ -141,7 +142,9 @@ the empty leading and trailing bars in
 
    live = pipe.live()
    live.push("price", 0, 100.0)   # one trade in bar [0, 10)
-   live.advance(30)               # clock passes bars [10,20) and [20,30): empty -> NaN
+   live.advance(30)               # bar [0, 10) is complete: emitted now
+   print(live.result()[1])
+   live.push("price", 35, 101.0)  # bars [10, 20) and [20, 30) lie between two bars: NaN
    live.flush()
    values, index = live.result()
    print(index)

@@ -92,6 +92,22 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   that. An option other than `alignOutputs`, or an `alignOutputs` that is not a
   boolean, throws `TypeError`. `live().result()` is typed `Output | Output[]`,
   as the batch call is.
+* `live().advance(now)` no longer fills empty buckets of a
+  `Resample(every=..., fill="nan")` or `fill="carry"` by itself. It emits a
+  finished bar early; an empty bucket it passes is filled once a later event
+  arrives, and an empty bucket after the last event is never filled, as in a
+  batch call. With `fill="nan"` and `every=100`, `push(0)`, `advance(350)`,
+  `flush()` gave bars 0, 100 and 200 in 2.8.0, and now gives bar 0. So
+  `advance` changes when a bar is emitted, never which bars, and a live session
+  equals the batch call on the same events. For a bar at every period as time
+  passes, empty ones included, use a clock resample
+  (`Resample(values, clock, clock=True, fill="nan")`) and push a clock event at
+  each period end. Since a fill bar for an empty bucket waits for the next
+  event, the rows a `CombineLatest`, a `Filter` or the aligned outputs hold
+  beside such a resample wait with it: a stretch of more than `max_pending`
+  rows with no data for the resample raises the `CombineLatest` or `Filter`
+  overflow, in batch calls too. 2.8.0 emitted the fill bars as time passed and
+  held nothing; use `fill="skip"` there, or a larger `max_pending`.
 * `Pipeline(max_pending=...)` takes an integer from 1 to `2**53`: 0, a
   negative number or one above `2**53` raises `ValueError`, and a value that is
   not an integer (`1.5`, `True`, `None`) raises `TypeError`. 2.8.0 read it with
@@ -465,8 +481,16 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   until it was killed (`std::bad_alloc` in JavaScript), in a batch call and in
   `live()`: the end-of-input watermark made it fill every empty bucket up to
   the int64 maximum. The end of input now emits the open bucket only if it has
-  data, as for a resample fed directly, and `advance(now)` emits the buckets up
-  to `now`.
+  data, as for a resample fed directly.
+* A `Resample(every=..., fill="nan")` or `fill="carry"` in a `Pipeline` whose
+  input ended with rows that a `Dropna`, `Filter` or `CombineLatest` dropped
+  filled the empty buckets after its last bar. With
+  `a = [1, 2, 3, 4] + [NaN] * 6` on index 0 to 9,
+  `Resample(every=4, fill="nan")(Dropna()(a))` gave bars 0 and 4 (a NaN fill)
+  in 2.8.0, and now gives bar 0, as the eager `Resample(every=4, fill="nan")`
+  of the four values does. The bars no longer depend on whether a `Filter` or a
+  `CombineLatest` sits upstream: an empty bucket is filled only between two
+  buckets with data, in batch, lazy and live calls alike.
 * A label-left `Resample(every=...)` whose first event came after a watermark
   (rows that a `Dropna` or `Filter` dropped, or an `advance()`) told the nodes
   downstream that no row would come below that watermark, then emitted its

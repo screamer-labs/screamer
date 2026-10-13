@@ -110,14 +110,14 @@ it is not `Pipeline`-only.
 - `"nan"`: emit an all-NaN row at the empty bucket's label.
 - `"carry"`: repeat the previous emitted row's values verbatim.
 
-Only **internal** empty buckets (gaps between two events) are filled by `Resample`
-itself. Trailing empty buckets after the last event are not synthesized here; that
-needs a clock, via either [`pipe.live().advance(now)`](#pipeline-live) or a clock input
-wired into a `Pipeline`. The [`pipe.live()` reference](#pipeline-live) has a worked example.
-Inside a `Pipeline`, rows that a `Dropna` or `Filter` drops move time forward as
-`advance()` does: a bucket they pass is closed, and filled when empty. At the end of
-the input the open bucket is emitted only if it has data, so a `Dropna`, a `Filter`
-and a `CombineLatest` that drop the same last rows give the same bars.
+Only **internal** empty buckets (gaps between two buckets with data) are filled.
+Trailing empty buckets after the last event are never filled. This holds in every
+regime and in a `Pipeline`, whatever drops the last rows upstream (a `Dropna`, a
+`Filter`), and whatever [`pipe.live().advance(now)`](#pipeline-live) calls a session
+makes: `advance` emits a finished bar early, and an empty bucket it passes is filled
+once a later event arrives. For a bar at every period as time passes, empty ones
+included, use a clock resample (`clock=True`, below), where each clock event closes
+a bar.
 
 `fill=` is meaningful only under `freq=`. With `count=`, a bar is defined by
 holding `N` events, so empty bars cannot exist by construction and `fill=` has no
@@ -125,12 +125,11 @@ effect.
 
 ### `fill=` edge cases
 
-- **Leading buckets** (before the first event) are never synthesized on the eager
-  path: output starts at the bucket containing the first tick. A tick at index 47
-  with `freq=10` starts at label 40, not 0. Leading empty buckets arise only from a
-  clock (a `Pipeline` clock input or [`advance()`](#pipeline-live)) that advances time before
-  the first data event; there `"nan"` emits NaN rows and `"carry"` **skips** them,
-  since there is no previous row to repeat.
+- **Leading buckets** (before the first event) are never synthesized: output starts
+  at the bucket containing the first tick. A tick at index 47 with `freq=10` starts
+  at label 40, not 0. Leading empty bars arise only from a clock resample
+  (`clock=True`) whose clock ticks before the first data event; there `"nan"` emits
+  NaN rows and `"carry"` **skips** them, since there is no previous row to repeat.
 - **`"carry"` is verbatim and uniform** across every column: it repeats the previous
   bar's whole row, including count-like or sum-like columns. So a genuinely empty bar
   carries the previous bar's count, not 0. Use `"nan"` where that is wrong for your

@@ -456,16 +456,18 @@ def test_flush_does_not_fill_toward_the_int64_maximum(fill, gate):
     np.testing.assert_array_equal(direct[1], [40, 44, 48])
 
 
-def test_advance_emits_the_buckets_up_to_now_only():
+def test_advance_emits_no_empty_bucket_until_a_later_event():
     a = Input("a")
     p = Pipeline([a], [sc.Resample(every=10, agg="last", fill="nan")(a)])
     s = p.live()
     s.push("a", 0, 1.0)
-    s.advance(1_000_000)               # a large jump: 100_000 buckets, no more
+    s.advance(1_000_000)               # closes bucket 0 only, fills nothing yet
     v, k = s.result()
-    assert len(k) == 100_000 and k[0] == 0 and k[-1] == 999_990
-    assert v[0] == 1.0 and np.isnan(v[1:]).all()
-    s.push("a", 1_000_005, 2.0)
+    assert list(k) == [0] and list(v) == [1.0]
+    s.push("a", 1_000_005, 2.0)        # the empty buckets now lie between two bars
+    v, k = s.result()
+    assert len(k) == 99_999 and k[0] == 10 and k[-1] == 999_990
+    assert np.isnan(v).all()
     s.advance(2**63 - 1)               # the end of input: the open bucket only
     v, k = s.result()
     assert list(k) == [1_000_000] and list(v) == [2.0]
@@ -479,8 +481,8 @@ def test_advance_emits_the_buckets_up_to_now_only():
 
 
 # ---------------------------------------------------------------------------
-# Fix round 4: the end of input emits the open bucket only if it has data, so
-# the bars do not depend on what drops the last rows
+# Fix round 4: a resample fills an empty bucket only between two buckets with
+# data, so the end of input never fills, whatever drops the last rows
 # ---------------------------------------------------------------------------
 
 def _tail_graphs(fill, label, agg):
@@ -543,6 +545,21 @@ def test_input_that_ends_with_dropped_rows_fills_no_trailing_bucket(fill, label,
 
 
 @pytest.mark.parametrize("fill", ["nan", "carry"])
+def test_dropped_rows_past_the_last_bar_fill_nothing(fill):
+    # Dropped rows at 4 to 9 move time past the bucket [4, 8); it has no data
+    # and no later bucket has data, so it is not filled, as for the eager call.
+    a = Input("a")
+    x = np.array([1.0, 2, 3, 4] + [np.nan] * 6)
+    k = np.arange(10, dtype=np.int64)
+    p = Pipeline([a], [sc.Resample(every=4, fill=fill)(sc.Dropna()(a))])
+    v, idx = p((x, k))
+    ev, ek = sc.Resample(every=4, fill=fill)((x[:4], k[:4]))
+    np.testing.assert_array_equal(idx, ek)
+    np.testing.assert_array_equal(v, ev)
+    np.testing.assert_array_equal(idx, [0])
+
+
+@pytest.mark.parametrize("fill", ["nan", "carry"])
 def test_dropped_rows_between_bars_still_fill_the_gap(fill):
     a = Input("a")
     x = np.array([1.0] + [np.nan] * 10 + [2.0])
@@ -555,3 +572,42 @@ def test_dropped_rows_between_bars_still_fill_the_gap(fill):
     _same([alone((x, k))], [direct])
     _same(_live_every_event(p, [(x, k)], ["a"]), want)
     _same(_live_every_event(p, [(x, k)], ["a"], advance_at={5, 9, 11}), want)
+
+
+def test_advance_past_the_last_event_changes_no_bar():
+    # advance(now) beyond the last event used to fill the buckets it passed;
+    # now it only decides when a bar is emitted, so live equals batch.
+    a = Input("a")
+    x = np.array([1.0, 2, 3, 4, 5])
+    k = np.array([0, 3, 9, 30, 31], dtype=np.int64)
+    for fill in ("skip", "nan", "carry"):
+        p = Pipeline([a], [a, sc.Resample(every=4, fill=fill, agg="sum")(a)])
+        want = p((x, k))
+        s = p.live()
+        parts = []
+        for t, v in zip(k, x):
+            s.advance(int(t))
+            s.push("a", int(t), float(v))
+            parts.append(s.result())
+        s.advance(1000)
+        parts.append(s.result())
+        s.flush()
+        parts.append(s.result())
+        _same(_concat(parts), want)
+
+
+def test_a_join_beside_a_fill_resample_waits_through_an_empty_stretch():
+    # A fill bar waits for the next event, so a CombineLatest beside a fill
+    # resample holds its rows through a stretch with no resample data and
+    # raises at max_pending. fill="skip" holds nothing.
+    a = Input("a")
+    x = np.r_[np.ones(5), np.full(100, np.nan), np.ones(5)]
+    k = np.arange(len(x), dtype=np.int64)
+    for fill, ok in (("skip", True), ("nan", False), ("carry", False)):
+        p = Pipeline([a], [sc.CombineLatest()(a, sc.Resample(every=10, fill=fill)(sc.Dropna()(a)))],
+                     max_pending=50)
+        if ok:
+            assert len(p((x, k))[1]) == len(k)
+        else:
+            with pytest.raises(RuntimeError, match="overflow"):
+                p((x, k))

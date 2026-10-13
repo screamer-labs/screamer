@@ -438,18 +438,26 @@ test("watermarks: a flush through combineLatest or filter fills no bucket past t
   }
 });
 
-test("watermarks: advance(now) emits the buckets up to now only", async () => {
+test("watermarks: advance(now) emits no empty bucket until a later event", async () => {
   await ready();
   const a = Input("a");
   const p = new Pipeline([a], [resample(a, { every: 10, agg: "last", fill: "nan" })]);
   try {
     const s = p.live();
     s.push("a", 0, 1);
-    s.advance(1_000_000);                 // a large jump: 100,000 buckets, no more
+    s.advance(1_000_000);                 // closes bucket 0 only, fills nothing yet
     let r = s.result() as Output;
-    assert.equal(r.index.length, 100_000);
+    assert.deepEqual(Array.from(r.index), [0]);
+    s.push("a", 1_000_005, 2);            // the empty buckets now lie between two bars
+    r = s.result() as Output;
+    assert.equal(r.index.length, 99_999);
+    assert.equal(r.index[0], 10);
     assert.equal(r.index[r.index.length - 1], 999_990);
-    assert.ok(Array.from(r.values as Float64Array).slice(1).every(Number.isNaN));
+    assert.ok(Array.from(r.values as Float64Array).every(Number.isNaN));
+    s.flush();
+    r = s.result() as Output;
+    assert.deepEqual(Array.from(r.index), [1_000_000]);
+    assert.deepEqual(Array.from(r.values as Float64Array), [2]);
   } finally {
     p.dispose();
   }
@@ -467,8 +475,8 @@ test("watermarks: advance(now) emits the buckets up to now only", async () => {
   }
 });
 
-// Fix round 4: the end of input emits the open bucket only if it has data, so
-// the bars do not depend on what drops the last rows.
+// Fix round 4: a resample fills an empty bucket only between two buckets with
+// data, so the end of input never fills, whatever drops the last rows.
 test("watermarks: an input that ends with dropped rows fills no trailing bucket", async () => {
   await ready();
   const xs = [1, 2, 3, 4, 5, 6, NaN, NaN, NaN, NaN];
@@ -508,8 +516,7 @@ test("watermarks: an input that ends with dropped rows fills no trailing bucket"
                 vals.push(...Array.from(r.values as Float64Array));
               };
               for (const [nm, t, v] of events) { s.push(nm, t, v); take(); }
-              if (end === "advance") s.advance(9);   // the last index, then flush
-              s.flush();
+              if (end === "flush") s.flush(); else s.advance(2 ** 62);
               take();
               s.flush();
               take();
@@ -521,6 +528,38 @@ test("watermarks: an input that ends with dropped rows fills no trailing bucket"
           for (const g of graphs) g[1].dispose();
         }
       }
+    }
+  }
+});
+
+test("watermarks: dropped rows past the last bar fill nothing", async () => {
+  await ready();
+  const a = Input("a");
+  const xs = [1, 2, 3, 4, NaN, NaN, NaN, NaN, NaN, NaN];
+  for (const fill of ["nan", "carry"] as const) {
+    const p = new Pipeline([a], [resample(dropna(a), { every: 4, fill })]);
+    try {
+      const r = p({ values: xs, index: xs.map((_, i) => i) }) as Output;
+      assert.deepEqual(Array.from(r.index), [0]);
+      assert.deepEqual(Array.from(r.values as Float64Array), [4]);
+    } finally {
+      p.dispose();
+    }
+  }
+});
+
+test("watermarks: a join beside a fill resample waits through an empty stretch", async () => {
+  await ready();
+  const a = Input("a");
+  const xs = [...Array(5).fill(1), ...Array(100).fill(NaN), ...Array(5).fill(1)];
+  const ix = xs.map((_, i) => i);
+  for (const [fill, ok] of [["skip", true], ["nan", false], ["carry", false]] as const) {
+    const p = new Pipeline([a], [combineLatest([a, resample(dropna(a), { every: 10, fill })])], { maxPending: 50 });
+    try {
+      if (ok) assert.equal((p({ values: xs, index: ix }) as Output).index.length, xs.length);
+      else assert.throws(() => p({ values: xs, index: ix }), /overflow/);
+    } finally {
+      p.dispose();
     }
   }
 });

@@ -115,10 +115,12 @@ driver.flush();
 const { values, index } = driver.result();
 ```
 
-`driver.advance(now)` moves logical time to `now`, closing every resample window whose boundary
-has passed by `now`, empty ones included (filled per `fill`). `flush()` is the end of input. In
-Python, `advance(2**63 - 1)` acts as the end of input, the same as `flush()`; a JS number cannot
-hold that index (the largest whole number below 2\*\*63 is 2\*\*63 - 1024), so call `flush()`.
+`driver.advance(now)` moves logical time to `now`, so a resample bar whose period has passed
+comes out without waiting for the next event. An empty period is filled (`fill: "nan"` or
+`"carry"`) only once a later event arrives, so `advance` changes when a bar comes out, never
+which bars. `flush()` is the end of input. In Python, `advance(2**63 - 1)` acts as the end of
+input, the same as `flush()`; a JS number cannot hold that index (the largest whole number below
+2\*\*63 is 2\*\*63 - 1024), so call `flush()`.
 
 An input keeps the width of its first event (a number is width 1); an event of another width
 throws `RangeError`. `pushWide` is an alias of `push` for arrays. An index is a `number` with a

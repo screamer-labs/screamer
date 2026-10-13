@@ -90,9 +90,10 @@ event by event, `pipe.live()` opens a session:
   datetime64 array. Every index of a session, on every input and in
   `.advance()`, keeps the kind and unit of the first one: plain numbers, or
   times of one unit. Any other index, and NaT, raises `TypeError`;
-- `.advance(now)` moves logical time to `now`, closing every window whose boundary
-  has passed (this finalizes time-based bars even when no new data arrives, such as
-  an empty minute bar closed by a clock tick);
+- `.advance(now)` moves logical time to `now`, so a window whose boundary has passed
+  emits its bar without waiting for the next event. An empty window is filled
+  (with `fill="nan"` or `"carry"`) only once a later event arrives, so `advance`
+  changes when a bar comes out, never which bars;
 - `.flush()` finalizes the current partial window on demand, for example at the end
   of a loop;
 - `.result()` collects the aligned output so far.
@@ -103,10 +104,10 @@ of the graph took the event, such as a `CombineLatest` buffer that overflows
 because one input stalled. Then every later call, `.result()` included, raises
 until a new `live()` session starts.
 
-Feeding the same events and calling `.flush()` reproduces the batch result.
-`.advance()` (and a clock input wired into the pipeline) additionally let a windowing
-node emit bars that a purely event-driven pass would not, such as the empty leading
-and trailing bars in [`Resample`](functions_streams/Resample.md).
+Feeding the same events and calling `.flush()` reproduces the batch result, with or
+without `.advance()` calls in between. For a bar at every period as time passes,
+empty ones included, use a clock resample (`clock=True` in
+[`Resample`](functions_streams/Resample.md)), where each clock event closes a bar.
 
 ## Multiple outputs and alignment
 
