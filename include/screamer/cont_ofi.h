@@ -21,6 +21,10 @@ namespace screamer {
     // NaN on any input yields NaN with the previous quote left untouched.
     class ContOFI : public FunctorBase<ContOFI, 4, 1> {
     public:
+        // The state is a few plain values: the batch loop runs on a local
+        // copy, which stays in registers (functor_base.h).
+        static constexpr bool kColumnCopy = true;
+
         ContOFI() = default;
 
         void reset() override { has_prev_ = false; }

@@ -1108,6 +1108,21 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   52.9), `forecast_pairs(X, y, count=5)` 34.9 (was 43.3; 40.2), a one-input
   `Lag(1)` graph 5.5 (was 6.9; 10.1), a clock `Resample` 19.3 (was 22.2;
   33.9). JavaScript, the two-input graph: 111 ms (was 135).
+* An operator reads a float64 C-contiguous array argument in place instead
+  of copying it, and a packed `(T, ..., N)` argument costs what N separate
+  arrays cost, in every multi-input operator. The fields of a packed array
+  are read in place too; a tile of a `(T, K, N)` array gathers the N fields
+  of a row in one pass; `WilliamsR` reads strided fields in place and takes
+  the rolling high and low in one pass; `ContOFI` keeps its state in
+  registers. The results are unchanged. Python, 200,000 values per field (ms,
+  separate / packed, was): `Sub()` 0.057 / 0.057 (0.112 / 0.112),
+  `WilliamsR(20)` 0.58 / 0.58 (0.77 / 0.95), `WilliamsR(20)` on
+  `(2000, 100)` fields 0.82 / 0.83 (1.02 / 1.08), `Where()` on `(2000, 100)`
+  0.33 / 0.35 (0.39 / 0.47), `ContOFI()` 0.33 / 0.33 (1.35 / 1.39). Over
+  the 94 operator and shape pairs the separate call takes 0.90 of its time
+  (geometric mean) and the packed call 0.87, and the packed call is within
+  1.05x of the separate one (was up to 1.23x; 2.8.0 up to 4x), `VPIN` aside,
+  which runs at one of two speeds per process in either spelling.
 * The layout join of `combine_latest` (asset broadcast, field concatenation,
   row assembly and the positional pairing of iterators) is C++, shared with
   JavaScript. The positional iterator form is about 2.9x faster than 2.8.0

@@ -207,10 +207,15 @@ inline bool is_c_contiguous(const nb::ndarray<nb::ro>& a) {
 }
 
 // A C-contiguous double copy of an ndarray of arbitrary dtype/stride, plus its
-// shape. Mirrors pybind's forcecast to `py::array_t<double>`.
+// shape. Mirrors pybind's forcecast to `py::array_t<double>`. read_double_view
+// leaves `data` empty and points `view` at a float64 C-contiguous array's own
+// values instead; values() is the data either way.
 struct ContigDouble {
     std::vector<double> data;   // C-contiguous
     std::vector<size_t> shape;
+    const double* view = nullptr;   // the array's values, read in place
+    nb::ndarray<nb::ro> keep;       // holds the array that `view` reads
+    const double* values() const { return view ? view : data.data(); }
     size_t ndim()  const { return shape.size(); }
     size_t total() const { size_t t = 1; for (size_t s : shape) t *= s; return t; }
     size_t time()  const { return shape.empty() ? 0 : shape[0]; }
@@ -252,6 +257,22 @@ inline ContigDouble read_contig_double(const nb::ndarray<nb::ro>& a) {
     return r;
 }
 
+// The values of an array as C-contiguous doubles: the array itself when it is
+// float64 and C-contiguous (no copy; the operator only reads its inputs), else
+// a copy (read_contig_double).
+inline ContigDouble read_double_view(const nb::ndarray<nb::ro>& a) {
+    const nb::dlpack::dtype dt = a.dtype();
+    if (a.size() == 0 || dt.code != (uint8_t) nb::dlpack::dtype_code::Float || dt.bits != 64 ||
+        !is_c_contiguous(a))
+        return read_contig_double(a);
+    ContigDouble r;
+    r.shape.resize(a.ndim());
+    for (size_t i = 0; i < a.ndim(); ++i) r.shape[i] = a.shape(i);
+    r.view = static_cast<const double*>(a.data());
+    r.keep = a;
+    return r;
+}
+
 // The N input fields of a call: one contiguous double buffer per argument (one
 // buffer when a packed (T, *A, N) array holds all fields), each field's base
 // pointer, and the broadcast plan that says where every column starts.
@@ -269,7 +290,7 @@ template <size_t N>
 inline void add_array_input(NInputs<N>& r, nb::handle h) {
     if (!is_ndarray(h))
         throw nb::type_error("Incompatible input type, a mix of numpy arrays and other.");
-    r.buffers.push_back(read_contig_double(nb::cast<nb::ndarray<nb::ro>>(h)));
+    r.buffers.push_back(read_double_view(nb::cast<nb::ndarray<nb::ro>>(h)));
     if (r.buffers.back().ndim() < 1)
         throw std::runtime_error("Input array must have at least one dimension");
 }
@@ -282,7 +303,7 @@ inline void plan_inputs(NInputs<N>& r) {
     for (const auto& b : r.buffers) shapes.push_back(b.shape);
     r.plan = shape::broadcast(shape::input_views(shapes, N));
     for (size_t i = 0; i < N; ++i)
-        r.data[i] = r.buffers[r.buffers.size() == 1 ? 0 : i].data.data();
+        r.data[i] = const_cast<double*>(r.buffers[r.buffers.size() == 1 ? 0 : i].values());
 }
 
 template <size_t N>
@@ -295,6 +316,8 @@ inline NInputs<N> read_inputs(const std::vector<nb::handle>& arrays) {
 }
 
 // One packed array (rank 2 or more) as the single argument of an N-input call.
+// It is read in place when it is float64 and C-contiguous: each field is a
+// strided view of it (split_fields), as the column driver reads it.
 template <size_t N>
 inline std::optional<NInputs<N>> maybe_read_packed(const nb::args& args) {
     if (args.size() != 1 || !is_ndarray(args[0])) return std::nullopt;
@@ -763,7 +786,7 @@ inline void run_op_columns(Op& self, const detail::NInputs<Op::kN>& in, double* 
 // ---------------------------------------------------------
 template <class Op>
 nb::object handle_input_1i_1o_numpy(Op& self, const nb::ndarray<nb::ro>& input) {
-    detail::ContigDouble in = detail::read_contig_double(input);
+    detail::ContigDouble in = detail::read_double_view(input);
     if (in.ndim() < 1) {
         throw std::runtime_error("Input array must have at least one dimension and contain doubles");
     }
@@ -774,7 +797,7 @@ nb::object handle_input_1i_1o_numpy(Op& self, const nb::ndarray<nb::ro>& input) 
     size_t cols = in.cols();   // product of trailing dims = C-contiguous axis0 stride
     {
         EagerRun<Op> run(self);   // resets the op afterwards, on a throw too
-        run_op_columns(self, size, cols, in.data.data(), out.get());
+        run_op_columns(self, size, cols, in.values(), out.get());
     }
     return detail::make_owned_array(std::move(out), shape);
 }
@@ -803,7 +826,7 @@ nb::object handle_input_Ni_1o_numpy(Op& self, detail::NInputs<Op::kN>& in) {
 template <class Op>
 nb::object handle_input_1i_Mo_numpy(Op& self, const nb::ndarray<nb::ro>& input) {
     constexpr size_t M = Op::kM;
-    detail::ContigDouble in = detail::read_contig_double(input);
+    detail::ContigDouble in = detail::read_double_view(input);
     if (in.ndim() < 1) {
         throw std::runtime_error("Input array must have at least one dimension and contain doubles");
     }
@@ -815,7 +838,7 @@ nb::object handle_input_1i_Mo_numpy(Op& self, const nb::ndarray<nb::ro>& input) 
     size_t cols = in.cols();
     {
         EagerRun<Op> run(self);
-        run_op_columns(self, size, cols, in.data.data(), out.get());
+        run_op_columns(self, size, cols, in.values(), out.get());
     }
     return detail::make_owned_array(std::move(out), shape);
 }

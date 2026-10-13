@@ -48,6 +48,17 @@ inline bool has_nan(const double* x, std::size_t size) {
     return false;
 }
 
+// The same for size samples x[i * stride].
+inline bool has_nan(const double* x, std::size_t size, std::ptrdiff_t stride) {
+    for (std::size_t i = 0; i < size; ++i) {
+        const double v = x[static_cast<std::ptrdiff_t>(i) * stride];
+        if (v != v) {
+            return true;
+        }
+    }
+    return false;
+}
+
 
 // IsMax selects max (true) or min (false).
 // y[i] = extremum of x[max(0, i - window + 1) .. i], matching the deque's
@@ -97,6 +108,65 @@ void block_extremum(double* y, const double* x, std::size_t size, int window) {
         }
 
         suffix_previous.swap(suffix_current);
+    }
+}
+
+// block_extremum<true> of xh into ymax and block_extremum<false> of xl into
+// ymin, in one pass over the blocks: the same values, with each pair of
+// inputs read together (the high and low fields of one row of a packed array
+// share a cache line). With Strided, sample i of xh is xh[i * sh], and of xl
+// xl[i * sl].
+template <bool Strided = false>
+void block_max_min(double* ymax, double* ymin, const double* xh, const double* xl,
+                   std::size_t size, int window, std::ptrdiff_t sh = 1, std::ptrdiff_t sl = 1) {
+    const std::size_t w = static_cast<std::size_t>(window);
+    const std::ptrdiff_t ah = Strided ? sh : 1, al = Strided ? sl : 1;
+    auto hi = [xh, ah](std::size_t i) { return xh[static_cast<std::ptrdiff_t>(i) * ah]; };
+    auto lo = [xl, al](std::size_t i) { return xl[static_cast<std::ptrdiff_t>(i) * al]; };
+    if (size == 0) {
+        return;
+    }
+    auto max = [](double a, double b) { return a > b ? a : b; };
+    auto min = [](double a, double b) { return a < b ? a : b; };
+
+    // As block_extremum: the suffix extrema of the current block and the
+    // previous one, for each input.
+    std::vector<double> hcur(w), hprev(w), lcur(w), lprev(w);
+    for (std::size_t start = 0; start < size; start += w) {
+        const std::size_t end = std::min(start + w, size);
+        const std::size_t length = end - start;
+
+        double rh = hi(end - 1), rl = lo(end - 1);
+        hcur[length - 1] = rh;
+        lcur[length - 1] = rl;
+        for (std::size_t j = length - 1; j-- > 0;) {
+            rh = max(rh, hi(start + j));
+            rl = min(rl, lo(start + j));
+            hcur[j] = rh;
+            lcur[j] = rl;
+        }
+
+        double ph = hi(start), pl = lo(start);
+        for (std::size_t j = 0; j < length; ++j) {
+            const std::size_t i = start + j;
+            ph = (j == 0) ? hi(i) : max(ph, hi(i));
+            pl = (j == 0) ? lo(i) : min(pl, lo(i));
+            if (i + 1 < w) {
+                ymax[i] = ph;
+                ymin[i] = pl;
+            } else {
+                const std::size_t low = i + 1 - w;
+                if (low >= start) {
+                    ymax[i] = max(hcur[low - start], ph);
+                    ymin[i] = min(lcur[low - start], pl);
+                } else {
+                    ymax[i] = max(hprev[low - (start - w)], ph);
+                    ymin[i] = min(lprev[low - (start - w)], pl);
+                }
+            }
+        }
+        hprev.swap(hcur);
+        lprev.swap(lcur);
     }
 }
 

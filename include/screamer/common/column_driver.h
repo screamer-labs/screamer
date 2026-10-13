@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -33,15 +34,31 @@ inline bool conflict_stride(std::ptrdiff_t elements) {
     return (static_cast<std::size_t>(elements) * sizeof(double)) % kConflictStrideBytes == 0;
 }
 
-// Copy T rows of n strided columns (src[b][t * s]) into n contiguous columns
-// (dst[b * T + t]). NB > 0 fixes n at compile time.
-template <std::size_t NB>
+// Copy T rows of the n strided columns of each of ng inputs (src[g * B + b]
+// [t * s[g]]) into contiguous columns (dst[(g * B + b) * T + t]), B being the
+// tile width. Each row of every input is read in one go, so a cache line that
+// holds values of several inputs (the fields of a packed (T, K, N) array) is
+// read once. NB > 0 fixes n at compile time, and NG > 0 fixes ng.
+template <std::size_t NB, std::size_t B, std::size_t NG>
 inline void gather_tile(double* dst, std::size_t T, const double* const* src,
-                        std::ptrdiff_t s, std::size_t nb) {
+                        const std::ptrdiff_t* s, std::size_t ng_rt, std::size_t nb) {
     const std::size_t n = NB ? NB : nb;
+    const std::size_t ng = NG ? NG : ng_rt;
+    if (ng == 1) {
+        const std::ptrdiff_t s0 = s[0];
+        for (std::size_t t = 0; t < T; ++t) {
+            const std::ptrdiff_t k = static_cast<std::ptrdiff_t>(t) * s0;
+            for (std::size_t b = 0; b < n; ++b) dst[b * T + t] = src[b][k];
+        }
+        return;
+    }
     for (std::size_t t = 0; t < T; ++t) {
-        const std::ptrdiff_t k = static_cast<std::ptrdiff_t>(t) * s;
-        for (std::size_t b = 0; b < n; ++b) dst[b * T + t] = src[b][k];
+        for (std::size_t g = 0; g < ng; ++g) {
+            const std::ptrdiff_t k = static_cast<std::ptrdiff_t>(t) * s[g];
+            const double* const* sg = src + g * B;
+            double* dg = dst + g * B * T + t;
+            for (std::size_t b = 0; b < n; ++b) dg[b * T] = sg[b][k];
+        }
     }
 }
 
@@ -127,16 +144,53 @@ void run_columns(Run&& run, std::size_t n_in, std::size_t n_out, std::size_t T,
     double* const out_tile = scratch.get() + n_gather * B * T;
     std::array<std::ptrdiff_t, kMaxColumnInputs> unit{};
     for (std::size_t i = 0; i < n_in; ++i) unit[i] = 1;
-    std::array<const double*, B> src{};
+    std::array<const double*, B * kMaxColumnInputs> src{};
+    std::array<std::ptrdiff_t, kMaxColumnInputs> gstride{};
+    for (std::size_t i = 0, g = 0; i < n_in; ++i)
+        if (stride[i] != 1) gstride[g++] = stride[i];
+    // The strided inputs interleave when they share one stride and each
+    // starts within a row of the first: the fields of a packed array.
+    bool interleaved = n_gather > 1;
+    {
+        // Addresses as integers: the inputs may be separate arrays.
+        bool seen = false;
+        std::intptr_t first = 0;
+        for (std::size_t i = 0; i < n_in && interleaved; ++i) {
+            if (stride[i] == 1) continue;
+            const std::intptr_t p = reinterpret_cast<std::intptr_t>(base[i] + offset(i, 0));
+            if (!seen) { first = p; seen = true; continue; }
+            const std::intptr_t row = static_cast<std::intptr_t>(stride[i]) *
+                                      static_cast<std::intptr_t>(sizeof(double));
+            interleaved = stride[i] == gstride[0] && p - first > -row && p - first < row;
+        }
+    }
 
     for (std::size_t c0 = 0; c0 < cols; c0 += B) {
         const std::size_t nb = std::min(B, cols - c0);
         for (std::size_t i = 0, g = 0; i < n_in; ++i) {
             if (stride[i] == 1) continue;
-            for (std::size_t b = 0; b < nb; ++b) src[b] = base[i] + offset(i, c0 + b);
-            double* dst = scratch.get() + (g++) * B * T;
-            if (nb == B) detail::gather_tile<B>(dst, T, src.data(), stride[i], nb);
-            else detail::gather_tile<0>(dst, T, src.data(), stride[i], nb);
+            for (std::size_t b = 0; b < nb; ++b) src[g * B + b] = base[i] + offset(i, c0 + b);
+            ++g;
+        }
+        // Inputs whose rows interleave (the fields of one packed array) are
+        // gathered together, so each cache line is read once; others one by
+        // one, which streams each input's lines on their own.
+        double* const g0 = scratch.get();
+        if (!interleaved) {
+            for (std::size_t g = 0; g < n_gather; ++g) {
+                if (nb == B)
+                    detail::gather_tile<B, B, 1>(g0 + g * B * T, T, src.data() + g * B, &gstride[g], 1, nb);
+                else
+                    detail::gather_tile<0, B, 1>(g0 + g * B * T, T, src.data() + g * B, &gstride[g], 1, nb);
+            }
+        } else if (nb != B) {
+            detail::gather_tile<0, B, 0>(g0, T, src.data(), gstride.data(), n_gather, nb);
+        } else if (n_gather == 2) {
+            detail::gather_tile<B, B, 2>(g0, T, src.data(), gstride.data(), 2, nb);
+        } else if (n_gather == 3) {
+            detail::gather_tile<B, B, 3>(g0, T, src.data(), gstride.data(), 3, nb);
+        } else {
+            detail::gather_tile<B, B, 0>(g0, T, src.data(), gstride.data(), n_gather, nb);
         }
         for (std::size_t b = 0; b < nb; ++b) {
             for (std::size_t i = 0, g = 0; i < n_in; ++i) {
