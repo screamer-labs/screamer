@@ -46,7 +46,9 @@ jobs:
         run: make build
 
       - name: Run pytest
-        run: pytest -q
+        # Timing tests (marker "perf") flake on shared runners; they and the
+        # bench gates run on a quiet machine before a release (CONTRIBUTING.md).
+        run: pytest -q -m "not perf"
 
   clang-tidy:
     name: clang-tidy (member-init check)

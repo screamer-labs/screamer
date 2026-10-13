@@ -714,17 +714,24 @@ def test_pipeline_refuses_rank3_feeds(which):
 
 def test_forecast_pairs_large_count_costs_memory_only_as_events_arrive():
     import resource
+    import sys
     from screamer import Input, Pipeline
+
+    def peak_mb():                     # ru_maxrss is in bytes on macOS, KB on Linux
+        r = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        return r / 2**20 if sys.platform == "darwin" else r / 2**10
+
     v = np.arange(10.0)
-    before = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    before = peak_mb()
     xs, ys = forecast_pairs(v, v, count=2**31 - 1)
     assert np.isnan(xs).all() and _same(ys, v)
     X_in, y_in = Input("X"), Input("y")
     pipe = Pipeline([X_in, y_in], [forecast_pairs(X_in, y_in, count=2**31 - 1)])
     vals, _ = pipe(np.ones((10, 3)), v)
     assert vals.shape == (10, 4) and np.isnan(vals[:, :3]).all()
-    grown = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss - before
-    assert grown < 64 * 2**20          # bytes on macOS, KB on Linux: far below 16 GB
+    # A count-sized buffer (16 GB) would raise the process peak far above any
+    # earlier test's, so the peak's growth is the measure here.
+    assert peak_mb() - before < 64
 
 
 @pytest.mark.parametrize("count", [1, 63, 64, 65, 200, 500])

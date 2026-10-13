@@ -3,7 +3,8 @@ point (G26), a fill Resample bounds the empty bars of one gap (G22), and a
 clock Resample honors watermarks, so its bars do not depend on the drain or
 advance() timing and advance(now) releases aligned rows while the clock is
 silent (G19, G20). The JavaScript twin is js/test/stream_robustness.test.ts."""
-import resource
+import os
+import subprocess
 import sys
 
 import numpy as np
@@ -333,9 +334,15 @@ def test_advance_releases_aligned_rows_while_the_clock_is_silent():
     np.testing.assert_array_equal(np.concatenate([k0, k1, k2]), want[0][1])
 
 
-def _maxrss_mb():
-    r = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    return r / 2**20 if sys.platform == "darwin" else r / 2**10
+def _rss_mb():
+    """The current resident set size in MB. The process peak (ru_maxrss) would
+    hide growth below an earlier test's peak."""
+    if sys.platform.startswith("linux"):
+        with open("/proc/self/statm") as f:
+            return int(f.read().split()[1]) * os.sysconf("SC_PAGE_SIZE") / 2**20
+    out = subprocess.run(["ps", "-o", "rss=", "-p", str(os.getpid())],
+                         capture_output=True, text=True, check=True).stdout
+    return int(out) / 2**10                                   # ps reports KB
 
 
 def test_a_stalled_clock_with_periodic_advance_keeps_memory_flat():
@@ -351,7 +358,7 @@ def test_a_stalled_clock_with_periodic_advance_keeps_memory_flat():
 
     s = p.live().push("c", 0, 1.0)
     run(200_000, s)                               # warm-up: the allocator's high water mark
-    before = _maxrss_mb()
+    before = _rss_mb()
     s = p.live().push("c", 0, 1.0)
     run(1_000_000, s)
-    assert _maxrss_mb() - before < 8
+    assert _rss_mb() - before < 8

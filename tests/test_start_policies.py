@@ -58,23 +58,25 @@ def generic_test_zero(factory, window_size, array_size=12):
         err_msg=f"Zero padding check failed"
     )
 
-# The output should be as-if we ran our model with various expanding windows
-# todo: this test might need some tweaking
+# The output should be as-if we ran our model with various expanding windows:
+# step i-1 of the window_size run (i samples seen) equals the last step of a
+# run with window i on those i samples. The two runs reach that value along
+# different update paths, so they agree to rounding (a few ulps), not bitwise.
 def generic_test_expanding(factory, window_size, array_size=12):
     obj = factory(window_size=window_size, start_policy='expanding')
-    input = np.random.normal(size=array_size)
+    input = np.random.default_rng(7).normal(size=array_size)
     output = obj(input)
-    print('expanding')
-    print(output)
-
+    checked = 0
     for i in range(2, window_size):
-        try: # some construtor like RollingPoly2 don't like a windows size of 2
+        try:
             obj_i = factory(window_size=i, start_policy='expanding')
-            output_i = obj_i(input[:i])
-            print(i, output_i)
-            assert output[i-1] == output_i[i-1]
-        except:
-            pass
+        except ValueError:
+            continue    # a window below the operator's minimum (RollingPoly2 needs 3)
+        output_i = obj_i(input[:i])
+        np.testing.assert_allclose(output[i - 1], output_i[i - 1], rtol=1e-12, atol=1e-12,
+                                   err_msg=f"step {i - 1}")
+        checked += 1
+    assert checked > 0
 
 
 # Parameterize over the factory names and corresponding functions

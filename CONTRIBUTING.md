@@ -106,8 +106,14 @@ enforces as an error): it catches uninitialized class members, the bug class tha
 once broke `RollingZscore` on one platform. A new operator is not done until
 `make tidy` is clean.
 
-Run the tests directly with `poetry run pytest -q`. The suite has 3600+ tests and
+Run the tests directly with `poetry run pytest -q`. The suite has 12000+ tests and
 should be green with zero skips before you open a PR.
+
+Tests marked `perf` time the code against fixed bounds, so CI deselects them
+(`pytest -m "not perf"`): shared runners are too noisy for timing. Run them, and the
+benchmark gates, on a quiet machine before a release: `pytest -q -m perf`,
+`python devtools/bench_all_ops.py run` and `compare` against the last release's
+build, `python devtools/bench_pipeline.py`, and `npm run bench:gate` in `js/`.
 
 ## Core rules
 
