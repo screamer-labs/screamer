@@ -500,9 +500,8 @@ def test_rolling_window_recovers_after_an_infinity_leaves():
 
 # --- EW pairs at short spans after a level jump ------------------------------
 #
-# The drift test of an input whose sum of squares an operator does not keep
-# (EwCov, EwBeta) uses a sampled spread; it must still move the origin after a
-# level jump, at any span.
+# The EW pair operators (EwCov, EwCorr, EwBeta) must move the origin after a
+# level jump of either input, at any span.
 
 @pytest.mark.parametrize("which", ["both", "x", "y"])
 @pytest.mark.parametrize("span", [3, 10])

@@ -11,6 +11,7 @@
 // 3 -> 1 over (high, low, close). First valid output at sample
 // index `window_size` (zero-indexed), matching TA-Lib's ATR.
 
+#include <cstdint>
 #include <limits>
 #include <stdexcept>
 #include "screamer/common/float_info.h"
@@ -71,7 +72,7 @@ private:
     TrueRange true_range_;
     double seed_sum_ = 0.0;
     double atr_ = 0.0;
-    int n_tr_ = 0;
+    std::int64_t n_tr_ = 0;  // 64-bit: a live stream passes 2**31 events
 };
 
 }  // namespace screamer

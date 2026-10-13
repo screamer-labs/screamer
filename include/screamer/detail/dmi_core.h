@@ -7,6 +7,7 @@
 // recurrence exists in exactly one place. See include/screamer/adx.h history
 // for the timeline derivation.
 
+#include <cstdint>
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -124,7 +125,7 @@ private:
     double prev_high_ = std::numeric_limits<double>::quiet_NaN();
     double prev_low_ = std::numeric_limits<double>::quiet_NaN();
     double prev_close_ = std::numeric_limits<double>::quiet_NaN();
-    int n_seen_ = 0;
+    std::int64_t n_seen_ = 0;  // 64-bit: a live stream passes 2**31 events
 };
 
 }  // namespace detail

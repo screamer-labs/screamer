@@ -25,6 +25,7 @@
 // detail::RollingSum(n) for the volatility, one prev_x_ scalar for
 // the one-step delta, and one running KAMA scalar. All O(1) per step.
 
+#include <cstdint>
 #include <cmath>
 #include <limits>
 #include <stdexcept>
@@ -114,7 +115,7 @@ private:
     detail::RollingSum rolling_abs_diff_;
     double prev_x_ = std::numeric_limits<double>::quiet_NaN();
     double kama_ = 0.0;
-    int n_seen_ = 0;
+    std::int64_t n_seen_ = 0;  // 64-bit: a live stream passes 2**31 events
 };
 
 }  // namespace screamer

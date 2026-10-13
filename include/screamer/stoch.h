@@ -24,6 +24,7 @@
 // mathematically undefined. We return 0 there (matching TA-Lib's
 // WILLR convention; STOCH itself uses 0 too).
 
+#include <cstdint>
 #include <limits>
 #include <stdexcept>
 #include "screamer/common/functor_base.h"
@@ -115,7 +116,7 @@ private:
     detail::MinDeque min_deque_;
     detail::RollingMean smooth_k_mean_;
     detail::RollingMean d_mean_;
-    int n_seen_ = 0;
+    std::int64_t n_seen_ = 0;  // 64-bit: a live stream passes 2**31 events
 };
 
 }  // namespace screamer

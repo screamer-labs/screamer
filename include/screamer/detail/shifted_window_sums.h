@@ -18,9 +18,10 @@
 //   - the mean has drifted from the origin by more than four standard
 //     deviations (s1^2 > (16/17) n s2), as after a level jump;
 //   - the sample that left dominates what remains: o^2 > K s2 for the second
-//     and third moments, o^4 > K s4 with the fourth, K = 16. Its rounding was of the size of its own power and
-//     would dominate the smaller sums that remain, as after a spike or after
-//     the last sample of an old level leaves;
+//     and third moments, o^4 > K s4 with the fourth, K = 16. Its rounding
+//     was of the size of its own power and would dominate the smaller sums
+//     that remain, as after a spike or after the last sample of an old level
+//     leaves;
 //   - the sample that left was not finite (an infinity has left the window);
 //   - window_size steps have passed since the last re-centering. This bounds
 //     the rounding that the add-remove updates accumulate.
@@ -89,8 +90,13 @@ constexpr double kWindowRecenterDrift = 16.0 / 17.0;
 #define SCREAMER_WINDOW_INLINE inline
 #endif
 
-// The State member of an operator without time sums.
-struct NoTimeSums {};
+// The time sums of a State as a base class: an empty base takes no space
+// (C++17 empty-base optimisation), so a State without time sums holds no
+// unused member. ts[q - 1] = sum t^q (x_i - origin).
+template <int T>
+struct TimeSumsPart { std::array<double, T> ts{}; };
+template <>
+struct TimeSumsPart<0> {};
 
 // Sums s[p - 1] = sum (x_i - origin)^p for p = 1..P, with P in 2..4, and the
 // time sums ts[q - 1] = sum t^q (x_i - origin) for q = 1..T, with T in 0..2.
@@ -100,9 +106,8 @@ class ShiftedWindowSums {
     static_assert(T >= 0 && T <= 2, "ShiftedWindowSums supports time powers 0 to 2");
 
 public:
-    struct State {
+    struct State : TimeSumsPart<T> {
         double s[P] = {};
-        [[no_unique_address]] std::conditional_t<(T > 0), std::array<double, T>, NoTimeSums> ts{};
         std::size_t index = 0;   // next slot of the ring buffer
         std::size_t count = 0;   // samples in the window, zero padding included
         std::size_t age = 0;     // steps since the last re-centering
@@ -331,16 +336,22 @@ struct LagEnds {
     double last = 0.0;   // y of the newest pair: the x of the next one
 };
 
+// The lag ends of a lagged State as a base class (empty without kLagged,
+// see TimeSumsPart).
+template <bool kLagged>
+struct LagPart { LagEnds lag{}; };
+template <>
+struct LagPart<false> {};
+
 template <bool kLagged = false>
 class ShiftedWindowCoSums {
 public:
-    struct State {
+    struct State : LagPart<kLagged> {
         double sx = 0.0, sy = 0.0, sxy = 0.0, sxx = 0.0, syy = 0.0;
         std::size_t index = 0;
         std::size_t count = 0;
         std::size_t age = 0;
         double ox = 0.0, oy = 0.0;
-        [[no_unique_address]] std::conditional_t<kLagged, LagEnds, NoTimeSums> lag{};
     };
 
     ShiftedWindowCoSums(std::size_t capacity, StartPolicy policy)

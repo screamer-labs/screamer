@@ -31,6 +31,9 @@
 
 namespace screamer {
 
+// pi as a constant of the language (M_PI is POSIX, not standard C++).
+inline constexpr double kHurstPi = 3.14159265358979323846;
+
 class RollingHurst : public ScreamerBase {
 public:
     explicit RollingHurst(int window_size = 256,
@@ -55,7 +58,7 @@ public:
             scales_.push_back(n);
             ers_.push_back(anis_lloyd_ers(n));
             log_n_.push_back(std::log(double(n)));
-            asym_.push_back(std::sqrt(0.5 * M_PI * double(n)));
+            asym_.push_back(std::sqrt(0.5 * kHurstPi * double(n)));
         }
         if (scales_.size() < 3) {
             throw std::invalid_argument(
@@ -107,9 +110,9 @@ private:
         }
         if (n <= 340) {
             sum *= std::tgamma((n - 1) / 2.0) /
-                   (std::sqrt(M_PI) * std::tgamma(n / 2.0));
+                   (std::sqrt(kHurstPi) * std::tgamma(n / 2.0));
         } else {
-            sum *= 1.0 / std::sqrt(M_PI * double(n) / 2.0);
+            sum *= 1.0 / std::sqrt(kHurstPi * double(n) / 2.0);
         }
         return sum;
     }

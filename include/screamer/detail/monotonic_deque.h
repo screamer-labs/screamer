@@ -28,6 +28,7 @@
 // loop only ever compares values.
 
 #include <cstddef>
+#include <cstdint>
 #include <stdexcept>
 #include <vector>
 
@@ -100,34 +101,36 @@ public:
 
     // Absolute sample index (0-based, since the start of the stream / last
     // reset()) of the current extremum.
-    int front_absolute_index() const { return indices_[head_]; }
+    std::int64_t front_absolute_index() const { return indices_[head_]; }
 
     // Offset of the current extremum within the active window:
     //   0  = oldest sample currently in the window
     //   W-1 (or n-1 during warmup) = newest sample
     // Matches numpy.argmin / numpy.argmax of the window slice.
     int front_window_offset() const {
-        const int window_start = (index_ < window_size_) ? 0 : (index_ - window_size_);
-        return indices_[head_] - window_start;
+        const std::int64_t window_start = (index_ < window_size_) ? 0 : (index_ - window_size_);
+        return static_cast<int>(indices_[head_] - window_start);
     }
 
     // Number of samples currently in the active window
     // (= min(samples_seen, window_size)).
     int current_size() const {
-        return (index_ < window_size_) ? index_ : window_size_;
+        return (index_ < window_size_) ? static_cast<int>(index_) : window_size_;
     }
 
-    int samples_seen() const { return index_; }
+    std::int64_t samples_seen() const { return index_; }
     int window_size() const { return window_size_; }
 
 private:
     int window_size_;
     std::size_t capacity_;
     std::vector<double> values_;
-    std::vector<int> indices_;
+    // 64-bit sample indexes: a live stream runs past 2**31 samples (25 days
+    // at 1000 per second), where an int would wrap.
+    std::vector<std::int64_t> indices_;
     std::size_t head_ = 0;   // slot holding the current extremum
     std::size_t count_ = 0;  // live candidates
-    int index_ = 0;          // samples appended since construction / reset
+    std::int64_t index_ = 0; // samples appended since construction / reset
 };
 
 using MaxDeque = MonotonicDeque<true>;

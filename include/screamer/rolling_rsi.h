@@ -35,6 +35,7 @@
 // See docs/conventions.md for the rationale and live alignment
 // numbers against TA-Lib and pandas-ta-classic.
 
+#include <cstdint>
 #include <limits>
 #include <stdexcept>
 #include <string>
@@ -168,7 +169,7 @@ private:
     double wilder_avg_loss_ = 0.0;
     double wilder_seed_sum_gain_ = 0.0;
     double wilder_seed_sum_loss_ = 0.0;
-    int wilder_count_ = 0;
+    std::int64_t wilder_count_ = 0;  // 64-bit: a live stream passes 2**31 events
 };
 
 }  // namespace screamer

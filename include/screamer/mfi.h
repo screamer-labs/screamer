@@ -14,6 +14,7 @@
 // sample index `window_size` (need one prev_TP plus a full window of
 // directional money-flow values). Matches TA-Lib's MFI.
 
+#include <cstdint>
 #include <limits>
 #include <stdexcept>
 #include "screamer/common/float_info.h"
@@ -82,7 +83,7 @@ private:
     screamer::detail::RollingSum pos_mf_;
     screamer::detail::RollingSum neg_mf_;
     double prev_tp_ = std::numeric_limits<double>::quiet_NaN();
-    int n_directional_ = 0;
+    std::int64_t n_directional_ = 0;  // 64-bit: a live stream passes 2**31 events
 };
 
 }  // namespace screamer

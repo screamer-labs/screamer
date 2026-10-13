@@ -42,6 +42,7 @@
 //                ratio) at the approximate unit gain of the .075*Period + .54
 //                correction; dividing by the gains makes that gain exact.
 
+#include <cstdint>
 #include <cmath>
 #include <cstddef>
 #include <limits>
@@ -216,7 +217,7 @@ private:
     double prev_period_ = 0.0;
     double smooth_period_ = 0.0;
     double adj_ = 0.54;
-    int n_ = 0;
+    std::int64_t n_ = 0;  // 64-bit: a live stream passes 2**31 events
     bool last_input_nan_ = false;
 };
 

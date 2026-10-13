@@ -10,6 +10,7 @@
 // Matches pandas Series.expanding().mean().
 
 #include <cmath>
+#include <cstdint>
 #include <limits>
 #include "screamer/common/base.h"
 
@@ -47,7 +48,7 @@ private:
     void run_column(double* y, std::ptrdiff_t dy, const double* x, std::ptrdiff_t dx,
                     size_t size) {
         double sum_x = sum_x_;
-        long n = n_;
+        std::int64_t n = n_;
         skip_nan_column(y, dy, x, dx, size, [&sum_x, &n](double v) {
             sum_x += v;
             ++n;
@@ -58,7 +59,7 @@ private:
     }
 
     double sum_x_ = 0.0;
-    long n_ = 0;
+    std::int64_t n_ = 0;
 };
 
 }  // namespace screamer

@@ -25,6 +25,7 @@
 // never poison their own state with NaN; the YZ class gates the
 // final output itself.
 
+#include <cstdint>
 #include <cmath>
 #include <limits>
 #include <stdexcept>
@@ -104,7 +105,7 @@ private:
     RollingVar var_open_close_;
     screamer::detail::RollingMean rs_mean_;
     double prev_close_ = std::numeric_limits<double>::quiet_NaN();
-    int n_seen_ = 0;
+    std::int64_t n_seen_ = 0;  // 64-bit: a live stream passes 2**31 events
 };
 
 

@@ -10,6 +10,7 @@
 // Returns NaN during the seed-collection phase (first window_size - 1
 // values), then the SMA seed at sample w, then the recursive form.
 
+#include <cstdint>
 #include <limits>
 #include <stdexcept>
 
@@ -49,7 +50,7 @@ private:
     const int window_size_;
     double seed_sum_ = 0.0;
     double smoothed_ = 0.0;
-    int n_seen_ = 0;
+    std::int64_t n_seen_ = 0;  // 64-bit: a live stream passes 2**31 events
 };
 
 }  // namespace screamer::detail

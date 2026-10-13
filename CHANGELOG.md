@@ -657,8 +657,9 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   as `np.allclose`.
 * GCC builds (the Linux wheels) no longer fuse a multiply and an add across
   statements into one instruction (`-ffp-contract=off`), so batch and
-  streaming results stay identical there. Clang builds (macOS wheels and
-  WebAssembly) keep fusing within one expression, which both paths share.
+  streaming results stay identical there. Clang builds of the macOS wheels
+  keep fusing within one expression, which both paths share. WebAssembly has
+  no fused multiply-add instruction, so the JavaScript package never fuses.
   Results can therefore differ in the last bits between platforms; compare
   across platforms with a tolerance such as `np.allclose`.
 * `Return` and `ROCP` on a 1-D array compute `(x[t] - x[t-k]) / x[t-k]`, as
@@ -907,6 +908,18 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Fixed
 
+* Operators that count their events kept the count in 32 bits, so a live
+  stream went wrong after 2**31 events (25 days at 1000 events per second).
+  `KAMA`, `ATR`, `RollingRSI`, `MFI`, `Stoch`, `StochRSI`,
+  `RollingYangZhangVar`/`Vol`, the DMI family (`ADX`, `ADXR`, `DX`, `PlusDI`,
+  `MinusDI`, `PlusDM`, `MinusDM`) and the Hilbert cycle family (`MAMA`,
+  `DominantCycle`, `CycleSine`, `CyclePhase`, `CycleAmplitude`,
+  `CycleFrequency`, `HilbertPhasor`, `TrendMode`, `InstantaneousTrendline`)
+  returned NaN from then on; the sliding minimum and maximum (`RollingMax`,
+  `RollingMin`, `RollingMinMax`, `RollingRange`, `RollingArgmax`,
+  `RollingArgmin`, `DonchianChannels`, `WilliamsR`, `Stoch`, `StochRSI`)
+  could give a value from outside the window. The counts are 64-bit, and
+  `ExpandingMean` keeps its count in 64 bits on Windows too.
 * A JavaScript integer setting above the int range wrapped silently:
   `RollingMean(2 ** 32 + 2)` ran with a window of 2. It raises `RangeError`
   ("RollingMean: windowSize must be at most 2147483647, got 4294967298"),
