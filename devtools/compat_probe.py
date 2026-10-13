@@ -283,6 +283,54 @@ def cases():
         "backtest_report (T,3)": lambda: report(engine[:, :3]),
         "backtest_report periods_per_year=0": lambda: report(engine, periods_per_year=0),
     })
+
+    # forecast_pairs: eager, lazy and graph, count and duration modes
+    from screamer.supervised import forecast_pairs as fp
+    yn = w.copy()
+    yn[[4, 11]] = np.nan
+    yidx = np.arange(0, T * 10, 15)[:T // 2] + 5             # y on its own clock
+    vgen = lambda a, ix: ((float(x), int(i)) for x, i in zip(a, ix))   # noqa: E731
+
+    def fp_graph(feeds, **kw):
+        X_in, y_in = s.Input("X"), s.Input("y")
+        return s.Pipeline([X_in, y_in], [fp(X_in, y_in, **kw)])(*feeds)
+
+    table.update({
+        "forecast_pairs count 1-D": lambda: fp(v, w, count=3),
+        "forecast_pairs count dropna NaN target": lambda: fp(v, yn, count=2, dropna=True),
+        "forecast_pairs count (T,K)": lambda: fp(X, w, count=2),
+        "forecast_pairs count (T,K) dropna": lambda: fp(X, yn, count=2, dropna=True),
+        "forecast_pairs count (T,1)": lambda: fp(X[:, :1], w, count=1),
+        "forecast_pairs count lists with None": lambda: fp([1.0, None, 3.0, 4.0], [1.0, 2.0, None, 4.0], count=1),
+        "forecast_pairs count float 1.5": lambda: fp(v, w, count=1.5),
+        "forecast_pairs count True": lambda: fp(v, w, count=True),
+        "forecast_pairs count str": lambda: fp(v, w, count="1"),
+        "forecast_pairs count empty": lambda: fp(v[:0], w[:0], count=1),
+        "forecast_pairs count 0": lambda: fp(v, w, count=0),
+        "forecast_pairs count length mismatch": lambda: fp(v, w[:5], count=1),
+        "forecast_pairs neither count nor duration": lambda: fp(v, w),
+        "forecast_pairs count and duration": lambda: fp(v, w, count=1, duration=1),
+        "forecast_pairs count lazy": lambda: fp(vgen(v, range(T)), vgen(w, range(T)), count=2),
+        "forecast_pairs count lazy dropna": lambda: fp(vgen(v, range(T)), vgen(yn, range(T)), count=2, dropna=True),
+        "forecast_pairs count lazy and array": lambda: fp(vgen(v, range(T)), w, count=2),
+        "forecast_pairs count graph": lambda: fp_graph((v, w), count=2),
+        "forecast_pairs count graph dropna": lambda: fp_graph((v, yn), count=2, dropna=True),
+        "forecast_pairs duration": lambda: fp((v, idx), (w, idx), duration=20),
+        "forecast_pairs duration dropna": lambda: fp((v, idx), (yn, idx), duration=20, dropna=True),
+        "forecast_pairs duration y clock": lambda: fp((v, idx), (w[:len(yidx)], yidx), duration=10),
+        "forecast_pairs duration 0": lambda: fp((v, idx), (w, idx), duration=0),
+        "forecast_pairs duration (T,K)": lambda: fp((X, idx), (w, idx), duration=20),
+        "forecast_pairs duration (T,1)": lambda: fp((X[:, :1], idx), (w, idx), duration=20),
+        "forecast_pairs duration float 15.5": lambda: fp((v, idx), (w, idx), duration=15.5),
+        "forecast_pairs duration datetime64": lambda: fp(
+            (v, idx.astype("datetime64[s]")), (w, idx.astype("datetime64[s]")), duration=20),
+        "forecast_pairs duration index None": lambda: fp((v, None), (w, None), duration=1),
+        "forecast_pairs duration bare arrays": lambda: fp(v, w, duration=10),
+        "forecast_pairs duration empty": lambda: fp(
+            (v[:0], idx[:0]), (w[:0], idx[:0]), duration=10),
+        "forecast_pairs duration lazy": lambda: fp(vgen(v, idx), vgen(w[:len(yidx)], yidx), duration=10),
+        "forecast_pairs duration graph": lambda: fp_graph(((v, idx), (yn, idx)), duration=20, dropna=True),
+    })
     return table
 
 
