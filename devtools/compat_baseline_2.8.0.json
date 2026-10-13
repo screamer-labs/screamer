@@ -21035,5 +21035,208 @@
   "ERROR",
   "RuntimeError",
   "std::bad_cast"
+ ],
+ "2in Decimal": [
+  "float",
+  2.5
+ ],
+ "1in list of Fraction": [
+  "list",
+  1,
+  [
+   [
+    "float",
+    1.5
+   ]
+  ]
+ ],
+ "1in object array of datetime64": [
+  "ndarray",
+  [
+   2
+  ],
+  "f",
+  3.15576e+18,
+  "e8f1dfc09e7a74c1"
+ ],
+ "Select [0] 1-D": [
+  "pair",
+  [
+   "ndarray",
+   [
+    4,
+    1
+   ],
+   "f",
+   401.492352,
+   "5470a05b7f87c66a"
+  ],
+  [
+   "NoneType"
+  ]
+ ],
+ "Select [0, 0] 1-D": [
+  "pair",
+  [
+   "ndarray",
+   [
+    4,
+    1
+   ],
+   "f",
+   401.492352,
+   "5470a05b7f87c66a"
+  ],
+  [
+   "NoneType"
+  ]
+ ],
+ "Select [0] lazy width 1": [
+  "list",
+  3,
+  [
+   [
+    "tuple",
+    2,
+    [
+     [
+      "list",
+      1,
+      [
+       [
+        "float",
+        100.125730221
+       ]
+      ]
+     ],
+     [
+      "int"
+     ]
+    ]
+   ],
+   [
+    "tuple",
+    2,
+    [
+     [
+      "list",
+      1,
+      [
+       [
+        "float",
+        99.993625358
+       ]
+      ]
+     ],
+     [
+      "int"
+     ]
+    ]
+   ],
+   [
+    "tuple",
+    2,
+    [
+     [
+      "list",
+      1,
+      [
+       [
+        "float",
+        100.634048008
+       ]
+      ]
+     ],
+     [
+      "int"
+     ]
+    ]
+   ]
+  ]
+ ],
+ "Merge NaN float index": [
+  "tuple",
+  3,
+  [
+   [
+    "ndarray",
+    [
+     3
+    ],
+    "f",
+    300.753404,
+    "b6312d34fbe421e4"
+   ],
+   [
+    "ndarray",
+    [
+     3
+    ],
+    "u",
+    0.0,
+    "d3399b7262fb56cb"
+   ],
+   [
+    "ndarray",
+    [
+     3
+    ],
+    "f",
+    1.0,
+    "dc36945e07be5f97"
+   ]
+  ]
+ ],
+ "CombineLatest NaN float index": [
+  "pair",
+  [
+   "ndarray",
+   [
+    3,
+    1
+   ],
+   "f",
+   300.753404,
+   "b6312d34fbe421e4"
+  ],
+  [
+   "ndarray",
+   [
+    3
+   ],
+   "f",
+   1.0,
+   "dc36945e07be5f97"
+  ]
+ ],
+ "PortfolioReport no input": [
+  "ERROR",
+  "TypeError",
+  "PortfolioReport expects one engine-output array or row stream."
+ ],
+ "PortfolioReport four numbers": [
+  "ERROR",
+  "TypeError",
+  "PortfolioReport expects one engine-output array or row stream."
+ ],
+ "Dropna complex values": [
+  "pair",
+  [
+   "ndarray",
+   [
+    2
+   ],
+   "f",
+   3.0,
+   "84838cc3f82e61d0"
+  ],
+  [
+   "NoneType"
+  ]
+ ],
+ "Dropna lazy bare values": [
+  "ERROR",
+  "TypeError",
+  "cannot unpack non-iterable float object"
  ]
 }

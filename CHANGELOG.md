@@ -149,10 +149,15 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   "Unsupported single argument input type. Supported types are lists or
   tuples.", nanobind's "incompatible function arguments" (for example
   `RollingMean(3)(1.0, 2.0)`), "this operator takes 2 inputs, got 1." (row
-  operators, portfolio engines, async inputs), or "missing 1 required
-  positional argument" (`SignedVolume()(x)`). Code that caught `TypeError` for
-  these should catch `ValueError`. A keyword an operator does not take stays a
-  `TypeError` ("RollingCorr() got an unexpected keyword argument 'x'").
+  operators, portfolio engines, `PortfolioReport`, async inputs), or "missing
+  1 required positional argument" (`SignedVolume()(x)`, now "SignedVolume
+  expects 2 inputs, got 1"; with keywords, "missing 1 required input:
+  'volume'"). Iterator calls add ", or one stream of events holding every
+  field". Code that caught `TypeError` for these should catch `ValueError`. A
+  keyword an operator does not take stays a `TypeError` ("RollingCorr() got an
+  unexpected keyword argument 'x'"). `PortfolioReport()(a, b, c, d)` with four
+  numbers is one event of the four portfolio columns, as in JavaScript and as
+  its `Pipeline` node reads them; 2.8.0 raised `TypeError`.
 * A NumPy `datetime64` or `timedelta64` array given as values raises
   `TypeError` ("RollingMean: a value must be a number, got an array of times
   (dtype datetime64[ns]); pass .astype("int64") for its tick counts"), as a
@@ -160,6 +165,26 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   feeds and the stream functions. 2.8.0 read it as its tick counts. For the
   old result, pass `values.astype("int64")`. A list of `datetime64` scalars
   raises the same way. As an index, times work as before.
+* A `decimal.Decimal` or `fractions.Fraction` raises `TypeError` wherever a
+  value is read, also in a multi-input call or a list: 2.8.0 returned 2.5 for
+  `Add()(Decimal("1.5"), 1.0)` (a float64 cast rounds it silently) and read a
+  list of them. Pass `float(x)` for the old result.
+* An object array or object `Series` holding a time, or a memoryview of a
+  NumPy time scalar, raises `TypeError` as a list of them does; 2.8.0 read the
+  tick counts (or the raw bytes). Pass `.astype("int64")`.
+* A complex value given to a stream function (`Merge`, `CombineLatest`,
+  `Dropna`, `Select`, `Resample`, `split`) raises `TypeError`, as operators and
+  `Pipeline` feeds do; 2.8.0 kept the real part with a NumPy warning. Pass
+  `x.real` for the old result.
+* A NaN float index raises `ValueError` ("the index of input 0 is NaN at
+  event 1; an index must be a number") in `Merge` and `CombineLatest`, batch
+  and iterator (JavaScript `merge` and `combineLatest` throw `RangeError`).
+  2.8.0 placed a row at index NaN. Drop those rows first.
+* `Select` on a width-1 stream gives the shape of its `Pipeline` node in
+  every form: `Select([0])(x)` on a 1-D `x` is 1-D, `Select([0, 0])(x)` gives
+  two columns, the iterator form yields numbers (or tuples for several
+  columns), and the index is checked and copied. 2.8.0 returned `(T, 1)` for
+  both and yielded one-element lists; pass `x[:, None]` for the old shape.
 * A ctypes object raises `TypeError` wherever a value is read. 2.8.0 read
   `ctypes.c_double(1.0)` as 1.0 and a ctypes array as numbers in the stream
   functions (`Merge`, `CombineLatest`, `Dropna`, `Select`, `Resample`,
@@ -170,6 +195,11 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   operator ("RollingMean: a Timestamp is not a valid input; ..."). 2.8.0 raised
   `ValueError` "Unsupported input type for call"; code that caught it should
   catch `TypeError`.
+* The iterator form of `Dropna` reads every event: a stream of bare values is
+  positional, as in `Merge` (2.8.0 raised Python's "cannot unpack" text), a
+  positional stream with a later indexed event raises `ValueError`, and an
+  indexed stream with a later event without an index raises `TypeError`
+  (2.8.0 dropped the later index).
 * `Dropna()(a, b)` reads two streams, as JavaScript's `dropna([a, b])` and a
   saved pipeline do: their events merge in index order (ties in argument
   order) and each `NaN` event is dropped, the `Dropna` node of a `Pipeline`
@@ -1005,6 +1035,9 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   (operators, iterators, `Pipeline` feeds and live pushes, `Merge`,
   `CombineLatest`). The local nanobind patch also reads missing strides as a
   C-contiguous buffer, so no other buffer can crash there.
+* The iterator forms of `Dropna` and `Select` read a width-1 first event as
+  a number and every later event as it is: a wider later event raises, as in
+  the batch form, where it was cut to its first value.
 * `Dropna` and `Select` called directly on a wide `(T, N)` stream with equal
   indexes dropped or merged rows: `Dropna()(V, index=[0, 1, 1, 1, 2])` lost
   rows without a `NaN`, and `Select([1])` returned 3 of 5 rows. Both run the
@@ -1023,7 +1056,12 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   of different shapes, a 0-d string or time array (was NumPy's "iteration
   over a 0-d array"), and an object `DataFrame` or object array holding a
   non-number (was pandas' or NumPy's conversion text). A mixed-kinds error
-  names the argument as passed (`Series`, not `ndarray`).
+  names the argument as passed (`Series`, not `ndarray`). Row operators,
+  `PortfolioReport` and the stream functions name themselves in value errors
+  ("CrossRank: an array of complex128 values ...", "merge: an element is an
+  object, ..."), never NumPy's text; `split` names a time source ("split: a
+  source must be a whole number, got a time"); an index-order error names
+  `merge` or `combine_latest`.
 
 * A live `Pipeline` with a `freq=` (`every=`), `count=` or `threshold=`
   `Resample` beside another output held the other outputs' rows of two bars

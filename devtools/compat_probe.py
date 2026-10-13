@@ -808,6 +808,19 @@ def cases():
             gen([(np.array([1.0]), 7)]))),
         "from_pandas list": lambda: s.from_pandas([1.0, 2.0]),
         "1in object DataFrame": lambda: s.RollingMean(2)(pd.DataFrame({"a": [object(), object()]})),
+        # Task FB fix round 1
+        "2in Decimal": lambda: s.Add()(__import__("decimal").Decimal("1.5"), 1.0),
+        "1in list of Fraction": lambda: s.RollingMean(1)([__import__("fractions").Fraction(3, 2)]),
+        "1in object array of datetime64": lambda: s.RollingMean(1)(np.array(list(dt), dtype=object)),
+        "Select [0] 1-D": lambda: s.Select([0])(v[:4]),
+        "Select [0, 0] 1-D": lambda: s.Select([0, 0])(v[:4]),
+        "Select [0] lazy width 1": lambda: list(s.Select([0])(gen(zip(v[:3], range(3))))),
+        "Merge NaN float index": lambda: s.Merge()((v[:3], np.array([0.0, np.nan, 1.0]))),
+        "CombineLatest NaN float index": lambda: s.CombineLatest()((v[:3], np.array([0.0, np.nan, 1.0]))),
+        "PortfolioReport no input": lambda: s.PortfolioReport()(),
+        "PortfolioReport four numbers": lambda: s.PortfolioReport()(1.0, 2.0, 3.0, 4.0),
+        "Dropna complex values": lambda: s.Dropna()(np.array([1 + 1j, 2.0])),
+        "Dropna lazy bare values": lambda: list(s.Dropna()(gen([1.0, np.nan, 3.0]))),
     })
     return table
 
