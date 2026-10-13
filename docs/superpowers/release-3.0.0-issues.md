@@ -60,9 +60,9 @@ Goal: zero open issues before `make major`. Each item is closed by a fix with a 
 | # | Issue | Status |
 |---|---|---|
 | E1 | Inside a `Pipeline`, frames carry no asset shape: `Input(layout=...)`, compute nodes on K-asset streams, row operators inside a `Pipeline`. | decided: additive (raises today); moved to Future features (phase 2) |
-| E2 | `Resample(agg="ohlc")` on X columns inside a `Pipeline` gives a flat `(T', 4 * X)`, while the eager call gives `(T', X, 4)`. | decided: for 3.0.0 a multi-column `Resample(agg="ohlc")` inside a Pipeline raises ValueError naming the alternatives (eager call, or one Resample per column); single-column unchanged; phase 2 returns (T', X, 4), an error-to-result change; to implement |
+| E2 | `Resample(agg="ohlc")` on X columns inside a `Pipeline` gives a flat `(T', 4 * X)`, while the eager call gives `(T', X, 4)`. | decided: for 3.0.0 a multi-column `Resample(agg="ohlc")` inside a Pipeline raises ValueError naming the alternatives (eager call, or one Resample per column); single-column unchanged; phase 2 returns (T', X, 4), an error-to-result change; investigated (Task 25, 2026-10-13): after Task 18 round 4 the Pipeline gives a correct flat (T', 4 * X) in every, count and clock modes, batch, lazy and live, Python and JS (equal to the eager (T', X, 4) reshaped; the eager clock call is itself flat); threshold rejects a wide value stream everywhere; raise not added, awaiting a ruling (raise, document the flat layout, or return (T', X, 4)) |
 | E3 | `Resample` with a functor `agg` takes one column. | decided: additive (raises today); moved to Future features (phase 2) |
-| E4 | `CombineLatest(emit="on_any")` with a wide `Input` inside a `Pipeline` can raise when a row is due before the wide input arrives. | decided: additive; keep the documented error with a test; full support moved to Future features (phase 2); to implement (test) |
+| E4 | `CombineLatest(emit="on_any")` with a wide `Input` inside a `Pipeline` can raise when a row is due before the wide input arrives. | decided: additive; keep the documented error with a test; full support moved to Future features (phase 2); done (fe0b5d6): the error fires in batch, lazy and live, tested in Python and JS |
 
 ## F. Verification and documentation
 
