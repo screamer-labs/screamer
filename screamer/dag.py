@@ -122,8 +122,8 @@ def _refuse_text(x, who=""):
 def _as_float64(x, contiguous=False, who=""):
     """`x` as a float64 array (np.asarray, or np.ascontiguousarray when
     `contiguous`). A string, a time (a datetime64 or timedelta64 array or scalar,
-    a pandas Timestamp) or a ctypes object, or an array or list holding one,
-    raises TypeError (none is a number); None is NaN. The check runs in C++
+    a pandas Timestamp), a complex value or a ctypes object, or an array or list
+    holding one, raises TypeError (none is a real number); None is NaN. The check runs in C++
     (cast_double.h refuse_text) and only for a string, object, time or unknown
     kind, so a numeric array pays nothing. `who` names the caller in an error."""
     kind = getattr(getattr(x, "dtype", None), "kind", None)
@@ -131,9 +131,14 @@ def _as_float64(x, contiguous=False, who=""):
         _refuse_text(x, who)       # before NumPy reads a bytearray item as numbers
         x = np.asarray(x)
         kind = x.dtype.kind
-    if kind in ("U", "S", "O", "M", "m"):
-        _refuse_text(x, who)
-    return (np.ascontiguousarray if contiguous else np.asarray)(x, dtype=np.float64)
+    if kind in ("U", "S", "O", "M", "m", "c"):
+        _refuse_text(x, who)       # a complex value is refused, never cut to its real part
+    try:
+        return (np.ascontiguousarray if contiguous else np.asarray)(x, dtype=np.float64)
+    except (TypeError, ValueError):
+        from . import screamer_bindings as _b
+        _b._first_non_number(x, who)   # names the element, never NumPy's text
+        raise
 
 
 def _setting(name, x, integer=False):
@@ -500,7 +505,7 @@ class Pipeline:
                     "outputs is not yet supported; use the batch call dag(arrays)")
             from . import screamer_bindings as _b
             iters = [iter(feeds[nm]) for nm in self._input_order]
-            return _b._LazyDriver(self._session_graph(), iters, len(self.outputs))
+            return _b._LazyDriver(self._session_graph(), iters, len(self.outputs), self._who)
         if any(lazy):
             raise TypeError(
                 "dag(...) feeds must be either all lazy iterators or all concrete "

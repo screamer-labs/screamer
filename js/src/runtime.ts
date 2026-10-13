@@ -1013,6 +1013,8 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
         throw e;
       }
     }
+    if (args.length !== 1 && args.length !== 4 && !args.some(isNode))
+      throw new RangeError(inputCountText(opName(raw), 4, args.length, ", or the engine output and optional prices"));
     if (args.length !== 1) return base(...args);
     const x = args[0];
     if (isNode(x) || typeof x === "number") return base(x);
@@ -1228,7 +1230,7 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
     if (args.length === 1 && fi > 1 && isNd(args[0]) && args[0].shape.length === 3)
       return packedBatch(args[0]);
     if (args.length !== fi)
-      throw new RangeError(inputCountText(opName(raw), fi, args.length, fi > 1 ? `, or one packed [T, K, ${fi}] array` : ""));
+      throw new RangeError(inputCountText(opName(raw), fi, args.length, fi > 1 ? `, or one packed (T, K, ${fi}) array` : ""));
     if (args.every((a) => isTyped(a) || isNumArr(a) || (isNd(a) && a.shape.length === 1)))
       return eventOut(args.map((a) => (isNd(a) ? a.data : a)));
     const blocks = args.map(asBlock);

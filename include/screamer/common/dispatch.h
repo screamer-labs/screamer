@@ -583,6 +583,7 @@ inline nb::object normalize_input(nb::handle x, const S& op) {
     // is text, as live().push reads it.
     if (PyMemoryView_Check(o)) {
         nb::object base = x.attr("obj");
+        if (is_foreign_value(base.ptr())) throw_unsupported_input(nb::find(op), base);
         if (PyBytes_Check(base.ptr()) || PyByteArray_Check(base.ptr()) ||
             nb::cast<std::string>(x.attr("format")) == "c")
             throw nb::type_error((op_display_name(nb::find(op)) + ": a memoryview of bytes is "
@@ -595,10 +596,10 @@ inline nb::object normalize_input(nb::handle x, const S& op) {
     // time scalar (a static type) or a ctypes object is never data
     // (cast_double.h is_foreign_value).
     if (!(PyType_GetFlags(Py_TYPE(o)) & Py_TPFLAGS_HEAPTYPE)) {
-        if (is_numpy_time_scalar(o)) throw_unsupported_input(nb::find(op), x);
+        if (is_numpy_time_scalar(o) || is_exact_number(o)) throw_unsupported_input(nb::find(op), x);
         return nb::borrow(x);
     }
-    if (is_ctypes_object(o)) throw_unsupported_input(nb::find(op), x);
+    if (is_ctypes_object(o) || is_exact_number(o)) throw_unsupported_input(nb::find(op), x);
     nb::object holder;
     const char* m = type_module_utf8(x.type(), holder);
     // A pandas object without a dtype (a Timestamp, Timedelta, NaT) is not data.
@@ -1359,7 +1360,12 @@ nb::object functor_route(Op& self, const nb::args& args) {
             return screamer::make_dag_functor_node(nb::find(self), nb::cast<nb::tuple>(args));
     }
     if constexpr (N == 1) {
-        if (args.size() != 1) throw_input_count(op_display_name(nb::find(self)), 1, args.size());
+        if (args.size() != 1) {
+            bool streams = args.size() > 0;
+            for (nb::handle a : args) streams = streams && is_lazy_iterable(a);
+            throw_input_count(op_display_name(nb::find(self)), 1, args.size(),
+                              streams ? ", or one stream of events holding every field" : "");
+        }
     }
     // Async iterables, for every arity: N sources or one source of events.
     if (nb::object it = route_async(nb::find(self), args, N); it.is_valid()) return it;
@@ -1466,6 +1472,8 @@ nb::args named_inputs(Op& self, const nb::args& args, PyObject* kwargs) {
             throw nb::type_error((who() + " got multiple values for argument " +
                                   detail::quoted(names[i])).c_str());
     if (n_kw == 0 && given == 1 && detail::holds_all_fields(args[0])) return args;
+    if (n_kw == 0 && given < N)   // no keywords: the count text of every operator
+        throw_input_count(op_display_name(nb::find(self)), N, given);
     if (given + n_kw < N) {
         std::string missing;
         std::size_t n_missing = 0;

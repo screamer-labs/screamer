@@ -30,6 +30,26 @@ using namespace nb::literals;
 using namespace screamer;
 using namespace screamer::streams;
 
+// Runs f and puts `who` ("merge", "combine_latest") in front of an index
+// error of the shared engine, which names the input but not the function
+// ("the index of input 0 decreases ...", "... is NaN ..."), keeping its class
+// (ValueError, or TypeError for an index kind).
+template <class F>
+static auto named(const char* who, F&& f) -> decltype(f()) {
+    auto text = [&](const char* what) {
+        static const char kIndex[] = "the index of input ";
+        return std::strncmp(what, kIndex, sizeof kIndex - 1) == 0 ? std::string(who) + ": " + what
+                                                                  : std::string(what);
+    };
+    try {
+        return f();
+    } catch (const dag::IndexTypeError& e) {
+        throw dag::IndexTypeError(text(e.what()));
+    } catch (const std::invalid_argument& e) {
+        throw std::invalid_argument(text(e.what()));
+    }
+}
+
 namespace {
 
 // Allocate a NEW numpy array that OWNS `data` (a `new T[...]` C-contiguous
@@ -833,15 +853,19 @@ void init_bindings_streams(nb::module_& m) {
     m.def("_run_chain_f64", &run_chain<double>,
           "functors"_a, "index"_a, "values"_a,
           "return_index"_a = false);
-    m.def("_merge_i64", &merge_batch<std::int64_t>,
-          "index_arrays"_a, "value_arrays"_a);
-    m.def("_merge_f64", &merge_batch<double>,
-          "index_arrays"_a, "value_arrays"_a);
+    m.def("_merge_i64", [](nb::list k, nb::list v) {
+              return named("merge", [&] { return merge_batch<std::int64_t>(k, v); });
+          }, "index_arrays"_a, "value_arrays"_a);
+    m.def("_merge_f64", [](nb::list k, nb::list v) {
+              return named("merge", [&] { return merge_batch<double>(k, v); });
+          }, "index_arrays"_a, "value_arrays"_a);
     m.def("_split", &split_py, "values"_a, "sources"_a, "index"_a.none(), "n"_a.none());
-    m.def("_combine_latest_i64", &combine_latest_batch<std::int64_t>,
-          "index_arrays"_a.none(), "value_arrays"_a, "when_all"_a, "layout"_a.none() = nb::none());
-    m.def("_combine_latest_f64", &combine_latest_batch<double>,
-          "index_arrays"_a.none(), "value_arrays"_a, "when_all"_a, "layout"_a.none() = nb::none());
+    m.def("_combine_latest_i64", [](nb::handle k, nb::list v, bool w, nb::handle l) {
+              return named("combine_latest", [&] { return combine_latest_batch<std::int64_t>(k, v, w, l); });
+          }, "index_arrays"_a.none(), "value_arrays"_a, "when_all"_a, "layout"_a.none() = nb::none());
+    m.def("_combine_latest_f64", [](nb::handle k, nb::list v, bool w, nb::handle l) {
+              return named("combine_latest", [&] { return combine_latest_batch<double>(k, v, w, l); });
+          }, "index_arrays"_a.none(), "value_arrays"_a, "when_all"_a, "layout"_a.none() = nb::none());
     nb::class_<PyJoinPlan>(m, "_JoinPlan")
         .def(nb::init<nb::list, nb::handle>(), "shapes"_a, "layout"_a.none())
         .def_prop_ro("wide", [](const PyJoinPlan& p) { return p.plan.wide; })
@@ -857,12 +881,16 @@ void init_bindings_streams(nb::module_& m) {
                                           nb::type_slots(gc_slots<CombineLatestLazy<std::int64_t>>))
         .def(nb::init<nb::list, const PyJoinPlan&, bool>(), "sources"_a, "plan"_a, "when_all"_a)
         .def("__iter__", [](nb::handle self) { return self; })
-        .def("__next__", &CombineLatestLazy<std::int64_t>::next);
+        .def("__next__", [](CombineLatestLazy<std::int64_t>& c) {
+            return named("combine_latest", [&] { return c.next(); });
+        });
     nb::class_<CombineLatestLazy<double>>(m, "_CombineLatestLazy_f64",
                                           nb::type_slots(gc_slots<CombineLatestLazy<double>>))
         .def(nb::init<nb::list, const PyJoinPlan&, bool>(), "sources"_a, "plan"_a, "when_all"_a)
         .def("__iter__", [](nb::handle self) { return self; })
-        .def("__next__", &CombineLatestLazy<double>::next);
+        .def("__next__", [](CombineLatestLazy<double>& c) {
+            return named("combine_latest", [&] { return c.next(); });
+        });
     nb::class_<CombineLatestPuller<std::int64_t>>(m, "_CombineLatestPuller_i64")
         .def(nb::init<nb::list, nb::list, bool>())
         .def("next", &CombineLatestPuller<std::int64_t>::next);
@@ -872,9 +900,13 @@ void init_bindings_streams(nb::module_& m) {
     nb::class_<MergeLazyPuller<std::int64_t>>(m, "_MergeLazyPuller_i64",
                                          nb::type_slots(gc_slots<MergeLazyPuller<std::int64_t>>))
         .def(nb::init<nb::list, bool>())
-        .def("next", &MergeLazyPuller<std::int64_t>::next);
+        .def("next", [](MergeLazyPuller<std::int64_t>& p) {
+            return named("merge", [&] { return p.next(); });
+        });
     nb::class_<MergeLazyPuller<double>>(m, "_MergeLazyPuller_f64",
                                          nb::type_slots(gc_slots<MergeLazyPuller<double>>))
         .def(nb::init<nb::list, bool>())
-        .def("next", &MergeLazyPuller<double>::next);
+        .def("next", [](MergeLazyPuller<double>& p) {
+            return named("merge", [&] { return p.next(); });
+        });
 }

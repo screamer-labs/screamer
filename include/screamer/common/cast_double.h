@@ -96,6 +96,42 @@ inline bool is_numpy_time_scalar(PyObject* o) {
     return t.found && (tp == t.datetime64 || tp == t.timedelta64);
 }
 
+// decimal.Decimal and fractions.Fraction: exact numbers that a float64 cast
+// would round silently, so never read as values (TypeError; pass float(x)).
+// Both modules are imported once, on the first value read (under the GIL).
+struct ExactNumberTypes {
+    PyTypeObject* decimal = nullptr;
+    PyTypeObject* fraction = nullptr;
+};
+
+inline const ExactNumberTypes& exact_number_types() {
+    static const ExactNumberTypes t = [] {
+        ExactNumberTypes r;
+        auto get = [](const char* mod, const char* name) -> PyTypeObject* {
+            PyObject* m = PyImport_ImportModule(mod);
+            PyObject* ty = m ? PyObject_GetAttrString(m, name) : nullptr;
+            Py_XDECREF(m);
+            if (!ty || !PyType_Check(ty)) { Py_XDECREF(ty); PyErr_Clear(); return nullptr; }
+            return reinterpret_cast<PyTypeObject*>(ty);   // kept for the process
+        };
+        r.decimal = get("decimal", "Decimal");
+        r.fraction = get("fractions", "Fraction");
+        return r;
+    }();
+    return t;
+}
+
+// A Decimal or Fraction (or a subclass): two pointer compares for the usual
+// value, a subtype check only for another class defined in Python.
+inline bool is_exact_number(PyObject* o) {
+    const ExactNumberTypes& t = exact_number_types();
+    PyTypeObject* tp = Py_TYPE(o);
+    if (tp == t.decimal || tp == t.fraction) return true;
+    if (!(PyType_GetFlags(tp) & Py_TPFLAGS_HEAPTYPE)) return false;   // NumPy scalars, ...
+    return (t.decimal && PyType_IsSubtype(tp, t.decimal)) ||
+           (t.fraction && PyType_IsSubtype(tp, t.fraction));
+}
+
 // A ctypes object (an instance of _ctypes._CData: c_double, an array, a
 // structure). Every such class is a heap type, so callers ask only for heap
 // types. _ctypes not loaded means no ctypes object exists.
@@ -147,7 +183,7 @@ inline bool is_python_time(PyObject* o) {
 // True for a value of any kind above (a time or a ctypes object). Off the
 // number fast paths only: it reads the type's module for a heap type.
 inline bool is_foreign_value(PyObject* o) {
-    if (is_numpy_time_scalar(o) || is_python_time(o)) return true;
+    if (is_numpy_time_scalar(o) || is_python_time(o) || is_exact_number(o)) return true;
     PyTypeObject* tp = Py_TYPE(o);
     if (!(PyType_GetFlags(tp) & Py_TPFLAGS_HEAPTYPE)) return false;
     if (is_ctypes_object(o)) return true;
@@ -158,6 +194,16 @@ inline bool is_foreign_value(PyObject* o) {
     Py_XDECREF(mod);
     PyErr_Clear();
     return pandas_scalar;
+}
+
+// A memoryview over a time or a ctypes object (its raw bytes).
+inline bool is_foreign_view(PyObject* o) {
+    if (!PyMemoryView_Check(o)) return false;
+    PyObject* base = PyObject_GetAttrString(o, "obj");
+    if (!base) { PyErr_Clear(); return false; }
+    const bool r = is_foreign_value(base);
+    Py_DECREF(base);
+    return r;
 }
 
 // ---- Input count (rule A4: a wrong count is a ValueError) ------------------
@@ -239,6 +285,7 @@ inline nb::object find_wrong_kind(nb::handle x, WrongKindSearch& s, int depth = 
     double d;
     if (x.is_none()) return {};                       // a missing value, NaN
     const bool text = PyUnicode_Check(o) || PyBytes_Check(o) || PyByteArray_Check(o);
+    if (is_foreign_view(o)) return x.attr("obj");    // a time's or ctypes object's bytes
     if (!text && !is_foreign_value(o) &&
         (nb::try_cast<double>(x, d) || nb::hasattr(x, "ndim")))
         return {};
@@ -357,6 +404,8 @@ inline bool read_double(nb::handle h, double& d) {
     PyObject* o = h.ptr();
     if (PyFloat_CheckExact(o)) { d = PyFloat_AsDouble(o); return true; }
     if (is_numpy_time_scalar(o)) return false;      // a time is never a number
+    if (!PyLong_CheckExact(o) && !PyFloat_Check(o) && is_exact_number(o))
+        return false;                                // nor a Decimal or Fraction
     if (nb::try_cast<double>(h, d)) return true;
     if (h.is_none()) { d = std::numeric_limits<double>::quiet_NaN(); return true; }
     return false;
@@ -388,10 +437,12 @@ struct TextFreeTypes {
 inline void refuse_text(nb::handle x, const std::string& who, int depth, TextFreeTypes& seen) {
     if (is_text(x)) throw_text_value(who, x, depth ? "an element" : "a value");
     PyObject* o = x.ptr();
-    // A time or a ctypes object is never a number either.
+    // A time or a ctypes object is never a number either, nor a memoryview
+    // of one (its raw bytes).
     if (!PyList_Check(o) && !PyTuple_Check(o) && !PyFloat_Check(o) && !PyLong_Check(o) &&
         o != Py_None && is_foreign_value(o))
         throw_text_value(who, x, depth ? "an element" : "a value");
+    if (is_foreign_view(o)) throw_text_value(who, x.attr("obj"), depth ? "an element" : "a value");
     if (PyList_Check(o) || PyTuple_Check(o)) {          // nested lists, read in C
         if (depth >= 32) return;
         const bool list = PyList_Check(o);
@@ -426,6 +477,10 @@ inline void refuse_text(nb::handle x, const std::string& who, int depth, TextFre
     nb::object kind = nb::steal(k);
     const char* c = PyUnicode_Check(k) ? PyUnicode_AsUTF8AndSize(k, nullptr) : nullptr;
     if (!c) { PyErr_Clear(); return; }
+    if (c[0] == 'c')
+        throw nb::type_error(((who.empty() ? std::string() : who + ": ") +
+            "a value must be a real number, got an array of complex values (dtype " +
+            nb::cast<std::string>(nb::str(dtype)) + ")").c_str());
     if (c[0] == 'U' || c[0] == 'S')
         throw nb::type_error(((who.empty() ? std::string() : who + ": ") +
             "a value must be a number, got an array of strings (dtype " +
@@ -442,7 +497,7 @@ inline void refuse_text(nb::handle x, const std::string& who, int depth, TextFre
     nb::object flat = np.attr("asarray")(x, nb::arg("dtype") = nb::borrow(
         reinterpret_cast<PyObject*>(&PyBaseObject_Type))).attr("ravel")();
     for (nb::handle e : flat)
-        if (is_text(e)) throw_text_value(who, e, "an element");
+        if (is_text(e) || is_foreign_value(e.ptr())) throw_text_value(who, e, "an element");
 }
 
 // The float64 conversion of an object array (or pandas object) failed: names

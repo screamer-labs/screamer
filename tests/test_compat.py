@@ -183,7 +183,8 @@ def test_rolling_order_imbalance_keyword():
 ])
 @pytest.mark.parametrize("one", [v, 1.5, list(v), v[:2]])
 def test_two_input_microstructure_missing_input_names_it(make, missing, one):
-    with pytest.raises(ValueError, match=f"missing.*'{missing}'"):
+    # Without keywords, the count text of every operator (rule A4).
+    with pytest.raises(ValueError, match=rf"^{type(make()).__name__} expects 2 inputs, got 1$"):
         make()(one)
 
 

@@ -160,7 +160,7 @@ private:
             ev.value = kNaN;                    // a missing value (A9)
             is_scalar = true;
         } else if (PyUnicode_Check(vp) || PyBytes_Check(vp) || PyByteArray_Check(vp) ||
-                   is_foreign_value(vp)) {
+                   is_foreign_value(vp) || is_foreign_view(vp)) {
             bad(event, what, val_obj);   // text, a time or a ctypes object: not numbers
         }
         if (!is_scalar && read_float64_buffer(vp, event)) {

@@ -43,3 +43,21 @@ test("an empty list of events gives an empty list", () => {
   assert.deepEqual(mean([]), []);
   mean.dispose();
 });
+
+test("PortfolioReport counts and four numbers", () => {
+  const p = a.PortfolioReport();
+  assert.throws(() => p(), range("PortfolioReport expects 4 inputs, or the engine output and optional prices, got 0"));
+  assert.throws(() => p(1, 2, 3), range("PortfolioReport expects 4 inputs, or the engine output and optional prices, got 3"));
+  const r = Array.from(p(1, 2, 3, 4) as ArrayLike<number>);
+  assert.deepEqual(r.slice(0, 5), [0, 4, 3, 1, 0]);
+  assert.ok(Number.isNaN(r[5]));
+  p.dispose();
+});
+
+test("a NaN float index is a RangeError in merge and combineLatest", () => {
+  const nan = /the index of input 0 is NaN at event 1; an index must be a number/;
+  assert.throws(() => a.merge([{ values: [1, 2, 3], index: [0, NaN, 1] }]), (e: any) => e instanceof RangeError && nan.test(e.message));
+  assert.throws(() => a.combineLatest([{ values: [1, 2, 3], index: [0, NaN, 1] }]), (e: any) => e instanceof RangeError && nan.test(e.message));
+  const it = () => [{ value: 1, index: 0 }, { value: 2, index: NaN }][Symbol.iterator]();
+  assert.throws(() => [...a.merge([it()])], (e: any) => e instanceof RangeError && nan.test(e.message));
+});

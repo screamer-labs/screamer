@@ -49,11 +49,17 @@ static PyObject* count_sentinel() {
 static nb::object wrong_count(screamer::EvalOp& self, nb::handle a0, nb::handle a1, nb::handle a2,
                               nb::handle a3, nb::handle a4, nb::handle a5, nb::handle a6) {
     std::size_t given = 0;
-    for (nb::handle a : {a0, a1, a2, a3, a4, a5, a6}) given += a.ptr() != count_sentinel();
+    bool streams = true;
+    for (nb::handle a : {a0, a1, a2, a3, a4, a5, a6}) {
+        if (a.ptr() == count_sentinel()) continue;
+        ++given;
+        streams = streams && PyIter_Check(a.ptr());
+    }
     const std::string who = screamer::op_display_name(nb::find(self));
     if (given == self.n_in())   // one input, by a keyword other than its own
         throw nb::type_error((who + "() takes its input by position or by its keyword").c_str());
-    screamer::throw_input_count(who, self.n_in(), given);
+    screamer::throw_input_count(who, self.n_in(), given,
+                                given > 0 && streams ? ", or one stream of events holding every field" : "");
 }
 
 // Adds the overloads above to every operator class of the module that

@@ -676,6 +676,11 @@ void init_bindings_dag(nb::module_& m) {
     // float64 conversions in screamer/dag.py and screamer/streams.py.
     m.def("_refuse_text", [](nb::handle x, const std::string& who) { refuse_text(x, who); },
           "values"_a.none(), "who"_a = "");
+    // After a failed float64 conversion: the TypeError naming the first
+    // element that is not a number (no NumPy text); returns when there is none.
+    m.def("_first_non_number", [](nb::handle x, const std::string& who) {
+        throw_first_non_number(x, who);
+    }, "values"_a, "who"_a = "");
     // The one-kind rule of a call (py_index.h TimeUnit) over the index arrays of
     // the batch stream functions (merge, combine_latest), which build their own
     // int64 arrays: every non-empty array must be numbers, or times of one unit.
@@ -1012,6 +1017,7 @@ void init_bindings_dag(nb::module_& m) {
             } else if (PyMemoryView_Check(p)) {
                 // A numeric memoryview is a wide event; one over bytes is text.
                 nb::object base = value.attr("obj");
+                if (is_foreign_value(base.ptr())) throw_text_value("", base);   // a time's bytes
                 if (PyBytes_Check(base.ptr()) || PyByteArray_Check(base.ptr()) ||
                     nb::cast<std::string>(value.attr("format")) == "c")
                     throw nb::type_error("a value must be a number or a sequence of "

@@ -22,6 +22,7 @@ public:
         if (i_ >= size_) return std::nullopt;
         if (Checked && i_ != 0 && indices_[i_] < indices_[i_ - 1])
             dag::throw_index_decreases(input_, i_, indices_[i_ - 1], indices_[i_]);
+        if (Checked) dag::check_index_value(input_, i_, indices_[i_]);
         Event<Index> e{indices_[i_], values_[i_], 0};
         ++i_;
         return e;

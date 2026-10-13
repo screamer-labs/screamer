@@ -332,6 +332,23 @@ nb::object portfolio_report_priced(screamer::PortfolioReport& self, nb::args arg
     return out;
 }
 
+// Runs one call of a row operator or PortfolioReport and puts the operator's
+// name in front of a TypeError or ValueError that does not name it yet
+// (a value-kind error from a shared reader, a complex dtype).
+template <class S, class F>
+nb::object named_call(S& self, F&& f) {
+    try {
+        return f();
+    } catch (const nb::builtin_exception& e) {
+        const std::string who = screamer::op_display_name(nb::find(self));
+        const std::string m = e.what();
+        if (m.find(who) != std::string::npos) throw;   // already names it
+        if (e.type() == nb::exception_type::type_error) throw nb::type_error((who + ": " + m).c_str());
+        if (e.type() == nb::exception_type::value_error) throw nb::value_error((who + ": " + m).c_str());
+        throw;
+    }
+}
+
 nb::object portfolio_report_call(screamer::PortfolioReport& self, nb::args raw) {
     nb::args args = screamer::normalize_args(raw, self);
     bool has_node = false;
@@ -341,13 +358,23 @@ nb::object portfolio_report_call(screamer::PortfolioReport& self, nb::args raw) 
         // DAG composition uses the scalar-compatible four-input path. The
         // multi-asset (time, assets, 4) reduction is a batch/stream contract.
         if (args.size() != 4)
-            throw nb::type_error("PortfolioReport DAG composition expects four portfolio columns.");
+            screamer::throw_input_count(screamer::op_display_name(nb::find(self)), 4, args.size());
         return screamer::make_dag_functor_node(nb::find(self), nb::cast<nb::tuple>(args));
     }
     if (args.size() == 2) return portfolio_report_priced(self, args);
+    if (args.size() == 4) {
+        // One event of the four portfolio columns, as JavaScript reads four
+        // numbers (and a Pipeline node takes four inputs).
+        screamer::PortfolioReport::InputArray in;
+        for (std::size_t i = 0; i < 4; ++i)
+            if (!screamer::read_double(args[i], in[i]))
+                screamer::throw_not_a_number(screamer::op_display_name(nb::find(self)), args[i],
+                                             screamer::where_text("input", static_cast<std::ptrdiff_t>(i)));
+        return nb::cast(self.call(in));
+    }
     if (args.size() != 1)
-        throw nb::type_error("PortfolioReport expects one engine-output array or row stream, "
-                             "optionally followed by prices.");
+        screamer::throw_input_count(screamer::op_display_name(nb::find(self)), 4, args.size(),
+                                    ", or the engine output and optional prices");
     nb::object input = nb::borrow<nb::object>(args[0]);
     if (screamer::is_async_iterable(input))
         return nb::cast(screamer::LazyAsyncIterator(
@@ -1487,12 +1514,16 @@ void init_bindings_fin(nb::module_& m) {
 
     nb::class_<screamer::PortfolioReport, screamer::EvalOp>(m, "PortfolioReport")
         .def(nb::init<>())
-        .def("__call__", &portfolio_report_call)
+        .def("__call__", [](screamer::PortfolioReport& self, nb::args a) {
+            return named_call(self, [&] { return portfolio_report_call(self, a); });
+        })
         .def("reset", &screamer::PortfolioReport::reset, "Reset.");
 
 
     nb::class_<screamer::RowOp, screamer::EvalOp>(m, "RowOp")
-        .def("__call__", &row_op_call)
+        .def("__call__", [](screamer::RowOp& self, nb::args a) {
+            return named_call(self, [&] { return row_op_call(self, a); });
+        })
         .def("reset", &screamer::RowOp::reset, "Reset.");
 
 

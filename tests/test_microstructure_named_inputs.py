@@ -104,17 +104,20 @@ def test_keyword_errors(make, kernel, names):
     # A count is a ValueError (rule A4), a keyword the call cannot bind a TypeError.
     with pytest.raises(ValueError, match=rf"^{who} expects 2 inputs, got 3$"):
         make()(f, r, f)
-    with pytest.raises(ValueError, match=rf"^{who}\(\) missing 1 required input: '{kb}'$"):
+    # Without keywords a missing input is the count text of every operator.
+    with pytest.raises(ValueError, match=rf"^{who} expects 2 inputs, got 1$"):
         make()(f)
-    with pytest.raises(ValueError, match=rf"^{who}\(\) missing 2 required inputs: '{ka}', '{kb}'$"):
+    with pytest.raises(ValueError, match=rf"^{who} expects 2 inputs, got 0$"):
         make()()
+    with pytest.raises(ValueError, match=rf"^{who}\(\) missing 1 required input: '{kb}'$"):
+        make()(**{ka: f})
 
 
 @pytest.mark.parametrize("one", [
     [1.0, 2.0], [1, 2], [np.float64(1.0), np.float32(2.0)], [], 3.0, np.arange(4.0),
 ], ids=["floats", "ints", "numpy-scalars", "empty", "number", "1-D"])
 def test_one_input_without_every_field_is_a_missing_input(one):
-    with pytest.raises(ValueError, match=r"^SignedVolume\(\) missing 1 required input: 'volume'$"):
+    with pytest.raises(ValueError, match=r"^SignedVolume expects 2 inputs, got 1$"):
         s.SignedVolume()(one)
 
 

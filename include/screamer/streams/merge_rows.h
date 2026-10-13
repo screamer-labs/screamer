@@ -100,6 +100,7 @@ public:
         if (i_ >= size_) return std::nullopt;
         if (i_ != 0 && indices_[i_] < indices_[i_ - 1])
             dag::throw_index_decreases(input_, i_, indices_[i_ - 1], indices_[i_]);
+        dag::check_index_value(input_, i_, indices_[i_]);
         Event<Index> e{indices_[i_], static_cast<double>(i_), 0};
         ++i_;
         return e;
@@ -181,6 +182,7 @@ public:
     // The next event of source i has index `index`.
     void offer(std::size_t i, Index index) {
         const std::size_t ev = events_[i]++;
+        dag::check_index_value(i, ev, index);
         if (check_order_ && ev != 0 && index < last_[i])
             dag::throw_index_decreases(i, ev, last_[i], index);
         last_[i] = index;

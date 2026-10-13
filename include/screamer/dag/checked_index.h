@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 
 namespace screamer { namespace dag {
 
@@ -149,6 +150,22 @@ template <class Index>
 [[noreturn]] SCREAMER_NOINLINE void throw_index_decreases(std::size_t input, std::size_t event,
                                                          Index prev, Index now) {
     throw_index_decreases("input " + std::to_string(input), event, prev, now);
+}
+
+// A float index of a stream merge or join must not be NaN: NaN has no place
+// in the index order (every comparison with it is false), so it would pass
+// the order check and give a row at index NaN. ValueError / RangeError.
+[[noreturn]] SCREAMER_NOINLINE inline void throw_index_nan(std::size_t input, std::size_t event) {
+    throw std::invalid_argument("the index of input " + std::to_string(input) + " is NaN at event " +
+                                std::to_string(event) + "; an index must be a number");
+}
+
+// The value check of one index of input `input`: free for an integer index.
+template <class Index>
+inline void check_index_value(std::size_t input, std::size_t event, Index k) {
+    if constexpr (std::is_floating_point_v<Index>) {
+        if (k != k) throw_index_nan(input, event);
+    }
 }
 
 }} // namespace screamer::dag
