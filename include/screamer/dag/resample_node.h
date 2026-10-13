@@ -171,7 +171,7 @@ public:
 
     void flush() override {
         if (p_.mode == ResampleMode::ByIndex) {
-            if (!closed_ && has_any()) emit(cur_label_);
+            if (has_any()) emit(cur_label_);
         } else if (p_.mode == ResampleMode::ByClock) {
             // ByClock: if a clock tick was deferred (pending_clock_tick_), emit it
             // now — end-of-stream means no future events can arrive at the same index.
@@ -193,7 +193,6 @@ public:
         }
         // idempotent: clear so a repeat flush emits nothing
         started_ = false;
-        closed_ = false;
         count_in_bucket_ = 0;
         reset_accums();
         downstream_.flush();
@@ -209,7 +208,6 @@ public:
         }
         reset_accums();
         started_ = false;
-        closed_ = false;
         bucket_ = 0;
         cur_label_ = Index{};
         count_in_bucket_ = 0;
@@ -240,27 +238,24 @@ public:
     // Event-time watermark: close windows up to `w` then forward a watermark
     // clamped to the smallest index this node might STILL emit, so a merge or
     // combinator downstream does not stall AND never receives `w` before a lower-
-    // indexed frame it will later emit.
-    // - An open bucket (started_, not closed_) still emits at cur_label_. For
-    //   label="left" that is at or below w; for label="right" it is above w.
-    // - Otherwise the next bar is either a fill bar for the empty bucket after
-    //   the last closed one (fill nan or carry, emitted once a later event
-    //   arrives), or the bar of the bucket that holds the next event, which is
-    //   at least the bucket that holds w.
-    // The end-of-input watermark (the int64 maximum, sent at a flush) ends the
-    // input as flush() does, so it forwards w unchanged.
+    // indexed frame it will later emit. advance(w) leaves the bucket CONTAINING w
+    // open with emit-label cur_label_. For label="left" that label is the bucket's
+    // left edge (<= w), so a later frame at index < w is still coming; we must
+    // forward min(w, cur_label_). For label="right" the label is the right edge
+    // (> w), so min(w, cur_label_) == w and forwarding w is already safe. Before
+    // any event has anchored a bucket (not started_), the first event can still open
+    // the bucket that holds w, so the forward is at most that bucket's label (a
+    // label-left bucket starts at or below w). The end-of-input watermark (the
+    // int64 maximum, sent at a flush) emits the current bucket only if it has
+    // data, as flush() does: trailing empty buckets are never filled.
     void on_watermark(Index w) override {
         advance(w);
         Index fwd = w;
         if (p_.mode == ResampleMode::ByIndex) {
-            if (started_ && !closed_) { if (cur_label_ < fwd) fwd = cur_label_; }
+            if (started_) { if (cur_label_ < fwd) fwd = cur_label_; }
             else if (w != std::numeric_limits<Index>::max()) {
-                Index next = label_for(bucket_of(w));
-                if (started_ && p_.fill != ResampleFill::Skip) {
-                    const Index gap = label_for(bucket_ + 1);
-                    if (gap < next) next = gap;
-                }
-                if (next < fwd) fwd = next;
+                const Index first = label_for(bucket_of(w));
+                if (first < fwd) fwd = first;
             }
         } else {
             if (count_in_bucket_ > 0) {
@@ -272,28 +267,23 @@ public:
         downstream_.on_watermark(fwd);
     }
 
-    // Time-driven close: once logical time `now` has left the open bucket, emit
-    // it and mark it closed. Empty buckets are never emitted here: a fill bar
-    // (fill nan or carry) is emitted only for an empty bucket between two
-    // buckets with data, when the event of the later one arrives, so trailing
-    // empty buckets are never filled. A watermark therefore changes when a bar
-    // is emitted, never which bars are emitted. `now` at the int64 maximum is
-    // the end of input: it emits the open bucket if it has data, and the next
-    // event anchors afresh, as after a flush. No-op for count mode.
+    // Close every window whose end boundary has passed by logical time `now`, even
+    // when empty. No-op for count mode. Emits the current bucket and any trailing
+    // empty buckets up to but NOT including the bucket containing `now`.
     void advance(Index now) {
         if (p_.mode != ResampleMode::ByIndex) return;
         if (!started_) return;
-        if (now == std::numeric_limits<Index>::max()) {
-            if (!closed_ && has_any()) emit(cur_label_);
-            reset_accums();
-            started_ = false;
-            closed_ = false;
-            return;
-        }
-        if (closed_ || bucket_of(now) <= bucket_) return;
+        // The end-of-input watermark emits the current bucket if it has data
+        // and fills no empty bucket, as flush() does: they are all trailing.
+        const bool end = now == std::numeric_limits<Index>::max();
+        std::int64_t target = end ? bucket_ + 1 : bucket_of(now);
+        if (target <= bucket_) return;
         if (has_any()) emit(cur_label_);
-        reset_accums();
-        closed_ = true;
+        else if (p_.fill != ResampleFill::Skip && !end) emit_fill(cur_label_);
+        if (p_.fill != ResampleFill::Skip && !end)
+            for (std::int64_t b = bucket_ + 1; b < target; ++b) emit_fill(label_for(b));
+        bucket_ = target; reset_accums(); set_index_label(target);
+        if (end) started_ = false;     // as after a flush: the next event anchors
     }
 
     // ByClock 2-port interface: port(0) = value stream, port(1) = clock stream.
@@ -378,24 +368,18 @@ private:
     }
 
     void push_by_index(Index k, double v) {
-        enter_bucket(floordiv(static_cast<std::int64_t>(k) - p_.origin, p_.width));
-        accums_[0].add(v);
-    }
-
-    // Moves to bucket nb for an event that falls in it. Leaving a bucket emits
-    // it (unless advance() already closed it), then fills the empty buckets
-    // strictly between it and nb: those lie between two buckets with data.
-    void enter_bucket(std::int64_t nb) {
+        std::int64_t nb = floordiv(static_cast<std::int64_t>(k) - p_.origin, p_.width);
         if (!started_) {
             started_ = true; bucket_ = nb; reset_accums(); set_index_label(nb);
-        } else if (nb != bucket_ || closed_) {
-            if (!closed_ && has_any()) emit(cur_label_);
+        } else if (nb != bucket_) {
+            if (has_any()) emit(cur_label_);
+            else if (p_.fill != ResampleFill::Skip) emit_fill(cur_label_);
             if (p_.fill != ResampleFill::Skip)
                 for (std::int64_t b = bucket_ + 1; b < nb; ++b)
                     emit_fill(label_for(b));
             bucket_ = nb; reset_accums(); set_index_label(nb);
         }
-        closed_ = false;
+        accums_[0].add(v);
     }
 
     void push_by_count(Index k, double v) {
@@ -411,7 +395,17 @@ private:
     }
 
     void push_by_index_multi(Index k, const double* vals) {
-        enter_bucket(floordiv(static_cast<std::int64_t>(k) - p_.origin, p_.width));
+        std::int64_t nb = floordiv(static_cast<std::int64_t>(k) - p_.origin, p_.width);
+        if (!started_) {
+            started_ = true; bucket_ = nb; reset_accums(); set_index_label(nb);
+        } else if (nb != bucket_) {
+            if (has_any()) emit(cur_label_);
+            else if (p_.fill != ResampleFill::Skip) emit_fill(cur_label_);
+            if (p_.fill != ResampleFill::Skip)
+                for (std::int64_t b = bucket_ + 1; b < nb; ++b)
+                    emit_fill(label_for(b));
+            bucket_ = nb; reset_accums(); set_index_label(nb);
+        }
         for (std::size_t c = 0; c < num_accums_; ++c)
             accums_[c].add(vals[c]);
     }
@@ -655,7 +649,6 @@ private:
     std::size_t num_accums_;          // distinct input columns = accums_.size()
     std::vector<ResampleAccum> accums_;
     bool started_ = false;
-    bool closed_ = false;             // ByIndex: advance() emitted the bucket; no event since
     bool have_emitted_ = false;
     bool have_last_finite_ = false;
     Index last_finite_index_{};

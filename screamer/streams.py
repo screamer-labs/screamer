@@ -1253,11 +1253,9 @@ def resample(values, driver=None, index=None, *, freq=None, every=None, count=No
       whole row is carried, including sum/volume-like columns; a per-column
       "carry price / zero volume" refinement is out of scope).
 
-    Only internal gaps (empty buckets between two buckets with data) are filled.
-    Leading buckets before the first event and trailing buckets after the last are
-    never synthesized, in a ``Pipeline`` too, whatever drops the last rows and
-    whatever ``advance()`` calls a live session makes. For a bar at every period,
-    empty ones included, use a clock resample (``clock=True``).
+    Only internal gaps are filled. Leading buckets before the first event and
+    trailing buckets after the last are not synthesized here (output starts at the
+    first tick's bucket; trailing empties need the clock/``advance()`` mechanism).
     ``"carry"`` repeats the whole previous row verbatim across all columns (so an
     empty bar carries a count/sum column's prior value, not 0; use ``"nan"`` if
     that is wrong for a column), and skips a bucket that has no prior emitted row.

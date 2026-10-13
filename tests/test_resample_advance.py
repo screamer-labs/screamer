@@ -1,11 +1,9 @@
 """Time-driven `advance(now)` and on-demand `flush()` for the resample path.
 
 `dag.live()` opens an incremental live streaming session: push events, drive a
-clock with `advance(now)` (emitting the open window once its boundary has
-passed), force the current partial with `flush()`, and collect aligned outputs
-with `result()`. An empty window is filled only between two windows with data,
-when the later one's event arrives, so `advance` changes when a bar is emitted,
-never which bars.
+clock with `advance(now)` (closing windows whose boundary has passed, even when
+empty), force the current partial with `flush()`, and collect aligned outputs
+with `result()`.
 
 Labels use the default LEFT window edge convention (bucket label = its start
 index origin + nb*width), matching tests/test_resample_fill.py.
@@ -28,20 +26,33 @@ def _live_last(fill):
 
 
 # ---------------------------------------------------------------------------
-# 1-2. advance closes the open window; trailing empty windows are not filled
+# 1. Time-driven empty close, fill="nan"
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("fill", ["nan", "carry"])
-def test_advance_closes_the_window_and_fills_no_trailing_ones(fill):
-    live = _live_last(fill)
+def test_advance_closes_empty_windows_nan():
+    live = _live_last("nan")
     live.push("x", 0, 10.0)
-    live.advance(350)   # bucket 0 closes; 100 and 200 are empty and trailing
+    live.advance(350)   # target bucket 3 (labels 0,100,200 close; 300 stays open)
+    live.flush()        # open bucket 3 is empty -> emits nothing
     v, k = live.result()
-    np.testing.assert_array_equal(k, [0])
-    np.testing.assert_array_equal(v, [10.0])
-    live.flush()        # nothing open
+    np.testing.assert_array_equal(k, [0, 100, 200])
+    assert v[0] == 10.0
+    assert np.isnan(v[1])
+    assert np.isnan(v[2])
+
+
+# ---------------------------------------------------------------------------
+# 2. Time-driven empty close, fill="carry"
+# ---------------------------------------------------------------------------
+
+def test_advance_closes_empty_windows_carry():
+    live = _live_last("carry")
+    live.push("x", 0, 10.0)
+    live.advance(350)
+    live.flush()
     v, k = live.result()
-    assert len(k) == 0
+    np.testing.assert_array_equal(k, [0, 100, 200])
+    np.testing.assert_array_equal(v, [10.0, 10.0, 10.0])
 
 
 # ---------------------------------------------------------------------------
@@ -123,19 +134,36 @@ def test_batch_parity_internal_gap_nan_unchanged():
 # GenericResampleNode (functor reducer) time-driven empty close
 # ---------------------------------------------------------------------------
 
-@pytest.mark.parametrize("fill", ["nan", "carry"])
-def test_advance_fills_no_trailing_windows_generic_reducer(fill):
-    # The functor-reducer node follows the same rule.
+def test_advance_closes_empty_windows_generic_reducer():
     src = Input("x")
-    node = Resample(freq=100, origin=0, agg=ExpandingSum(), fill=fill)(src)
+    node = Resample(freq=100, origin=0, agg=ExpandingSum(), fill="nan")(src)
     dag = Pipeline([src], [node])
     live = dag.live()
     live.push("x", 0, 10.0)
     live.advance(350)
     live.flush()
     v, k = live.result()
-    np.testing.assert_array_equal(k, [0])
-    np.testing.assert_array_equal(np.asarray(v).reshape(-1), [10.0])
+    v = np.asarray(v).reshape(-1)
+    np.testing.assert_array_equal(k, [0, 100, 200])
+    assert v[0] == 10.0
+    assert np.isnan(v[1])
+    assert np.isnan(v[2])
+
+
+def test_advance_closes_empty_windows_generic_reducer_carry():
+    # Carry branch of the generic (functor-reducer) node: empty windows repeat
+    # the previous emitted row, not NaN.
+    src = Input("x")
+    node = Resample(freq=100, origin=0, agg=ExpandingSum(), fill="carry")(src)
+    dag = Pipeline([src], [node])
+    live = dag.live()
+    live.push("x", 0, 10.0)
+    live.advance(350)
+    live.flush()
+    v, k = live.result()
+    v = np.asarray(v).reshape(-1)
+    np.testing.assert_array_equal(k, [0, 100, 200])
+    np.testing.assert_array_equal(v, [10.0, 10.0, 10.0])
 
 
 # ---------------------------------------------------------------------------
@@ -146,10 +174,10 @@ def test_advance_fills_no_trailing_windows_generic_reducer(fill):
 def test_advance_idempotent_and_extends_open_target_bucket():
     live = _live_last("nan")
     live.push("x", 0, 10.0)
-    live.advance(350)   # closes 0(10); 100 and 200 wait for a later event
+    live.advance(350)   # closes 0(10), 100(nan), 200(nan); bucket 3 (label 300) open
     live.advance(350)   # repeat same now -> no double-emit
-    live.advance(360)   # no-op
-    live.push("x", 320, 30.0)   # bucket 3 has data: 100 and 200 are filled
+    live.advance(360)   # still inside bucket 3 -> no-op
+    live.push("x", 320, 30.0)   # real event lands in the open target bucket 3
     live.advance(450)   # closes bucket 3 with the real value (label 300, value 30)
     live.flush()        # bucket 4 (label 400) empty and open -> nothing
     v, k = live.result()
@@ -174,11 +202,11 @@ def test_advance_noop_not_started():
 
 
 def test_advance_then_later_event_fills_parked_bucket_builtin():
-    # Single-column builtin reducer: a later event in a further bucket fills the
-    # empty buckets that advance() passed, per fill policy.
+    # Single-column builtin reducer: advance() parks an empty bucket, a later event
+    # in a further bucket fills the parked one per fill policy.
     live = _live_last("nan")
     live.push("x", 0, 10.0)
-    live.advance(150)          # emit bucket 0 (=10)
+    live.advance(150)          # emit bucket 0 (=10); park empty bucket 1
     live.push("x", 320, 40.0)  # bucket 3 -> crosses past parked bucket 1 and bucket 2
     live.flush()
     v, k = live.result()

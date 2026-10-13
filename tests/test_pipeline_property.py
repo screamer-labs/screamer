@@ -6,12 +6,12 @@ nodes are Filter, Dropna, Select, CombineLatest, Delay, RollingMean and
 Resample: every= with label left or right and fill skip, nan or carry; count=;
 threshold= with a Dropna driver; and clock=. Indexes repeat and 15% of cases
 are unaligned, and in 40% of cases the inputs end with rows that Dropna or
-Filter drop (a NaN tail, a 0 mask tail). Three live sessions per case drain
-after each event with probability 1, 0.3 and 0.05, with advance(now) between
-events and, at the end, past the last event (to the int64 maximum in some);
-the concatenated drains must equal batch byte for byte, and lazy must equal
-batch. advance(now) may pass an input's last event: a resample fills an empty
-bucket only between two buckets with data, so advance changes no bar.
+Filter drop (a NaN tail, a 0 mask tail). Three live sessions per case drain after each event with
+probability 1, 0.3 and 0.05, with advance(now) between events; the
+concatenated drains must equal batch byte for byte, and lazy must equal batch.
+
+advance(now) stays at or below every input's last event: past it, a fill
+resample closes windows that batch never opens, which is what advance means.
 Cases with a clock resample run without advance (tracked separately).
 The seeds are fixed.
 """
@@ -149,9 +149,11 @@ def lazy(p, feeds, m):
 def run_case(seed, enable_clock=True, use_advance=True):
     rng = np.random.default_rng(seed)
     inputs, outs, feeds, names, has_clock = make_case(rng, enable_clock)
-    # advance(now) never goes back in time; it may pass an input's last event.
-    # With a clock resample, advance is left out (tracked separately).
+    # advance(now) never passes an input's last event: past it, a fill resample
+    # closes windows that batch never opens (the meaning of advance). With a
+    # clock resample, advance is left out (tracked separately).
     use_advance = use_advance and not has_clock
+    horizon = min(int(k[-1]) for _, k in feeds)
     align = rng.random() < 0.85
     p = Pipeline(inputs, outs, align_outputs=align)
     m = len(outs)
@@ -166,15 +168,11 @@ def run_case(seed, enable_clock=True, use_advance=True):
         prob = [1.0, 0.3, 0.05][trial]
         last = None
         for q, (t, _, _, nm, v) in enumerate(evs):
-            if use_advance and last is not None and rng.random() < 0.15:
-                s.advance(int(rng.integers(last, t + 1)))
+            if use_advance and last is not None and rng.random() < 0.15 and last <= min(t, horizon):
+                s.advance(int(rng.integers(last, min(t, horizon) + 1)))
             s.push(nm, t, v.tolist() if np.ndim(v) else float(v))
             last = t
             if rng.random() < prob:
-                parts.append(s.result())
-        if use_advance and last is not None and rng.random() < 0.5:
-            s.advance(2**63 - 1 if rng.random() < 0.3 else last + int(rng.integers(0, 200)))
-            if rng.random() < 0.5:
                 parts.append(s.result())
         s.flush()
         parts.append(s.result())

@@ -236,11 +236,9 @@ def _live_dag_class():
             self._cg.reset()
 
         def advance(self, now):
-            """Emit every window whose boundary has passed by logical time `now`.
+            """Close every window whose boundary has passed by logical time `now`.
 
-            An empty window is filled only once a later event arrives, so advance
-            changes when a bar is emitted, never which bars. ``advance(2**63 - 1)``
-            acts as the end of input, the same as ``flush()``."""
+            ``advance(2**63 - 1)`` acts as the end of input, the same as ``flush()``."""
             self._advance(now)
             return self
 
@@ -452,8 +450,7 @@ class Pipeline:
 
         Bind data AFTER definition, event by event, on the same Pipeline that runs batch.
         Push events with .push(input, index, value); close windows whose boundary has
-        passed with .advance(now) (a finished bar comes out without waiting for the next
-        event; empty buckets are filled only once a later event arrives); force
+        passed with .advance(now) (e.g. on a clock tick, finalizing empty bars); force
         the current partial window with .flush(); collect aligned outputs with .result().
 
         The session drives this Pipeline's single compiled engine (shared with __call__),

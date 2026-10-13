@@ -12,12 +12,11 @@ import {
 // RollingMean and resample (every with label left or right and fill skip, nan
 // or carry; count; threshold with a dropna driver; clock). 15% of cases are
 // unaligned, and in 40% the inputs end with rows that dropna or filter drop (a
-// NaN tail, a 0 mask tail). Three live sessions per case drain after each
-// event with probability 1, 0.3 and 0.05, with advance(now) between events
-// and, at the end, past the last event; the concatenated drains must equal
-// batch. advance(now) may pass an input's last event: a resample fills an
-// empty bucket only between two buckets with data, so advance changes no bar.
-// Cases with a clock resample run without advance. The seeds are fixed.
+// NaN tail, a 0 mask tail). Three live sessions per case drain after each event with
+// probability 1, 0.3 and 0.05, with advance(now) between events; the
+// concatenated drains must equal batch. advance(now) stays at or below every
+// input's last event, and cases with a clock resample run without it. The
+// seeds are fixed.
 
 function rngOf(seed: number) {
   let s = seed >>> 0 || 1;
@@ -119,6 +118,7 @@ function concatParts(parts: any[][], m: number, align: boolean) {
 function runCase(seed: number): string | null {
   const { g, inputs, outs, feeds, names, hasClock } = makeCase(seed);
   const align = g.r() < 0.85;
+  const horizon = Math.min(...names.map((k) => feeds[k].index[feeds[k].index.length - 1]));
   const p = new Pipeline(inputs, outs, { alignOutputs: align });
   try {
     const bf = (k: string) => k === "y" ? { values: { data: Float64Array.from((feeds.y.values as number[][]).flat()), shape: [feeds.y.index.length, 2] }, index: feeds.y.index } : feeds[k];
@@ -132,15 +132,11 @@ function runCase(seed: number): string | null {
       const parts: any[][] = [];
       let last: number | null = null;
       for (const [t, , , k, v] of evs) {
-        if (!hasClock && last !== null && g.r() < 0.15)
-          s.advance(last + g.int(0, t - last + 1));
+        if (!hasClock && last !== null && g.r() < 0.15 && last <= Math.min(t, horizon))
+          s.advance(last + g.int(0, Math.min(t, horizon) - last + 1));
         s.push(k, t, v);
         last = t;
         if (g.r() < prob) { const r = s.result(); parts.push(Array.isArray(r) ? r : [r]); }
-      }
-      if (!hasClock && last !== null && g.r() < 0.5) {
-        s.advance(g.r() < 0.3 ? 2 ** 62 : last + g.int(0, 200));
-        if (g.r() < 0.5) { const r = s.result(); parts.push(Array.isArray(r) ? r : [r]); }
       }
       s.flush();
       const r = s.result(); parts.push(Array.isArray(r) ? r : [r]);

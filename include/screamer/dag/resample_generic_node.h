@@ -55,14 +55,13 @@ public:
 
     void flush() override {
         if (p_.mode == ResampleMode::ByIndex) {
-            if (!closed_ && has_) emit(cur_label_);
+            if (has_) emit(cur_label_);
         } else {
             if (count_in_bucket_ > 0) emit(p_.label == ResampleLabel::Left ? first_index_ : last_index_);
         }
         // idempotent: clear so a repeat flush emits nothing
         clear_bucket();
         started_ = false;
-        closed_ = false;
         count_in_bucket_ = 0;
         downstream_.flush();
     }
@@ -70,7 +69,6 @@ public:
     void reset() override {
         clear_bucket();
         started_ = false;
-        closed_ = false;
         bucket_ = 0;
         cur_label_ = Index{};
         count_in_bucket_ = 0;
@@ -81,23 +79,30 @@ public:
     std::size_t n_in()  const override { return 1; }
     std::size_t n_out() const override { return out_.size(); }
 
-    // Event-time watermark: the same rule as ResampleNode::on_watermark. An open
-    // bucket still emits at cur_label_; otherwise the next bar is a fill bar for
-    // the empty bucket after the last closed one (fill nan or carry), or the bar
-    // of the bucket that holds the next event. The end-of-input watermark (the
-    // int64 maximum) forwards unchanged.
+    // Event-time watermark: close windows up to `w` then forward a watermark
+    // clamped to the smallest index this node might STILL emit, so a merge or
+    // combinator downstream does not stall AND never receives `w` before a lower-
+    // indexed frame it will later emit. advance(w) leaves the bucket CONTAINING w
+    // open with emit-label cur_label_. For label="left" that label is the bucket's
+    // left edge (<= w), so a later frame at index < w is still coming; we must
+    // forward min(w, cur_label_). For label="right" the label is the right edge
+    // (> w), so min(w, cur_label_) == w and forwarding w is already safe. Before
+    // any event has anchored a bucket (not started_), the first event can still open
+    // the bucket that holds w, so the forward is at most that bucket's label (a
+    // label-left bucket starts at or below w). The end-of-input watermark (the
+    // int64 maximum, sent at a flush) emits the current bucket only if it has
+    // data, as flush() does: trailing empty buckets are never filled.
     void on_watermark(Index w) override {
         advance(w);
         Index fwd = w;
         if (p_.mode == ResampleMode::ByIndex) {
-            if (started_ && !closed_) { if (cur_label_ < fwd) fwd = cur_label_; }
+            // Index mode: advance() may have left an open bucket whose emit-label
+            // (cur_label_) is below w. Forward at most cur_label_ so the downstream
+            // merge is not told "no frame < w" while one is still pending.
+            if (started_) { if (cur_label_ < fwd) fwd = cur_label_; }
             else if (w != std::numeric_limits<Index>::max()) {
-                Index next = label_for(bucket_of(w));
-                if (started_ && p_.fill != ResampleFill::Skip) {
-                    const Index gap = label_for(bucket_ + 1);
-                    if (gap < next) next = gap;
-                }
-                if (next < fwd) fwd = next;
+                const Index first = label_for(bucket_of(w));
+                if (first < fwd) fwd = first;
             }
         } else {
             // Count mode: advance() is a no-op; clamp to the pending emit-index of
@@ -111,25 +116,29 @@ public:
         downstream_.on_watermark(fwd);
     }
 
-    // Time-driven close, the same rule as ResampleNode::advance: once `now` has
-    // left the open bucket, emit it and mark it closed. Empty buckets are filled
-    // only between two buckets with data, when the later one's event arrives, so
-    // a watermark changes when a bar is emitted, never which bars. `now` at the
-    // int64 maximum is the end of input. No-op for count mode.
+    // Close every window whose end boundary has passed by logical time `now`, even
+    // when empty. Emits the current bucket (real row if it has data) and then any
+    // trailing empty buckets up to but NOT including the bucket that contains `now`
+    // (that bucket is still open). No-op for count mode (windows are event-counted,
+    // not timed) and when the node has not started (no event has anchored it yet).
     void advance(Index now) {
         if (p_.mode != ResampleMode::ByIndex) return;   // count mode: time has no meaning
-        if (!started_) return;                           // no bucket open yet
-        if (now == std::numeric_limits<Index>::max()) {
-            if (!closed_ && has_) emit(cur_label_);
-            clear_bucket();
-            started_ = false;
-            closed_ = false;
-            return;
-        }
-        if (closed_ || bucket_of(now) <= bucket_) return;
+        if (!started_) return;                           // nothing to anchor trailing empties
+        // The end-of-input watermark emits the current bucket if it has data
+        // and fills no empty bucket, as flush() does: they are all trailing.
+        const bool end = now == std::numeric_limits<Index>::max();
+        std::int64_t target = end ? bucket_ + 1 : bucket_of(now);
+        if (target <= bucket_) return;                   // still inside the current bucket
+        // Close the current bucket: real row if it saw events, else a fill row.
+        // At the end of input an empty bucket is trailing: as flush(), no fill.
         if (has_) emit(cur_label_);
-        clear_bucket();
-        closed_ = true;
+        else if (p_.fill != ResampleFill::Skip && !end) emit_fill(cur_label_);
+        // Trailing empty buckets strictly between the current one and `target`.
+        if (p_.fill != ResampleFill::Skip && !end)
+            for (std::int64_t b = bucket_ + 1; b < target; ++b) emit_fill(label_for(b));
+        // Move to the (still open, empty) bucket that contains `now`.
+        bucket_ = target; clear_bucket(); set_index_label(target);
+        if (end) started_ = false;     // as after a flush: the next event anchors
     }
 
 private:
@@ -150,16 +159,18 @@ private:
         std::int64_t nb = floordiv(static_cast<std::int64_t>(k) - p_.origin, p_.width);
         if (!started_) {
             started_ = true; bucket_ = nb; clear_bucket(); set_index_label(nb);
-        } else if (nb != bucket_ || closed_) {
-            // Emit the bucket left behind (unless advance() closed it), then
-            // fill the empty buckets strictly between it and nb.
-            if (!closed_ && has_) emit(cur_label_);
+        } else if (nb != bucket_) {
+            if (has_) emit(cur_label_);
+            // A parked empty current bucket (e.g. advance() left it open with no
+            // event) is filled too, matching advance()+fill semantics.
+            else if (p_.fill != ResampleFill::Skip) emit_fill(cur_label_);
+            // Fill internal gaps (empty buckets strictly between bucket_ and nb);
+            // trailing empties are handled by advance()/flush(), not here.
             if (p_.fill != ResampleFill::Skip)
                 for (std::int64_t b = bucket_ + 1; b < nb; ++b)
                     emit_fill(label_for(b));
             bucket_ = nb; clear_bucket(); set_index_label(nb);
         }
-        closed_ = false;
         add(v);
     }
 
@@ -228,7 +239,6 @@ private:
     bool fed_ = false;          // reducer got >=1 finite sample this bucket
     bool have_emitted_ = false; // Carry: any real row emitted yet
     bool started_ = false;
-    bool closed_ = false;       // ByIndex: advance() emitted the bucket; no event since
     std::int64_t bucket_ = 0;
     Index cur_label_{};
     std::int64_t count_in_bucket_ = 0;
