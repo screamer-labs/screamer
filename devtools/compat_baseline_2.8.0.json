@@ -19861,5 +19861,94 @@
   "ERROR",
   "RuntimeError",
   "std::bad_cast"
+ ],
+ "RollingMean(np.array(True))": [
+  "ndarray",
+  [
+   30
+  ],
+  "f",
+  2950.955396,
+  "faf45aac452509b3"
+ ],
+ "probabilistic_sharpe benchmark=True": [
+  "float",
+  0.0
+ ],
+ "circular_shift n=True": [
+  "ndarray",
+  [
+   30,
+   1
+  ],
+  "f",
+  -8.0,
+  "7cb426ebd2958d32"
+ ],
+ "RollingMean(2.5)": [
+  "ERROR",
+  "TypeError",
+  "__init__(): incompatible function arguments. The following argument ty"
+ ],
+ "BollingerBands num_std=inf": [
+  "ndarray",
+  [
+   30,
+   3
+  ],
+  "f",
+  NaN,
+  "3088a7f6094e66ac"
+ ],
+ "SchmittTrigger lower=-inf": [
+  "ndarray",
+  [
+   30
+  ],
+  "f",
+  30.0,
+  "db6c68b449a8d086"
+ ],
+ "Resample count fill=nan": [
+  "pair",
+  [
+   "ndarray",
+   [
+    15
+   ],
+   "f",
+   1475.949191,
+   "9002d66c579f93b4"
+  ],
+  [
+   "ndarray",
+   [
+    15
+   ],
+   "i",
+   210.0,
+   "839f741dfb03e8f1"
+  ]
+ ],
+ "Resample threshold fill=carry": [
+  "pair",
+  [
+   "ndarray",
+   [
+    15
+   ],
+   "f",
+   1475.949191,
+   "9002d66c579f93b4"
+  ],
+  [
+   "ndarray",
+   [
+    15
+   ],
+   "i",
+   210.0,
+   "839f741dfb03e8f1"
+  ]
  ]
 }

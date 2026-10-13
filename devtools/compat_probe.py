@@ -628,6 +628,16 @@ def cases():
         "Pipeline max_pending=np.True_": lambda: (lambda x: s.Pipeline(
             [x], [s.RollingMean(1)(x)], max_pending=np.True_)(v))(s.Input("x")),
         "BollingerBands lazy wide events": lambda: lz(s.BollingerBands(3)(gen(X[:5]))),
+        # Task 31 fix round 1: a 0-d bool array, a function's bool argument, a
+        # finite setting given an infinity, and fill= under count=/threshold=.
+        "RollingMean(np.array(True))": lambda: s.RollingMean(np.array(True))(v),
+        "probabilistic_sharpe benchmark=True": lambda: s.probabilistic_sharpe(ret, True),
+        "circular_shift n=True": lambda: s.circular_shift(sign, True),
+        "RollingMean(2.5)": lambda: s.RollingMean(2.5)(v),
+        "BollingerBands num_std=inf": lambda: s.BollingerBands(3, float("inf"))(v),
+        "SchmittTrigger lower=-inf": lambda: s.SchmittTrigger(float("-inf"), 100.0)(v),
+        "Resample count fill=nan": lambda: s.Resample(count=2, fill="nan")(v),
+        "Resample threshold fill=carry": lambda: s.Resample(v, np.ones(T), threshold=2.0, fill="carry"),
     })
     return table
 
