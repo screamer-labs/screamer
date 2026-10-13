@@ -59,6 +59,12 @@ is the mean of that imbalance over the last `n_buckets` buckets divided by
 side, a sign of informed trading that often precedes adverse price moves. The
 output is `NaN` until `n_buckets` buckets have closed.
 
+A volume that is not finite (`inf`, or a buy and sell volume whose sum passes the
+double range) is a missing value, as `NaN` is: the output at that step is `NaN`
+and no bucket moves. A finite trade that fills more than `n_buckets` buckets
+replaces the whole window at once, so every step takes the same short time
+whatever its volume.
+
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
 

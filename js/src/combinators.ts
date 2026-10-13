@@ -324,31 +324,21 @@ export function select(x: unknown, columns: number | number[]): unknown {
   const cols = normalizeColumns(columns);
   const scalar = !Array.isArray(columns);
   const arg = scalar ? cols[0] : cols;
+  // Every form gives the one-node Pipeline's rows (Python's Select does too):
+  // a width-1 output is a number per row, duplicate columns are kept.
   if (iteratorsOf([x], "select")) {
-    let one = false;   // the first event has one value
-    const rows = runIterators((n) => select(n, arg), [x as Iterable<unknown>], "select", {
+    return runIterators((n) => select(n, arg), [x as Iterable<unknown>], "select", {
       positional: true,
       shape: (first) => {
         const w = typeof first === "number" ? 1 : (first as any).data ? (first as NdArray).shape[(first as NdArray).shape.length - 1] : (first as Float64Array).length;
         checkColumns(cols, w);
-        one = w === 1;
         return null;
       },
     });
-    // A one-value stream gives its value per row, in a list for a list of
-    // columns, as Python does.
-    return (function* () {
-      for (const r of rows) yield one && !scalar ? { value: [r.value as number], index: r.index } : r;
-    })();
   }
   const s = readStream(x, "select", 0);
   if (s.shape.length > 2) throw new RangeError(`select: the values have shape [${s.shape}], expected (T,) or (T, w)`);
   checkColumns(cols, widthOf(s.shape));
-  if (s.shape.length === 1) {
-    // Width 1: column 0 is the values; a new array, never the input's.
-    const data = (s.values as Float64Array).slice();
-    return { values: scalar ? data : { data, shape: [data.length, 1] }, index: s.index };
-  }
   const out = runOnce((n) => select(n, arg), [s], "select");
   return { values: out.values, index: s.index === null ? null : out.index };
 }
@@ -731,6 +721,9 @@ export function resample(x: unknown, opts: ResampleOpts = {}): unknown {
     if (vs.shape.length !== 1)
       throw new RangeError(`resample: threshold requires a 1-D value stream; got shape ${shapeText(vs.shape)}`);
     const ds = readStream(driver, "resample", 1);
+    if (ds.index !== null)
+      throw new RangeError("resample: a threshold driver is paired with the values by position; " +
+        "pass the driver without an index");
     if (ds.shape.length !== 1)
       throw new RangeError(`resample: threshold requires a 1-D driver stream; got shape ${shapeText(ds.shape)}`);
     if (ds.shape[0] !== T)

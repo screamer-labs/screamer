@@ -100,9 +100,10 @@ class Merger {
   private index: number[];
 
   // `who` names the caller in messages (a lazy Pipeline merges its feeds).
-  constructor(n: number, held: StreamHold, who = WHO) {
+  // `sameWidth` false: no width rule across the inputs (a lazy Pipeline).
+  constructor(n: number, held: StreamHold, who = WHO, sameWidth = true) {
     this.who = who;
-    this.ms = wasmCall(() => new this.M.MergeStream(n));
+    this.ms = wasmCall(() => new this.M.MergeStream(n, sameWidth));
     // Frees the merge's WASM state when the stream is collected unfinished.
     held.close = () => this.close();
     try {
@@ -176,13 +177,13 @@ class Merger {
   }
 }
 
-function* runSync(srcs: Iterable<unknown>[], held: StreamHold, who = WHO): Generator<MergeEvent, void, undefined> {
+function* runSync(srcs: Iterable<unknown>[], held: StreamHold, who = WHO, sameWidth = true): Generator<MergeEvent, void, undefined> {
   const its = srcs.map((s) => s[Symbol.iterator]());
   const ended = its.map(() => false);
   let m: Merger | null = null;
   let failed = false;
   try {
-    m = new Merger(its.length, held, who);
+    m = new Merger(its.length, held, who, sameWidth);
     for (let step = m.start(); step !== 0;) {
       if (step > 0) {
         const i = step - 1, r = its[i].next();
@@ -245,10 +246,11 @@ export function mergeIterators(srcs: Iterable<unknown>[]): Generator<MergeEvent,
   return trackStream(runSync(srcs, held), held);
 }
 
-/** The same merge with `who` naming its caller in messages (a lazy Pipeline). */
+/** The index-order merge of a lazy Pipeline: `who` names it in messages, and
+ * the inputs may have widths of their own (the engine checks each input). */
 export function mergeEvents(srcs: Iterable<unknown>[], who: string): Generator<MergeEvent, void, undefined> {
   const held: StreamHold = {};
-  return trackStream(runSync(srcs, held, who), held);
+  return trackStream(runSync(srcs, held, who, false), held);
 }
 
 /** The merge of async iterables, as an async iterator of events. */

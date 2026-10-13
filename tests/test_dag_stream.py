@@ -240,7 +240,7 @@ def test_live_index_kinds_and_bytes():
     live.push("x", np.int16(3), 3.0)
     for bad, msg in ((float("nan"), "finite"), (np.float32(1.5), "integer-valued"),
                      (float("inf"), "finite")):
-        with pytest.raises(TypeError, match=msg):
+        with pytest.raises(_index_error(bad), match=msg):
             live.push("x", bad, 1.0)
     for bad in (b"12", bytearray(b"12")):
         with pytest.raises(TypeError, match="is a (bytes|bytearray), expected a number"):
@@ -395,6 +395,12 @@ _BAD_INDEX = [
 ]
 
 
+def _index_error(v):
+    """A NaN index is a value problem (ValueError); every other refusal is a
+    kind error (TypeError)."""
+    return ValueError if isinstance(v, float) and v != v else TypeError
+
+
 def _bad_index(v):
     from decimal import Decimal
     from fractions import Fraction
@@ -408,9 +414,9 @@ def test_index_rule_live_push_and_advance():
     p = Pipeline([a], [Resample(every=2, agg="last")(a)])
     for bad, msg in _BAD_INDEX:
         live = p.live()
-        with pytest.raises(TypeError, match=msg):
+        with pytest.raises(_index_error(bad), match=msg):
             live.push("x", _bad_index(bad), 1.0)
-        with pytest.raises(TypeError, match=msg):
+        with pytest.raises(_index_error(bad), match=msg):
             live.advance(_bad_index(bad))
     live = p.live()
     for k in (0, 1.0, np.int64(2), np.uint64(3), np.float32(4.0), 2**63 - 1):
@@ -428,7 +434,7 @@ def test_index_rule_batch():
     v = np.array([1.0, 2.0])
     for idx, msg in [
         (np.array([0.0, 1.5]), "integer-valued"),
-        (np.array([0.0, np.nan]), "finite"),
+        (np.array([0.0, np.nan]), "finite"),   # ValueError, below
         (np.array([0.0, np.inf]), "finite"),
         (np.array([0.0, 2.0**63]), "int64 range"),
         (np.array([0, 2**63], dtype=np.uint64), "int64 range"),
@@ -439,7 +445,8 @@ def test_index_rule_batch():
         ([0, None], "must be a number"),
         (np.array([0, 1j]), "must be a number"),
     ]:
-        with pytest.raises(TypeError, match=msg):
+        err = ValueError if np.asarray(idx).dtype.kind == "f" and np.isnan(idx).any() else TypeError
+        with pytest.raises(err, match=msg):
             p((v, idx))
     for idx in (np.array([0, 1]), np.array([0.0, 1.0]), np.array([0, 1], dtype=np.uint64),
                 np.array([0, 1], dtype=np.int8), np.array([0.0, 1.0], dtype=np.float32),
@@ -454,8 +461,9 @@ def test_index_rule_lazy_feed():
     from screamer import Input, Pipeline
     a = Input("x")
     p = Pipeline([a], [a])
-    for bad, msg in [(1.5, "integer-valued"), (float("nan"), "finite"), (2.0**63, "int64 range")]:
-        with pytest.raises(TypeError, match=msg):
+    for bad, msg in [(1.5, "integer-valued"), (float("nan"), "is NaN at event 1"),
+                     (2.0**63, "int64 range")]:
+        with pytest.raises(_index_error(bad), match=msg):
             list(p(iter([(1.0, 0), (2.0, bad)])))
 
 
@@ -627,10 +635,10 @@ def test_index_rule_iterator_feeds():
                      (Fraction(3, 2), "must be a number"), ("5", "must be a number"),
                      (b"6", "must be a number"), (True, "must be a number"),
                      (np.bool_(True), "must be a number"), (2**63, "int64 range"),
-                     (np.uint64(2**63), "int64 range"), (float("nan"), "finite")):
-        with pytest.raises(TypeError, match=msg):
+                     (np.uint64(2**63), "int64 range"), (float("nan"), "is NaN at event 1")):
+        with pytest.raises(_index_error(bad), match=msg):
             list(p(iter([(1.0, 0), (2.0, bad)])))
-        with pytest.raises(TypeError, match=msg):
+        with pytest.raises(_index_error(bad), match=msg):
             list(Merge()(iter([(1.0, 0), (2.0, bad)]), iter([(3.0, 1)])))
     out = list(p(iter([(1.0, np.int64(0)), (2.0, np.float32(1.0)), (3.0, 2.0)])))
     assert [k for _, k in out] == [0, 1, 2]

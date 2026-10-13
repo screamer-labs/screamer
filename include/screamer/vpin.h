@@ -22,7 +22,8 @@ namespace screamer {
     //     vpin = mean(|V_buy - V_sell|) / bucket_volume,   in [0, 1].
     // A high value means flow is one-sided (toxic / informed). The output is NaN
     // until `n_buckets` buckets have closed (warmup); per nan_policy "ignore" a
-    // NaN on either input yields NaN with the state left untouched.
+    // NaN on either input yields NaN with the state left untouched, and so does
+    // a volume that is not finite (+-inf, or buy + sell past the double range).
     class VPIN : public FunctorBase<VPIN, 2, 1> {
     public:
         VPIN(double bucket_volume = 1.0, int n_buckets = 50)
@@ -51,7 +52,10 @@ namespace screamer {
         ResultTuple call(const InputArray& inputs) override {
             double buy = inputs[0];
             double sell = inputs[1];
-            if (isnan2(buy) || isnan2(sell)) {
+            // NaN, and a volume that is not finite, is a missing value: NaN
+            // out, the state untouched (packing an infinite volume would
+            // never end).
+            if (!std::isfinite(buy) || !std::isfinite(sell)) {
                 return std::numeric_limits<double>::quiet_NaN();   // ignore
             }
             // Volumes are non-negative; clamp defensively so the volume clock and
@@ -59,8 +63,11 @@ namespace screamer {
             if (buy < 0.0) buy = 0.0;
             if (sell < 0.0) sell = 0.0;
 
-            // Pack the trade's volume into buckets, splitting across boundaries.
+            // A sum past the double range is missing too.
             double total = buy + sell;
+            if (!std::isfinite(total)) {
+                return std::numeric_limits<double>::quiet_NaN();
+            }
             while (total > 0.0) {
                 const double space = bucket_volume_ - (cur_buy_ + cur_sell_);
                 if (total < space) {                 // fits in the current bucket
@@ -79,6 +86,26 @@ namespace screamer {
                 buy -= add_buy;
                 sell -= add_sell;
                 total -= space;
+                // A trade that fills more than n_buckets whole buckets leaves
+                // only buckets of its own in the window, so their imbalance
+                // is known in closed form. Past 2**20 more buckets than the
+                // window, close them at once and keep the remainder: an event
+                // costs at most O(n_buckets + 2**20) steps, whatever its
+                // volume (1e308 would otherwise loop 1e308 times). Below that
+                // the loop runs, so the results of ordinary trades do not
+                // change in the last bits.
+                const double whole = std::floor(total / bucket_volume_);
+                if (whole > static_cast<double>(n_buckets_) + 1048576.0) {
+                    // The share first: bucket_volume_ / total may underflow.
+                    const double imb = (std::abs(buy - sell) / total) * bucket_volume_;
+                    std::fill(imbalances_.begin(), imbalances_.end(), imb);
+                    sum_ = imb * n_buckets_;
+                    filled_ = n_buckets_;
+                    const double rest = std::max(0.0, total - whole * bucket_volume_);
+                    cur_buy_ = buy * (rest / total);
+                    cur_sell_ = sell * (rest / total);
+                    break;
+                }
             }
             return current_vpin();
         }

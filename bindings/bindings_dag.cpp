@@ -137,6 +137,9 @@ public:
         cg_.set_merge_order(true);   // the merge feeds the inputs in index order
     }
 
+    // The API name in error messages.
+    const std::string& owner() const { return owner_; }
+
     nb::object next() {
         // A rejected event (an overflow) ends the session: raise, pull nothing.
         if (pending_.empty() && !done_) cg_.check_live();
@@ -680,33 +683,72 @@ void init_bindings_dag(nb::module_& m) {
                                 nb::handle threshold, bool clock, bool agg_functor,
                                 const std::string& agg, const std::string& label,
                                 const std::string& fill, nb::handle max_age,
-                                bool max_age_whole) {
+                                bool max_age_whole, nb::handle origin) {
         dag::ResampleSettings s;
-        // float(x) as Python reads it (an int past 2**53 rounds; a huge int
-        // raises OverflowError, as int64 settings did).
-        auto as_float = [](nb::handle h) {
-            nb::object f = nb::steal(PyNumber_Float(h.ptr()));
-            if (!f.is_valid()) throw nb::python_error();
-            return PyFloat_AsDouble(f.ptr());
-        };
-        auto num = [&](nb::handle h, bool& has, double& v) {
+        // An int setting past the double range, by name: its text replaces
+        // the "inf" the shared rule would print for it.
+        std::vector<std::pair<std::string, std::string>> huge;
+        // A setting as the rule reads it: an int exactly (an int64 near 2**63
+        // stays inside the range, though the nearest double is 2**63), a float
+        // as float() reads it.
+        auto num = [&](const char* name, nb::handle h, bool& has, double& v) {
             has = !h.is_none();
-            if (has) v = as_float(h);
+            if (!has) return;
+            PyObject* p = h.ptr();
+            if (PyLong_Check(p)) {
+                int overflow = 0;
+                const long long x = PyLong_AsLongLongAndOverflow(p, &overflow);
+                if (overflow == 0) {
+                    if (x == -1 && PyErr_Occurred()) throw nb::python_error();
+                    v = static_cast<double>(x);
+                    if (v >= 9223372036854775808.0) v = 9223372036854774784.0;
+                    return;
+                }
+                v = PyLong_AsDouble(p);
+                if (v == -1.0 && PyErr_Occurred()) {          // beyond a double
+                    PyErr_Clear();
+                    v = overflow > 0 ? std::numeric_limits<double>::infinity()
+                                     : -std::numeric_limits<double>::infinity();
+                    std::string text = nb::cast<std::string>(nb::str(h));
+                    std::size_t digits = text.size() - (text[0] == '-' ? 1 : 0);
+                    huge.emplace_back(name, "an int of " + std::to_string(digits) + " digits");
+                }
+                return;
+            }
+            nb::object f = nb::steal(PyNumber_Float(p));
+            if (!f.is_valid()) throw nb::python_error();
+            v = PyFloat_AsDouble(f.ptr());
         };
         s.has_freq = has_freq;
-        num(every, s.has_every, s.every);
-        num(count, s.has_count, s.count);
-        num(threshold, s.has_threshold, s.threshold);
+        num("every", every, s.has_every, s.every);
+        num("count", count, s.has_count, s.count);
+        num("threshold", threshold, s.has_threshold, s.threshold);
+        num("origin", origin, s.has_origin, s.origin);
         s.clock = clock;
         s.agg_functor = agg_functor;
         s.agg = agg; s.label = label; s.fill = fill;
         s.max_age_whole = max_age_whole;
         // max_age of the wrong kind is reported by the rule before it is read.
         s.has_max_age = !max_age.is_none();
-        if (s.has_max_age && max_age_whole) s.max_age = as_float(max_age);
-        dag::check_resample_settings(s);
+        if (s.has_max_age && max_age_whole) {
+            bool has = false;
+            num("max_age", max_age, has, s.max_age);
+        }
+        try {
+            dag::check_resample_settings(s);
+        } catch (const std::invalid_argument& e) {
+            if (dynamic_cast<const dag::SettingTypeError*>(&e)) throw;
+            const std::string msg = e.what();
+            for (const auto& [name, text] : huge) {
+                const std::string head = "resample: " + name + " must be within the int64 range, got ";
+                if (msg.compare(0, head.size(), head) == 0)
+                    throw std::invalid_argument(head + text);
+            }
+            throw;
+        }
     }, "has_freq"_a, "every"_a.none(), "count"_a.none(), "threshold"_a.none(), "clock"_a,
-       "agg_functor"_a, "agg"_a, "label"_a, "fill"_a, "max_age"_a.none(), "max_age_whole"_a);
+       "agg_functor"_a, "agg"_a, "label"_a, "fill"_a, "max_age"_a.none(), "max_age_whole"_a,
+       "origin"_a.none() = nb::none());
     // The string rule for values (cast_double.h refuse_text), for the Python
     // float64 conversions in screamer/dag.py and screamer/streams.py.
     m.def("_refuse_text", [](nb::handle x, const std::string& who) { refuse_text(x, who); },
@@ -1096,7 +1138,19 @@ void init_bindings_dag(nb::module_& m) {
              "cg"_a, "iterators"_a, "n_out"_a, "owner"_a = "Pipeline",
              "shape_input"_a = -1, "shape_tail"_a = std::vector<std::size_t>{})
         .def("__iter__", [](nb::object self) { return self; })
-        .def("__next__", &LazyDriver::next);
+        // An index error of the merge names the input, not the API: put the
+        // owner ("Pipeline") in front, as merge and combine_latest do.
+        .def("__next__", [](LazyDriver& d) -> nb::object {
+            try {
+                return d.next();
+            } catch (const std::invalid_argument& e) {
+                static const char kIndex[] = "the index of input ";
+                if (std::strncmp(e.what(), kIndex, sizeof kIndex - 1) != 0) throw;
+                if (dynamic_cast<const dag::IndexTypeError*>(&e))
+                    throw dag::IndexTypeError(d.owner() + ": " + e.what());
+                throw std::invalid_argument(d.owner() + ": " + e.what());
+            }
+        });
 
     // Python-facing GraphBuilder wrapper that keeps functor Python objects alive
     // for the lifetime of the builder (raw EvalOp* point into Python objects;

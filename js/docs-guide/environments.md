@@ -30,7 +30,7 @@ The package ships one self-contained module with the WebAssembly embedded, so th
 
 ## Browser with a bundler
 
-Vite, Next.js, webpack, Rollup, esbuild, and similar tools need no special configuration. Install
+Bundlers need no special configuration (esbuild is tested; Vite, Next.js, webpack and Rollup use the same entry). Install
 and import exactly as in Node; the bundler inlines the embedded-WASM module into your output:
 
 ```js
@@ -44,9 +44,12 @@ const sma = RollingMean(3);
 The bare specifier `@screamer-labs/screamer` resolves through the bundler (or an import map). A raw
 browser cannot resolve a bare specifier, which is what the CDN form below handles.
 
-The package loads its module with a plain `import()`, which a bundler follows, and uses no `eval`
-or `new Function`. Under a Content-Security-Policy, the page needs only `'wasm-unsafe-eval'` in
-`script-src` (to compile WebAssembly), not `'unsafe-eval'`.
+The ES build loads its module with a plain `import()`, which a bundler follows, and uses no
+`eval` or `new Function`. The tests bundle it with esbuild and run the bundle in Chrome; Vite,
+webpack and Rollup follow the same `import()`. The package's `browser` and `module` export
+conditions give a bundler the ES build, also for a `require()`; the CommonJS build is for Node.
+Under a Content-Security-Policy, the page needs only `'wasm-unsafe-eval'` in `script-src` (to
+compile WebAssembly), not `'unsafe-eval'`.
 
 ## Browser without a build step (CDN)
 

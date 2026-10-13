@@ -480,8 +480,9 @@ private:
         // Always add the value (the price) to the accumulator.
         accums_[0].add(value);
         ++count_in_bucket_;
-        // Only advance the cumulative driver if it is not NaN.
-        if (!screamer::isnan2(driver)) {
+        // Only a finite driver advances the cumulative sum: NaN or +-inf is a
+        // missing value (an inf would close every bar after it, a -inf none).
+        if (std::isfinite(driver)) {
             cum_driver_ += driver;
             if (cum_driver_ >= p_.threshold) {
                 emit(p_.label == ResampleLabel::Left ? first_index_ : last_index_);

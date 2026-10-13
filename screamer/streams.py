@@ -971,12 +971,19 @@ def _resample_clock_lazy(values, clock_stream, *, agg, fill, origin, label,
     return _lazy_resample_rows(dag, [iter(values), iter(clock_stream)], agg)
 
 
+# The driver of a threshold resample is read beside the values, row by row;
+# an index of its own would be ignored (the JavaScript text is the same).
+_THRESHOLD_DRIVER_INDEX = ("resample: a threshold driver is paired with the values by "
+                           "position; pass the driver without an index")
+
+
 def _resample_validate(freq, every, count, threshold, agg, label, fill="skip",
-                       clock=False, max_age=None):
+                       clock=False, max_age=None, origin=0):
     """The settings rule of a Resample: a string or a bool is a wrong kind
     here; the rest is the shared C++ rule (dag/resample_check.h), which the
     JavaScript binding uses too."""
-    for name, x in (("threshold", threshold), ("every", every), ("count", count)):
+    for name, x in (("threshold", threshold), ("every", every), ("count", count),
+                    ("origin", origin)):
         _setting(f"resample: {name}", x, name != "threshold")
     # dict agg is no longer supported; raise immediately with a migration hint.
     if isinstance(agg, dict):
@@ -990,7 +997,7 @@ def _resample_validate(freq, every, count, threshold, agg, label, fill="skip",
     text = lambda x: x if isinstance(x, str) else "\x00"   # not a name: refused
     _b._resample_check(freq is not None, every, count, threshold, bool(clock),
                        not isinstance(agg, str), agg if isinstance(agg, str) else "",
-                       text(label), text(fill), max_age, whole)
+                       text(label), text(fill), max_age, whole, origin)
 
 
 
@@ -1107,7 +1114,7 @@ def resample(values, driver=None, index=None, *, freq=None, every=None, count=No
     """
     agg = _resolve_agg(agg)
     _resample_validate(freq, every, count, threshold, agg, label, fill, clock,
-                       max_age)
+                       max_age, origin)
     if max_age is not None:
         max_age = int(max_age)
     if max_fill is not None:
@@ -1220,6 +1227,8 @@ def resample(values, driver=None, index=None, *, freq=None, every=None, count=No
             raise ValueError(
                 "resample: threshold= requires a 1-D value stream; "
                 f"got shape {vals.shape}")
+        if _is_vi_pair(driver):
+            raise ValueError(_THRESHOLD_DRIVER_INDEX)
         drv = _as_float64(driver, who="resample")
         if drv.ndim != 1:
             raise ValueError(

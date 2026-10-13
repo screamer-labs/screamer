@@ -147,16 +147,17 @@ test("live: a rejected first event sets no width", async () => {
   }
 });
 
-test("live and batch: a fractional or NaN index is a TypeError", async () => {
+test("live and batch: a fractional or infinite index is a TypeError, a NaN one a RangeError", async () => {
   await ready();
   const a = Input("x");
   const p = new Pipeline([a], [a]);
   try {
     const d = p.live();
-    for (const [bad, msg] of [[1.5, /integer-valued/], [NaN, /finite/], [Infinity, /finite/]] as const) {
-      assert.throws(() => d.push("x", bad, 1), (e: unknown) => e instanceof TypeError && msg.test((e as Error).message));
-      assert.throws(() => d.push("x", bad, [1, 2]), (e: unknown) => e instanceof TypeError);
-      assert.throws(() => p({ values: [1, 2], index: [0, bad] }), (e: unknown) => e instanceof TypeError && msg.test((e as Error).message));
+    for (const [bad, msg, cls] of [[1.5, /integer-valued/, TypeError], [NaN, /finite/, RangeError],
+                                   [Infinity, /finite/, TypeError]] as const) {
+      assert.throws(() => d.push("x", bad, 1), (e: unknown) => e instanceof cls && msg.test((e as Error).message));
+      assert.throws(() => d.push("x", bad, [1, 2]), (e: unknown) => e instanceof cls);
+      assert.throws(() => p({ values: [1, 2], index: [0, bad] }), (e: unknown) => e instanceof cls && msg.test((e as Error).message));
     }
     d.push("x", 2, 1);
     assertNanEq(asFloat64(d.result()), [1], "ok");
@@ -205,7 +206,9 @@ test("live and batch: one index rule, with advance", async () => {
   try {
     const d = p.live();
     for (const [bad, msg] of cases) {
-      const kind = (e: unknown) => e instanceof TypeError && msg.test((e as Error).message);
+      // A NaN index is a value problem (RangeError); the others are kinds.
+      const cls = Number.isNaN(bad) ? RangeError : TypeError;
+      const kind = (e: unknown) => e instanceof cls && msg.test((e as Error).message);
       assert.throws(() => d.push("x", bad as any, 1), kind);
       assert.throws(() => d.push("x", bad as any, [1, 2]), kind);
       assert.throws(() => d.pushWide("x", bad as any, [1, 2]), kind);

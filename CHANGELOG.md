@@ -176,9 +176,18 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   unknown option throws `TypeError`; `clock: true` without a driver throws
   `RangeError`; `mode`, when given, must match the settings. 2.8.0 trapped
   in WebAssembly (`every: 0`), returned rows, or ignored the setting. Python:
-  a NaN `threshold` and an `every`, `count` or `max_age` outside the int64
-  range raise `ValueError` (2.8.0 accepted a NaN threshold and raised
-  `ValueError`/`OverflowError` with Python's own text for the others).
+  a NaN `threshold`, an `every`, `count` or `max_age` outside the int64
+  range (an int up to 2**63 - 1 is accepted; `10**400` gives "resample:
+  every must be within the int64 range, got an int of 401 digits"), and an
+  `origin` that is NaN or outside the int64 range raise `ValueError` with the
+  JavaScript texts ("resample: origin must be an integer, got nan"); a string
+  `origin` raises `TypeError`. 2.8.0 accepted a NaN threshold and raised
+  `ValueError`, `OverflowError` or nanobind's `TypeError` with other texts.
+* A threshold `Resample` whose driver comes with an index raises
+  `ValueError` "resample: a threshold driver is paired with the values by
+  position; pass the driver without an index" (JavaScript: `RangeError`).
+  2.8.0 raised `ValueError` "... requires a 1-D driver stream; got shape (2,
+  T)". Pass the driver values alone.
 * JavaScript `dropna` with an unknown `how` throws `RangeError` 'dropna: how
   must be "any" or "all"', as Python; 2.8.0 ran it as "any".
 * JavaScript `Pipeline` and combinator construction errors use Python's
@@ -239,6 +248,15 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   event 1; an index must be a number") in `Merge` and `CombineLatest`, batch
   and iterator (JavaScript `merge` and `combineLatest` throw `RangeError`).
   2.8.0 placed a row at index NaN. Drop those rows first.
+* A NaN index is a value error on every path, in both languages: a
+  `Pipeline` batch call and a live `push` raise `ValueError` (JavaScript:
+  `RangeError`) "index must be finite, got NaN; the streaming engine is
+  int64-indexed", and an iterator (`Merge`, `CombineLatest`, a lazy
+  `Pipeline`) raises "<function>: the index of input 0 is NaN at event 1; an
+  index must be a number", whatever the index kind of the first event. 2.8.0
+  raised `TypeError` with other texts. Catch `ValueError` (`RangeError`). A
+  lazy `Pipeline` names itself in index-order errors ("Pipeline: the index of
+  input 0 decreases ..."), as `merge` and `combine_latest` do.
 * `Select` on a width-1 stream gives the shape of its `Pipeline` node in
   every form: `Select([0])(x)` on a 1-D `x` is 1-D, `Select([0, 0])(x)` gives
   two columns, the iterator form yields numbers (or tuples for several
@@ -1087,10 +1105,23 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Fixed
 
-* The JavaScript package loads in bundlers (esbuild, Vite, webpack, Rollup)
-  without a copy step: it imports its WebAssembly module with a plain
-  `import()`, and the Emscripten glue's Node-only `import("module")` is left
-  to run time, so a browser build resolves. It runs under a strict
+* `VPIN` on an infinite volume never returned (a loop that packed the volume
+  into buckets), in Python and JavaScript; one bad tick hung a live process.
+  A volume that is not finite (+-inf, or buy plus sell past the double range)
+  is now a missing value, as NaN: the output at that step is NaN and no
+  bucket moves. A finite trade that fills more than `n_buckets` + 2**20
+  buckets closes them in closed form, so a step of 1e308 takes as long as any
+  other; smaller trades give the same results as before, bit for bit.
+* A threshold `Resample` driver of +-inf is a missing value, as NaN: it does
+  not advance the cumulative sum. 2.8.0 closed the open bar at once (+inf)
+  or never closed a bar again (-inf).
+
+* The JavaScript package loads in a bundler without a copy step (tested with
+  esbuild): it imports its WebAssembly module with a plain `import()`, and the
+  Emscripten glue's Node-only `import("module")` is left to run time, so a
+  browser build resolves. Vite, webpack and Rollup follow the same `import()`
+  (not run in the tests). The package's `browser` and `module` export
+  conditions point a bundler at the ES build, also for a `require()`. It runs under a strict
   Content-Security-Policy (`'wasm-unsafe-eval'`, no `'unsafe-eval'`): the ES
   build has no `new Function`. 2.8.0 hid the import in a `Function` body,
   which bundlers skip and a strict CSP refuses.

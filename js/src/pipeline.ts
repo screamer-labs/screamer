@@ -674,6 +674,13 @@ class PipelineImpl implements Owned {
       }
     };
     const counts = srcs.map(() => 0);
+    // An index the engine refuses names the event, as Python's lazy run does
+    // ("Pipeline: the index of event 0 of input 0: index must be ...").
+    const at = (e: unknown, n: number, k: number): unknown => {
+      if (e instanceof Error && e.message.startsWith("index "))
+        e.message = `${this.who}: the index of event ${n} of input ${k}: ${e.message}`;
+      return e;
+    };
     try {
       const cg0 = graph();
       wasmCall(() => { cg0.reset(); cg0.setMergeOrder(true); });
@@ -690,14 +697,14 @@ class PipelineImpl implements Owned {
         const v = ev.value;
         if (typeof v === "number") {
           graph();
-          try { M._screamer_push_event(engine.addr, k, t, v); } catch (e) { throw normalizeError(e); }
+          try { M._screamer_push_event(engine.addr, k, t, v); } catch (e) { throw at(normalizeError(e), n, k); }
         } else {
           const data = v instanceof Float64Array ? v : v.data;
           const buf = M.allocF64(data.length || 1);
           try {
             (M.HEAPF64 as Float64Array).set(data, buf >> 3);
             graph();
-            try { M._screamer_push_event_wide(engine.addr, k, t, buf, data.length); } catch (e) { throw normalizeError(e); }
+            try { M._screamer_push_event_wide(engine.addr, k, t, buf, data.length); } catch (e) { throw at(normalizeError(e), n, k); }
           } finally {
             M.freeBuf(buf);
           }

@@ -23,6 +23,19 @@ namespace nb = nanobind;
 
 namespace screamer { namespace streams {
 
+// A float (Python or NumPy) index that is NaN.
+inline bool is_nan_index(nb::handle h) {
+    PyObject* p = h.ptr();
+    if (PyFloat_Check(p)) { const double d = PyFloat_AsDouble(p); return d != d; }
+    if (PyLong_Check(p) || PyBool_Check(p)) return false;
+    const int floating = PyObject_IsInstance(p, numpy_types().floating);
+    if (floating < 0) { PyErr_Clear(); return false; }
+    if (!floating) return false;
+    const double d = PyFloat_AsDouble(p);
+    if (d == -1.0 && PyErr_Occurred()) { PyErr_Clear(); return false; }
+    return d != d;
+}
+
 // PySource: a Source<Index> that pulls events from a Python iterator.
 //
 // positional=true  - item is a bare scalar; index = arrival counter (int64).
@@ -76,6 +89,11 @@ public:
             if (!nb::try_cast<nb::tuple>(item, tup) || tup.size() < 2)
                 bad(event, "event", item, "a (value, index) pair");
             read_value(nb::borrow<nb::object>(tup[0]), event, ev);
+            // A NaN index is a value problem, with the text of every stream
+            // merge (checked_index.h index_nan_text), whatever the index kind.
+            if (is_nan_index(tup[1]))
+                throw std::invalid_argument(std::string(owner_) + ": " +
+                                            dag::index_nan_text(input_, event));
 
             if constexpr (std::is_integral_v<Index>) {
                 // The engine's index rule, as in a live push (py_index.h), with

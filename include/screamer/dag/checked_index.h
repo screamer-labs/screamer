@@ -52,9 +52,11 @@ struct IndexTypeError : std::invalid_argument {
 
 // The error for a double that checked_index() refused.
 [[noreturn]] inline void throw_bad_index(double d) {
+    // A NaN index is a value problem (ValueError / RangeError), as in a
+    // stream merge (throw_index_nan); the other refusals are kind errors.
     if (std::isnan(d))
-        throw IndexTypeError("index must be finite, got NaN; the streaming engine "
-                             "is int64-indexed");
+        throw std::invalid_argument("index must be finite, got NaN; the streaming engine "
+                                    "is int64-indexed");
     if (std::isinf(d))
         throw IndexTypeError("index must be finite, got infinity; the streaming "
                              "engine is int64-indexed");
@@ -155,9 +157,12 @@ template <class Index>
 // A float index of a stream merge or join must not be NaN: NaN has no place
 // in the index order (every comparison with it is false), so it would pass
 // the order check and give a row at index NaN. ValueError / RangeError.
+inline std::string index_nan_text(std::size_t input, std::size_t event) {
+    return "the index of input " + std::to_string(input) + " is NaN at event " +
+           std::to_string(event) + "; an index must be a number";
+}
 [[noreturn]] SCREAMER_NOINLINE inline void throw_index_nan(std::size_t input, std::size_t event) {
-    throw std::invalid_argument("the index of input " + std::to_string(input) + " is NaN at event " +
-                                std::to_string(event) + "; an index must be a number");
+    throw std::invalid_argument(index_nan_text(input, event));
 }
 
 // The value check of one index of input `input`: free for an integer index.

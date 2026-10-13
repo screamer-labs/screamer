@@ -231,7 +231,7 @@ is a signed trade-flow measure. Call as
 - `threshold=T` must be `> 0` (raises `ValueError` otherwise).
 - `threshold=` is mutually exclusive with `freq=`, `every=`, and `count=`; passing
   two mode selectors raises `ValueError`.
-- A `NaN` driver value is **ignored**: it does not advance the cumulative sum, and
+- A `NaN` or infinite driver value is **ignored**: it does not advance the cumulative sum, and
   the clock does not move. The observation's value **does** contribute to the bar's
   reducer (the bar boundary is not affected by the NaN, but the price is still
   accumulated).

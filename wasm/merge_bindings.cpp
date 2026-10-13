@@ -101,7 +101,10 @@ class MergeStream {
 public:
     static constexpr unsigned kMaxRank = 32;
 
-    explicit MergeStream(unsigned n) : order_(n), events_(n, 0), shape_buf_(kMaxRank) {}
+    // `sameWidth` false: no width rule across the inputs (a lazy Pipeline,
+    // whose inputs have widths of their own; the engine checks each input).
+    MergeStream(unsigned n, bool sameWidth)
+        : order_(n), events_(n, 0), shape_buf_(kMaxRank), same_width_(sameWidth) {}
 
     std::uintptr_t address() { return reinterpret_cast<std::uintptr_t>(this); }
     std::uintptr_t shapeBuffer() { return reinterpret_cast<std::uintptr_t>(shape_buf_.data()); }
@@ -114,7 +117,8 @@ public:
                                         " is more than " + std::to_string(kMaxRank));
         shape_.resize(ndim);
         for (unsigned d = 0; d < ndim; ++d) shape_[d] = static_cast<std::size_t>(shape_buf_[d]);
-        width_.check(i, shape_, static_cast<std::ptrdiff_t>(events_[i]++));
+        const auto ev = static_cast<std::ptrdiff_t>(events_[i]++);
+        if (same_width_) width_.check(i, shape_, ev);
         order_.offer(i, index);
         return next();
     }
@@ -137,6 +141,7 @@ private:
     std::vector<std::size_t> events_;
     std::vector<double> shape_buf_;
     std::vector<std::size_t> shape_;
+    bool same_width_;
 };
 
 }  // namespace
@@ -154,7 +159,7 @@ EMSCRIPTEN_KEEPALIVE int screamer_merge_end(std::uintptr_t s, std::uint32_t i) {
 EMSCRIPTEN_BINDINGS(screamer_merge) {
     emscripten::function("mergeBatch", &mergeBatch);
     emscripten::class_<MergeStream>("MergeStream")
-        .constructor<unsigned>()
+        .constructor<unsigned, bool>()
         .function("address", &MergeStream::address)
         .function("shapeBuffer", &MergeStream::shapeBuffer)
         .function("start", &MergeStream::start);
