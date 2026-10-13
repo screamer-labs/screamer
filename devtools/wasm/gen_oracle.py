@@ -23,7 +23,8 @@ both as one batch call and as a row-at-a-time stream.
 A third fixture, wasm/smoke/oracle_micro.json, covers the five microstructure
 operators that reuse another operator's kernel (SignedVolume, QueueImbalance,
 RollingOrderImbalance, RollingKyleLambda, EwKyleLambda): separate 1-D inputs,
-one packed (T, K, N) array, and a stream of scalar events.
+one packed (T, K, N) array, iterators and a stream of scalar events, on inputs
+with NaN values and with each start policy.
 """
 
 import json
@@ -146,9 +147,11 @@ def reducer_entry():
 def micro_entries():
     """Python results of the five microstructure operators on fixed inputs.
 
-    Each entry records the JavaScript constructor arguments, the inputs (1-D
-    series and one packed (T, K, N) array) and the Python results for the
-    batch call on separate inputs, the packed call, and a scalar stream.
+    The inputs hold NaN values, and the windowed operators run with each
+    start policy. Each entry records the JavaScript constructor arguments,
+    the inputs (1-D series and one packed (T, K, N) array) and the Python
+    results for the batch call on separate inputs, the packed call, and a
+    scalar stream.
     """
     import numpy as np
 
@@ -157,14 +160,20 @@ def micro_entries():
     flow = rng.normal(size=(T, K))
     ret = 0.8 * flow + rng.normal(scale=0.3, size=(T, K))
     size = rng.exponential(1.0, size=(T, K, 2))
+    flow[[3, 17], [0, 1]] = np.nan
+    ret[[9, 17], [0, 2]] = np.nan
+    size[[5, 22], [0, 0], [0, 1]] = np.nan
     ops = [
         ("SignedVolume", screamer.SignedVolume, (), [], [np.sign(flow), np.abs(ret)]),
         ("QueueImbalance", screamer.QueueImbalance, (), [], [size[..., 0], size[..., 1]]),
-        ("RollingOrderImbalance", screamer.RollingOrderImbalance, (5,), [5], [flow]),
-        ("RollingKyleLambda", screamer.RollingKyleLambda, (8,), [8], [flow, ret]),
         ("EwKyleLambda", lambda: screamer.EwKyleLambda(span=6.0), (), [None, 6.0, None, None],
          [flow, ret]),
     ]
+    for policy in ("strict", "expanding", "zero"):
+        ops += [
+            ("RollingOrderImbalance", screamer.RollingOrderImbalance, (5, policy), [5, policy], [flow]),
+            ("RollingKyleLambda", screamer.RollingKyleLambda, (8, policy), [8, policy], [flow, ret]),
+        ]
 
     def nums(a):
         return [jsonify(float(v)) for v in np.ravel(a)]

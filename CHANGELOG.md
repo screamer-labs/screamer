@@ -89,6 +89,14 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Changed
 
+* The microstructure operators report a wrong set of inputs with their own
+  name and input names. `SignedVolume`, `QueueImbalance`, `RollingKyleLambda`
+  and `EwKyleLambda` raise `TypeError` with messages such as
+  `RollingKyleLambda() missing 1 required input: 'return_'` and
+  `SignedVolume() takes 2 inputs, got 3 positional`, where 2.8.0 gave Python's
+  `RollingKyleLambda.__call__() ...` messages. `RollingOrderImbalance` raises
+  the `TypeError` of every one-input operator, which names its `signed_flow`
+  input. The exception class is unchanged.
 * JavaScript: a `Pipeline` with several outputs aligns them on one index by
   default (`alignOutputs`, above). 2.8.0 ignored the options argument and
   returned each output on its own index; pass `{ alignOutputs: false }` for
@@ -609,12 +617,12 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   the sync and async operator streams, lazy `Pipeline` calls and lazy `Merge`.
 * `RollingSkew` and `RollingKurt` (and `RollingVar`, `RollingStd`,
   `RollingZscore`, `RollingSharpe`, `BollingerBands`, `RollingSigmaClip`,
-  `RollingCov`, `RollingCorr`, `RollingBeta`, `RollingSpread`, `RollingAlpha`,
-  `RollingTLSBeta`, `RollingLinearRegression`, `RollingResidualStd`,
-  `ExpandingVar`, `ExpandingStd`, `ExpandingSkew`, `ExpandingKurt`, `EwVar`,
-  `EwStd`, `EwSkew`, `EwKurt`, `EwZscore`, `EwCov`, `EwCorr`, `EwBeta`,
-  `EwSpread`, `EwAlpha`, `EwResidualStd`, `EwYangZhangVar` and
-  `EwYangZhangVol`) were inaccurate when the mean is large next to the spread,
+  `RollingCov`, `RollingCorr`, `RollingBeta`, `RollingKyleLambda`,
+  `RollingSpread`, `RollingAlpha`, `RollingTLSBeta`, `RollingLinearRegression`,
+  `RollingResidualStd`, `ExpandingVar`, `ExpandingStd`, `ExpandingSkew`,
+  `ExpandingKurt`, `EwVar`, `EwStd`, `EwSkew`, `EwKurt`, `EwZscore`, `EwCov`,
+  `EwCorr`, `EwBeta`, `EwKyleLambda`, `EwSpread`, `EwAlpha`, `EwResidualStd`,
+  `EwYangZhangVar` and `EwYangZhangVol`) were inaccurate when the mean is large next to the spread,
   for example on price levels; they now use a numerically stable update. On a
   series near 1000 with unit moves, `RollingKurt` was off by up to 8e-2 and
   `RollingVar` by 4e-9 of their values; at 1e6 the raw sums had no correct

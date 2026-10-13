@@ -1256,29 +1256,43 @@ inline bool holds_all_fields(nb::handle x) {
 inline std::string quoted(const char* s) { return std::string("'") + s + "'"; }
 }  // namespace detail
 
+// Op::kInputNames as interned Python strings, made once (under the GIL) by
+// the binding's registration; a keyword lookup then allocates nothing.
+template <class Op>
+const std::array<PyObject*, Op::kInputNames.size()>& input_name_objects() {
+    static const auto names = [] {
+        std::array<PyObject*, Op::kInputNames.size()> r{};
+        for (std::size_t i = 0; i < r.size(); ++i)
+            r[i] = PyUnicode_InternFromString(Op::kInputNames[i]);   // kept for the process
+        return r;
+    }();
+    return names;
+}
+
 // The positional inputs of a call to an operator that names its inputs in
 // Op::kInputNames. Positional inputs fill the names from the left and
 // keywords fill the rest, as in a Python signature. Without keywords the
 // inputs pass through, so the packed and iterator forms keep working; one
 // input that cannot hold every field (a 1-D array, a number) is a missing
-// input.
+// input. `kwargs` may be null (no keywords). The operator's Python object is
+// looked up only to name it in an error.
 template <class Op>
-nb::args named_inputs(nb::handle self, const nb::args& args, const nb::kwargs& kwargs) {
+nb::args named_inputs(Op& self, const nb::args& args, PyObject* kwargs) {
     constexpr auto& names = Op::kInputNames;
     constexpr std::size_t N = names.size();
     const std::size_t given = args.size();
-    const std::size_t n_kw = kwargs.size();
+    const std::size_t n_kw = kwargs ? static_cast<std::size_t>(PyDict_Size(kwargs)) : 0;
     if (n_kw == 0 && given == N) return args;            // the common call, unchanged
-    // One dictionary lookup per name; the messages are built only on an error.
     PyObject* value[N];
     std::size_t found = 0;
+    const auto& keys = input_name_objects<Op>();
     for (std::size_t i = 0; i < N; ++i) {
-        value[i] = n_kw ? PyDict_GetItemString(kwargs.ptr(), names[i]) : nullptr;  // borrowed
+        value[i] = n_kw ? PyDict_GetItem(kwargs, keys[i]) : nullptr;   // borrowed
         found += value[i] != nullptr;
     }
-    auto who = [&] { return op_display_name(self) + "()"; };
+    auto who = [&] { return op_display_name(nb::find(self)) + "()"; };
     if (found != n_kw) {
-        for (auto [key, unused] : kwargs) {
+        for (auto [key, unused] : nb::borrow<nb::dict>(kwargs)) {
             const std::string k = nb::cast<std::string>(nb::str(key));
             if (std::none_of(names.begin(), names.end(), [&](const char* n) { return k == n; }))
                 throw nb::type_error((who() + " got an unexpected keyword argument " +
@@ -1311,19 +1325,20 @@ nb::args named_inputs(nb::handle self, const nb::args& args, const nb::kwargs& k
     return nb::borrow<nb::args>(merged);
 }
 
-// __call__ of a FunctorBase operator with named inputs: the keywords become
-// positional inputs, then every call path of functor_call applies.
+// __call__ of a FunctorBase operator with named inputs, in two overloads.
+// The positional one is registered first and takes every call without
+// keywords, so that call costs what the kernel operator's call costs; the
+// keyword one merges the keywords into positions. Both then run every call
+// path of functor_call.
 template <class Op>
-nb::object functor_call_named(Op& self, nb::args args, nb::kwargs kwargs) {
-    return functor_call<Op>(self, named_inputs<Op>(nb::find(self), args, kwargs));
+nb::object functor_call_positional(Op& self, nb::args args) {
+    if (args.size() == Op::kN) return functor_call<Op>(self, std::move(args));
+    return functor_call<Op>(self, named_inputs<Op>(self, args, nullptr));
 }
 
-// __call__ of a ScreamerBase (one-input) operator with a named input.
 template <class Op>
-nb::object screamer_call_named(Op& self, nb::args args, nb::kwargs kwargs) {
-    static_assert(Op::kInputNames.size() == 1, "a ScreamerBase operator has one input");
-    nb::args in = named_inputs<Op>(nb::find(self), args, kwargs);
-    return screamer_call(self, nb::borrow<nb::object>(in[0]));
+nb::object functor_call_named(Op& self, nb::args args, nb::kwargs kwargs) {
+    return functor_call<Op>(self, named_inputs<Op>(self, args, kwargs.ptr()));
 }
 
 }  // namespace screamer
