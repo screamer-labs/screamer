@@ -556,7 +556,14 @@ static dag::json::Value to_json_value(nb::handle x, int depth = 0) {
     if (PyLong_Check(p)) {
         int overflow = 0;
         const long long v = PyLong_AsLongLongAndOverflow(p, &overflow);
-        if (overflow) return V::number(PyLong_AsDouble(p));
+        if (overflow) {   // past int64: the digits, as json.dumps writes them
+            double d = PyLong_AsDouble(p);
+            if (d == -1.0 && PyErr_Occurred()) {
+                PyErr_Clear();
+                d = overflow > 0 ? HUGE_VAL : -HUGE_VAL;
+            }
+            return V::big_integer(d, nb::cast<std::string>(nb::str(x)));
+        }
         return V::integer(static_cast<std::int64_t>(v));
     }
     if (PyFloat_Check(p)) return V::number(PyFloat_AsDouble(p));
@@ -598,7 +605,13 @@ static nb::object from_json_value(const dag::json::Value& v) {
     case K::Null: return nb::none();
     case K::Bool: return nb::bool_(v.b);
     case K::Int: return nb::int_(v.i);
-    case K::Float: return nb::float_(v.d);
+    case K::Float:
+        if (v.whole) {
+            PyObject* n = PyLong_FromString(v.s.c_str(), nullptr, 10);
+            if (!n) throw nb::python_error();
+            return nb::steal(n);
+        }
+        return nb::float_(v.d);
     case K::String: return nb::str(v.s.c_str(), v.s.size());
     case K::Array: {
         nb::list l;

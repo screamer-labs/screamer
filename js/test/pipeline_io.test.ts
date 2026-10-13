@@ -225,3 +225,13 @@ test("pipeline io: a malformed text or description throws naming the problem", (
   assert.throws(() => Pipeline.fromJSON(twoIn), { name: "RangeError",
     message: "Pipeline description: node 3 (RollingMean) takes 1 input, got 2" });
 });
+
+test("fromJSON: an integer past int64 gives the setting's range message (N7)", async () => {
+  await ready();
+  const x = Input("x");
+  const p = new Pipeline([x], [RollingMean(3)(x)]);
+  const text = JSON.stringify(p.toJSON());
+  p.dispose();
+  assert.throws(() => Pipeline.fromJSON(text.replace('"windowSize":3', '"windowSize":18446744073709551616').replace('"window_size":3', '"window_size":18446744073709551616')),
+    (e: unknown) => e instanceof RangeError && /window_?[sS]ize must be at most 2147483647/.test((e as Error).message));
+});

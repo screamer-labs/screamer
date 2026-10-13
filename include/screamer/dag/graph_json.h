@@ -114,7 +114,8 @@ struct Value {
     bool b = false;
     std::int64_t i = 0;
     double d = 0.0;
-    std::string s;
+    std::string s;          // a String; for a whole Float past int64, its digits
+    bool whole = false;     // a Float written as a whole number past int64
     std::vector<Value> a;
     std::vector<std::pair<std::string, Value>> o;   // in insertion order
 
@@ -122,6 +123,15 @@ struct Value {
     static Value boolean(bool v) { Value x; x.kind = Kind::Bool; x.b = v; return x; }
     static Value integer(std::int64_t v) { Value x; x.kind = Kind::Int; x.i = v; return x; }
     static Value number(double v) { Value x; x.kind = Kind::Float; x.d = v; return x; }
+    // A whole number past the int64 range: a Float that keeps its digits, so
+    // a binding reads it as an integer (a setting then says "must be at
+    // most") and the writer writes the digits back.
+    static Value big_integer(double v, std::string digits) {
+        Value x = number(v);
+        x.whole = true;
+        x.s = std::move(digits);
+        return x;
+    }
     static Value string(std::string v) { Value x; x.kind = Kind::String; x.s = std::move(v); return x; }
     static Value array() { Value x; x.kind = Kind::Array; return x; }
     static Value object() { Value x; x.kind = Kind::Object; return x; }
@@ -356,6 +366,7 @@ private:
             }
             if (fits)
                 return Value::integer(neg ? static_cast<std::int64_t>(0 - u) : static_cast<std::int64_t>(u));
+            return Value::big_integer(json::detail::read_double(text), text);
         }
         return Value::number(json::detail::read_double(text));
     }
@@ -462,7 +473,7 @@ inline void write(std::string& out, const Value& v, int indent, int level) {
     case K::Null: out += "null"; return;
     case K::Bool: out += v.b ? "true" : "false"; return;
     case K::Int: out += json::detail::int_text(v.i); return;
-    case K::Float: out += float_text(v.d); return;
+    case K::Float: out += v.whole ? v.s : float_text(v.d); return;
     case K::String: write_string(out, v.s); return;
     case K::Array:
         if (v.a.empty()) { out += "[]"; return; }

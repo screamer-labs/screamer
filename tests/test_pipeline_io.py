@@ -276,10 +276,22 @@ def test_every_double_is_written_as_json_dumps_and_read_back_bit_exact(locale_na
 def test_numbers_beyond_the_double_range_read_as_python_reads_them():
     d = _description({"scale": 1.0})
     for token, want in [("1e309", math.inf), ("-1e309", -math.inf), ("1e-400", 0.0),
-                        ("123456789012345678901234567890", 1.2345678901234568e29),
-                        ("-9223372036854775808", -9223372036854775808), ("9223372036854775808", 9.223372036854776e18)]:
+                        ("123456789012345678901234567890", 123456789012345678901234567890),
+                        ("-9223372036854775808", -9223372036854775808), ("9223372036854775808", 9223372036854775808)]:
         text = json.dumps(d).replace('"scale": 1.0', f'"scale": {token}')
         got = _b._graph_from_json(text)["nodes"][1]["params"]["scale"]
-        # An integer beyond int64 is read as the nearest double (Python's
-        # json keeps the int); every other value is json's.
-        assert got == want and float(got) == float(json.loads(text)["nodes"][1]["params"]["scale"])
+        # An integer beyond int64 stays an int, as Python's json reads it.
+        assert got == want == json.loads(text)["nodes"][1]["params"]["scale"]
+        assert type(got) is type(want)
+
+
+def test_a_json_integer_past_int64_gives_the_range_message():
+    # A whole literal past int64 reads as an integer (deferred N7), so the
+    # setting's range check names it, as for 2**40.
+    x = Input("x")
+    text = Pipeline([x], [RollingMean(3)(x)]).to_json()
+    for big, msg in [("18446744073709551616", "must be at most 2147483647, got 18446744073709551616"),
+                     ("-18446744073709551616", "must be at least 1, got -18446744073709551616"),
+                     ("1099511627776", "must be at most 2147483647, got 1099511627776")]:
+        with pytest.raises(ValueError, match="RollingMean: window_size " + msg):
+            Pipeline.from_json(text.replace('"window_size": 3', '"window_size": ' + big))

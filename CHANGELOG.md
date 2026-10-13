@@ -932,6 +932,12 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Fixed
 
+* `Pipeline.from_json` read a whole number past the int64 range as a float,
+  so `"window_size": 18446744073709551616` raised `TypeError` ("must be an
+  integer"). It reads as an integer, as Python's `json` reads it, and gives
+  the setting's `ValueError` ("RollingMean: window_size must be at most
+  2147483647, got 18446744073709551616"); `to_json` writes it back as the
+  same digits.
 * `split` with a large source id (one output per id up to it) threw the
   C++ text `RangeError: vector` in JavaScript when the outputs did not fit
   in memory. It raises `ValueError` (`RangeError` in JavaScript), "split:
