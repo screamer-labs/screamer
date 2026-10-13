@@ -18122,6 +18122,122 @@
   "TypeError",
   "float() argument must be a string or a real number, not 'list'"
  ],
+ "CombineLatest tuple of lists": [
+  "ERROR",
+  "RuntimeError",
+  "std::bad_cast"
+ ],
+ "CombineLatest Series index": [
+  "pair",
+  [
+   "ndarray",
+   [
+    59,
+    2
+   ],
+   "f",
+   11959.640162,
+   "223fc99a58aaef85"
+  ],
+  [
+   "ndarray",
+   [
+    59
+   ],
+   "i",
+   8850.0,
+   "069e38817912f96b"
+  ]
+ ],
+ "CombineLatest tuple of 3 floats": [
+  "pair",
+  [
+   "ndarray",
+   [
+    3,
+    2
+   ],
+   "f",
+   12.0,
+   "56d4a9d280acdcb9"
+  ],
+  [
+   "NoneType"
+  ]
+ ],
+ "CombineLatest tuple of 2 floats": [
+  "pair",
+  [
+   "ndarray",
+   [
+    2,
+    2
+   ],
+   "f",
+   6.0,
+   "1bcd3c41c8609ab8"
+  ],
+  [
+   "NoneType"
+  ]
+ ],
+ "merge tuple of lists": [
+  "ERROR",
+  "RuntimeError",
+  "std::bad_cast"
+ ],
+ "split tuple of lists": [
+  "ERROR",
+  "TypeError",
+  "_split_i64(): incompatible function arguments. The following argument "
+ ],
+ "Pipeline tuple of lists": [
+  "ERROR",
+  "RuntimeError",
+  "dag::FunctorNode: frame width does not match op n_in"
+ ],
+ "forecast_pairs count tuple X": [
+  "pair",
+  [
+   "ndarray",
+   [
+    3
+   ],
+   "f",
+   3.0,
+   "12eeac99d48553ff"
+  ],
+  [
+   "ndarray",
+   [
+    3
+   ],
+   "f",
+   6.0,
+   "380e84549cb84560"
+  ]
+ ],
+ "forecast_pairs duration lists": [
+  "pair",
+  [
+   "ndarray",
+   [
+    0
+   ],
+   "f",
+   0.0,
+   "da39a3ee5e6b4b0d"
+  ],
+  [
+   "ndarray",
+   [
+    0
+   ],
+   "f",
+   0.0,
+   "da39a3ee5e6b4b0d"
+  ]
+ ],
  "CombineLatest lazy indexed two-value tuples": [
   "list",
   2,

@@ -485,6 +485,17 @@ def cases():
         "CombineLatest list of two rows": lambda: CL()([X[0, :2], X[1, :2]], [w[:2], v[:2]]),
         "CombineLatest lazy positional two-value lists": lambda: lz(CL()(
             iter([[1.0, 2.0], [3.0, 4.0]]), iter([[5.0, 6.0], [7.0, 8.0]]))),
+        "CombineLatest tuple of lists": lambda: CL()(([1.0, 2.0], [0, 1]), ([3.0, 4.0], [0, 1])),
+        "CombineLatest Series index": lambda: CL()((v, pd.Series(idx)), (w, pd.Index(idx + 5))),
+        "CombineLatest tuple of 3 floats": lambda: CL()((1.0, 2.0, 3.0), [1.0, 2.0, 3.0]),
+        "CombineLatest tuple of 2 floats": lambda: CL()((1.0, 2.0), [1.0, 2.0]),
+        "merge tuple of lists": lambda: merge(([1.0, 2.0], [0, 2]), ([3.0], [1])),
+        "split tuple of lists": lambda: s.split(([1.0, 2.0], [5, 6]), [0, 1]),
+        "Pipeline tuple of lists": lambda: (lambda x: s.Pipeline([x], [s.RollingMean(1)(x)]))(
+            s.Input("x"))(([1.0, 2.0], [0, 1])),
+        "forecast_pairs count tuple X": lambda: s.forecast_pairs((1.0, 2.0, 3.0), [1.0, 2.0, 3.0], count=1),
+        "forecast_pairs duration lists": lambda: s.forecast_pairs(
+            ([1.0, 2.0], [0, 10]), ([1.0, 2.0], [0, 10]), duration=5),
         "CombineLatest lazy indexed two-value tuples": lambda: lz(CL()(
             iter([(1.0, 2), (3.0, 4)]), iter([(5.0, 6), (7.0, 8)]))),
     })
