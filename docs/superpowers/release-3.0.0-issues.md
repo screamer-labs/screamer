@@ -114,6 +114,18 @@ Goal: zero open issues before `make major`. Each item is closed by a fix with a 
 | G32 | A Python Pipeline feed `(values, index)` whose index is shorter than the values reads past the end of the index array (garbage indexes or a false "index decreases" error); JS reads the flat values as 2-column rows instead. Also in 2.8.0. Found in Task 32. | decided (controller ruling, 2026-10-13, rules 4 and 5): every `(values, index)` entry point (Pipeline batch/lazy/live, merge, combine_latest, resample, delay, split, forecast_pairs) checks that the lengths match before reading, one shared C++ check, ValueError/RangeError naming both lengths, both languages; Fixed line; done (db3820e) |
 | G33 | `BacktestPortfolioTarget` and `BacktestPortfolioOHLCTarget` refuse a packed argument ("takes N inputs, got 1"), so rule 4's second spelling is missing for them. Also: the copy path for a non-contiguous misaligned float64 view reads through a `const double*` cast (undefined behaviour). Found in Task 32. | decided (controller ruling, 2026-10-13, rule 4 and stability): the panel engines accept a packed (T, K, F) array with F last, same results and cost as separate; the non-contiguous misaligned path copies bytewise (memcpy) instead of casting; done (fe5fd8d, 5d47134) |
 
+## H. Final whole-branch review (2026-10-13)
+
+Three reviewers split the branch by area. Each row closes when every finding in its review file is fixed or accepted with a reason; the rulings are in the SDD ledger.
+
+| # | Issue | Status |
+|---|---|---|
+| H1 | C++ core and engine: live multi-producer ordering, push after `flush()`, int64 index overflow, 32-bit event counters, combine_latest over-reserve, output alignment not capped by `max_pending`, and minors. | decided (controller rulings, 2026-10-13); to fix |
+| H2 | Python: crash on datetime64/timedelta64 scalars and ctypes arrays, eager wide `Dropna`/`Select` with equal indexes, input-count error class, pandas Timestamp error, combine_latest iterator fractional index, docs and test fixes, and minors. | decided (controller rulings, 2026-10-13); to fix |
+| H3 | JavaScript: `PortfolioReport` freed while a Pipeline uses it, resample settings unchecked, unchecked heap allocation, bundler import, one-input multi-output container, per-event call cost, and minors. | decided (controller rulings, 2026-10-13); to fix |
+| H4 | Two Pipelines built from the same operators share their state (both languages). | decided (controller ruling, 2026-10-13): each Pipeline owns its operators' state; Changed line; to fix |
+| B9 | Python-only features with no JS form: direct array forms of Resample, Select, Filter, Dropna and Delay; a lazy Pipeline over iterators; `MARKET`. | decided (controller ruling, 2026-10-13, parity default): add them to JS; to implement |
+
 ## Future features (not in 3.0.0)
 
 - `permute_bars` / `permute_returns` on `(T, K)` input as public functions (the kernels already handle it inside `strategy_test`); needs a decision on where the copy axis goes. In 3.0.0 they take a series and raise ValueError on 2-D input. (From C2.)
