@@ -305,6 +305,7 @@ static nb::object run_functor_batch(
         InValues values) {
     check_feed_rank(values, 0);
     std::size_t T = static_cast<std::size_t>(values.shape(0));
+    dag::check_feed_length("run_functor_batch", -1, T, static_cast<std::size_t>(index.shape(0)));
     std::size_t width = (values.ndim() == 1)
         ? 1u : static_cast<std::size_t>(values.shape(1));
     if (width != op.n_in()) {
@@ -559,7 +560,15 @@ static dag::json::Value to_json_value(nb::handle x, int depth = 0) {
         return V::integer(static_cast<std::int64_t>(v));
     }
     if (PyFloat_Check(p)) return V::number(PyFloat_AsDouble(p));
-    if (PyUnicode_Check(p)) return V::string(nb::cast<std::string>(x));
+    if (PyUnicode_Check(p)) {
+        Py_ssize_t n = 0;
+        const char* u = PyUnicode_AsUTF8AndSize(p, &n);
+        if (!u) {   // a lone surrogate has no UTF-8 form
+            PyErr_Clear();
+            throw nb::value_error("Pipeline description: a lone surrogate in a string");
+        }
+        return V::string(std::string(u, static_cast<std::size_t>(n)));
+    }
     if (PyDict_Check(p)) {
         V o = V::object();
         for (auto kv : nb::borrow<nb::dict>(x)) {
@@ -612,8 +621,16 @@ void init_bindings_dag(nb::module_& m) {
     m.def("_graph_check", [](nb::handle d) {
         return from_json_value(dag::check_graph(to_json_value(d)));
     }, "description"_a);
-    m.def("_graph_from_json", [](const std::string& text) {
-        return from_json_value(dag::check_graph(dag::json::parse(text)));
+    m.def("_graph_from_json", [](nb::handle text) {
+        Py_ssize_t n = 0;
+        const char* u = PyUnicode_Check(text.ptr()) ? PyUnicode_AsUTF8AndSize(text.ptr(), &n) : nullptr;
+        if (!u) {
+            PyErr_Clear();
+            if (!PyUnicode_Check(text.ptr()))
+                throw nb::type_error("Pipeline.from_json takes the JSON text (a str)");
+            throw nb::value_error("invalid Pipeline JSON: a lone surrogate in a string");
+        }
+        return from_json_value(dag::check_graph(dag::json::parse(std::string(u, static_cast<std::size_t>(n)))));
     }, "text"_a);
     m.def("_graph_to_json", [](nb::handle d, nb::handle indent) {
         const int ind = indent.is_none() ? -1 : nb::cast<int>(indent);
@@ -621,6 +638,7 @@ void init_bindings_dag(nb::module_& m) {
     }, "description"_a, "indent"_a.none());
     m.def("_unknown_functor", [](const std::string& name) { dag::throw_unknown_functor(name); },
           "name"_a);
+    m.def("_check_functor_inputs", &dag::check_functor_inputs, "node"_a, "cls"_a, "n_in"_a, "got"_a);
     // The engine's index rule raises TypeError in Python.
     nb::register_exception_translator(
         [](const std::exception_ptr& p, void*) {

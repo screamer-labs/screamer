@@ -8,7 +8,6 @@ import { combineLatest, delay, dropna, filter, resample, select } from "./combin
 import { forecastPairs } from "./supervised.js";
 import * as ops from "./generated/ops.js";
 import { current } from "./index.js";
-import { wasmCall } from "./errors.js";
 import { aKind } from "./kinds.js";
 import { SETTINGS } from "./runtime.js";
 
@@ -86,30 +85,29 @@ export function describe(inputs: Node[], outputs: Node[], alignOutputs: boolean,
   };
 }
 
+// The result of a C++ graph call: { value } or { error }, the error thrown
+// here (graph_json_bindings.cpp never throws, so a bad description frees
+// everything it was given).
+function unwrap(r: { value?: any; error?: string }): any {
+  if (r.error !== undefined) throw new RangeError(r.error);
+  return r.value;
+}
+
 /** The JSON text of a description, as Python's `to_json(indent)` writes it. */
 export function describeJson(d: Dict, indent: unknown): string {
   if (indent !== null && (typeof indent !== "number" || !Number.isInteger(indent) || indent < 0))
-    throw new TypeError(`Pipeline.toJSON: indent must be a non-negative integer or null, got ${aKind(indent)}`);
+    throw new TypeError(`Pipeline.toJSONText: indent must be a non-negative integer or null, got ${aKind(indent)}`);
   const M: any = current();
-  const text = jsonText(d);
-  return wasmCall(() => M.graphToJson(text, indent === null ? -1 : (indent as number)));
+  return unwrap(M.graphToJson(jsonText(d), indent === null ? -1 : (indent as number)));
 }
 
-/** A description checked against the shared schema, in its normal form. */
-export function checkJson(text: unknown): Dict {
-  if (typeof text !== "string")
-    throw new TypeError(`Pipeline.fromJSON: takes the JSON text (a string), got ${aKind(text)}; ` +
-      "use Pipeline.fromDict for an object");
+/** A description, JSON text or an object, checked against the shared schema, in its normal form. */
+export function checkDescription(x: unknown, who: string): Dict {
   const M: any = current();
-  return wasmCall(() => M.graphFromJson(text));
-}
-
-export function checkDict(d: unknown): Dict {
-  if (d === null || typeof d !== "object" || Array.isArray(d))
-    throw new TypeError(`Pipeline.fromDict: takes a description object, got ${aKind(d)}`);
-  const M: any = current();
-  const text = jsonText(d);
-  return wasmCall(() => M.graphFromJson(text));
+  if (typeof x === "string") return unwrap(M.graphFromJson(x));
+  if (x === null || typeof x !== "object" || Array.isArray(x))
+    throw new TypeError(`${who}: takes the JSON text or a description object, got ${aKind(x)}`);
+  return unwrap(M.graphFromJson(jsonText(x)));
 }
 
 const camel = (k: string) => k.replace(/_([a-z0-9])/g, (_m, c) => c.toUpperCase());
@@ -118,10 +116,7 @@ const camel = (k: string) => k.replace(/_([a-z0-9])/g, (_m, c) => c.toUpperCase(
 // positionally under "args", Python's fallback for a functor without a schema).
 function makeFunctor(cls: string, params: Dict): any {
   const factory = /^[A-Z]/.test(cls) ? (ops as any)[cls] : undefined;
-  if (typeof factory !== "function") {
-    const M: any = current();
-    wasmCall(() => M.throwUnknownFunctor(cls));
-  }
+  if (typeof factory !== "function") throw new RangeError((current() as any).unknownFunctorMessage(cls));
   const { args, ...named } = params;
   if (args !== undefined) return factory(...(args as unknown[]));
   const options: Dict = {};
@@ -164,7 +159,7 @@ function makeOperator(op: string, p: Dict, feeds: Node[]): Node {
 export function build(d: Dict): { inputs: Node[]; outputs: Node[]; opts: Dict } {
   const built = new Map<number, Node>();
   const byName = new Map<string, Node>();
-  for (const n of d.nodes as Dict[]) {
+  for (const [k, n] of (d.nodes as Dict[]).entries()) {
     if (n.kind === "input") {
       const node = Input(n.name);
       built.set(n.id, node);
@@ -172,7 +167,14 @@ export function build(d: Dict): { inputs: Node[]; outputs: Node[]; opts: Dict } 
       continue;
     }
     const feeds = (n.in as number[]).map((i) => built.get(i)!);
-    built.set(n.id, n.kind === "functor" ? makeFunctor(n.cls, n.params)(...feeds) : makeOperator(n.op, n.params, feeds));
+    if (n.kind === "functor") {
+      const op = makeFunctor(n.cls, n.params);
+      const msg = (current() as any).functorInputsMessage(k, n.cls, op.numInputs, feeds.length) as string;
+      if (msg) { op.dispose(); throw new RangeError(msg); }
+      built.set(n.id, op(...feeds));
+    } else {
+      built.set(n.id, makeOperator(n.op, n.params, feeds));
+    }
   }
   const opts: Dict = { alignOutputs: d.align_outputs };
   if (d.max_pending !== undefined) opts.maxPending = d.max_pending;

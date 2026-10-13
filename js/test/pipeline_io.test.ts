@@ -67,7 +67,7 @@ function sameOutputs(got: Plain[], want: Plain[], what: string) {
 
 // The checked description of a text, to compare two texts as descriptions
 // (JavaScript writes 3 where Python writes 3.0).
-const described = (text: string) => (current() as any).graphFromJson(text);
+const described = (text: string) => (current() as any).graphFromJson(text).value;
 
 function run(p: Pipeline, c: { inputs: string[]; feeds: Plain[] }) {
   return plain(p(feedsOf(c) as any));
@@ -80,8 +80,12 @@ test("pipeline io: every graph Python saved loads and runs to Python's results",
     try {
       sameOutputs(run(p, c), c.outputs, c.name);
       // JavaScript writes the same description, and the text loads again.
-      const text = p.toJSON();
-      assert.deepEqual(described(text), described(c.json), `${c.name}: toJSON`);
+      const text = p.toJSONText();
+      assert.deepEqual(described(text), described(c.json), `${c.name}: toJSONText`);
+      // toJSON() is the description object; JSON.stringify(p) its text.
+      assert.deepEqual(p.toJSON(), p.toDict());
+      if (!/NaN|Infinity/.test(c.json))
+        assert.deepEqual(described(JSON.stringify(p)), described(c.json), `${c.name}: JSON.stringify`);
       const q = Pipeline.fromJSON(text);
       sameOutputs(run(q, c), c.outputs, `${c.name} (reloaded)`);
       q.dispose();
@@ -93,21 +97,25 @@ test("pipeline io: every graph Python saved loads and runs to Python's results",
   }
 });
 
-test("pipeline io: toJSON writes Python's text for the same description", () => {
+test("pipeline io: toJSONText writes Python's text; toJSON is the object JSON.stringify writes", () => {
   // Without floats that JavaScript writes as integers, the text is Python's.
   const c = cases.find((x) => x.name === "Resample count agg=EwMean(alpha=0.5)")!;
   const p = Pipeline.fromJSON(c.json);
-  assert.equal(p.toJSON(), c.json);
-  assert.equal(JSON.stringify(p), JSON.stringify(c.json));
+  assert.equal(p.toJSONText(), c.json);
+  assert.equal(JSON.stringify(p), JSON.stringify(p.toDict()));
+  assert.equal(JSON.stringify({ model: p }), JSON.stringify({ model: p.toDict() }));   // embeds, not double-encoded
+  // fromJSON takes the text or the object.
+  assert.equal(Pipeline.fromJSON(JSON.stringify(p)).toJSONText(), c.json);
+  assert.equal(Pipeline.fromJSON(p.toJSON()).toJSONText(), c.json);
   // indent null: one line, as Python's to_json(indent=None).
-  assert.ok(!p.toJSON(null).includes("\n"));
-  assert.deepEqual(described(p.toJSON(null)), described(c.json));
-  assert.throws(() => p.toJSON(-1), { name: "TypeError" });
+  assert.ok(!p.toJSONText(null).includes("\n"));
+  assert.deepEqual(described(p.toJSONText(null)), described(c.json));
+  assert.throws(() => p.toJSONText(-1), { name: "TypeError" });
   assert.deepEqual(Pipeline.fromDict(p.toDict()).toDict(), p.toDict());
   p.dispose();
   // Settings that are not finite are written as Python writes them.
   const clip = Pipeline.fromJSON(cases.find((x) => x.name === "Clip -inf")!.json);
-  assert.match(clip.toJSON(), /"lower": -Infinity/);
+  assert.match(clip.toJSONText(), /"lower": -Infinity/);
   assert.equal((clip.toDict() as any).nodes[1].params.lower, -Infinity);
   clip.dispose();
 });
@@ -147,12 +155,12 @@ test("pipeline io: graphs JavaScript saves load in Python (wasm/smoke/pipeline_i
   const entries: Case[] = [];
   for (const c of cases) {
     const p = Pipeline.fromJSON(c.json);
-    entries.push({ name: c.name, json: p.toJSON(), inputs: c.inputs, feeds: c.feeds, outputs: run(p, c) });
+    entries.push({ name: c.name, json: p.toJSONText(), inputs: c.inputs, feeds: c.feeds, outputs: run(p, c) });
     p.dispose();
   }
   for (const g of nativeGraphs()) {
     const base = cases.find((x) => x.name === g.from)!;
-    entries.push({ name: g.name, json: g.pipe.toJSON(), inputs: base.inputs, feeds: base.feeds, outputs: run(g.pipe, base) });
+    entries.push({ name: g.name, json: g.pipe.toJSONText(), inputs: base.inputs, feeds: base.feeds, outputs: run(g.pipe, base) });
     g.pipe.dispose();
   }
   if (process.env.WRITE_PIPELINE_IO) {
@@ -192,6 +200,18 @@ test("pipeline io: a malformed text or description throws naming the problem", (
   // A setting its factory refuses throws as the factory does.
   assert.throws(() => Pipeline.fromJSON(JSON.stringify({ ...d, nodes: [d.nodes[0], { ...d.nodes[1], params: { window_size: "3" } }] })),
     { name: "TypeError", message: "RollingMean: windowSize must be an integer, got a string" });
-  assert.throws(() => Pipeline.fromJSON(d as any), { name: "TypeError" });
+  assert.throws(() => Pipeline.fromJSON(5 as any), { name: "TypeError" });
   assert.throws(() => Pipeline.fromDict("x" as any), { name: "TypeError" });
+  // The object form takes the same checks.
+  assert.throws(() => Pipeline.fromJSON({ ...d, screamer_dag: 2 }),
+    { name: "RangeError", message: "unsupported screamer_dag version: 2 (expected 1)" });
+  // A lone surrogate is refused (G6 of the review).
+  assert.throws(() => Pipeline.fromJSON(ok.replace('"x"', '"\\ud800"')),
+    (e: unknown) => e instanceof RangeError && /^invalid Pipeline JSON: a lone surrogate in a string at line \d+, column \d+$/.test((e as Error).message));
+  // A functor fed another number of inputs.
+  const twoIn = JSON.parse(cases.find((x) => x.name === "CombineLatest")!.json);
+  twoIn.nodes.push({ id: 9, kind: "functor", cls: "RollingMean", params: {}, in: [0, 1] });
+  twoIn.outputs = [9];
+  assert.throws(() => Pipeline.fromJSON(twoIn), { name: "RangeError",
+    message: "Pipeline description: node 3 (RollingMean) takes 1 input, got 2" });
 });

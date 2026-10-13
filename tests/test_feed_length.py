@@ -62,3 +62,9 @@ def test_a_slice_of_a_longer_buffer_is_its_own_length():
         _lag()((V, big[:5]))
     values, idx = _lag()((V, big[:10]))
     np.testing.assert_array_equal(idx, np.arange(10))
+
+
+def test_the_private_functor_batch_checks_its_lengths():
+    from screamer import screamer_bindings as _b
+    with pytest.raises(ValueError, match="^run_functor_batch: the stream has 10 rows of values but 5 index values$"):
+        _b._run_functor_batch(s.Lag(1), np.arange(5, dtype=np.int64), V)

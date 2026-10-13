@@ -105,25 +105,27 @@ building the graph.
 
 ## Saving and loading: `toJSON` and `Pipeline.fromJSON`
 
-`pipeline.toJSON()` writes the pipeline as JSON text: its inputs, its nodes with their settings,
-its outputs, `alignOutputs` and `maxPending`. `Pipeline.fromJSON(text)` builds a new, runnable
-pipeline from that text, each node by its factory, so the copy shares no state with the original.
-`toDict()` and `Pipeline.fromDict(object)` do the same with a plain object.
+`pipeline.toJSON()` gives the description of the pipeline as a plain object: its inputs, its
+nodes with their settings, its outputs, `alignOutputs` and `maxPending`. As for any object with a
+`toJSON` method, `JSON.stringify(pipeline)` writes it as JSON text, also inside a larger object.
+`Pipeline.fromJSON(json)` builds a new, runnable pipeline from that text, or from the object, each
+node by its factory, so the copy shares no state with the original. `toDict()` and
+`Pipeline.fromDict(object)` are the object forms by Python's names.
 
 ```js
 const x = Input("x");
 const p = new Pipeline([x], [resample(RollingMean(5)(x), { every: 10, agg: "ohlc" })]);
-const text = p.toJSON();              // save this string to a file
+const text = JSON.stringify(p);       // save this string to a file
 const q = Pipeline.fromJSON(text);    // the same pipeline, the same results
 ```
 
 The format is Python's: a pipeline saved by Python's `to_json()` loads here, and one saved here
 loads with Python's `Pipeline.from_json`, with the same results. The settings keep their Python
-names (`window_size`, not `windowSize`), and the text is the one Python writes for the same
-graph (JavaScript writes `3` where Python writes `3.0`, as it has one number type). A setting that
-is not finite, such as `Clip({ lower: -Infinity })`, is written as `-Infinity`, which
-`JSON.parse` does not read; `Pipeline.fromJSON` does. `toJSON(null)` writes one line. As for any
-object with a `toJSON` method, `JSON.stringify(pipeline)` gives this text as a JSON string.
+names (`window_size`, not `windowSize`). `JSON.stringify` writes a setting that is not finite,
+such as `Clip({ lower: -Infinity })`, as `null`, which loads as "not given". `toJSONText(indent)`
+writes the text Python's `to_json(indent)` writes, `-Infinity` included (JavaScript writes `3`
+where Python writes `3.0`, as it has one number type); `Pipeline.fromJSON` reads it, which
+`JSON.parse` does not. `toJSONText(null)` writes one line.
 
 A text or description that does not describe a pipeline throws `RangeError` naming the problem,
 such as "unknown functor class: 'NoSuchOp'" or "Pipeline description: node 1: input 7 is not an

@@ -141,8 +141,10 @@ export function forecastPairs(X: unknown, y: unknown, opts: ForecastPairsOptions
     ix = X.index;
     iy = y.index;
     // One index value per row (the engine's feed-length rule), before either is read.
-    if (ix != null) wasmCall(() => M.checkFeedLength(WHO, 0, bx.T, ix!.length));
-    if (iy != null) wasmCall(() => M.checkFeedLength(WHO, 1, by.T, iy!.length));
+    for (const [k, b, i] of [[0, bx, ix], [1, by, iy]] as const) {
+      const msg = i == null ? "" : M.feedLengthMessage(WHO, k, b.T, i.length) as string;
+      if (msg) throw new RangeError(msg);
+    }
   } else {
     if (isStream(X) || isStream(y))
       throw new TypeError(`${WHO}: count mode takes X and y as values (an array, a typed array or an NdArray)`);

@@ -130,7 +130,7 @@ def _build(data):
     import screamer  # functor classes live on the top-level namespace (wrapped)
 
     built = {}  # node id -> rebuilt Node
-    for spec in data["nodes"]:
+    for k, spec in enumerate(data["nodes"]):
         nid, kind = spec["id"], spec["kind"]
         if kind == "input":
             built[nid] = Input(spec["name"])
@@ -144,7 +144,9 @@ def _build(data):
             if cls is None or not getattr(cls, "_screamer_wrapped", False):
                 _b._unknown_functor(spec["cls"])
             args = params.pop("args", [])  # positional fallback for schema-less functors
-            built[nid] = cls(*args, **params)(*feeds)
+            op = cls(*args, **params)
+            _b._check_functor_inputs(k, spec["cls"], op.num_inputs, len(feeds))
+            built[nid] = op(*feeds)
 
     name_to_node = {spec["name"]: built[spec["id"]]
                     for spec in data["nodes"] if spec["kind"] == "input"}

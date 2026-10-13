@@ -5,7 +5,7 @@ import { current } from "./index.js";
 import { normalizeError, wasmCall } from "./errors.js";
 import { aKind, feedValue, kindName, toF64Checked, whereText } from "./kinds.js";
 import { releaseWith, type Owned } from "./runtime.js";
-import { build, checkDict, checkJson, describe, describeJson } from "./pipeline_io.js";
+import { build, checkDescription, describe, describeJson } from "./pipeline_io.js";
 
 // One bound feed for an Input: a values stream and its integer index axis.
 type Feed = Float64Array | number[] | NdArray | { values: Float64Array | number[] | NdArray; index?: Float64Array | number[] | null };
@@ -628,15 +628,22 @@ export interface Pipeline {
   live(): LiveDriver;
   dispose(): void;
   /**
-   * The JSON text of this pipeline, as Python's `to_json(indent)` writes it
-   * (one shared C++ writer): its inputs, nodes with their settings, outputs,
-   * `align_outputs` and `max_pending`. `Pipeline.fromJSON` (or Python's
-   * `Pipeline.from_json`) rebuilds it. `indent` null writes one line. Note
-   * that `JSON.stringify(pipeline)` gives this text as a JSON string.
+   * The description of this pipeline as a plain object, as Python's
+   * `to_dict()` gives it: its inputs, nodes with their settings, outputs,
+   * `align_outputs` and `max_pending`. `JSON.stringify(pipeline)` is its JSON
+   * text, which `Pipeline.fromJSON` (or Python's `Pipeline.from_json`)
+   * rebuilds. JSON.stringify writes a setting that is not finite as null;
+   * `toJSONText` keeps it.
    */
-  toJSON(indent?: number | null): string;
-  /** The description as a plain object, as Python's `to_dict()` gives it. */
+  toJSON(): Record<string, unknown>;
+  /** The same description object as `toJSON()`. */
   toDict(): Record<string, unknown>;
+  /**
+   * The JSON text Python's `to_json(indent)` writes (one shared C++ writer),
+   * with a setting that is not finite as NaN, Infinity or -Infinity. `indent`
+   * null writes one line.
+   */
+  toJSONText(indent?: number | null): string;
   readonly inputs: Node[];
   readonly outputs: Node[];
   readonly alignOutputs: boolean;
@@ -661,12 +668,11 @@ export const Pipeline = function (inputs: Node[], outputs: Node[], opts?: Pipeli
   // The compiled graph is freed by dispose() or when `fn` is collected.
   (fn as any).dispose = releaseWith(fn, impl);
   (fn as any).live = () => impl.live(fn);
-  (fn as any).toDict = () => describe(impl.inputs, impl.outputs, impl.alignOutputs, impl.maxPending);
-  // JSON.stringify(pipeline) calls toJSON with the property key (a string):
-  // that call gets the default indent.
-  (fn as any).toJSON = (indent: unknown = 2) =>
-    describeJson(describe(impl.inputs, impl.outputs, impl.alignOutputs, impl.maxPending),
-                 typeof indent === "string" ? 2 : (indent as number | null));
+  const toDict = () => describe(impl.inputs, impl.outputs, impl.alignOutputs, impl.maxPending);
+  (fn as any).toDict = toDict;
+  // JSON.stringify(pipeline) calls toJSON (with the property key, unused).
+  (fn as any).toJSON = () => toDict();
+  (fn as any).toJSONText = (indent: unknown = 2) => describeJson(toDict(), indent);
   Object.defineProperty(fn, "inputs", { value: impl.inputs, enumerable: true });
   Object.defineProperty(fn, "outputs", { value: impl.outputs, enumerable: true });
   Object.defineProperty(fn, "alignOutputs", { value: impl.alignOutputs, enumerable: true });
@@ -677,12 +683,14 @@ export const Pipeline = function (inputs: Node[], outputs: Node[], opts?: Pipeli
 export interface PipelineConstructor {
   new (inputs: Node[], outputs: Node[], opts?: PipelineOptions): Pipeline;
   /**
-   * The pipeline a JSON text describes: the text `toJSON()` or Python's
-   * `to_json()` writes. The description is checked against the shared schema
-   * (a malformed text or description throws `RangeError` naming the problem),
-   * and each node is built by its factory, which checks its settings.
+   * The pipeline a description gives: JSON text (`JSON.stringify(pipeline)`,
+   * `toJSONText()` or Python's `to_json()`) or a description object
+   * (`toJSON()`, `toDict()`). The description is checked against the shared
+   * schema (a malformed text or description throws `RangeError` naming the
+   * problem), and each node is built by its factory, which checks its
+   * settings.
    */
-  fromJSON(text: string): Pipeline;
+  fromJSON(json: string | Record<string, unknown>): Pipeline;
   /** The pipeline a description object gives, as Python's `from_dict`. */
   fromDict(description: Record<string, unknown>): Pipeline;
 }
@@ -692,5 +700,9 @@ const fromChecked = (d: Record<string, any>): Pipeline => {
   const { inputs, outputs, opts } = build(d);
   return new Pipeline(inputs, outputs, opts);
 };
-Pipeline.fromJSON = (text: string) => fromChecked(checkJson(text));
-Pipeline.fromDict = (description: Record<string, unknown>) => fromChecked(checkDict(description));
+Pipeline.fromJSON = (json: string | Record<string, unknown>) => fromChecked(checkDescription(json, "Pipeline.fromJSON"));
+Pipeline.fromDict = (description: Record<string, unknown>) => {
+  if (typeof description === "string")
+    throw new TypeError("Pipeline.fromDict: takes a description object, got a string; use Pipeline.fromJSON for text");
+  return fromChecked(checkDescription(description, "Pipeline.fromDict"));
+};

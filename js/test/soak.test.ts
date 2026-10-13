@@ -226,3 +226,30 @@ test("soak: what is in use survives collection", async () => {
   d.push("y", 0, 1); d.push("y", 1, 3); d.flush();
   assert.deepEqual(Array.from(d.result().values as Float64Array).slice(1), [2]);
 });
+
+test("soak: rejected Pipeline.fromJSON calls, and toJSON round trips, leave nothing behind", async () => {
+  const x = Input("x");
+  const p = new Pipeline([x], [RollingMean(3)(x)]);
+  const good = p.toJSONText();
+  const d = p.toDict() as any;
+  const bad: unknown[] = [
+    good.slice(0, -5) + "x".repeat(600),                                         // a parse error, a long text
+    JSON.stringify({ ...d, screamer_dag: 2 }),                                    // a schema error
+    JSON.stringify({ ...d, nodes: [d.nodes[0], { ...d.nodes[1], cls: "NoSuchOp" }] }),   // an unknown functor
+    JSON.stringify({ ...d, nodes: [d.nodes[0], { ...d.nodes[1], in: [0, 0] }] }),       // a functor's inputs
+    JSON.stringify({ ...d, nodes: [d.nodes[0], { ...d.nodes[1], params: { window_size: -1 } }] }),  // a setting
+    { ...d, outputs: [7] },                                                       // an object
+  ];
+  const r = await retained(() => {
+    for (const b of bad) {
+      try { Pipeline.fromJSON(b as any); } catch { /* rejected */ }
+    }
+    Pipeline.fromJSON(good).dispose();
+    p.toJSONText();
+    try { forecastPairs({ values: [1, 2, 3], index: [0, 1] }, { values: [1, 2, 3], index: [0, 1, 2] }, { duration: 1 }); }
+    catch { /* rejected */ }
+  }, N_MIXED);
+  p.dispose();
+  assert.ok(r.js < JS_BOUND, `JS heap grew by ${r.js} bytes`);
+  assert.ok(r.wasm < WASM_BOUND, `WASM heap grew by ${r.wasm} bytes`);
+});

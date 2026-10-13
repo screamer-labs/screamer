@@ -31,6 +31,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
+#include <clocale>
 #include <cstdlib>
 #include <stdexcept>
 #include <string>
@@ -38,6 +39,29 @@
 #include <vector>
 
 namespace screamer { namespace dag { namespace json {
+
+// The JSON text never depends on the C locale: a number is written and read
+// with '.' as its decimal point whatever LC_NUMERIC says (a German locale
+// writes and reads ','). The C library's conversions are used, with the
+// locale's decimal point swapped in and out.
+namespace detail {
+inline std::string locale_point() {
+    const std::lconv* lc = std::localeconv();
+    return (lc && lc->decimal_point && *lc->decimal_point) ? lc->decimal_point : ".";
+}
+// A JSON number's text as a double: '.' becomes the locale's decimal point
+// for strtod.
+inline double read_double(const std::string& text) {
+    const std::string point = locale_point();
+    if (point == ".") return std::strtod(text.c_str(), nullptr);
+    std::string t;
+    for (char c : text) {
+        if (c == '.') t += point;
+        else t += c;
+    }
+    return std::strtod(t.c_str(), nullptr);
+}
+}  // namespace detail
 
 // ---- Values ----------------------------------------------------------------
 
@@ -226,8 +250,10 @@ private:
             case 'r': out += '\r'; break;
             case 't': out += '\t'; break;
             case 'u': {
+                const std::size_t at = p_ - 2;
                 unsigned cp = hex4();
-                // A surrogate pair is one code point.
+                // A surrogate pair is one code point; a lone surrogate is no
+                // character, and both languages refuse it.
                 if (cp >= 0xD800 && cp < 0xDC00 && p_ + 1 < t_.size() && t_[p_] == '\\' &&
                     t_[p_ + 1] == 'u') {
                     const std::size_t back = p_;
@@ -235,6 +261,10 @@ private:
                     const unsigned lo = hex4();
                     if (lo >= 0xDC00 && lo < 0xE000) cp = 0x10000 + ((cp - 0xD800) << 10) + (lo - 0xDC00);
                     else p_ = back;
+                }
+                if (cp >= 0xD800 && cp < 0xE000) {
+                    p_ = at;
+                    fail("a lone surrogate in a string");
                 }
                 utf8(out, cp);
                 break;
@@ -277,7 +307,7 @@ private:
             const long long v = std::strtoll(text.c_str(), &end, 10);
             if (errno == 0 && end && *end == '\0') return Value::integer(static_cast<std::int64_t>(v));
         }
-        return Value::number(std::strtod(text.c_str(), nullptr));
+        return Value::number(json::detail::read_double(text));
     }
 };
 
@@ -301,7 +331,8 @@ inline std::string float_text(double v) {
         std::snprintf(buf, sizeof buf, "%.*e", prec - 1, v);
         if (std::strtod(buf, nullptr) == v) break;
     }
-    // buf is [-]d[.ddd]e[+-]xx: its digits and the decimal exponent.
+    // buf is [-]d[<point>ddd]e[+-]xx, the point the locale's: its digits
+    // and the decimal exponent.
     std::string s(buf);
     const bool neg = s[0] == '-';
     if (neg) s.erase(0, 1);
@@ -309,7 +340,7 @@ inline std::string float_text(double v) {
     const int exp10 = std::atoi(s.c_str() + e + 1);
     std::string digits;
     for (std::size_t k = 0; k < e; ++k)
-        if (s[k] != '.') digits += s[k];
+        if (s[k] >= '0' && s[k] <= '9') digits += s[k];
     while (digits.size() > 1 && digits.back() == '0') digits.pop_back();
     const int decpt = exp10 + 1;   // value = 0.digits * 10^decpt
     const int n = static_cast<int>(digits.size());
@@ -628,6 +659,18 @@ inline json::Value check_graph(const json::Value& doc) {
     }
     out.set("outputs", std::move(out_ids));
     return out;
+}
+
+// A functor node of `n_in` inputs is fed its inputs one node each, or one
+// node that carries them as columns. Each binding checks the count once it
+// has built the functor (the schema does not know an operator's inputs).
+inline void check_functor_inputs(std::size_t node, const std::string& cls, std::size_t n_in,
+                                 std::size_t got) {
+    if (got == n_in || got == 1) return;
+    detail::graph_error("node " + std::to_string(node) + " (" + cls + ") takes " +
+                        std::to_string(n_in) + (n_in == 1 ? " input" : " inputs") +
+                        (n_in > 1 ? " (or one input with " + std::to_string(n_in) + " columns)" : "") +
+                        ", got " + std::to_string(got));
 }
 
 // The reducer-class error of a binding that does not know a functor's name.

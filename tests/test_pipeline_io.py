@@ -189,3 +189,56 @@ def test_legacy_operator_names_load():
                      "params": {"every": 2, "agg": "last"}, "in": [0]}
     p = Pipeline.from_dict(d)
     assert p.to_dict()["nodes"][1]["op"] == "Resample"
+
+
+def test_the_json_text_does_not_depend_on_the_locale():
+    import locale
+    old = locale.setlocale(locale.LC_NUMERIC)
+    for name in ("de_DE.UTF-8", "de_DE", "fr_FR.UTF-8", "nl_NL.UTF-8"):
+        try:
+            locale.setlocale(locale.LC_NUMERIC, name)
+            break
+        except locale.Error:
+            continue
+    else:
+        pytest.skip("no comma-decimal locale installed")
+    try:
+        assert locale.localeconv()["decimal_point"] == ","
+        d = _description({"scale": FLOATS, "shift": 0.25})
+        text = _b._graph_to_json(d, 2)
+        locale.setlocale(locale.LC_NUMERIC, old)
+        assert text == json.dumps(d, indent=2)
+        locale.setlocale(locale.LC_NUMERIC, name)
+        assert json.dumps(_b._graph_from_json(text)) == json.dumps(d)
+    finally:
+        locale.setlocale(locale.LC_NUMERIC, old)
+
+
+def test_a_lone_surrogate_raises_value_error():
+    text = _graph().to_json().replace('"x"', '"\\ud800"', 1)
+    with pytest.raises(ValueError, match=r"^invalid Pipeline JSON: a lone surrogate in a string at line \d+, column \d+$"):
+        Pipeline.from_json(text)
+    with pytest.raises(ValueError, match="^invalid Pipeline JSON: a lone surrogate in a string$"):
+        Pipeline.from_json('{"a": "\ud800"}')
+    # A surrogate pair is one character.
+    d = _graph().to_dict()
+    d["nodes"][0]["name"] = d["inputs"][0] = "x\U0001F600"
+    assert Pipeline.from_json(json.dumps(d)).to_dict()["inputs"] == ["x\U0001F600"]
+
+
+def test_a_functor_fed_another_number_of_inputs_raises():
+    a, b = Input("a"), Input("b")
+    d = Pipeline([a, b], [s_sub(a, b)]).to_dict()
+    d["nodes"].append({"id": 9, "kind": "functor", "cls": "RollingMean", "params": {}, "in": [0, 1]})
+    d["outputs"] = [9]
+    with pytest.raises(ValueError, match=r"^Pipeline description: node 3 \(RollingMean\) takes 1 input, got 2$"):
+        Pipeline.from_dict(d)
+    d["nodes"][-1].update(cls="RollingCorr", **{"in": [0, 1, 2]})
+    with pytest.raises(ValueError, match=r"^Pipeline description: node 3 \(RollingCorr\) takes 2 inputs "
+                                         r"\(or one input with 2 columns\), got 3$"):
+        Pipeline.from_dict(d)
+
+
+def s_sub(a, b):
+    from screamer import Sub
+    return Sub()(a, b)

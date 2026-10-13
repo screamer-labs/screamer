@@ -246,8 +246,9 @@ loading builds a new one, so the restored pipeline shares no state with the
 original.
 
 The format is shared with JavaScript: a pipeline saved by `to_json()` loads
-with `Pipeline.fromJSON(text)` in `@screamer-labs/screamer`, and one saved by
-its `toJSON()` loads here, with the same results. Parameters keep their
+with `Pipeline.fromJSON(text)` in `@screamer-labs/screamer`, and one saved
+there (`JSON.stringify(pipeline)`, or `pipeline.toJSONText()`, which keeps a
+setting that is not finite) loads here, with the same results. Parameters keep their
 Python names in both languages (`window_size`, not `windowSize`). A setting
 that is not finite, such as `Clip(lower=-inf)`, is written as `-Infinity`,
 which Python's `json` module reads; strict JSON readers do not. `from_json`

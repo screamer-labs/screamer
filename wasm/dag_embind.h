@@ -79,9 +79,16 @@ inline OutBufFlat marshal_flat_at(const std::vector<screamer::dag::OutputBuffer>
 // source (checked_index.h).
 inline void throwIndexKind(std::string kind) { screamer::dag::throw_index_kind(kind); }
 // The feed-length rule (checked_index.h): one index value per row of values.
-inline void checkFeedLength(std::string who, int input, double rows, double len) {
-    screamer::dag::check_feed_length(who, input, static_cast<std::size_t>(rows),
-                                     static_cast<std::size_t>(len));
+// Returns the message, or "" (JavaScript throws the RangeError: a throw out
+// of an Embind function would leak the string argument's buffer).
+inline std::string feedLengthMessage(std::string who, int input, double rows, double len) {
+    try {
+        screamer::dag::check_feed_length(who, input, static_cast<std::size_t>(rows),
+                                         static_cast<std::size_t>(len));
+    } catch (const std::invalid_argument& e) {
+        return e.what();
+    }
+    return std::string();
 }
 
 // maxPending under the engine's rule (max_pending.h): checkedMaxPending gives
@@ -425,7 +432,7 @@ private:
 // object. Call inside EMSCRIPTEN_BINDINGS(screamer_dag).
 #define SCREAMER_REGISTER_DAG()                                                 \
     emscripten::function("throwIndexKind", &screamer_wasm::throwIndexKind);     \
-    emscripten::function("checkFeedLength", &screamer_wasm::checkFeedLength);   \
+    emscripten::function("feedLengthMessage", &screamer_wasm::feedLengthMessage); \
     emscripten::function("checkedMaxPending", &screamer_wasm::checkedMaxPending); \
     emscripten::function("throwMaxPendingKind", &screamer_wasm::throwMaxPendingKind); \
     emscripten::function("defaultMaxPending", &screamer_wasm::defaultMaxPending); \
