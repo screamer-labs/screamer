@@ -121,11 +121,11 @@ private:
         if (f.width == 1) p.value = f.values[0];       // one column: kept in the entry
         else p.slot = store(i, f.values, f.width);
         pending_.push(p);
+        release();   // first: the event that releases a full buffer does not raise
         if (pending_.size() > max_pending_)
             throw std::runtime_error(
                 "an operator's reorder buffer overflowed: one of its inputs has not "
                 "advanced; a stream is stalled. Call advance(now) or check the feed.");
-        release();
     }
 
     // Copies a waiting event's values into its port's pool (one width per

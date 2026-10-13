@@ -90,3 +90,27 @@ def test_a_stalled_producer_raises_at_max_pending():
             s.push("b", t, [1.0, 1.0])
             s.push("b", t, [1.0, 1.0])
 
+
+
+@pytest.mark.parametrize("kind", ["CombineLatest", "Filter", "operator"])
+def test_the_event_that_releases_a_full_buffer_does_not_raise(kind):
+    # max_pending events wait for b; b's event releases them all (fix round 1 nit).
+    a, b = Input("a"), Input("b")
+    if kind == "CombineLatest":
+        out, wide = sc.CombineLatest(max_pending=3)(a, b), False
+    elif kind == "Filter":
+        out, wide = sc.Filter()(a, b), False
+    else:
+        out, wide = sc.Add()(a, b), True
+    p = Pipeline([a, b], [out], max_pending=3)
+    ev = (lambda v: [v, v]) if wide else (lambda v: v)
+    s = p.live()
+    for t in (1, 2, 3):
+        s.push("a", t, ev(1.0))
+    s.push("b", 3, ev(1.0))                       # 4 waiting for an instant, then released
+    s.flush()
+    s.result()
+    s = p.live()
+    with pytest.raises(RuntimeError):
+        for t in (1, 2, 3, 4):
+            s.push("a", t, ev(1.0))

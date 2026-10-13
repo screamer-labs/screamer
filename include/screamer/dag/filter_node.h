@@ -94,11 +94,11 @@ private:
         if (f.width != 1) throw_width(i, f.width);
         if (wm_[i] < f.index) wm_[i] = f.index;   // a data frame advances the port watermark
         pending_.push(Pending{f.index, static_cast<std::uint32_t>(i), next_seq_++, f.values[0]});
+        release();   // first: the event that releases a full buffer does not raise
         if (pending_.size() > max_pending_)
             throw std::runtime_error(
                 "Filter reorder buffer overflow: an input has not advanced; "
                 "a stream is stalled. Call advance(now) or check the feed.");
-        release();
     }
 
     // A Filter gates one value by one mask value (Filter.md). The graph checks

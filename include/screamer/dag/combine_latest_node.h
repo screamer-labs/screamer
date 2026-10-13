@@ -128,11 +128,11 @@ private:
         if (f.width == 1) p.value = f.values[0];
         else p.slot = store(i, f.values, f.width);
         pending_.push(p);
+        release();   // first: the event that releases a full buffer does not raise
         if (pending_.size() > max_pending_)
             throw std::runtime_error(
                 "CombineLatest reorder buffer overflow: an input has not advanced; "
                 "a stream is stalled. Call advance(now) or check the feed.");
-        release();
     }
 
     // Copy a pending frame's values into a free slot of its port's pool.
