@@ -5,7 +5,7 @@
 import { current } from "./index.js";
 import { asNd, type NdArray } from "./ndarray.js";
 import { wasmCall } from "./errors.js";
-import { aKind, fillF64Checked, flattenRows, throwWrongKind } from "./kinds.js";
+import { aKind, fillF64Checked, flattenRows, kindName, throwWrongKind } from "./kinds.js";
 
 export interface SplitOptions {
   /** The index of each event, partitioned with the values. Absent, each output's index is null. */
@@ -118,7 +118,16 @@ export function split(
     else fillSources(s.items!, M.viewF64(sp, size(s)));
     if (k) {
       if (k.data) M.viewF64(kp, k.data.length).set(k.data);
-      else fillF64Checked(k.items!, M.viewF64(kp, size(k)), WHO, (i) => `item ${i} of index`);
+      else {
+        // An index item is a number: anything else is the engine's index-kind
+        // TypeError, as in Python (null is not a missing index).
+        const out = M.viewF64(kp, size(k)), items = k.items!;
+        for (let i = 0; i < items.length; i++) {
+          const x = items[i];
+          if (typeof x !== "number") wasmCall(() => (M as any).throwIndexKind(kindName(x)));
+          out[i] = x as number;
+        }
+      }
     }
     const counts = wasmCall(() => M.splitInto(
       vp, v.shape.length, rows, width, sp, s.shape.length, size(s),

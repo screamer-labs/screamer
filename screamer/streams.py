@@ -234,6 +234,11 @@ def _merge_to_indexed(values, index, who):
     if n == 0:
         raise ValueError(f"{who}: needs at least one stream")
     streams = _to_streams(values, index)   # (values, index) passthrough; raw wrapped with index[i]
+    for k, (v, _) in enumerate(streams):
+        # A number is one event, not a stream (as in JavaScript).
+        if np.ndim(v) == 0 and not hasattr(v, "__next__"):
+            raise TypeError(f"{who}: input {k} is a number, expected an array, a "
+                            "(values, index) pair or an iterator")
     has_idx = [s[1] is not None for s in streams]
     if any(has_idx) and not all(has_idx):
         raise ValueError(
@@ -563,7 +568,6 @@ class Filter:
 
         d, m = Input("d"), Input("m")
         dag = Pipeline(inputs=[d, m], outputs=[Filter()(d, m)])
-        dag._who = "Filter"
         survivors, idx = dag(data_array, mask_array)
     """
 
@@ -620,6 +624,7 @@ def split(values, sources, index=None, n=None):
     if index is not None:
         if getattr(getattr(index, "dtype", None), "kind", "O") in ("U", "S", "O"):
             _b._refuse_text(index if hasattr(index, "dtype") else np.asarray(index))
+        _b._check_index_kinds([index])        # numbers or times, as every stream index
         index = _index_dtype_kind(index)[1]
     return _b._split(values, sources, index, n)
 

@@ -183,6 +183,21 @@ static nb::object run_chain(std::vector<ScreamerBase*> fns,
     return owned_array(ov, {n});
 }
 
+// The index array of input `input` as a 1-D array of Index. An index of
+// another rank is a ValueError naming its shape, another kind a TypeError,
+// never a cast error.
+template <class Index>
+static In1D<Index> index_column(nb::handle h, std::size_t input, const std::string& who) {
+    In1D<Index> a;
+    if (nb::try_cast(h, a)) return a;
+    const std::string where = who + ": the index of input " + std::to_string(input);
+    if (nb::hasattr(h, "ndim") && nb::cast<int>(h.attr("ndim")) != 1)
+        throw nb::value_error((where + " has shape " + nb::cast<std::string>(nb::repr(h.attr("shape"))) +
+                               ", expected one number per row").c_str());
+    throw nb::type_error((where + " is " + nb::cast<std::string>(nb::type_name(h.type())) +
+                          ", expected an array of numbers").c_str());
+}
+
 // Shared setup: cast N (index, values) numpy arrays, validate per-child length
 // agreement, build a VectorSource per child, and collect non-owning child
 // pointers. Returns the total event count (sum of child lengths). The caller
@@ -205,7 +220,7 @@ static std::size_t build_vector_sources(
     child_ptrs.reserve(n);
     std::size_t total = 0;
     for (std::size_t i = 0; i < n; ++i) {
-        indices.push_back(nb::cast<In1D<Index>>(index_arrays[i]));
+        indices.push_back(index_column<Index>(index_arrays[i], i, who));
         vals.push_back(nb::cast<In1D<double>>(value_arrays[i]));
         dag::check_feed_length(who, static_cast<std::ptrdiff_t>(i),
                                static_cast<std::size_t>(vals[i].shape(0)),
@@ -239,7 +254,7 @@ static nb::object merge_batch(nb::list index_arrays, nb::list value_arrays) {
     MergeWidth width("merge");
     std::size_t total = 0;
     for (std::size_t i = 0; i < n; ++i) {
-        indices.push_back(nb::cast<In1D<Index>>(index_arrays[i]));
+        indices.push_back(index_column<Index>(index_arrays[i], i, "merge"));
         vals.push_back(nb::cast<MergeValues>(value_arrays[i]));
         const MergeValues& v = vals.back();
         if (v.ndim() == 0)
@@ -506,7 +521,7 @@ static nb::object combine_latest_batch(nb::handle index_arrays, nb::list value_a
         nb::list idx = nb::cast<nb::list>(index_arrays);
         if (idx.size() != n) throw std::runtime_error("streams: index/values list length mismatch");
         for (std::size_t i = 0; i < n; ++i) {
-            indices.push_back(nb::cast<In1D<Index>>(idx[i]));
+            indices.push_back(index_column<Index>(idx[i], i, "combine_latest"));
             ip.push_back(indices[i].data());
             lens.push_back(indices[i].shape(0));
         }

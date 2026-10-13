@@ -180,3 +180,31 @@ test("feeds: an index of another length raises RangeError naming both lengths", 
     for (const p of [lag, two, bars, later]) p.dispose();
   }
 });
+
+test("streams: a malformed index raises a clean error at every entry point, never C++ text", async () => {
+  await ready();
+  const V = [1, 2, 3], I = [0, 1, 2];
+  const bads: unknown[] = [{ data: new Float64Array([0, 1, 2]), shape: [3, 1] }, ["a", "b", "c"], [[0], [1], [2]], 5, [0, null, 2], [0n, 1n, 2n]];
+  const x = Input("x"), y = Input("y");
+  const lag = new Pipeline([x], [Lag(1)(x)]);
+  const two = new Pipeline([x, y], [combineLatest([x, y])]);
+  const entry: Record<string, (i: unknown) => unknown> = {
+    merge: (i) => merge([{ values: V, index: I }, { values: V, index: i as any }]),
+    "merge iterator": (i) => [...merge([[{ value: 1, index: i }][Symbol.iterator](), [{ value: 1, index: 0 }][Symbol.iterator]()] as any)],
+    combineLatest: (i) => combineLatest([{ values: V, index: I }, { values: V, index: i as any }]),
+    Pipeline: (i) => lag({ values: V, index: i as any }),
+    "Pipeline two inputs": (i) => two({ x: { values: V, index: I }, y: { values: V, index: i as any } }),
+    split: (i) => split(V, [0, 0, 0], { index: i as any }),
+    forecastPairs: (i) => forecastPairs({ values: V, index: i as any }, { values: V, index: I }, { duration: 1 }),
+  };
+  try {
+    for (const [name, f] of Object.entries(entry))
+      for (const b of bads) {
+        if (name === "merge iterator" && typeof b === "number") continue;   // a valid event index
+        assert.throws(() => f(b), (e: unknown) => (e instanceof TypeError || e instanceof RangeError) &&
+          !/std::|nanobind|^vector$/.test((e as Error).message), `${name} ${JSON.stringify(b, (_k, v) => typeof v === "bigint" ? String(v) : v)}`);
+      }
+  } finally {
+    lag.dispose(); two.dispose();
+  }
+});

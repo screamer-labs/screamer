@@ -28,6 +28,9 @@ const ev = (v, t, n) => { const o = new Array(n); for (let i = 0; i < n; i++) o[
 const ea = ev(a, ia, N), eb = ev(b, ib, N);
 const na = Array.from(a.subarray(0, N)), nb = Array.from(b.subarray(0, N));
 const wa = na.map((v) => [v, v]), wb = nb.map((v) => [v]);
+// Indexed events whose values are rows of two (a wide merge).
+const ewa = ea.map((e) => ({ value: [e.value, e.value], index: e.index }));
+const ewb = eb.map((e) => ({ value: [e.value, -e.value], index: e.index }));
 
 const drain = (it) => { let n = 0; for (const _ of it) n++; return n; };
 
@@ -41,6 +44,9 @@ const lag = pipe(["x"], (x) => s.Lag(1)(x));
 
 const cases = {
   combineLatest_indexed_iter: () => drain(s.combineLatest([ea.values(), eb.values()])),
+  merge_indexed_iter: () => drain(s.merge([ea.values(), eb.values()])),
+  merge_indexed_iter_rows: () => drain(s.merge([ewa.values(), ewb.values()])),
+  merge_positional_iter: () => drain(s.merge([na.values(), nb.values()])),
   combineLatest_positional_iter: () => drain(s.combineLatest([na.values(), nb.values()])),
   combineLatest_positional_iter_arrays: () => drain(s.combineLatest([wa.values(), wb.values()])),
   pipeline_live_push: () => {

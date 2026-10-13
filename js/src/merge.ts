@@ -84,10 +84,15 @@ export function mergeArrays(inputs: unknown[]): MergeResult {
 
 const EVENT_KEYS = ["value", "index"];
 
-// The C++ merge order of one iterator merge and each source's pending event.
+// The C++ merge order of one iterator merge (wasm/merge_bindings.cpp
+// MergeStream) and each source's pending event. Every step is one call to a
+// plain export, which returns the next step: k + 1 to pull source k, -(k + 1)
+// to emit the pending event of source k, 0 when every source has ended.
 class Merger {
   private M: any = current();
   private ms: any;
+  private addr = 0;
+  private shape = 0;   // the heap offset (in doubles) of the event-shape scratch
   private indexed: boolean | null = null;
   private count: number[];
   private value: Array<MergeEvent["value"]>;
@@ -95,62 +100,76 @@ class Merger {
 
   constructor(n: number, held: StreamHold) {
     this.ms = wasmCall(() => new this.M.MergeStream(n));
+    // Frees the merge's WASM state when the stream is collected unfinished.
+    held.close = () => this.close();
+    try {
+      this.addr = this.ms.address();
+      this.shape = this.ms.shapeBuffer() >> 3;
+    } catch (e) {
+      this.close();
+      throw e;
+    }
     this.count = new Array(n).fill(0);
     this.value = new Array(n);
     this.index = new Array(n).fill(0);
-    // Frees the merge's WASM state when the stream is collected unfinished.
-    held.close = () => this.close();
   }
 
   close(): void {
     if (!this.ms) return;
     this.ms.delete();
     this.ms = null;
+    this.addr = 0;
   }
 
-  private live(): any {
-    if (!this.ms) throw new Error(`${WHO}: the stream was closed`);
-    return this.ms;
+  private live(): number {
+    if (!this.addr) throw new Error(`${WHO}: the stream was closed`);
+    return this.addr;
   }
 
-  want(): number { return this.live().want(); }
-
-  pop(): MergeEvent | null {
-    const i = this.live().pop();
-    if (i < 0) return null;
-    return { value: this.value[i], index: this.indexed ? this.index[i] : null, source: i };
+  start(): number {
+    try { return this.ms.start(); } catch (e) { throw normalizeError(e); }
   }
 
-  end(i: number): void { this.live().end(i); }
+  // The event of source k (the step was -(k + 1)).
+  event(k: number): MergeEvent {
+    return { value: this.value[k], index: this.indexed ? this.index[k] : null, source: k };
+  }
+
+  end(i: number): number {
+    try { return this.M._screamer_merge_end(this.live(), i); } catch (e) { throw normalizeError(e); }
+  }
 
   // Event x of source i: a value (positional), or { value, index }.
-  offer(i: number, x: unknown): void {
+  offer(i: number, x: unknown): number {
     const k = this.count[i]++;
-    const where = () => `event ${k} of input ${i}`;
-    const marked = isPlainObject(x);
+    let v: unknown = x, t = k, marked = false;
+    if (typeof x === "object" && x !== null && isPlainObject(x)) {
+      marked = true;
+      const e = x as Record<string, unknown>;
+      if (!("value" in e)) throwWrongKind(WHO, `event ${k} of input ${i}`, x, "a { value, index } event");
+      checkKeys(e, EVENT_KEYS, () => `event ${k} of input ${i}`, WHO);
+      t = typeof e.index === "number" ? e.index : badIndex(e.index);
+      v = e.value;
+    }
     if (this.indexed === null) this.indexed = marked;
     else if (marked !== this.indexed)
       throw new RangeError(`${WHO}: cannot mix positional (bare-value) and indexed ({ value, index }) sources; ` +
         "give every source an index, or none");
-    let v: unknown = x, t = k;
-    if (marked) {
-      const e = x as Record<string, unknown>;
-      if (!("value" in e)) throwWrongKind(WHO, where(), x, "a { value, index } event");
-      checkKeys(e, EVENT_KEYS, where, WHO);
-      t = typeof e.index === "number" ? e.index : badIndex(e.index);
-      v = e.value;
-    }
-    let shape: number[];
-    if (typeof v === "number" || v === null || typeof v !== "object") {
-      this.value[i] = feedValue(v, WHO, where);
-      shape = [];
+    let ndim = 0;
+    if (typeof v === "number") {
+      this.value[i] = v;
+    } else if (v === null || typeof v !== "object") {
+      this.value[i] = feedValue(v, WHO, () => `event ${k} of input ${i}`);
     } else {
-      const b = event(v, where, WHO);
-      shape = b.shape;
+      const b = event(v, () => `event ${k} of input ${i}`, WHO);
+      const shape = b.shape;
       this.value[i] = shape.length === 1 ? b.data.slice() : { data: b.data.slice(), shape: shape.slice() };
+      ndim = shape.length;
+      const heap: Float64Array = this.M.HEAPF64;   // read after the event: a read may grow memory
+      for (let d = 0; d < ndim && d < 32; d++) heap[this.shape + d] = shape[d];
     }
     this.index[i] = t;
-    try { this.live().offerEvent(i, t, shape); } catch (e) { throw normalizeError(e); }
+    try { return this.M._screamer_merge_offer(this.live(), i, t, ndim); } catch (e) { throw normalizeError(e); }
   }
 }
 
@@ -161,14 +180,16 @@ function* runSync(srcs: Iterable<unknown>[], held: StreamHold): Generator<MergeE
   let failed = false;
   try {
     m = new Merger(its.length, held);
-    for (;;) {
-      for (let i: number; (i = m.want()) >= 0;) {
-        const r = its[i].next();
-        if (r.done) { ended[i] = true; m.end(i); } else m.offer(i, r.value);
+    for (let step = m.start(); step !== 0;) {
+      if (step > 0) {
+        const i = step - 1, r = its[i].next();
+        if (r.done) { ended[i] = true; step = m.end(i); } else step = m.offer(i, r.value);
+      } else {
+        const k = -step - 1;
+        yield m.event(k);
+        const r = its[k].next();   // source k owes its next event
+        if (r.done) { ended[k] = true; step = m.end(k); } else step = m.offer(k, r.value);
       }
-      const e = m.pop();
-      if (!e) return;
-      yield e;
     }
   } catch (e) {
     failed = true;
@@ -192,14 +213,16 @@ async function* runAsync(srcs: AsyncIterable<unknown>[], held: StreamHold): Asyn
   let failed = false;
   try {
     m = new Merger(its.length, held);
-    for (;;) {
-      for (let i: number; (i = m.want()) >= 0;) {
-        const r = await its[i].next();
-        if (r.done) { ended[i] = true; m.end(i); } else m.offer(i, r.value);
+    for (let step = m.start(); step !== 0;) {
+      let i: number;
+      if (step > 0) {
+        i = step - 1;
+      } else {
+        i = -step - 1;
+        yield m.event(i);           // then source i owes its next event
       }
-      const e = m.pop();
-      if (!e) return;
-      yield e;
+      const r = await its[i].next();
+      if (r.done) { ended[i] = true; step = m.end(i); } else step = m.offer(i, r.value);
     }
   } catch (e) {
     failed = true;

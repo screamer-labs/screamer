@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 #include <emscripten/bind.h>
+#include <emscripten/em_macros.h>
 #include <emscripten/val.h>
 #include "screamer/dag/checked_index.h"
 #include "screamer/streams/merge_rows.h"
@@ -86,46 +87,75 @@ emscripten::val mergeBatch(std::uintptr_t spec) {
     return r;
 }
 
-// The iterator merge of n sources: JavaScript pulls an event from the
-// source want() names and offers its index and row shape (or ends the
-// source); once want() is -1, pop() names the source whose pending event
-// comes next, or -1 when every source has ended. JavaScript keeps the
-// events; this keeps their order and checks the index order and the width.
+// The iterator merge of n sources. JavaScript keeps the events; this keeps
+// their order and checks the index order and the width. Each call returns
+// the next step as one number: k + 1 to pull the next event of source k, -(k
+// + 1) for the event of source k that comes next, 0 when every source has
+// ended. After the event of source k, k owes its next event, so one call per
+// event drives the merge. An event's row shape is written to shapeBuffer()
+// (ndim values) before offer.
+//
+// The per-event calls are plain exported functions over the object's
+// address() (below): an Embind method call costs more than the step itself.
 class MergeStream {
 public:
-    explicit MergeStream(unsigned n) : order_(n), events_(n, 0) {}
+    static constexpr unsigned kMaxRank = 32;
 
-    int want() const { return static_cast<int>(order_.want()); }
+    explicit MergeStream(unsigned n) : order_(n), events_(n, 0), shape_buf_(kMaxRank) {}
 
-    // The next event of source i: its index and its row shape ([] for a
-    // number).
-    void offerEvent(unsigned i, double index, emscripten::val shape) {
-        const unsigned nd = shape["length"].as<unsigned>();
-        shape_.resize(nd);
-        for (unsigned d = 0; d < nd; ++d) shape_[d] = static_cast<std::size_t>(shape[d].as<double>());
+    std::uintptr_t address() { return reinterpret_cast<std::uintptr_t>(this); }
+    std::uintptr_t shapeBuffer() { return reinterpret_cast<std::uintptr_t>(shape_buf_.data()); }
+
+    int start() { return next(); }
+
+    int offer(unsigned i, double index, unsigned ndim) {
+        if (ndim > kMaxRank)
+            throw std::invalid_argument(kWho + ": an event of rank " + std::to_string(ndim) +
+                                        " is more than " + std::to_string(kMaxRank));
+        shape_.resize(ndim);
+        for (unsigned d = 0; d < ndim; ++d) shape_[d] = static_cast<std::size_t>(shape_buf_[d]);
         width_.check(i, shape_, static_cast<std::ptrdiff_t>(events_[i]++));
         order_.offer(i, index);
+        return next();
     }
 
-    void end(unsigned i) { order_.end(i); }
-
-    int pop() { return static_cast<int>(order_.pop()); }
+    int end(unsigned i) {
+        order_.end(i);
+        return next();
+    }
 
 private:
+    int next() {
+        const std::ptrdiff_t w = order_.want();
+        if (w >= 0) return static_cast<int>(w) + 1;
+        const std::ptrdiff_t k = order_.pop();
+        return k < 0 ? 0 : -(static_cast<int>(k) + 1);
+    }
+
     MergeOrder<double> order_;
     MergeWidth width_{kWho};
     std::vector<std::size_t> events_;
+    std::vector<double> shape_buf_;
     std::vector<std::size_t> shape_;
 };
 
 }  // namespace
 
+extern "C" {
+EMSCRIPTEN_KEEPALIVE int screamer_merge_offer(std::uintptr_t s, std::uint32_t i, double index,
+                                              std::uint32_t ndim) {
+    return reinterpret_cast<MergeStream*>(s)->offer(i, index, ndim);
+}
+EMSCRIPTEN_KEEPALIVE int screamer_merge_end(std::uintptr_t s, std::uint32_t i) {
+    return reinterpret_cast<MergeStream*>(s)->end(i);
+}
+}  // extern "C"
+
 EMSCRIPTEN_BINDINGS(screamer_merge) {
     emscripten::function("mergeBatch", &mergeBatch);
     emscripten::class_<MergeStream>("MergeStream")
         .constructor<unsigned>()
-        .function("want", &MergeStream::want)
-        .function("offerEvent", &MergeStream::offerEvent)
-        .function("end", &MergeStream::end)
-        .function("pop", &MergeStream::pop);
+        .function("address", &MergeStream::address)
+        .function("shapeBuffer", &MergeStream::shapeBuffer)
+        .function("start", &MergeStream::start);
 }
