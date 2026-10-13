@@ -713,13 +713,8 @@ def test_pipeline_refuses_rank3_feeds(which):
 
 
 def test_forecast_pairs_large_count_costs_memory_only_as_events_arrive():
-    import resource
-    import sys
     from screamer import Input, Pipeline
-
-    def peak_mb():                     # ru_maxrss is in bytes on macOS, KB on Linux
-        r = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-        return r / 2**20 if sys.platform == "darwin" else r / 2**10
+    from tests._memory import peak_mb
 
     v = np.arange(10.0)
     before = peak_mb()
