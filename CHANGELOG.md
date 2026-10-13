@@ -226,6 +226,9 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   unexpected keyword argument 'x'"). `PortfolioReport()(a, b, c, d)` with four
   numbers is one event of the four portfolio columns, as in JavaScript and as
   its `Pipeline` node reads them; 2.8.0 raised `TypeError`.
+* Inputs whose shapes do not match raise `ValueError` that names the problem
+  ("do not broadcast", "same length along time"); 2.8.0 raised `TypeError`.
+  Code that caught `TypeError` for these should catch `ValueError`.
 * A NumPy `datetime64` or `timedelta64` array given as values raises
   `TypeError` ("RollingMean: a value must be a number, got an array of times
   (dtype datetime64[ns]); pass .astype("int64") for its tick counts"), as a
@@ -236,7 +239,9 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 * A `decimal.Decimal` or `fractions.Fraction` raises `TypeError` wherever a
   value is read, also in a multi-input call or a list: 2.8.0 returned 2.5 for
   `Add()(Decimal("1.5"), 1.0)` (a float64 cast rounds it silently) and read a
-  list of them. Pass `float(x)` for the old result.
+  list of them. A one-input operator given one of them raised `ValueError`
+  ("Unsupported input type for call"); code that caught `ValueError` there
+  should catch `TypeError`. Pass `float(x)` for the old result.
 * An object array or object `Series` holding a time, or a memoryview of a
   NumPy time scalar, raises `TypeError` as a list of them does; 2.8.0 read the
   tick counts (or the raw bytes). Pass `.astype("int64")`.
@@ -735,10 +740,6 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 * **JavaScript error classes:** every shape, length or input-count mismatch throws `RangeError` (the counterpart of Python's `ValueError`); wrong kinds still throw `TypeError`. 2.8.0 threw `TypeError` for a length mismatch; code that caught it should catch `RangeError`.
 * JavaScript: the WebAssembly module uses native WebAssembly exceptions; it needs Chrome 95, Firefox 100, Safari 15.2 or Node 17 or later. Errors thrown by your own iterators now reach you unchanged.
 * JavaScript: a string parameter given a non-string (for example `RollingMean(3, 5)`) throws `TypeError`. 2.8.0 threw Embind's `BindingError`; code that caught it should catch `TypeError`.
-* One-input operators raise `TypeError` for an input they cannot read, for
-  example `RollingMean(2)(Decimal("1.5"))` or a `Fraction` (was `ValueError` with
-  "Unsupported input type for call"). Code that caught `ValueError` for this
-  case should catch `TypeError`; pass `float(value)` to read it as a number.
 * `strategy_test` (Python) and `strategyTest` (JavaScript) run in one C++
   implementation that calls your strategy back. They are faster, 1.1 to 5
   times in our measurements, most when the strategy itself is quick.
@@ -1394,7 +1395,6 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
     strategies, n = 120, `inf` in 41 rounds: p-values (0.106, 0.030) become
     (0.372, 0.207), and the family p-values (0.15, 0.0125) become (0.438,
     0.347); `strategy_test`, n = 200, 32 infinite runs: 0.0059 becomes 0.164.
-* The `nan_policy` of the backtest engines that give a `NaN` target or order a defined meaning is now listed as `nan-aware`, not `ignore`: `BacktestOHLCTarget`, `BacktestOHLCVTarget`, `BacktestTradesTarget`, `BacktestL1Target` (a `NaN` target keeps the last target), and `BacktestOHLCOrders`, `BacktestTradesOrders`, `BacktestL1Orders`, `BacktestL1TradesOrders` (a `NaN` own quote is a market order or an unquoted side). Documentation only; no result changes.
 * A list passed to a multi-input operator whose events do not hold every input
   (for example `Add()([v, w])` or `Add()([1.0, 2.0])`) raises a `ValueError`
   (JavaScript: `RangeError`) that explains the list reading and the fix,
@@ -1410,7 +1410,8 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 * JavaScript: a rejected constructor with a string parameter (for example
   `RollingMean(0, "strict")`), a rejected `reshape` layout, and a rejected
   constructor with an array parameter no longer leak WebAssembly memory.
-* **JavaScript:** row operators, reducers and row streams check an `NdArray`'s shape against its data before reading it.
+* JavaScript: row operators, reducers and row streams check an `NdArray`'s
+  shape against its data before reading it.
 * JavaScript: when one of several stream sources throws, the stream no longer
   calls `return()` on that source; the other sources are still closed, as
   `for...of` does.
@@ -1429,13 +1430,11 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   `Pipeline`, and a list of arrays is a sequence of asset events. In 2.8.0 a
   one-output operator raised `RuntimeError: std::bad_cast`, and a
   multi-output operator raised `TypeError: Iterable must contain numbers.`
-* Inputs whose shapes do not match raise `ValueError` that names the problem
-  ("do not broadcast", "same length along time"); they raised `TypeError`.
 * Passing an object whose class has a non-string `__module__` to an operator
-  raised a segmentation fault; it now raises `TypeError`.
-* Operator constructors and other calls no longer crash on an object whose
-  class has a non-string `__module__` or a module name that is not valid
-  UTF-8 (nanobind upgraded to 2.13.0, with a local patch for the UTF-8 case).
+  raised a segmentation fault; it now raises `TypeError`. Operator
+  constructors and other calls no longer crash on such an object, or on a
+  module name that is not valid UTF-8 (nanobind upgraded to 2.13.0, with a
+  local patch for the UTF-8 case).
 * An input that an operator cannot read raises `TypeError` that names the
   operator and the input's type (`RollingMean: a M is not a valid input; ...`)
   on every dispatch path; most paths said only "Unsupported input type."
@@ -1540,9 +1539,11 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 * JavaScript per-event operator calls (`op(x)` on numbers, and every event of
   a stream) run through a plain WebAssembly export with no Embind dispatch and
-  no typed-array views: `RollingMean(20)(x)` 205 to 37 ns per call,
-  `RollingCorr` 254 to 61 ns, `BollingerBands` 430 to 88 ns, a sync stream
-  246 to 87 ns per event (Node 24, Apple M-series).
+  no typed-array views. This came in two steps: making the heap views in
+  JavaScript instead of through Embind made `op(x)` about 2.3 times faster
+  than 2.8.0, and the plain export then took `RollingMean(20)(x)` from 205 to
+  37 ns per call, `RollingCorr` 254 to 61 ns, `BollingerBands` 430 to 88 ns,
+  and a sync stream 246 to 87 ns per event (Node 24, Apple M-series).
 
 * Python iterator sources (lazy calls, `merge`, `combine_latest` and stream
   operators over generators) take each item with `PyIter_Next`: no
@@ -1552,7 +1553,6 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   `CombineLatest` and clears the reorder buffers without a pop per entry.
   `Pipeline.from_json`, `from_dict` and the JavaScript `fromJSON` check a
   description in time linear in its size (was quadratic in the node count).
-* JavaScript: streaming one value at a time (`op(x)`) is about 2.3 times faster; heap views are made in JavaScript instead of through Embind.
 * `permute_bars` and `permute_returns` on one series write 8 copies per pass
   and are 1.2 to 2 times faster; the copies are unchanged.
 * A `Pipeline` that joins inputs runs faster, in Python and JavaScript.
@@ -1737,6 +1737,13 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   "the same I and Q"; `Decycler` defines its cutoff as the half-power point;
   `InstantaneousTrendline` cites *Rocket Science for Traders*, the source of
   the routine it now implements.
+* The `nan_policy` of the backtest engines that give a `NaN` target or order
+  a defined meaning is now listed as `nan-aware`, not `ignore`:
+  `BacktestOHLCTarget`, `BacktestOHLCVTarget`, `BacktestTradesTarget`,
+  `BacktestL1Target` (a `NaN` target keeps the last target), and
+  `BacktestOHLCOrders`, `BacktestTradesOrders`, `BacktestL1Orders`,
+  `BacktestL1TradesOrders` (a `NaN` own quote is a market order or an
+  unquoted side). No result changes.
 
 2.8.0 - 2026-10-10
 ------------------
