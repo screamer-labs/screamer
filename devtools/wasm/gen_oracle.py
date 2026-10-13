@@ -294,10 +294,7 @@ def forecast_entries():
             xs, ys = forecast_pairs((x, ix), (y, iy), **kw)
         X_in, y_in = screamer.Input("X"), screamer.Input("y")
         node = forecast_pairs(X_in, y_in, **kw)
-        if x.ndim == 1 or "duration" in kw:   # a count node reads X as one column
-            vals, idx = screamer.Pipeline([X_in, y_in], [node])((x, ix), (y, iy))
-        else:
-            vals, idx = None, None
+        vals, idx = screamer.Pipeline([X_in, y_in], [node])((x, ix), (y, iy))
         out.append({
             "name": name,
             "options": kw,
@@ -305,7 +302,7 @@ def forecast_entries():
             "y": {"values": nums(y), "index": [int(i) for i in iy]},
             "X_shifted": {"shape": list(xs.shape), "values": nums(xs)},
             "y_out": nums(ys),
-            "node": None if vals is None else {"values": nums(vals), "index": [int(i) for i in idx]},
+            "node": {"values": nums(vals), "index": [int(i) for i in idx]},
         })
     return out
 

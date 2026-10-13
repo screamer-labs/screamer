@@ -61,30 +61,28 @@ function horizon(opts: unknown): Horizon {
   return { count, duration, dropna: dropna ?? false };
 }
 
-// One forecastPairs graph node over X and y, with X of `nFeatures` columns.
-function pairsNode(X: Node, y: Node, h: Horizon, nFeatures: number): Node {
-  return new Node({ combinator: "forecastPairs", params: { ...h, nFeatures } }, [X, y]);
+// One forecastPairs graph node over X (any width) and y.
+function pairsNode(X: Node, y: Node, h: Horizon): Node {
+  return new Node({ combinator: "forecastPairs", params: { ...h } }, [X, y]);
 }
 
-interface Block { data: Float64Array; T: number; K: number; wide: boolean }
+interface Block { data: Float64Array; ndim: number; T: number; K: number; wide: boolean }
 
 // Values as row-major data: a flat array (null is NaN, a string a TypeError),
-// an NdArray of rank 1 or 2, or an array of rows (flattenRows).
+// an NdArray, or an array of rows (flattenRows). The engine checks the rank.
 function block(v: unknown, where: string): Block {
   const nd = asNd(v);
   if (nd) {
-    if (nd.shape.length < 1 || nd.shape.length > 2)
-      throw new RangeError(`${WHO}: ${where} has shape [${nd.shape}], expected (T,) or (T, K)`);
-    const wide = nd.shape.length === 2;
-    return { data: nd.data, T: nd.shape[0], K: wide ? nd.shape[1] : 1, wide };
+    const ndim = nd.shape.length;
+    return { data: nd.data, ndim, T: nd.shape[0] ?? 0, K: ndim === 2 ? nd.shape[1] : 1, wide: ndim === 2 };
   }
   if (Array.isArray(v) && v.length > 0 && v[0] !== null && typeof v[0] === "object") {
     const { data, T, K } = flattenRows(v, WHO, where);
-    return { data, T, K, wide: true };
+    return { data, ndim: 2, T, K, wide: true };
   }
   if (Array.isArray(v) || (ArrayBuffer.isView(v) && !(v instanceof DataView))) {
     const data = toF64Checked(v as ArrayLike<unknown>, WHO, (i) => `item ${i} of ${where}`, true);
-    return { data, T: data.length, K: 1, wide: false };
+    return { data, ndim: 1, T: data.length, K: 1, wide: false };
   }
   throw new TypeError(`${WHO}: ${where} is ${aKind(v)}, expected an array, a typed array or an NdArray`);
 }
@@ -107,13 +105,12 @@ function asFeed(b: Block, index?: ArrayLike<number>) {
  * `dropna: true` drops every row with a NaN. Pass exactly one of `count` and
  * `duration`.
  *
- * - Count mode: X is a 1-D array, a `[T, K]` NdArray or T rows, and y a 1-D
- *   array of the same length.
+ * - Count mode: X is a 1-D array, a `[T, K]` NdArray or T rows, and y one
+ *   column of the same length.
  * - Duration mode: X and y are `{ values, index }` streams; each y is paired
  *   with the last X whose index plus `duration` is at or before y's index.
  * - With `Input` nodes, returns a Node whose output row is `[X_shifted..., y]`,
- *   for a Pipeline (and its live sessions). A node reads X as one column in
- *   count mode.
+ *   for a Pipeline (and its live sessions). X may have any width.
  *
  * Returns `[X_shifted, y]`: X_shifted has X's rank (a Float64Array, or an
  * NdArray of shape `[rows, K]`). Python's `forecast_pairs` gives the same values.
@@ -127,7 +124,7 @@ export function forecastPairs(X: unknown, y: unknown, opts: ForecastPairsOptions
   if (isNode(X) || isNode(y)) {
     if (!(isNode(X) && isNode(y)))
       throw new TypeError(`${WHO}: pass X and y both as Nodes to build a graph`);
-    return pairsNode(X, y, h, 1);
+    return pairsNode(X, y, h);
   }
   const M: any = current();
   let bx: Block, by: Block, ix: ArrayLike<number> | undefined, iy: ArrayLike<number> | undefined;
@@ -143,12 +140,11 @@ export function forecastPairs(X: unknown, y: unknown, opts: ForecastPairsOptions
       throw new TypeError(`${WHO}: count mode takes X and y as values (an array, a typed array or an NdArray)`);
     bx = block(X, "X");
     by = block(y, "y");
-    wasmCall(() => M.checkForecastPairsRows(bx.T, by.T));
   }
-  if (by.K !== 1)
-    throw new RangeError(`${WHO}: y holds ${by.K} columns, expected one target column`);
+  wasmCall(() => M.checkForecastPairsInputs(h.count !== undefined, bx.ndim, bx.T, bx.K,
+                                            by.ndim, by.T, by.K));
   const xi = Input("X"), yi = Input("y");
-  const p = new Pipeline([xi, yi], [pairsNode(xi, yi, h, bx.K)]);
+  const p = new Pipeline([xi, yi], [pairsNode(xi, yi, h)]);
   let out: Output;
   try {
     out = p({ X: asFeed(bx, ix), y: asFeed(by, iy) }) as Output;

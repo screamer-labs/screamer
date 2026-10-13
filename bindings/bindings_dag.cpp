@@ -570,19 +570,32 @@ void init_bindings_dag(nb::module_& m) {
         .def("run_batch",        &PyCompiledGraph::run_batch, "feeds"_a, "align"_a = false);
 
     // The forecast_pairs graph (dag/forecast_pairs.h), compiled: inputs X and y,
-    // one output [X_shifted..., y]. The graph owns its operators.
-    m.def("_forecast_pairs_graph", [](std::size_t n_features,
-                                      std::optional<std::int64_t> count,
+    // one output [X_shifted..., y].
+    m.def("_forecast_pairs_graph", [](std::optional<std::int64_t> count,
                                       std::optional<std::int64_t> duration, bool dropna) {
         PyCompiledGraph pcg;
         pcg.cg = std::make_unique<dag::CompiledGraph>(
-            dag::forecast_pairs_graph(n_features, count, duration, dropna));
+            dag::forecast_pairs_graph(count, duration, dropna));
         return pcg;
-    }, "n_features"_a, "count"_a.none(), "duration"_a.none(), "dropna"_a);
-    m.def("_check_forecast_pairs_rows", &dag::check_forecast_pairs_rows,
-          "x_rows"_a, "y_rows"_a);
-    m.def("_check_forecast_pairs_horizon", &dag::check_forecast_pairs_horizon,
-          "count"_a.none(), "duration"_a.none());
+    }, "count"_a.none(), "duration"_a.none(), "dropna"_a);
+    m.def("_check_forecast_pairs_inputs", &dag::check_forecast_pairs_inputs,
+          "count_mode"_a, "x_ndim"_a, "x_rows"_a, "x_cols"_a, "y_ndim"_a, "y_rows"_a,
+          "y_cols"_a);
+    // The horizon rule on Python ints (None when absent). An int beyond int64
+    // is out of range, with the rule's own message.
+    m.def("_check_forecast_pairs_horizon", [](nb::handle count, nb::handle duration) {
+        auto read = [](nb::handle h, const char* name) -> std::optional<std::int64_t> {
+            if (h.is_none()) return std::nullopt;
+            int overflow = 0;
+            const long long v = PyLong_AsLongLongAndOverflow(h.ptr(), &overflow);
+            if (v == -1 && !overflow && PyErr_Occurred()) throw nb::python_error();
+            if (overflow) dag::throw_forecast_pairs_range(name, nb::cast<std::string>(nb::str(h)));
+            return static_cast<std::int64_t>(v);
+        };
+        auto c = read(count, "count");
+        auto d = read(duration, "duration");
+        dag::check_forecast_pairs_horizon(c, d);
+    }, "count"_a.none(), "duration"_a.none());
 
     // Live session: the per-event push, in C++ (name lookup, one conversion).
     // The Python _LiveDag subclasses this and adds result().
@@ -885,11 +898,11 @@ void init_bindings_dag(nb::module_& m) {
             return builder.add_resample(std::move(inputs), rp, max_pending);
         }
 
-        // The forecast_pairs nodes (dag/forecast_pairs.h); the graph owns its Lag.
-        std::size_t add_forecast_pairs(std::size_t x, std::size_t y, std::size_t n_features,
+        // The forecast_pairs nodes (dag/forecast_pairs.h).
+        std::size_t add_forecast_pairs(std::size_t x, std::size_t y,
                                        std::optional<std::int64_t> count,
                                        std::optional<std::int64_t> duration, bool dropna) {
-            return dag::add_forecast_pairs(builder, x, y, n_features, count, duration, dropna);
+            return dag::add_forecast_pairs(builder, x, y, count, duration, dropna);
         }
 
         void set_max_pending(std::size_t n) { builder.set_max_pending(n); }
@@ -902,12 +915,19 @@ void init_bindings_dag(nb::module_& m) {
 
         // Compile the accumulated spec into a persistent CompiledGraph.
         // The returned _CompiledGraph also holds op_refs so functors stay alive.
+        // The spec moves into the graph, so a builder compiles once: two
+        // graphs over one builder would share its operators' state.
         PyCompiledGraph compile() {
+            if (compiled)
+                throw std::runtime_error("this graph builder was compiled already; "
+                                         "build a new one");
             PyCompiledGraph pcg;
-            pcg.cg = std::make_unique<dag::CompiledGraph>(builder.spec());
+            pcg.cg = std::make_unique<dag::CompiledGraph>(builder.take());
             pcg.op_refs = op_refs;
+            compiled = true;
             return pcg;
         }
+        bool compiled = false;
     };
 
     // DAG compiler: _GraphBuilder accumulates a GraphSpec.
@@ -958,7 +978,7 @@ void init_bindings_dag(nb::module_& m) {
            "max_age"_a = -1,
            "max_pending"_a = dag::kDefaultMaxPending)
         .def("add_forecast_pairs", &PyGraphBuilder::add_forecast_pairs,
-             "x"_a, "y"_a, "n_features"_a, "count"_a.none(), "duration"_a.none(),
+             "x"_a, "y"_a, "count"_a.none(), "duration"_a.none(),
              "dropna"_a)
         .def("set_outputs", &PyGraphBuilder::set_outputs, "output_ids"_a)
         .def("set_max_pending", &PyGraphBuilder::set_max_pending, "max_pending"_a)

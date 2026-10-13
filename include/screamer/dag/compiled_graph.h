@@ -22,6 +22,7 @@
 #include "screamer/dag/filter_node.h"
 #include "screamer/dag/select_node.h"
 #include "screamer/dag/delay_node.h"
+#include "screamer/dag/lag_rows_node.h"
 #include "screamer/dag/resample_node.h"
 #include "screamer/dag/resample_generic_node.h"
 #include "screamer/dag/frame.h"
@@ -169,7 +170,8 @@ public:
                 break;
             }
             case NodeKind::Filter:        node_width[id] = 1; break;
-            case NodeKind::Delay:         node_width[id] = node_width[nd.inputs[0]]; break;
+            case NodeKind::Delay:
+            case NodeKind::LagRows:       node_width[id] = node_width[nd.inputs[0]]; break;
             }
         }
         join_ = OutputJoin(num_out);
@@ -324,6 +326,13 @@ public:
                     return &ptr->port(slot);
                 };
                 owned_.push_back(fn);
+                break;
+            }
+            case NodeKind::LagRows: {
+                auto ln = std::make_shared<LagRowsNode<std::int64_t>>(ns.lag_count, *downstream);
+                reset_nodes_.push_back(ln.get());
+                node_input_sink[id] = [ptr = ln.get()](std::size_t) -> Sink<std::int64_t>* { return ptr; };
+                owned_.push_back(ln);
                 break;
             }
             case NodeKind::Delay: {
@@ -604,6 +613,13 @@ private:
         };
         for (std::size_t id : topo_producers_first_) {
             const NodeSpec& nd = spec_.nodes[id];
+            if (nd.require_width) {
+                const std::size_t iw = w[nd.inputs[nd.require_slot]];
+                if (iw != 0 && iw != nd.require_width)
+                    throw std::invalid_argument(
+                        nd.require_what + " holds " + std::to_string(iw) + " columns, expected " +
+                        std::to_string(nd.require_width));
+            }
             switch (nd.kind) {
             case NodeKind::Input:
                 w[id] = in_w[input_sig_[id]];
@@ -639,6 +655,7 @@ private:
             }
             case NodeKind::DropNa:
             case NodeKind::Delay:
+            case NodeKind::LagRows:
                 w[id] = in_of(nd);
                 break;
             case NodeKind::Select: {

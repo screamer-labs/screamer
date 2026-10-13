@@ -9,12 +9,12 @@
 #include "screamer/dag/resample_params.h"
 #include "screamer/dag/max_pending.h"
 #include <cstdint>
-#include <memory>
 #include <utility>
 
 namespace screamer { namespace dag {
 
-enum class NodeKind { Input, Functor, CombineLatest, DropNa, Select, Resample, Filter, Delay };
+enum class NodeKind { Input, Functor, CombineLatest, DropNa, Select, Resample, Filter, Delay,
+                      LagRows };
 
 // Pure data: one node of a graph definition.
 struct NodeSpec {
@@ -25,6 +25,13 @@ struct NodeSpec {
     std::vector<std::size_t> columns;     // Select only
     ResampleParams resample;              // Resample only
     std::int64_t delay_duration = 0;     // Delay only
+    std::size_t lag_count = 1;            // LagRows only: events to lag by
+    // A node may require the width of its input `require_slot` (0 = any
+    // width); a graph given another width raises "<require_what> holds N
+    // columns, expected <require_width>".
+    std::size_t require_width = 0;
+    std::size_t require_slot = 0;
+    std::string require_what;
     std::size_t max_pending = kDefaultMaxPending;  // CombineLatest, Filter: reorder buffer cap
     std::vector<std::size_t> inputs;      // producer node ids (edges into this node)
 };
@@ -36,10 +43,6 @@ struct GraphSpec {
     // The join cap of the graph: the default of its CombineLatest and Filter
     // nodes, and the cap of its output alignment (OutputJoin).
     std::size_t max_pending = kDefaultMaxPending;
-    // Operators the graph owns: the ones a C++ graph definition creates (the
-    // Lag of forecast_pairs). A binding's own operators stay with the binding.
-    // A copy of the spec shares them, so compile a spec once.
-    std::vector<std::shared_ptr<EvalOp>> owned_ops;
 };
 
 // Accumulates a GraphSpec; returns node ids.
@@ -60,12 +63,6 @@ public:
         ns.inputs = std::move(inputs);
         spec_.nodes.push_back(std::move(ns));
         return spec_.nodes.size() - 1;
-    }
-    // A functor node over an operator the graph owns (GraphSpec::owned_ops).
-    std::size_t add_owned_functor(std::shared_ptr<EvalOp> op, std::vector<std::size_t> inputs) {
-        EvalOp* raw = op.get();
-        spec_.owned_ops.push_back(std::move(op));
-        return add_functor(raw, std::move(inputs));
     }
     // The graph's join cap (GraphSpec::max_pending); set it before the nodes
     // that take it as their default.
@@ -126,6 +123,27 @@ public:
         ns.inputs         = std::move(inputs);
         spec_.nodes.push_back(std::move(ns));
         return spec_.nodes.size() - 1;
+    }
+    // Lags rows of any width by `count` events (LagRowsNode).
+    std::size_t add_lag_rows(std::vector<std::size_t> inputs, std::size_t count) {
+        if (inputs.size() != 1 || count < 1)
+            throw std::invalid_argument("a lag takes one input and a count of at least 1");
+        NodeSpec ns;
+        ns.kind      = NodeKind::LagRows;
+        ns.lag_count = count;
+        ns.inputs    = std::move(inputs);
+        spec_.nodes.push_back(std::move(ns));
+        return spec_.nodes.size() - 1;
+    }
+    // Requires the width of input `slot` of node `id` (NodeSpec::require_width).
+    void require_width(std::size_t id, std::size_t slot, std::size_t width, std::string what) {
+        NodeSpec& ns = spec_.nodes.at(id);
+        if (slot >= ns.inputs.size())
+            throw std::invalid_argument("require_width: the node has no input " +
+                                        std::to_string(slot));
+        ns.require_width = width;
+        ns.require_slot  = slot;
+        ns.require_what  = std::move(what);
     }
     std::size_t add_filter(std::vector<std::size_t> inputs) {
         // Filter is a fixed 2-input gate (data, mask); fail early on wrong arity

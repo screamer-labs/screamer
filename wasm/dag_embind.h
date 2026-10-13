@@ -89,25 +89,21 @@ inline double checkedMaxPending(double v) {
 inline void throwMaxPendingKind(std::string kind) {
     screamer::dag::throw_max_pending_kind(kind, "maxPending");
 }
-// forecastPairs: the row rule of an eager call (dag/forecast_pairs.h).
-inline void checkForecastPairsRows(double xRows, double yRows) {
-    screamer::dag::check_forecast_pairs_rows(static_cast<std::size_t>(xRows),
-                                             static_cast<std::size_t>(yRows));
+// forecastPairs: the input rule of an eager call (dag/forecast_pairs.h).
+inline void checkForecastPairsInputs(bool countMode, double xNdim, double xRows, double xCols,
+                                     double yNdim, double yRows, double yCols) {
+    auto n = [](double v) { return static_cast<std::size_t>(v); };
+    screamer::dag::check_forecast_pairs_inputs(countMode, n(xNdim), n(xRows), n(xCols),
+                                               n(yNdim), n(yRows), n(yCols));
 }
 
-// A forecastPairs count or duration, a whole number (JavaScript truncates it)
-// that an int64 holds.
-inline std::int64_t horizon_int64(double v, const char* name) {
-    if (!(v >= -9223372036854775808.0 && v < 9223372036854775808.0))
-        throw std::invalid_argument(std::string("forecastPairs: ") + name +
-                                    " must be a finite number, got " +
-                                    screamer::dag::number_text(v));
-    return static_cast<std::int64_t>(v);
-}
-
+// A forecastPairs count or duration (JavaScript truncates it): a number in the
+// int64 range, else the rule's range error.
 inline std::optional<std::int64_t> horizon(bool has, double v, const char* name) {
     if (!has) return std::nullopt;
-    return horizon_int64(v, name);
+    if (!(v >= -9223372036854775808.0 && v < 9223372036854775808.0))
+        screamer::dag::throw_forecast_pairs_range(name, screamer::dag::number_text(v));
+    return static_cast<std::int64_t>(v);
 }
 
 // The forecastPairs horizon rule (dag/forecast_pairs.h), checked at the call.
@@ -122,8 +118,8 @@ inline double defaultMaxPending() { return static_cast<double>(screamer::dag::kD
 // Wraps a compiled graph (non-copyable engine type held by unique_ptr).
 class CompiledGraphWrap {
 public:
-    explicit CompiledGraphWrap(const screamer::dag::GraphSpec& spec)
-        : cg_(std::make_unique<screamer::dag::CompiledGraph>(spec)) {}
+    explicit CompiledGraphWrap(screamer::dag::GraphSpec spec)
+        : cg_(std::make_unique<screamer::dag::CompiledGraph>(std::move(spec))) {}
 
     void reset() { cg_->reset(); }
     void flush() { cg_->flush(); }
@@ -374,13 +370,12 @@ public:
                                screamer::dag::checked_max_pending(max_pending, "maxPending"));
     }
 
-    // The forecast_pairs nodes (dag/forecast_pairs.h); the graph owns its Lag.
-    // A horizon that is not given is passed as has* = false.
-    std::size_t addForecastPairs(std::size_t x, std::size_t y, std::size_t nFeatures,
-                                 bool hasCount, double count, bool hasDuration,
-                                 double duration, bool dropna) {
+    // The forecast_pairs nodes (dag/forecast_pairs.h). A horizon that is not
+    // given is passed as has* = false.
+    std::size_t addForecastPairs(std::size_t x, std::size_t y, bool hasCount, double count,
+                                 bool hasDuration, double duration, bool dropna) {
         return screamer::dag::add_forecast_pairs(
-            b_, x, y, nFeatures, horizon(hasCount, count, "count"),
+            b_, x, y, horizon(hasCount, count, "count"),
             horizon(hasDuration, duration, "duration"), dropna);
     }
 
@@ -390,12 +385,18 @@ public:
 
     // Compile the accumulated spec into a fresh CompiledGraphWrap; JS takes
     // ownership (return_value_policy::take_ownership) and must .delete() it.
+    // The spec moves into the graph, so a builder compiles once: two graphs
+    // over one builder would share its operators' state.
     CompiledGraphWrap* compile() {
-        return new CompiledGraphWrap(b_.spec());
+        if (compiled_)
+            throw std::runtime_error("this graph builder was compiled already; build a new one");
+        compiled_ = true;
+        return new CompiledGraphWrap(b_.take());
     }
 
 private:
     screamer::dag::GraphBuilder b_;
+    bool compiled_ = false;
 };
 
 }  // namespace screamer_wasm
@@ -407,8 +408,8 @@ private:
     emscripten::function("checkedMaxPending", &screamer_wasm::checkedMaxPending); \
     emscripten::function("throwMaxPendingKind", &screamer_wasm::throwMaxPendingKind); \
     emscripten::function("defaultMaxPending", &screamer_wasm::defaultMaxPending); \
-    emscripten::function("checkForecastPairsRows",                             \
-                         &screamer_wasm::checkForecastPairsRows);              \
+    emscripten::function("checkForecastPairsInputs",                           \
+                         &screamer_wasm::checkForecastPairsInputs);            \
     emscripten::function("checkForecastPairsHorizon",                          \
                          &screamer_wasm::checkForecastPairsHorizon);           \
     emscripten::register_vector<std::size_t>("VectorSizeT");                    \

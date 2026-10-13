@@ -397,9 +397,8 @@ class Pipeline:
                 elif name == "Delay":
                     nid = gb.add_delay(inp, int(_setting("duration", kwargs["duration"])))
                 elif name == "forecast_pairs":
-                    # The C++ graph definition (dag/forecast_pairs.h); a graph
-                    # node takes X as one column in count mode.
-                    nid = gb.add_forecast_pairs(inp[0], inp[1], 1, kwargs.get("count"),
+                    # The C++ graph definition (dag/forecast_pairs.h).
+                    nid = gb.add_forecast_pairs(inp[0], inp[1], kwargs.get("count"),
                                                 kwargs.get("duration"),
                                                 bool(kwargs.get("dropna", False)))
                 else:

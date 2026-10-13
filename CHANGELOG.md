@@ -92,25 +92,56 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 ### Changed
 
 * `forecast_pairs` runs one graph defined in C++, shared with JavaScript's
-  `forecastPairs`, in every regime. Results are unchanged, except for a 2-D
-  `X` in duration mode (see "Fixed"). Other visible differences:
+  `forecastPairs`, in every regime. Results for valid inputs are unchanged,
+  except for a 2-D `X` in duration mode (see "Fixed"). Other changes:
+  * A `(T, 1)` `X` in duration mode gives a `(rows, 1)` `X_shifted`, where
+    2.8.0 gave a 1-D array; the result now has the rank of `X` in both modes.
+    The values are the same. Pass `X[:, 0]` for the 1-D result.
+  * `y` must be one column, `(T,)` or `(T, 1)`, in both modes and every
+    regime. A 2-D `y` with more columns raises `ValueError` ("forecast_pairs:
+    y holds 2 columns, expected 1"); 2.8.0 used the first column of `y` and
+    dropped the others. Pass `y[:, 0]` for that result.
+  * `X` must be `(T,)` or `(T, K)` with `K` at least 1. A rank-3 `X` raises
+    `ValueError` ("forecast_pairs: X has 3 dimensions, expected (T,) or
+    (T, K)"); 2.8.0 raised `RuntimeError` in count mode and returned the first
+    feature only in duration mode. A `(T, 0)` `X` raises `ValueError` ("X has
+    no feature columns"), where 2.8.0 raised `IndexError`. Reshape `X` to
+    `(T, K)`.
+  * In count mode, `(values, index)` pairs raise `TypeError` ("count= mode
+    takes X and y as values"); 2.8.0 read each pair as a 2-row array and
+    returned unrelated numbers. Pass the values, or use `duration=`.
+  * A negative `duration` raises `ValueError` ("duration must be at least
+    0"). 2.8.0 accepted it and paired each target with later features, which
+    leaks the future into the training set.
+  * `count` is from 1 to 2147483647 and `duration` from 0 to the int64
+    maximum. A value out of range raises `ValueError` "forecast_pairs: count
+    must be at least 1 and at most 2147483647, got 0". 2.8.0 raised
+    `ValueError` with `Lag`'s message ("Size must be at least 1.", or "vector"
+    for a negative count), and `TypeError` with nanobind's signature text for
+    a count of 2**31 or more or a duration beyond int64. A graph node checks
+    both when it is built.
   * A `count` or `duration` given as a string raises `TypeError`, as every
     operator setting does (see "A string is never a number"); 2.8.0 read
     `count="3"` with `int()`. Pass `int(count)`.
-  * A `count` below 1 raises `ValueError` "forecast_pairs: count must be at
-    least 1 and at most 2147483647, got 0", where 2.8.0 raised `ValueError`
-    with `Lag`'s message ("Size must be at least 1.", or "vector" for a
-    negative count). A graph node checks `count` when it is built, as 2.8.0
-    did.
+  * `dropna` must be a bool (or a NumPy bool); anything else raises
+    `TypeError` ("forecast_pairs: dropna must be a bool, got str"), as in
+    JavaScript. 2.8.0 read it by truth value, so `dropna="no"` dropped rows.
+    Pass `bool(dropna)`.
   * Inside a `Pipeline`, `forecast_pairs(X_node, y_node, ...)` is one graph
-    node. `to_dict()`, `to_json()`, `to_text()` and `to_dot()` show one
-    `forecast_pairs` node, where 2.8.0 showed its `Lag`, `Delay`, `Resample`,
-    `CombineLatest` and `Dropna` nodes, and `from_dict()` restores it.
-    Results are unchanged. A graph saved by 2.8.0 still loads.
+    node, and it takes an `X` of any width in count mode too (2.8.0 raised for
+    a wide `X` in a graph or lazy call). `to_dict()`, `to_json()`, `to_text()`
+    and `to_dot()` show one `forecast_pairs` node, where 2.8.0 showed its
+    `Lag`, `Delay`, `Resample`, `CombineLatest` and `Dropna` nodes, and
+    `from_dict()` restores it. Results are unchanged. A graph saved by 2.8.0
+    still loads.
   * Given one `Node` and one array, it raises `TypeError` ("pass X and y both
     as Nodes to build a graph"). In count mode 2.8.0 returned a node that a
     `Pipeline` could not run; in duration mode it raised `Delay`'s
     `TypeError`.
+* A Python `_GraphBuilder` or JavaScript `GraphBuilder` compiles once: a
+  second `compile()` raises ("this graph builder was compiled already"), since
+  two graphs over one builder would share its operators' state. `Pipeline`
+  compiles each builder once, so its behavior is unchanged.
 * The microstructure operators report a wrong set of inputs with their own
   name and input names. `SignedVolume`, `QueueImbalance`, `RollingKyleLambda`
   and `EwKyleLambda` raise `TypeError` with messages such as
@@ -499,9 +530,8 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 * `forecast_pairs` in duration mode with a 2-D `X` of `K` columns returns all
   `K` shifted feature columns, as a `(rows, K)` array, as count mode does.
-  2.8.0 returned only the first column, as a 1-D array. A `(T, 1)`
-  `X` gives `(rows, 1)`, where 2.8.0 gave a 1-D array: the result has the rank
-  of `X` in both modes. For the 2.8.0 result, pass `X[:, 0]`.
+  2.8.0 returned only the first column, as a 1-D array. For the 2.8.0 result,
+  pass `X[:, 0]`.
 * JavaScript: an array of rows given to `positionTest` (a portfolio target)
   or `strategyTest` (an input) reads `null` as `NaN` and rejects a string
   with `TypeError`, as every other value path does. Before, `null` read as 0

@@ -468,3 +468,208 @@ def test_forecast_pairs_settings_and_errors():
     # a float setting is truncated and a bool is a number, as for Delay
     assert _same(forecast_pairs(v, v, count=1.5)[0], forecast_pairs(v, v, count=1)[0])
     assert _same(forecast_pairs(v, v, count=True)[0], forecast_pairs(v, v, count=1)[0])
+
+
+# ---------------------------------------------------------------------------
+# Seeded random cases: every regime equals eager, and eager equals a plain
+# reference loop. Wide X in both modes, NaN values, int and datetime64 indexes,
+# dropna on and off.
+# ---------------------------------------------------------------------------
+
+def _reference_count(X2, y, count):
+    """Row t: X[t - count] (a NaN row before), and y[t]."""
+    lagged = np.full_like(X2, np.nan)
+    lagged[count:] = X2[:len(X2) - count]
+    return np.column_stack([lagged, y])
+
+
+def _reference_duration(X2, xi, y, yi, duration):
+    """At each y tick t: the X rows whose index + duration falls in
+    (previous tick, t] give, per column, their last non-NaN value; a tick
+    whose rows are all NaN (or that has none) keeps the previous values. A row
+    is emitted once some X has been taken."""
+    dx = xi + duration
+    rows, last, prev = [], None, None
+    for j, t in enumerate(yi):
+        sel = (dx <= t) if prev is None else ((dx > prev) & (dx <= t))
+        bucket = X2[sel]
+        if len(bucket):
+            vals = np.full(X2.shape[1], np.nan)
+            for c in range(X2.shape[1]):
+                ok = bucket[~np.isnan(bucket[:, c]), c]
+                if len(ok):
+                    vals[c] = ok[-1]
+            if not np.isnan(vals).all():
+                last = vals
+        prev = t
+        if last is not None:
+            rows.append(np.append(last, y[j]))
+    return np.array(rows).reshape(len(rows), X2.shape[1] + 1)
+
+
+def _random_case(seed):
+    rng = np.random.default_rng(seed)
+    n = int(rng.integers(0, 50))
+    k = int(rng.choice([1, 1, 2, 4]))
+    wide = k > 1 or rng.random() < 0.3                     # (T, 1) as well as (T,)
+    X = rng.standard_normal((n, k))
+    X[rng.random((n, k)) < 0.15] = np.nan
+    xi = np.cumsum(rng.integers(1, 4, size=n)).astype(np.int64)
+    m = int(rng.integers(0, 40))
+    yi = np.cumsum(rng.integers(1, 5, size=m)).astype(np.int64)
+    yv = rng.standard_normal(m)
+    yv[rng.random(m) < 0.15] = np.nan
+    yc = rng.standard_normal(n)
+    yc[rng.random(n) < 0.15] = np.nan
+    mode = {"count": int(rng.integers(1, 6))} if rng.random() < 0.5 else \
+        {"duration": int(rng.integers(0, 12))}
+    dropna = bool(rng.random() < 0.5)
+    dates = bool(rng.random() < 0.4)
+    return X if wide else X[:, 0], xi, yv, yi, yc, mode, dropna, dates
+
+
+def _rows(xs, ys, k):
+    return np.column_stack([np.asarray(xs).reshape(len(ys), k), ys])
+
+
+@pytest.mark.parametrize("chunk", range(12))
+def test_forecast_pairs_random_cases_all_regimes(chunk):
+    from screamer import Input, Pipeline
+    for seed in range(chunk * 30, chunk * 30 + 30):          # 360 cases
+        X, xi, yv, yi, yc, mode, dropna, dates = _random_case(seed)
+        X2 = X if X.ndim == 2 else X[:, None]
+        if "count" in mode:                                 # one clock: row t with row t
+            yv, yi = yc, xi
+        ix, iy = ((xi.astype("datetime64[s]"), yi.astype("datetime64[s]")) if dates
+                  else (xi, yi))
+        if "count" in mode:
+            xs, ys = forecast_pairs(X, yv, dropna=dropna, **mode)
+            ref = _reference_count(X2, yv, mode["count"])
+        else:
+            xs, ys = forecast_pairs((X, ix), (yv, iy), dropna=dropna, **mode)
+            ref = _reference_duration(X2, xi, yv, yi, mode["duration"])
+        if dropna:
+            ref = ref[~np.isnan(ref).any(axis=1)]
+        k = X2.shape[1]
+        got = _rows(xs, ys, k)
+        assert xs.ndim == X.ndim, seed
+        assert _same(got, ref), seed
+
+        # lazy, a Pipeline node (batch) and a live session give the same rows
+        def events(vals, idx):
+            return ((v.tolist() if np.ndim(v) else float(v), i) for v, i in zip(vals, idx))
+        lazy = list(forecast_pairs(events(X, ix), events(yv, iy), dropna=dropna, **mode))
+        lazy_rows = np.array([r[0] for r in lazy], dtype=float).reshape(len(lazy), k + 1)
+        assert _same(lazy_rows, got), seed
+        X_in, y_in = Input("X"), Input("y")
+        pipe = Pipeline([X_in, y_in], [forecast_pairs(X_in, y_in, dropna=dropna, **mode)])
+        vals, idx = pipe((X, ix), (yv, iy))
+        assert _same(np.asarray(vals).reshape(len(idx), k + 1), got), seed
+        sess = pipe.live()
+        evs = sorted([(int(t), 0, r) for t, r in zip(xi, X)] +
+                     [(int(t), 1, v) for t, v in zip(yi, yv)], key=lambda e: e[:2])
+        for t, src, v in evs:
+            stamp = np.datetime64(t, "s") if dates else t
+            sess.push("X" if src == 0 else "y", stamp, v)
+        sess.flush()
+        lv, li = sess.result()
+        assert _same(np.asarray(lv).reshape(len(li), k + 1), got), seed
+        assert _same(li, idx), seed
+
+
+def test_forecast_pairs_wide_x_regimes_with_dates_and_nan():
+    """Wide X with a datetime index and NaN: eager == lazy == node == live, in
+    both modes (a fixed seed)."""
+    from screamer import Input, Pipeline
+    rng = np.random.default_rng(2026)
+    n = 80
+    X = rng.standard_normal((n, 3))
+    X[rng.random((n, 3)) < 0.2] = np.nan
+    xi = (np.cumsum(rng.integers(1, 3, size=n)) * 60).astype("datetime64[s]")
+    yi = (np.cumsum(rng.integers(1, 4, size=50)) * 60 + 30).astype("datetime64[s]")
+    yv = rng.standard_normal(50)
+    yc = rng.standard_normal(n)
+    for mode, ys_, iy in (({"count": 3}, yc, xi), ({"duration": 120}, yv, yi)):
+        for dropna in (False, True):
+            if "count" in mode:
+                xs, ys = forecast_pairs(X, ys_, dropna=dropna, **mode)
+            else:
+                xs, ys = forecast_pairs((X, xi), (ys_, iy), dropna=dropna, **mode)
+            got = _rows(xs, ys, 3)
+            assert xs.shape[1] == 3 and len(got) > 0
+            lazy = list(forecast_pairs(((r.tolist(), t) for r, t in zip(X, xi)),
+                                       ((float(v), t) for v, t in zip(ys_, iy)),
+                                       dropna=dropna, **mode))
+            assert _same(np.array([r[0] for r in lazy]), got)
+            X_in, y_in = Input("X"), Input("y")
+            pipe = Pipeline([X_in, y_in], [forecast_pairs(X_in, y_in, dropna=dropna, **mode)])
+            vals, idx = pipe((X, xi), (ys_, iy))
+            assert _same(vals, got)
+            # a live session drained every 9 events: the drains concatenated
+            # equal the batch rows
+            evs = sorted([(t, 0, r) for t, r in zip(xi, X)] +
+                         [(t, 1, v) for t, v in zip(iy, ys_)], key=lambda e: e[:2])
+            sess2 = pipe.live()
+            parts = []
+            for k, (t, src, v) in enumerate(evs, 1):
+                sess2.push("X" if src == 0 else "y", t, v)
+                if k % 9 == 0:
+                    parts.append(sess2.result())
+            sess2.flush()
+            parts.append(sess2.result())
+            live = np.concatenate([np.asarray(p[0]).reshape(len(p[1]), -1)
+                                   for p in parts if len(p[1])])
+            assert _same(live, got)
+
+
+def test_forecast_pairs_input_rules():
+    from screamer import Input, Pipeline
+    v = np.arange(6.0)
+    i = np.arange(6) * 10
+    y2 = np.column_stack([v, v])
+    with pytest.raises(ValueError, match=r"y holds 2 columns, expected 1"):
+        forecast_pairs(v, y2, count=1)
+    with pytest.raises(ValueError, match=r"y holds 2 columns, expected 1"):
+        forecast_pairs((v, i), (y2, i), duration=1)
+    X_in, y_in = Input("X"), Input("y")
+    pipe = Pipeline([X_in, y_in], [forecast_pairs(X_in, y_in, count=1)])
+    with pytest.raises(ValueError, match=r"y holds 2 columns, expected 1"):
+        pipe(v, y2)
+    with pytest.raises(ValueError, match=r"y holds 2 columns, expected 1"):
+        pipe.live().push("y", 0, [1.0, 2.0])
+    with pytest.raises(ValueError, match=r"X has 3 dimensions"):
+        forecast_pairs(v.reshape(6, 1, 1), v, count=1)
+    with pytest.raises(ValueError, match=r"X has 3 dimensions"):
+        forecast_pairs((v.reshape(6, 1, 1), i), (v, i), duration=1)
+    with pytest.raises(ValueError, match="no feature columns"):
+        forecast_pairs(np.empty((6, 0)), v, count=1)
+    with pytest.raises(TypeError, match="pairs are for duration="):
+        forecast_pairs((v, i), (v, i), count=1)
+    with pytest.raises(ValueError, match="duration must be at least 0"):
+        forecast_pairs((v, i), (v, i), duration=-1)
+    with pytest.raises(ValueError, match=r"count must be at least 1 and at most 2147483647, "
+                                         r"got 1180591620717411303424"):
+        forecast_pairs(v, v, count=2**70)
+    with pytest.raises(ValueError, match=r"got 1099511627776"):
+        forecast_pairs(v, v, count=2**40)
+    with pytest.raises(ValueError, match=r"duration must be at least 0 .* got -1180591620717"):
+        forecast_pairs((v, i), (v, i), duration=-2**70)
+    with pytest.raises(TypeError, match="dropna must be a bool, got str"):
+        forecast_pairs(v, v, count=1, dropna="no")
+    with pytest.raises(TypeError, match="dropna must be a bool, got int"):
+        forecast_pairs(v, v, count=1, dropna=1)
+    assert _same(forecast_pairs(v, v, count=1, dropna=np.bool_(True))[0],
+                 forecast_pairs(v, v, count=1, dropna=True)[0])
+    # (T, 1) y is one column; an empty wide X keeps its width
+    assert _same(forecast_pairs(v, v[:, None], count=1)[1], v)
+    assert forecast_pairs(np.empty((0, 3)), np.empty(0), count=1)[0].shape == (0, 3)
+
+
+def test_graph_builder_compiles_once():
+    from screamer import screamer_bindings as _b
+    gb = _b._GraphBuilder()
+    x = gb.add_input()
+    gb.set_outputs([gb.add_dropna([x], False)])
+    gb.compile()
+    with pytest.raises(RuntimeError, match="compiled already"):
+        gb.compile()

@@ -275,7 +275,7 @@ class PipelineImpl implements Owned {
         case "forecastPairs":
           // The C++ graph definition (dag/forecast_pairs.h), inputs [X, y].
           return wasmCall(() => gb.addForecastPairs(
-            inp[0], inp[1], p.nFeatures, p.count !== undefined, p.count ?? 0,
+            inp[0], inp[1], p.count !== undefined, p.count ?? 0,
             p.duration !== undefined, p.duration ?? 0, p.dropna));
         default:
           throw new Error(`unknown combinator '${kind}'`);

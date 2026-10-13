@@ -18,7 +18,7 @@ interface Case {
   y: { values: Num[]; index: number[] };
   X_shifted: { shape: number[]; values: Num[] };
   y_out: Num[];
-  node: { values: Num[]; index: number[] } | null;
+  node: { values: Num[]; index: number[] };
 }
 const cases: Case[] = JSON.parse(
   readFileSync(join(HERE, "..", "..", "wasm", "smoke", "oracle_forecast_pairs.json"), "utf8"));
@@ -83,17 +83,17 @@ test("forecastPairs: eager results equal Python's exactly", async () => {
 
 test("forecastPairs: as a Pipeline node, batch and live equal Python's rows and index", async () => {
   await ready();
-  for (const c of cases.filter((k) => k.node !== null)) {
+  for (const c of cases) {
     const X = Input("X"), y = Input("y");
     const node = forecastPairs(X, y, c.options);
     assert.ok(isNode(node));
     const p = new Pipeline([X, y], [node]);
     const xFeed = { values: xValues(c), index: c.X.index };
     const batch = p({ X: xFeed, y: { values: f64(c.y.values), index: c.y.index } }) as Output;
-    const want = f64(c.node!.values);
+    const want = f64(c.node.values);
     const vals = (v: Output["values"]) => ((v as NdArray).data ?? (v as Float64Array));
     assertSame(vals(batch.values), want, `${c.name}: batch rows`);
-    assertSame(batch.index, Float64Array.from(c.node!.index), `${c.name}: batch index`);
+    assertSame(batch.index, Float64Array.from(c.node.index), `${c.name}: batch index`);
     for (const every of [1, 3, 1_000_000]) {
       const live = p.live();
       const rows: number[] = [], index: number[] = [];
@@ -109,7 +109,7 @@ test("forecastPairs: as a Pipeline node, batch and live equal Python's rows and 
       live.flush();
       take();
       assertSame(rows, want, `${c.name}: live rows, result() every ${every}`);
-      assertSame(index, Float64Array.from(c.node!.index), `${c.name}: live index`);
+      assertSame(index, Float64Array.from(c.node.index), `${c.name}: live index`);
     }
     p.dispose();
   }
@@ -155,6 +155,25 @@ test("forecastPairs: options and inputs are checked as in Python", async () => {
     e instanceof TypeError && /item 0 of X is a string/.test(e.message));
   assert.throws(() => forecastPairs(Input("X"), v as any, { count: 1 }), TypeError);
   assert.throws(() => forecastPairs(v, v, { duration: NaN }), RangeError);
+  assert.throws(() => forecastPairs({ values: v }, { values: v }, { duration: -1 }), (e: any) =>
+    e instanceof RangeError && /duration must be at least 0/.test(e.message));
+  assert.throws(() => forecastPairs(v, v, { count: 1e30 }), (e: any) =>
+    e instanceof RangeError && /count must be at least 1 and at most 2147483647, got 1e\+30/.test(e.message));
+  // y is one column in both modes; X is (T,) or (T, K)
+  const two = { data: new Float64Array(12), shape: [6, 2] };
+  const three = { data: new Float64Array(12), shape: [6, 2, 1] };
+  assert.throws(() => forecastPairs(v, two, { count: 1 }), (e: any) =>
+    e instanceof RangeError && e.message === "forecast_pairs: y holds 2 columns, expected 1");
+  assert.throws(() => forecastPairs({ values: v }, { values: two }, { duration: 1 }), RangeError);
+  assert.throws(() => forecastPairs(three, v, { count: 1 }), (e: any) =>
+    e instanceof RangeError && e.message === "forecast_pairs: X has 3 dimensions, expected (T,) or (T, K)");
+  assert.throws(() => forecastPairs({ values: three }, { values: v }, { duration: 1 }), RangeError);
+  // a node checks y's width when the widths are known
+  const Xn = Input("X"), yn2 = Input("y");
+  const pn = new Pipeline([Xn, yn2], [forecastPairs(Xn, yn2, { count: 1 })]);
+  assert.throws(() => pn({ X: v, y: two }), (e: any) =>
+    e instanceof RangeError && /y holds 2 columns/.test(e.message));
+  pn.dispose();
   // a float horizon is truncated and null is NaN, as in Python
   const [a] = forecastPairs(v, v, { count: 1.5 });
   const [b] = forecastPairs(v, v, { count: 1 });
@@ -165,4 +184,24 @@ test("forecastPairs: options and inputs are checked as in Python", async () => {
   // duration with no index uses row numbers, as Python's (values, None)
   const [xd] = forecastPairs({ values: v }, { values: v }, { duration: 1 });
   assertSame(xd as Float64Array, Float64Array.from([1, 2, 3, 4, 5]), "duration, row numbers");
+});
+
+test("GraphBuilder: a builder compiles once", async () => {
+  await ready();
+  const { current } = await import("../src/index.ts");
+  const { wasmCall } = await import("../src/errors.ts");
+  const M: any = current();
+  const gb = new M.GraphBuilder();
+  try {
+    const x = gb.addInput();
+    const ins = new M.VectorSizeT(); ins.push_back(x);
+    const out = new M.VectorSizeT(); out.push_back(gb.addDropna(ins, false));
+    gb.setOutputs(out);
+    ins.delete(); out.delete();
+    const cg = gb.compile();
+    cg.delete();
+    assert.throws(() => wasmCall(() => gb.compile()), /compiled already/);
+  } finally {
+    gb.delete();
+  }
 });

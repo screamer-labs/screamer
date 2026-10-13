@@ -13,6 +13,8 @@ and splits the output columns.
 """
 from __future__ import annotations
 
+import numpy as np
+
 from .dag import _as_float64, _as_stream, _is_vi_pair, _setting, is_node, make_operator_node
 from .streams import _is_lazy_stream
 
@@ -32,14 +34,19 @@ def _horizon(count, duration):
     return count, duration
 
 
-def _graph(n_features, count, duration, dropna):
+def _graph(count, duration, dropna):
     from . import screamer_bindings as _b
-    return _b._forecast_pairs_graph(n_features, count, duration, bool(dropna))
+    return _b._forecast_pairs_graph(count, duration, dropna)
 
 
-def _split(values, n_features, wide):
-    """The output [X_shifted..., y] as (X_shifted, y); X_shifted keeps X's rank."""
-    return (values[:, :n_features] if wide else values[:, 0]), values[:, n_features]
+def _split(out, x_values):
+    """The output rows [X_shifted..., y] as (X_shifted, y); X_shifted has the
+    rank of X."""
+    wide = x_values.ndim == 2
+    k = x_values.shape[1] if wide else 1
+    if out.shape[0] == 0 and out.shape[1] != k + 1:   # no rows: X gives the width
+        out = np.empty((0, k + 1))
+    return (out[:, :k] if wide else out[:, 0]), out[:, k]
 
 
 def forecast_pairs(X, y, *, count=None, duration=None, dropna=False):
@@ -67,6 +74,9 @@ def forecast_pairs(X, y, *, count=None, duration=None, dropna=False):
     regime; graph and lazy regimes carry the index implicitly through the pipeline.
     """
     count, duration = _horizon(count, duration)
+    if not isinstance(dropna, (bool, np.bool_)):
+        raise TypeError(f"forecast_pairs: dropna must be a bool, got {type(dropna).__name__}")
+    dropna = bool(dropna)
 
     if is_node(X) or is_node(y):
         # Graph regime: one node that Pipeline compiles into the C++ graph.
@@ -81,23 +91,25 @@ def forecast_pairs(X, y, *, count=None, duration=None, dropna=False):
                 "forecast_pairs: cannot mix lazy iterator and concrete inputs; "
                 "pass both X and y as generators or both as arrays")
         from . import screamer_bindings as _b
-        return _b._LazyDriver(_graph(1, count, duration, dropna), [iter(X), iter(y)], 1)
+        return _b._LazyDriver(_graph(count, duration, dropna), [iter(X), iter(y)], 1)
 
     if duration is not None:
         # Duration is index-based: X and y come with their index.
         if not (isinstance(X, tuple) and isinstance(y, tuple)):
             raise TypeError("duration= mode needs X and y as (values, index) pairs")
         feeds = [_as_stream(X), _as_stream(y)]
-        values = feeds[0][1]
-        wide = _is_vi_pair(X) and values.ndim > 1
+        xv, yv = feeds[0][1], feeds[1][1]
     else:
-        X = _as_float64(X)
-        y = _as_float64(y)
-        from . import screamer_bindings as _b
-        _b._check_forecast_pairs_rows(len(X), len(y))
-        feeds = [_as_stream(X), _as_stream(y)]
-        wide = X.ndim > 1
-        values = X
-    n_features = values.shape[1] if wide else 1
-    (_, out), = _graph(n_features, count, duration, dropna).run_batch(feeds)
-    return _split(out, n_features, wide)
+        if _is_vi_pair(X) or _is_vi_pair(y):
+            raise TypeError("count= mode takes X and y as values; (values, index) "
+                            "pairs are for duration=")
+        xv, yv = _as_float64(X), _as_float64(y)
+        feeds = None
+    from . import screamer_bindings as _b
+    _b._check_forecast_pairs_inputs(
+        duration is None, xv.ndim, len(xv), xv.shape[1] if xv.ndim > 1 else 1,
+        yv.ndim, len(yv), yv.shape[1] if yv.ndim > 1 else 1)
+    if feeds is None:
+        feeds = [_as_stream(xv), _as_stream(yv)]
+    (_, out), = _graph(count, duration, dropna).run_batch(feeds)
+    return _split(out, xv)
