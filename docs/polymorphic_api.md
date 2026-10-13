@@ -31,11 +31,16 @@ give the details of each.
    `list(RollingMean(5)(iter(X)))` holds the rows of `RollingMean(5)(X)`.
    Details: [Streams in depth](streaming.md). A pandas `Series` or `DataFrame`
    is read as its values and gives a NumPy array, not a pandas object; use
-   `to_pandas` to attach an index again. A `str`, `bytes`, `dict` or `set`
-   is not data and raises `TypeError` at the call. A `bytearray` and a
-   `memoryview` do the same, and so does a pandas object with a datetime or
-   timedelta dtype: pass numeric values and convert timestamps yourself. This
-   applies to a pandas object passed as an argument. A `Series` inside a list
+   `to_pandas` to attach an index again. A `str`, `bytes`, `dict`, any other
+   mapping, or a `set` is not data and raises `TypeError` at the call. A
+   `bytearray` and a `memoryview` of bytes do the same; a numeric `memoryview`
+   is an array, as `np.asarray` reads it. A time is not a number either: a
+   NumPy `datetime64` or `timedelta64` array or scalar (`NaT` too), a pandas
+   object with a datetime or timedelta dtype, and a pandas `Timestamp`,
+   `Timedelta` or `NaT` raise `TypeError` wherever a value is read; pass
+   `.astype("int64")` for the tick counts. As an index, times keep working. A
+   ctypes object raises `TypeError` too. This applies to a pandas object passed
+   as an argument. A `Series` inside a list
    or an iterator is one event like any array-like: `RollingMean(2)([s1, s2])`
    returns a list with one array per event.
 3. **One meaning per container.** A number is one step of the operator's
@@ -203,8 +208,14 @@ events, and errors.
 
 ## The dispatch order
 
-The exact decision tree implemented in `ScreamerBase::operator()`
-(`src/screamer/common/base.cpp`) is:
+The exact decision tree of a one-input call, implemented in `screamer_call`
+(`src/screamer/common/dispatch.cpp`), is:
+
+0. **Normalize the argument** (`normalize_input` in
+   `include/screamer/common/dispatch.h`). A pandas `Series` or `DataFrame`
+   becomes its float64 values. A `str`, `bytes`, `bytearray`, mapping, `set`,
+   memoryview of bytes, time or ctypes object raises `TypeError`. A numeric
+   `memoryview` becomes an array.
 
 1. **Is it a scalar?** A scalar is any of:
    - Python `float`, `int`, `bool`,
@@ -213,6 +224,8 @@ The exact decision tree implemented in `ScreamerBase::operator()`
    The check is `can_cast_to_double(obj)` in
    `include/screamer/common/cast_double.h`. If yes, call
    `process_scalar(value)` and return a Python `float`.
+
+   `None` is a missing value: it is processed as `NaN` and returns a `float`.
 
 2. **Is it an async iterable?** (Its type defines `__aiter__`.) Wrap in
    `LazyAsyncIterator`. Each `__anext__` awaits one event and produces one
@@ -237,7 +250,9 @@ The exact decision tree implemented in `ScreamerBase::operator()`
    preserved; a list or tuple is not converted to a NumPy array.
 
 6. **Is it a NumPy array?** A 0‑D array is treated as a scalar and returns a
-   `float`. Any array of rank ≥ 1 routes to `process_python_array`, the
+   `float`. An array of another numeric dtype (`float16`, `int8`, `bool`,
+   `longdouble`) is read as float64; a string, time or complex dtype raises
+   `TypeError`. Any array of rank ≥ 1 routes to `process_python_array`, the
    multi‑dimensional handler described in *Convention 1*, and the output
    shape equals the input shape. A length‑1 1‑D array returns a 1‑D array of
    shape `(1,)`, not a scalar.
@@ -246,9 +261,10 @@ The exact decision tree implemented in `ScreamerBase::operator()`
    `next()` advances the source and produces one output.
 
 8. **Anything else** → `TypeError`, naming the operator and the input type.
-   (Multi-input functors also raise `TypeError` for a wrong argument
-   count or mixed input kinds, and `ValueError` for shapes that do not
-   broadcast; see the multi-input section.)
+   A wrong number of arguments is a `ValueError`, "RollingMean expects 1
+   input, got 2". (Multi-input functors also raise `TypeError` for mixed
+   input kinds, and `ValueError` for a wrong number of inputs and for shapes
+   that do not broadcast; see the multi-input section.)
 
 
 ### Some concrete consequences of this order
@@ -263,12 +279,10 @@ The exact decision tree implemented in `ScreamerBase::operator()`
 - `obj(iter([1, 2, 3]))` returns a lazy iterator (`LazyEvalIterator`), because
   `iter(...)` is iterable but not a list, tuple, or array.
 - `obj(np.float32(2.5))` returns a Python `float`, because NumPy scalars
-  are recognised in step 1.
-- `obj(decimal.Decimal("1.5"))` raises `ValueError`. `Decimal` is not in the
+  are recognised in step 1. An 8-bit or 16-bit NumPy integer or a `float16`
+  scalar returns a `float` as well: it is read as a 0-D array in step 6.
+- `obj(decimal.Decimal("1.5"))` raises `TypeError`. `Decimal` is not in the
   scalar table; we deliberately avoid silent precision conversion.
-- 8‑bit and 16‑bit NumPy integers are also not in the scalar table. If
-  this becomes annoying for a use case, raise an issue, adding them is a
-  one‑line change in `cast_double.h`.
 
 
 ## Time, assets and fields
@@ -360,11 +374,13 @@ reference example with `N = 2`.
 | `obj(x_aiter, y_aiter)` - `N` parallel async iterables, or one async iterable of `N`-field events | an async iterator (`LazyAsyncIterator`) awaiting one event per step; the same results as the iterator forms |
 | A mix of async and synchronous inputs | `TypeError` |
 | `obj(X, y)` - arrays whose asset shapes broadcast, e.g. `(T, K)` and `(T,)` | `numpy.ndarray` of shape `(T, K)`, where column `k` is `obj(X[:, k], y)`; the `(T,)` input is read once per column, not copied |
-| `obj(A)` - a single 2-D array of shape `(T, N)` | `numpy.ndarray` of shape `(T,)` - the `N` columns are the `N` inputs; column `j` → input `j`. Accepted iff `A.shape[1] == N`; any other single-array shape is a `ValueError`. |
+| `obj(A)` - a single 2-D array of shape `(T, N)` | `numpy.ndarray` of shape `(T,)` - the `N` columns are the `N` inputs; column `j` → input `j`. Accepted iff `A.shape[1] == N`; any other single array (a 1-D array too) is a `ValueError`. |
 | `obj(A)` - a single packed array of shape `(T, K, N)` | `numpy.ndarray` of shape `(T, K)`: `K` assets, each with `N` input fields |
 | Asset shapes that do not broadcast, or a different length along time | `ValueError` ("do not broadcast", "same length along time") |
 | `obj(x_list, y_arr)` - lists or tuples of numbers mixed with arrays, in any order | `numpy.ndarray`, the same as when each list is passed as a 1-D array of its length |
-| Mixed kinds (one scalar + one array, etc.) or a wrong number of inputs | `TypeError` |
+| Mixed kinds (one scalar + one array, etc.) | `TypeError` |
+| A wrong number of inputs | `ValueError` naming the operator: "RollingCorr expects 2 inputs, got 3" (JavaScript: the same text as a `RangeError`) |
+| A keyword the operator does not take | `TypeError` |
 
 This is the array form of `obj(A[:, 0], A[:, 1], ...)`, and is what makes
 `RollingCorr(w)(CombineLatest()(a, b)[0])` work directly.

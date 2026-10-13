@@ -759,6 +759,56 @@ def cases():
         "Resample origin past int64": lambda: s.Resample(freq=10, origin=-10, agg="last")(
             (np.ones(1), np.array([top]))),
     })
+
+    # Task FB (final review, Python): input counts, value kinds, wide
+    # Dropna/Select with equal indexes, the combine_latest iterator index kinds.
+    import array
+    import ctypes
+    import types
+    dt = np.array(["2020-01-01", "2020-01-02"], "datetime64[ns]")
+    def one_input_pipeline():
+        x = s.Input("x")
+        return s.Pipeline([x], [s.RollingSum(2)(x)])
+
+    W = np.array([[1.0, 10.0], [2.0, 20.0], [3.0, 30.0], [np.nan, 40.0], [5.0, 50.0]])
+    WK = np.array([0, 1, 1, 1, 2])
+    table.update({
+        "2in one 1-D array": lambda: s.RollingCorr(3)(v),
+        "2in three arrays": lambda: s.RollingCorr(3)(v, v, v),
+        "2in one tuple of three": lambda: s.RollingCorr(3)((1.0, 2.0, 3.0)),
+        "1in two numbers": lambda: s.RollingMean(3)(1.0, 2.0),
+        "1in no argument": lambda: s.RollingMean(3)(),
+        "2in unknown keyword": lambda: s.RollingCorr(3)(x=1.0),
+        "row op one input of two": lambda: s.BacktestPortfolioTarget()(X),
+        "micro missing input": lambda: s.SignedVolume()(v),
+        "2in tuple beside array": lambda: s.RollingCorr(5)(tuple(v), w),
+        "2in array beside tuple": lambda: s.RollingCorr(5)(w, tuple(v)),
+        "2in empty list": lambda: s.Add()([]),
+        "1in datetime64 array": lambda: s.RollingMean(1)(dt),
+        "1in list of datetime64": lambda: s.RollingMean(1)(list(dt)),
+        "merge datetime64 values": lambda: s.Merge()(dt, v[:2]),
+        "Pipeline datetime64 values": lambda: one_input_pipeline()(dt),
+        "Pipeline datetime64 index": lambda: one_input_pipeline()((v[:2], dt)),
+        "1in ctypes double": lambda: s.RollingMean(1)(ctypes.c_double(1.5)),
+        "merge ctypes array": lambda: s.Merge()((ctypes.c_double * 3)(1.0, 2.0, 3.0), v[:3]),
+        "1in pandas Timestamp": lambda: s.RollingMean(1)(pd.Timestamp("2020-01-01")),
+        "1in mappingproxy": lambda: s.RollingMean(1)(types.MappingProxyType({1.5: 2.0})),
+        "1in numeric memoryview": lambda: s.RollingMean(2)(memoryview(array.array("d", v[:4]))),
+        "1in memoryview of bytes": lambda: s.RollingMean(1)(memoryview(b"12")),
+        "1in Decimal": lambda: s.RollingMean(1)(__import__("decimal").Decimal("1.5")),
+        "Dropna two positional arrays": lambda: s.Dropna()(np.array([1.0, np.nan, 3.0]),
+                                                          np.array([5.0, 6.0, 7.0])),
+        "Dropna wide equal indexes": lambda: s.Dropna()(W, index=WK),
+        "Dropna wide equal indexes lazy": lambda: list(s.Dropna()(gen(zip(W, WK)))),
+        "Select wide equal indexes": lambda: s.Select([1])(W, index=WK),
+        "Select wide equal indexes lazy": lambda: list(s.Select([1])(gen(zip(W, WK)))),
+        "CombineLatest lazy fractional index": lambda: list(s.CombineLatest()(
+            gen(zip(v[:3], [0.5, 1.5, 2.5])), gen(zip(w[:3], [0.0, 1.0, 2.0])))),
+        "CombineLatest lazy indexed one-value rows": lambda: list(s.CombineLatest()(
+            gen([(np.array([1.0]), 7)]))),
+        "from_pandas list": lambda: s.from_pandas([1.0, 2.0]),
+        "1in object DataFrame": lambda: s.RollingMean(2)(pd.DataFrame({"a": [object(), object()]})),
+    })
     return table
 
 

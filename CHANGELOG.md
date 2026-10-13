@@ -143,14 +143,67 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Changed
 
+* A wrong number of inputs raises `ValueError` naming the operator,
+  "RollingCorr expects 2 inputs, got 3" (JavaScript: the same text as a
+  `RangeError`). 2.8.0 raised `TypeError` with "Wrong number of arguments.",
+  "Unsupported single argument input type. Supported types are lists or
+  tuples.", nanobind's "incompatible function arguments" (for example
+  `RollingMean(3)(1.0, 2.0)`), "this operator takes 2 inputs, got 1." (row
+  operators, portfolio engines, async inputs), or "missing 1 required
+  positional argument" (`SignedVolume()(x)`). Code that caught `TypeError` for
+  these should catch `ValueError`. A keyword an operator does not take stays a
+  `TypeError` ("RollingCorr() got an unexpected keyword argument 'x'").
+* A NumPy `datetime64` or `timedelta64` array given as values raises
+  `TypeError` ("RollingMean: a value must be a number, got an array of times
+  (dtype datetime64[ns]); pass .astype("int64") for its tick counts"), as a
+  pandas object with a time dtype already did, for operators, `Pipeline`
+  feeds and the stream functions. 2.8.0 read it as its tick counts. For the
+  old result, pass `values.astype("int64")`. A list of `datetime64` scalars
+  raises the same way. As an index, times work as before.
+* A ctypes object raises `TypeError` wherever a value is read. 2.8.0 read
+  `ctypes.c_double(1.0)` as 1.0 and a ctypes array as numbers in the stream
+  functions (`Merge`, `CombineLatest`, `Dropna`, `Select`, `Resample`,
+  `split`, a `Pipeline` feed); an operator given a ctypes array crashed (see
+  Fixed). Pass `x.value` for a scalar and `np.asarray(x)` (or `memoryview(x)`)
+  for an array.
+* A pandas `Timestamp`, `Timedelta` or `NaT` raises `TypeError` that names the
+  operator ("RollingMean: a Timestamp is not a valid input; ..."). 2.8.0 raised
+  `ValueError` "Unsupported input type for call"; code that caught it should
+  catch `TypeError`.
+* `Dropna()(a, b)` reads two streams, as JavaScript's `dropna([a, b])` and a
+  saved pipeline do: their events merge in index order (ties in argument
+  order) and each `NaN` event is dropped, the `Dropna` node of a `Pipeline`
+  given two streams. 2.8.0 took `b` as the index of `a`. For the old result,
+  pass the index in a tuple, `Dropna()((a, b))`, or as `Dropna()(a, index=b)`.
+* A mapping other than `dict` (`types.MappingProxyType`,
+  `collections.UserDict`, `ChainMap`) raises `TypeError` like a `dict`. 2.8.0
+  read it as an iterator of its keys; pass `list(m)` for that.
+* An operator given a `memoryview` of `bytes` or `bytearray` (or of format
+  `"c"`) raises `TypeError`, as a live push does. 2.8.0 read
+  `memoryview(b"12")` as the byte codes `[49.0, 50.0]`; pass
+  `np.frombuffer(m, np.uint8)` for them. A numeric `memoryview` is an array,
+  as `np.asarray` reads it.
+* An iterator `CombineLatest` of one input of `(value, index)` events yields
+  each row as a tuple of its one value, `((1.0,), 7)`, as the positional
+  iterator form does and as the batch result has one column. 2.8.0 yielded
+  `(1.0, 7)`; take `row[0]` for it.
+* `from_pandas` given an object that is not a pandas `Series` or `DataFrame`
+  raises `TypeError` ("from_pandas: pass a pandas Series or DataFrame, got a
+  list"). 2.8.0 raised `AttributeError`.
+* JavaScript: an operator given an empty array of events returns an empty
+  array, as Python returns `[]`: `Add()([])` is `[]`. 2.8.0 threw
+  `RangeError` "expected 2 inputs, got 1". A one-input operator given another
+  number of arguments throws `RangeError` ("RollingMean expects 1 input, got
+  2"); 2.8.0 used the first argument.
+
 * `split` makes at most 2\*\*20 (1048576) outputs. One output per source id
   up to the largest made `split([1.0], [2**31 - 2])` build 2\*\*31 - 1
   outputs, which in Python grew until the operating system killed the
   process, and threw the C++ text `RangeError: vector` in JavaScript. A
   larger source or `n` raises `ValueError` (`RangeError` in JavaScript)
-  before anything is allocated: "split: 2147483647 outputs is more than the
-  cap of 1048576 (2\*\*20); pass smaller source ids". Old result: none;
-  renumber the sources densely.
+  before anything is allocated: "split: 2147483647 outputs are more than the
+  cap of 1048576 (2\*\*20); pass smaller source ids" (for a large `n`: "pass
+  a smaller n"). Old result: none; renumber the sources densely.
 * Each `Pipeline` runs on its own copies of the operators it is built from
   (the same parameters, a fresh state), in Python and JavaScript. Two
   Pipelines built from the same nodes shared the operators' state in 2.8.0,
@@ -575,9 +628,10 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 * **JavaScript error classes:** every shape, length or input-count mismatch throws `RangeError` (the counterpart of Python's `ValueError`); wrong kinds still throw `TypeError`. 2.8.0 threw `TypeError` for a length mismatch; code that caught it should catch `RangeError`.
 * JavaScript: the WebAssembly module uses native WebAssembly exceptions; it needs Chrome 95, Firefox 100, Safari 15.2 or Node 17 or later. Errors thrown by your own iterators now reach you unchanged.
 * JavaScript: a string parameter given a non-string (for example `RollingMean(3, 5)`) throws `TypeError`. 2.8.0 threw Embind's `BindingError`; code that caught it should catch `TypeError`.
-* One-input operators such as `RollingMean` raise `TypeError` for an input
-  they cannot read (was `ValueError` with "Unsupported input type for call").
-  Code that caught `ValueError` for this case should catch `TypeError`.
+* One-input operators raise `TypeError` for an input they cannot read, for
+  example `RollingMean(2)(Decimal("1.5"))` or a `Fraction` (was `ValueError` with
+  "Unsupported input type for call"). Code that caught `ValueError` for this
+  case should catch `TypeError`; pass `float(value)` to read it as a number.
 * `strategy_test` (Python) and `strategyTest` (JavaScript) run in one C++
   implementation that calls your strategy back. They are faster, 1.1 to 5
   times in our measurements, most when the strategy itself is quick.
@@ -719,7 +773,7 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 * A value of the wrong kind inside a list, tuple stream or iterator raises `TypeError` that names its type and position; before, it raised `RuntimeError: std::bad_cast`. For example, `RollingMean(2)([1.0, {}])` raises `TypeError: RollingMean: event 1 is a dict, expected a number`. Code that caught `RuntimeError` for these should catch `TypeError` (or `ValueError` for a wrong shape). An element that holds only numbers but is not one number, such as `[1.0, 2.0]` in `RollingMean(2)([1.0, [1.0, 2.0]])`, raises `ValueError: RollingMean: event 1 has shape (2,), expected a number` on the list, iterator and async paths alike (a list raised `RuntimeError: std::bad_cast`; an iterator raised `ValueError` with "every event must have the same shape").
 * JavaScript: the same cases throw `TypeError` (wrong kind) or `RangeError` (wrong shape) with the same messages. Before, a list of events or an iterator item of the wrong kind threw `RangeError`, and other wrong-kind list elements threw `TypeError` without the position. A `Pipeline` feed, index or `live().push()` / `pushWide()` value that is a function, or an object that does not convert to a number (for example `{}`), throws `TypeError`; before, it was converted with `Number()` (`{}` and functions gave `NaN`). Numbers, booleans, `undefined` and `Date` values convert as before; a string raises `TypeError` and a `null` value is `NaN` (see above and below). An index follows the index rule above: it must be a number.
 * `PortfolioReport` given a list of `(K, 4)` engine rows returns a list of `(6,)` result rows, following rule 3; 2.8.0 returned a `(T, 6)` array. To get the array, pass `np.stack(rows)` or a tuple of rows. A tuple of rows and an array still return an array. In JavaScript an `Array` of rows (nested arrays or `[K, 4]` `NdArray` events) gives an `Array` of `Float64Array` rows; to get the old `NdArray`, pass `{ data, shape: [T, K, 4] }`.
-* A multi-input operator given a mix of lists and arrays returns an array, in either argument order: `RollingCorr(5)(x_list, y_array)` returned a list and `RollingCorr(5)(y_array, x_list)` raised `TypeError`; both now return the array that two arrays give. To get the old list, pass lists for every input (`list(y_array)`), or call `.tolist()` on the result. A list among arrays reads as a 1-D array of its length and broadcasts over the asset axes of the other inputs; lengths that differ still raise `ValueError`. All lists still return a list. JavaScript already returned an array for these mixes.
+* A multi-input operator given a mix of lists (or tuples) and arrays returns an array, in either argument order: `RollingCorr(5)(x_list, y_array)` returned a list and `RollingCorr(5)(y_array, x_list)` raised `TypeError`; both now return the array that two arrays give. To get the old list, pass lists for every input (`list(y_array)`), or call `.tolist()` on the result. A list among arrays reads as a 1-D array of its length and broadcasts over the asset axes of the other inputs; lengths that differ still raise `ValueError`. All lists still return a list. JavaScript already returned an array for these mixes.
 * JavaScript: a `null` value in a `Pipeline` feed, `live().push()` or `pushWide()` is a missing value, `NaN`, as Python's `None` is; before, it was 0. To get the old value, replace `null` with 0 before the call. A `null` index raises `TypeError` (the index rule above). A `null` given to an operator is NaN too (see above).
 * JavaScript: an `Array` of events into an operator returns an `Array` with one result per event, as a Python list does. `Add()([[1, 2], [3, 4]])` returns `[3, 7]` (was a `Float64Array`), and an `Array` of `[K, N]` `NdArray` events returns an `Array` of per-event results (was one `NdArray`). An `Array` of `Float64Array` or `NdArray` asset events into a one-input operator, `RollingMean(2)([a, b])`, is a sequence of events and returns an `Array` of per-event arrays; before, it threw `RangeError`. To get the old container, pass the columns or one packed `NdArray`: `Add()(Float64Array.from(evs, (e) => e[0]), Float64Array.from(evs, (e) => e[1]))`. Likewise, a multi-input operator given only `number[]` inputs returns an `Array` (an `Array` of `number[]` for a multi-output operator), as Python lists give a list: `Add()([1, 2], [3, 4])` returns `[4, 6]` (was a `Float64Array`). To get the old result, pass `Float64Array` inputs (`Float64Array.from(x)`); one `Float64Array` or `NdArray` among the inputs is enough.
 * JavaScript: in an `Array` of asset events into a one-input operator, the
@@ -944,6 +998,33 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Fixed
 
+* A NumPy `datetime64` or `timedelta64` scalar (`NaT` too) or a ctypes array
+  passed to an operator, or as an event of an iterator, crashed the process
+  (a segmentation fault in nanobind's buffer import, which read the missing
+  strides of these buffers). Each raises `TypeError` now, in every entry point
+  (operators, iterators, `Pipeline` feeds and live pushes, `Merge`,
+  `CombineLatest`). The local nanobind patch also reads missing strides as a
+  C-contiguous buffer, so no other buffer can crash there.
+* `Dropna` and `Select` called directly on a wide `(T, N)` stream with equal
+  indexes dropped or merged rows: `Dropna()(V, index=[0, 1, 1, 1, 2])` lost
+  rows without a `NaN`, and `Select([1])` returned 3 of 5 rows. Both run the
+  C++ node through a one-input `Pipeline` now, in batch and iterator form, and
+  give the `Pipeline` result: every row is kept or dropped on its own. The
+  iterator form also no longer splits each event into columns in Python.
+* The iterator form of `CombineLatest` with a fractional float index raised
+  `TypeError` ("float indices are not yet supported"), while the batch form
+  joined it. Both join it now, with the same rows (the indexed iterator join
+  runs in C++ for every index kind).
+* `Select(0)` on a 1-D array returned the caller's array itself, so writing
+  into the result changed the input. It returns a new array, as every other
+  result is.
+* Error messages name the operator where they did not: a complex array ("an
+  array of complex128 values is not a valid input"), a string array, events
+  of different shapes, a 0-d string or time array (was NumPy's "iteration
+  over a 0-d array"), and an object `DataFrame` or object array holding a
+  non-number (was pandas' or NumPy's conversion text). A mixed-kinds error
+  names the argument as passed (`Series`, not `ndarray`).
+
 * A live `Pipeline` with a `freq=` (`every=`), `count=` or `threshold=`
   `Resample` beside another output held the other outputs' rows of two bars
   (label="left"); a join fed by such a Resample held as many events. The
@@ -1018,7 +1099,9 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   (batch and iterator) and JavaScript. Every input must have the same row
   width; another width raises `ValueError` (`RangeError` in JavaScript)
   naming both widths. 2.8.0 raised `RuntimeError` ("std::bad_cast") for wide
-  arrays and `ValueError` for positional row events. A text index given to
+  arrays and `ValueError` for positional row events, and the indexed iterator
+  form returned only column 0 of each row; for that result, pass
+  `Select(columns=[0])` first (or `X[:, 0]`). A text index given to
   `Merge` raises `TypeError` (2.8.0: `ValueError` from `int()`), and an index
   that is not 1-D raises `ValueError` naming its shape from `Merge` and
   `CombineLatest` (2.8.0: "std::bad_cast").
@@ -1192,8 +1275,9 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   could trade while the other never did. The order now waits for the asset's
   next quoted bar, unless a newer order for that asset is due first.
 * `CombineLatest` given a multi-column stream kept only its first column inside
-  a `Pipeline` and raised an opaque `std::bad_cast` when called directly. Both
-  paths now concatenate its columns.
+  a `Pipeline` and in the indexed iterator form, and raised an opaque
+  `std::bad_cast` for arrays. Every path now concatenates its columns. For the
+  old first-column result, pass `Select(columns=[0])` first (or `X[:, 0]`).
 * A tuple of arrays passed to a one-input operator raises a `TypeError` that
   says what to do: a `(values, index)` stream goes to a stream operator or a
   `Pipeline`, and a list of arrays is a sequence of asset events. In 2.8.0 a
