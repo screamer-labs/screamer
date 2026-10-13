@@ -115,7 +115,10 @@ it is not `Pipeline`-only.
 
 - `"skip"` (default): emit no row for an empty bucket (the legacy behavior).
 - `"nan"`: emit an all-NaN row at the empty bucket's label.
-- `"carry"`: repeat the previous emitted row's values verbatim.
+- `"carry"`: each column takes its last non-NaN value. An empty bucket repeats
+  those values, and a NaN cell of a bar (a column with no finite value in the
+  bucket) takes its column's value, as a forward fill of each column would.
+  A column without a value yet stays NaN.
 
 Only **internal** empty buckets (gaps between two events) are filled by `Resample`
 itself. Trailing empty buckets after the last event are not synthesized here; that
@@ -152,10 +155,14 @@ after `now`.
   clock (a `Pipeline` clock input or [`advance()`](#pipeline-live)) that advances time before
   the first data event; there `"nan"` emits NaN rows and `"carry"` **skips** them,
   since there is no previous row to repeat.
-- **`"carry"` is verbatim and uniform** across every column: it repeats the previous
-  bar's whole row, including count-like or sum-like columns. So a genuinely empty bar
-  carries the previous bar's count, not 0. Use `"nan"` where that is wrong for your
-  columns; a per-column fill policy is out of scope in v1.
+- **`"carry"` works per column** and treats every column alike, including
+  count-like or sum-like columns: a genuinely empty bar carries the previous
+  bar's count, not 0. Use `"nan"` where that is wrong for your columns. A wide
+  input, `(T, K)`, gives the same values as `K` separate one-column calls.
+  3.0.0 changed this: 2.8.0 repeated the previous row as it was, NaN cells
+  included, and under `freq=` kept a bar whose events were all NaN as a NaN
+  bar. For the 2.8.0 values, resample with `fill="nan"` and forward-fill only
+  the rows of empty buckets.
 - **`label="right"`** composes with `fill=` unchanged: a filled bucket is labelled at
   its right grid edge, like any other bar.
 - **Functor reducers** are unaffected. A filled empty bucket emits a synthetic row
@@ -279,8 +286,9 @@ value resumes the join. `max_age=None` (the default) preserves unbounded carry.
 - `agg=` accepts the same builtin string aggs as the other modes (`first`, `last`,
   `min`, `max`, `sum`, `count`, `mean`, `ohlc`). Functor aggs raise `ValueError`
   with `clock=`; apply the functor downstream on the per-bar output instead.
-  `fill='carry'` repeats the last emitted row at every clock tick that has no value
-  event; `fill='skip'` (the default) suppresses emission at empty-bucket clock ticks.
+  `fill='carry'` gives each column its last non-NaN value at a clock tick
+  whose bar has no finite value in that column, as under `freq=`;
+  `fill='skip'` (the default) suppresses emission at empty-bucket clock ticks.
 - `clock=True` is mutually exclusive with `freq=`, `every=`, `count=`, and
   `threshold=`; passing two mode selectors raises `ValueError`.
 - Events with index exactly equal to the clock tick are **included** in that bar

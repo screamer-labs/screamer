@@ -2,6 +2,7 @@
 #define SCREAMER_DAG_RESAMPLE_GENERIC_NODE_H
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <limits>
 #include <stdexcept>
@@ -74,6 +75,8 @@ public:
         count_in_bucket_ = 0;
         first_index_ = last_index_ = Index{};
         have_emitted_ = false;
+        std::fill(last_emitted_.begin(), last_emitted_.end(),
+                  std::numeric_limits<double>::quiet_NaN());
     }
 
     std::size_t n_in()  const override { return 1; }
@@ -203,15 +206,20 @@ private:
         if (!fed_)
             std::fill(out_.begin(), out_.end(),
                       std::numeric_limits<double>::quiet_NaN());
-        if (p_.fill == ResampleFill::Carry) {
-            last_emitted_.assign(out_.begin(), out_.end());
+        // fill="carry" under freq=: each NaN cell takes its column's last
+        // non-NaN value (as ResampleNode::carry_cells).
+        if (p_.fill == ResampleFill::Carry && p_.mode == ResampleMode::ByIndex) {
+            for (std::size_t i = 0; i < out_.size(); ++i) {
+                if (std::isnan(out_[i])) out_[i] = last_emitted_[i];
+                else last_emitted_[i] = out_[i];
+            }
             have_emitted_ = true;
         }
         downstream_.push(Frame<Index>{label, out_.data(), out_.size()});
     }
 
     // Emit a filler row for an internal empty bucket. Nan -> an all-NaN row;
-    // Carry -> the previous emitted row verbatim (skipped if nothing emitted yet).
+    // Carry -> each column's last non-NaN value (skipped if nothing emitted yet).
     void emit_fill(Index label) {
         if (p_.fill == ResampleFill::Nan) {
             downstream_.push(Frame<Index>{label, nan_row_.data(), nan_row_.size()});

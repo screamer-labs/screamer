@@ -204,10 +204,10 @@ void init_bindings_rolling(nb::module_& m) {
     nb::class_<screamer::DEMA, screamer::ScreamerBase>(m, "DEMA")
         .def(
           nb::init<
-               std::optional<double>,
-               std::optional<double>,
-               std::optional<double>,
-               std::optional<double>
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>
           >(),
           "com"_a = nb::none(),
           "span"_a = nb::none(),
@@ -220,10 +220,10 @@ void init_bindings_rolling(nb::module_& m) {
     nb::class_<screamer::TEMA, screamer::ScreamerBase>(m, "TEMA")
         .def(
           nb::init<
-               std::optional<double>,
-               std::optional<double>,
-               std::optional<double>,
-               std::optional<double>
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>
           >(),
           "com"_a = nb::none(),
           "span"_a = nb::none(),
@@ -343,16 +343,16 @@ void init_bindings_rolling(nb::module_& m) {
         .def("reset", &screamer::RollingParkinsonVol::reset, "Reset.");
 
     nb::class_<screamer::EwParkinsonVar, screamer::EvalOp>(m, "EwParkinsonVar")
-        .def(nb::init<std::optional<double>, std::optional<double>,
-                       std::optional<double>, std::optional<double>>(),
+        .def(nb::init<std::optional<screamer::FloatArg>, std::optional<screamer::FloatArg>,
+                       std::optional<screamer::FloatArg>, std::optional<screamer::FloatArg>>(),
              "com"_a = nb::none(), "span"_a = nb::none(),
              "halflife"_a = nb::none(), "alpha"_a = nb::none())
         .def("__call__", &screamer::functor_call<screamer::EwParkinsonVar>)
         .def("reset", &screamer::EwParkinsonVar::reset, "Reset.");
 
     nb::class_<screamer::EwParkinsonVol, screamer::EvalOp>(m, "EwParkinsonVol")
-        .def(nb::init<std::optional<double>, std::optional<double>,
-                       std::optional<double>, std::optional<double>>(),
+        .def(nb::init<std::optional<screamer::FloatArg>, std::optional<screamer::FloatArg>,
+                       std::optional<screamer::FloatArg>, std::optional<screamer::FloatArg>>(),
              "com"_a = nb::none(), "span"_a = nb::none(),
              "halflife"_a = nb::none(), "alpha"_a = nb::none())
         .def("__call__", &screamer::functor_call<screamer::EwParkinsonVol>)
@@ -370,16 +370,16 @@ void init_bindings_rolling(nb::module_& m) {
         .def("reset", &screamer::RollingGarmanKlassVol::reset, "Reset.");
 
     nb::class_<screamer::EwGarmanKlassVar, screamer::EvalOp>(m, "EwGarmanKlassVar")
-        .def(nb::init<std::optional<double>, std::optional<double>,
-                       std::optional<double>, std::optional<double>>(),
+        .def(nb::init<std::optional<screamer::FloatArg>, std::optional<screamer::FloatArg>,
+                       std::optional<screamer::FloatArg>, std::optional<screamer::FloatArg>>(),
              "com"_a = nb::none(), "span"_a = nb::none(),
              "halflife"_a = nb::none(), "alpha"_a = nb::none())
         .def("__call__", &screamer::functor_call<screamer::EwGarmanKlassVar>)
         .def("reset", &screamer::EwGarmanKlassVar::reset, "Reset.");
 
     nb::class_<screamer::EwGarmanKlassVol, screamer::EvalOp>(m, "EwGarmanKlassVol")
-        .def(nb::init<std::optional<double>, std::optional<double>,
-                       std::optional<double>, std::optional<double>>(),
+        .def(nb::init<std::optional<screamer::FloatArg>, std::optional<screamer::FloatArg>,
+                       std::optional<screamer::FloatArg>, std::optional<screamer::FloatArg>>(),
              "com"_a = nb::none(), "span"_a = nb::none(),
              "halflife"_a = nb::none(), "alpha"_a = nb::none())
         .def("__call__", &screamer::functor_call<screamer::EwGarmanKlassVol>)
@@ -397,16 +397,16 @@ void init_bindings_rolling(nb::module_& m) {
         .def("reset", &screamer::RollingRogersSatchellVol::reset, "Reset.");
 
     nb::class_<screamer::EwRogersSatchellVar, screamer::EvalOp>(m, "EwRogersSatchellVar")
-        .def(nb::init<std::optional<double>, std::optional<double>,
-                       std::optional<double>, std::optional<double>>(),
+        .def(nb::init<std::optional<screamer::FloatArg>, std::optional<screamer::FloatArg>,
+                       std::optional<screamer::FloatArg>, std::optional<screamer::FloatArg>>(),
              "com"_a = nb::none(), "span"_a = nb::none(),
              "halflife"_a = nb::none(), "alpha"_a = nb::none())
         .def("__call__", &screamer::functor_call<screamer::EwRogersSatchellVar>)
         .def("reset", &screamer::EwRogersSatchellVar::reset, "Reset.");
 
     nb::class_<screamer::EwRogersSatchellVol, screamer::EvalOp>(m, "EwRogersSatchellVol")
-        .def(nb::init<std::optional<double>, std::optional<double>,
-                       std::optional<double>, std::optional<double>>(),
+        .def(nb::init<std::optional<screamer::FloatArg>, std::optional<screamer::FloatArg>,
+                       std::optional<screamer::FloatArg>, std::optional<screamer::FloatArg>>(),
              "com"_a = nb::none(), "span"_a = nb::none(),
              "halflife"_a = nb::none(), "alpha"_a = nb::none())
         .def("__call__", &screamer::functor_call<screamer::EwRogersSatchellVol>)
@@ -435,7 +435,7 @@ void init_bindings_rolling(nb::module_& m) {
         .def("reset", &screamer::DonchianChannels::reset, "Reset.");
 
     nb::class_<screamer::KeltnerChannels, screamer::EvalOp>(m, "KeltnerChannels")
-        .def(nb::init<screamer::IntArg<int>, double>(),
+        .def(nb::init<screamer::IntArg<int>, screamer::FloatArg>(),
              "window_size"_a = 20, "num_atr"_a = 2.0)
         .def("__call__", &screamer::functor_call<screamer::KeltnerChannels>)
         .def("reset", &screamer::KeltnerChannels::reset, "Reset.");
@@ -454,16 +454,16 @@ void init_bindings_rolling(nb::module_& m) {
 
     // EW analog, completing the EW range-based volatility family.
     nb::class_<screamer::EwYangZhangVar, screamer::EvalOp>(m, "EwYangZhangVar")
-        .def(nb::init<std::optional<double>, std::optional<double>,
-                       std::optional<double>, std::optional<double>>(),
+        .def(nb::init<std::optional<screamer::FloatArg>, std::optional<screamer::FloatArg>,
+                       std::optional<screamer::FloatArg>, std::optional<screamer::FloatArg>>(),
              "com"_a = nb::none(), "span"_a = nb::none(),
              "halflife"_a = nb::none(), "alpha"_a = nb::none())
         .def("__call__", &screamer::functor_call<screamer::EwYangZhangVar>)
         .def("reset", &screamer::EwYangZhangVar::reset, "Reset.");
 
     nb::class_<screamer::EwYangZhangVol, screamer::EvalOp>(m, "EwYangZhangVol")
-        .def(nb::init<std::optional<double>, std::optional<double>,
-                       std::optional<double>, std::optional<double>>(),
+        .def(nb::init<std::optional<screamer::FloatArg>, std::optional<screamer::FloatArg>,
+                       std::optional<screamer::FloatArg>, std::optional<screamer::FloatArg>>(),
              "com"_a = nb::none(), "span"_a = nb::none(),
              "halflife"_a = nb::none(), "alpha"_a = nb::none())
         .def("__call__", &screamer::functor_call<screamer::EwYangZhangVol>)
@@ -573,7 +573,7 @@ void init_bindings_rolling(nb::module_& m) {
         .def("reset", &screamer::RollingMedian::reset, "Reset to the initial state.");
 
     nb::class_<screamer::RollingQuantile, screamer::ScreamerBase>(m, "RollingQuantile")
-        .def(nb::init<screamer::IntArg<int>, double>(), "window_size"_a = 20, "quantile"_a = 0.5)
+        .def(nb::init<screamer::IntArg<int>, screamer::FloatArg>(), "window_size"_a = 20, "quantile"_a = 0.5)
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingQuantile::reset, "Reset to the initial state.");
 
@@ -603,7 +603,7 @@ void init_bindings_rolling(nb::module_& m) {
 
 
      nb::class_<screamer::RollingSigmaClip, screamer::ScreamerBase>(m, "RollingSigmaClip")
-        .def(nb::init<screamer::IntArg<int>, std::optional<double>, std::optional<double>, const std::string&, const std::string&>(),
+        .def(nb::init<screamer::IntArg<int>, std::optional<screamer::FloatArg>, std::optional<screamer::FloatArg>, const std::string&, const std::string&>(),
             "window_size"_a = 20,
             "lower"_a = nb::none(),
             "upper"_a = nb::none(),
@@ -617,7 +617,7 @@ void init_bindings_rolling(nb::module_& m) {
     // more than n_sigma robust std devs (1.4826 * MAD) from the window median and
     // replace them with that median. output: "cleaned", "flag", or "nan".
     nb::class_<screamer::Hampel, screamer::ScreamerBase>(m, "Hampel")
-        .def(nb::init<screamer::IntArg<int>, double, const std::string&, const std::string&>(),
+        .def(nb::init<screamer::IntArg<int>, screamer::FloatArg, const std::string&, const std::string&>(),
             "window_size"_a = 20,
             "n_sigma"_a = 3.0,
             "output"_a = "cleaned",
@@ -629,7 +629,7 @@ void init_bindings_rolling(nb::module_& m) {
     // the trailing first difference (trend-free) and replaces them with the window
     // median. output: "cleaned", "flag", or "nan".
     nb::class_<screamer::ImpulseClip, screamer::ScreamerBase>(m, "ImpulseClip")
-        .def(nb::init<screamer::IntArg<int>, double, const std::string&, const std::string&>(),
+        .def(nb::init<screamer::IntArg<int>, screamer::FloatArg, const std::string&, const std::string&>(),
             "window_size"_a = 20,
             "n_sigma"_a = 4.0,
             "output"_a = "cleaned",
@@ -666,7 +666,7 @@ void init_bindings_rolling(nb::module_& m) {
     // FunctorBase<_, 1, 3>. Per scalar call returns a 3-tuple; per batch
     // returns an array of shape (..., 3).
     nb::class_<screamer::BollingerBands, screamer::EvalOp>(m, "BollingerBands")
-        .def(nb::init<screamer::IntArg<int>, double, const std::string&>(),
+        .def(nb::init<screamer::IntArg<int>, screamer::FloatArg, const std::string&>(),
              "window_size"_a = 20,
              "num_std"_a = 2.0,
              "start_policy"_a = "strict")

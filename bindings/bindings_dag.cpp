@@ -1,3 +1,4 @@
+#include "screamer/common/int_arg.h"
 #include <cmath>
 #include <cstdint>
 #include <limits>
@@ -506,7 +507,7 @@ static void marshal_feeds(
 static double count_setting(nb::handle x, const std::string& name) {
     PyObject* p = x.ptr();
     const std::string type = nb::cast<std::string>(nb::type_name(x.type()));
-    if (PyBool_Check(p) || x.is_none() || PyUnicode_Check(p) || PyBytes_Check(p) ||
+    if (screamer::bool_kind(p) || x.is_none() || PyUnicode_Check(p) || PyBytes_Check(p) ||
         type.find("complex") != std::string::npos)
         dag::throw_max_pending_kind(type, name);
     if (PyFloat_Check(p)) return dag::checked_count_setting(PyFloat_AsDouble(p), name);

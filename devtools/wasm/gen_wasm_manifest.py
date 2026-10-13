@@ -207,6 +207,9 @@ def _normalize_ctor_arg(arg: str) -> str:
     # string); the WASM binding takes T, and the JS factory refuses strings.
     if a.startswith("screamer::IntArg<") and a.endswith(">"):
         a = a[len("screamer::IntArg<"):-1].strip()
+    # A float setting is FloatArg in the Python binding (it refuses a bool);
+    # the WASM binding takes double, and the JS factory refuses bools.
+    a = a.replace("screamer::FloatVecArg", "std::vector<double>").replace("screamer::FloatArg", "double")
     return a
 
 

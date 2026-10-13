@@ -1,5 +1,9 @@
 [
  {
+  "accepts_bool": {
+   "fast": false,
+   "slow": false
+  },
   "accepts_none": {
    "fast": false,
    "slow": false
@@ -8,6 +12,9 @@
   "name": "ADOSC"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -15,6 +22,9 @@
   "name": "ADX"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -22,6 +32,9 @@
   "name": "ADXR"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -29,6 +42,10 @@
   "name": "ATR"
  },
  {
+  "accepts_bool": {
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "start_policy": false,
    "window_size": false
@@ -37,6 +54,9 @@
   "name": "AmihudIlliquidity"
  },
  {
+  "accepts_bool": {
+   "multiplier": false
+  },
   "accepts_none": {
    "multiplier": false
   },
@@ -44,6 +64,20 @@
   "name": "BacktestCarry"
  },
  {
+  "accepts_bool": {
+   "fill": false,
+   "maker_fee": false,
+   "maker_fee_per_contract": false,
+   "max_position": false,
+   "min_position": false,
+   "multiplier": false,
+   "participation_ratio": false,
+   "slippage": false,
+   "slippage_unit": false,
+   "taker_fee": false,
+   "taker_fee_per_contract": false,
+   "tick_size": false
+  },
   "accepts_none": {
    "fill": false,
    "maker_fee": false,
@@ -62,6 +96,22 @@
   "name": "BacktestL1Orders"
  },
  {
+  "accepts_bool": {
+   "fee_per_contract": false,
+   "initial_capital": false,
+   "max_position": false,
+   "min_position": false,
+   "multiplier": false,
+   "rebalance_band": false,
+   "size": false,
+   "slippage": false,
+   "slippage_unit": false,
+   "stop_loss": false,
+   "take_profit": false,
+   "taker_fee": false,
+   "tick_size": false,
+   "trailing_stop": false
+  },
   "accepts_none": {
    "fee_per_contract": false,
    "initial_capital": false,
@@ -82,6 +132,20 @@
   "name": "BacktestL1Target"
  },
  {
+  "accepts_bool": {
+   "fill": false,
+   "maker_fee": false,
+   "maker_fee_per_contract": false,
+   "max_position": false,
+   "min_position": false,
+   "multiplier": false,
+   "participation_ratio": false,
+   "slippage": false,
+   "slippage_unit": false,
+   "taker_fee": false,
+   "taker_fee_per_contract": false,
+   "tick_size": false
+  },
   "accepts_none": {
    "fill": false,
    "maker_fee": false,
@@ -100,6 +164,20 @@
   "name": "BacktestL1TradesOrders"
  },
  {
+  "accepts_bool": {
+   "fill": false,
+   "maker_fee": false,
+   "maker_fee_per_contract": false,
+   "max_position": false,
+   "min_position": false,
+   "multiplier": false,
+   "participation_ratio": false,
+   "slippage": false,
+   "slippage_unit": false,
+   "taker_fee": false,
+   "taker_fee_per_contract": false,
+   "tick_size": false
+  },
   "accepts_none": {
    "fill": false,
    "maker_fee": false,
@@ -118,6 +196,24 @@
   "name": "BacktestOHLCOrders"
  },
  {
+  "accepts_bool": {
+   "delay": false,
+   "fee_per_contract": false,
+   "fill_at": false,
+   "initial_capital": false,
+   "max_position": false,
+   "min_position": false,
+   "multiplier": false,
+   "rebalance_band": false,
+   "size": false,
+   "slippage": false,
+   "slippage_unit": false,
+   "stop_loss": false,
+   "take_profit": false,
+   "taker_fee": false,
+   "tick_size": false,
+   "trailing_stop": false
+  },
   "accepts_none": {
    "delay": false,
    "fee_per_contract": false,
@@ -140,6 +236,25 @@
   "name": "BacktestOHLCTarget"
  },
  {
+  "accepts_bool": {
+   "delay": false,
+   "fee_per_contract": false,
+   "fill_at": false,
+   "initial_capital": false,
+   "max_participation": false,
+   "max_position": false,
+   "min_position": false,
+   "multiplier": false,
+   "rebalance_band": false,
+   "size": false,
+   "slippage": false,
+   "slippage_unit": false,
+   "stop_loss": false,
+   "take_profit": false,
+   "taker_fee": false,
+   "tick_size": false,
+   "trailing_stop": false
+  },
   "accepts_none": {
    "delay": false,
    "fee_per_contract": false,
@@ -163,6 +278,22 @@
   "name": "BacktestOHLCVTarget"
  },
  {
+  "accepts_bool": {
+   "delay": false,
+   "fee": false,
+   "fee_per_contract": false,
+   "fill_at": false,
+   "initial_capital": false,
+   "max_gross": false,
+   "max_net": false,
+   "multiplier": false,
+   "rebalance": false,
+   "rebalance_band": false,
+   "size": false,
+   "slippage": false,
+   "slippage_unit": false,
+   "tick_size": false
+  },
   "accepts_none": {
    "delay": false,
    "fee": false,
@@ -183,6 +314,20 @@
   "name": "BacktestPortfolioOHLCTarget"
  },
  {
+  "accepts_bool": {
+   "fee": false,
+   "fee_per_contract": false,
+   "initial_capital": false,
+   "max_gross": false,
+   "max_net": false,
+   "multiplier": false,
+   "rebalance": false,
+   "rebalance_band": false,
+   "size": false,
+   "slippage": false,
+   "slippage_unit": false,
+   "tick_size": false
+  },
   "accepts_none": {
    "fee": false,
    "fee_per_contract": false,
@@ -201,6 +346,23 @@
   "name": "BacktestPortfolioTarget"
  },
  {
+  "accepts_bool": {
+   "fee": false,
+   "fee_per_contract": false,
+   "initial_capital": false,
+   "max_position": false,
+   "min_position": false,
+   "multiplier": false,
+   "rebalance_band": false,
+   "size": false,
+   "slippage": false,
+   "slippage_unit": false,
+   "spread": false,
+   "stop_loss": false,
+   "take_profit": false,
+   "tick_size": false,
+   "trailing_stop": false
+  },
   "accepts_none": {
    "fee": false,
    "fee_per_contract": false,
@@ -222,6 +384,9 @@
   "name": "BacktestPriceTarget"
  },
  {
+  "accepts_bool": {
+   "periods_per_year": false
+  },
   "accepts_none": {
    "periods_per_year": false
   },
@@ -229,6 +394,9 @@
   "name": "BacktestReport"
  },
  {
+  "accepts_bool": {
+   "periods_per_year": false
+  },
   "accepts_none": {
    "periods_per_year": false
   },
@@ -236,6 +404,20 @@
   "name": "BacktestStats"
  },
  {
+  "accepts_bool": {
+   "fill": false,
+   "maker_fee": false,
+   "maker_fee_per_contract": false,
+   "max_position": false,
+   "min_position": false,
+   "multiplier": false,
+   "participation_ratio": false,
+   "slippage": false,
+   "slippage_unit": false,
+   "taker_fee": false,
+   "taker_fee_per_contract": false,
+   "tick_size": false
+  },
   "accepts_none": {
    "fill": false,
    "maker_fee": false,
@@ -254,6 +436,23 @@
   "name": "BacktestTradesOrders"
  },
  {
+  "accepts_bool": {
+   "fee_per_contract": false,
+   "initial_capital": false,
+   "max_participation": false,
+   "max_position": false,
+   "min_position": false,
+   "multiplier": false,
+   "rebalance_band": false,
+   "size": false,
+   "slippage": false,
+   "slippage_unit": false,
+   "stop_loss": false,
+   "take_profit": false,
+   "taker_fee": false,
+   "tick_size": false,
+   "trailing_stop": false
+  },
   "accepts_none": {
    "fee_per_contract": false,
    "initial_capital": false,
@@ -275,6 +474,11 @@
   "name": "BacktestTradesTarget"
  },
  {
+  "accepts_bool": {
+   "entry": false,
+   "exit": false,
+   "stop": false
+  },
   "accepts_none": {
    "entry": false,
    "exit": false,
@@ -284,6 +488,14 @@
   "name": "BandSignal"
  },
  {
+  "accepts_bool": {
+   "alpha": false,
+   "com": false,
+   "halflife": false,
+   "prior_precision": false,
+   "prior_sigma": false,
+   "span": false
+  },
   "accepts_none": {
    "alpha": true,
    "com": true,
@@ -298,6 +510,11 @@
   "name": "BayesianRegression"
  },
  {
+  "accepts_bool": {
+   "num_std": false,
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "num_std": false,
    "start_policy": false,
@@ -307,6 +524,10 @@
   "name": "BollingerBands"
  },
  {
+  "accepts_bool": {
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "start_policy": false,
    "window_size": false
@@ -315,6 +536,10 @@
   "name": "BulkVolumeClassifier"
  },
  {
+  "accepts_bool": {
+   "cutoff_freq": false,
+   "order": false
+  },
   "accepts_none": {
    "cutoff_freq": false,
    "order": false
@@ -323,6 +548,11 @@
   "name": "Butter"
  },
  {
+  "accepts_bool": {
+   "high_cutoff": false,
+   "low_cutoff": false,
+   "order": false
+  },
   "accepts_none": {
    "high_cutoff": false,
    "low_cutoff": false,
@@ -332,6 +562,11 @@
   "name": "ButterBandpass"
  },
  {
+  "accepts_bool": {
+   "high_cutoff": false,
+   "low_cutoff": false,
+   "order": false
+  },
   "accepts_none": {
    "high_cutoff": false,
    "low_cutoff": false,
@@ -341,6 +576,10 @@
   "name": "ButterBandstop"
  },
  {
+  "accepts_bool": {
+   "cutoff_freq": false,
+   "order": false
+  },
   "accepts_none": {
    "cutoff_freq": false,
    "order": false
@@ -349,6 +588,9 @@
   "name": "ButterHighpass"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -356,6 +598,10 @@
   "name": "CCI"
  },
  {
+  "accepts_bool": {
+   "lower": false,
+   "upper": false
+  },
   "accepts_none": {
    "lower": true,
    "upper": true
@@ -367,6 +613,10 @@
   "name": "Clip"
  },
  {
+  "accepts_bool": {
+   "gross": false,
+   "net": false
+  },
   "accepts_none": {
    "gross": false,
    "net": true
@@ -375,6 +625,9 @@
   "name": "CrossNormalize"
  },
  {
+  "accepts_bool": {
+   "scale": false
+  },
   "accepts_none": {
    "scale": false
   },
@@ -382,6 +635,9 @@
   "name": "CrossRank"
  },
  {
+  "accepts_bool": {
+   "count": false
+  },
   "accepts_none": {
    "count": false
   },
@@ -389,6 +645,10 @@
   "name": "CrossTopBottom"
  },
  {
+  "accepts_bool": {
+   "lower": false,
+   "upper": false
+  },
   "accepts_none": {
    "lower": false,
    "upper": false
@@ -397,6 +657,12 @@
   "name": "CrossWinsorize"
  },
  {
+  "accepts_bool": {
+   "alpha": false,
+   "com": false,
+   "halflife": false,
+   "span": false
+  },
   "accepts_none": {
    "alpha": true,
    "com": true,
@@ -409,6 +675,9 @@
   "name": "DEMA"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -416,6 +685,10 @@
   "name": "DX"
  },
  {
+  "accepts_bool": {
+   "cutoff": false,
+   "period": false
+  },
   "accepts_none": {
    "cutoff": true,
    "period": true
@@ -426,6 +699,10 @@
   "name": "Decycler"
  },
  {
+  "accepts_bool": {
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "start_policy": false,
    "window_size": false
@@ -434,6 +711,10 @@
   "name": "Detrend"
  },
  {
+  "accepts_bool": {
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "start_policy": false,
    "window_size": false
@@ -442,6 +723,9 @@
   "name": "Diff"
  },
  {
+  "accepts_bool": {
+   "start_policy": false
+  },
   "accepts_none": {
    "start_policy": false
   },
@@ -449,6 +733,9 @@
   "name": "Diff2"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -456,6 +743,12 @@
   "name": "DonchianChannels"
  },
  {
+  "accepts_bool": {
+   "alpha": false,
+   "com": false,
+   "halflife": false,
+   "span": false
+  },
   "accepts_none": {
    "alpha": true,
    "com": true,
@@ -468,6 +761,12 @@
   "name": "EwAlpha"
  },
  {
+  "accepts_bool": {
+   "alpha": false,
+   "com": false,
+   "halflife": false,
+   "span": false
+  },
   "accepts_none": {
    "alpha": true,
    "com": true,
@@ -480,6 +779,12 @@
   "name": "EwBeta"
  },
  {
+  "accepts_bool": {
+   "alpha": false,
+   "com": false,
+   "halflife": false,
+   "span": false
+  },
   "accepts_none": {
    "alpha": true,
    "com": true,
@@ -492,6 +797,12 @@
   "name": "EwCorr"
  },
  {
+  "accepts_bool": {
+   "alpha": false,
+   "com": false,
+   "halflife": false,
+   "span": false
+  },
   "accepts_none": {
    "alpha": true,
    "com": true,
@@ -504,6 +815,12 @@
   "name": "EwCov"
  },
  {
+  "accepts_bool": {
+   "alpha": false,
+   "com": false,
+   "halflife": false,
+   "span": false
+  },
   "accepts_none": {
    "alpha": true,
    "com": true,
@@ -516,6 +833,12 @@
   "name": "EwGarmanKlassVar"
  },
  {
+  "accepts_bool": {
+   "alpha": false,
+   "com": false,
+   "halflife": false,
+   "span": false
+  },
   "accepts_none": {
    "alpha": true,
    "com": true,
@@ -528,6 +851,12 @@
   "name": "EwGarmanKlassVol"
  },
  {
+  "accepts_bool": {
+   "alpha": false,
+   "com": false,
+   "halflife": false,
+   "span": false
+  },
   "accepts_none": {
    "alpha": true,
    "com": true,
@@ -540,6 +869,12 @@
   "name": "EwKurt"
  },
  {
+  "accepts_bool": {
+   "alpha": false,
+   "com": false,
+   "halflife": false,
+   "span": false
+  },
   "accepts_none": {
    "alpha": true,
    "com": true,
@@ -552,6 +887,12 @@
   "name": "EwKyleLambda"
  },
  {
+  "accepts_bool": {
+   "alpha": false,
+   "com": false,
+   "halflife": false,
+   "span": false
+  },
   "accepts_none": {
    "alpha": true,
    "com": true,
@@ -564,6 +905,12 @@
   "name": "EwMean"
  },
  {
+  "accepts_bool": {
+   "alpha": false,
+   "com": false,
+   "halflife": false,
+   "span": false
+  },
   "accepts_none": {
    "alpha": true,
    "com": true,
@@ -576,6 +923,12 @@
   "name": "EwParkinsonVar"
  },
  {
+  "accepts_bool": {
+   "alpha": false,
+   "com": false,
+   "halflife": false,
+   "span": false
+  },
   "accepts_none": {
    "alpha": true,
    "com": true,
@@ -588,6 +941,12 @@
   "name": "EwParkinsonVol"
  },
  {
+  "accepts_bool": {
+   "alpha": false,
+   "com": false,
+   "halflife": false,
+   "span": false
+  },
   "accepts_none": {
    "alpha": true,
    "com": true,
@@ -600,6 +959,12 @@
   "name": "EwResidualStd"
  },
  {
+  "accepts_bool": {
+   "alpha": false,
+   "com": false,
+   "halflife": false,
+   "span": false
+  },
   "accepts_none": {
    "alpha": true,
    "com": true,
@@ -612,6 +977,12 @@
   "name": "EwRms"
  },
  {
+  "accepts_bool": {
+   "alpha": false,
+   "com": false,
+   "halflife": false,
+   "span": false
+  },
   "accepts_none": {
    "alpha": true,
    "com": true,
@@ -624,6 +995,12 @@
   "name": "EwRogersSatchellVar"
  },
  {
+  "accepts_bool": {
+   "alpha": false,
+   "com": false,
+   "halflife": false,
+   "span": false
+  },
   "accepts_none": {
    "alpha": true,
    "com": true,
@@ -636,6 +1013,12 @@
   "name": "EwRogersSatchellVol"
  },
  {
+  "accepts_bool": {
+   "alpha": false,
+   "com": false,
+   "halflife": false,
+   "span": false
+  },
   "accepts_none": {
    "alpha": true,
    "com": true,
@@ -648,6 +1031,12 @@
   "name": "EwSkew"
  },
  {
+  "accepts_bool": {
+   "alpha": false,
+   "com": false,
+   "halflife": false,
+   "span": false
+  },
   "accepts_none": {
    "alpha": true,
    "com": true,
@@ -660,6 +1049,12 @@
   "name": "EwSpread"
  },
  {
+  "accepts_bool": {
+   "alpha": false,
+   "com": false,
+   "halflife": false,
+   "span": false
+  },
   "accepts_none": {
    "alpha": true,
    "com": true,
@@ -672,6 +1067,12 @@
   "name": "EwStd"
  },
  {
+  "accepts_bool": {
+   "alpha": false,
+   "com": false,
+   "halflife": false,
+   "span": false
+  },
   "accepts_none": {
    "alpha": true,
    "com": true,
@@ -684,6 +1085,12 @@
   "name": "EwVar"
  },
  {
+  "accepts_bool": {
+   "alpha": false,
+   "com": false,
+   "halflife": false,
+   "span": false
+  },
   "accepts_none": {
    "alpha": true,
    "com": true,
@@ -696,6 +1103,12 @@
   "name": "EwYangZhangVar"
  },
  {
+  "accepts_bool": {
+   "alpha": false,
+   "com": false,
+   "halflife": false,
+   "span": false
+  },
   "accepts_none": {
    "alpha": true,
    "com": true,
@@ -708,6 +1121,12 @@
   "name": "EwYangZhangVol"
  },
  {
+  "accepts_bool": {
+   "alpha": false,
+   "com": false,
+   "halflife": false,
+   "span": false
+  },
   "accepts_none": {
    "alpha": true,
    "com": true,
@@ -720,6 +1139,9 @@
   "name": "EwZscore"
  },
  {
+  "accepts_bool": {
+   "fill": false
+  },
   "accepts_none": {
    "fill": false
   },
@@ -727,6 +1149,12 @@
   "name": "FillNa"
  },
  {
+  "accepts_bool": {
+   "d": false,
+   "start_policy": false,
+   "threshold": false,
+   "window_size": false
+  },
   "accepts_none": {
    "d": false,
    "start_policy": false,
@@ -737,6 +1165,12 @@
   "name": "FracDiff"
  },
  {
+  "accepts_bool": {
+   "n_sigma": false,
+   "output": false,
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "n_sigma": false,
    "output": false,
@@ -747,6 +1181,11 @@
   "name": "Hampel"
  },
  {
+  "accepts_bool": {
+   "alpha": false,
+   "decay": false,
+   "mu": false
+  },
   "accepts_none": {
    "alpha": false,
    "decay": false,
@@ -756,6 +1195,10 @@
   "name": "HawkesIntensity"
  },
  {
+  "accepts_bool": {
+   "n": false,
+   "release": false
+  },
   "accepts_none": {
    "n": false,
    "release": false
@@ -766,6 +1209,9 @@
   "name": "Hold"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -773,6 +1219,12 @@
   "name": "HullMA"
  },
  {
+  "accepts_bool": {
+   "n_sigma": false,
+   "output": false,
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "n_sigma": false,
    "output": false,
@@ -783,6 +1235,11 @@
   "name": "ImpulseClip"
  },
  {
+  "accepts_bool": {
+   "fast": false,
+   "slow": false,
+   "window_size": false
+  },
   "accepts_none": {
    "fast": false,
    "slow": false,
@@ -792,6 +1249,12 @@
   "name": "KAMA"
  },
  {
+  "accepts_bool": {
+   "initial_state": false,
+   "initial_variance": false,
+   "observation_var": false,
+   "process_var": false
+  },
   "accepts_none": {
    "initial_state": false,
    "initial_variance": false,
@@ -802,6 +1265,11 @@
   "name": "KalmanFilter"
  },
  {
+  "accepts_bool": {
+   "delta": false,
+   "obs_var": false,
+   "prior_var": false
+  },
   "accepts_none": {
    "delta": false,
    "obs_var": false,
@@ -811,6 +1279,10 @@
   "name": "KalmanRegression"
  },
  {
+  "accepts_bool": {
+   "num_atr": false,
+   "window_size": false
+  },
   "accepts_none": {
    "num_atr": false,
    "window_size": false
@@ -819,6 +1291,10 @@
   "name": "KeltnerChannels"
  },
  {
+  "accepts_bool": {
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "start_policy": false,
    "window_size": false
@@ -827,6 +1303,10 @@
   "name": "Lag"
  },
  {
+  "accepts_bool": {
+   "scale": false,
+   "shift": false
+  },
   "accepts_none": {
    "scale": false,
    "shift": false
@@ -835,6 +1315,11 @@
   "name": "Linear"
  },
  {
+  "accepts_bool": {
+   "a": false,
+   "b": false,
+   "c": false
+  },
   "accepts_none": {
    "a": false,
    "b": false,
@@ -844,6 +1329,9 @@
   "name": "Linear2"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -851,6 +1339,11 @@
   "name": "LogReturn"
  },
  {
+  "accepts_bool": {
+   "fast": false,
+   "signal": false,
+   "slow": false
+  },
   "accepts_none": {
    "fast": false,
    "signal": false,
@@ -860,6 +1353,10 @@
   "name": "MACD"
  },
  {
+  "accepts_bool": {
+   "fast_limit": false,
+   "slow_limit": false
+  },
   "accepts_none": {
    "fast_limit": false,
    "slow_limit": false
@@ -868,6 +1365,9 @@
   "name": "MAMA"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -875,6 +1375,9 @@
   "name": "MFI"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -882,6 +1385,9 @@
   "name": "MinusDI"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -889,6 +1395,10 @@
   "name": "MinusDM"
  },
  {
+  "accepts_bool": {
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "start_policy": false,
    "window_size": false
@@ -897,6 +1407,9 @@
   "name": "Momentum"
  },
  {
+  "accepts_bool": {
+   "taps": false
+  },
   "accepts_none": {
    "taps": false
   },
@@ -904,6 +1417,9 @@
   "name": "MovingAverage"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -911,6 +1427,9 @@
   "name": "NATR"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -918,6 +1437,9 @@
   "name": "PlusDI"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -925,6 +1447,9 @@
   "name": "PlusDM"
  },
  {
+  "accepts_bool": {
+   "p": false
+  },
   "accepts_none": {
    "p": false
   },
@@ -932,6 +1457,11 @@
   "name": "Power"
  },
  {
+  "accepts_bool": {
+   "g0": false,
+   "gamma": false,
+   "window_size": false
+  },
   "accepts_none": {
    "g0": false,
    "gamma": false,
@@ -941,6 +1471,9 @@
   "name": "Propagator"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -948,6 +1481,9 @@
   "name": "ROC"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -955,6 +1491,9 @@
   "name": "ROCP"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -962,6 +1501,9 @@
   "name": "ROCR"
  },
  {
+  "accepts_bool": {
+   "lag": false
+  },
   "accepts_none": {
    "lag": false
   },
@@ -969,6 +1511,9 @@
   "name": "RealizedSpread"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -976,6 +1521,10 @@
   "name": "Return"
  },
  {
+  "accepts_bool": {
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "start_policy": false,
    "window_size": false
@@ -984,6 +1533,10 @@
   "name": "RollSpread"
  },
  {
+  "accepts_bool": {
+   "lags": false,
+   "window_size": false
+  },
   "accepts_none": {
    "lags": false,
    "window_size": false
@@ -992,6 +1545,10 @@
   "name": "RollingADF"
  },
  {
+  "accepts_bool": {
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "start_policy": false,
    "window_size": false
@@ -1000,6 +1557,9 @@
   "name": "RollingAlpha"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -1007,6 +1567,9 @@
   "name": "RollingArgmax"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -1014,6 +1577,10 @@
   "name": "RollingArgmin"
  },
  {
+  "accepts_bool": {
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "start_policy": false,
    "window_size": false
@@ -1022,6 +1589,10 @@
   "name": "RollingBeta"
  },
  {
+  "accepts_bool": {
+   "alpha": false,
+   "window_size": false
+  },
   "accepts_none": {
    "alpha": false,
    "window_size": false
@@ -1030,6 +1601,10 @@
   "name": "RollingCVaR"
  },
  {
+  "accepts_bool": {
+   "periods_per_year": false,
+   "window_size": false
+  },
   "accepts_none": {
    "periods_per_year": false,
    "window_size": false
@@ -1038,6 +1613,10 @@
   "name": "RollingCalmar"
  },
  {
+  "accepts_bool": {
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "start_policy": false,
    "window_size": false
@@ -1046,6 +1625,10 @@
   "name": "RollingCorr"
  },
  {
+  "accepts_bool": {
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "start_policy": false,
    "window_size": false
@@ -1054,6 +1637,11 @@
   "name": "RollingCov"
  },
  {
+  "accepts_bool": {
+   "mar": false,
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "mar": false,
    "start_policy": false,
@@ -1063,6 +1651,9 @@
   "name": "RollingDownsideDeviation"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -1070,6 +1661,9 @@
   "name": "RollingGarmanKlassVar"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -1077,6 +1671,9 @@
   "name": "RollingGarmanKlassVol"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -1084,6 +1681,11 @@
   "name": "RollingHitRate"
  },
  {
+  "accepts_bool": {
+   "method": false,
+   "min_scale": false,
+   "window_size": false
+  },
   "accepts_none": {
    "method": false,
    "min_scale": false,
@@ -1093,6 +1695,10 @@
   "name": "RollingHurst"
  },
  {
+  "accepts_bool": {
+   "periods_per_year": false,
+   "window_size": false
+  },
   "accepts_none": {
    "periods_per_year": false,
    "window_size": false
@@ -1101,6 +1707,9 @@
   "name": "RollingInfoRatio"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -1108,6 +1717,10 @@
   "name": "RollingIqr"
  },
  {
+  "accepts_bool": {
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "start_policy": false,
    "window_size": false
@@ -1116,6 +1729,10 @@
   "name": "RollingKurt"
  },
  {
+  "accepts_bool": {
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "start_policy": false,
    "window_size": false
@@ -1124,6 +1741,10 @@
   "name": "RollingKyleLambda"
  },
  {
+  "accepts_bool": {
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "start_policy": false,
    "window_size": false
@@ -1132,6 +1753,10 @@
   "name": "RollingLinearRegression"
  },
  {
+  "accepts_bool": {
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "start_policy": false,
    "window_size": false
@@ -1140,6 +1765,9 @@
   "name": "RollingMad"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -1147,6 +1775,9 @@
   "name": "RollingMax"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -1154,6 +1785,10 @@
   "name": "RollingMaxDrawdown"
  },
  {
+  "accepts_bool": {
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "start_policy": false,
    "window_size": false
@@ -1162,6 +1797,9 @@
   "name": "RollingMean"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -1169,6 +1807,10 @@
   "name": "RollingMedian"
  },
  {
+  "accepts_bool": {
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "start_policy": false,
    "window_size": false
@@ -1177,6 +1819,9 @@
   "name": "RollingMedianAD"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -1184,6 +1829,9 @@
   "name": "RollingMin"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -1191,6 +1839,11 @@
   "name": "RollingMinMax"
  },
  {
+  "accepts_bool": {
+   "output": false,
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "output": false,
    "start_policy": false,
@@ -1200,6 +1853,10 @@
   "name": "RollingOU"
  },
  {
+  "accepts_bool": {
+   "threshold": false,
+   "window_size": false
+  },
   "accepts_none": {
    "threshold": false,
    "window_size": false
@@ -1208,6 +1865,10 @@
   "name": "RollingOmega"
  },
  {
+  "accepts_bool": {
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "start_policy": false,
    "window_size": false
@@ -1216,6 +1877,9 @@
   "name": "RollingOrderImbalance"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -1223,6 +1887,9 @@
   "name": "RollingParkinsonVar"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -1230,6 +1897,9 @@
   "name": "RollingParkinsonVol"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -1237,6 +1907,11 @@
   "name": "RollingPercentile"
  },
  {
+  "accepts_bool": {
+   "derivative_order": false,
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "derivative_order": false,
    "start_policy": false,
@@ -1246,6 +1921,11 @@
   "name": "RollingPoly1"
  },
  {
+  "accepts_bool": {
+   "derivative_order": false,
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "derivative_order": false,
    "start_policy": false,
@@ -1255,6 +1935,10 @@
   "name": "RollingPoly2"
  },
  {
+  "accepts_bool": {
+   "quantile": false,
+   "window_size": false
+  },
   "accepts_none": {
    "quantile": false,
    "window_size": false
@@ -1263,6 +1947,11 @@
   "name": "RollingQuantile"
  },
  {
+  "accepts_bool": {
+   "method": false,
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "method": false,
    "start_policy": false,
@@ -1272,6 +1961,9 @@
   "name": "RollingRSI"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -1279,6 +1971,9 @@
   "name": "RollingRange"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -1286,6 +1981,10 @@
   "name": "RollingRank"
  },
  {
+  "accepts_bool": {
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "start_policy": false,
    "window_size": false
@@ -1294,6 +1993,10 @@
   "name": "RollingResidualStd"
  },
  {
+  "accepts_bool": {
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "start_policy": false,
    "window_size": false
@@ -1302,6 +2005,9 @@
   "name": "RollingRms"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -1309,6 +2015,9 @@
   "name": "RollingRogersSatchellVar"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -1316,6 +2025,10 @@
   "name": "RollingRogersSatchellVol"
  },
  {
+  "accepts_bool": {
+   "periods_per_year": false,
+   "window_size": false
+  },
   "accepts_none": {
    "periods_per_year": false,
    "window_size": false
@@ -1324,6 +2037,13 @@
   "name": "RollingSharpe"
  },
  {
+  "accepts_bool": {
+   "lower": false,
+   "output": false,
+   "start_policy": false,
+   "upper": false,
+   "window_size": false
+  },
   "accepts_none": {
    "lower": true,
    "output": false,
@@ -1338,6 +2058,10 @@
   "name": "RollingSigmaClip"
  },
  {
+  "accepts_bool": {
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "start_policy": false,
    "window_size": false
@@ -1346,6 +2070,11 @@
   "name": "RollingSkew"
  },
  {
+  "accepts_bool": {
+   "periods_per_year": false,
+   "target": false,
+   "window_size": false
+  },
   "accepts_none": {
    "periods_per_year": false,
    "target": false,
@@ -1355,6 +2084,10 @@
   "name": "RollingSortino"
  },
  {
+  "accepts_bool": {
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "start_policy": false,
    "window_size": false
@@ -1363,6 +2096,10 @@
   "name": "RollingSpread"
  },
  {
+  "accepts_bool": {
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "start_policy": false,
    "window_size": false
@@ -1371,6 +2108,10 @@
   "name": "RollingStd"
  },
  {
+  "accepts_bool": {
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "start_policy": false,
    "window_size": false
@@ -1379,6 +2120,10 @@
   "name": "RollingSum"
  },
  {
+  "accepts_bool": {
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "start_policy": false,
    "window_size": false
@@ -1387,6 +2132,9 @@
   "name": "RollingTLSBeta"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -1394,6 +2142,9 @@
   "name": "RollingTSF"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -1401,6 +2152,10 @@
   "name": "RollingVWAP"
  },
  {
+  "accepts_bool": {
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "start_policy": false,
    "window_size": false
@@ -1409,6 +2164,9 @@
   "name": "RollingVar"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -1416,6 +2174,9 @@
   "name": "RollingYangZhangVar"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -1423,6 +2184,10 @@
   "name": "RollingYangZhangVol"
  },
  {
+  "accepts_bool": {
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "start_policy": false,
    "window_size": false
@@ -1431,6 +2196,12 @@
   "name": "RollingZscore"
  },
  {
+  "accepts_bool": {
+   "hp_cutoff": false,
+   "hp_period": false,
+   "lp_cutoff": false,
+   "lp_period": false
+  },
   "accepts_none": {
    "hp_cutoff": true,
    "hp_period": true,
@@ -1444,6 +2215,11 @@
   "name": "RoofingFilter"
  },
  {
+  "accepts_bool": {
+   "initial": false,
+   "lower": false,
+   "upper": false
+  },
   "accepts_none": {
    "initial": false,
    "lower": false,
@@ -1456,6 +2232,11 @@
   "name": "SchmittTrigger"
  },
  {
+  "accepts_bool": {
+   "d": false,
+   "fastk_period": false,
+   "smooth_k": false
+  },
   "accepts_none": {
    "d": false,
    "fastk_period": false,
@@ -1465,6 +2246,12 @@
   "name": "Stoch"
  },
  {
+  "accepts_bool": {
+   "d": false,
+   "rsi_period": false,
+   "smooth_k": false,
+   "stoch_period": false
+  },
   "accepts_none": {
    "d": false,
    "rsi_period": false,
@@ -1475,6 +2262,10 @@
   "name": "StochRSI"
  },
  {
+  "accepts_bool": {
+   "cutoff": false,
+   "period": false
+  },
   "accepts_none": {
    "cutoff": true,
    "period": true
@@ -1485,6 +2276,12 @@
   "name": "SuperSmoother"
  },
  {
+  "accepts_bool": {
+   "alpha": false,
+   "com": false,
+   "halflife": false,
+   "span": false
+  },
   "accepts_none": {
    "alpha": true,
    "com": true,
@@ -1497,6 +2294,9 @@
   "name": "TEMA"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },
@@ -1504,6 +2304,9 @@
   "name": "TRIMA"
  },
  {
+  "accepts_bool": {
+   "span": false
+  },
   "accepts_none": {
    "span": false
   },
@@ -1511,6 +2314,11 @@
   "name": "TRIX"
  },
  {
+  "accepts_bool": {
+   "period1": false,
+   "period2": false,
+   "period3": false
+  },
   "accepts_none": {
    "period1": false,
    "period2": false,
@@ -1520,6 +2328,10 @@
   "name": "UltimateOscillator"
  },
  {
+  "accepts_bool": {
+   "bucket_volume": false,
+   "n_buckets": false
+  },
   "accepts_none": {
    "bucket_volume": false,
    "n_buckets": false
@@ -1528,6 +2340,10 @@
   "name": "VPIN"
  },
  {
+  "accepts_bool": {
+   "start_policy": false,
+   "window_size": false
+  },
   "accepts_none": {
    "start_policy": false,
    "window_size": false
@@ -1536,6 +2352,9 @@
   "name": "WMA"
  },
  {
+  "accepts_bool": {
+   "window_size": false
+  },
   "accepts_none": {
    "window_size": false
   },

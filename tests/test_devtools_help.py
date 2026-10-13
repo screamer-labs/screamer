@@ -18,6 +18,7 @@ SCRIPTS = [
     "devtools/stream_diagrams.py",
     "devtools/wasm/gen_combine_oracle.py",
     "devtools/wasm/gen_dag_oracle.py",
+    "devtools/wasm/gen_field_axis_oracle.py",
     "devtools/wasm/gen_null_oracle.py",
     "devtools/wasm/gen_oracle.py",
     "devtools/wasm/gen_shape_oracle.py",

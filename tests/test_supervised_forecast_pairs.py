@@ -465,9 +465,11 @@ def test_forecast_pairs_settings_and_errors():
         forecast_pairs(v, v[:4], count=1)
     with pytest.raises(TypeError, match="both as Nodes"):
         forecast_pairs(Input("X"), v, count=1)
-    # a float setting is truncated and a bool is a number, as for Delay
+    # a float setting is truncated; a bool is not a number setting (G25)
     assert _same(forecast_pairs(v, v, count=1.5)[0], forecast_pairs(v, v, count=1)[0])
-    assert _same(forecast_pairs(v, v, count=True)[0], forecast_pairs(v, v, count=1)[0])
+    for flag in (True, np.True_):
+        with pytest.raises(TypeError, match="count must be a number, got bool"):
+            forecast_pairs(v, v, count=flag)
 
 
 # ---------------------------------------------------------------------------
@@ -485,25 +487,20 @@ def _reference_count(X2, y, count):
 
 
 def _reference_duration(X2, xi, y, yi, duration):
-    """At each y tick t: the X rows whose index + duration falls in
-    (previous tick, t] give, per column, their last non-NaN value; a tick
-    whose rows are all NaN (or that has none) keeps the previous values. A row
-    is emitted once some X has been taken."""
+    """At each y tick t: each column holds the last non-NaN value of the X
+    rows whose index + duration is at or before t (per column carry, G23). A
+    row is emitted once some column has a value."""
     dx = xi + duration
-    rows, last, prev = [], None, None
+    rows, last, prev = [], np.full(X2.shape[1], np.nan), None
+    started = False
     for j, t in enumerate(yi):
         sel = (dx <= t) if prev is None else ((dx > prev) & (dx <= t))
-        bucket = X2[sel]
-        if len(bucket):
-            vals = np.full(X2.shape[1], np.nan)
-            for c in range(X2.shape[1]):
-                ok = bucket[~np.isnan(bucket[:, c]), c]
-                if len(ok):
-                    vals[c] = ok[-1]
-            if not np.isnan(vals).all():
-                last = vals
+        for row in X2[sel]:
+            ok = ~np.isnan(row)
+            last[ok] = row[ok]
+            started = started or bool(ok.any())
         prev = t
-        if last is not None:
+        if started:
             rows.append(np.append(last, y[j]))
     return np.array(rows).reshape(len(rows), X2.shape[1] + 1)
 

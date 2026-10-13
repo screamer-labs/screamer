@@ -26,7 +26,7 @@ using namespace nb::literals;
 void init_bindings_micro(nb::module_& m) {
 
     nb::class_<screamer::HawkesIntensity, screamer::ScreamerBase>(m, "HawkesIntensity")
-        .def(nb::init<double, double, double>(),
+        .def(nb::init<screamer::FloatArg, screamer::FloatArg, screamer::FloatArg>(),
              "decay"_a = 0.9, "alpha"_a = 1.0, "mu"_a = 0.0)
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::HawkesIntensity::reset, "Reset to the initial state.");
@@ -65,13 +65,13 @@ void init_bindings_micro(nb::module_& m) {
         .def("reset", &screamer::RollSpread::reset, "Reset to the initial state.");
 
     nb::class_<screamer::Propagator, screamer::ScreamerBase>(m, "Propagator")
-        .def(nb::init<screamer::IntArg<int>, double, double>(),
+        .def(nb::init<screamer::IntArg<int>, screamer::FloatArg, screamer::FloatArg>(),
              "window_size"_a = 20, "g0"_a = 1.0, "gamma"_a = 0.5)
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::Propagator::reset, "Reset to the initial state.");
 
     nb::class_<screamer::VPIN, screamer::EvalOp>(m, "VPIN")
-        .def(nb::init<double, screamer::IntArg<int>>(),
+        .def(nb::init<screamer::FloatArg, screamer::IntArg<int>>(),
              "bucket_volume"_a = 1.0, "n_buckets"_a = 50)
         .def("__call__", &screamer::functor_call<screamer::VPIN>)
         .def("reset", &screamer::VPIN::reset, "Reset to the initial state.");
@@ -142,8 +142,8 @@ void init_bindings_micro(nb::module_& m) {
         .def("reset", &screamer::RollingKyleLambda::reset, "Reset to the initial state.");
 
     nb::class_<screamer::EwKyleLambda, screamer::EvalOp>(m, "EwKyleLambda")
-        .def(nb::init<std::optional<double>, std::optional<double>,
-                      std::optional<double>, std::optional<double>>(),
+        .def(nb::init<std::optional<screamer::FloatArg>, std::optional<screamer::FloatArg>,
+                      std::optional<screamer::FloatArg>, std::optional<screamer::FloatArg>>(),
              "com"_a = nb::none(), "span"_a = nb::none(),
              "halflife"_a = nb::none(), "alpha"_a = nb::none())
         .def("__call__", &screamer::functor_call_positional<screamer::EwKyleLambda>,

@@ -26,7 +26,8 @@ enum class ResampleAgg   { First, Last, Min, Max, Sum, Count, Mean, Ohlc,
 enum class ResampleLabel { Left, Right };
 // Empty-window fill policy for internal gaps (buckets with no events between two
 // events). Skip = no row (default, legacy behavior); Nan = an all-NaN row at the
-// gap's label; Carry = repeat the previous emitted row's values verbatim.
+// gap's label; Carry = each column's last non-NaN value, which also fills the
+// NaN cells of a bar (per column, under freq= and clock=).
 enum class ResampleFill  { Skip, Nan, Carry };
 
 // One entry in a per-column reducer plan. Maps an output column to a reducer

@@ -7,6 +7,7 @@ runs C++ node graphs; dtype detection here chooses the int64 or float64
 index-type instantiation, and the per-event work is all C++.
 """
 import datetime
+import math
 import re
 
 import numpy as np
@@ -934,6 +935,8 @@ def _resample_freq_to_engine(freq, index):
     datetime64 index -> offset/timedelta -> int64 units via _resample_datetime_freq.
     Raises on a non-positive width or a nonsensical (index dtype, freq type) pair.
     """
+    if isinstance(freq, (bool, np.bool_)):
+        _setting("resample: freq", freq)                 # a bool is not a number
     if index is not None and np.asarray(index).dtype.kind == "M":   # datetime64
         return _resample_datetime_freq(freq, index)
     if isinstance(freq, (str, np.timedelta64)) or hasattr(freq, "total_seconds"):
@@ -1195,16 +1198,17 @@ def resample(values, driver=None, index=None, *, freq=None, every=None, count=No
 
     * ``"skip"`` (default): no row for an empty bucket (legacy behavior).
     * ``"nan"``: an all-NaN row at each empty bucket's label.
-    * ``"carry"``: repeat the previous emitted row's values verbatim (v1: the
-      whole row is carried, including sum/volume-like columns; a per-column
-      "carry price / zero volume" refinement is out of scope).
+    * ``"carry"``: each column takes its last non-NaN value: an empty bucket
+      repeats those values, and a NaN cell of a bar takes its column's value
+      (a column without a value yet stays NaN). Sum- and volume-like columns
+      are carried like the others.
 
     Only internal gaps are filled. Leading buckets before the first event and
     trailing buckets after the last are not synthesized here (output starts at the
     first tick's bucket; trailing empties need the clock/``advance()`` mechanism).
-    ``"carry"`` repeats the whole previous row verbatim across all columns (so an
-    empty bar carries a count/sum column's prior value, not 0; use ``"nan"`` if
-    that is wrong for a column), and skips a bucket that has no prior emitted row.
+    ``"carry"`` works per column, for every column alike (so an empty bar
+    carries a count/sum column's prior value, not 0; use ``"nan"`` if that is
+    wrong for a column), and skips a bucket that has no prior emitted row.
     A filled bucket emits a synthetic row without feeding or resetting the reducer,
     so a functor reducer starts each real bar clean. The trailing partial bucket is
     still emitted once at end of input. Integer index-space.
@@ -1285,7 +1289,7 @@ def resample(values, driver=None, index=None, *, freq=None, every=None, count=No
         columns = None
         if vals.ndim > 1 and agg in _COLUMN_AGGS:
             columns = _column_shape(vals.shape)
-            vals = vals.reshape(len(vals), -1)
+            vals = vals.reshape(len(vals), math.prod(columns))
         out_v, out_idx = _resample_clock_batch(
             vals, np.asarray(val_idx), clk_vals, np.asarray(clk_idx),
             agg=agg, fill=fill, origin=origin, label=label, max_age=max_age)
@@ -1398,7 +1402,7 @@ def resample(values, driver=None, index=None, *, freq=None, every=None, count=No
     columns = None
     if vals.ndim > 1 and isinstance(agg, str) and agg in _COLUMN_AGGS:
         columns = _column_shape(vals.shape)
-        vals = vals.reshape(len(vals), -1)
+        vals = vals.reshape(len(vals), math.prod(columns))
 
     # Use explicit index or row positions when positional.
     if idx_in is None:

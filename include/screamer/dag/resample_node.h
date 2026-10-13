@@ -1,6 +1,7 @@
 #ifndef SCREAMER_DAG_RESAMPLE_NODE_H
 #define SCREAMER_DAG_RESAMPLE_NODE_H
 
+#include <cmath>
 #include <cstdint>
 #include <limits>
 #include <stdexcept>
@@ -215,6 +216,8 @@ public:
         count_in_bucket_ = 0;
         first_index_ = last_index_ = Index{};
         have_emitted_ = false;
+        std::fill(last_emitted_.begin(), last_emitted_.end(),
+                  std::numeric_limits<double>::quiet_NaN());
         have_last_finite_ = false;
         last_finite_index_ = Index{};
         cum_driver_ = 0.0;
@@ -691,11 +694,24 @@ private:
             for (std::size_t i = 0; i < p_.plan.size(); ++i)
                 accums_[p_.plan[i].input_col].emit_one(p_.plan[i].agg, &out_[i]);
         }
-        if (p_.fill == ResampleFill::Carry) {
-            last_emitted_.assign(out_.begin(), out_.end());
-            have_emitted_ = true;
-        }
+        if (carries()) carry_cells();
         downstream_.push(Frame<Index>{label, out_.data(), out_.size()});
+    }
+
+    // fill="carry" under freq= and clock=: each NaN cell of a bar takes its
+    // column's last non-NaN value (NaN before the column has one), and an
+    // empty bar repeats those values. count= and threshold= bars are never
+    // empty, so fill= leaves them as they are.
+    bool carries() const {
+        return p_.fill == ResampleFill::Carry &&
+               (p_.mode == ResampleMode::ByIndex || p_.mode == ResampleMode::ByClock);
+    }
+    void carry_cells() {
+        for (std::size_t i = 0; i < out_.size(); ++i) {
+            if (std::isnan(out_[i])) out_[i] = last_emitted_[i];
+            else last_emitted_[i] = out_[i];
+        }
+        have_emitted_ = true;
     }
 
     void emit_fill(Index label) {

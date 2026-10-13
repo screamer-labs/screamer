@@ -110,6 +110,13 @@ bars = values.reshape(len(values), -1, 4)      # (T', X, 4), as the eager call
 Phase 2 of the shape contract (asset axes inside a `Pipeline`) will return
 `(T', X, 4)` directly.
 
+An output with no rows keeps its width when the graph or the feeds fix it: an
+empty `(0, 3)` feed through the pipeline above gives `(0, 12)` values, and an
+operator with three outputs gives `(0, 3)` even before any event. Only a
+one-column output, or one whose width depends on a live input that has had no
+event yet, is `(0,)`. The same holds for each `live().result()`, so empty
+results concatenate with the others.
+
 ## Live, incremental sessions: `pipe.live()`
 
 `pipe(arrays)` and `pipe(generators)` both consume complete feeds. When you drive
@@ -232,7 +239,10 @@ inline, falling back to the text tree when graphviz is not available.
 parameters, outputs, and `align_outputs`), and `Pipeline.from_json(text)` rebuilds a
 runnable `Pipeline` from it. This round-trips exactly, so a pipeline can be saved as a
 config file and reloaded. `to_dict` / `from_dict` give the same round-trip with a
-plain dict.
+plain dict. A functor reducer of a `Resample`, as in `agg=RollingMean(5)`, is
+saved as its name and parameters, `{"functor": "RollingMean", "params":
+{"window_size": 5}}`, and loading builds a new one, so the restored pipeline
+shares no state with the original.
 
 ```{eval-rst}
 .. exec_code::

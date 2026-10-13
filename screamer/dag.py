@@ -136,8 +136,8 @@ def _as_float64(x, contiguous=False):
 
 def _setting(name, x):
     """An operator setting that must be a number: a string is a wrong kind
-    (TypeError), never parsed. Returns `x`."""
-    if isinstance(x, (str, bytes, bytearray)):
+    (TypeError), never parsed, and so is a bool. Returns `x`."""
+    if isinstance(x, (str, bytes, bytearray, bool, np.bool_)):
         raise TypeError(f"{name} must be a number, got {type(x).__name__}")
     return x
 

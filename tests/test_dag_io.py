@@ -185,3 +185,96 @@ def test_from_dict_positional_args_fallback():
 def test_select_class_is_public():
     import screamer
     assert screamer.Select is Select
+
+
+# ---------------------------------------------------------------------------
+# G21: to_json / from_json round-trip every node kind and every agg kind,
+# functor reducers included. A functor reducer is written as its name and
+# params and built anew, so the rebuilt graph shares no state with the first.
+# ---------------------------------------------------------------------------
+import screamer as _s                                             # noqa: E402
+from screamer.streams import Filter, Delay, _ALL_AGG_NAMES        # noqa: E402
+
+_T = 40
+_RNG = np.random.default_rng(21)
+_K = np.cumsum(_RNG.integers(1, 4, size=_T)).astype(np.int64)
+_P = np.cumsum(_RNG.standard_normal(_T)) + 100.0
+_V = np.abs(_RNG.standard_normal(_T)) + 1.0
+_P[[5, 17]] = np.nan
+_WIDTH = {"ohlcv": 2, "ohlcv2": 2, "ohlc_bars": 4, "ohlcv_bars": 5}
+
+
+def _values(width):
+    if width == 1:
+        return _P
+    cols = [_P, _P + 1.0, _P - 1.0, _P, _V][:width] if width >= 4 else [_P, _V - 1.5]
+    return np.column_stack(cols)
+
+
+def _io_cases():
+    def one(node_fn, width=1):
+        x = Input("x")
+        return Pipeline([x], [node_fn(x)]), [(_values(width), _K)]
+
+    def two(node_fn, align=True):
+        x, y = Input("x"), Input("y")
+        return Pipeline([x, y], node_fn(x, y), align_outputs=align), \
+            [(_P, _K), (_V, _K + 1)]
+
+    reducers = {"RollingMean(2)": lambda: _s.RollingMean(2),
+                "BollingerBands(3)": lambda: _s.BollingerBands(3),
+                "EwMean(alpha=0.5)": lambda: _s.EwMean(alpha=0.5),
+                "ExpandingMax()": lambda: _s.ExpandingMax()}
+    cases = {
+        "functor": one(lambda x: RollingMean(3)(x)),
+        "multi-output functor": one(lambda x: RollingMinMax(4)(x)),
+        "CombineLatest": two(lambda x, y: [CombineLatest()(x, y)]),
+        "CombineLatest when_all": two(lambda x, y: [CombineLatest(emit="when_all")(x, y)]),
+        "Dropna": one(lambda x: Dropna(how="all")(x), 2),
+        "Select": one(lambda x: Select([1, 0])(x), 4),
+        "Filter": two(lambda x, y: [Filter()(x, y)]),
+        "Delay": one(lambda x: Delay(3)(x)),
+        "forecast_pairs count": two(lambda x, y: [_s.forecast_pairs(x, y, count=2)]),
+        "forecast_pairs duration": two(lambda x, y: [_s.forecast_pairs(x, y, duration=4)]),
+        "two outputs unaligned": two(lambda x, y: [RollingMean(2)(x), EwMean(alpha=0.3)(y)], False),
+        "Resample threshold": two(lambda x, y: [Resample(x, y, threshold=3.0, agg="sum")]),
+        "Resample clock": two(lambda x, y: [Resample(x, y, clock=True, agg="last", fill="carry")]),
+    }
+    for agg in _ALL_AGG_NAMES:
+        w = _WIDTH.get(agg, 1)
+        cases[f"Resample freq agg={agg}"] = one(lambda x, a=agg: Resample(freq=5, agg=a)(x), w)
+        cases[f"Resample count agg={agg}"] = one(lambda x, a=agg: Resample(count=3, agg=a)(x), w)
+    for fill in ("skip", "nan", "carry"):
+        cases[f"Resample fill={fill}"] = one(
+            lambda x, f=fill: Resample(freq=2, agg="mean", fill=f, label="right")(x))
+    for name, make in reducers.items():
+        cases[f"Resample freq agg={name}"] = one(lambda x, m=make: Resample(freq=5, agg=m())(x))
+        cases[f"Resample count agg={name} fill"] = one(
+            lambda x, m=make: Resample(count=3, agg=m(), fill="carry")(x))
+    return cases
+
+
+_IO_CASES = _io_cases()
+
+
+@pytest.mark.parametrize("case", sorted(_IO_CASES))
+def test_json_round_trip_every_node_and_agg_kind(case):
+    dag, feeds = _IO_CASES[case]
+    text = dag.to_json()
+    assert json.loads(text) == dag.to_dict()          # to_dict is JSON-native
+    rebuilt = Pipeline.from_json(text)
+    assert rebuilt.to_dict() == dag.to_dict()
+    assert _equal(dag(*feeds), rebuilt(*feeds))
+    # The rebuilt graph has its own state: running it again changes nothing.
+    assert _equal(dag(*feeds), rebuilt(*feeds))
+
+
+def test_a_functor_reducer_is_its_name_and_params():
+    x = Input("x")
+    dag = Pipeline([x], [Resample(count=3, agg=_s.EwMean(alpha=0.5))(x)])
+    node = [n for n in dag.to_dict()["nodes"] if n["kind"] == "operator"][0]
+    assert node["params"]["agg"] == {"functor": "EwMean", "params": {"alpha": 0.5}}
+    d = dag.to_dict()
+    d["nodes"][-1]["params"]["agg"] = {"functor": "NoSuchOp", "params": {}}
+    with pytest.raises(ValueError, match="unknown functor class: 'NoSuchOp'"):
+        Pipeline.from_dict(d)

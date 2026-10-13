@@ -1,3 +1,4 @@
+#include "screamer/common/int_arg.h"
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/optional.h>
 #include "screamer/common/base.h"
@@ -17,7 +18,7 @@ void init_bindings_preprocessing(nb::module_& m) {
         .def("reset", &screamer::Ffill::reset, "Reset to the initial state.");
 
     nb::class_<screamer::FillNa, screamer::ScreamerBase>(m, "FillNa")
-        .def(nb::init<double>(), "fill"_a = 0.0)
+        .def(nb::init<screamer::FloatArg>(), "fill"_a = 0.0)
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::FillNa::reset, "Reset to the initial state.");
 
@@ -25,8 +26,8 @@ void init_bindings_preprocessing(nb::module_& m) {
      nb::class_<screamer::Clip, screamer::ScreamerBase>(m, "Clip")
         .def(
           nb::init<
-               std::optional<double>,
-               std::optional<double>
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>
           >(),
           "lower"_a = nb::none(),
           "upper"_a = nb::none()

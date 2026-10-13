@@ -104,8 +104,9 @@ graph defined in C++. Count mode lags the rows of `X`, of any width, by `count`
 events, as `Lag(count)` lags one column.
 Duration mode is `Resample(Delay(duration)(X), clock=y, agg='last', fill='carry')`:
 each `y` is paired with the last `X` whose index plus `duration` is at or before
-the index of `y`. Both modes then pair the shifted features with `y` through
-`CombineLatest`.
+the index of `y`, column by column: a NaN in a column of that row gives the
+column's last non-NaN value. Both modes then pair the shifted features with
+`y` through `CombineLatest`.
 
 ## JavaScript
 

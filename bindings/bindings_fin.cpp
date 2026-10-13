@@ -76,6 +76,7 @@ template <> struct type_caster<screamer::PerAsset> {
 
     bool from_python(handle src, uint8_t flags, cleanup_list* cleanup) noexcept {
         if (!PySequence_Check(src.ptr())) {
+            if (screamer::bool_kind(src.ptr())) return false;   // a bool is not a number setting
             const double d = PyFloat_AsDouble(src.ptr());
             if (d == -1.0 && PyErr_Occurred()) {
                 PyErr_Clear();
@@ -84,6 +85,7 @@ template <> struct type_caster<screamer::PerAsset> {
             value.values = {d};
             return true;
         }
+        if (screamer::bool_element_kind(src.ptr())) return false;   // as a single bool
         make_caster<std::vector<double>> seq;
         if (!seq.from_python(src, flags, cleanup)) return false;
         value.values = seq.value;
@@ -1192,7 +1194,7 @@ void init_bindings_fin(nb::module_& m) {
         .def("reset", &screamer::RollingTLSBeta::reset, "Reset to the initial state.");
 
     nb::class_<screamer::KalmanRegression, screamer::EvalOp>(m, "KalmanRegression")
-        .def(nb::init<double, double, double>(),
+        .def(nb::init<screamer::FloatArg, screamer::FloatArg, screamer::FloatArg>(),
              "delta"_a = 1e-6, "obs_var"_a = 1e-3, "prior_var"_a = 1.0)
         .def("__call__", &screamer::functor_call<screamer::KalmanRegression>)
         .def("reset", &screamer::KalmanRegression::reset, "Reset to the diffuse prior.");
@@ -1203,7 +1205,7 @@ void init_bindings_fin(nb::module_& m) {
         .def("reset", &screamer::RollingADF::reset, "Reset to the initial state.");
 
     nb::class_<screamer::BandSignal, screamer::ScreamerBase>(m, "BandSignal")
-        .def(nb::init<double, double, double>(),
+        .def(nb::init<screamer::FloatArg, screamer::FloatArg, screamer::FloatArg>(),
              "entry"_a = 2.0, "exit"_a = 0.0,
              "stop"_a = std::numeric_limits<double>::infinity())
         .def("__call__", &screamer::screamer_call, "value"_a.none())
@@ -1242,14 +1244,14 @@ void init_bindings_fin(nb::module_& m) {
         .def("reset", &screamer::RollingMaxDrawdown::reset, "Reset.");
 
     nb::class_<screamer::RollingSharpe, screamer::ScreamerBase>(m, "RollingSharpe")
-        .def(nb::init<screamer::IntArg<int>, double>(),
+        .def(nb::init<screamer::IntArg<int>, screamer::FloatArg>(),
              "window_size"_a = 252,
              "periods_per_year"_a = 1.0)
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingSharpe::reset, "Reset.");
 
     nb::class_<screamer::RollingSortino, screamer::ScreamerBase>(m, "RollingSortino")
-        .def(nb::init<screamer::IntArg<int>, double, double>(),
+        .def(nb::init<screamer::IntArg<int>, screamer::FloatArg, screamer::FloatArg>(),
              "window_size"_a = 252,
              "periods_per_year"_a = 1.0,
              "target"_a = 0.0)
@@ -1257,14 +1259,14 @@ void init_bindings_fin(nb::module_& m) {
         .def("reset", &screamer::RollingSortino::reset, "Reset.");
 
     nb::class_<screamer::RollingInfoRatio, screamer::EvalOp>(m, "RollingInfoRatio")
-        .def(nb::init<screamer::IntArg<int>, double>(),
+        .def(nb::init<screamer::IntArg<int>, screamer::FloatArg>(),
              "window_size"_a = 252,
              "periods_per_year"_a = 1.0)
         .def("__call__", &screamer::functor_call<screamer::RollingInfoRatio>)
         .def("reset", &screamer::RollingInfoRatio::reset, "Reset.");
 
     nb::class_<screamer::RollingCalmar, screamer::ScreamerBase>(m, "RollingCalmar")
-        .def(nb::init<screamer::IntArg<int>, double>(),
+        .def(nb::init<screamer::IntArg<int>, screamer::FloatArg>(),
              "window_size"_a = 252,
              "periods_per_year"_a = 1.0)
         .def("__call__", &screamer::screamer_call, "value"_a.none())
@@ -1302,8 +1304,8 @@ void init_bindings_fin(nb::module_& m) {
     // 2 -> 4 online Bayesian regression returning (pred_mean, pred_std, slope, intercept).
     // Uses exponential forgetting with a conjugate Normal-Inverse-Gamma prior.
     nb::class_<screamer::BayesianRegression, screamer::EvalOp>(m, "BayesianRegression")
-        .def(nb::init<std::optional<double>, std::optional<double>, std::optional<double>,
-                      std::optional<double>, double, double>(),
+        .def(nb::init<std::optional<screamer::FloatArg>, std::optional<screamer::FloatArg>, std::optional<screamer::FloatArg>,
+                      std::optional<screamer::FloatArg>, screamer::FloatArg, screamer::FloatArg>(),
              "com"_a = nb::none(), "span"_a = nb::none(),
              "halflife"_a = nb::none(), "alpha"_a = nb::none(),
              "prior_precision"_a = 1.0, "prior_sigma"_a = 1.0)
@@ -1311,7 +1313,7 @@ void init_bindings_fin(nb::module_& m) {
         .def("reset", &screamer::BayesianRegression::reset, "Reset to the prior.");
 
     nb::class_<screamer::BacktestPriceTarget, screamer::EvalOp>(m, "BacktestPriceTarget")
-        .def(nb::init<double, double, double, double, double, double, double, const std::string&, double, double, double, double, const std::string&, double, double>(),
+        .def(nb::init<screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, const std::string&, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, const std::string&, screamer::FloatArg, screamer::FloatArg>(),
              "spread"_a = 0.0, "fee"_a = 0.0,
              "min_position"_a = -std::numeric_limits<double>::infinity(),
              "max_position"_a = std::numeric_limits<double>::infinity(),
@@ -1323,7 +1325,7 @@ void init_bindings_fin(nb::module_& m) {
         .def("reset", &screamer::BacktestPriceTarget::reset, "Reset.");
 
     nb::class_<screamer::BacktestOHLCOrders, screamer::EvalOp>(m, "BacktestOHLCOrders")
-        .def(nb::init<double, double, const std::string&, double, double, double, double, double, double, double, double, const std::string&>(),
+        .def(nb::init<screamer::FloatArg, screamer::FloatArg, const std::string&, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, const std::string&>(),
              "maker_fee"_a = 0.0, "taker_fee"_a = 0.0,
              "fill"_a = "touch", "participation_ratio"_a = 1.0,
              "tick_size"_a = 0.0,
@@ -1337,7 +1339,7 @@ void init_bindings_fin(nb::module_& m) {
         .def("reset", &screamer::BacktestOHLCOrders::reset, "Reset.");
 
     nb::class_<screamer::BacktestOHLCTarget, screamer::EvalOp>(m, "BacktestOHLCTarget")
-        .def(nb::init<double, double, double, double, double, double, double, const std::string&, const std::string&, screamer::IntArg<int>, double, double, double, const std::string&, double, double>(),
+        .def(nb::init<screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, const std::string&, const std::string&, screamer::IntArg<int>, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, const std::string&, screamer::FloatArg, screamer::FloatArg>(),
              "taker_fee"_a = 0.0, "tick_size"_a = 0.0,
              "min_position"_a = -std::numeric_limits<double>::infinity(),
              "max_position"_a = std::numeric_limits<double>::infinity(),
@@ -1350,7 +1352,7 @@ void init_bindings_fin(nb::module_& m) {
         .def("reset", &screamer::BacktestOHLCTarget::reset, "Reset.");
 
     nb::class_<screamer::BacktestOHLCVTarget, screamer::EvalOp>(m, "BacktestOHLCVTarget")
-        .def(nb::init<double, double, double, double, double, double, double, double, const std::string&, const std::string&, screamer::IntArg<int>, double, double, double, const std::string&, double, double>(),
+        .def(nb::init<screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, const std::string&, const std::string&, screamer::IntArg<int>, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, const std::string&, screamer::FloatArg, screamer::FloatArg>(),
              "max_participation"_a = 1.0, "taker_fee"_a = 0.0, "tick_size"_a = 0.0,
              "min_position"_a = -std::numeric_limits<double>::infinity(),
              "max_position"_a = std::numeric_limits<double>::infinity(),
@@ -1363,7 +1365,7 @@ void init_bindings_fin(nb::module_& m) {
         .def("reset", &screamer::BacktestOHLCVTarget::reset, "Reset.");
 
     nb::class_<screamer::BacktestTradesOrders, screamer::EvalOp>(m, "BacktestTradesOrders")
-        .def(nb::init<double, double, const std::string&, double, double, double, double, double, double, double, double, const std::string&>(),
+        .def(nb::init<screamer::FloatArg, screamer::FloatArg, const std::string&, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, const std::string&>(),
              "maker_fee"_a = 0.0, "taker_fee"_a = 0.0,
              "fill"_a = "touch", "participation_ratio"_a = 1.0,
              "tick_size"_a = 0.0,
@@ -1377,7 +1379,7 @@ void init_bindings_fin(nb::module_& m) {
         .def("reset", &screamer::BacktestTradesOrders::reset, "Reset.");
 
     nb::class_<screamer::BacktestL1Orders, screamer::EvalOp>(m, "BacktestL1Orders")
-        .def(nb::init<double, double, const std::string&, double, double, double, double, double, double, double, double, const std::string&>(),
+        .def(nb::init<screamer::FloatArg, screamer::FloatArg, const std::string&, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, const std::string&>(),
              "maker_fee"_a = 0.0, "taker_fee"_a = 0.0,
              "fill"_a = "breach", "participation_ratio"_a = 1.0,
              "tick_size"_a = 0.0,
@@ -1391,7 +1393,7 @@ void init_bindings_fin(nb::module_& m) {
         .def("reset", &screamer::BacktestL1Orders::reset, "Reset.");
 
     nb::class_<screamer::BacktestL1Target, screamer::EvalOp>(m, "BacktestL1Target")
-        .def(nb::init<double, double, double, double, double, double, double, const std::string&, double, double, double, const std::string&, double, double>(),
+        .def(nb::init<screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, const std::string&, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, const std::string&, screamer::FloatArg, screamer::FloatArg>(),
              "taker_fee"_a = 0.0, "tick_size"_a = 0.0,
              "min_position"_a = -std::numeric_limits<double>::infinity(),
              "max_position"_a = std::numeric_limits<double>::infinity(),
@@ -1403,7 +1405,7 @@ void init_bindings_fin(nb::module_& m) {
         .def("reset", &screamer::BacktestL1Target::reset, "Reset.");
 
     nb::class_<screamer::BacktestL1TradesOrders, screamer::EvalOp>(m, "BacktestL1TradesOrders")
-        .def(nb::init<double, double, const std::string&, double, double, double, double, double, double, double, double, const std::string&>(),
+        .def(nb::init<screamer::FloatArg, screamer::FloatArg, const std::string&, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, const std::string&>(),
              "maker_fee"_a = 0.0, "taker_fee"_a = 0.0,
              "fill"_a = "touch", "participation_ratio"_a = 1.0,
              "tick_size"_a = 0.0,
@@ -1417,7 +1419,7 @@ void init_bindings_fin(nb::module_& m) {
         .def("reset", &screamer::BacktestL1TradesOrders::reset, "Reset.");
 
     nb::class_<screamer::BacktestTradesTarget, screamer::EvalOp>(m, "BacktestTradesTarget")
-        .def(nb::init<double, double, double, double, double, double, double, const std::string&, double, double, double, const std::string&, double, double, double>(),
+        .def(nb::init<screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, const std::string&, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, const std::string&, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg>(),
              "taker_fee"_a = 0.0, "tick_size"_a = 0.0,
              "min_position"_a = -std::numeric_limits<double>::infinity(),
              "max_position"_a = std::numeric_limits<double>::infinity(),
@@ -1430,17 +1432,17 @@ void init_bindings_fin(nb::module_& m) {
         .def("reset", &screamer::BacktestTradesTarget::reset, "Reset.");
 
     nb::class_<screamer::BacktestReport, screamer::EvalOp>(m, "BacktestReport")
-        .def(nb::init<double>(), "periods_per_year"_a = 1.0)
+        .def(nb::init<screamer::FloatArg>(), "periods_per_year"_a = 1.0)
         .def("__call__", &screamer::functor_call<screamer::BacktestReport>)
         .def("reset", &screamer::BacktestReport::reset, "Reset.");
 
     nb::class_<screamer::BacktestCarry, screamer::EvalOp>(m, "BacktestCarry")
-        .def(nb::init<double>(), "multiplier"_a = 1.0)
+        .def(nb::init<screamer::FloatArg>(), "multiplier"_a = 1.0)
         .def("__call__", &screamer::functor_call<screamer::BacktestCarry>)
         .def("reset", &screamer::BacktestCarry::reset, "Reset.");
 
     nb::class_<screamer::BacktestStats, screamer::EvalOp>(m, "BacktestStats")
-        .def(nb::init<double>(), "periods_per_year"_a = 1.0)
+        .def(nb::init<screamer::FloatArg>(), "periods_per_year"_a = 1.0)
         .def("__call__", &screamer::functor_call<screamer::BacktestStats>)
         .def("reset", &screamer::BacktestStats::reset, "Reset.");
 
@@ -1465,10 +1467,10 @@ void init_bindings_fin(nb::module_& m) {
         .def(nb::init<>());
 
     nb::class_<screamer::CrossWinsorize, screamer::RowOp>(m, "CrossWinsorize")
-        .def(nb::init<double, double>(), "lower"_a = 0.05, "upper"_a = 0.95);
+        .def(nb::init<screamer::FloatArg, screamer::FloatArg>(), "lower"_a = 0.05, "upper"_a = 0.95);
 
     nb::class_<screamer::CrossNormalize, screamer::RowOp>(m, "CrossNormalize")
-        .def(nb::init<double, std::optional<double>>(), "gross"_a = 1.0,
+        .def(nb::init<screamer::FloatArg, std::optional<screamer::FloatArg>>(), "gross"_a = 1.0,
              "net"_a = nb::none());
 
     nb::class_<screamer::CrossTopBottom, screamer::RowOp>(m, "CrossTopBottom")
@@ -1477,8 +1479,8 @@ void init_bindings_fin(nb::module_& m) {
     nb::class_<screamer::BacktestPortfolioTarget, screamer::RowOp>(m, "BacktestPortfolioTarget")
         .def(nb::init<screamer::PerAsset, screamer::PerAsset, const std::string&,
                       screamer::PerAsset, screamer::PerAsset, screamer::PerAsset,
-                      const std::string&, double, double, const std::string&,
-                      double, double>(),
+                      const std::string&, screamer::FloatArg, screamer::FloatArg, const std::string&,
+                      screamer::FloatArg, screamer::FloatArg>(),
              "fee"_a = screamer::PerAsset{0.0}, "slippage"_a = screamer::PerAsset{0.0},
              "slippage_unit"_a = "fraction", "tick_size"_a = screamer::PerAsset{0.0},
              "multiplier"_a = screamer::PerAsset{1.0},
@@ -1491,8 +1493,8 @@ void init_bindings_fin(nb::module_& m) {
     nb::class_<screamer::BacktestPortfolioOHLCTarget, screamer::RowOp>(m, "BacktestPortfolioOHLCTarget")
         .def(nb::init<screamer::PerAsset, screamer::PerAsset, const std::string&,
                       screamer::PerAsset, screamer::PerAsset, screamer::PerAsset,
-                      const std::string&, double, double, const std::string&,
-                      double, double, const std::string&, screamer::IntArg<int>>(),
+                      const std::string&, screamer::FloatArg, screamer::FloatArg, const std::string&,
+                      screamer::FloatArg, screamer::FloatArg, const std::string&, screamer::IntArg<int>>(),
              "fee"_a = screamer::PerAsset{0.0}, "slippage"_a = screamer::PerAsset{0.0},
              "slippage_unit"_a = "fraction", "tick_size"_a = screamer::PerAsset{0.0},
              "multiplier"_a = screamer::PerAsset{1.0},
@@ -1504,20 +1506,20 @@ void init_bindings_fin(nb::module_& m) {
              "fill_at"_a = "open", "delay"_a = 1);
 
     nb::class_<screamer::RollingDownsideDeviation, screamer::ScreamerBase>(m, "RollingDownsideDeviation")
-        .def(nb::init<screamer::IntArg<int>, double, const std::string&>(),
+        .def(nb::init<screamer::IntArg<int>, screamer::FloatArg, const std::string&>(),
              "window_size"_a = 20, "mar"_a = 0.0,
              "start_policy"_a = "strict")
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingDownsideDeviation::reset, "Reset.");
 
     nb::class_<screamer::RollingOmega, screamer::ScreamerBase>(m, "RollingOmega")
-        .def(nb::init<screamer::IntArg<int>, double>(),
+        .def(nb::init<screamer::IntArg<int>, screamer::FloatArg>(),
              "window_size"_a = 20, "threshold"_a = 0.0)
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingOmega::reset, "Reset.");
 
     nb::class_<screamer::RollingCVaR, screamer::ScreamerBase>(m, "RollingCVaR")
-        .def(nb::init<screamer::IntArg<int>, double>(),
+        .def(nb::init<screamer::IntArg<int>, screamer::FloatArg>(),
              "window_size"_a = 20, "alpha"_a = 0.05)
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingCVaR::reset, "Reset.");

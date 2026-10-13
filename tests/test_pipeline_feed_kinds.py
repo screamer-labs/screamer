@@ -312,7 +312,9 @@ def test_integer_settings_refuse_strings(bad):
         with pytest.raises(TypeError):
             make(bad)
     s.RollingMean(np.int64(3))
-    s.RollingMean(True)                    # a bool converts as before
+    for flag in (True, np.True_):          # a bool is not a number setting (G25)
+        with pytest.raises(TypeError, match="got (bool|numpy.bool)"):
+            s.RollingMean(flag)
 
 
 def test_bytearray_in_a_list_is_a_type_error():

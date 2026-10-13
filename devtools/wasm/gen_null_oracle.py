@@ -1,8 +1,9 @@
 """Write wasm/smoke/null_oracle.json: for every operator setting, whether the
-Python binding takes None for it (as "not given") or raises TypeError.
+Python binding takes None for it (as "not given") or raises TypeError, and
+whether it takes a bool (True) or raises TypeError.
 
-js/test/ops.test.ts passes null for each setting and checks that JavaScript
-agrees. Each op is built from ``base``: its required settings filled in, and
+js/test/ops.test.ts passes null, and then true, for each setting and checks
+that JavaScript agrees. Each op is built from ``base``: its required settings filled in, and
 for ops that need one of several settings (the Ew family), one of them. A
 setting is tested with every other setting at its default.
 
@@ -54,6 +55,18 @@ def _base(cls, args):
     raise SystemExit(f"cannot build {cls.__name__}")
 
 
+def _accepts(cls, base, name, value):
+    """Whether the op takes `value` for setting `name`: False for a TypeError.
+    Another error means the value was taken and the op refused the rest."""
+    try:
+        cls(**dict(base, **{name: value}))
+    except TypeError:
+        return False
+    except Exception:
+        pass
+    return True
+
+
 def compute():
     with open(MANIFEST) as f:
         manifest = json.load(f)
@@ -64,18 +77,10 @@ def compute():
             continue
         cls = getattr(s, op["name"])
         base = _base(cls, args)
-        settings = {}
-        for a in args:
-            kw = dict(base, **{a["name"]: None})
-            try:
-                cls(**kw)
-                settings[a["name"]] = True
-            except TypeError:
-                settings[a["name"]] = False
-            except Exception:
-                # None was taken as "not given"; the op then refused the rest.
-                settings[a["name"]] = True
-        out.append({"name": op["name"], "base": base, "accepts_none": settings})
+        settings = {a["name"]: _accepts(cls, base, a["name"], None) for a in args}
+        bools = {a["name"]: _accepts(cls, base, a["name"], True) for a in args}
+        out.append({"name": op["name"], "base": base, "accepts_none": settings,
+                    "accepts_bool": bools})
     return out
 
 

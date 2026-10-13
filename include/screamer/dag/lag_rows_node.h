@@ -47,16 +47,24 @@ public:
             if (++pos_ == count_) pos_ = 0;
             return;
         }
-        if (width_ == 0) {                             // the first event after a reset
+        // Warm-up: store the event, then emit the NaN row, so an event that
+        // the ring cannot store (out of memory) leaves the node as it was.
+        const bool first = width_ == 0;                // the first event after a reset
+        if (first) {
             if (f.width == 0)
                 throw std::invalid_argument("a lag takes rows of at least one value");
+            nan_row_.assign(f.width, std::numeric_limits<double>::quiet_NaN());
             width_ = f.width;
-            nan_row_.assign(width_, std::numeric_limits<double>::quiet_NaN());
         } else {
             check_width(f.width);
         }
+        try {
+            keep(f.values);
+        } catch (...) {
+            if (first) width_ = 0;
+            throw;
+        }
         downstream_.push(Frame<Index>{f.index, nan_row_.data(), width_});
-        keep(f.values);
     }
 
     void flush() override { downstream_.flush(); }

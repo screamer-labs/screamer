@@ -369,8 +369,12 @@ private:
                 if (!q.emitted || last > q.wm) q.wm = last;
                 q.emitted = true;
                 raise_bound(q, last);
-            } else if (!q.emitted && !laid_out_) {
-                out_.widths[j] = b.width;          // the graph's estimate until a row
+            } else if (!q.emitted && q.width != b.width) {
+                // The graph's width for an output without a row yet: it can
+                // grow once an input's width is known, before any row.
+                q.width = b.width;
+                out_.widths[j] = b.width;
+                if (laid_out_) row_.set_width(j, b.width);
             }
             if (b.has_watermark) raise_bound(q, b.watermark);
             all_bounded &= q.bounded;

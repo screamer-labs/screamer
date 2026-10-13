@@ -48,7 +48,7 @@ function combineOptions(opts: unknown): { whenAll: boolean; maxPending?: number;
     if (typeof emit !== "string") throw new TypeError(`combineLatest: emit is ${aKind(emit)}, expected "when_all" or "on_any"`);
     throw new RangeError('combineLatest: emit must be "when_all" or "on_any"');
   }
-  setting("combineLatest: maxPending", maxPending);
+  setting("combineLatest: maxPending", maxPending, false);
   if (layout !== undefined && layout !== null && typeof layout !== "string") {
     if (!Array.isArray(layout))
       throw new TypeError(`combineLatest: layout is ${aKind(layout)}, expected a string or an array of strings`);
@@ -141,8 +141,13 @@ export function merge(..._nodes: Node[]): Node {
 // Validate columns (a non-negative int or a sequence of them). Mirrors
 // screamer/streams.py `_normalize_columns`.
 // An operator setting is a number; a string is a wrong kind, never parsed (R-a).
-function setting(name: string, v: unknown): void {
+// A number setting: a string or a boolean is a wrong kind (TypeError). `bools`
+// false leaves a boolean to a later check with its own message (maxFill,
+// maxPending: "must be an integer", as in Python).
+function setting(name: string, v: unknown, bools = true): void {
   if (typeof v === "string" || v instanceof String) throw new TypeError(`${name} must be a number, got a string`);
+  if (bools && (typeof v === "boolean" || v instanceof Boolean))
+    throw new TypeError(`${name} must be a number, got a boolean`);
 }
 
 function normalizeColumns(columns: number | number[]): number[] {
@@ -267,7 +272,7 @@ export function resample(node: Node, opts: ResampleOpts = {}): Node {
   }
 
   for (const k of ["threshold", "every", "count", "origin", "maxAge", "maxFill"] as const)
-    setting(`resample: ${k}`, (opts as any)[k]);
+    setting(`resample: ${k}`, (opts as any)[k], k !== "maxFill");
   const labelCode = RESAMPLE_LABEL_CODE[opts.label ?? "left"]; // right -> 1 else 0
   const width = opts.every !== undefined && opts.every !== null ? Math.trunc(opts.every) : 1;
   const origin = Math.trunc(opts.origin ?? 0);

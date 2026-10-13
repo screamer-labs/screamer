@@ -208,8 +208,8 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
     the 2.8.0 result, or `undefined` for the default.
   * A number parameter takes only a number. A boolean, an array, an object,
     an `NdArray` or a `BigInt` raises `TypeError`; 2.8.0 converted it (`true`
-    as 1, `[5]` as 5, an object as NaN). Pass `Number(x)`. Python still
-    takes `True` and `False`, which are integers there.
+    as 1, `[5]` as 5, an object as NaN). Pass `Number(x)`. Python refuses
+    `True` and `False` too (see the bool entry below).
   * A parameter without a default that is left out raises `TypeError`
     ("Hold: n is required"); 2.8.0 converted it to NaN or 0.
   * More arguments than the operator has parameters raise `TypeError`
@@ -413,7 +413,8 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   (`MovingAverage(["0.5", "0.5"])`, `BacktestPortfolioTarget(fee="0.01")`),
   and `threshold`, `every`, `count`, `origin`, `max_age`, a `delay`
   duration, `select` columns, `max_pending` and JavaScript's `maxPending`. A
-  bool setting converts as before. What 2.8.0 did:
+  bool setting raises `TypeError` too (see the bool entry below). What 2.8.0
+  did:
   * Python parsed numeric strings in string and object arrays, pandas
     `Series`, `Pipeline` batch feeds and live pushes, row operators,
     `PortfolioReport`, the stream functions and the lazy positional
@@ -717,6 +718,55 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   gain exact. To get TA-Lib's `HT_PHASOR` values,
   multiply each component by its gain (see the `HilbertPhasor` page).
 
+* A bool is not a number setting, in Python as in JavaScript. An operator's
+  integer, float, per-asset and list settings refuse `True`, `False` and
+  NumPy bools with `TypeError`: `RollingMean(True)` raises "an integer
+  setting must be a number, got bool", `BollingerBands(20, True)` "a number
+  setting must be a number, got bool", and `MovingAverage([True, 0.5])` and
+  `BacktestPortfolioTarget(fee=True)` raise too. So do the stream settings:
+  `Resample`'s `freq`, `every`, `count`, `threshold`, `origin` and
+  `max_fill`, a `Delay` duration, `Select` columns, `split`'s `n`,
+  `forecast_pairs`' `count` and `duration`, and a `Pipeline`'s
+  `max_pending`. In
+  JavaScript, `resample`'s `count`, `every`, `threshold`, `origin` and
+  `maxAge`, a `delay` duration and `select` columns throw `TypeError` for
+  `true` and `false`, as the operator settings already did. 2.8.0 read a
+  bool as 1 or 0: `RollingMean(True)` had a window of 1. Pass `int(flag)`
+  (`Number(flag)` in JavaScript).
+* `Resample(fill="carry")` carries each column on its own, under `freq=` (and
+  `every=`) and `clock=`, in Python and JavaScript, eager, lazy, in a
+  `Pipeline` and live: a NaN cell of a bar takes its column's last non-NaN
+  value, and an empty bar repeats each column's last non-NaN value. A
+  `(T, K)` input gives the values of `K` one-column calls. 2.8.0 repeated
+  the previous row as it was: under `clock=` a bar with no finite value in
+  any column took the previous row, while a NaN cell next to a value stayed
+  NaN, and under `freq=` a bar whose events were all NaN stayed NaN, and so
+  did the empty bars after it. `forecast_pairs` in duration mode, a clock
+  resample with carry, follows: a NaN in one column of `X` gives that
+  column's last value. For the 2.8.0 values, resample with `fill="nan"` and
+  fill the rows yourself: under `freq=`, give each bucket that the
+  `fill="skip"` result lacks the row before it; under `clock=`, give each
+  row that is all NaN the row before it.
+* An empty result keeps its width when the graph or the input fixes it, in
+  Python and JavaScript, batch and live. A `Pipeline` fed an empty `(0, 3)`
+  array returns `(0, 3)` values (2.8.0: `(0,)`), a `Resample(agg="ohlc")`
+  of that feed inside it `(0, 12)` (2.8.0: `(0, 4)`), and an eager `Delay`
+  of an empty `(0, 3)` stream `(0, 3)` (2.8.0: `(0,)`). An empty
+  `live().result()` keeps each output's width, aligned or not, and an output
+  whose width the graph fixes (an operator's outputs, a `Select`, a reducer
+  `Resample`) has it before any event. Only a one-column output is `(0,)`,
+  and so is an output whose width comes from a live input that has had no
+  event yet. For the 2.8.0 shape, take `values.reshape(0)` when
+  `len(values) == 0`.
+* `Pipeline.to_dict()` holds a `Resample`'s functor reducer as its name and
+  parameters, `{"functor": "RollingMean", "params": {"window_size": 5}}`, so
+  `to_json()` writes it; 2.8.0 put the functor object itself in the dict, and
+  `to_json()` raised "Object of type RollingMean is not JSON serializable".
+  `from_dict()` and `from_json()` build a new functor from it, so the
+  restored pipeline shares no state with the original (2.8.0's `from_dict()`
+  reused the object). To get the object, build it from the entry:
+  `getattr(screamer, d["functor"])(**d["params"])`.
+
 ### Fixed
 
 * A clock `Resample` inside a `Pipeline` whose values come through a node
@@ -991,6 +1041,17 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   an infinity in the window made the residual `NaN`, while the slope and the
   other outputs were `NaN`. It is now `NaN` there too. A residual that rounds
   to zero or below still gives 0.
+
+* A `CombineLatest` of inputs whose widths are known has their sum as its
+  width, a known width of 0 included, so the width check before any event
+  sees it: `forecast_pairs(CombineLatest()(a, b), y, ...)` of two `(T, 0)`
+  feeds raises "forecast_pairs: X has 0 columns, expected at least 1", where
+  it returned an empty result, and an operator fed such a join raises
+  `ValueError` before any event. A `forecast_pairs` count lag that runs out of
+  memory on an event no longer emits that event's warm-up row first.
+* The eager `Resample` of an empty wide stream, `(0, 3)` or `(0, 3, 2)`,
+  raised "cannot reshape array of size 0"; it returns `(0, 3)` (`(0, 3, 4)`
+  for `ohlc`).
 
 ### Performance
 

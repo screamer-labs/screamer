@@ -40,7 +40,12 @@ def _jsonable(value):
 
     Constructor args are stored verbatim, so a common ``RollingMean(arr.size // 10)``
     yields a numpy scalar. numpy scalars/arrays are cast to Python ints/floats/lists.
+    A functor (a Resample reducer, ``agg=RollingMean(5)``) becomes
+    ``{"functor": name, "params": {...}}``, which :func:`from_dict` builds anew.
     """
+    if getattr(type(value), "_screamer_wrapped", False):
+        return {"functor": type(value).__name__,
+                "params": _clean(getattr(value, "_screamer_params", {}))}
     if isinstance(value, np.ndarray):
         return [_jsonable(v) for v in value.tolist()]
     if isinstance(value, np.bool_):
@@ -89,6 +94,28 @@ def to_json(dag, indent=2):
     return json.dumps(to_dict(dag), indent=indent)
 
 
+def _functor(spec):
+    """A new functor from its name and params."""
+    import screamer
+    cls = getattr(screamer, spec["functor"], None) if isinstance(spec["functor"], str) else None
+    if cls is None or not getattr(cls, "_screamer_wrapped", False):
+        raise ValueError(f"unknown functor class: {spec['functor']!r}")
+    params = {k: _decode(v) for k, v in dict(spec.get("params", {})).items()}
+    args = params.pop("args", [])
+    return cls(*args, **params)
+
+
+def _decode(value):
+    """A param value as to_dict wrote it, with each functor built anew."""
+    if isinstance(value, dict):
+        if set(value) <= {"functor", "params"} and "functor" in value:
+            return _functor(value)
+        return {k: _decode(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_decode(v) for v in value]
+    return value
+
+
 def from_dict(data):
     """Rebuild a runnable ``Pipeline`` from a dict produced by :func:`to_dict`."""
     version = data.get("screamer_dag")
@@ -107,13 +134,14 @@ def from_dict(data):
             if op not in _OPERATORS:
                 raise ValueError(f"unknown DAG operator: {op!r}")
             feeds = [built[i] for i in spec["in"]]
-            built[nid] = _OPERATORS[op](*feeds, **spec.get("params", {}))
+            params = {k: _decode(v) for k, v in spec.get("params", {}).items()}
+            built[nid] = _OPERATORS[op](*feeds, **params)
         elif kind == "functor":
             cls = getattr(screamer, spec["cls"], None)
             if cls is None:
                 raise ValueError(f"unknown functor class: {spec['cls']!r}")
             feeds = [built[i] for i in spec["in"]]
-            params = dict(spec.get("params", {}))
+            params = {k: _decode(v) for k, v in spec.get("params", {}).items()}
             args = params.pop("args", [])  # positional fallback for schema-less functors
             built[nid] = cls(*args, **params)(*feeds)
         else:

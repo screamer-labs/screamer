@@ -36,7 +36,7 @@ using namespace nb::literals;
 void init_bindings_signal(nb::module_& m) {
 
     nb::class_<screamer::Butter, screamer::ScreamerBase>(m, "Butter")
-        .def(nb::init<screamer::IntArg<int>,double>(),  "order"_a = 2, "cutoff_freq"_a = 0.1)
+        .def(nb::init<screamer::IntArg<int>,screamer::FloatArg>(),  "order"_a = 2, "cutoff_freq"_a = 0.1)
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::Butter::reset, "Reset to the initial state.");
 
@@ -44,18 +44,18 @@ void init_bindings_signal(nb::module_& m) {
     // (cutoff is a fraction of Nyquist in (0, 1)) as the existing
     // low-pass `Butter`.
     nb::class_<screamer::ButterHighpass, screamer::ScreamerBase>(m, "ButterHighpass")
-        .def(nb::init<screamer::IntArg<int>, double>(), "order"_a = 2, "cutoff_freq"_a = 0.1)
+        .def(nb::init<screamer::IntArg<int>, screamer::FloatArg>(), "order"_a = 2, "cutoff_freq"_a = 0.1)
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::ButterHighpass::reset, "Reset.");
 
     nb::class_<screamer::ButterBandpass, screamer::ScreamerBase>(m, "ButterBandpass")
-        .def(nb::init<screamer::IntArg<int>, double, double>(),
+        .def(nb::init<screamer::IntArg<int>, screamer::FloatArg, screamer::FloatArg>(),
              "order"_a = 2, "low_cutoff"_a = 0.05, "high_cutoff"_a = 0.2)
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::ButterBandpass::reset, "Reset.");
 
     nb::class_<screamer::ButterBandstop, screamer::ScreamerBase>(m, "ButterBandstop")
-        .def(nb::init<screamer::IntArg<int>, double, double>(),
+        .def(nb::init<screamer::IntArg<int>, screamer::FloatArg, screamer::FloatArg>(),
              "order"_a = 2, "low_cutoff"_a = 0.05, "high_cutoff"_a = 0.2)
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::ButterBandstop::reset, "Reset.");
@@ -63,22 +63,22 @@ void init_bindings_signal(nb::module_& m) {
     // SuperSmoother: Ehlers 2-pole low-lag lowpass. Exactly one of
     // period (samples) or cutoff (fraction of Nyquist).
     nb::class_<screamer::SuperSmoother, screamer::ScreamerBase>(m, "SuperSmoother")
-        .def(nb::init<std::optional<double>, std::optional<double>>(),
+        .def(nb::init<std::optional<screamer::FloatArg>, std::optional<screamer::FloatArg>>(),
              "period"_a = nb::none(), "cutoff"_a = nb::none())
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::SuperSmoother::reset, "Reset to the initial state.");
 
     // Decycler: Ehlers trend estimate (input minus a 1-pole highpass).
     nb::class_<screamer::Decycler, screamer::ScreamerBase>(m, "Decycler")
-        .def(nb::init<std::optional<double>, std::optional<double>>(),
+        .def(nb::init<std::optional<screamer::FloatArg>, std::optional<screamer::FloatArg>>(),
              "period"_a = nb::none(), "cutoff"_a = nb::none())
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::Decycler::reset, "Reset to the initial state.");
 
     // RoofingFilter: Ehlers bandpass (2-pole highpass then SuperSmoother).
     nb::class_<screamer::RoofingFilter, screamer::ScreamerBase>(m, "RoofingFilter")
-        .def(nb::init<std::optional<double>, std::optional<double>,
-                      std::optional<double>, std::optional<double>>(),
+        .def(nb::init<std::optional<screamer::FloatArg>, std::optional<screamer::FloatArg>,
+                      std::optional<screamer::FloatArg>, std::optional<screamer::FloatArg>>(),
              "hp_period"_a = nb::none(), "lp_period"_a = nb::none(),
              "hp_cutoff"_a = nb::none(), "lp_cutoff"_a = nb::none())
         .def("__call__", &screamer::screamer_call, "value"_a.none())
@@ -88,7 +88,7 @@ void init_bindings_signal(nb::module_& m) {
     // taps via numpy / scipy (np.hamming, np.kaiser, scipy.signal.firwin,
     // ...) and pass the coefficient vector in.
     nb::class_<screamer::MovingAverage, screamer::ScreamerBase>(m, "MovingAverage")
-        .def(nb::init<const std::vector<double>&>(), "taps"_a = std::vector<double>{0.25, 0.5, 0.25})
+        .def(nb::init<screamer::FloatVecArg>(), "taps"_a = std::vector<double>{0.25, 0.5, 0.25})
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::MovingAverage::reset, "Reset.");
 
@@ -96,7 +96,7 @@ void init_bindings_signal(nb::module_& m) {
     // FIR filter with taps w_k = (-1)^k * binom(d, k), truncated at
     // window_size taps or at the first |w_k| < threshold.
     nb::class_<screamer::FracDiff, screamer::ScreamerBase>(m, "FracDiff")
-        .def(nb::init<double, screamer::IntArg<int>, double, const std::string&>(),
+        .def(nb::init<screamer::FloatArg, screamer::IntArg<int>, screamer::FloatArg, const std::string&>(),
              "d"_a = 0.4,
              "window_size"_a = 100,
              "threshold"_a = 1e-5,
@@ -106,7 +106,7 @@ void init_bindings_signal(nb::module_& m) {
 
     // KalmanFilter: scalar 1-D random-walk-with-noise model.
     nb::class_<screamer::KalmanFilter, screamer::ScreamerBase>(m, "KalmanFilter")
-        .def(nb::init<double, double, double, double>(),
+        .def(nb::init<screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg>(),
              "process_var"_a = 0.01,
              "observation_var"_a = 1.0,
              "initial_state"_a = 0.0,
@@ -116,7 +116,7 @@ void init_bindings_signal(nb::module_& m) {
 
     // SchmittTrigger: hysteresis comparator with latched binary output.
     nb::class_<screamer::SchmittTrigger, screamer::ScreamerBase>(m, "SchmittTrigger")
-        .def(nb::init<double, double, double>(),
+        .def(nb::init<screamer::FloatArg, screamer::FloatArg, screamer::FloatArg>(),
              "lower"_a, "upper"_a, "initial"_a = 0.0)
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::SchmittTrigger::reset,
@@ -125,7 +125,7 @@ void init_bindings_signal(nb::module_& m) {
     // Hold: time-latch operator. Latches a nonzero finite input and holds it
     // for n bars total; returns release after the hold expires.
     nb::class_<screamer::Hold, screamer::ScreamerBase>(m, "Hold")
-        .def(nb::init<screamer::IntArg<int>, double>(),
+        .def(nb::init<screamer::IntArg<int>, screamer::FloatArg>(),
              "n"_a, "release"_a = 0.0)
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::Hold::reset,
@@ -185,7 +185,7 @@ void init_bindings_signal(nb::module_& m) {
     // factor adapts to the rate of change of Ehlers' arctan(Q1 / I1) phase.
     // See mama.h.
     nb::class_<screamer::MAMA, screamer::EvalOp>(m, "MAMA")
-        .def(nb::init<double, double>(),
+        .def(nb::init<screamer::FloatArg, screamer::FloatArg>(),
              "fast_limit"_a = 0.5, "slow_limit"_a = 0.05)
         .def("__call__", &screamer::functor_call<screamer::MAMA>)
         .def("reset", &screamer::MAMA::reset, "Reset to the initial state.");

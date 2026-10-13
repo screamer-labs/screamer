@@ -179,6 +179,7 @@ public:
         output_widths_.resize(num_out);
         for (std::size_t o = 0; o < num_out; ++o)
             output_widths_[o] = node_width[s.output_ids[o]];
+        result_w_ = output_widths_;
 
         // Map output_id → which output indices it serves.
         std::vector<std::vector<std::size_t>> node_out_idx(n);
@@ -355,6 +356,8 @@ public:
             }
             }
         }
+        set_result_widths(in_width_, {});
+        unknown_result_w_ = result_w_;
     }
 
     // Resets all stateful nodes and output buffers via a single polymorphic pass.
@@ -371,9 +374,12 @@ public:
         for (std::size_t o = 0; o < outputs_.size(); ++o) {
             outputs_[o].indices.clear();
             outputs_[o].values.clear();
-            outputs_[o].width = output_widths_[o];
             outputs_[o].has_watermark = false;
         }
+        // No input width is known after a reset: an output's width is the one
+        // the graph alone fixes (an operator's outputs, a Select), if any.
+        result_w_ = unknown_result_w_;
+        for (std::size_t o = 0; o < outputs_.size(); ++o) outputs_[o].width = result_w_[o];
     }
 
     // Emits every open trailing bucket (end-of-input signal). Existing nodes emit
@@ -475,7 +481,7 @@ public:
             d.width = outputs_[o].width;
             d.watermark = outputs_[o].watermark;          // monotone: the output keeps it
             d.has_watermark = outputs_[o].has_watermark;
-            outputs_[o].width = output_widths_[o];
+            outputs_[o].width = result_w_[o];
         }
     }
 
@@ -556,6 +562,7 @@ public:
                 if (in_lens[i] > 0) { known[i] = widths[i]; present[i] = true; }
             validate_widths(known, present);
         }
+        set_batch_result_widths(widths);
 
         // One input needs no merge: its events go in array order, as the
         // merge of one source gives them, without a heap step per event.
@@ -692,6 +699,35 @@ private:
         candidate[input_idx] = width;
         validate_widths(candidate);
         in_width_[input_idx] = width;
+        set_result_widths(in_width_, {});
+    }
+
+    // An output without rows keeps the width that a batch run's arrays give
+    // it, as an empty array does: (0, w). A run with the widths of the last
+    // one reuses its result.
+    void set_batch_result_widths(const std::vector<std::size_t>& widths) {
+        if (widths != batch_in_w_) {
+            set_result_widths(widths, std::vector<bool>(num_in_, true));
+            batch_in_w_ = widths;
+            batch_result_w_ = result_w_;
+            return;
+        }
+        result_w_ = batch_result_w_;
+        for (std::size_t o = 0; o < outputs_.size(); ++o) outputs_[o].width = result_w_[o];
+    }
+
+    // Sets the width that each output reports while it has no rows (an empty
+    // batch, an empty drain): the width the graph gives it for these input
+    // widths, or, when that depends on an input width that is not known yet,
+    // the estimate for width-1 inputs.
+    void set_result_widths(const std::vector<std::size_t>& in_w,
+                           const std::vector<bool>& present) {
+        const NodeWidths nw = propagate_widths(in_w, present, false);
+        for (std::size_t o = 0; o < result_w_.size(); ++o) {
+            const std::size_t id = spec_.output_ids[o];
+            result_w_[o] = (nw.w[id] != 0 || nw.zero[id]) ? nw.w[id] : output_widths_[o];
+            if (outputs_[o].indices.empty()) outputs_[o].width = result_w_[o];
+        }
     }
 
     // Propagates the known input widths (0 = not known yet) through the graph
@@ -706,15 +742,27 @@ private:
     // with a minimum sees it.
     void validate_widths(const std::vector<std::size_t>& in_w,
                          const std::vector<bool>& present = {}) const {
+        propagate_widths(in_w, present, true);
+    }
+
+    // Each node's width for the input widths in_w (0 = unknown), and whether a
+    // 0 is a known width of 0. With `check`, the rules of validate_widths
+    // throw for a node that cannot take its width. Without, nothing throws,
+    // and a node whose width the graph alone fixes (a reducer or plan
+    // Resample) has it even when its input width is unknown.
+    struct NodeWidths { std::vector<std::size_t> w; std::vector<bool> zero; };
+    NodeWidths propagate_widths(const std::vector<std::size_t>& in_w,
+                                const std::vector<bool>& present, bool check) const {
         const std::size_t n = spec_.nodes.size();
-        std::vector<std::size_t> w(n, 0);   // 0 = unknown
-        std::vector<bool> zero(n, false);   // a known width of 0
+        NodeWidths out{std::vector<std::size_t>(n, 0), std::vector<bool>(n, false)};
+        std::vector<std::size_t>& w = out.w;      // 0 = unknown
+        std::vector<bool>& zero = out.zero;       // a known width of 0
         auto in_of = [&](const NodeSpec& nd) -> std::size_t {
             return nd.inputs.size() == 1 ? w[nd.inputs[0]] : 0;
         };
         for (std::size_t id : topo_producers_first_) {
             const NodeSpec& nd = spec_.nodes[id];
-            for (const WidthRule& r : nd.width_rules) {
+            if (check) for (const WidthRule& r : nd.width_rules) {
                 const std::size_t in = nd.inputs[r.slot];
                 const std::size_t iw = w[in];
                 if ((iw != 0 && ((r.exact && iw != r.exact) || iw < r.min)) ||
@@ -732,7 +780,7 @@ private:
                 // one must carry the operator's columns. Two producers do not
                 // form one row; CombineLatest does.
                 const std::size_t need = nd.op->n_in();
-                for (std::size_t k = 0; k < nd.inputs.size(); ++k) {
+                for (std::size_t k = 0; check && k < nd.inputs.size(); ++k) {
                     const std::size_t iw = w[nd.inputs[k]];
                     if (iw == 0 || iw == need) continue;
                     if (nd.inputs.size() == 1)
@@ -751,9 +799,16 @@ private:
                 break;
             }
             case NodeKind::CombineLatest: {
+                // The sum of the input widths once every one is known; a known
+                // zero counts, so a row of zero values reaches the checks.
                 std::size_t sum = 0;
-                for (auto in : nd.inputs) { if (w[in] == 0) { sum = 0; break; } sum += w[in]; }
-                w[id] = sum;
+                bool known = true;
+                for (auto in : nd.inputs) {
+                    if (w[in] == 0 && !zero[in]) { known = false; break; }
+                    sum += w[in];
+                }
+                w[id] = known ? sum : 0;
+                zero[id] = known && sum == 0;
                 break;
             }
             case NodeKind::DropNa:
@@ -764,7 +819,7 @@ private:
                 break;
             case NodeKind::Select: {
                 const std::size_t iw = in_of(nd);
-                if (iw != 0)
+                if (check && iw != 0)
                     for (std::size_t c : nd.columns)
                         if (c >= iw)
                             throw std::invalid_argument(
@@ -774,10 +829,10 @@ private:
                 break;
             }
             case NodeKind::Resample:
-                w[id] = resample_width_check(nd, w);
+                w[id] = resample_width_check(nd, w, check);
                 break;
             case NodeKind::Filter:
-                for (std::size_t k = 0; k < nd.inputs.size(); ++k) {
+                for (std::size_t k = 0; check && k < nd.inputs.size(); ++k) {
                     const std::size_t iw = w[nd.inputs[k]];
                     if (iw > 1)
                         throw std::invalid_argument(
@@ -787,49 +842,62 @@ private:
                 break;
             }
         }
+        return out;
     }
 
     // The Resample rules of validate_widths: throws for a value width the node
-    // cannot take and returns the node's output width (0 = unknown).
+    // cannot take and returns the node's output width (0 = unknown). Without
+    // `check` nothing throws, and a width the node fixes on its own (a reducer,
+    // a plan, a threshold= bar) is returned for an unknown input width too.
     static std::size_t resample_width_check(const NodeSpec& nd,
-                                            const std::vector<std::size_t>& w) {
+                                            const std::vector<std::size_t>& w,
+                                            bool check = true) {
         const ResampleParams& p = nd.resample;
         const bool clock = p.mode == ResampleMode::ByClock;
+        const bool bars = p.agg == ResampleAgg::OhlcvBars && p.plan.empty();
         // The value stream: port 0 of a clock resample, else the one input.
         std::size_t iw = 0;
         if (clock) { if (!nd.inputs.empty()) iw = w[nd.inputs[0]]; }
         else if (nd.inputs.size() == 1) iw = w[nd.inputs[0]];
-        if (iw == 0) return 0;
+        if (iw == 0) {
+            if (check) return 0;
+            if (p.reducer) return p.reducer->n_out();
+            if (!p.plan.empty()) return p.plan.size();
+            if (p.mode == ResampleMode::ByCumulative && !bars) return resample_output_width(p);
+            return 0;
+        }
         if (p.reducer) {
-            if (iw != 1)
+            if (check && iw != 1)
                 throw std::invalid_argument(
                     "a reducer resample takes 1 column, but its input has " +
                     std::to_string(iw));
             return p.reducer->n_out();
         }
         if (p.mode == ResampleMode::ByCumulative) {
-            if (iw != 2)
+            if (check && iw != 2)
                 throw std::invalid_argument(
                     "a cumulative resample takes [value, driver] (2 columns), "
                     "but its input has " + std::to_string(iw));
-            if (p.agg == ResampleAgg::OhlcvBars && p.plan.empty())
+            if (bars) {
+                if (!check) return 0;
                 check_ohlcv_bars_width(iw - 1);   // one value column: always too few
+            }
             return resample_output_width(p);
         }
-        if (clock && p.max_age >= 0 && iw != 1)
+        if (check && clock && p.max_age >= 0 && iw != 1)
             throw std::invalid_argument(
                 "a clock resample with max_age takes 1 value column, but its "
                 "input has " + std::to_string(iw));
         if (!p.plan.empty()) {               // ohlc_bars, ohlcv, ohlcv2
             const std::size_t need = resample_plan_input_cols(p.plan);
-            if (iw != need)
+            if (check && iw != need)
                 throw std::invalid_argument(
                     "a resample plan takes " + std::to_string(need) +
                     " column(s), but its input has " + std::to_string(iw));
             return p.plan.size();
         }
-        if (p.agg == ResampleAgg::OhlcvBars) {
-            check_ohlcv_bars_width(iw);
+        if (bars) {
+            if (check) check_ohlcv_bars_width(iw);
             return iw;
         }
         // A builtin agg aggregates every column on its own; ohlc gives four
@@ -858,6 +926,10 @@ private:
     std::vector<OutputBuffer>                     outputs_;         // persistent output buffers
     std::vector<ResampleNode<std::int64_t>*>      clock_nodes_;     // clock resamples (set_merge_order)
     std::vector<std::size_t>                      output_widths_;   // expected width for each output
+    std::vector<std::size_t>                      result_w_;        // each output's width while it has no rows
+    std::vector<std::size_t>                      unknown_result_w_; // result_w_ with no input width known
+    std::vector<std::size_t>                      batch_in_w_;      // the input widths of the last batch run
+    std::vector<std::size_t>                      batch_result_w_;  // result_w_ for batch_in_w_
 };
 
 // compile() wraps the spec into a CompiledGraph (wiring happens in constructor).

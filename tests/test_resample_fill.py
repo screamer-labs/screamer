@@ -5,7 +5,8 @@ are internally empty. The `fill` policy controls what happens to those gaps:
 
 * ``fill="skip"`` (default): no rows for empty buckets (today's behavior).
 * ``fill="nan"``: an all-NaN row at each empty bucket's label.
-* ``fill="carry"``: carry the previous emitted row forward.
+* ``fill="carry"``: each column takes its last non-NaN value: an empty bucket
+  repeats those values, and a NaN cell of a bar takes its column's value (G23).
 
 Trailing empties (after the last event) are out of scope for this task; only
 internal gaps (between two events) are filled here.
@@ -139,3 +140,81 @@ def test_fill_no_trailing_empties():
     # last label is 3 (the last event's bucket); nothing after it.
     assert k[-1] == 3
     assert len(k) == 4
+
+
+# ---------------------------------------------------------------------------
+# G23: carry is per column, in every mode and regime
+# ---------------------------------------------------------------------------
+
+def _carry_reference(bars):
+    """Per-column forward fill of the bars (NaN until a column has a value)."""
+    out = np.array(bars, dtype=float)
+    last = np.full(out.shape[1:], np.nan)
+    for t in range(len(out)):
+        nan = np.isnan(out[t])
+        out[t][nan] = last[nan]
+        last = out[t].copy()
+    return out
+
+
+WIDE_K = np.array([0, 10, 25, 40, 41, 70], dtype=np.int64)
+WIDE = np.array([[1.0, 10.0], [np.nan, 20.0], [3.0, np.nan],
+                 [np.nan, np.nan], [np.nan, 50.0], [6.0, np.nan]])
+
+
+@pytest.mark.parametrize("agg", ["last", "mean", "ohlc"])
+def test_fill_carry_is_per_column_on_wide_rows(agg):
+    v, k = Resample(freq=10, agg=agg, fill="carry")((WIDE, WIDE_K))
+    bars, _ = Resample(freq=10, agg=agg, fill="nan")((WIDE, WIDE_K))
+    np.testing.assert_array_equal(k, [0, 10, 20, 30, 40, 50, 60, 70])
+    np.testing.assert_array_equal(v, _carry_reference(bars))
+    # Each column alone gives the same values: the 1-D rule, per column.
+    for c in range(2):
+        vc, _ = Resample(freq=10, agg=agg, fill="carry")((WIDE[:, c], WIDE_K))
+        np.testing.assert_array_equal(v[:, c], vc)
+
+
+def test_fill_carry_a_nan_bar_takes_the_last_value_in_one_column():
+    v, k = Resample(freq=10, fill="carry")((np.array([1.0, np.nan, 3.0]), np.array([0, 10, 40])))
+    np.testing.assert_array_equal(k, [0, 10, 20, 30, 40])
+    np.testing.assert_array_equal(v, [1.0, 1.0, 1.0, 1.0, 3.0])
+    # Before a column has a value, its cells stay NaN.
+    v, _ = Resample(freq=10, fill="carry")((np.array([np.nan, 2.0]), np.array([0, 10])))
+    assert np.isnan(v[0]) and v[1] == 2.0
+
+
+def test_fill_carry_clock_is_per_column():
+    clock = (np.zeros(5), np.array([5, 15, 30, 45, 75], dtype=np.int64))
+    v, k = Resample((WIDE, WIDE_K), clock, clock=True, agg="last", fill="carry")
+    np.testing.assert_array_equal(k, [5, 15, 30, 45, 75])
+    np.testing.assert_array_equal(v, [[1, 10], [1, 20], [3, 20], [3, 50], [6, 50]])
+    for c in range(2):
+        vc, _ = Resample((WIDE[:, c], WIDE_K), clock, clock=True, agg="last", fill="carry")
+        np.testing.assert_array_equal(v[:, c], vc)
+
+
+def test_fill_carry_functor_reducer_is_per_column():
+    v, k = Resample(freq=10, agg=ExpandingSum(), fill="carry")(
+        (np.array([1.0, np.nan, 3.0]), np.array([0, 10, 40])))
+    np.testing.assert_array_equal(np.asarray(v).reshape(-1), [1.0, 1.0, 1.0, 1.0, 3.0])
+
+
+def test_fill_carry_every_regime_agrees():
+    from screamer.dag import Input, Pipeline
+    batch = Resample(freq=10, agg="last", fill="carry")((WIDE, WIDE_K))
+    lazy = list(Resample(freq=10, agg="last", fill="carry")(zip(WIDE, WIDE_K.tolist())))
+    np.testing.assert_array_equal(np.stack([r[0] for r in lazy]), batch[0])
+    x = Input("x")
+    pipe = Pipeline([x], [Resample(freq=10, agg="last", fill="carry")(x)])
+    np.testing.assert_array_equal(pipe((WIDE, WIDE_K))[0], batch[0])
+    live = pipe.live()
+    for row, t in zip(WIDE, WIDE_K):
+        live.push("x", int(t), row.tolist())
+    live.flush()
+    np.testing.assert_array_equal(live.result()[0], batch[0])
+
+
+def test_fill_carry_leaves_count_bars_as_they_are():
+    # fill= applies to freq= and clock= bars; a count= bar is never empty.
+    v, _ = Resample(count=1, fill="carry")(WIDE)
+    np.testing.assert_array_equal(v, WIDE)

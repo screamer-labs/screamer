@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { ready, forecastPairs, Input, Pipeline, isNode, RollingMean, dropna } from "../src/index.ts";
+import { ready, forecastPairs, Input, Pipeline, isNode, RollingMean, dropna, combineLatest } from "../src/index.ts";
 import type { NdArray, Output } from "../src/index.ts";
 
 // forecastPairs against Python's forecast_pairs (devtools/wasm/gen_oracle.py
@@ -264,4 +264,45 @@ test("forecastPairs: a (T, 0) X raises eagerly and in a node, in both modes", as
     assert.throws(() => p.live().push("X", 0, []), RangeError);
     p.dispose();
   }
+});
+
+test("G24: a CombineLatest of two (T, 0) feeds has a known width of 0", async () => {
+  // The sum of its input widths, zero included, reaches the width check:
+  // forecast_pairs refuses the X before any event (in 2.8.0 it returned rows).
+  await ready();
+  const v = [0, 1, 2, 3, 4, 5];
+  const empty = () => ({ data: new Float64Array(0), shape: [6, 0] });
+  const msg = "forecast_pairs: X has 0 columns, expected at least 1";
+  for (const opts of [{ count: 1 }, { duration: 1 }]) {
+    const a = Input("a"), b = Input("b"), y = Input("y");
+    const p = new Pipeline([a, b, y], [forecastPairs(combineLatest([a, b]), y, opts)]);
+    try {
+      assert.throws(() => p({ a: empty(), b: empty(), y: v }), (e: any) => e instanceof RangeError && e.message === msg);
+    } finally { p.dispose(); }
+  }
+  const a = Input("a"), b = Input("b");
+  const p = new Pipeline([a, b], [RollingMean(2)(combineLatest([a, b]))]);
+  try {
+    assert.throws(() => p({ a: empty(), b: { data: new Float64Array(12), shape: [6, 2] } }),
+      (e: any) => e instanceof RangeError && /an operator takes 1 column\(s\), but its input has 2/.test(e.message));
+  } finally { p.dispose(); }
+});
+
+test("G24: a lag that runs out of memory on its first event leaves the graph clean", async () => {
+  // The ring of a count-1000 lag of 4.5e6-wide rows does not fit in WASM
+  // memory. The lag stores the event before it emits, so the rejected event
+  // leaves no state, and the next call runs as on a fresh graph.
+  await ready();
+  const W = 4_500_000;
+  const X = { data: new Float64Array(W).fill(1), shape: [1, W] };
+  const oom = (e: any) => e instanceof RangeError && /a lag of 1000 events ran out of memory after 0 rows/.test(e.message);
+  assert.throws(() => forecastPairs(X, [1], { count: 1000 }), oom);
+  const x = Input("x"), y = Input("y");
+  const p = new Pipeline([x, y], [forecastPairs(x, y, { count: 1000 })]);
+  try {
+    assert.throws(() => p({ x: X, y: [1] }), oom);
+    const out = p({ x: { data: Float64Array.from([1, 2, 3, 4]), shape: [2, 2] }, y: [5, 6] }) as Output;
+    assert.deepEqual((out.values as NdArray).shape, [2, 3]);
+    assert.deepEqual(Array.from((out.values as NdArray).data), [NaN, NaN, 5, NaN, NaN, 6]);
+  } finally { p.dispose(); }
 });

@@ -14,6 +14,7 @@ import fractions
 import numpy as np
 import pytest
 
+import screamer as sc_
 from screamer import (ExpandingMax, Filter, Input, Merge, Pipeline, Resample,
                       RollingMean, Select)
 from screamer import screamer_bindings as _b
@@ -400,3 +401,25 @@ def test_batch_merge_refuses_a_bool_index_like_the_iterator(first):
         merge(first, bools)
     with pytest.raises(TypeError, match="index must be a number"):
         list(merge(_it(first), _it(bools)))
+
+
+# ---- G24 (a): a CombineLatest of known widths has their sum, zero included ----
+
+@pytest.mark.parametrize("mode", [{"count": 1}, {"duration": 1}])
+def test_combine_latest_of_zero_width_feeds_reaches_the_width_check(mode):
+    a, b, y = sc_.Input("a"), sc_.Input("b"), sc_.Input("y")
+    p = sc_.Pipeline([a, b, y], [sc_.forecast_pairs(sc_.CombineLatest()(a, b), y, **mode)])
+    k = np.arange(4)
+    empty = (np.zeros((4, 0)), k)
+    with pytest.raises(ValueError, match="forecast_pairs: X has 0 columns, expected at least 1"):
+        p(empty, empty, (np.ones(4), k))
+    # The check runs before any event: the graph still runs.
+    values, _ = p((np.ones((4, 1)), k), (np.ones((4, 1)), k), (np.ones(4), k))
+    assert values.shape[1] == 3
+
+
+def test_combine_latest_width_counts_a_zero_width_input():
+    a, b = sc_.Input("a"), sc_.Input("b")
+    p = sc_.Pipeline([a, b], [sc_.RollingMean(2)(sc_.CombineLatest()(a, b))])
+    with pytest.raises(ValueError, match=r"an operator takes 1 column\(s\), but its input has 2"):
+        p(np.zeros((3, 0)), np.zeros((3, 2)))

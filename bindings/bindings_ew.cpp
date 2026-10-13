@@ -1,3 +1,4 @@
+#include "screamer/common/int_arg.h"
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/optional.h>
 #include "screamer/common/base.h"
@@ -25,10 +26,10 @@ void init_bindings_ew(nb::module_& m) {
      nb::class_<screamer::EwMean, screamer::ScreamerBase>(m, "EwMean")
         .def(
           nb::init<
-               std::optional<double>,
-               std::optional<double>,
-               std::optional<double>,
-               std::optional<double>
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>
           >(),
           "com"_a = nb::none(),
           "span"_a = nb::none(),
@@ -41,10 +42,10 @@ void init_bindings_ew(nb::module_& m) {
      nb::class_<screamer::EwVar, screamer::ScreamerBase>(m, "EwVar")
         .def(
           nb::init<
-               std::optional<double>,
-               std::optional<double>,
-               std::optional<double>,
-               std::optional<double>
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>
           >(),
           "com"_a = nb::none(),
           "span"_a = nb::none(),
@@ -58,10 +59,10 @@ void init_bindings_ew(nb::module_& m) {
      nb::class_<screamer::EwStd, screamer::ScreamerBase>(m, "EwStd")
         .def(
           nb::init<
-               std::optional<double>,
-               std::optional<double>,
-               std::optional<double>,
-               std::optional<double>
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>
           >(),
           "com"_a = nb::none(),
           "span"_a = nb::none(),
@@ -75,10 +76,10 @@ void init_bindings_ew(nb::module_& m) {
      nb::class_<screamer::EwZscore, screamer::ScreamerBase>(m, "EwZscore")
         .def(
           nb::init<
-               std::optional<double>,
-               std::optional<double>,
-               std::optional<double>,
-               std::optional<double>
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>
           >(),
           "com"_a = nb::none(),
           "span"_a = nb::none(),
@@ -92,10 +93,10 @@ void init_bindings_ew(nb::module_& m) {
      nb::class_<screamer::EwSkew, screamer::ScreamerBase>(m, "EwSkew")
         .def(
           nb::init<
-               std::optional<double>,
-               std::optional<double>,
-               std::optional<double>,
-               std::optional<double>
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>
           >(),
           "com"_a = nb::none(),
           "span"_a = nb::none(),
@@ -109,10 +110,10 @@ void init_bindings_ew(nb::module_& m) {
      nb::class_<screamer::EwKurt, screamer::ScreamerBase>(m, "EwKurt")
         .def(
           nb::init<
-               std::optional<double>,
-               std::optional<double>,
-               std::optional<double>,
-               std::optional<double>
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>
           >(),
           "com"_a = nb::none(),
           "span"_a = nb::none(),
@@ -126,10 +127,10 @@ void init_bindings_ew(nb::module_& m) {
      nb::class_<screamer::EwRms, screamer::ScreamerBase>(m, "EwRms")
         .def(
           nb::init<
-               std::optional<double>,
-               std::optional<double>,
-               std::optional<double>,
-               std::optional<double>
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>
           >(),
           "com"_a = nb::none(),
           "span"_a = nb::none(),
@@ -145,10 +146,10 @@ void init_bindings_ew(nb::module_& m) {
      nb::class_<screamer::EwCov, screamer::EvalOp>(m, "EwCov")
         .def(
           nb::init<
-               std::optional<double>,
-               std::optional<double>,
-               std::optional<double>,
-               std::optional<double>
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>
           >(),
           "com"_a = nb::none(),
           "span"_a = nb::none(),
@@ -161,10 +162,10 @@ void init_bindings_ew(nb::module_& m) {
      nb::class_<screamer::EwCorr, screamer::EvalOp>(m, "EwCorr")
         .def(
           nb::init<
-               std::optional<double>,
-               std::optional<double>,
-               std::optional<double>,
-               std::optional<double>
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>
           >(),
           "com"_a = nb::none(),
           "span"_a = nb::none(),
@@ -177,10 +178,10 @@ void init_bindings_ew(nb::module_& m) {
      nb::class_<screamer::EwBeta, screamer::EvalOp>(m, "EwBeta")
         .def(
           nb::init<
-               std::optional<double>,
-               std::optional<double>,
-               std::optional<double>,
-               std::optional<double>
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>
           >(),
           "com"_a = nb::none(),
           "span"_a = nb::none(),
@@ -195,10 +196,10 @@ void init_bindings_ew(nb::module_& m) {
      nb::class_<screamer::EwSpread, screamer::EvalOp>(m, "EwSpread")
         .def(
           nb::init<
-               std::optional<double>,
-               std::optional<double>,
-               std::optional<double>,
-               std::optional<double>
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>
           >(),
           "com"_a = nb::none(),
           "span"_a = nb::none(),
@@ -211,10 +212,10 @@ void init_bindings_ew(nb::module_& m) {
      nb::class_<screamer::EwAlpha, screamer::EvalOp>(m, "EwAlpha")
         .def(
           nb::init<
-               std::optional<double>,
-               std::optional<double>,
-               std::optional<double>,
-               std::optional<double>
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>
           >(),
           "com"_a = nb::none(),
           "span"_a = nb::none(),
@@ -227,10 +228,10 @@ void init_bindings_ew(nb::module_& m) {
      nb::class_<screamer::EwResidualStd, screamer::EvalOp>(m, "EwResidualStd")
         .def(
           nb::init<
-               std::optional<double>,
-               std::optional<double>,
-               std::optional<double>,
-               std::optional<double>
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>,
+               std::optional<screamer::FloatArg>
           >(),
           "com"_a = nb::none(),
           "span"_a = nb::none(),

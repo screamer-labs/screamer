@@ -37,3 +37,14 @@ def test_null_oracle_matches_the_optional_settings():
         op = manifest[entry["name"]]
         for cpp_type, arg in zip(op["ctor"], op["ctor_args"]):
             assert entry["accepts_none"][arg["name"]] == cpp_type.startswith("std::optional<"), (entry["name"], arg["name"])
+
+
+def test_null_oracle_bools_match_the_setting_types():
+    # A bool is not a number setting (G25): Python refuses True for every
+    # number, integer and vector setting, the rule JavaScript applies to true.
+    import json
+    manifest = {op["name"]: op for op in json.loads(MANIFEST.read_text())}
+    for entry in json.loads(FIXTURE.read_text()):
+        op = manifest[entry["name"]]
+        for cpp_type, arg in zip(op["ctor"], op["ctor_args"]):
+            assert entry["accepts_bool"][arg["name"]] == (cpp_type == "bool"), (entry["name"], arg["name"])

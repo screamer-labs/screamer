@@ -235,7 +235,9 @@ def test_split_n_rules():
             streams.split(v, src, n=bad)
     assert len(streams.split(v, src, n=6)) == 6
     assert len(streams.split(v, src, n=np.int64(5))) == 5
-    assert len(streams.split(v[:1], [0], n=True)) == 1
+    for flag in (True, np.True_):          # a bool is not a number setting (G25)
+        with pytest.raises(TypeError, match="split: n must be a number, got bool"):
+            streams.split(v[:1], [0], n=flag)
 
 
 def test_split_shape_rules():

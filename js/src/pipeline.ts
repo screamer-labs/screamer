@@ -324,7 +324,7 @@ class PipelineImpl implements Owned {
     }
   }
 
-  private normalizeFeeds(feeds: Feeds): Array<{ values: Float64Array; index: Float64Array }> {
+  private normalizeFeeds(feeds: Feeds): Array<{ values: Float64Array; index: Float64Array; width: number }> {
     // An array or a typed array (not a DataView) holds values element by element.
     const isFlat = (v: unknown): boolean =>
       Array.isArray(v) || (ArrayBuffer.isView(v) && !(v instanceof DataView));
@@ -336,18 +336,22 @@ class PipelineImpl implements Owned {
       typeof (v as any).values !== "function";
     const expected = "expected an array of numbers, a typed array, an NdArray or {values, index}";
     // A non-number value or index raises TypeError naming its event and input.
-    const one = (feed: Feed, k: number): { values: Float64Array; index: Float64Array } => {
+    const one = (feed: Feed, k: number): { values: Float64Array; index: Float64Array; width: number } => {
       let values: Float64Array;
       let index: Float64Array | undefined;
       const at = (i: number) => whereText("event", i, k);
-      // Rows of the feed: the values' length, or an NdArray's first dimension.
+      // Rows of the feed: the values' length, or an NdArray's first dimension;
+      // and an NdArray's width, its second dimension, which an empty NdArray
+      // keeps (a flat array's width is its length over the index's).
       let rows: number;
+      let ndWidth: number | undefined;
       const read = (v: unknown): Float64Array => {
         const nd = asNd(v);   // a malformed NdArray raises RangeError
         if (nd) {
           if (nd.shape.length < 1 || nd.shape.length > 2)
             throw new RangeError(`Pipeline: the values of input ${k} have shape [${nd.shape}], expected (T,) or (T, w)`);
           rows = nd.shape[0];
+          ndWidth = nd.shape.length === 2 ? nd.shape[1] : 1;
           return nd.data;
         }
         if (v instanceof BigInt64Array || v instanceof BigUint64Array)
@@ -374,7 +378,8 @@ class PipelineImpl implements Owned {
         index = new Float64Array(rows!);
         for (let i = 0; i < rows!; i++) index[i] = i;
       }
-      return { values, index };
+      const width = ndWidth ?? (index.length ? values.length / index.length : 1);
+      return { values, index, width };
     };
 
     if (isValues(feeds) || isPair(feeds)) {
@@ -410,9 +415,8 @@ class PipelineImpl implements Owned {
     const valBufs: number[] = [];
     const lens: number[] = [];
     const widths: number[] = [];
-    for (const { values, index } of norm) {
+    for (const { values, index, width } of norm) {
       const len = index.length;
-      const width = len ? values.length / len : 1;
       const idxBuf = M.allocF64(len || 1);
       M.viewF64(idxBuf, len).set(index);
       const valBuf = M.allocF64(values.length || 1);

@@ -214,6 +214,41 @@ test("options: null agrees with Python None for every setting (null_oracle.json)
   assert.ok(n > 450);
 });
 
+test("options: true agrees with Python True for every setting (null_oracle.json)", async () => {
+  // A bool is not a number setting in either language (G25): Python refuses
+  // True and NumPy bools with TypeError, as JavaScript refuses true.
+  await ready();
+  const { readFileSync } = await import("node:fs");
+  const ops: any = await import("../src/generated/ops.ts");
+  const oracle: { name: string; base: Record<string, number>; accepts_bool: Record<string, boolean> }[] =
+    JSON.parse(readFileSync(new URL("../../wasm/smoke/null_oracle.json", import.meta.url), "utf8"));
+  const camel = (k: string) => k.replace(/_([a-z])/g, (_m, c) => c.toUpperCase());
+  let n = 0;
+  for (const { name, base, accepts_bool } of oracle) {
+    const opts: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(base)) opts[camel(k)] = v;
+    for (const [k, accepts] of Object.entries(accepts_bool)) {
+      let refused = false;
+      try { ops[name]({ ...opts, [camel(k)]: true }).dispose(); }
+      catch (e) { refused = e instanceof TypeError; }
+      assert.equal(!refused, accepts, `${name}(${k}=true): Python ${accepts ? "takes" : "refuses"} True`);
+      n++;
+    }
+  }
+  assert.ok(n > 450);
+});
+
+test("options: a stream setting refuses a boolean (G25)", async () => {
+  await ready();
+  const { Input, resample, select, delay } = await import("../src/index.ts");
+  const x = Input("x");
+  const msg = (what: string) => ({ name: "TypeError", message: `${what} must be a number, got a boolean` });
+  assert.throws(() => resample(x, { count: true as any }), msg("resample: count"));
+  assert.throws(() => resample(x, { every: true as any }), msg("resample: every"));
+  assert.throws(() => select(x, true as any), msg("select: columns"));
+  assert.throws(() => delay(x, true as any), msg("delay: duration"));
+});
+
 test("options: a required setting has no default", async () => {
   await ready();
   const { SchmittTrigger, Hold } = await import("../src/index.ts");

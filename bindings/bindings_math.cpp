@@ -1,3 +1,4 @@
+#include "screamer/common/int_arg.h"
 #include <nanobind/nanobind.h>
 #include "screamer/common/base.h"
 #include "screamer/common/dispatch.h"
@@ -93,7 +94,7 @@ void init_bindings_math(nb::module_& m) {
         .def("reset", &screamer::Transform<(double (*)(double)) screamer::sigmoid>::reset, "Reset to the initial state.");
 
      nb::class_<screamer::Linear, screamer::ScreamerBase>(m, "Linear")
-        .def(nb::init<double, double>(),
+        .def(nb::init<screamer::FloatArg, screamer::FloatArg>(),
              "scale"_a = 1.0, "shift"_a = 0.0)
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::Linear::reset, "Reset to the initial state.");
@@ -103,13 +104,13 @@ void init_bindings_math(nb::module_& m) {
      // compact one-shot expressions (e.g. Sign . Linear2(1,-1,0) is
      // "is x > y").
      nb::class_<screamer::Linear2, screamer::EvalOp>(m, "Linear2")
-        .def(nb::init<double, double, double>(),
+        .def(nb::init<screamer::FloatArg, screamer::FloatArg, screamer::FloatArg>(),
              "a"_a = 1.0, "b"_a = 1.0, "c"_a = 0.0)
         .def("__call__", &screamer::functor_call<screamer::Linear2>)
         .def("reset", &screamer::Linear2::reset, "Reset to the initial state.");
 
      nb::class_<screamer::Power, screamer::ScreamerBase>(m, "Power")
-        .def(nb::init<double>(), "p"_a = 2.0)
+        .def(nb::init<screamer::FloatArg>(), "p"_a = 2.0)
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::Power::reset, "Reset to the initial state.");
 
