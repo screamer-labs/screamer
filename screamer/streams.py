@@ -398,17 +398,39 @@ def combine_latest(*values, index=None, emit="when_all", layout=None, max_pendin
 
 
 
-def _positional_rows(events):
-    """The (value, None) events of a positional lazy source with their row
-    numbers as index, as a batch call numbers its rows."""
-    for i, (v, _k) in enumerate(events):
-        yield v, i
+class _named:
+    """Puts `who` in front of an engine error that does not name it yet
+    ("dropna: input 0 received an event of 2 values after events of 1"),
+    keeping its class."""
+
+    def __init__(self, who):
+        self.who = who
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, kind, err, tb):
+        if kind in (ValueError, TypeError) and not str(err).startswith(self.who + ":"):
+            raise kind(f"{self.who}: {err}") from None
+        return False
+
+
+def _positional_rows(events, who):
+    """The events of a positional lazy source, bare values or (value, None)
+    pairs, with their row numbers as index, as a batch call numbers its rows.
+    A later event with an index is a mix, which raises."""
+    for i, e in enumerate(events):
+        if isinstance(e, tuple) and len(e) == 2:
+            if e[1] is not None:
+                raise ValueError(f"{who}: event {i} has an index, but the stream's first "
+                                 "event had none; give every event an index, or none")
+            e = e[0]
+        yield e, i
 
 
 def _lazy_heads(sources):
-    """Peeks the first (value, index) event of each lazy source. Returns
-    (heads, sources) with each source re-chained with its head; an empty
-    source has the head _EMPTY."""
+    """Peeks the first event of each lazy source. Returns (heads, sources) with
+    each source re-chained with its head; an empty source has the head _EMPTY."""
     import itertools
     heads, chained = [], []
     for src in sources:
@@ -419,30 +441,34 @@ def _lazy_heads(sources):
     return heads, chained
 
 
+def _is_indexed_event(e):
+    """A (value, index) event with an index; a bare value or (value, None) is
+    positional (as merge reads a lazy source)."""
+    return isinstance(e, tuple) and len(e) == 2 and e[1] is not None
+
+
 def _run_lazy_pipeline(dag, sources, who):
-    """Runs a lazy one-node Pipeline over (value, index) sources, where index
-    None marks a positional source (rows numbered as in a batch call). Every
-    source must be positional, or none. Yields (value, index) events, the index
-    None again for positional sources. A width-1 event (a one-element array or
-    list) reads as a number, as before."""
+    """Runs a lazy one-node Pipeline over lazy sources, each of (value, index)
+    events, or of bare values or (value, None) events (positional: rows
+    numbered as in a batch call). Every source must be positional, or none; the
+    engine checks every indexed event. Yields (value, index) events, the index
+    None for positional sources. Events reach the engine as they are, so a
+    width-1 array reads as a number and a wider later event raises, as in the
+    batch form."""
     heads, sources = _lazy_heads(sources)
     found = [h for h in heads if h is not _EMPTY]
     if not found:
         return
-    positional = {h[1] is None for h in found}
+    positional = {not _is_indexed_event(h) for h in found}
     if len(positional) > 1:
         raise ValueError(f"{who}: cannot mix positional and indexed streams; give "
                          "every stream an index, or none")
     positional = positional.pop()
     if positional:
-        sources = [_positional_rows(src) for src in sources]
-    head_val = found[0][0]
-    if not isinstance(head_val, (float, int)) and head_val is not None \
-            and np.size(_as_float64(head_val, who=who)) == 1:
-        sources = [((float(np.ravel(_as_float64(v, who=who))[0]), k) for v, k in src)
-                   for src in sources]
-    for v, k in dag(*sources):
-        yield v, (None if positional else k)
+        sources = [_positional_rows(src, who) for src in sources]
+    with _named(who):
+        for v, k in dag(*sources):
+            yield v, (None if positional else k)
 
 
 def _one_node_pipeline(n, build, who):
@@ -464,7 +490,8 @@ def _run_eager_pipeline(dag, streams, who):
                          "every stream an index, or none")
     positional = not any(has_idx)
     feeds = [v if positional else (v, k) for v, k in streams]
-    out_vals, out_idx = dag(*feeds)
+    with _named(who):
+        out_vals, out_idx = dag(*feeds)
     return out_vals, (None if positional else out_idx)
 
 
@@ -581,6 +608,8 @@ def split(values, sources, index=None, n=None):
         if not hasattr(sources, "dtype"):
             sources = np.asarray(sources)
         dt = sources.dtype
+        if getattr(dt, "kind", "") in ("M", "m"):
+            raise TypeError(f"split: a source must be a whole number, got a time (dtype {dt})")
         if dt.kind == "O" and np.ndim(sources) == 1:
             sources = list(sources)
         elif getattr(dt, "isnative", False) and (dt.kind in "biu" or dt == np.float64):
@@ -613,29 +642,25 @@ def _normalize_columns(columns):
 
 
 def _select_lazy_cpp(events, columns):
-    """Lazy select: a width-1 stream passes through (column 0) in Python; a
-    wide stream runs the C++ SelectNode through a one-input lazy Pipeline.
+    """Lazy select: the C++ SelectNode through a one-input lazy Pipeline, as
+    the batch form, for every width.
 
     Generator function: no events are consumed until the first next() call.
-    The first event fixes the width; positional feeds (index None) are
-    numbered by row internally and get the None index back on output.
+    The first event fixes the width the columns are checked against;
+    positional feeds are numbered by row internally and get the None index
+    back on output.
     """
     cols, scalar = _normalize_columns(columns)
     heads, (events,) = _lazy_heads([events])
     head = heads[0]
     if head is _EMPTY:
         return
-    N = np.size(_as_float64(head[0], who="select"))
+    value = head[0] if _is_indexed_event(head) or isinstance(head, tuple) and len(head) == 2 else head
+    N = np.size(_as_float64(value, who="select"))
     for c in cols:
         if c >= N:
             raise ValueError(
                 f"select: column {c} out of range for width {N}")
-    if N == 1:
-        # Width 1: column 0 is the value itself.
-        for v, k in events:
-            val = float(np.ravel(_as_float64(v, who="select"))[0])
-            yield (val if scalar else [val]), k
-        return
     columns_arg = cols[0] if scalar else cols
     dag = _one_node_pipeline(1, lambda x: select(x, columns=columns_arg), "select")
     yield from _run_lazy_pipeline(dag, [events], "select")
@@ -667,11 +692,9 @@ def select(values, columns, index=None):
         if c >= width:
             raise ValueError(
                 f"select: column {c} out of range for width {width}")
-    if vals.ndim == 1:
-        # Width 1: column 0 is the values; a new array, never the input's.
-        return (vals.copy() if scalar else vals.reshape(-1, 1).copy()), idx
-    # A wide stream runs the C++ SelectNode through a one-input Pipeline,
-    # which keeps every row (equal indexes too).
+    # The C++ SelectNode through a one-input Pipeline, for every width: it
+    # keeps every row (equal indexes too), checks the index, and returns new
+    # arrays.
     columns_arg = cols[0] if scalar else cols
     dag = _one_node_pipeline(1, lambda x: select(x, columns=columns_arg), "select")
     return _run_eager_pipeline(dag, [(vals, idx)], "select")

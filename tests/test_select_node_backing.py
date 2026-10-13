@@ -77,9 +77,10 @@ def test_select_1d_scalar_col0():
 
 
 def test_select_1d_list_col0():
-    """1-D input, list [0] -> 2-D (1 column) reshape."""
+    """1-D input, list [0]: the SelectNode's shape, one column of a 1-D stream
+    is 1-D (as in a Pipeline)."""
     v, k = Select([0])(_V1D, index=_K1D)
-    assert v.shape == (3, 1)
+    assert v.shape == (3,)
     np.testing.assert_array_equal(v.reshape(-1), _V1D)
     np.testing.assert_array_equal(k, _K1D)
 

@@ -102,3 +102,52 @@ def test_select_of_a_column_is_a_new_array():
         assert not np.shares_memory(out, y)
         out[...] = -1.0
     np.testing.assert_array_equal(y, np.arange(4.0))
+
+
+# ---- Fix round 1: width-1 streams, events after the first, index checks ------
+
+def test_lazy_dropna_never_truncates_a_wider_event():
+    a = [(np.array([1.0]), 0), (np.array([2.0]), 2)]
+    b = [(np.array([5.0, 6.0]), 1), (np.array([7.0, np.nan]), 3)]
+    with pytest.raises(ValueError, match="^dropna: "):
+        list(s.Dropna()(iter(a), iter(b)))
+    with pytest.raises(ValueError, match="^dropna: "):
+        list(s.Dropna()(iter([(np.array([2.0]), 0), (np.array([1.0, 2.0]), 1)])))
+    # A width-1 NaN event is removed, as in the batch form.
+    events = [(np.array([1.0]), 0), (np.array([np.nan]), 1), (np.array([3.0]), 2)]
+    assert list(s.Dropna()(iter(events))) == [(1.0, 0), (3.0, 2)]
+    v, k = s.Dropna()((np.array([[1.0], [np.nan], [3.0]]), np.array([0, 1, 2])))
+    np.testing.assert_array_equal(v, [1.0, 3.0])
+
+
+def test_lazy_dropna_checks_every_event():
+    with pytest.raises(ValueError, match="^dropna: event 1 has an index"):
+        list(s.Dropna()(iter([(1.0, None), (1.0, 3)])))
+    with pytest.raises(TypeError, match="^dropna: the index of event 1"):
+        list(s.Dropna()(iter([(1.0, 0), (1.0, None)])))
+    assert list(s.Dropna()(iter([1.0, np.nan, 3.0]))) == [(1.0, None), (3.0, None)]
+
+
+@pytest.mark.parametrize("columns", [0, [0], [0, 0]])
+@pytest.mark.parametrize("values", [np.array([1.0, 2.0]), np.array([[1.0], [2.0]])], ids=["1-D", "(T,1)"])
+def test_select_of_width_one_has_the_pipeline_shape(columns, values):
+    k = np.array([5, 6])
+    want_v, want_k = _pipeline(lambda x: s.Select(columns)(x))((values, k))
+    v, kk = s.Select(columns)((values, k))
+    np.testing.assert_array_equal(v, want_v)
+    assert v.shape == want_v.shape
+    np.testing.assert_array_equal(kk, want_k)
+    events = list(s.Select(columns)(iter(zip(values, k))))
+    lazy = np.array([e[0] for e in events])
+    assert lazy.shape == want_v.shape
+    np.testing.assert_array_equal(lazy, want_v)
+
+
+def test_select_returns_a_new_checked_index():
+    k = np.array([3, 4])
+    _, out = s.Select(0)(np.arange(2.0), index=k)
+    assert not np.shares_memory(out, k)
+    with pytest.raises(TypeError):
+        s.Select(0)(np.arange(2.0), index=5)
+    with pytest.raises(ValueError, match="^select: "):
+        s.Select(0)(np.arange(2.0), index=np.array([1, 0]))
