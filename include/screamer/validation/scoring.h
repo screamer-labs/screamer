@@ -12,8 +12,7 @@
 #include <string>
 #include <vector>
 
-#include "screamer/backtest_report.h"
-#include "screamer/backtest_stats.h"
+#include "screamer/backtest_summary.h"
 #include "screamer/portfolio_report.h"
 
 
@@ -25,37 +24,13 @@ namespace screamer { namespace validation {
     // position_test and walk_forward (position_test.h); the Python and
     // JavaScript bindings call them and keep no copy of any of this.
 
-    // The statistics computed for every run, named as in the summary of
-    // backtest_report, in the order the bindings list them. This table is the
-    // one source: the Python and JavaScript bindings read it (names, source,
-    // column, and direction) instead of keeping their own copies.
-    //   Engine output columns: [equity, pnl, position, cost].
-    //   BacktestReport columns: [drawdown, cum_cost, turnover, trades,
-    //                            max_drawdown, sharpe].
-    //   BacktestStats columns: [exposure, round_trips, win_rate, profit_factor,
-    //                           avg_win, avg_loss, avg_holding, sortino, calmar].
-    // `larger` is the direction as a test metric: 1 larger is better, 0
-    // smaller is better, -1 no natural direction (the caller must give one).
-    enum class StatSource { Engine, Report, Stats };
-    struct StatSpec { const char* name; StatSource source; int column; int larger; };
-    inline constexpr std::size_t kNumStats = 15;
-    inline constexpr std::array<StatSpec, kNumStats> kStats{{
-        {"total_pnl", StatSource::Engine, 0, 1},
-        {"max_drawdown", StatSource::Report, 4, 1},     // <= 0, so closer to 0 is better
-        {"total_cost", StatSource::Report, 1, 0},
-        {"turnover", StatSource::Report, 2, -1},
-        {"num_trades", StatSource::Report, 3, -1},
-        {"sharpe", StatSource::Report, 5, 1},
-        {"exposure", StatSource::Stats, 0, -1},
-        {"round_trips", StatSource::Stats, 1, -1},
-        {"win_rate", StatSource::Stats, 2, 1},
-        {"profit_factor", StatSource::Stats, 3, 1},
-        {"avg_win", StatSource::Stats, 4, 1},
-        {"avg_loss", StatSource::Stats, 5, 1},          // <= 0, so closer to 0 is better
-        {"avg_holding", StatSource::Stats, 6, -1},
-        {"sortino", StatSource::Stats, 7, 1},
-        {"calmar", StatSource::Stats, 8, 1},
-    }};
+    // The statistics computed for every run: the summary of backtest_report,
+    // whose table (names, source column, and direction as a test metric) lives
+    // in backtest_summary.h, the one source the bindings read.
+    using screamer::StatSource;
+    using screamer::StatSpec;
+    using screamer::kNumStats;
+    using screamer::kStats;
 
     inline const char* stat_source_name(StatSource s) {
         return s == StatSource::Engine ? "engine" : s == StatSource::Report ? "report" : "stats";
@@ -276,16 +251,6 @@ namespace screamer { namespace validation {
             return pairwise_sum(a, n2, stride, f) + pairwise_sum(a + n2 * stride, n - n2, stride, f);
         }
 
-        // Last finite value of column `col` of a row-major (T x ncols) block.
-        inline double last_finite(const double* a, std::size_t T, std::size_t ncols,
-                                  std::size_t col) {
-            for (std::size_t t = T; t-- > 0;) {
-                const double v = a[t * ncols + col];
-                if (std::isfinite(v)) return v;
-            }
-            return std::numeric_limits<double>::quiet_NaN();
-        }
-
     } // namespace detail
 
     // One backtest output: (T, 4) [equity, pnl, position, cost], or
@@ -326,7 +291,7 @@ namespace screamer { namespace validation {
                 b[2] = detail::pairwise_sum(row + 2, K, 4, [](double v) { return std::abs(v); });
                 b[3] = detail::pairwise_sum(row + 3, K, 4, same);
             }
-            run_columns(report_, book_.data(), T, rep, 6);
+            screamer::detail::run_engine_columns(report_, book_.data(), T, 4, 1, rep, 6);
             // turnover and trades per asset, from PortfolioReport
             double pr[6];
             for (std::size_t t = 0; t < T; ++t) {
@@ -357,31 +322,16 @@ namespace screamer { namespace validation {
         // One strategy's (T, 4) rows.
         std::array<double, kNumStats> score_series(const double* eng, std::size_t T) {
             report_buf_.resize(T * 6);
-            run_columns(report_, eng, T, report_buf_.data(), 6);
+            screamer::detail::run_engine_columns(report_, eng, T, 4, 1, report_buf_.data(), 6);
             return collect(eng, T);
         }
 
         std::array<double, kNumStats> collect(const double* eng, std::size_t T) {
             stats_buf_.resize(T * 9);
-            run_columns(stats_, eng, T, stats_buf_.data(), 9);
+            screamer::detail::run_engine_columns(stats_, eng, T, 4, 1, stats_buf_.data(), 9);
             std::array<double, kNumStats> s;
-            for (std::size_t q = 0; q < kNumStats; ++q) {
-                const StatSpec& spec = kStats[q];
-                const std::size_t col = static_cast<std::size_t>(spec.column);
-                s[q] = spec.source == StatSource::Engine ? detail::last_finite(eng, T, 4, col)
-                     : spec.source == StatSource::Report ? detail::last_finite(report_buf_.data(), T, 6, col)
-                     : detail::last_finite(stats_buf_.data(), T, 9, col);
-            }
+            summary_from(eng, 4, 1, report_buf_.data(), stats_buf_.data(), T, s.data());
             return s;
-        }
-
-        // The operator's own column loop over a row-major (T x 4) input, as a
-        // batch call from either binding runs it.
-        static void run_columns(EvalOp& op, const double* in, std::size_t T, double* out,
-                                std::size_t width) {
-            const double* cols[4] = {in, in + 1, in + 2, in + 3};
-            const std::ptrdiff_t strides[4] = {4, 4, 4, 4};
-            op.eval_column(cols, strides, T, out, static_cast<std::ptrdiff_t>(width));
         }
 
         BacktestReport report_;

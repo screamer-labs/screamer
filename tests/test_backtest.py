@@ -98,6 +98,57 @@ def test_backtest_report_shape_and_invariants():
                ("equity", "drawdown", "cum_cost", "turnover", "trades", "sharpe"))
 
 
+def test_backtest_report_labels_the_cpp_report():
+    """The running columns are the nodes' columns, the summary their last
+    finite values, in every memory layout, with the names C++ gives."""
+    from screamer import BacktestReport, BacktestStats
+    from screamer.screamer_bindings import _strategy_stats
+    rng = np.random.default_rng(3)
+    T = 80
+    pnl = rng.normal(size=T)
+    pos = np.round(rng.normal(size=T)).clip(-1, 1)
+    out = np.column_stack([pnl.cumsum(), pnl, pos, np.abs(np.diff(pos, prepend=0)) * 0.1])
+    out[7, 1] = np.nan
+    out[-2:, 0] = np.nan
+    running, summary = backtest_report(out, periods_per_year=252)
+    assert list(summary) == [row[0] for row in _strategy_stats()]
+    report = BacktestReport(252)(*out.T)
+    stats = BacktestStats(252)(*out.T)
+    names = ["equity", "pnl", "position", "cost",
+             "drawdown", "cum_cost", "turnover", "trades", "max_drawdown", "sharpe",
+             "exposure", "round_trips", "win_rate", "profit_factor", "avg_win",
+             "avg_loss", "avg_holding", "sortino", "calmar"]
+    assert list(running) == names
+    block = np.column_stack([out, report, stats])
+    for i, k in enumerate(names):
+        np.testing.assert_array_equal(running[k], block[:, i])
+    assert summary["total_pnl"] == out[-3, 0]          # the last finite equity
+    assert summary["sharpe"] == running["sharpe"][-3]    # the last two rows are NaN
+    for layout in (np.asfortranarray(out), np.repeat(out, 2, axis=1)[:, ::2],
+                   np.repeat(out, 3, axis=0)[::3], out[::-1][::-1]):
+        r2, s2 = backtest_report(layout, periods_per_year=252)
+        for k in names:
+            np.testing.assert_array_equal(r2[k], running[k])
+        np.testing.assert_array_equal(list(s2.values()), list(summary.values()))
+
+
+def test_backtest_report_errors():
+    msg = r"values must be a \(T, 4\) array of \[equity, pnl, position, cost\]"
+    for bad in (np.zeros((3, 3)), np.zeros(4), np.zeros((1, 3, 4)), 5.0, []):
+        with pytest.raises(ValueError, match=msg):
+            backtest_report(bad)
+    for ppy in (0, -1, np.nan, np.inf):
+        with pytest.raises(ValueError, match="periods_per_year must be finite and positive"):
+            backtest_report(np.zeros((2, 4)), periods_per_year=ppy)
+    for ppy, kind in (("252", "a str"), (None, "a NoneType")):
+        with pytest.raises(TypeError, match=f"periods_per_year is {kind}, expected a number"):
+            backtest_report(np.zeros((2, 4)), periods_per_year=ppy)
+    with pytest.raises(TypeError):
+        backtest_report([[1, "x", 0, 0]])
+    running, summary = backtest_report([[1.0, None, 0, 0], [2, 1, 1, 0.1]])
+    assert np.isnan(running["pnl"][0]) and np.isnan(running["drawdown"][0])
+
+
 def test_backtest_report_node_matches_reference():
     from screamer import BacktestReport
     out = BacktestPriceTarget()(np.sign(np.random.default_rng(0).standard_normal(200)),

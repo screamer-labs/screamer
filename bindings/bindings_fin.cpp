@@ -39,6 +39,7 @@
 #include "screamer/backtest_l1trades_orders.h"
 #include "screamer/backtest_report.h"
 #include "screamer/backtest_stats.h"
+#include "screamer/backtest_summary.h"
 #include "screamer/backtest_carry.h"
 #include "screamer/validation/surrogates.h"
 #include "screamer/validation/sharpe.h"
@@ -702,6 +703,49 @@ nb::object permute_returns_batch(BlockIn x, const std::string& mode, std::int64_
     return nb::tuple(out);
 }
 
+// backtest_report (screamer/backtest.py): an engine's (T, 4) output, any
+// strides, as (report (T, 6), stats (T, 9), summary tuple). The shape and
+// periods_per_year are checked first, so a bad call allocates nothing.
+using EngineRows = nb::ndarray<const double, nb::device::cpu>;
+
+nb::object backtest_report_py(EngineRows v, nb::handle ppy) {
+    screamer::check_engine_rows(v.ndim(), v.ndim() == 2 ? v.shape(1) : 0);
+    double periods_per_year;
+    if (!nb::try_cast<double>(ppy, periods_per_year))
+        screamer::throw_wrong_kind("backtest_report", "periods_per_year", ppy);
+    screamer::BacktestReport rep(periods_per_year);
+    screamer::BacktestStats st(periods_per_year);
+    const std::size_t T = v.shape(0);
+    constexpr std::size_t nr = screamer::BacktestReport::column_names.size();
+    constexpr std::size_t ns = screamer::BacktestStats::column_names.size();
+    auto report = screamer::detail::new_output(T * nr);
+    auto stats = screamer::detail::new_output(T * ns);
+    double summary[screamer::kNumStats];
+    screamer::backtest_report(rep, st, v.data(), T, static_cast<std::ptrdiff_t>(v.stride(0)),
+                              static_cast<std::ptrdiff_t>(v.stride(1)), report.get(), stats.get(),
+                              summary);
+    nb::list sum;
+    for (double x : summary) sum.append(x);
+    using screamer::detail::make_owned_array;
+    return nb::make_tuple(make_owned_array(std::move(report), {T, nr}),
+                          make_owned_array(std::move(stats), {T, ns}), nb::tuple(sum));
+}
+
+// The names of backtest_report: (engine columns, BacktestReport columns,
+// BacktestStats columns, summary).
+nb::object backtest_report_names() {
+    const auto names = [](const auto& a) {
+        nb::list out;
+        for (const char* q : a) out.append(q);
+        return nb::tuple(out);
+    };
+    nb::list summary;
+    for (const auto& st : screamer::kStats) summary.append(st.name);
+    return nb::make_tuple(names(screamer::kEngineColumns),
+                          names(screamer::BacktestReport::column_names),
+                          names(screamer::BacktestStats::column_names), nb::tuple(summary));
+}
+
 namespace sv = screamer::validation;
 
 // The result arrays of the randomization tests (sv::ResultSink): n * K values
@@ -1064,6 +1108,8 @@ void init_bindings_fin(nb::module_& m) {
                                       st.larger < 0 ? nb::none() : nb::bool_(st.larger == 1)));
         return out;
     });
+    m.def("_backtest_report", &backtest_report_py, "values"_a, "periods_per_year"_a.none());
+    m.def("_backtest_report_names", &backtest_report_names);
     m.def("_strategy_test", &strategy_test_py,
           "run"_a, "metric"_a.none(), "inputs"_a, "n"_a, "method"_a, "ohlc"_a, "price"_a,
           "mode"_a, "volume"_a.none(), "volume_mode"_a, "columns"_a, "fixed"_a,

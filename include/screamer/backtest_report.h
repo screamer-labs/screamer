@@ -1,6 +1,7 @@
 #ifndef SCREAMER_BACKTEST_REPORT_H
 #define SCREAMER_BACKTEST_REPORT_H
 
+#include <array>
 #include <cmath>
 #include <limits>
 #include <stdexcept>
@@ -33,6 +34,10 @@ namespace screamer {
     // the next finite bar, as CumSum and the other accumulators do.
     class BacktestReport : public FunctorBase<BacktestReport, 4, 6> {
     public:
+        // The output columns, in order; the bindings label the columns with these.
+        static constexpr std::array<const char*, 6> column_names{{
+            "drawdown", "cum_cost", "turnover", "trades", "max_drawdown", "sharpe"}};
+
         explicit BacktestReport(double periods_per_year = 1.0)
             : sqrt_ppy_(std::sqrt(periods_per_year))
         {

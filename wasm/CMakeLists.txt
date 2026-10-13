@@ -32,6 +32,7 @@ add_executable(screamer
     "${CMAKE_CURRENT_SOURCE_DIR}/generated/bindings_wasm.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/dag_bindings.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/validation_bindings.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/backtest_bindings.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/shape_bindings.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/exception_message.cpp"
     ${PURE_SOURCES})

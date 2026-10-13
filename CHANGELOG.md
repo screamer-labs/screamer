@@ -10,6 +10,7 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Added
 
+* JavaScript `backtestReport`.
 * The microstructure operators `SignedVolume`, `RollingKyleLambda`,
   `EwKyleLambda`, `RollingOrderImbalance` and `QueueImbalance` are C++
   operators and available in JavaScript.
@@ -97,6 +98,10 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   `RollingKyleLambda.__call__() ...` messages. `RollingOrderImbalance` raises
   the `TypeError` of every one-input operator, which names its `signed_flow`
   input. The exception class is unchanged.
+* `backtest_report` reports a `periods_per_year` that is not a number as
+  `TypeError: backtest_report: periods_per_year is a str, expected a number`,
+  where 2.8.0 gave nanobind's message for `BacktestReport.__init__`. The
+  exception class is unchanged, and so are the results.
 * JavaScript: a `Pipeline` with several outputs aligns them on one index by
   default (`alignOutputs`, above). 2.8.0 ignored the options argument and
   returned each output on its own index; pass `{ alignOutputs: false }` for

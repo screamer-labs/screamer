@@ -1,6 +1,7 @@
 #ifndef SCREAMER_BACKTEST_STATS_H
 #define SCREAMER_BACKTEST_STATS_H
 
+#include <array>
 #include <cmath>
 #include <limits>
 #include <stdexcept>
@@ -37,6 +38,11 @@ namespace screamer {
     // holds and the output row is all NaN.
     class BacktestStats : public FunctorBase<BacktestStats, 4, 9> {
     public:
+        // The output columns, in order; the bindings label the columns with these.
+        static constexpr std::array<const char*, 9> column_names{{
+            "exposure", "round_trips", "win_rate", "profit_factor", "avg_win",
+            "avg_loss", "avg_holding", "sortino", "calmar"}};
+
         explicit BacktestStats(double periods_per_year = 1.0)
             : ppy_(periods_per_year)
         {

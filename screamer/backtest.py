@@ -1,9 +1,9 @@
 """Backtest reporting helper.
 
-A thin wrapper over the C++ ``BacktestReport`` node. That node does all the
-aggregation (drawdown, cumulative cost, turnover, trade count, running Sharpe);
-this helper only labels its columns and reads the last row for the summary, so
-pure-C++ users get the same functionality by calling ``BacktestReport`` directly.
+A thin wrapper over the C++ report (include/screamer/backtest_summary.h), which
+runs the ``BacktestReport`` and ``BacktestStats`` nodes and reads the summary;
+this helper only labels the columns and the summary with the names C++ gives,
+as the JavaScript ``backtestReport`` does.
 No pandas: ``running`` is a dict of numpy arrays and ``summary`` a dict of floats.
 Wrap ``running`` in ``pandas.DataFrame`` yourself if you want a frame.
 """
@@ -12,7 +12,7 @@ import numpy as np
 
 from .dag import _as_float64
 
-from .screamer_bindings import BacktestReport, BacktestStats
+from .screamer_bindings import _backtest_report, _backtest_report_names
 
 #: Market-order price sentinel for the backtest engines. A quote or limit price of
 #: ``MARKET`` (or any non-finite price) is a market order in the aggressive
@@ -21,11 +21,9 @@ MARKET = math.inf
 
 __all__ = ["backtest_report", "MARKET"]
 
-# Column order emitted by the C++ BacktestReport node.
-_REPORT_COLUMNS = ("drawdown", "cum_cost", "turnover", "trades", "max_drawdown", "sharpe")
-# Column order emitted by the C++ BacktestStats node.
-_STATS_COLUMNS = ("exposure", "round_trips", "win_rate", "profit_factor", "avg_win",
-                  "avg_loss", "avg_holding", "sortino", "calmar")
+# Names from C++: the engine columns, the BacktestReport and BacktestStats
+# columns, and the summary.
+_ENGINE_COLUMNS, _REPORT_COLUMNS, _STATS_COLUMNS, _SUMMARY = _backtest_report_names()
 
 
 def backtest_report(values, index=None, periods_per_year=1.0):
@@ -48,40 +46,16 @@ def backtest_report(values, index=None, periods_per_year=1.0):
     ``periods_per_year`` annualizes ``sharpe``, ``sortino``, and ``calmar``
     (for example 252 for daily bars). The default 1 gives per-step ratios.
 
-    The aggregation lives in the C++ ``BacktestReport`` and ``BacktestStats``
-    nodes; this wrapper only labels their columns and reads the last finite row.
+    The report and the summary come from C++; this wrapper only labels them.
     No pandas dependency.
     """
     values = _as_float64(values)
-    if values.ndim != 2 or values.shape[1] != 4:
-        raise ValueError(
-            "values must be a (T, 4) array of [equity, pnl, position, cost]")
-    equity, pnl, position, cost = (values[:, i] for i in range(4))
-
-    report = np.asarray(BacktestReport(periods_per_year)(equity, pnl, position, cost),
-                        dtype=float)
-    stats = np.asarray(BacktestStats(periods_per_year)(equity, pnl, position, cost),
-                       dtype=float)
-    running = {"equity": equity, "pnl": pnl, "position": position, "cost": cost}
+    report, stats, summary = _backtest_report(values, periods_per_year)
+    running = {name: values[:, i] for i, name in enumerate(_ENGINE_COLUMNS)}
     for i, name in enumerate(_REPORT_COLUMNS):
         running[name] = report[:, i]
     for i, name in enumerate(_STATS_COLUMNS):
         running[name] = stats[:, i]
     if index is not None:
         running["index"] = np.asarray(index)
-
-    def _last_finite(a):
-        finite = a[np.isfinite(a)]
-        return float(finite[-1]) if finite.size else float("nan")
-
-    summary = {
-        "total_pnl": _last_finite(equity),
-        "max_drawdown": _last_finite(running["max_drawdown"]),
-        "total_cost": _last_finite(running["cum_cost"]),
-        "turnover": _last_finite(running["turnover"]),
-        "num_trades": _last_finite(running["trades"]),
-        "sharpe": _last_finite(running["sharpe"]),
-    }
-    for name in _STATS_COLUMNS:
-        summary[name] = _last_finite(running[name])
-    return running, summary
+    return running, dict(zip(_SUMMARY, summary))

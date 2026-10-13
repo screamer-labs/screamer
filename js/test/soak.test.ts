@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   ready, current, Input, Pipeline,
-  RollingMean, BollingerBands, BacktestPriceTarget, PortfolioReport, CrossRank,
+  RollingMean, BollingerBands, BacktestPriceTarget, PortfolioReport, CrossRank, backtestReport,
 } from "../src/index.ts";
 
 // Soak tests: a program that builds a new op per call must run for months, so
@@ -112,6 +112,16 @@ test("soak: streams dropped part way, and live drivers, leave nothing behind", a
     const x = Input("x");
     const d = new Pipeline([x], [RollingMean(2)(x)]).live();
     d.push("x", 0, 1);
+  }, N_MIXED);
+  assert.ok(r.js < JS_BOUND, `JS heap grew by ${r.js} bytes`);
+  assert.ok(r.wasm < WASM_BOUND, `WASM heap grew by ${r.wasm} bytes`);
+});
+
+test("soak: backtestReport, and its rejected calls, leave nothing behind", async () => {
+  const out = { data: new Float64Array([1, 1, 1, 0, 2, 1, 1, 0.1, 1.5, -0.5, 0, 0.1]), shape: [3, 4] };
+  const r = await retained(() => {
+    backtestReport(out, { periodsPerYear: 252, index: [0, 1, 2] });
+    try { backtestReport(out, { periodsPerYear: 0 }); } catch { /* rejected in C++ */ }
   }, N_MIXED);
   assert.ok(r.js < JS_BOUND, `JS heap grew by ${r.js} bytes`);
   assert.ok(r.wasm < WASM_BOUND, `WASM heap grew by ${r.wasm} bytes`);

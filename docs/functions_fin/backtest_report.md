@@ -35,10 +35,12 @@ emit) and returns `(running, summary)`.
   `total_cost`, `turnover`, `num_trades`, `sharpe`, and the nine `BacktestStats`
   values.
 
-The aggregation runs in the C++ `BacktestReport` node, so a pure-C++ user gets the
-same statistics by calling that node directly. This wrapper only labels its
-columns and reads the last row, and needs no pandas. Wrap `running` in a
-`pandas.DataFrame` yourself if you want a frame.
+The report and the summary are computed in C++, which runs the `BacktestReport`
+and `BacktestStats` nodes and reads the last finite value of each column. This
+function only labels the result, and needs no pandas. Wrap `running` in a
+`pandas.DataFrame` yourself if you want a frame. In JavaScript,
+`backtestReport(values, { index, periodsPerYear })` returns
+`{ running, summary }` with the same keys.
 
 <!-- HELP_END -->
 

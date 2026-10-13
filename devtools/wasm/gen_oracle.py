@@ -25,6 +25,12 @@ operators that reuse another operator's kernel (SignedVolume, QueueImbalance,
 RollingOrderImbalance, RollingKyleLambda, EwKyleLambda): separate 1-D inputs,
 one packed (T, K, N) array, iterators and a stream of scalar events, on inputs
 with NaN values and with each start policy.
+
+A fourth fixture, wasm/smoke/oracle_backtest.json, holds backtest_report's
+running columns and summary for a few engine outputs (NaN and infinite
+values, annualized ratios, one row, no rows), which backtestReport must
+reproduce exactly. A non-finite number is written as null (NaN), "inf" or
+"-inf".
 """
 
 import json
@@ -38,6 +44,7 @@ REPO = os.path.dirname(os.path.dirname(HERE))
 OUT = os.path.join(REPO, "wasm", "smoke", "oracle.json")
 OUT_REDUCER = os.path.join(REPO, "wasm", "smoke", "oracle_reducer.json")
 OUT_MICRO = os.path.join(REPO, "wasm", "smoke", "oracle_micro.json")
+OUT_BACKTEST = os.path.join(REPO, "wasm", "smoke", "oracle_backtest.json")
 
 # Fixed, deterministic, all-positive input series (positive keeps Log/Sqrt finite).
 SERIES = [
@@ -196,6 +203,52 @@ def micro_entries():
     return out
 
 
+def backtest_entries():
+    """backtest_report on fixed engine outputs: the input rows, the options,
+    and Python's running columns (in order) and summary."""
+    import numpy as np
+
+    def num(v):
+        v = float(v)
+        if math.isnan(v):
+            return None
+        return v if math.isfinite(v) else ("inf" if v > 0 else "-inf")
+
+    rng = np.random.default_rng(11)
+    T = 60
+    pos = np.round(rng.normal(size=T)).clip(-1, 1)
+    pnl = rng.normal(size=T)
+    cost = np.abs(np.diff(pos, prepend=0.0)) * 0.05
+    base = np.column_stack([np.cumsum(pnl - cost), pnl, pos, cost])
+    holes = base.copy()
+    holes[4, 1] = np.nan
+    holes[20, 3] = np.inf
+    holes[-2:, 0] = np.nan
+    winners = base.copy()
+    winners[:, 1] = np.abs(winners[:, 1])        # no losing trade: profit_factor is inf
+    winners[:, 0] = np.cumsum(winners[:, 1])
+    cases = [
+        ("base", base, {}),
+        ("annualized", base, {"periods_per_year": 252}),
+        ("holes", holes, {"periods_per_year": 24 * 365}),
+        ("winners", winners, {}),
+        ("one row", base[:1], {}),
+        ("no rows", base[:0], {}),
+    ]
+    out = []
+    for name, values, kw in cases:
+        running, summary = screamer.backtest_report(values, **kw)
+        out.append({
+            "name": name,
+            "shape": list(values.shape),
+            "values": [num(v) for v in np.ravel(values)],
+            "periods_per_year": kw.get("periods_per_year", 1),
+            "running": {k: [num(v) for v in a] for k, a in running.items()},
+            "summary": {k: num(v) for k, v in summary.items()},
+        })
+    return out
+
+
 def main():
     entries = []
     for name, factory, wasm_args in SAMPLE:
@@ -243,6 +296,12 @@ def main():
         json.dump(micro, f, indent=1, allow_nan=False)
         f.write("\n")
     print(f"Wrote {len(micro)} microstructure entries -> {OUT_MICRO}")
+
+    backtest = backtest_entries()
+    with open(OUT_BACKTEST, "w") as f:
+        json.dump(backtest, f, indent=1, allow_nan=False)
+        f.write("\n")
+    print(f"Wrote {len(backtest)} backtest_report entries -> {OUT_BACKTEST}")
 
 
 if __name__ == "__main__":
