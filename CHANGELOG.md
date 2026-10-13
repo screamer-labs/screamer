@@ -317,7 +317,8 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 * A Python `_GraphBuilder` or JavaScript `GraphBuilder` compiles once: a
   second `compile()` raises ("this graph builder was compiled already"), since
   two graphs over one builder would share its operators' state. `Pipeline`
-  compiles each builder once, so its behavior is unchanged.
+  compiles each builder once, so its behavior is unchanged. Build one builder
+  per graph.
 * The microstructure operators report a wrong set of inputs with their own
   name and input names. `SignedVolume`, `QueueImbalance`, `RollingKyleLambda`
   and `EwKyleLambda` raise `TypeError` with messages such as
@@ -347,7 +348,8 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 * `Pipeline(max_pending=...)` also caps the `Filter` nodes of the pipeline,
   which used 1,000,000 whatever the setting. `to_dict()` and `to_json()` save
   `max_pending`, and `from_dict()` restores it; a graph saved by 2.8.0 has none
-  and loads with the default, as before.
+  and loads with the default, as before. The default, 1,000,000, is the 2.8.0
+  `Filter` cap, so only a non-default `max_pending` changes a `Filter`.
 * A lazy `Pipeline` call that a rejected event ended (a `CombineLatest` or
   `Filter` overflow) raises at every later `next()` without reading more of
   its feeds ("this session rejected an event"); 2.8.0 read one more event at
@@ -501,7 +503,8 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   `RangeError`) with a message such as "select needs column 5, but its input
   has 2 column(s)"; 2.8.0 raised `RuntimeError` from inside the graph, after
   earlier nodes had taken the event. A width that a node sees only at run
-  time raises the same `ValueError` from the node itself. A rejection that only a node can decide later (for example
+  time raises the same `ValueError` from the node itself. Code that caught
+  `RuntimeError` for these should catch `ValueError`. A rejection that only a node can decide later (for example
   a stalled `combine_latest` buffer) poisons the session: `push`, `advance`,
   `flush` and `result()` raise until `reset()` or a new `live()`, so no row
   that the rejected event produced is returned.
@@ -533,10 +536,9 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   2.8.0 read `b"12"` as 12.0. Pass `float(value)` for the old result.
 * A list of rows passed to a row operator (`CrossRank()([r1, r2])`) returns a list of result rows, following rule 3; 2.8.0 returned an array. To get the array, pass `np.vstack(rows)`. A tuple of rows and a matrix still return an array. A mix of lists and arrays (for example a list target with an ndarray of prices) returns an array. The JavaScript row operators follow the same rule: an `Array` of rows gives an `Array` of `Float64Array` rows, and an `NdArray` gives an `NdArray`. To get the old `NdArray` from an array of rows in JavaScript, pass `{ data, shape: [T, K] }`.
 * pandas `Series` and `DataFrame` inputs are read as their values and give a NumPy array (2.8.0 treated them as iterators). `str`, `bytes`, `dict` and `set` inputs raise `TypeError` at the call.
-* **JavaScript error classes:** every shape, length or input-count mismatch throws `RangeError` (the counterpart of Python's `ValueError`); wrong kinds still throw `TypeError`.
+* **JavaScript error classes:** every shape, length or input-count mismatch throws `RangeError` (the counterpart of Python's `ValueError`); wrong kinds still throw `TypeError`. 2.8.0 threw `TypeError` for a length mismatch; code that caught it should catch `RangeError`.
 * JavaScript: the WebAssembly module uses native WebAssembly exceptions; it needs Chrome 95, Firefox 100, Safari 15.2 or Node 17 or later. Errors thrown by your own iterators now reach you unchanged.
-* JavaScript: a string parameter given a non-string (for example `RollingMean(3, 5)`) throws `TypeError`.
-* JavaScript: streaming one value at a time (`op(x)`) is about 2.3 times faster; heap views are made in JavaScript instead of through Embind.
+* JavaScript: a string parameter given a non-string (for example `RollingMean(3, 5)`) throws `TypeError`. 2.8.0 threw Embind's `BindingError`; code that caught it should catch `TypeError`.
 * One-input operators such as `RollingMean` raise `TypeError` for an input
   they cannot read (was `ValueError` with "Unsupported input type for call").
   Code that caught `ValueError` for this case should catch `TypeError`.
@@ -636,8 +638,6 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
     `minShift: null` in `circularShift` (was a `RangeError`), mean the default.
   * Python: the family p-value no longer warns "All-NaN slice encountered" for
     a round where every strategy's metric is NaN.
-* `permute_bars` and `permute_returns` on one series write 8 copies per pass
-  and are 1.2 to 2 times faster; the copies are unchanged.
 * `strategy_test` input errors: a `str` or `None` input raises `TypeError`
   (2.8.0 raised `ValueError`), so catch `TypeError` for these. A 0-d scalar
   input still raises `ValueError`, now with the message "input must be 1-D
@@ -679,7 +679,7 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
   `TypeError`. Old result: `(op(x) for x in source)` continues the running
   series as a 2.8.0 Python stream did, and `[op(x) for x in values]` (or
   `op(*event)` for events of several inputs) does the same for a list.
-* A value of the wrong kind inside a list, tuple stream or iterator raises `TypeError` that names its type and position; before, it raised `RuntimeError: std::bad_cast`. For example, `RollingMean(2)([1.0, {}])` raises `TypeError: RollingMean: event 1 is a dict, expected a number`. An element that holds only numbers but is not one number, such as `[1.0, 2.0]` in `RollingMean(2)([1.0, [1.0, 2.0]])`, raises `ValueError: RollingMean: event 1 has shape (2,), expected a number` on the list, iterator and async paths alike (a list raised `RuntimeError: std::bad_cast`; an iterator raised `ValueError` with "every event must have the same shape").
+* A value of the wrong kind inside a list, tuple stream or iterator raises `TypeError` that names its type and position; before, it raised `RuntimeError: std::bad_cast`. For example, `RollingMean(2)([1.0, {}])` raises `TypeError: RollingMean: event 1 is a dict, expected a number`. Code that caught `RuntimeError` for these should catch `TypeError` (or `ValueError` for a wrong shape). An element that holds only numbers but is not one number, such as `[1.0, 2.0]` in `RollingMean(2)([1.0, [1.0, 2.0]])`, raises `ValueError: RollingMean: event 1 has shape (2,), expected a number` on the list, iterator and async paths alike (a list raised `RuntimeError: std::bad_cast`; an iterator raised `ValueError` with "every event must have the same shape").
 * JavaScript: the same cases throw `TypeError` (wrong kind) or `RangeError` (wrong shape) with the same messages. Before, a list of events or an iterator item of the wrong kind threw `RangeError`, and other wrong-kind list elements threw `TypeError` without the position. A `Pipeline` feed, index or `live().push()` / `pushWide()` value that is a function, or an object that does not convert to a number (for example `{}`), throws `TypeError`; before, it was converted with `Number()` (`{}` and functions gave `NaN`). Numbers, booleans, `undefined` and `Date` values convert as before; a string raises `TypeError` and a `null` value is `NaN` (see above and below). An index follows the index rule above: it must be a number.
 * `PortfolioReport` given a list of `(K, 4)` engine rows returns a list of `(6,)` result rows, following rule 3; 2.8.0 returned a `(T, 6)` array. To get the array, pass `np.stack(rows)` or a tuple of rows. A tuple of rows and an array still return an array. In JavaScript an `Array` of rows (nested arrays or `[K, 4]` `NdArray` events) gives an `Array` of `Float64Array` rows; to get the old `NdArray`, pass `{ data, shape: [T, K, 4] }`.
 * A multi-input operator given a mix of lists and arrays returns an array, in either argument order: `RollingCorr(5)(x_list, y_array)` returned a list and `RollingCorr(5)(y_array, x_list)` raised `TypeError`; both now return the array that two arrays give. To get the old list, pass lists for every input (`list(y_array)`), or call `.tolist()` on the result. A list among arrays reads as a 1-D array of its length and broadcasts over the asset axes of the other inputs; lengths that differ still raise `ValueError`. All lists still return a list. JavaScript already returned an array for these mixes.
@@ -1223,6 +1223,9 @@ This is a major release, 3.0.0: the results listed under "Changed" differ from
 
 ### Performance
 
+* JavaScript: streaming one value at a time (`op(x)`) is about 2.3 times faster; heap views are made in JavaScript instead of through Embind.
+* `permute_bars` and `permute_returns` on one series write 8 copies per pass
+  and are 1.2 to 2 times faster; the copies are unchanged.
 * A `Pipeline` that joins inputs runs faster, in Python and JavaScript.
   `CombineLatest` emits its settled row without copying it, a batch run of up
   to 8 inputs merges them by a scan of their next rows instead of a heap, and
