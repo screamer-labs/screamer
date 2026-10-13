@@ -123,7 +123,7 @@ The format is Python's: a pipeline saved by Python's `to_json()` loads here, and
 loads with Python's `Pipeline.from_json`, with the same results. The settings keep their Python
 names (`window_size`, not `windowSize`). `JSON.stringify` writes a setting that is not finite,
 such as `Clip({ lower: -Infinity })`, as `null`, which loads as "not given". `toJSONText(indent)`
-writes the text Python's `to_json(indent)` writes, `-Infinity` included (JavaScript writes `3`
+writes the text Python's `to_json(indent)` writes, `-Infinity` and `-0.0` included (JavaScript writes `3`
 where Python writes `3.0`, as it has one number type); `Pipeline.fromJSON` reads it, which
 `JSON.parse` does not. `toJSONText(null)` writes one line.
 

@@ -11,7 +11,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, writeFileSync } from "node:fs";
 import {
-  ready, current, Pipeline, Input, RollingMean, EwMean, Sub, Clip, BollingerBands,
+  ready, current, Pipeline, Input, RollingMean, EwMean, Sub, Clip, BollingerBands, Linear,
   combineLatest, dropna, select, delay, resample, filter, forecastPairs,
   type NdArray, type Output,
 } from "../src/index.ts";
@@ -118,6 +118,16 @@ test("pipeline io: toJSONText writes Python's text; toJSON is the object JSON.st
   assert.match(clip.toJSONText(), /"lower": -Infinity/);
   assert.equal((clip.toDict() as any).nodes[1].params.lower, -Infinity);
   clip.dispose();
+  // -0 is kept, as Python writes it (-0.0).
+  const x = Input("x");
+  const neg = new Pipeline([x], [Linear({ scale: -0, shift: -0 })(x)]);
+  const text = neg.toJSONText();
+  assert.match(text, /"scale": -0\.0/);
+  const back = Pipeline.fromJSON(text);
+  assert.ok(Object.is((back.toDict() as any).nodes[1].params.scale, -0));
+  assert.ok(Object.is((Pipeline.fromJSON(neg.toJSON()).toDict() as any).nodes[1].params.scale, -0));
+  assert.ok(Object.is(((back({ values: [1] }) as Output).values as Float64Array)[0], -0));
+  neg.dispose(); back.dispose();
 });
 
 // Graphs built in JavaScript with its own factories, for Python to load.
