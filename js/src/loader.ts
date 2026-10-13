@@ -1,32 +1,16 @@
-// Loads the Phase 2 Embind module once. `npm run build:wasm` copies the
-// dev (separate-file) screamer.mjs + screamer.wasm into src/generated/;
+// Loads the Embind module once. `npm run build:wasm` copies the dev
+// (separate-file) screamer.mjs + screamer.wasm into src/generated/;
 // `npm run build:wasm:single` instead copies the self-contained
 // screamer.single.mjs (wasm embedded as base64) to this same path, and
-// `npm run build` copies whichever is currently there into dist/generated/
-// (and dist/cjs/generated/ for the CJS build) so the packaged tarball needs
-// no separate .wasm asset to resolve.
-import { normalizeError, setExceptionHelpers } from "./errors.js";
-
-// screamer.mjs is single-file ESM (`export default Module`), in both the
-// ESM and CJS build. A literal `import(...)` here would be fine for the ESM
-// build, but tsc's CommonJS emit downlevels a literal dynamic `import()`
-// into a `require()` wrapped in a promise, and `require()` of an ESM-only
-// module throws `ERR_REQUIRE_ESM`. Indirecting through `Function` hides the
-// import expression from tsc's static downlevel transform, so both builds
-// execute a real dynamic `import()` at runtime; Node has supported
-// `import()` from CommonJS modules since 12.x. The specifier still resolves
-// relative to this file (loader.js / loader.cjs), not the caller's cwd.
-const dynamicImport = new Function("specifier", "return import(specifier)") as (
-  specifier: string,
-) => Promise<{ default: () => Promise<Screamer> }>;
+// `npm run build` copies whichever is currently there into dist/generated/,
+// which both the ES and the CommonJS build load (wasm_module.ts), so the
+// packaged tarball needs no separate .wasm asset to resolve.
+import { normalizeError, setExceptionHelpers, OUT_OF_MEMORY } from "./errors.js";
+import { loadModule } from "./wasm_module.js";
 
 export interface RawOp {
   nIn(): number; nOut(): number;
   evalInto(inPtr: number, outPtr: number): void;
-  // One C++ pass over `rows` row-major events (each row is nIn doubles at
-  // inPtr, writing nOut at outPtr): the whole array is processed without
-  // recrossing the JS/WASM boundary per element.
-  evalBatchInto(inPtr: number, outPtr: number, rows: number): void;
   reset(): void; delete(): void;
   // Present only on dynamic-width reducers (see wrapReducerOp): one event
   // reduces an (assets, nIn) block, so the asset count travels per call.
@@ -78,10 +62,13 @@ function wrapCtors(M: Screamer): Screamer {
   return M;
 }
 
+// The most doubles one allocation may ask for: the 4 GB wasm32 address space.
+const MAX_DOUBLES = 2 ** 29 - 1;
+
 let cached: Promise<Screamer> | null = null;
 export function init(): Promise<Screamer> {
   if (!cached) {
-    cached = dynamicImport("./generated/screamer.mjs")
+    cached = loadModule()
       .then((m) => m.default())
       .then((M: Screamer) => {
         setExceptionHelpers(M as any);
@@ -91,6 +78,14 @@ export function init(): Promise<Screamer> {
         // so it is read on every call; like any heap view, the result is valid
         // until the next call that may allocate.
         M.viewF64 = (p: number, n: number) => new Float64Array((M as any).HEAPF64.buffer, p, n);
+        // n doubles of heap. A count past what the heap can hold is the
+        // out-of-memory RangeError before the call (Embind would wrap a
+        // number past 2**32); a failed malloc is std::bad_alloc in C++.
+        const alloc = M.allocF64;
+        M.allocF64 = (n: number): number => {
+          if (!(n >= 0 && n <= MAX_DOUBLES)) throw new RangeError(OUT_OF_MEMORY);
+          try { return alloc(n); } catch (e) { throw normalizeError(e); }
+        };
         return wrapCtors(M);
       });
   }

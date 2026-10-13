@@ -64,6 +64,11 @@ const cases = {
     p.dispose();
     return r;
   },
+  // The per-event operator call (a plain WASM export) and an operator stream.
+  op_scalar_calls: () => { const op = s.RollingMean(20); let v = 0; for (let i = 0; i < N; i++) v = op(na[i]); return v; },
+  op_scalar_calls_3out: () => { const op = s.BollingerBands(20); let v; for (let i = 0; i < N; i++) v = op(na[i]); return v; },
+  op_stream: () => drain(s.RollingMean(20)(na.values())),
+  pipeline_lazy: () => drain(live1(ea.values())),
   pipeline_lag: () => lag({ x: { values: a, index: ia } }),
   pipeline_multi_input: () => multi({ a: { values: a, index: ia }, b: { values: b, index: ib } }),
 };
@@ -80,5 +85,8 @@ const best = (fn, runs = 7) => {
 };
 
 const out = {};
-for (const [name, fn] of Object.entries(cases)) out[name] = best(fn);
+// An older build without a case's API records null for it.
+for (const [name, fn] of Object.entries(cases)) {
+  try { out[name] = best(fn); } catch { out[name] = null; }
+}
 console.log(JSON.stringify(out, null, 1));

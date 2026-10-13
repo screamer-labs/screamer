@@ -2,6 +2,7 @@
 // and layout plans, all decided by include/screamer/common/shape.h.
 #include <emscripten/bind.h>
 #include <emscripten/val.h>
+#include <emscripten/em_macros.h>
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
@@ -123,3 +124,14 @@ EMSCRIPTEN_BINDINGS(screamer_shape) {
     emscripten::function("layoutPlan", &layoutPlan);
     emscripten::function("eventPlan", &eventPlan);
 }
+
+// One event of the op at address `op` (opPtr): n_in() doubles at `in`, n_out()
+// written at `out`. A plain export: JavaScript's per-event call
+// (js/src/runtime.ts) pays no Embind method dispatch. A C++ exception reaches
+// JavaScript as it does from an Embind method.
+extern "C" {
+EMSCRIPTEN_KEEPALIVE void screamer_eval(std::uintptr_t op, std::uintptr_t in, std::uintptr_t out) {
+    reinterpret_cast<screamer::EvalOp*>(op)->eval(reinterpret_cast<const double*>(in),
+                                                  reinterpret_cast<double*>(out));
+}
+}  // extern "C"

@@ -1,7 +1,7 @@
 """Parity gate: the JS resample/agg code tables (js/src/codes.ts) must match the
 Python source of truth (screamer/dag.py). Either side drifting fails this test.
 
-The JS tables are read by running `node --import tsx src/codes.ts --dump`, which
+The JS tables are read by running `node --import tsx scripts/dump-codes.ts`, which
 prints the aggregated `CODES` object as JSON. The Python tables are imported
 directly from screamer.dag.
 """
@@ -17,18 +17,18 @@ import screamer.dag as dag
 
 _REPO = Path(__file__).resolve().parent.parent
 _JS = _REPO / "js"
-_CODES_TS = _JS / "src" / "codes.ts"
+_CODES_TS = _JS / "scripts" / "dump-codes.ts"
 
 
 def _dump_js_codes():
     """Return the JS CODES object as a dict, or skip if node/tsx is unavailable."""
     if shutil.which("node") is None:
-        pytest.skip("node not available; cannot dump js/src/codes.ts")
+        pytest.skip("node not available; cannot dump the JS code tables")
     if not _CODES_TS.exists():
         pytest.skip(f"missing {_CODES_TS}")
     try:
         out = subprocess.run(
-            ["node", "--import", "tsx", str(_CODES_TS), "--dump"],
+            ["node", "--import", "tsx", str(_CODES_TS)],
             cwd=str(_JS),
             capture_output=True,
             text=True,

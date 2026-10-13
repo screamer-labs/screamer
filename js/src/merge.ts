@@ -9,7 +9,7 @@ import type { NdArray } from "./ndarray.js";
 import { normalizeError, wasmCall } from "./errors.js";
 import { feedValue, throwWrongKind } from "./kinds.js";
 import { trackStream, type StreamHold } from "./runtime.js";
-import { badIndex, block, checkKeys, event, indexArray, isPlainObject, type Block } from "./combine.js";
+import { badIndex, block, checkKeys, event, indexArray, isPlainObject, named, type Block } from "./combine.js";
 
 const WHO = "merge";
 
@@ -62,7 +62,7 @@ export function mergeArrays(inputs: unknown[]): MergeResult {
       spec.push(data[k], index[k], i ? i.length : 0, b.shape.length, ...b.shape);
     });
     M.viewF64(specPtr, spec.length).set(spec);
-    out = wasmCall(() => M.mergeBatch(specPtr));
+    try { out = M.mergeBatch(specPtr); } catch (e) { throw named(normalizeError(e), WHO); }
     const rows = out.rows as number, shape = out.shape as number[];
     const size = shape.reduce((a: number, b: number) => a * b, 1);
     const data2 = new Float64Array(M.viewF64(out.values, rows * size));
@@ -90,6 +90,7 @@ const EVENT_KEYS = ["value", "index"];
 // to emit the pending event of source k, 0 when every source has ended.
 class Merger {
   private M: any = current();
+  private who: string;
   private ms: any;
   private addr = 0;
   private shape = 0;   // the heap offset (in doubles) of the event-shape scratch
@@ -98,7 +99,9 @@ class Merger {
   private value: Array<MergeEvent["value"]>;
   private index: number[];
 
-  constructor(n: number, held: StreamHold) {
+  // `who` names the caller in messages (a lazy Pipeline merges its feeds).
+  constructor(n: number, held: StreamHold, who = WHO) {
+    this.who = who;
     this.ms = wasmCall(() => new this.M.MergeStream(n));
     // Frees the merge's WASM state when the stream is collected unfinished.
     held.close = () => this.close();
@@ -122,12 +125,12 @@ class Merger {
   }
 
   private live(): number {
-    if (!this.addr) throw new Error(`${WHO}: the stream was closed`);
+    if (!this.addr) throw new Error(`${this.who}: the stream was closed`);
     return this.addr;
   }
 
   start(): number {
-    try { return this.ms.start(); } catch (e) { throw normalizeError(e); }
+    try { return this.ms.start(); } catch (e) { throw named(normalizeError(e), this.who); }
   }
 
   // The event of source k (the step was -(k + 1)).
@@ -136,7 +139,7 @@ class Merger {
   }
 
   end(i: number): number {
-    try { return this.M._screamer_merge_end(this.live(), i); } catch (e) { throw normalizeError(e); }
+    try { return this.M._screamer_merge_end(this.live(), i); } catch (e) { throw named(normalizeError(e), this.who); }
   }
 
   // Event x of source i: a value (positional), or { value, index }.
@@ -146,22 +149,22 @@ class Merger {
     if (typeof x === "object" && x !== null && isPlainObject(x)) {
       marked = true;
       const e = x as Record<string, unknown>;
-      if (!("value" in e)) throwWrongKind(WHO, `event ${k} of input ${i}`, x, "a { value, index } event");
-      checkKeys(e, EVENT_KEYS, () => `event ${k} of input ${i}`, WHO);
-      t = typeof e.index === "number" ? e.index : badIndex(e.index);
+      if (!("value" in e)) throwWrongKind(this.who, `event ${k} of input ${i}`, x, "a { value, index } event");
+      checkKeys(e, EVENT_KEYS, () => `event ${k} of input ${i}`, this.who);
+      t = typeof e.index === "number" ? e.index : badIndex(e.index, this.who);
       v = e.value;
     }
     if (this.indexed === null) this.indexed = marked;
     else if (marked !== this.indexed)
-      throw new RangeError(`${WHO}: cannot mix positional (bare-value) and indexed ({ value, index }) sources; ` +
+      throw new RangeError(`${this.who}: cannot mix positional (bare-value) and indexed ({ value, index }) sources; ` +
         "give every source an index, or none");
     let ndim = 0;
     if (typeof v === "number") {
       this.value[i] = v;
     } else if (v === null || typeof v !== "object") {
-      this.value[i] = feedValue(v, WHO, () => `event ${k} of input ${i}`);
+      this.value[i] = feedValue(v, this.who, () => `event ${k} of input ${i}`);
     } else {
-      const b = event(v, () => `event ${k} of input ${i}`, WHO);
+      const b = event(v, () => `event ${k} of input ${i}`, this.who);
       const shape = b.shape;
       this.value[i] = shape.length === 1 ? b.data.slice() : { data: b.data.slice(), shape: shape.slice() };
       ndim = shape.length;
@@ -169,17 +172,17 @@ class Merger {
       for (let d = 0; d < ndim && d < 32; d++) heap[this.shape + d] = shape[d];
     }
     this.index[i] = t;
-    try { return this.M._screamer_merge_offer(this.live(), i, t, ndim); } catch (e) { throw normalizeError(e); }
+    try { return this.M._screamer_merge_offer(this.live(), i, t, ndim); } catch (e) { throw named(normalizeError(e), this.who); }
   }
 }
 
-function* runSync(srcs: Iterable<unknown>[], held: StreamHold): Generator<MergeEvent, void, undefined> {
+function* runSync(srcs: Iterable<unknown>[], held: StreamHold, who = WHO): Generator<MergeEvent, void, undefined> {
   const its = srcs.map((s) => s[Symbol.iterator]());
   const ended = its.map(() => false);
   let m: Merger | null = null;
   let failed = false;
   try {
-    m = new Merger(its.length, held);
+    m = new Merger(its.length, held, who);
     for (let step = m.start(); step !== 0;) {
       if (step > 0) {
         const i = step - 1, r = its[i].next();
@@ -240,6 +243,12 @@ async function* runAsync(srcs: AsyncIterable<unknown>[], held: StreamHold): Asyn
 export function mergeIterators(srcs: Iterable<unknown>[]): Generator<MergeEvent, void, undefined> {
   const held: StreamHold = {};
   return trackStream(runSync(srcs, held), held);
+}
+
+/** The same merge with `who` naming its caller in messages (a lazy Pipeline). */
+export function mergeEvents(srcs: Iterable<unknown>[], who: string): Generator<MergeEvent, void, undefined> {
+  const held: StreamHold = {};
+  return trackStream(runSync(srcs, held, who), held);
 }
 
 /** The merge of async iterables, as an async iterator of events. */

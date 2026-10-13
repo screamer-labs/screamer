@@ -125,6 +125,14 @@ The [six rules](polymorphic_api.md#the-six-rules) hold in JavaScript, with an
 [Streams in depth](streaming.md) describes stream state, laziness, several
 sources, asset events, and errors.
 
+The stream functions run in the same three forms as in Python. `resample`,
+`select`, `dropna`, `filter` and `delay` take a `Node` (a graph node), arrays
+or `{ values, index }` (they return `{ values, index }`, as Python returns
+`(values, index)`), or an iterator of `{ value, index }` events (they return
+an iterator of rows). A `Pipeline` called with iterators runs lazily, as
+Python's `pipeline(iter(...))` does. The JavaScript guide's pipeline page
+shows each form.
+
 ### Intentional differences
 
 These differences follow each language's own convention. They are not gaps and
@@ -201,7 +209,9 @@ The engine output columns are `[equity, pnl, position, cost]`, and the
 `BacktestReport` columns are `[drawdown, cum_cost, turnover, trades,
 max_drawdown, sharpe]`, so the last row of each holds the summary. The numbers
 match the [first strategy recipe](recipes/first-strategy.md), which runs the
-same backtest in Python.
+same backtest in Python. `MARKET` (`Infinity`) is the market-order price of the
+order engines, as `screamer.MARKET` is in Python, and `backtestReport`'s
+`index` must hold one value per row.
 
 A portfolio engine takes `(T, K)` inputs, given as an array of rows or as an
 `NdArray`. Give it an `NdArray` and it returns an `NdArray`; give it only arrays

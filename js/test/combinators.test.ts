@@ -273,11 +273,19 @@ test("combineLatest: indexed iterators match the batch join", async () => {
   ])] as Row[];
   assertNanEq(flatRows(lazy), batch.data);
   assert.deepEqual(lazy.map(({ index }) => index), Array.from(bidx!));
-  // scalar events: number[] rows, or a number for one input
+  // scalar events: number[] rows, one input too (Python's ((1.0,), 0))
   const two = [...cl([gen([ev(1, 0), ev(2, 2)]), gen([ev(10, 1)])])] as Row[];
   assert.deepEqual(two, [{ value: [1, 10], index: 1 }, { value: [2, 10], index: 2 }]);
   const one = [...cl([gen([ev(1, 0), ev(2, 2)])])] as Row[];
-  assert.deepEqual(one, [{ value: 1, index: 0 }, { value: 2, index: 2 }]);
+  assert.deepEqual(one, [{ value: [1], index: 0 }, { value: [2], index: 2 }]);
+  // a fractional index joins, as in the batch form; equal indexes collapse
+  const frac = [...cl([gen([ev(1, 0.5), ev(2, 1.5)]), gen([ev(10, 0.5), ev(20, 1.25)])])] as Row[];
+  const { values: fb, index: fi } = cl([{ values: [1, 2], index: [0.5, 1.5] }, { values: [10, 20], index: [0.5, 1.25] }]) as Batch;
+  assertNanEq(flatRows(frac), fb.data);
+  assert.deepEqual(frac.map(({ index }) => index), Array.from(fi!));
+  // a NaN index is a RangeError, as in Python
+  assert.throws(() => [...cl([gen([ev(1, 0), ev(2, NaN)])])],
+    (e: any) => e instanceof RangeError && /the index of input 0 is NaN at event 1/.test(e.message));
   // a two-value row with its index
   const wide = [...cl([gen([ev([1, 2], 0)]), gen([ev(3, 0)])])] as Row[];
   assert.deepEqual(wide.map((r) => [Array.from(r.value), r.index]), [[[1, 2, 3], 0]]);
@@ -290,7 +298,6 @@ test("combineLatest: indexed iterators match the batch join", async () => {
     (e: any) => e instanceof RangeError && /cannot mix positional/.test(e.message));
   assert.throws(() => [...cl([gen([ev(1, 0), [2, 1]]), gen([ev(2, 1)])])],
     (e: any) => e instanceof TypeError && /expected a \{ value, index \} event/.test(e.message));
-  assert.throws(() => [...cl([gen([ev(1, 0.5)]), gen([ev(2, 1)])])], TypeError);
   assert.throws(() => [...cl([gen([ev(1, "0" as any)])])], TypeError);
 });
 

@@ -78,6 +78,10 @@ export EMCC_CFLAGS="${EMCC_CFLAGS:-} -sINCOMING_MODULE_JS_API=[] -sDYNAMIC_EXECU
 rm -rf "$BUILD"; mkdir -p "$BUILD"
 emcmake cmake "${CMAKE_ARGS[@]}" >/dev/null
 cmake --build "$BUILD" -j
+# The glue's Node-only import("module") becomes an expression bundlers leave
+# to run time (js/scripts/patch-glue.mjs), so a browser bundle resolves.
+if [ "$SINGLE_FILE" -eq 1 ]; then GLUE="$BUILD/screamer.single.mjs"; else GLUE="$BUILD/screamer.mjs"; fi
+node "$ROOT/js/scripts/patch-glue.mjs" "$GLUE"
 sz() { stat -f%z "$1" 2>/dev/null || stat -c%s "$1"; }
 gz() { gzip -9 -c "$1" | wc -c | tr -d ' '; }
 

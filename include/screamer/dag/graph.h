@@ -8,6 +8,7 @@
 #include "screamer/common/eval_op.h"
 #include "screamer/dag/resample_params.h"
 #include "screamer/dag/max_pending.h"
+#include "screamer/dag/resample_check.h"
 #include <cstdint>
 #include <utility>
 
@@ -128,6 +129,8 @@ public:
     }
     std::size_t add_resample(std::vector<std::size_t> inputs, ResampleParams rp,
                              std::size_t max_pending) {
+        check_resample_params_numbers(static_cast<int>(rp.mode), rp.width, rp.count,
+                                      rp.threshold);
         // fill= fills empty bars, which only freq= (every=) and clock= have:
         // a count= or threshold= bar always holds events.
         if (rp.fill != ResampleFill::Skip &&

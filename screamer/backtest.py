@@ -12,7 +12,7 @@ import numpy as np
 
 from .dag import _as_float64
 
-from .screamer_bindings import _backtest_report, _backtest_report_names
+from .screamer_bindings import _backtest_report, _backtest_report_names, _check_feed_length
 
 #: Market-order price sentinel for the backtest engines. A quote or limit price of
 #: ``MARKET`` (or any non-finite price) is a market order in the aggressive
@@ -57,5 +57,9 @@ def backtest_report(values, index=None, periods_per_year=1.0):
     for i, name in enumerate(_STATS_COLUMNS):
         running[name] = stats[:, i]
     if index is not None:
-        running["index"] = np.asarray(index)
+        index = np.asarray(index)
+        # One index value per row (checked_index.h), as a Pipeline feed.
+        _check_feed_length("backtest_report", -1, len(values),
+                           index.shape[0] if index.ndim else 1)
+        running["index"] = index
     return running, dict(zip(_SUMMARY, summary))

@@ -973,69 +973,11 @@ def _resample_clock_lazy(values, clock_stream, *, agg, fill, origin, label,
 
 def _resample_validate(freq, every, count, threshold, agg, label, fill="skip",
                        clock=False, max_age=None):
-    if max_age is not None:
-        if not clock or agg != "last" or fill != "carry":
-            raise ValueError(
-                "resample: max_age requires clock=True, agg='last', and fill='carry'")
-        if (isinstance(max_age, (bool, np.bool_)) or
-                not isinstance(max_age, (int, np.integer))):
-            raise TypeError(
-                "resample: max_age must be a non-negative integer in index units")
-        if max_age < 0:
-            raise ValueError("resample: max_age must be a non-negative integer")
+    """The settings rule of a Resample: a string or a bool is a wrong kind
+    here; the rest is the shared C++ rule (dag/resample_check.h), which the
+    JavaScript binding uses too."""
     for name, x in (("threshold", threshold), ("every", every), ("count", count)):
         _setting(f"resample: {name}", x, name != "threshold")
-    # Exactly one of freq, every, count, threshold, clock must be provided.
-    given = sum(x is not None for x in [freq, every, count, threshold])
-    if clock:
-        given += 1
-    if given != 1:
-        raise ValueError(
-            "resample: pass exactly one of freq=, every=, count=, threshold=, or clock=")
-    # threshold positivity guard.
-    if threshold is not None and float(threshold) <= 0.0:
-        raise ValueError("resample: threshold must be > 0")
-    # threshold= feeds only a width-1 value to the node (the driver occupies col 1
-    # of the combined width-2 frame). Multi-column-value aggs (ohlcv, ohlcv2,
-    # ohlc_bars, ohlcv_bars) require input_col >= 1 which is never wired, so the
-    # volume column silently emits 0. Reject these combos with a clear message.
-    _THRESHOLD_MULTICOL_BLOCKED = frozenset(("ohlcv", "ohlcv2", "ohlc_bars", "ohlcv_bars"))
-    if threshold is not None and isinstance(agg, str) and agg in _THRESHOLD_MULTICOL_BLOCKED:
-        raise ValueError(
-            f"resample threshold= mode supports single-column value aggs "
-            f"(first/last/min/max/sum/count/mean/ohlc); "
-            f"agg={agg!r} requires multi-column value input that is not "
-            f"available in threshold= mode. "
-            f"For OHLCV volume bars, resample the OHLC and the volume "
-            f"separately and combine: e.g. "
-            f"combine_latest(Resample(price_vi, vol, threshold=T, agg='ohlc'), "
-            f"Resample(price_vi, vol, threshold=T, agg='sum'))."
-        )
-    # Positivity guard: every=0 would reach the engine's floordiv(_, 0) -> a hard
-    # SIGFPE crash; count<1 never completes a bucket. Reject both up front (this
-    # runs before the Node dispatch, so it guards the graph path too).
-    # freq positivity is checked inside _resample_freq_to_engine.
-    if every is not None and int(every) <= 0:
-        raise ValueError("resample: every must be positive")
-    if count is not None and int(count) < 1:
-        raise ValueError("resample: count must be >= 1")
-    # clock= and threshold= only support builtin string aggs. A functor/EvalOp
-    # reducer is routed to GenericResampleNode which ignores the clock/cumulative
-    # mode, producing silently wrong output. Reject early with a clear message.
-    if not isinstance(agg, str) and not isinstance(agg, dict):
-        if clock:
-            raise ValueError(
-                "resample clock= mode requires a builtin string agg "
-                "(first/last/min/max/sum/count/mean/ohlc); "
-                "functor reducers are not supported with clock=. "
-                "Apply your functor to the resampled output instead.")
-        if threshold is not None:
-            raise ValueError(
-                "resample threshold= mode requires a builtin string agg "
-                "(first/last/min/max/sum/count/mean/ohlc); "
-                "functor reducers are not supported with threshold=. "
-                "Apply your functor to the resampled output instead.")
-    # agg may be a builtin string or an arbitrary functor reducer (an EvalOp).
     # dict agg is no longer supported; raise immediately with a migration hint.
     if isinstance(agg, dict):
         raise ValueError(
@@ -1043,14 +985,12 @@ def _resample_validate(freq, every, count, threshold, agg, label, fill="skip",
             "combine_latest of per-stat resamples, e.g. "
             "combine_latest(resample(price, freq=..., agg='first'), "
             "resample(vol, freq=..., agg='sum')); see docs")
-    if isinstance(agg, str) and agg not in _RESAMPLE_AGGS:
-        raise ValueError(
-            f"resample: unknown agg string {agg!r}; "
-            f"valid names are {sorted(_ALL_AGG_NAMES)}")
-    if label not in ("left", "right"):
-        raise ValueError('resample: label must be "left" or "right"')
-    if fill not in _RESAMPLE_FILLS:
-        raise ValueError(f"resample: fill must be one of {_RESAMPLE_FILLS}")
+    whole = max_age is None or (
+        not isinstance(max_age, (bool, np.bool_)) and isinstance(max_age, (int, np.integer)))
+    text = lambda x: x if isinstance(x, str) else "\x00"   # not a name: refused
+    _b._resample_check(freq is not None, every, count, threshold, bool(clock),
+                       not isinstance(agg, str), agg if isinstance(agg, str) else "",
+                       text(label), text(fill), max_age, whole)
 
 
 

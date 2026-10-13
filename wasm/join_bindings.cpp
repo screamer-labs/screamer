@@ -17,7 +17,8 @@
 #include <emscripten/em_macros.h>
 #include <emscripten/val.h>
 #include "screamer/dag/checked_index.h"
-#include "screamer/dag/combine_stream.h"
+#include "screamer/streams/combine_latest.h"
+#include "screamer/streams/merge_rows.h"
 #include "screamer/streams/join_plan.h"
 
 namespace {
@@ -130,7 +131,12 @@ emscripten::val combineLatestBatch(std::uintptr_t spec, bool whenAll, emscripten
 // end() feed the join until it wants another event and return one number,
 // rows * (n + 1) + (wanted + 1): the rows it settled (rowIndex() and
 // rowValues()), and the source whose next event it wants, or -1 when the
-// stream is done. One number keeps a step to one call into WASM.
+// stream is done. One number keeps a step to one call into WASM. The join is
+// the one Python's iterator combine_latest runs (CombineLatestLazy in
+// bindings_streams.cpp): the sources merge in index order, ties in input
+// order (MergeOrder), every event updates its input's latest values
+// (CombineLatest), and events at one index collapse into one row, the last
+// wins, as in the batch join. The index is a float64, as in the batch form.
 //
 // JavaScript frees the object when the stream ends or is collected. The calls
 // made once per event (zip, offer, end, rowIndex, rowValues) are also plain exported functions
@@ -147,8 +153,11 @@ public:
         sizes_.assign(n, 0);
         out_.resize(std::max<std::size_t>(1, plan_.row_size()));
         if (indexed) {
-            stream_ = std::make_unique<screamer::dag::CombineStream>(plan_.widths(), whenAll);
-            scratch_.resize(plan_.width);
+            order_ = std::make_unique<screamer::streams::MergeOrder<double>>(n);
+            cl_ = std::make_unique<screamer::streams::CombineLatest>(plan_.widths(), whenAll);
+            scratch_.resize(std::max<std::size_t>(1, plan_.width));
+            pending_size_.assign(n, 0);
+            offered_.assign(n, 0);
         } else {
             zip_ = std::make_unique<screamer::streams::PositionalZip>(plan_, kWho);
             ptrs_.resize(n);
@@ -173,17 +182,20 @@ public:
     }
 
     // Indexed: the next event of source i, `size` values in eventBuffer(i).
+    // Its size is checked when the merge reaches it, as in Python.
     double offer(std::size_t i, double index, std::size_t size, bool run) {
-        plan_.check_event(i, size, kWho);
-        const std::int64_t t = screamer::dag::checked_index(index);
-        double* dst = scratch_.data() + plan_.start[i];
-        plan_.read(i, events_[i].data(), dst);
-        stream_->offer(i, t, dst);
+        // NaN has no place in the index order (the text of Python's check).
+        if (index != index)
+            throw std::invalid_argument("the index of input " + std::to_string(i) + " is NaN at event " +
+                                        std::to_string(offered_[i]) + "; an index must be a number");
+        ++offered_[i];
+        order_->offer(i, index);
+        pending_size_[i] = size;
         return run ? feed() : 0.0;
     }
     // Indexed: source i has no more events.
     double end(std::size_t i, bool run) {
-        stream_->end(i);
+        order_->end(i);
         return run ? feed() : 0.0;
     }
     double start() { return feed(); }
@@ -197,15 +209,30 @@ private:
     double feed() {
         index_.clear();
         flat_.clear();
-        bool more = true;
         std::ptrdiff_t want = -1;
-        while (more && (want = stream_->want()) < 0) {
-            more = stream_->step();
-            const screamer::dag::OutputBuffer& b = stream_->rows();
-            for (std::int64_t k : b.indices) index_.push_back(static_cast<double>(k));
-            flat_.insert(flat_.end(), b.values.begin(), b.values.end());
+        while (!done_ && (want = order_->want()) < 0) {
+            const std::ptrdiff_t w = order_->pop();
+            if (w < 0) {                             // the end: the held row, if any
+                done_ = true;
+                if (buffered_) take_held();
+                break;
+            }
+            const std::size_t i = static_cast<std::size_t>(w);
+            plan_.check_event(i, pending_size_[i], kWho);
+            double* dst = scratch_.data() + plan_.start[i];
+            plan_.read(i, events_[i].data(), dst);
+            if (!cl_->on_event(static_cast<std::uint32_t>(i), dst)) continue;
+            const double at = order_->index_of(i);
+            if (buffered_ && at == at_) {            // the same index: the last row wins
+                row_ = cl_->latest();
+                continue;
+            }
+            if (buffered_) take_held();
+            row_ = cl_->latest();
+            at_ = at;
+            buffered_ = true;
         }
-        if (!more) want = -1;
+        if (done_) want = -1;
         const std::size_t m = index_.size();
         out_.resize(std::max<std::size_t>(1, m * plan_.row_size()));
         if (plan_.assets.empty()) std::copy(flat_.begin(), flat_.end(), out_.begin());
@@ -214,13 +241,26 @@ private:
         return static_cast<double>(m) * (n + 1) + static_cast<double>(want + 1);
     }
 
+    // The held row joins the rows of this feed.
+    void take_held() {
+        index_.push_back(at_);
+        flat_.insert(flat_.end(), row_.begin(), row_.end());
+    }
+
     JoinPlan plan_;
+    std::unique_ptr<screamer::streams::MergeOrder<double>> order_;
+    std::unique_ptr<screamer::streams::CombineLatest> cl_;
+    std::vector<std::size_t> pending_size_;   // each source's offered event size
+    std::vector<std::size_t> offered_;        // events offered per source
+    std::vector<double> row_;                 // the held row
+    double at_ = 0;                           // and its index
+    bool buffered_ = false;
+    bool done_ = false;
     std::vector<std::vector<double>> events_;
     std::vector<double> sizes_, out_, scratch_, index_, flat_;
     std::vector<const double*> ptrs_;
     std::vector<std::size_t> counts_;
     std::unique_ptr<screamer::streams::PositionalZip> zip_;
-    std::unique_ptr<screamer::dag::CombineStream> stream_;
 };
 
 }  // namespace

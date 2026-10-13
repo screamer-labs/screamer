@@ -1,11 +1,13 @@
 export interface NdArray { data: Float64Array; shape: number[]; }
 
 // Throws unless the shape is a list of non-negative integers whose product is
-// data.length, so C++ never reads past the end of an argument.
+// data.length, so C++ never reads past the end of an argument. A dimension
+// must fit the 32-bit sizes of WASM (C++ would saturate a larger one).
 export function checkNd(a: NdArray): void {
   let n = 1;
   for (const d of a.shape) {
     if (!Number.isInteger(d) || d < 0) throw new TypeError(`shape [${a.shape}] must hold non-negative integers`);
+    if (d > 0xffffffff) throw new RangeError(`shape [${a.shape}] has a dimension above 2**32 - 1`);
     n *= d;
   }
   if (n !== a.data.length)

@@ -273,3 +273,56 @@ import { delay } from "@screamer-labs/screamer";
 
 const lagged = delay(x, 2);
 ```
+
+### On arrays and iterators
+
+`resample`, `select`, `dropna`, `filter` and `delay` also run directly, as Python's `Resample`,
+`Select`, `Dropna`, `Filter` and `Delay` do. Given arrays (a typed array, an Array, T rows or an
+`NdArray`), or an indexed stream `{ values, index }`, each returns `{ values, index }`; the
+index is null for a positional select or dropna. Given an iterator of `{ value, index }` events,
+each returns an iterator of `{ value, index }` rows. Every form runs the same C++ node through a
+one-node `Pipeline`, so the rows match the graph's.
+
+```js
+import { resample, select, dropna, delay } from "@screamer-labs/screamer";
+
+resample(new Float64Array([0, 1, 2, 3, 4]), { every: 2 });
+// { values: Float64Array [1, 3, 4], index: Float64Array [0, 2, 4] }
+
+select({ data: new Float64Array([0, 1, 2, 3, 4, 5]), shape: [3, 2] }, 1);
+// { values: Float64Array [1, 3, 5], index: null }
+
+dropna([{ values: [1, NaN, 3] }, { values: [NaN, 2, 4] }]);
+// two streams, merged in index order: { values: Float64Array [1, 2, 3, 4], index: null }
+
+delay({ values: [0, 1, 2], index: [0, 1, 5] }, 2);
+// { values: Float64Array [0, 1, 2], index: Float64Array [2, 3, 7] }
+```
+
+Several streams of `dropna` are an array of `{ values, index }` objects (`{ values }` for a
+positional one), as a plain array of arrays is the rows of one stream. A `delay` needs the
+index. A `resample` driver (`threshold`, or the clock of `clock: true`) goes in its `driver`
+option. On `(T, ...assets)` values, a built-in `agg` reduces every column on its own and the
+result keeps the asset axes, `[T', ...assets]`, with a last axis of 4 for `"ohlc"`.
+
+## Running over iterators
+
+A `Pipeline` called with an iterator of `{ value, index }` events (one input), or an object of
+such iterators keyed by input name, runs lazily: it returns a generator that reads one event at
+a time, as Python's `pipeline(iter(...))` does. The feeds merge in index order, ties in input
+order, and the rows are those a batch call gives: `{ value, index }` for one output (a number,
+or an array of the output's columns), `{ values, index }` with one value per output for aligned
+outputs. Nothing is read before the first `next()`; leaving the loop early closes the
+iterators. Each run has its own operator state, as a `live()` session does.
+
+```js
+const x = Input("x");
+const p = new Pipeline([x], [RollingMean(2)(x)]);
+
+for (const row of p([{ value: 1, index: 0 }, { value: 2, index: 1 }].values())) {
+  console.log(row); // { value: NaN, index: 0 }, then { value: 1.5, index: 1 }
+}
+```
+
+Iterators beside arrays throw `TypeError`; so do several outputs with `alignOutputs: false`,
+which have no one row per index (use the batch call).

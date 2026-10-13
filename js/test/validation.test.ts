@@ -488,7 +488,7 @@ test("validation: Embind functions that take a string never throw", async () => 
     .filter((f) => /\.(cpp|h)$/.test(f)).map((f) => [f, fs.readFileSync(path.join(root, d, f), "utf8")] as const));
   const allowed = ["graphFromJson", "graphToJson", "unknownFunctorMessage", "functorInputsMessage",
     "indexKindMessage", "feedLengthMessage", "maxPendingMessage", "maxPendingKindMessage", "maxFillMessage",
-    "finiteSettingError"];
+    "finiteSettingError", "resampleSettingsMessage"];
   const found: string[] = [];
   for (const [f, src] of files) {
     for (const m of src.matchAll(/(\w+)\s*\(([^()]*\bstd::string\b[^()]*)\)\s*(?:const\s*)?(?::[^{;]*)?\{/g)) {
