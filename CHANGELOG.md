@@ -5,6 +5,9 @@ All notable changes to this project are documented in this file.
 Unreleased
 ----------
 
+3.2.0 - 2026-10-14
+------------------
+
 ### Changed
 
 * `segment_shuffle`, and `position_test` / `positionTest` with
