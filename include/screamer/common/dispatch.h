@@ -549,7 +549,8 @@ inline bool is_mapping(PyObject* o) {
 // True when a pandas Series/DataFrame holds datetime64 or timedelta64 values.
 inline bool is_time_dtype(nb::handle x) {
     auto kind_is_time = [](nb::handle dt) {
-        nb::str k(dt.attr("kind"));
+        nb::object kind = dt.attr("kind");
+        nb::str k(nb::handle(kind));   // nb::handle: MSVC finds the accessor ambiguous
         const char* c = k.c_str();
         if (!c) { PyErr_Clear(); return false; }
         return c[0] == 'M' || c[0] == 'm';
@@ -620,7 +621,8 @@ inline nb::object normalize_input(nb::handle x, const S& op) {
         } else {
             bool text = false;                                    // a DataFrame
             for (nb::handle dt : x.attr("dtypes")) {
-                nb::str k(dt.attr("kind"));
+                nb::object kind = dt.attr("kind");
+        nb::str k(nb::handle(kind));   // nb::handle: MSVC finds the accessor ambiguous
                 const char* c = k.c_str();
                 if (c && (c[0] == 'O' || c[0] == 'U' || c[0] == 'S')) text = true;
             }
