@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 Unreleased
 ----------
 
+### Changed
+
+* screamer is built with nanobind 3.1.0 (was 2.13.0). Results and timings are
+  unchanged. The local nanobind patch now also fixes a crash when a Python
+  class that subclasses a screamer operator sets a `__module__` that UTF-8
+  cannot encode.
+
 3.0.2 - 2026-10-14
 ------------------
 
