@@ -173,9 +173,20 @@ stands out on drawdown, win rate, or turnover as well (see the scatter plots in
 The recipe [Is my backtest significant?](recipes/significance-test.md) runs
 `position_test` on a real tape and on a market with built-in momentum, and
 computes `probabilistic_sharpe` for the result.
-The notebook [Is it skill? Choosing a randomization test](notebooks/20-randomization-tests.ipynb)
-runs every test on a market with no edge and on one with a real edge, and ends
-with a table of which test answers which question.
+
+Which test answers which question:
+
+| Question | Test | Randomizes | Reruns the strategy | Example |
+|---|---|---|---|---|
+| Does the timing beat random timing with the same trades? | `position_test` | when the trades happen | no | [Is my strategy's timing real?](notebooks/20-is-the-timing-real.ipynb) |
+| Does the best of several variants survive the choice? | `position_test` with a `(T, K)` target, `family_p_value` | all variants' timing together | no | [Is my backtest significant?](recipes/significance-test.md) |
+| Does a tuned or fitted strategy beat the same procedure on random markets? | `strategy_test`, `method="bars"` or `"returns"` | the market's bars or returns | yes | [I tuned my parameters. Is the result real?](notebooks/21-is-the-tuned-result-real.ipynb) |
+| Does a feature carry information? | `strategy_test`, `method="shift"` | the features' alignment with the market | yes | [Does my feature carry information?](notebooks/22-does-the-feature-carry-information.ipynb) |
+| Is the Sharpe ratio above zero, or above the best of the variants tried? | `probabilistic_sharpe`, `deflated_sharpe` | nothing (analytic) | no | [Is my backtest significant?](recipes/significance-test.md) |
+
+`position_test` keeps the strategy's exposure in every randomized run, so a
+long-biased strategy in a rising market is tested on its timing only, not on
+the trend it rides.
 
 ## Selection
 

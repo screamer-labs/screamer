@@ -128,10 +128,22 @@ From a position signal to a costed equity curve.
 Fills on bars, the trade tape, and top-of-book quotes.
 :::
 
-:::{grid-item-card} Is it skill? Randomization tests
-:link: 20-randomization-tests
+:::{grid-item-card} Is my strategy's timing real?
+:link: 20-is-the-timing-real
 :link-type: doc
-Which randomization test to use, on a market with no edge and one with a real edge.
+`position_test`: your trades against the same trades at random times.
+:::
+
+:::{grid-item-card} I tuned my parameters. Is the result real?
+:link: 21-is-the-tuned-result-real
+:link-type: doc
+`strategy_test`: rerun the whole search on permuted markets.
+:::
+
+:::{grid-item-card} Does my feature carry information?
+:link: 22-does-the-feature-carry-information
+:link-type: doc
+`strategy_test` with `method="shift"`: misalign a feature and compare.
 :::
 ```
 
@@ -187,5 +199,7 @@ Build a leak-safe training set with `forecast_pairs`, fit, and backtest.
 17-filtering-and-forecasting-with-uncertainty
 18-pairs-and-mean-reversion
 19-cycle-and-spectral-analysis
-20-randomization-tests
+20-is-the-timing-real
+21-is-the-tuned-result-real
+22-does-the-feature-carry-information
 ```

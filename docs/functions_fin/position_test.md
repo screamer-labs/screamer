@@ -149,8 +149,10 @@ selected on the same data, that choice also inflates the result, and this test
 does not see it. [`strategy_test`](strategy_test.md) re-runs the whole strategy
 on permuted market data and covers it.
 The notebook
-[Is it skill? Choosing a randomization test](../notebooks/20-randomization-tests.ipynb)
-shows the difference on a strategy tuned on a random walk.
+[I tuned my parameters. Is the result real?](../notebooks/21-is-the-tuned-result-real.ipynb)
+shows the difference on a strategy tuned on a random walk, and
+[Is my strategy's timing real?](../notebooks/20-is-the-timing-real.ipynb) is a
+short worked example of this test.
 
 ## Examples
 

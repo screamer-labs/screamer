@@ -105,10 +105,11 @@ distributions and scatter plots as shown in
 `periods_per_year` annualizes the ratios. The same `seed` gives the same
 randomized inputs in Python and JavaScript.
 
-The notebook
-[Is it skill? Choosing a randomization test](../notebooks/20-randomization-tests.ipynb)
-compares `strategy_test` with `position_test` on a market with no edge and one
-with a real edge.
+Worked examples:
+[I tuned my parameters. Is the result real?](../notebooks/21-is-the-tuned-result-real.ipynb)
+(`method="bars"`) and
+[Does my feature carry information?](../notebooks/22-does-the-feature-carry-information.ipynb)
+(`method="shift"`).
 
 ## Examples
 

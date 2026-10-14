@@ -7,8 +7,9 @@ of Deribit BTC- and ETH-perpetual trades) for the flow sections; the book
 operators in notebook 13 use an illustrative synthetic L1 book, since a trade
 tape carries no quotes. The backtest notebooks (14-15) reuse the same real-data
 slice: 14 marks a position signal to bars, and 15 drives the event-driven engines
-(OHLC, tape, and a synthetic L1 book) from one tape. Notebook 20 compares the randomization tests on two seeded
-synthetic markets, one with no edge and one with a real edge. Everything runs offline with
+(OHLC, tape, and a synthetic L1 book) from one tape. Notebooks 20-22 each
+show one randomization test: 20 on the same BTC slice, 21 and 22 on seeded
+synthetic markets whose answer is known. Everything runs offline with
 no downloads.
 
 ## Run / verify

@@ -129,10 +129,9 @@ stricter question of whether the net Sharpe ratio beats luck: the best
 variant's 0.026 per bar is only a little above the 0.020 that the best of these
 eight would reach by chance, which gives a probability of 0.6.
 
-The notebook [Is it skill? Choosing a randomization test](../notebooks/20-randomization-tests.ipynb)
-compares `position_test` with `strategy_test`, which reruns the whole strategy
-on permuted markets, and shows why a strategy tuned on the data needs the
-latter.
+If you tuned the strategy on the data, see
+[I tuned my parameters. Is the result real?](../notebooks/21-is-the-tuned-result-real.ipynb),
+which reruns the whole search on permuted markets with `strategy_test`.
 
 Related pages: [`position_test`](../functions_fin/position_test.md),
 [`strategy_test`](../functions_fin/strategy_test.md),
