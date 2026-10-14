@@ -173,6 +173,9 @@ stands out on drawdown, win rate, or turnover as well (see the scatter plots in
 The recipe [Is my backtest significant?](recipes/significance-test.md) runs
 `position_test` on a real tape and on a market with built-in momentum, and
 computes `probabilistic_sharpe` for the result.
+The notebook [Is it skill? Choosing a randomization test](notebooks/20-randomization-tests.ipynb)
+runs every test on a market with no edge and on one with a real edge, and ends
+with a table of which test answers which question.
 
 ## Selection
 

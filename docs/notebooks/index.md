@@ -127,6 +127,12 @@ From a position signal to a costed equity curve.
 :link-type: doc
 Fills on bars, the trade tape, and top-of-book quotes.
 :::
+
+:::{grid-item-card} Is it skill? Randomization tests
+:link: 20-randomization-tests
+:link-type: doc
+Which randomization test to use, on a market with no edge and one with a real edge.
+:::
 ```
 
 ## Filtering & forecasting
@@ -181,4 +187,5 @@ Build a leak-safe training set with `forecast_pairs`, fit, and backtest.
 17-filtering-and-forecasting-with-uncertainty
 18-pairs-and-mean-reversion
 19-cycle-and-spectral-analysis
+20-randomization-tests
 ```
