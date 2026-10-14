@@ -24,6 +24,8 @@ from __future__ import annotations
 import importlib.resources
 import json
 
+import pytest
+
 from devtools import baselines, get_baselines
 
 # Load help.json from the installed screamer package so this runs against the wheel.
@@ -126,6 +128,7 @@ def _functors() -> dict[str, dict]:
 
 def test_every_functor_has_a_baseline_or_a_stated_reason():
     """A new operator cannot land with neither."""
+    pytest.importorskip("talib", reason="many baselines are TA-Lib's; TA-Lib is not installed")
     unaccounted = sorted(
         name for name in _functors()
         if not get_baselines(name) and name not in BASELINE_GAP

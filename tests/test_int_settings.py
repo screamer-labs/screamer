@@ -1,6 +1,7 @@
 """An integer setting below its smallest value raises ValueError with one
 message form, "<Op>: <setting> must be at least <min>, got <v>" (C++
 int_settings.h), never the raw text of the operator's buffers ("vector")."""
+import importlib.resources
 import json
 import pathlib
 
@@ -59,7 +60,7 @@ def test_a_value_outside_the_int_range_raises_one_message(op, name):
 def test_the_documented_minimum_is_the_constructors():
     """Each integer setting's `min` in its page's parameter list is the
     smallest value int_settings.h records (the one the constructors take)."""
-    help_ = json.loads((ROOT / "screamer" / "data" / "help.json").read_text())
+    help_ = json.loads(importlib.resources.files("screamer").joinpath("data/help.json").read_text())
     wrong = []
     for op, name in INTS:
         p = [p for p in help_[op]["parameters"] if p["name"] == name][0]

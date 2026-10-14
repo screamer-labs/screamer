@@ -46,6 +46,8 @@ def _snapshot():
 
 @pytest.mark.parametrize("script", SCRIPTS)
 def test_help_prints_usage_and_writes_nothing(script):
+    if not (ROOT / "screamer" / "data" / "help.json").exists():
+        pytest.skip("needs the source tree (screamer/data/help.json)")
     before = _snapshot()
     env = dict(os.environ, PYTHONPATH=str(ROOT), MPLBACKEND="Agg")
     r = subprocess.run([sys.executable, script, "--help"], cwd=ROOT, env=env,

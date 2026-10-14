@@ -1,6 +1,11 @@
 import numpy as np
 import pytest
-import talib
+
+try:
+    import talib
+except ImportError:     # TA-Lib has no wheel for every Python; its cross-checks skip
+    talib = None
+needs_talib = pytest.mark.skipif(talib is None, reason="TA-Lib is not installed")
 
 from screamer import ADX, PlusDI, MinusDI, PlusDM, MinusDM, DX, ADXR
 from tests.regime_helpers import assert_batch_equals_scalar
@@ -16,6 +21,7 @@ def _ohlc(n, seed=0):
 
 class TestADXUnchanged:
     @pytest.mark.parametrize("w", [14, 20])
+    @needs_talib
     def test_adx_matches_talib_after_refactor(self, w):
         high, low, close = _ohlc(300, seed=w)
         out = ADX(w)(high, low, close)
@@ -34,6 +40,7 @@ class TestADXUnchanged:
 
 class TestPlusMinusDI:
     @pytest.mark.parametrize("w", [14, 20])
+    @needs_talib
     def test_plus_di_matches_talib(self, w):
         high, low, close = _ohlc(300, seed=w + 1)
         ours = np.asarray(PlusDI(w)(high, low, close))
@@ -42,6 +49,7 @@ class TestPlusMinusDI:
         np.testing.assert_allclose(ours[m], ref[m], atol=1e-8)
 
     @pytest.mark.parametrize("w", [14, 20])
+    @needs_talib
     def test_minus_di_matches_talib(self, w):
         high, low, close = _ohlc(300, seed=w + 2)
         ours = np.asarray(MinusDI(w)(high, low, close))
@@ -57,6 +65,7 @@ class TestPlusMinusDI:
 
 class TestPlusMinusDM:
     @pytest.mark.parametrize("w", [14, 20])
+    @needs_talib
     def test_plus_dm_matches_talib_aligned(self, w):
         high, low, close = _ohlc(300, seed=w + 4)
         ours = np.asarray(PlusDM(w)(high, low))
@@ -69,6 +78,7 @@ class TestPlusMinusDM:
         np.testing.assert_allclose(ours[m], ref[m], atol=1e-8)
 
     @pytest.mark.parametrize("w", [14, 20])
+    @needs_talib
     def test_minus_dm_matches_talib_aligned(self, w):
         high, low, close = _ohlc(300, seed=w + 5)
         ours = np.asarray(MinusDM(w)(high, low))
@@ -85,6 +95,7 @@ class TestPlusMinusDM:
 
 class TestDX:
     @pytest.mark.parametrize("w", [14, 20])
+    @needs_talib
     def test_dx_matches_talib(self, w):
         high, low, close = _ohlc(300, seed=w + 7)
         ours = np.asarray(DX(w)(high, low, close))
@@ -99,6 +110,7 @@ class TestDX:
 
 class TestADXR:
     @pytest.mark.parametrize("w", [14, 20])
+    @needs_talib
     def test_adxr_matches_talib(self, w):
         high, low, close = _ohlc(400, seed=w + 9)
         ours = np.asarray(ADXR(w)(high, low, close))

@@ -1,6 +1,7 @@
 """Task 31 fix round 1: settings documented as finite refuse an infinity and
 NaN, and a setting of the wrong kind names the operator and the setting.
 Mirrors js/test/setting_kinds.test.ts."""
+import importlib.resources
 import math
 
 import numpy as np
@@ -47,7 +48,7 @@ from screamer import screamer_bindings as _b                          # noqa: E4
 
 _ROOT = _pathlib.Path(__file__).resolve().parent.parent
 _ORACLE = _ROOT / "wasm" / "smoke" / "null_oracle.json"
-_HELP = _ROOT / "screamer" / "data" / "help.json"
+_HELP = importlib.resources.files("screamer").joinpath("data/help.json")   # the installed package
 _FLOATS = ("float", "float|null", "float|list[float]", "float[]")
 _EW = {"com", "span", "halflife", "alpha"}
 _TEXT = {math.inf: "inf", -math.inf: "-inf"}

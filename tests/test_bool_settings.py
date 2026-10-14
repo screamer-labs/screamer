@@ -7,6 +7,7 @@ the stream settings and the number arguments of the validation and backtest
 functions. The JavaScript side reads the same table, with the messages, from
 wasm/smoke/null_oracle.json (accepts_bool, bool_message).
 """
+import importlib.resources
 import json
 import pathlib
 
@@ -17,7 +18,7 @@ import screamer as s
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 FIXTURE = REPO_ROOT / "wasm" / "smoke" / "null_oracle.json"
-HELP = REPO_ROOT / "screamer" / "data" / "help.json"
+HELP = importlib.resources.files("screamer").joinpath("data/help.json")   # the installed package
 
 pytestmark = pytest.mark.skipif(not FIXTURE.exists(), reason="needs the source tree")
 
