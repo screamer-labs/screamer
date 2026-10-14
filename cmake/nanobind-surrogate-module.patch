@@ -1,48 +1,82 @@
+diff --git a/src/buffer.h b/src/buffer.h
+index f574826..e48a6cd 100644
+--- a/src/buffer.h
++++ b/src/buffer.h
+@@ -47,6 +47,26 @@ public:
+     /// Append a dynamic string
+     void put_dstr(const char *str) { put(str, strlen(str)); }
+ 
++    /// Append a Python 'str'. One that UTF-8 cannot encode (e.g. holding a
++    /// lone surrogate) is appended with backslash escapes instead.
++    void put_pystr(PyObject *o) {
++        Py_ssize_t size;
++        const char *s = PyUnicode_AsUTF8AndSize(o, &size);
++        if (s) {
++            put(s, (size_t) size);
++            return;
++        }
++        PyErr_Clear();
++        PyObject *b = PyUnicode_AsEncodedString(o, "utf-8", "backslashreplace");
++        if (b) {
++            put_dstr(PyBytes_AsString(b));
++            Py_DECREF(b);
++        } else {
++            PyErr_Clear();
++            put("<unencodable str>");
++        }
++    }
++
+     /// Append a single character to the buffer
+     void put(char c) {
+         if (m_cur + 1 >= m_end)
+diff --git a/src/error.cpp b/src/error.cpp
+index bd2f3f0..498a902 100644
+--- a/src/error.cpp
++++ b/src/error.cpp
+@@ -166,14 +166,14 @@ const char *error_what(error_payload *p) noexcept {
+         try {
+             object name = steal(raise_if_null(
+                 PyObject_GetAttrString(exc_type.ptr(), "__name__")));
+-            exc_buf.put_dstr(borrow<str>(name).c_str());
++            exc_buf.put_pystr(name.ptr());
+             exc_buf.put(": ");
+         } catch (...) { PyErr_Clear(); }
+     }
+ 
+     if (exc_value.is_valid()) {
+         try {
+-            exc_buf.put_dstr(str(exc_value).c_str());
++            exc_buf.put_pystr(str(exc_value).ptr());
+         } catch (...) {
+             PyErr_Clear();
+             exc_buf.put("<exception str() failed>");
 diff --git a/src/nb_func.cpp b/src/nb_func.cpp
-index 03b3e1c..84448b5 100644
+index 5a98252..fa71f8b 100644
 --- a/src/nb_func.cpp
 +++ b/src/nb_func.cpp
-@@ -1540,13 +1540,28 @@ static uint32_t nb_func_render_signature(const func_data *f,
-                     auto it = internals_->type_c2p_slow.find(*descr_type);
- 
-                     if (it != internals_->type_c2p_slow.end()) {
--                        handle th((PyObject *) it->second->type_py);
--                        buf.put_dstr((borrow<str>(
--                            th.attr(NB_INTERNED(__module__)))).c_str());
--                        buf.put('.');
--                        buf.put_dstr((borrow<str>(
--                            th.attr(NB_INTERNED(__qualname__)))).c_str());
--                        found = true;
-+                        // A bound type's '__module__' or '__qualname__' can be
-+                        // reassigned to a missing, non-string, or
-+                        // non-UTF-8-encodable value; fall back to the C++ type
-+                        // name then (screamer patch,
-+                        // cmake/nanobind-surrogate-module.patch)
-+                        PyObject *th = (PyObject *) it->second->type_py;
-+                        PyObject *mod = PyObject_GetAttr(th, NB_INTERNED(__module__)),
-+                                 *qual = PyObject_GetAttr(th, NB_INTERNED(__qualname__));
-+                        const char *mod_c = (mod && PyUnicode_Check(mod))
-+                            ? PyUnicode_AsUTF8AndSize(mod, nullptr) : nullptr;
-+                        const char *qual_c = (qual && PyUnicode_Check(qual))
-+                            ? PyUnicode_AsUTF8AndSize(qual, nullptr) : nullptr;
-+                        if (mod_c && qual_c) {
-+                            buf.put_dstr(mod_c);
-+                            buf.put('.');
-+                            buf.put_dstr(qual_c);
-+                            found = true;
-+                        } else {
-+                            PyErr_Clear();
-+                        }
-+                        Py_XDECREF(mod);
-+                        Py_XDECREF(qual);
-                     }
-                     if (!found) {
-                         if (nb_signature_mode)
+@@ -574,7 +574,7 @@ nb_func_error_overload(PyObject *self, PyObject *const *args_in,
+     buf.put("\nInvoked with types: ");
+     for (size_t i = 0; i < nargs_in; ++i) {
+         str name = steal<str>(nb_inst_name(args_in[i]));
+-        buf.put_dstr(name.c_str());
++        buf.put_pystr(name.ptr());
+         if (i + 1 < nargs_in)
+             buf.put(", ");
+     }
+@@ -597,7 +597,7 @@ nb_func_error_overload(PyObject *self, PyObject *const *args_in,
+             buf.put_dstr(key_cstr);
+             buf.put(": ");
+             str name = steal<str>(nb_inst_name(value));
+-            buf.put_dstr(name.c_str());
++            buf.put_pystr(name.ptr());
+             buf.put(", ");
+         }
+         buf.rewind(2);
 diff --git a/src/nb_ndarray.cpp b/src/nb_ndarray.cpp
-index e140022..28e815c 100644
+index 521a725..2fc51fa 100644
 --- a/src/nb_ndarray.cpp
 +++ b/src/nb_ndarray.cpp
-@@ -552,14 +552,23 @@ static mt_unique_ptr_t make_mt_from_buffer_protocol(PyObject *o, bool ro) {
+@@ -550,14 +550,23 @@ static mt_unique_ptr_t make_mt_from_buffer_protocol(PyObject *o, bool ro) {
      mt->dltensor.byte_offset = 0UL;
  
      const int64_t itemsize = (int64_t) view->itemsize;
@@ -51,44 +85,51 @@ index e140022..28e815c 100644
 -        if (stride * itemsize != view->strides[i]) {
 -            PyBuffer_Release(view.get());
 -            return mt_unique_ptr;
-+    // An exporter may leave 'strides' NULL even when PyBUF_STRIDES was
-+    // requested (ctypes arrays, NumPy datetime64 scalars); the buffer is then
-+    // C-contiguous (screamer patch, cmake/nanobind-surrogate-module.patch).
-+    int64_t contig = 1;
+-        }
+-        strides[i] = stride;
++    // An exporter may leave 'strides' NULL even though PyBUF_STRIDES was
++    // requested (e.g. ctypes arrays, NumPy scalars). The buffer is then
++    // C-contiguous.
++    int64_t contig_stride = 1;
 +    for (int32_t i = ndim - 1; i >= 0; --i) {
-+        if (!view->strides) {
-+            strides[i] = contig;
-+        } else {
+         shape[i] = (int64_t) view->shape[i];
++        if (view->strides) {
 +            int64_t stride = view->strides[i] / itemsize;
 +            if (stride * itemsize != view->strides[i]) {
 +                PyBuffer_Release(view.get());
 +                return mt_unique_ptr;
 +            }
 +            strides[i] = stride;
-         }
--        strides[i] = stride;
-         shape[i] = (int64_t) view->shape[i];
-+        contig *= shape[i];
++        } else {
++            strides[i] = contig_stride;
++            contig_stride *= shape[i];
++        }
      }
  
      mt->version = {dlpack::major_version, dlpack::minor_version};
 diff --git a/src/nb_type.cpp b/src/nb_type.cpp
-index 12a7c0a..9f7b98d 100644
+index 04fe8f8..e6893ca 100644
 --- a/src/nb_type.cpp
 +++ b/src/nb_type.cpp
-@@ -2547,8 +2547,13 @@ PyObject *nb_type_name(PyObject *t) noexcept {
+@@ -8,6 +8,7 @@
+ */
  
-     if (PyType_HasFeature((PyTypeObject *) t, Py_TPFLAGS_HEAPTYPE)) {
-         PyObject *mod = PyObject_GetAttr(t, NB_INTERNED(__module__));
--        // Tolerate a missing or non-string '__module__' attribute
--        if (NB_LIKELY(mod && PyUnicode_Check(mod))) {
-+        // Tolerate a missing, non-string, or non-UTF-8-encodable '__module__'
-+        // attribute (screamer patch, cmake/nanobind-surrogate-module.patch)
-+        bool mod_ok = mod && PyUnicode_Check(mod) &&
-+                      PyUnicode_AsUTF8AndSize(mod, nullptr);
-+        if (!mod_ok)
-+            PyErr_Clear();
-+        if (NB_LIKELY(mod_ok)) {
-             PyObject *combined = PyUnicode_FromFormat("%U.%U", mod, result);
-             Py_DECREF(result);
-             result = combined;
+ #include "nb_internals.h"
++#include "buffer.h"
+ #include "nb_ft.h"
+ 
+ 
+@@ -741,8 +742,12 @@ static NB_NOINLINE int nb_type_init_py(PyTypeObject *self) {
+         return -1;
+     }
+ 
++    // The name may hold a str that UTF-8 cannot encode (from a hostile
++    // '__module__'); put_pystr() escapes it
+     PyObject *name_o = nb_type_name((PyObject *) self);
+-    char *name = strdup_check(PyUnicode_AsUTF8AndSize(name_o, nullptr));
++    Buffer name_buf(64);
++    name_buf.put_pystr(name_o);
++    char *name = strdup_check(name_buf.get());
+     Py_DECREF(name_o);
+ 
+     // Assemble the record locally, it is published as a whole below

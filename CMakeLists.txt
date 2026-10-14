@@ -47,24 +47,26 @@ set(LOCAL_CACHE_DIR ${CMAKE_SOURCE_DIR}/_local_deps)
 
 # nanobind replaces pybind11 (migration 2026-08). nanobind has STABLE_ABI from
 # Python 3.12+, which collapses the release wheel matrix to one abi3 wheel per
-# platform. v2.13.0 (bumped from v2.9.2 for 3.0.0) fixes crashes on an object
-# whose class has a non-str __module__. See
-# docs/superpowers/plans/2026-08-01-nanobind-migration.md.
+# platform. v3.1.0 (bumped from v2.13.0) brings faster attribute lookups and
+# function dispatch. See docs/superpowers/plans/2026-08-01-nanobind-migration.md.
 #
 # Pinned by commit, with a local patch, cmake/nanobind-surrogate-module.patch,
-# for two crashes of v2.13.0 and nanobind master that are not yet fixed upstream
-# (report both; remove each hunk when its fix lands):
-#  1. nb_type_name() and nb_func_render_signature() tolerate a __module__ that
-#     is not valid UTF-8 (for example '\udc80').
-#  2. make_mt_from_buffer_protocol() (nb_ndarray.cpp) divides view->strides[i]
-#     without a NULL check. A ctypes array and a NumPy datetime64/timedelta64
-#     scalar export a buffer with strides == NULL, so any nb::ndarray argument
-#     given one segfaulted. The patch reads NULL strides as C-contiguous.
-#     screamer also refuses those values before any ndarray cast (TypeError,
-#     cast_double.h is_foreign_value).
+# for crashes of v3.1.0 that are fixed in open upstream PRs (remove each hunk
+# when its fix is released):
+#  1. wjakob/nanobind#1455: an error message holding a str that UTF-8 cannot
+#     encode (a lone surrogate such as '\udc80', from a class's __module__ or an
+#     exception message) segfaulted. Buffer::put_pystr() escapes it instead.
+#     The patch also uses it in nb_type_init() (nb_type.cpp), where subclassing
+#     a bound type with such a __module__ segfaulted; not yet reported upstream.
+#  2. wjakob/nanobind#1454: make_mt_from_buffer_protocol() (nb_ndarray.cpp) read
+#     view->strides[i] without a NULL check. A ctypes array and a NumPy
+#     datetime64/timedelta64 scalar export a buffer with strides == NULL, so any
+#     nb::ndarray argument given one segfaulted. The patch reads NULL strides as
+#     C-contiguous. screamer also refuses those values before any ndarray cast
+#     (TypeError, cast_double.h is_foreign_value).
 # A version bump must re-check that the patch still applies (configure fails
 # loudly when it does not).
-set(SCREAMER_NANOBIND_VERSION "2.13.0")
+set(SCREAMER_NANOBIND_VERSION "3.1.0")
 set(SCREAMER_NANOBIND_PATCH "${CMAKE_SOURCE_DIR}/cmake/nanobind-surrogate-module.patch")
 
 if(EXISTS "${LOCAL_CACHE_DIR}/nanobind")
@@ -92,7 +94,7 @@ else()
     FetchContent_Declare(
         nanobind
         GIT_REPOSITORY      https://github.com/wjakob/nanobind.git
-        GIT_TAG             e2dc00f7a34f935c6cf91948776d59c4709e9fe6  # v2.13.0
+        GIT_TAG             68480a9e6883bb1bf65e1925423321e2a89d07f9  # v3.1.0
         UPDATE_DISCONNECTED ON
         PATCH_COMMAND       "${CMAKE_COMMAND}" -DSRC=<SOURCE_DIR>
                             -DPATCH=${SCREAMER_NANOBIND_PATCH}

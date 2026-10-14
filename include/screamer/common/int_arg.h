@@ -145,7 +145,7 @@ template <class T>
 struct type_caster<screamer::IntArg<T>> {
     NB_TYPE_CASTER(screamer::IntArg<T>, const_name("int"))
 
-    bool from_python(handle src, uint8_t flags, cleanup_list* cleanup) noexcept {
+    bool from_python(handle src, uint32_t flags, cleanup_list* cleanup) noexcept {
         PyObject* o = src.ptr();
         if (PyUnicode_Check(o) || PyBytes_Check(o) || PyByteArray_Check(o)) {
             // Accepted here and refused by the conversion, with a clear message.
@@ -186,7 +186,7 @@ template <>
 struct type_caster<screamer::FloatArg> {
     NB_TYPE_CASTER(screamer::FloatArg, const_name("float"))
 
-    bool from_python(handle src, uint8_t flags, cleanup_list* cleanup) noexcept {
+    bool from_python(handle src, uint32_t flags, cleanup_list* cleanup) noexcept {
         if (const char* b = screamer::bool_kind(src.ptr())) {
             value.text = b;          // refused by the conversion, with a clear message
             return true;
@@ -207,7 +207,7 @@ template <>
 struct type_caster<screamer::FloatVecArg> {
     NB_TYPE_CASTER(screamer::FloatVecArg, make_caster<std::vector<double>>::Name)
 
-    bool from_python(handle src, uint8_t flags, cleanup_list* cleanup) noexcept {
+    bool from_python(handle src, uint32_t flags, cleanup_list* cleanup) noexcept {
         if (const char* b = screamer::bool_element_kind(src.ptr())) {
             value.text = b;
             return true;

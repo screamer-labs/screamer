@@ -74,7 +74,7 @@ namespace nanobind { namespace detail {
 template <> struct type_caster<screamer::PerAsset> {
     NB_TYPE_CASTER(screamer::PerAsset, const_name("float | Sequence[float]"))
 
-    bool from_python(handle src, uint8_t flags, cleanup_list* cleanup) noexcept {
+    bool from_python(handle src, uint32_t flags, cleanup_list* cleanup) noexcept {
         if (!PySequence_Check(src.ptr())) {
             if (screamer::bool_kind(src.ptr())) return false;   // a bool is not a number setting
             const double d = PyFloat_AsDouble(src.ptr());
@@ -1173,7 +1173,8 @@ void init_bindings_fin(nb::module_& m) {
         nb::list out;
         for (const auto& st : sv::kStats)
             out.append(nb::make_tuple(st.name, sv::stat_source_name(st.source), st.column,
-                                      st.larger < 0 ? nb::none() : nb::bool_(st.larger == 1)));
+                                      st.larger < 0 ? nb::object(nb::none())
+                                                     : nb::object(nb::bool_(st.larger == 1))));
         return out;
     });
     m.def("_backtest_report", &backtest_report_py, "values"_a, "periods_per_year"_a.none());
