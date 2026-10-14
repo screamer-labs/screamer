@@ -20,7 +20,7 @@ readme = "README.md"
 
 license = {text = "MIT"}
 
-dependencies = []
+dependencies = ["numpy>=2.0"]
 
 keywords = ["streaming", "indicators", "real-time", "algorithmic", "trading", "low-latency"]
 

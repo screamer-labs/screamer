@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 Unreleased
 ----------
 
+3.0.1 - 2026-10-14
+------------------
+
+### Fixed
+
+* `pip install screamer` now installs numpy. `import screamer` has always
+  needed numpy, but the package did not declare it, so the import failed in a
+  fresh environment. The requirement is `numpy>=2.0`.
+
 3.0.0 - 2026-10-14
 ------------------
 
