@@ -109,7 +109,8 @@ def _observe(name, idx):
 
 
 def test_every_backtest_page_is_covered():
-    pages = {p.stem for p in DOCS.glob("Backtest*.md")}
+    # startswith: Windows globs ignore case, and backtest_report.md is a guide page.
+    pages = {p.stem for p in DOCS.glob("*.md") if p.stem.startswith("Backtest")}
     assert pages == set(CASES)
 
 
