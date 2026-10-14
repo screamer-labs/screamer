@@ -5,6 +5,9 @@ All notable changes to this project are documented in this file.
 Unreleased
 ----------
 
+3.1.0 - 2026-10-14
+------------------
+
 ### Changed
 
 * screamer is built with nanobind 3.1.0 (was 2.13.0). Results and timings are
