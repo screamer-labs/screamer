@@ -5,7 +5,10 @@ All notable changes to this project are documented in this file.
 Unreleased
 ----------
 
-This is a major release, 3.0.0: the results listed under "Changed" differ from
+3.0.0 - 2026-10-14
+------------------
+
+This is a major release: the results listed under "Changed" differ from
 2.8.0. Each entry gives the way to get the old result.
 
 ### Added
