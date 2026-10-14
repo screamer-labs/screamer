@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 Unreleased
 ----------
 
+3.0.2 - 2026-10-14
+------------------
+
+### Fixed
+
+* 3.0.1 did not reach PyPI: the release workflow installed the wheel before
+  numpy, which the new dependency does not allow. 3.0.2 publishes the 3.0.1
+  fix to PyPI. The code is the same as 3.0.1.
+
 3.0.1 - 2026-10-14
 ------------------
 
