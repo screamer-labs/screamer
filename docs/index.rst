@@ -134,84 +134,11 @@ minutes (middle) and its sign (bottom).
 What you can build
 ------------------
 
-Each tile opens a worked example. :doc:`What you can build <capabilities>` lists
-the functions behind each area, and the :doc:`gallery <gallery>` shows a plot for
-every function.
+Each tile opens a group of worked examples on the :doc:`What you can build
+<capabilities>` page, and the :doc:`gallery <gallery>` shows a plot for every
+function.
 
-.. grid:: 1 2 3 3
-   :gutter: 3
-
-   .. grid-item-card:: Indicators
-      :img-top: _static/gallery/recipes__pandas-ohlcv-indicators.webp
-      :img-alt: Bollinger Bands, RSI, and ATR on one-minute BTC bars
-      :link: recipes/pandas-ohlcv-indicators
-      :link-type: doc
-
-      Moving averages, RSI, MACD, bands, and ATR on arrays or DataFrames.
-
-   .. grid-item-card:: Filtering and cycles
-      :img-top: _static/gallery/functions_signal__MAMA.webp
-      :img-alt: MAMA adaptive moving average on a cycling series
-      :link: notebooks/19-cycle-and-spectral-analysis
-      :link-type: doc
-
-      Low-lag smoothers, Kalman and Butterworth filters, and cycle measurement.
-
-   .. grid-item-card:: Bars from ticks
-      :img-top: _static/gallery/capability__bars.webp
-      :img-alt: BTC trades with ten-minute OHLC bars
-      :link: notebooks/09-bars-from-ticks
-      :link-type: doc
-
-      Time, tick, volume, and dollar bars from a trade tape.
-
-   .. grid-item-card:: Microstructure
-      :img-top: _static/gallery/capability__microstructure.webp
-      :img-alt: BTC price and order flow, true and inferred
-      :link: notebooks/11-microstructure-order-flow
-      :link-type: doc
-
-      Trade signing, order-flow imbalance, price impact, and VPIN.
-
-   .. grid-item-card:: Backtesting
-      :img-top: _static/gallery/recipes__ticks-to-backtest.webp
-      :img-alt: Equity curves with and without trading costs
-      :link: recipes/ticks-to-backtest
-      :link-type: doc
-
-      Costed backtests with slippage and fill timing, and a significance test.
-
-   .. grid-item-card:: Portfolios and pairs
-      :img-top: _static/gallery/recipes__pairs-trade.webp
-      :img-alt: A pairs trade on BTC and ETH with its hedge ratio and spread
-      :link: portfolio_backtesting
-      :link-type: doc
-
-      Many assets from one account: weights, rebalancing, cross-sectional ranks, and pairs.
-
-   .. grid-item-card:: Forecasting and ML
-      :img-top: _static/gallery/recipes__ml-features.webp
-      :img-alt: Predicted against realized returns, and feature weights
-      :link: recipes/ml-features
-      :link-type: doc
-
-      Training sets from causal features, and online regression and filtering.
-
-   .. grid-item-card:: Live streaming and pipelines
-      :img-top: _static/gallery/recipes__live-loop.webp
-      :img-alt: Trades processed one at a time, with alerts and order flow
-      :link: recipes/live-loop
-      :link-type: doc
-
-      One value at a time on a live feed, stream alignment, and pipelines.
-
-   .. grid-item-card:: JavaScript in the browser
-      :img-top: _static/gallery/capability__javascript.webp
-      :img-alt: A screamer.js code snippet above a price trace
-      :link: javascript
-      :link-type: doc
-
-      The same operators as WebAssembly, in Node.js and the browser.
+.. include:: examples_tiles.inc
 
 
 Speed
@@ -256,17 +183,11 @@ Functions by group
 
       A plot for every function, grouped like this list.
 
-   .. grid-item-card:: Recipes
-      :link: recipes/index
+   .. grid-item-card:: What you can build
+      :link: capabilities
       :link-type: doc
 
-      Short, complete solutions to common tasks.
-
-   .. grid-item-card:: Examples
-      :link: notebooks/index
-      :link-type: doc
-
-      Runnable notebooks grouped by task.
+      Every recipe and notebook, grouped by task.
 
 
 .. toctree::
@@ -284,7 +205,6 @@ Functions by group
    :caption: User Guide
    :hidden:
 
-   capabilities
    choosing_an_operator
    backtesting_best_practices
    portfolio_backtesting
@@ -296,8 +216,7 @@ Functions by group
    :caption: Examples
    :hidden:
 
-   recipes/index
-   notebooks/index
+   capabilities
 
 
 .. toctree::

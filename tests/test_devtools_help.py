@@ -10,6 +10,7 @@ import pytest
 ROOT = Path(__file__).resolve().parent.parent
 
 SCRIPTS = [
+    "devtools/build_examples.py",
     "devtools/build_function_index.py",
     "devtools/build_help_registry.py",
     "devtools/build_topic_pages.py",

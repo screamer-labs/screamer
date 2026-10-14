@@ -257,15 +257,13 @@ The precise reset rules are in the [Polymorphic API reference](polymorphic_api.m
 
 - **A first strategy**: [your first strategy](recipes/first-strategy.md) goes
   from prices to a costed backtest and a p-value.
-- **Recipes**: [short solutions](recipes/index.md) to common tasks, on real
-  market data.
+- **Examples**: [What you can build](capabilities.md) groups the recipes and
+  notebooks by task.
 - **Guides**: [backtesting best practices](backtesting_best_practices.md) and
   [portfolios and pairs](portfolio_backtesting.md).
 - **Concepts**: [Polymorphic API](polymorphic_api.md),
   [NaN and warmup](nan_and_warmup.md),
   [Streams, values, and alignment](multistream.md), and
   [Pipelines](pipelines.md) give the precise behaviour.
-- **Examples**: the [example notebooks](notebooks/index.md) each tour one area
-  in depth.
 - **API reference**: [every function by group](by_group_index.rst), and the
   [gallery](gallery.rst) with a plot for each.

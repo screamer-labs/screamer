@@ -5,9 +5,10 @@ Every function page under ``docs/functions_*/`` that has a ``.. plotly::``
 example gets a small static thumbnail. The script runs the page's first plotly
 block, captures the figure it shows, redraws its traces with matplotlib, and
 saves a 320 x 200 WebP image under ``docs/_static/gallery/``. The recipe pages
-under ``docs/recipes/`` are MyST notebooks drawn with matplotlib; their
-thumbnail is the last figure their code cells draw, with the text removed. The
-recipe thumbnails illustrate the recipe index and the capability page. It then
+under ``docs/recipes/`` and the notebooks under ``docs/notebooks/`` draw with
+matplotlib; their thumbnail is the last figure their code cells draw, with the
+text removed. These thumbnails illustrate the examples page and the home page
+tiles. It then
 writes
 ``docs/gallery.rst``, a card grid grouped by the function groups in
 ``docs/topics.yml``, where each thumbnail links to its page.
@@ -134,6 +135,39 @@ def recipe_pages() -> list[dict]:
     return pages
 
 
+def notebook_pages() -> list[dict]:
+    """Example notebooks; the thumbnail is the last matplotlib figure they draw.
+
+    A code cell tagged ``thumbnail`` picks the figure instead: the code runs up
+    to and including that cell, and its last figure is used. IPython magics are
+    dropped, since the code runs as a plain script.
+    """
+    pages = []
+    for nb_path in sorted((DOCS / "notebooks").glob("*.ipynb")):
+        nb = json.loads(nb_path.read_text())
+        cells, title = [], None
+        for cell in nb["cells"]:
+            src = "".join(cell["source"])
+            if cell["cell_type"] == "markdown" and title is None:
+                m = TITLE_RE.search(src)
+                title = m.group(1).strip() if m else None
+            if cell["cell_type"] != "code":
+                continue
+            cells.append("\n".join(l for l in src.splitlines()
+                                   if not l.lstrip().startswith(("%", "!"))))
+            if "thumbnail" in cell.get("metadata", {}).get("tags", []):
+                break
+        pages.append({
+            "path": nb_path,
+            "doc": f"notebooks/{nb_path.stem}",
+            "name": title or nb_path.stem,
+            "topics": [],
+            "code": "\n".join(cells),
+            "kind": "matplotlib",
+        })
+    return pages
+
+
 def snippet_pages() -> list[dict]:
     """Extra capability thumbnails drawn by devtools/gallery_snippets/*.py.
 
@@ -204,7 +238,8 @@ def render_matplotlib_thumbnail(code: str, cwd: Path, out_path: Path) -> None:
         os.chdir(cwd)
         with warnings.catch_warnings(), contextlib.redirect_stdout(io.StringIO()):
             warnings.simplefilter("ignore")
-            exec(compile(code, "<recipe>", "exec"), {"__name__": "__gallery__"})
+            exec(compile(code, "<recipe>", "exec"),
+                 {"__name__": "__gallery__", "display": lambda *a, **k: None})
     finally:
         os.chdir(old_cwd)
     nums = plt.get_fignums()
@@ -521,7 +556,7 @@ def main(argv=None) -> int:
 
     manifest = json.loads(MANIFEST.read_text()) if MANIFEST.exists() else {}
     fn_pages = function_pages()
-    all_pages = fn_pages + recipe_pages() + snippet_pages()
+    all_pages = fn_pages + recipe_pages() + notebook_pages() + snippet_pages()
     new_manifest, have_thumb, failed = {}, set(), []
     redrawn = 0
     for p in all_pages:
