@@ -310,7 +310,7 @@ def _validate_function(entry: dict, fn) -> None:
                     f"{name}: schema lists parameters not in the signature: {sorted(extra)}")
 
 
-def main(argv=None):
+def main(argv=None, stdout=False):
     sys.path.insert(0, str(ROOT))
     screamer = importlib.import_module("screamer")
     from devtools.topics import topic_slugs
@@ -333,7 +333,7 @@ def main(argv=None):
         entry["doc_path"] = md.relative_to(DOCS).with_suffix("").as_posix()
         registry[entry["name"]] = entry
         n_ex = len(entry["examples"])
-        print(f"  + {entry['name']:24s}  ({md.relative_to(ROOT)}, {n_ex} examples)")
+        print(f"  + {entry['name']:24s}  ({md.relative_to(ROOT)}, {n_ex} examples)", file=sys.stderr)
 
         # Names documented on this same page (the _iter twins, Input/Node on
         # Pipeline.md). Emit an index:false entry each, inheriting the page's topics,
@@ -344,7 +344,7 @@ def main(argv=None):
                 # Name is no longer in the public API (e.g. a lowercase alias that was
                 # removed during the API collapse). Skip the index entry; the docs
                 # page still documents its history in the covers: frontmatter.
-                print(f"  ! {cname:24s}  (covers alias not public, skipped)")
+                print(f"  ! {cname:24s}  (covers alias not public, skipped)", file=sys.stderr)
                 continue
             registry[cname] = {
                 "name": cname,
@@ -357,15 +357,27 @@ def main(argv=None):
                 "details": "",
                 "examples": [],
             }
-            print(f"  + {cname:24s}  (covered by {entry['name']}, index:false)")
+            print(f"  + {cname:24s}  (covered by {entry['name']}, index:false)", file=sys.stderr)
 
+    if argv:
+        # A partial build updates only the named entries; the rest of the
+        # committed registry is kept.
+        registry = {**json.loads(OUT.read_text()), **registry}
+    text = json.dumps(registry, indent=2, ensure_ascii=False) + "\n"
+    if stdout:
+        sys.stdout.write(text)
+        return
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(registry, indent=2, ensure_ascii=False) + "\n")
-    print(f"\nWrote {OUT.relative_to(ROOT)} with {len(registry)} entries")
+    OUT.write_text(text)
+    print(f"\nWrote {OUT.relative_to(ROOT)} with {len(registry)} entries", file=sys.stderr)
 
 
 if __name__ == "__main__":
     import argparse
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("names", nargs="*", help="build only these pages (default: all)")
-    main(ap.parse_args().names)
+    ap.add_argument("names", nargs="*",
+                    help="rebuild only these entries, keeping the rest of help.json (default: all)")
+    ap.add_argument("--stdout", action="store_true",
+                    help="write the registry to stdout instead of help.json")
+    args = ap.parse_args()
+    main(args.names, stdout=args.stdout)
