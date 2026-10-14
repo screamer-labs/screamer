@@ -69,11 +69,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macos-14 (Apple Silicon) cross-compiles BOTH x86_64 and arm64 wheels
+        # macos-15 (Apple Silicon) cross-compiles BOTH x86_64 and arm64 wheels
         # via cibuildwheel's archs=["x86_64","arm64"] in pyproject.toml.
         # macos-13 (Intel runners) is intentionally omitted -- GitHub Actions
-        # has throttled Intel mac runners, and macos-14 covers x86_64 anyway.
-        os: [ubuntu-latest, macos-14, windows-latest]
+        # has throttled Intel mac runners, and macos-15 covers x86_64 anyway.
+        # macos-15 ships Apple clang 17, which keeps the statement
+        # always_inline hints (functor_base.h); Apple clang 15 crashes on them.
+        os: [ubuntu-latest, macos-15, windows-latest]
     steps:
       - uses: actions/checkout@v5
 
@@ -106,7 +108,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-14, windows-latest]
+        os: [ubuntu-latest, macos-15, windows-latest]
         python-version: ['3.12', '3.13', '3.14']
     steps:
       - uses: actions/checkout@v5
