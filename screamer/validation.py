@@ -192,9 +192,11 @@ def segment_shuffle(x, n, seed=0):
 
     The series after its leading NaN warmup is split into runs of equal value
     (each trade, and each flat or hold stretch, is one run), and the runs are
-    written back in a random order. Every copy holds exactly the same runs:
+    written back in a random order in which no two neighbouring runs have the
+    same value, so no two runs merge. Every copy holds exactly the same runs:
     the same trades with the same sides, sizes, and holding periods, at random
-    times. The same ``seed`` gives the same columns on every platform.
+    times, with as many position changes as the original. The same ``seed``
+    gives the same columns on every platform.
     """
     return _segment_shuffle(_as_series(x, "x"), _int64(seed, "segment_shuffle: seed"), 0,
                             _int(n, "segment_shuffle: n"))

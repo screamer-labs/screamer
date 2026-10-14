@@ -20,14 +20,20 @@ topics:
 # `segment_shuffle`
 
 Returns `n` copies of a series as a `(T, n)` array. The series is split into
-runs of equal value, and each copy writes the runs back in a random order. For a
-target-position series, each trade and each flat stretch is one run, so every
-copy holds exactly the same trades, with the same sides, sizes, and holding
-periods, at random times.
+runs of equal value, and each copy writes the runs back in a random order in
+which no two neighbouring runs have the same value. For a target-position
+series, each trade and each flat stretch is one run, so every copy holds exactly
+the same trades, with the same sides, sizes, and holding periods, at random
+times, and changes position as often as the original.
+
+Two neighbouring runs of the same value would merge into one longer trade, and
+a copy with fewer trades pays less cost, which would bias a test with costs.
+When the series alternates between two values with nothing in between, such as
+a long/short signal with no flat stretches, the runs can only alternate, so the
+copies keep the alternation and move the run lengths.
 
 The leading NaN warmup stays in place. A NaN inside the series is a run of its
-own, like any other value. Two runs with the same value can end up next to each
-other and then read as one longer run.
+own, like any other value.
 
 The function is batch-only and runs in C++. Each column has its own generator,
 seeded from `seed` and the column number, so the same seed gives the same

@@ -31,7 +31,7 @@ def test_golden_values():
         [np.nan, np.nan, 2, 0, 0, 1, 1, 1, 1, 0, 0, -1, -1, -1, -1])
     np.testing.assert_array_equal(
         s.segment_shuffle(X, 2, seed=42)[:, 1],
-        [np.nan, np.nan, 0, 0, 1, 1, 1, -1, -1, -1, -1, 2, 0, 0, 1])
+        [np.nan, np.nan, -1, -1, -1, -1, 0, 0, 2, 1, 1, 1, 0, 0, 1])
 
 
 def test_circular_shift_is_a_rotation_within_bounds():
@@ -46,6 +46,45 @@ def test_circular_shift_is_a_rotation_within_bounds():
         assert np.isnan(col[:5]).all()
         rotations = [k for k in range(L) if np.array_equal(np.roll(valid, k), col[5:])]
         assert any(10 <= k <= L - 10 for k in rotations)
+
+
+def test_segment_shuffle_never_merges_neighbouring_runs():
+    # Repeated values (a long/short/flat target): a shuffle that put two runs of
+    # the same value next to each other would merge them into one trade, so the
+    # copies would trade less and pay less cost than the real strategy.
+    rng = np.random.default_rng(1)
+    x = np.r_[np.full(3, np.nan), np.repeat(rng.choice([-1.0, 0.0, 1.0], 60),
+                                             rng.integers(1, 6, 60))]
+    want = sorted(_runs(x[3:]))
+    out = s.segment_shuffle(x, 200, seed=5)
+    for j in range(out.shape[1]):
+        got = _runs(out[3:, j])
+        assert sorted(got) == want
+        assert all(a[0] != b[0] for a, b in zip(got, got[1:]))
+
+
+def test_segment_shuffle_alternating_sides():
+    # Long and short runs with no flat stretch between them can only alternate;
+    # the shuffle then moves the run lengths, never merging two runs.
+    x = np.repeat([1.0, -1.0] * 10, np.arange(1, 21))
+    out = s.segment_shuffle(x, 100, seed=2)
+    for j in range(out.shape[1]):
+        got = _runs(out[:, j])
+        assert len(got) == 20
+        assert sorted(got) == sorted(_runs(x))
+
+
+def test_position_test_segments_keeps_the_trade_count():
+    rng = np.random.default_rng(4)
+    c = 100 * np.exp(np.cumsum(rng.standard_normal(400) * 0.01))
+    o = np.r_[c[0], c[:-1]]
+    target = s.Sign()(s.FillNa(0.0)(s.EwMean(span=5)(s.LogReturn()(c))))
+    res = s.position_test(s.BacktestOHLCTarget(taker_fee=5e-4), target, o,
+                          np.maximum(o, c), np.minimum(o, c), c, n=200, method="segments")
+    trades = res.null_stats["num_trades"]
+    # the first run can differ from the original one, which changes the entry
+    # from flat at the start by at most one trade
+    assert np.all(np.abs(trades - res.observed_stats["num_trades"]) <= 1)
 
 
 def test_segment_shuffle_keeps_the_runs():

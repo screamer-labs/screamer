@@ -179,11 +179,75 @@ namespace screamer { namespace validation {
         }
     }
 
+    namespace detail {
+
+        // A random order of the runs `r` of `x` in which no two neighbouring
+        // runs have the same value, written to `o`. Two neighbours of equal
+        // value would merge into one run, which changes the trades (and their
+        // count and cost), so the order must avoid them. The runs of each value
+        // are shuffled among themselves; the sequence of values is then built
+        // one step at a time, choosing among the values that differ from the
+        // previous one and leave the remaining runs arrangeable, with
+        // probability proportional to the runs each has left. The original
+        // order is itself valid, so a valid order always exists.
+        inline void segment_order(const double* x,
+                                  const std::vector<std::pair<std::size_t, std::size_t>>& r,
+                                  Rng& rng, std::size_t* o) {
+            const std::size_t R = r.size();
+            std::vector<double> value;                       // one entry per distinct value
+            std::vector<std::vector<std::size_t>> members;   // runs of each value
+            for (std::size_t i = 0; i < R; ++i) {
+                const double v = x[r[i].first];
+                std::size_t c = 0;
+                while (c < value.size() && !same(value[c], v)) ++c;
+                if (c == value.size()) { value.push_back(v); members.emplace_back(); }
+                members[c].push_back(i);
+            }
+            const std::size_t C = value.size();
+            for (auto& m : members)
+                for (std::size_t i = m.size(); i > 1; --i)
+                    std::swap(m[i - 1], m[static_cast<std::size_t>(rng.below(i))]);
+            std::vector<std::size_t> left(C), next(C, 0);
+            for (std::size_t c = 0; c < C; ++c) left[c] = members[c].size();
+            // After placing value c with `rest` runs still to place, the rest
+            // can follow c iff no value needs more than ceil(rest / 2) slots and
+            // c itself, barred from the next slot, at most floor(rest / 2).
+            auto feasible = [&](std::size_t c, std::size_t rest) {
+                for (std::size_t u = 0; u < C; ++u) {
+                    const std::size_t n = left[u] - (u == c ? 1 : 0);
+                    if (n > (u == c ? rest / 2 : (rest + 1) / 2)) return false;
+                }
+                return true;
+            };
+            std::size_t prev = C;
+            for (std::size_t step = 0; step < R; ++step) {
+                const std::size_t rest = R - step - 1;
+                std::uint64_t total = 0;
+                for (std::size_t c = 0; c < C; ++c)
+                    if (c != prev && left[c] > 0 && feasible(c, rest)) total += left[c];
+                if (total == 0)
+                    throw std::logic_error("segment_shuffle: no valid run order");
+                std::uint64_t k = rng.below(total);
+                std::size_t c = 0;
+                for (;; ++c) {
+                    if (c == prev || left[c] == 0 || !feasible(c, rest)) continue;
+                    if (k < left[c]) break;
+                    k -= left[c];
+                }
+                o[step] = members[c][next[c]++];
+                --left[c];
+                prev = c;
+            }
+        }
+
+    } // namespace detail
+
     // Segment shuffle: split the series after its NaN warmup prefix into runs
     // of equal value (each trade, and each flat or hold stretch, is one run)
-    // and write the runs back in a random order (Fisher-Yates). The multiset
-    // of runs is kept exactly: the same trades, with the same sides, sizes, and
-    // holding periods, at random times.
+    // and write the runs back in a random order in which no two neighbouring
+    // runs have the same value (detail::segment_order). The runs are kept
+    // exactly: the same trades, with the same sides, sizes, and holding
+    // periods, at random times, and as many position changes as the original.
     inline void segment_shuffle(const double* x, std::size_t T, std::uint64_t seed,
                                 std::size_t col0, std::size_t ncols, double* out) {
         const std::size_t p = detail::valid_start(x, T);
@@ -195,12 +259,7 @@ namespace screamer { namespace validation {
         std::vector<std::size_t> order(ncols * R);
         for (std::size_t j = 0; j < ncols; ++j) {
             Rng rng(seed, col0 + j);
-            std::size_t* o = order.data() + j * R;
-            for (std::size_t i = 0; i < R; ++i) o[i] = i;
-            for (std::size_t i = R; i > 1; --i) {
-                const std::size_t k = static_cast<std::size_t>(rng.below(i));
-                std::swap(o[i - 1], o[k]);
-            }
+            detail::segment_order(x, r, rng, order.data() + j * R);
         }
         for (std::size_t t = 0; t < p; ++t)
             for (std::size_t j = 0; j < ncols; ++j) out[t * ncols + j] = x[t];

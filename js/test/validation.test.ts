@@ -23,7 +23,7 @@ test("validation: golden surrogates match Python", () => {
   assert.deepEqual(col(circularShift(X, 2, { minShift: 2, seed: 42 }), 0),
     [NaN_, NaN_, 2, 0, 0, 1, 1, 1, 1, 0, 0, -1, -1, -1, -1]);
   assert.deepEqual(col(segmentShuffle(X, 2, { seed: 42 }), 1),
-    [NaN_, NaN_, 0, 0, 1, 1, 1, -1, -1, -1, -1, 2, 0, 0, 1]);
+    [NaN_, NaN_, -1, -1, -1, -1, 0, 0, 2, 1, 1, 1, 0, 0, 1]);
 });
 
 test("validation: argument checks raise RangeError", () => {

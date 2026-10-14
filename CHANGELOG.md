@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 Unreleased
 ----------
 
+### Changed
+
+* `segment_shuffle`, and `position_test` / `positionTest` with
+  `method="segments"`, never place two runs of the same value next to each
+  other. Before, two such runs could merge into one longer trade, so a
+  shuffled copy could trade less and pay less cost than the real strategy,
+  which pushed the p-value up whenever the backtest had costs: on a long/short
+  signal with no flat stretches the copies made about half the trades. Every
+  copy now changes position as often as the original. Results for
+  `method="segments"` change for any seed; there is no way to get the old
+  shuffle, which was biased.
+
+### Fixed
+
+* The built-in help (`help.json`) for `VPIN`, `Dropna`, `Resample` and `split`
+  is up to date with their documentation pages again.
+
 3.1.0 - 2026-10-14
 ------------------
 

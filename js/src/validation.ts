@@ -97,7 +97,9 @@ export function circularShift(
  * `n` copies of a series with its runs in random order, as a (T, n) array.
  *
  * Every copy holds exactly the same runs (trades and flat stretches) with the
- * same values and lengths, at random times. The NaN warmup stays in place.
+ * same values and lengths, at random times. No two neighbouring runs have the
+ * same value, so no two runs merge and every copy changes position as often
+ * as the original. The NaN warmup stays in place.
  */
 export function segmentShuffle(
   x: ArrayLike<number>, n: number, opts: { seed?: number } = {},
