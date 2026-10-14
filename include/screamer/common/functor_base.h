@@ -16,8 +16,11 @@
 // RollingCorr runs 1.7x faster in WASM and 1.35x faster natively (Apple M,
 // clang) with it. GCC and MSVC builds keep their compilers' own inlining.
 // eval_column itself stays out of line, so each operator's column loop is
-// compiled once, the same for every caller.
-#if defined(__clang__)
+// compiled once, the same for every caller. The statement attribute crashes
+// older clang (Apple clang 15, Xcode 15); it is used from Apple clang 17 and
+// LLVM 18 on, and older compilers go without it.
+#if defined(__clang__) && ((defined(__apple_build_version__) && __clang_major__ >= 17) || \
+                         (!defined(__apple_build_version__) && __clang_major__ >= 18))
 #define SCREAMER_INLINE_CALL [[clang::always_inline]]
 #define SCREAMER_NOINLINE_CALL [[clang::noinline]]
 #else

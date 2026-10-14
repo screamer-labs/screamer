@@ -13,8 +13,11 @@
 
 // The kernels' loop bodies are lambdas over a fixed or a runtime tile width.
 // Inlining them keeps their captures in registers; the WebAssembly build
-// (-Oz) would otherwise call them out of line and reload every capture.
-#if defined(__clang__)
+// (-Oz) would otherwise call them out of line and reload every capture. The
+// statement attribute crashes older clang (Apple clang 15, Xcode 15); it is
+// used from Apple clang 17 and LLVM 18 on.
+#if defined(__clang__) && ((defined(__apple_build_version__) && __clang_major__ >= 17) || \
+                         (!defined(__apple_build_version__) && __clang_major__ >= 18))
 #define SCREAMER_SURROGATE_INLINE [[clang::always_inline]]
 #else
 #define SCREAMER_SURROGATE_INLINE

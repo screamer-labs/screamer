@@ -9,11 +9,12 @@ on:
 
 jobs:
   compile:
-    runs-on: macos-14
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        arch: [x86_64, arm64]
+        arch: [x86_64]
+        os: [macos-14, macos-15]
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -44,7 +45,7 @@ jobs:
       - uses: actions/upload-artifact@v6
         if: always()
         with:
-          name: clang-crash-${{ matrix.arch }}
+          name: clang-crash-${{ matrix.os }}-${{ matrix.arch }}
           path: |
             ~/Library/Logs/DiagnosticReports/clang*
             /tmp/*.log
