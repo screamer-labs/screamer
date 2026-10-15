@@ -5,6 +5,9 @@ All notable changes to this project are documented in this file.
 Unreleased
 ----------
 
+3.4.0 - 2026-10-15
+------------------
+
 ### Added
 
 * JavaScript: the built-in documentation, in JavaScript names, as
