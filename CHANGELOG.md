@@ -5,6 +5,9 @@ All notable changes to this project are documented in this file.
 Unreleased
 ----------
 
+3.3.0 - 2026-10-15
+------------------
+
 ### Added
 
 * `screamer.docs`, the built-in documentation for coding agents and people:
