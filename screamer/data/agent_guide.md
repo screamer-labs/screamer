@@ -113,6 +113,12 @@ await ready();
 const rsi = RollingRSI({ windowSize: 14 })(closes);   // closes: Float64Array
 ```
 
+The JavaScript package has the same documentation in JavaScript names, with
+each function's TypeScript signatures: run `npx screamer-docs search <keywords>`
+and `npx screamer-docs show <Name>` in a project that has the package
+installed, or import `search`, `show`, and `topics` from
+`@screamer-labs/screamer/docs`.
+
 ## More
 
 The documentation is at https://screamer.readthedocs.io. Every function page is

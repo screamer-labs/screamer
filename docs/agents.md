@@ -35,6 +35,23 @@ docs.show("RollingStd")["parameters"]    # list of {name, type, default, ...}
 docs.topics()                            # groups, topics, and functions
 ```
 
+In a JavaScript project, the npm package has the same tool and the same
+documentation in JavaScript names, with each function's TypeScript signatures
+and camelCase options:
+
+```bash
+npx screamer-docs search "order flow imbalance"
+npx screamer-docs show positionTest
+```
+
+```javascript
+import { search, show, topics } from "@screamer-labs/screamer/docs";
+show("RollingRSI").signatures;   // ['RollingRSI({ windowSize: 14, ... })']
+```
+
+The documentation is a separate entry point, so a bundle that imports only the
+functions does not include it.
+
 To point an agent at it, add a line to the instructions file it reads, such as
 `AGENTS.md` or `CLAUDE.md`:
 

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "projectTitle": "screamer",
+  "description": "Causal time-series functions for finance and signal processing in C++, for Python (screamer) and JavaScript (@screamer-labs/screamer): rolling statistics, technical indicators, filters, market microstructure, bars from ticks, backtests, and significance tests, with the same results on stored arrays and on a live feed.",
+  "folders": ["docs", "js/docs-guide"],
+  "excludeFolders": [
+    "docs/_build",
+    "docs/_static",
+    "docs/_ext",
+    "docs/img",
+    "docs/superpowers",
+    "docs/notebooks/data",
+    "docs/by_group",
+    "benchmarks",
+    "node_modules"
+  ],
+  "excludeFiles": ["CHANGELOG.md", "AUTHORS.md"],
+  "rules": [
+    "Search for an existing screamer function before writing a calculation by hand in numpy or pandas: `python -m screamer.docs search <keywords>`, or `npx screamer-docs search <keywords>` in JavaScript.",
+    "Construct a function with its parameters, then call it on data: `RollingMean(window_size=20)(prices)`. The output container follows the input: array in, array out; list in, list out; float in, float out; iterator in, lazy iterator out.",
+    "Axis 0 is time: a (T, K) array is K independent series of length T. There is no axis= argument. A list is a series, never a scalar: [4.0] is a series of length 1.",
+    "Every function is causal. Do not shift inputs to avoid look-ahead, and do not use backward fills or centered windows. Outputs are NaN until a window is full unless start_policy says otherwise.",
+    "Backtest engines take the target position and fill at the next opportunity; do not lag the target yourself. Use position_test for a fixed strategy and strategy_test when the strategy was tuned on the same data.",
+    "In JavaScript, call `await ready()` once, then call factories without `new`; options are camelCase (`RollingRSI({ windowSize: 14 })`) and plain functions are camelCase (`positionTest`)."
+  ]
+}

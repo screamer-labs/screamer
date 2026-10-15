@@ -109,6 +109,25 @@ package: same operators, same causal semantics, same numerics. Its outputs are
 verified against the Python package's outputs, and batch and streaming calls on the
 same data give identical results.
 
+## Built-in documentation, for people and coding agents
+
+Every function's documentation ships with the package, in JavaScript names:
+its TypeScript signatures, camelCase options with defaults and allowed values,
+inputs and outputs, NaN policy, and related functions.
+
+```bash
+npx screamer-docs search "order flow imbalance"
+npx screamer-docs show RollingRSI        # add --json for structured output
+```
+
+```javascript
+import { search, show, topics } from "@screamer-labs/screamer/docs";
+```
+
+It is a separate entry point, so a bundle that imports only the operators does
+not include it. See [Using screamer with AI agents](https://screamer.readthedocs.io/en/latest/agents.html)
+for the MCP server and other ways to give an agent this documentation.
+
 ## Live demo
 
 Watch the live trade dashboard in the browser:

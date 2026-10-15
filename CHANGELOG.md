@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 Unreleased
 ----------
 
+### Added
+
+* JavaScript: the built-in documentation, in JavaScript names, as
+  `npx screamer-docs search <keywords>` and `show <Name>` (with `--json`) and as
+  `search`, `show`, `topics`, and `guide` from `@screamer-labs/screamer/docs`.
+  Each entry has its TypeScript signatures and camelCase options, and search
+  ranks exactly as the Python `screamer.docs.search`. The documentation is a
+  separate entry point, so bundles of the operators do not include it.
+* `context7.json`, so [Context7](https://context7.com) indexes the
+  documentation and passes screamer's main conventions to coding agents.
+
 3.3.0 - 2026-10-15
 ------------------
 

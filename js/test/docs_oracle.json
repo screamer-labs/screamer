@@ -1,0 +1,163 @@
+[
+ {
+  "query": "rolling volatility",
+  "topic": null,
+  "limit": 10,
+  "names": [
+   "RollingGarmanKlassVol",
+   "RollingParkinsonVar",
+   "RollingParkinsonVol",
+   "RollingRogersSatchellVol",
+   "RollingGarmanKlassVar",
+   "RollingYangZhangVol",
+   "RollingRogersSatchellVar",
+   "RollingStd",
+   "RollingYangZhangVar",
+   "RollingRange"
+  ]
+ },
+ {
+  "query": "bollinger",
+  "topic": null,
+  "limit": 5,
+  "names": [
+   "BollingerBands"
+  ]
+ },
+ {
+  "query": "exponential moving average",
+  "topic": null,
+  "limit": 8,
+  "names": [
+   "EwMean",
+   "DEMA",
+   "TEMA",
+   "MAMA",
+   "MovingAverage",
+   "RollingMean",
+   "TRIMA",
+   "WMA"
+  ]
+ },
+ {
+  "query": "order flow imbalance",
+  "topic": null,
+  "limit": 6,
+  "names": [
+   "RollingOrderImbalance",
+   "ContOFI",
+   "OFI",
+   "QueueImbalance",
+   "VPIN",
+   "MicroPrice"
+  ]
+ },
+ {
+  "query": "p-value randomization",
+  "topic": null,
+  "limit": 5,
+  "names": [
+   "positionTest",
+   "strategyTest",
+   "segmentShuffle",
+   "circularShift",
+   "deflatedSharpe"
+  ]
+ },
+ {
+  "query": "kalman",
+  "topic": null,
+  "limit": 5,
+  "names": [
+   "KalmanFilter",
+   "KalmanRegression"
+  ]
+ },
+ {
+  "query": "resample bars",
+  "topic": null,
+  "limit": 6,
+  "names": [
+   "resample",
+   "permuteBars",
+   "BacktestOHLCTarget",
+   "BacktestOHLCVTarget",
+   "BacktestOHLCOrders",
+   "BacktestPortfolioOHLCTarget"
+  ]
+ },
+ {
+  "query": "drawdown",
+  "topic": null,
+  "limit": 6,
+  "names": [
+   "Drawdown",
+   "MaxDrawdown",
+   "RollingMaxDrawdown",
+   "BacktestReport",
+   "RollingCalmar",
+   "backtestReport"
+  ]
+ },
+ {
+  "query": "correlation",
+  "topic": null,
+  "limit": 6,
+  "names": [
+   "EwCorr",
+   "RollingCorr",
+   "strategyTest"
+  ]
+ },
+ {
+  "query": "test",
+  "topic": "significance",
+  "limit": 10,
+  "names": [
+   "positionTest",
+   "strategyTest",
+   "circularShift",
+   "segmentShuffle",
+   "probabilisticSharpe",
+   "walkForward",
+   "deflatedSharpe",
+   "permuteBars",
+   "permuteReturns"
+  ]
+ },
+ {
+  "query": "align streams",
+  "topic": null,
+  "limit": 6,
+  "names": [
+   "combineLatest",
+   "resample",
+   "stream-tuple-convention",
+   "BacktestL1TradesOrders",
+   "merge",
+   "select"
+  ]
+ },
+ {
+  "query": "dominant cycle",
+  "topic": null,
+  "limit": 4,
+  "names": [
+   "DominantCycle",
+   "CycleAmplitude",
+   "CycleSine",
+   "CycleFrequency"
+  ]
+ },
+ {
+  "query": "funding carry",
+  "topic": null,
+  "limit": 4,
+  "names": [
+   "BacktestCarry",
+   "TickRuleSign",
+   "BacktestL1TradesOrders",
+   "BacktestOHLCOrders"
+  ]
+ }
+]
