@@ -218,7 +218,7 @@ With `clock: true`, a bar at clock tick `t` holds the values with index in `(pre
 t]`. In a live session the bar comes out once the value stream has passed `t`: a value above
 `t`, an `advance(now)` with `now > t`, or `flush()`. A value at `t` still joins the bar, so
 `advance(t)` is not enough: after values up to 50 and ticks at 60 and 70, bar 60 comes out at
-`advance(61)`, not at `advance(60)`. 2.8.0 emitted it at the next event of either input.
+`advance(61)`, not at `advance(60)`.
 
 ```js
 import { resample } from "@screamer-labs/screamer";
@@ -232,9 +232,7 @@ an `X`-column stream gives `4 * X` columns in column-major field order,
 `[open0, high0, low0, close0, open1, ...]`, in every mode (`every`, `count`,
 `clock`), batch and live. The result's `values` has shape `[T', 4 * X]`; read
 the data as `[T', X, 4]` (row `t`, column `k`, field `f` is at
-`data[(t * X + k) * 4 + f]`), which is the Python eager result. Phase 2 of the
-shape contract (asset axes inside a `Pipeline`) will return `[T', X, 4]`
-directly.
+`data[(t * X + k) * 4 + f]`), which is the Python eager result.
 
 **`select(node, columns)`**: pick one or more columns from a wide (multi-output) stream.
 

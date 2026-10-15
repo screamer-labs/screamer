@@ -58,7 +58,7 @@ Import from a full URL inside a module script. jsDelivr serves the published mod
 ```html
 <script type="module">
   import { ready, RollingMean }
-    from "https://cdn.jsdelivr.net/npm/@screamer-labs/screamer@2.2.1/dist/index.js";
+    from "https://cdn.jsdelivr.net/npm/@screamer-labs/screamer@3.4.0/dist/index.js";
 
   await ready();
 
@@ -67,7 +67,7 @@ Import from a full URL inside a module script. jsDelivr serves the published mod
 </script>
 ```
 
-Pin the version (`@2.2.1`) so loads are reproducible. The module embeds its WebAssembly, so nothing
+Pin the version (`@3.4.0`) so loads are reproducible. The module embeds its WebAssembly, so nothing
 else needs to be fetched or configured.
 
 To avoid a third-party origin (for offline use, a strict Content-Security-Policy, or full control),

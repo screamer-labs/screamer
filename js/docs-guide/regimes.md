@@ -157,12 +157,31 @@ toNested(out); // [[1,1], [1,2], [1,3], [2,4], [3,5]] -- expanding window before
 result). Reach for the flat `data`/`shape` form when you want to avoid the allocation of
 per-row arrays; reach for `toNested()` when you want ordinary nested arrays to iterate over.
 
-## Multi-asset reducers: reducing a variable number of series
+## Cross-sectional ops: one row of assets per event
 
 Most ops read a fixed number of values per event, decided when the op is constructed. A
-reducer instead folds a variable number of assets into one event, and reads that count from
-the data on every call. `PortfolioReport` is the one such op: it reduces the output of a
-backtest engine, run over any number of assets, into portfolio-level report columns.
+cross-sectional op reads a row of K assets per event and takes K from the first row after a
+`reset()`. The `Cross*` ops (`CrossRank`, `CrossZscore`, `CrossNormalize`, and others) and the
+portfolio backtest engines work this way. One row is one event; an array of rows, or a
+`[T, K]` `NdArray`, is a batch:
+
+```js
+import { CrossRank } from "@screamer-labs/screamer";
+
+const rank = CrossRank();
+rank([3, 1, 2]);                // [1, -1, 0]
+rank([[3, 1, 2], [1, 2, 3]]);   // [Float64Array [1, -1, 0], Float64Array [-1, 0, 1]]
+```
+
+A batch call starts clean. Between one-row calls, a row of another width throws `RangeError`
+until `reset()`. These ops run on arrays and streams; inside a `Pipeline` they throw
+`TypeError`.
+
+## Multi-asset reducers: reducing a variable number of series
+
+A reducer folds a row of assets into one event. `PortfolioReport` is the one such op: it
+reduces the output of a portfolio backtest engine, run over any number of assets, into
+portfolio-level report columns.
 
 An event is an `(assets, 4)` block, and a batch is an `(events, assets, 4)` one:
 

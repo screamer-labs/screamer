@@ -62,10 +62,9 @@ function onTrade(price, size, sign) {
 }
 ```
 
-The same operators run just as well on a stored array as on this live feed, so a study done on
-history carries over to production unchanged. See [Getting started](./getting-started.md) for the
-input regimes and [Node, bundlers, and the browser](./environments.md) for how to load screamer in
-each environment.
+See [Calling conventions](./regimes.md) for the other ways to call an op, and
+[Node, bundlers, and the browser](./environments.md) for how to load screamer in each
+environment.
 
 ## Running it yourself
 
@@ -77,9 +76,9 @@ the demo.
 
 For a local copy, serve the examples directory rather than opening the file with `file://`:
 
-```powershell
+```bash
 cd js/examples
-py -m http.server 8000
+python -m http.server 8000
 ```
 
 Then open <http://localhost:8000/live-trades.html>.

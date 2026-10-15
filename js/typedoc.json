@@ -11,6 +11,8 @@
     "docs-guide/regimes.md",
     "docs-guide/lifecycle.md",
     "docs-guide/pipeline.md",
+    "docs-guide/backtesting.md",
+    "docs-guide/documentation.md",
     "docs-guide/parity.md"
   ],
   "excludeInternal": true,
