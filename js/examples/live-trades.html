@@ -244,7 +244,7 @@ const INDICATORS = [
     feed: (o, s) => ols(o.reg, s.ret, o.lagR(s.ret), s.ret) },
   { id: "fc_ou", group: "Forecasts", label: "Mean reversion · OU", forecast: "ret", unit: "bp",
     sub: "next return · mrr × (μ − x)",
-    make: () => ({ mrr: S.RollingOU({ windowSize: 60, output: "mrr" }), rel: S.RollingOU({ windowSize: 60, output: "relmean" }) }),
+    make: () => ({ mrr: S.RollingOU({ windowSize: 60, output: "mrr", startPolicy: "expanding" }), rel: S.RollingOU({ windowSize: 60, output: "relmean", startPolicy: "expanding" }) }),
     feed: (o, s) => { const x = Math.log(s.price); return o.mrr(x) * o.rel(x) * BP; } },
   { id: "fc_tsf", group: "Forecasts", label: "Trend projection · TSF", forecast: "ret", unit: "bp",
     sub: "next return · TSF − log price",
