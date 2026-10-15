@@ -92,7 +92,7 @@
   .indicator-card .card-value.buy { color: var(--buy); }
   .indicator-card .card-value.sell { color: var(--sell); }
   .indicator-surface { flex: 1; min-height: 78px; position: relative; padding: 2px 3px 2px; }
-  .indicator-card.forecast { height: 178px; transition: background-color .4s, border-color .4s; }
+  .indicator-card.forecast { flex-basis: 250px; height: 186px; transition: background-color .4s, border-color .4s; }
   .indicator-card .card-score { color: var(--muted); font: 10px ui-monospace, Menlo, monospace; padding: 0 8px 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   @media (max-width: 1100px) {
     #app { grid-template-columns: minmax(300px, .85fr) minmax(0, 1.25fr); }
@@ -110,7 +110,7 @@
     .category-row { margin-bottom: 8px; }
     .category-track { display: grid; grid-template-columns: minmax(0, 1fr); overflow: visible; }
     .indicator-card { width: 100%; flex: none; height: 150px; }
-    .indicator-card.forecast { height: 172px; }
+    .indicator-card.forecast { height: 196px; }
     .indicator-surface { min-height: 78px; }
   }
 </style>
@@ -212,62 +212,51 @@ try {
 // ---------------------------------------------------------------------------
 // The dashboard shows OHLC prices, volume, and synchronized Screamer
 // indicator cards. Each indicator is fed one sample at a time;
-// `feed` receives { price, open, high, low, size, signed, buy, sell, ts, ret,
-// imb } where signed is the aggressor sign times size, ret the log return of
-// the sample in bp, and imb = signed / size, the sample's flow imbalance.
+// `feed` receives { price, open, high, low, size, signed, buy, sell, ts, ret }
+// where signed is the aggressor sign times size and ret the log return of the
+// sample in bp.
 // ---------------------------------------------------------------------------
-const POLY_WIN = 30, VWAP_WIN = 50, FLOW_SPAN = 50, BUFFER_CAPACITY = 5000;
-const SCORE_WIN = 60, BP = 1e4;
+const POLY_WIN = 30, VWAP_WIN = 50, FLOW_SPAN = 50, BUFFER_CAPACITY = 5000, BP = 1e4;
 
 // helpers to keep the registry terse
 const price  = (mk) => ({ make: () => ({ op: mk() }), feed: (o, s) => o.op(s.price) });
 const signed = (mk) => ({ make: () => ({ op: mk() }), feed: (o, s) => o.op(s.signed) });
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
-// Forecast cards predict the next sample. `feed` returns the forecast made
-// after seeing sample t; `target` names what it predicts (s.ret or s.imb).
-// Every forecast card also gets the scoring ops below.
-const bayes = () => S.BayesianRegression({ span: 100, priorSigma: 1 });
-const ols = (reg, y, xPrev, xNow) => { const [slope, icpt] = reg(y, xPrev); return icpt + slope * xNow; };
-const scoreOps = () => ({ lagF: S.Lag(1), hit: S.RollingHitRate(SCORE_WIN), ic: S.EwCorr({ span: SCORE_WIN }), rms: S.EwRms({ span: 100 }) });
-const RETURN_FORECASTS = ["fc_flow", "fc_ar", "fc_ou", "fc_tsf"];
+// ---------------------------------------------------------------------------
+// Forecasts run on their own clock: a fixed 5-second grid in exchange time,
+// fed straight from the trade flow, so the bars selector does not touch them.
+// Every card predicts y, the BTC log return over the next HORIZON_STEPS steps
+// (60 s) in bp. `feature` maps grid step g { open, high, low, close, logp,
+// vol, signed, buy, sell, y } to x; a BayesianRegression learns y_t on
+// x_{t-12}, so it only sees matured pairs, and forecasts intercept + slope * x_t.
+// FIT_SPAN = 240 steps (20 min): with overlapping 60 s targets that is about
+// 20 independent outcomes, enough to be stable and still recent.
+// ---------------------------------------------------------------------------
+const STEP_MS = 5000, HORIZON_STEPS = 12, FIT_SPAN = 240, SCORE_STEPS = 120, CHART_STEPS = 240;
+const HISTORY_MS = 30 * 60000, HISTORY_PAGES = 30, HISTORY_PAUSE_MS = 120, MAX_GAP_STEPS = 720;
+const H = HORIZON_STEPS;
+const FORECASTS = [
+  { id: "fc_flow", label: "Order flow", sub: "x: 60 s flow imbalance",
+    make: () => ({ oi: S.RollingOrderImbalance(H), vol: S.RollingSum(H) }),
+    feature: (o, g) => { const oi = o.oi(g.signed), v = o.vol(g.vol); return v > 0 ? oi / v : Number.isFinite(v) ? 0 : NaN; } },
+  { id: "fc_ar", label: "Momentum", sub: "x: past 60 s return",
+    make: () => ({}), feature: (o, g) => g.y },
+  { id: "fc_ou", label: "Mean reversion", sub: "x: price vs 5 min VWAP",
+    make: () => ({ vwap: S.RollingVWAP(60) }),
+    feature: (o, g) => (g.logp - Math.log(o.vwap(g.high, g.low, g.close, g.vol))) * BP },
+  { id: "fc_tsf", label: "Trend", sub: "x: 2 min price slope",
+    make: () => ({ slope: S.RollingPoly1(2 * H, 1) }),
+    feature: (o, g) => o.slope(g.logp) * H * BP },
+  // Excitation fades with time constant HORIZON_STEPS: decay = exp(-1/12).
+  { id: "fc_hawkes", label: "Flow pressure", sub: "x: Hawkes buy vs sell",
+    make: () => ({ hb: S.HawkesIntensity({ decay: Math.exp(-1 / H) }), hs: S.HawkesIntensity({ decay: Math.exp(-1 / H) }) }),
+    feature: (o, g) => { const b = o.hb(g.buy), s = o.hs(g.sell); return b + s > 0 ? (b - s) / (b + s) : 0; } },
+  { id: "fc_combined", label: "Combined", sub: "1/σ² mix of the 5" },
+];
+const scoreOps = () => ({ lagF: S.Lag(H), hit: S.RollingHitRate(SCORE_STEPS), ic: S.EwCorr({ span: SCORE_STEPS }) });
 
 const INDICATORS = [
-  // --- Forecasts: next sample ------------------------------------------------
-  { id: "fc_flow", group: "Forecasts", label: "Order-flow regression", forecast: "ret", unit: "bp",
-    sub: "next return · Bayes on flow",
-    make: () => ({ lagX: S.Lag(1), reg: bayes() }),
-    feed: (o, s) => ols(o.reg, s.ret, o.lagX(s.imb), s.imb) },
-  { id: "fc_ar", group: "Forecasts", label: "Return autoregression", forecast: "ret", unit: "bp",
-    sub: "next return · Bayes AR(1)",
-    make: () => ({ lagR: S.Lag(1), reg: bayes() }),
-    feed: (o, s) => ols(o.reg, s.ret, o.lagR(s.ret), s.ret) },
-  { id: "fc_ou", group: "Forecasts", label: "Mean reversion · OU", forecast: "ret", unit: "bp",
-    sub: "next return · mrr × (μ − x)",
-    make: () => ({ mrr: S.RollingOU({ windowSize: 60, output: "mrr", startPolicy: "expanding" }), rel: S.RollingOU({ windowSize: 60, output: "relmean", startPolicy: "expanding" }) }),
-    feed: (o, s) => { const x = Math.log(s.price); return o.mrr(x) * o.rel(x) * BP; } },
-  { id: "fc_tsf", group: "Forecasts", label: "Trend projection · TSF", forecast: "ret", unit: "bp",
-    sub: "next return · TSF − log price",
-    make: () => ({ tsf: S.RollingTSF(20) }),
-    feed: (o, s) => { const x = Math.log(s.price); return (o.tsf(x) - x) * BP; } },
-  // The Hawkes intensity at t excites on samples up to t-1, so this is a
-  // one-sample-stale estimate of the next sample's buy/sell balance.
-  { id: "fc_hawkes", group: "Forecasts", label: "Flow pressure · Hawkes", forecast: "imb", unit: "",
-    sub: "next signed flow, not return",
-    make: () => ({ hb: S.HawkesIntensity({ decay: 0.8 }), hs: S.HawkesIntensity({ decay: 0.8 }) }),
-    feed: (o, s) => { const b = o.hb(s.buy), a = o.hs(s.sell); return b + a > 0 ? (b - a) / (b + a) : NaN; } },
-  // Average of the return forecasts above, each z-scored against its own
-  // recent history; reads their values from s.fc, which addSample fills in
-  // registry order.
-  { id: "fc_consensus", group: "Forecasts", label: "Consensus", forecast: "ret", unit: "σ",
-    sub: "next return · mean z of 4 models",
-    make: () => Object.fromEntries(RETURN_FORECASTS.map((id) => [id, S.EwZscore({ span: 100 })])),
-    feed: (o, s) => {
-      let sum = 0, n = 0;
-      for (const id of RETURN_FORECASTS) { const z = o[id](s.fc[id]); if (Number.isFinite(z)) { sum += z; n++; } }
-      return n ? sum / n : NaN;
-    } },
-
   // --- Regime ----------------------------------------------------------------
   { id: "hurst", group: "Regime", label: "Hurst exponent · R/S", short: "H", fixed: [0, 1], refs: [0.5],
     make: () => ({ op: S.RollingHurst({ windowSize: 128, minScale: 16 }) }), feed: (o, s) => o.op(s.ret) },
@@ -327,9 +316,7 @@ function buildPriceOps() { priceOps = { poly: S.RollingPoly1(POLY_WIN, 0), vwap:
 function disposePriceOps() { if (priceOps) for (const k in priceOps) priceOps[k].dispose(); }
 function disposeState(state) { if (state) for (const k in state) state[k].dispose(); }
 function buildIndicatorSlots() {
-  indicatorSlots = INDICATORS.map((def) => def.forecast
-    ? { id: def.id, state: { ...def.make(), ...scoreOps() }, values: [], lagged: [], realized: [], z: NaN, hit: NaN, ic: NaN }
-    : { id: def.id, state: def.make(), values: [] });
+  indicatorSlots = INDICATORS.map((def) => ({ id: def.id, state: def.make(), values: [] }));
 }
 function disposeIndicatorSlots() {
   for (const slot of indicatorSlots) { disposeState(slot.state); slot.state = null; slot.values = []; }
@@ -437,7 +424,7 @@ function processTrade(trade, remember, countRate = true) {
   if (remember) {
     if (Number.isFinite(trade.id)) {
       const last = marketLastId.get(source);
-      if (last !== undefined && trade.id <= last) return;   // dedupe the backfill/live overlap
+      if (last !== undefined && trade.id <= last) return false;   // dedupe the backfill/live overlap
       marketLastId.set(source, trade.id);
     }
     tradeBuffer.push(trade); if (countRate) arrivals.push(performance.now()); dirty = true;
@@ -450,7 +437,7 @@ function processTrade(trade, remember, countRate = true) {
 
   if (clock.mode === "count") {
     addSample({ price, open: price, high: price, low: price, size, signed: sign * size, buy: sign > 0 ? size : 0, sell: sign < 0 ? size : 0, ts });
-    return;
+    return true;
   }
 
   if (clock.mode === "time") {
@@ -464,7 +451,7 @@ function processTrade(trade, remember, countRate = true) {
     bucket.vol += size; bucket.signed += sign * size;
     bucket.buy += sign > 0 ? size : 0; bucket.sell += sign < 0 ? size : 0;
     bucket.ts = ts;
-    return;
+    return true;
   }
 
   // Volume clock: accumulate into a bucket until it holds a target slice of volume.
@@ -477,23 +464,12 @@ function processTrade(trade, remember, countRate = true) {
     addSample({ price: bucket.pv / bucket.vol, open: bucket.open, high: bucket.high, low: bucket.low, size: bucket.vol, signed: bucket.signed, buy: bucket.buy, sell: bucket.sell, ts: bucket.ts });
     bucket = null;
   }
+  return true;
 }
-function onTrade(trade) { processTrade(trade, true); }
-
-// Score a forecast against what the sample just realized: the forecast made
-// one sample ago (Lag) times the realized value is positive on a hit. Zero
-// products (a flat sample or a zero forecast) are neither hit nor miss, so
-// they enter RollingHitRate as NaN and are skipped.
-function feedForecast(slot, def, s) {
-  const o = slot.state, f = def.feed(o, s), y = s[def.forecast];
-  const lagged = o.lagF(f), prod = lagged * y;
-  const hit = o.hit(Number.isFinite(prod) && prod !== 0 ? prod : NaN), ic = o.ic(lagged, y);
-  if (Number.isFinite(hit)) slot.hit = hit;
-  if (Number.isFinite(ic)) slot.ic = ic;
-  slot.z = clamp(f / o.rms(f), -2, 2);   // forecast size relative to its own recent RMS
-  slot.lagged.push(lagged); slot.realized.push(y);
-  s.fc[def.id] = f;
-  return f;
+function onTrade(trade) {
+  if (!processTrade(trade, true)) return;
+  if (Number.isFinite(trade.exchangeTs)) fcLatency = trade.receivedTs - trade.exchangeTs;
+  forecastTrade(trade);
 }
 
 function addSample(s) {
@@ -502,22 +478,103 @@ function addSample(s) {
   const low = Number.isFinite(s.low) ? s.low : s.price;
   s.open = open; s.high = high; s.low = low;
   s.ret = priceOps.ret(s.price) * BP;
-  s.imb = s.size > 0 ? s.signed / s.size : NaN;
-  s.fc = {};
   const ll = priceOps.poly(s.price), vw = priceOps.vwap(high, low, s.price, s.size);
   opens.push(open); highs.push(high); lows.push(low);
   prices.push(s.price); lowlag.push(ll); fair.push(vw);
   buyVol.push(s.buy); sellVol.push(s.sell); times.push(s.ts);
-  indicatorSlots.forEach((slot) => {
-    const def = INDICATOR_BY_ID[slot.id];
-    slot.values.push(def.forecast ? feedForecast(slot, def, s) : def.feed(slot.state, s));
-  });
+  indicatorSlots.forEach((slot) => slot.values.push(INDICATOR_BY_ID[slot.id].feed(slot.state, s)));
   while (prices.length > N) {
     opens.shift(); highs.shift(); lows.shift(); prices.shift(); lowlag.shift(); fair.shift(); buyVol.shift(); sellVol.shift(); times.shift();
-    indicatorSlots.forEach((slot) => { slot.values.shift(); if (slot.lagged) { slot.lagged.shift(); slot.realized.shift(); } });
+    indicatorSlots.forEach((slot) => slot.values.shift());
   }
   dirty = true;
 }
+
+// ---------------------------------------------------------------------------
+// Forecast engine on the 5-second grid. One engine serves the active market;
+// it is rebuilt from fresh history whenever a market is entered.
+// ---------------------------------------------------------------------------
+let fc = null, fcLatency = NaN;
+function makeScoredCard(id, extra) { return { id, ...extra, score: scoreOps(), f: NaN, sd: NaN, hit: NaN, ic: NaN, lagged: [], realized: [] }; }
+function buildForecasts() {
+  fc = {
+    step: null,                         // the open grid step
+    ret: S.LogReturn(H), steps: 0, lastStart: NaN,
+    cards: FORECASTS.map((def) => def.feature
+      ? makeScoredCard(def.id, { def, feat: def.make(), lagX: S.Lag(H), reg: S.BayesianRegression({ span: FIT_SPAN, priorSigma: 5 }), coef: null })
+      : makeScoredCard(def.id, { def })),
+  };
+}
+function disposeForecasts() {
+  if (!fc) return;
+  fc.ret.dispose();
+  for (const c of fc.cards) {
+    for (const op of [c.lagX, c.reg, ...Object.values(c.feat || {}), ...Object.values(c.score)]) if (op) op.dispose();
+  }
+  fc = null;
+}
+function resetForecasts() { disposeForecasts(); buildForecasts(); fcLatency = NaN; dirty = true; }
+
+const openStep = (start, close) => ({ start, open: close, high: close, low: close, close, vol: 0, signed: 0, buy: 0, sell: 0 });
+
+// Close grid steps until the open step starts at `start`. Steps without trades
+// still close, with the price carried forward and zero volume, so 12 steps
+// are always 60 s.
+function advanceForecasts(start) {
+  if (!fc.step || !(start > fc.step.start)) return;
+  if (start - fc.step.start > MAX_GAP_STEPS * STEP_MS) { resetForecasts(); return; }   // stale after a long outage
+  while (fc.step.start < start) {
+    closeStep(fc.step);
+    fc.step = openStep(fc.step.start + STEP_MS, fc.step.close);
+  }
+}
+function forecastTrade(trade) {
+  const ts = tradeTimestamp(trade);
+  if (!fc || !Number.isFinite(ts)) return;
+  const start = Math.floor(ts / STEP_MS) * STEP_MS;
+  advanceForecasts(start);
+  if (!fc.step) fc.step = openStep(start, trade.price);
+  const g = fc.step, { price, size, sign } = trade;   // a late trade joins the open step
+  if (g.vol === 0) g.open = g.high = g.low = price;
+  g.high = Math.max(g.high, price); g.low = Math.min(g.low, price); g.close = price;
+  g.vol += size; g.signed += sign * size;
+  if (sign > 0) g.buy += size; else g.sell += size;
+}
+// Close steps on the wall clock too, so quiet seconds do not stall the grid.
+function tickForecasts() {
+  if (fc && fc.step && Number.isFinite(fcLatency)) advanceForecasts(Math.floor((Date.now() - fcLatency - 1500) / STEP_MS) * STEP_MS);
+}
+
+// Score a forecast once it matures: Lag(12) of the forecast times the
+// realized return is positive on a hit. Zero products (a flat minute or a
+// zero forecast) are neither hit nor miss and enter RollingHitRate as NaN.
+function scoreCard(c, f, sd, y) {
+  const o = c.score, lagged = o.lagF(f), prod = lagged * y;
+  const hit = o.hit(Number.isFinite(prod) && prod !== 0 ? prod : NaN), ic = o.ic(lagged, y);
+  if (Number.isFinite(hit)) c.hit = hit;
+  if (Number.isFinite(ic)) c.ic = ic;
+  c.f = f; c.sd = sd;
+  c.lagged.push(lagged); c.realized.push(y);
+  if (c.lagged.length > CHART_STEPS) { c.lagged.shift(); c.realized.shift(); }
+}
+function closeStep(step) {
+  const g = { ...step, logp: Math.log(step.close), y: fc.ret(step.close) * BP };
+  let sw = 0, swf = 0;
+  for (const c of fc.cards) {
+    if (!c.feat) continue;
+    const x = c.def.feature(c.feat, g);
+    const [slope, icpt, , sd] = c.reg(g.y, c.lagX(x));
+    if (Number.isFinite(slope) && Number.isFinite(sd)) c.coef = { slope, icpt, sd };
+    const f = c.coef ? c.coef.icpt + c.coef.slope * x : NaN, s = c.coef ? c.coef.sd : NaN;
+    scoreCard(c, f, s, g.y);
+    if (Number.isFinite(f) && s > 0) { sw += 1 / (s * s); swf += f / (s * s); }
+  }
+  const combo = fc.cards[fc.cards.length - 1];
+  scoreCard(combo, sw > 0 ? swf / sw : NaN, sw > 0 ? Math.sqrt(1 / sw) : NaN, g.y);
+  fc.steps += 1; fc.lastStart = step.start;
+  dirty = true;
+}
+buildForecasts();
 
 // ---------------------------------------------------------------------------
 function parseTimestamp(value) {
@@ -545,38 +602,35 @@ const FEEDS = {
       return { id: Number(m.trade_id), price, size, sign: m.side === "sell" ? 1 : -1, exchangeTs: parseTimestamp(m.time) };
     },
     rest: {
-      // Recent tape for the warm-start (public, CORS-open, newest-first, up to 1000).
-      url: "https://api.exchange.coinbase.com/products/BTC-USD/trades?limit=1000",
+      // History pages for the warm-start (public, CORS-open, 1000 per page);
+      // `after` pages back to trades older than the given trade id.
+      url: (olderThan) => "https://api.exchange.coinbase.com/products/BTC-USD/trades?limit=1000" + (olderThan ? "&after=" + olderThan : ""),
       parse: (arr) => arr
-        .map((t) => ({ id: Number(t.trade_id), price: parseFloat(t.price), size: parseFloat(t.size), sign: t.side === "sell" ? 1 : -1, exchangeTs: parseTimestamp(t.time) }))
-        .filter((t) => Number.isFinite(t.id) && Number.isFinite(t.price) && Number.isFinite(t.size))
-        .sort((a, b) => a.id - b.id),   // Coinbase returns newest-first
+        .map((t) => ({ id: Number(t.trade_id), price: parseFloat(t.price), size: parseFloat(t.size), sign: t.side === "sell" ? 1 : -1, exchangeTs: parseTimestamp(t.time) })),
     },
   },
   binance: {
+    // Aggregated trades on both the socket and REST, so ids dedupe across them.
     label: "Binance BTC/USDT",
-    url: "wss://stream.binance.com:9443/ws/btcusdt@trade",
+    url: "wss://stream.binance.com:9443/ws/btcusdt@aggTrade",
     onopen: null,
     parse: (m) => {
-      if (m.e !== "trade") return null;
+      if (m.e !== "aggTrade") return null;
       const price = parseFloat(m.p), size = parseFloat(m.q);
       if (!Number.isFinite(price) || !Number.isFinite(size)) return null;
-      return { id: m.t, price, size, sign: m.m ? -1 : 1, exchangeTs: parseTimestamp(m.T) };
+      return { id: m.a, price, size, sign: m.m ? -1 : 1, exchangeTs: parseTimestamp(m.T) };
     },
     rest: {
-      // Recent tape for the warm-start (public, CORS-open, oldest-first, up to 1000).
-      url: "https://api.binance.com/api/v3/trades?symbol=BTCUSDT&limit=1000",
+      url: (olderThan) => "https://api.binance.com/api/v3/aggTrades?symbol=BTCUSDT&limit=1000" + (olderThan ? "&fromId=" + Math.max(0, olderThan - 1000) : ""),
       parse: (arr) => arr
-        .map((t) => ({ id: t.id, price: parseFloat(t.price), size: parseFloat(t.qty), sign: t.isBuyerMaker ? -1 : 1, exchangeTs: t.time }))
-        .filter((t) => Number.isFinite(t.id) && Number.isFinite(t.price) && Number.isFinite(t.size))
-        .sort((a, b) => a.id - b.id),   // ensure chronological before replay
+        .map((t) => ({ id: t.a, price: parseFloat(t.p), size: parseFloat(t.q), sign: t.m ? -1 : 1, exchangeTs: t.T })),
     },
   },
 };
 
 let ws = null, source = "coinbase", retry = 0, reconnectTimer = null;
 const marketLastId = new Map();
-let backfillInFlight = false;
+let feedGen = 0;
 
 function setStatus(state, text) {
   document.getElementById("dot").className = "dot " + (state || "");
@@ -584,6 +638,7 @@ function setStatus(state, text) {
 }
 function connect() {
   clearTimeout(reconnectTimer);
+  if (ws) { ws.onclose = null; try { ws.close(); } catch {} ws = null; }
   const feed = FEEDS[source];
   setStatus("connecting", "connecting to " + feed.label + "…");
   let sock;
@@ -600,29 +655,50 @@ function connect() {
 }
 function scheduleReconnect() { retry = Math.min(retry + 1, 6); reconnectTimer = setTimeout(connect, 400 * retry); }
 
-// Warm-start: replay the recent public trade tape through the same pipeline
-// before the live socket, so the chart fills across the window immediately
-// instead of accreting over a minute. Runs once per market (empty buffer); any
-// failure silently falls back to the live-only start.
-async function backfill(market) {
-  const feed = FEEDS[market];
-  if (!feed.rest) return;
-  setStatus("connecting", "loading history · " + feed.label + "…");
-  let trades;
-  try {
-    const res = await fetch(feed.rest.url, { cache: "no-store" });
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    trades = feed.rest.parse(await res.json());
-  } catch { return; }
-  if (market !== source || !Array.isArray(trades)) return;   // switched away, or bad payload
-  marketLastId.delete(market);                                // fresh dedupe baseline
-  for (const t of trades) processTrade({ ...t, receivedTs: t.exchangeTs }, true, false);
-  dirty = true; updateTimeInfo();
+// Warm-start: page back through the public trade tape for HISTORY_MS, one
+// request at a time, then replay it oldest-first before opening the socket.
+// The forecast engine gets all of it; the display buffer keeps its bounded
+// tail of trades it has not seen. A failed page keeps what was fetched.
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function fetchHistory(market, gen) {
+  const feed = FEEDS[market], byId = new Map();
+  let olderThan = 0, newest = NaN, oldest = NaN;
+  for (let page = 0; page < HISTORY_PAGES; page++) {
+    let trades;
+    try {
+      const res = await fetch(feed.rest.url(olderThan), { cache: "no-store" });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      trades = feed.rest.parse(await res.json())
+        .filter((t) => Number.isFinite(t.id) && Number.isFinite(t.price) && Number.isFinite(t.size) && Number.isFinite(t.exchangeTs));
+    } catch { break; }
+    if (gen !== feedGen) return null;   // switched away
+    if (!trades.length) break;
+    for (const t of trades) {
+      byId.set(t.id, t);
+      if (!(t.exchangeTs <= newest)) newest = t.exchangeTs;
+      if (!(t.exchangeTs >= oldest)) oldest = t.exchangeTs;
+      if (!olderThan || t.id < olderThan) olderThan = t.id;
+    }
+    const minutes = Math.min(HISTORY_MS, newest - oldest) / 60000;
+    setStatus("connecting", "loading history " + Math.floor(minutes) + "/" + HISTORY_MS / 60000 + " min · " + feed.label);
+    if (newest - oldest >= HISTORY_MS) break;
+    await sleep(HISTORY_PAUSE_MS);
+    if (gen !== feedGen) return null;
+  }
+  return [...byId.values()].sort((a, b) => a.id - b.id);
 }
 async function startFeed() {
-  if (!backfillInFlight && tradeBuffer.size === 0) {
-    backfillInFlight = true;
-    try { await backfill(source); } finally { backfillInFlight = false; }
+  const gen = ++feedGen, market = source;
+  resetForecasts();
+  const trades = await fetchHistory(market, gen);
+  if (gen !== feedGen) return;
+  if (trades && trades.length) {
+    for (const t of trades) forecastTrade(t);
+    if (tradeBuffer.size === 0) marketLastId.delete(market);   // fresh dedupe baseline
+    const last = marketLastId.get(market);
+    const fresh = trades.filter((t) => last === undefined || t.id > last).slice(-BUFFER_CAPACITY);
+    for (const t of fresh) processTrade({ ...t, receivedTs: t.exchangeTs }, true, false);
+    dirty = true; updateTimeInfo();
   }
   connect();
 }
@@ -636,6 +712,7 @@ function updateMarketTitle() {
 }
 function switchFeed(next) {
   if (!FEEDS[next] || next === source) return;
+  clearTimeout(reconnectTimer);
   if (ws) { ws.onclose = null; try { ws.close(); } catch {} ws = null; }
   captureActiveSeries();
   source = next;
@@ -756,6 +833,7 @@ function render() {
   updateTimeInfo();
 
   if (clock.mode === "time" && bucket && Number.isFinite(bucket.start) && Date.now() >= bucket.start + clock.factor * 1000) flushTimeBucket();
+  tickForecasts();
   if (!dirty) return;
   dirty = false;
   renderPricePanel();
@@ -847,67 +925,71 @@ function renderIndicatorChart(slot, surfaceName) {
   return nowVal;
 }
 
-// Forecast card: grey bars are the realized value of each sample on their own
-// symmetric scale; the line is the forecast made one sample earlier, so a
-// line on the same side of zero as its bar is a hit.
-function renderForecastChart(slot, surfaceName) {
+// Forecast card over the last CHART_STEPS grid steps (20 min): grey bars are
+// the realized 60 s return on their own symmetric scale; the line is the
+// forecast made 60 s earlier, so a line on the same side of zero as its bar
+// is a hit.
+function renderForecastChart(card, surfaceName) {
   useSurface(surfaceName);
   const plotW = cssW - PADL - PADR, plotH = cssH - PADT - PADB;
-  const { X } = sampleX(plotW), def = INDICATOR_BY_ID[slot.id];
+  const len = card.lagged.length, step = plotW / (CHART_STEPS - 1);
+  const X = (i) => PADL + plotW - (len - 1 - i) * step;
   const absMax = (a) => { let m = 0; for (const v of a) if (Number.isFinite(v)) m = Math.max(m, Math.abs(v)); return m || 1; };
-  const fMax = absMax(slot.lagged) * 1.1, rMax = absMax(slot.realized);
+  const fMax = absMax(card.lagged) * 1.1, rMax = absMax(card.realized);
   const midY = PADT + plotH / 2, Yf = (v) => midY - v / fMax * plotH / 2;
   ctx.strokeStyle = "#232a33"; ctx.lineWidth = 1;
   for (const y of [PADT, midY, PADT + plotH]) { ctx.beginPath(); ctx.moveTo(PADL, y); ctx.lineTo(PADL + plotW, y); ctx.stroke(); }
   ctx.fillStyle = "#8b949e"; ctx.font = "10px ui-monospace, Menlo, monospace"; ctx.textAlign = "left";
   ctx.fillText(fmtTick(fMax), PADL + plotW + 6, PADT + 3);
-  ctx.fillText("0 " + def.unit, PADL + plotW + 6, midY + 3);
+  ctx.fillText("0 bp", PADL + plotW + 6, midY + 3);
   ctx.fillText(fmtTick(-fMax), PADL + plotW + 6, PADT + plotH + 3);
+  ctx.fillText("−20 min", PADL, cssH - 8);
+  ctx.textAlign = "center"; ctx.fillText("−10", PADL + plotW / 2, cssH - 8);
+  ctx.textAlign = "right"; ctx.fillText("now", PADL + plotW, cssH - 8);
   ctx.save(); ctx.beginPath(); ctx.rect(PADL, PADT, plotW, plotH); ctx.clip();
-  const barW = Math.max(1, Math.min(6, plotW / Math.max(N, 1) * 0.7));
-  for (let i = 0; i < slot.realized.length; i++) {
-    const r = slot.realized[i];
+  const barW = Math.max(1, step * 0.8);
+  ctx.fillStyle = "rgba(139,148,158,.5)";
+  for (let i = 0; i < len; i++) {
+    const r = card.realized[i];
     if (!Number.isFinite(r) || r === 0) continue;
     const h = r / rMax * plotH / 2;
-    ctx.fillStyle = "rgba(139,148,158,.5)";
     ctx.fillRect(X(i) - barW / 2, Math.min(midY, midY - h), barW, Math.abs(h));
   }
-  line(slot.lagged, "#e6edf3", 1.5, 0.95, X, Yf);
+  line(card.lagged, "#e6edf3", 1.5, 0.95, X, Yf);
   ctx.restore();
 }
 
 // Tint from neutral panel grey toward green or red by |z| / 2, z being the
-// forecast over its own recent RMS, clipped to [-2, 2].
+// forecast over its predictive std, clipped to [-2, 2].
 const PANEL_RGB = [22, 27, 34], BUY_RGB = [63, 185, 80], SELL_RGB = [248, 81, 73];
 function tint(z, strength) {
   if (!Number.isFinite(z)) return null;
   const to = z >= 0 ? BUY_RGB : SELL_RGB, a = Math.abs(z) / 2 * strength;
   return "rgb(" + PANEL_RGB.map((c, k) => Math.round(c + (to[k] - c) * a)).join(",") + ")";
 }
-function forecastValue(def, f) {
+const bpDigits = (v) => Math.abs(v) >= 10 ? 0 : 1;
+function forecastValue(f, sd) {
   if (!Number.isFinite(f)) return { text: "warming…", className: "" };
-  const digits = def.unit === "bp" ? (Math.abs(f) >= 10 ? 0 : Math.abs(f) >= 1 ? 1 : 2) : 2;
-  const num = f.toFixed(digits), sign = Number(num) === 0 ? 0 : Math.sign(f);
+  const num = f.toFixed(bpDigits(f)), sign = Number(num) === 0 ? 0 : Math.sign(f);
   const arrow = sign > 0 ? "▲ +" : sign < 0 ? "▼ " : "■ ";
-  return { text: arrow + (sign ? num : (0).toFixed(digits)) + (def.unit ? " " + def.unit : ""), className: sign > 0 ? "buy" : sign < 0 ? "sell" : "" };
+  const band = Number.isFinite(sd) ? " ±" + sd.toFixed(bpDigits(sd)) : "";
+  return { text: arrow + (sign ? num : (0).toFixed(1)) + " bp" + band, className: sign > 0 ? "buy" : sign < 0 ? "sell" : "" };
 }
-function renderForecastCard(slot) {
-  const def = INDICATOR_BY_ID[slot.id];
-  renderForecastChart(slot, "indicator:" + slot.id);
-  const f = slot.values.length ? slot.values[slot.values.length - 1] : NaN;
-  const meta = forecastValue(def, f);
-  const valueEl = document.getElementById("indicator-value-" + slot.id);
+function renderForecastCard(card) {
+  renderForecastChart(card, "indicator:" + card.id);
+  const meta = forecastValue(card.f, card.sd);
+  const valueEl = document.getElementById("indicator-value-" + card.id);
   if (valueEl) { valueEl.textContent = meta.text; valueEl.className = "card-value" + (meta.className ? " " + meta.className : ""); }
-  const card = document.getElementById("indicator-card-" + slot.id);
-  if (card) {
-    card.style.backgroundColor = tint(slot.z, 0.42) || "";
-    card.style.borderColor = tint(slot.z, 0.9) || "";
+  const el = document.getElementById("indicator-card-" + card.id), z = clamp(card.f / card.sd, -2, 2);
+  if (el) {
+    el.style.backgroundColor = tint(z, 0.42) || "";
+    el.style.borderColor = tint(z, 0.9) || "";
   }
-  const scoreEl = document.getElementById("indicator-score-" + slot.id);
+  const scoreEl = document.getElementById("indicator-score-" + card.id);
   if (scoreEl) {
-    const hit = Number.isFinite(slot.hit) ? Math.round(slot.hit * 100) + "%" : "…";
-    const ic = Number.isFinite(slot.ic) ? (slot.ic >= 0 ? "+" : "") + slot.ic.toFixed(2) : "…";
-    scoreEl.textContent = "hit " + hit + " · IC " + ic + " · vs " + (def.forecast === "imb" ? "flow" : "return");
+    const hit = Number.isFinite(card.hit) ? Math.round(card.hit * 100) + "%" : "…";
+    const ic = Number.isFinite(card.ic) ? (card.ic >= 0 ? "+" : "") + card.ic.toFixed(2) : "…";
+    scoreEl.textContent = "hit " + hit + " · IC " + ic + " · overlapping 60 s";
   }
 }
 
@@ -922,8 +1004,8 @@ function indicatorValue(def, value) {
 }
 
 function renderIndicatorPanels() {
+  if (fc) fc.cards.forEach(renderForecastCard);
   indicatorSlots.forEach((slot) => {
-    if (INDICATOR_BY_ID[slot.id].forecast) { renderForecastCard(slot); return; }
     const def = INDICATOR_BY_ID[slot.id], value = renderIndicatorChart(slot, "indicator:" + slot.id);
     const meta = indicatorValue(def, value), valueEl = document.getElementById("indicator-value-" + slot.id);
     if (valueEl) { valueEl.textContent = meta.text; valueEl.className = "card-value" + (meta.className ? " " + meta.className : ""); }
@@ -944,8 +1026,9 @@ function buildIndicatorGrid() {
     "Volatility": "#f85149",
     "Cycle (Ehlers)": "#bc8cff",
   };
-  indicatorSlots.forEach((slot) => {
-    const def = INDICATOR_BY_ID[slot.id], surfaceName = "indicator:" + slot.id;
+  const defs = [...FORECASTS.map((d) => ({ ...d, group: "Forecasts", forecast: true })), ...INDICATORS];
+  defs.forEach((def) => {
+    const surfaceName = "indicator:" + def.id;
     let row = rows.get(def.group);
     if (!row) {
       const section = document.createElement("section"); section.className = "category-row";
@@ -953,7 +1036,7 @@ function buildIndicatorGrid() {
       const heading = document.createElement("div"); heading.className = "category-row-head";
       const h2 = document.createElement("h2"); h2.textContent = def.group;
       const count = document.createElement("span"); count.textContent = "indicators";
-      if (def.forecast) count.dataset.note = "next sample · line = forecast made one sample earlier, bars = realized";
+      if (def.forecast) count.dataset.note = "next 60 s · BTC log return, bp · line = forecast made 60 s earlier, bars = realized";
       heading.append(h2, count);
       const track = document.createElement("div"); track.className = "category-track";
       section.append(heading, track); rail.appendChild(section);
@@ -979,7 +1062,7 @@ function buildIndicatorGrid() {
     }
     indicatorCanvases.set(surfaceName, canvas);
   });
-  document.getElementById("indicatorCount").textContent = indicatorSlots.length;
+  document.getElementById("indicatorCount").textContent = defs.length;
 }
 
 function renderOHLC(X, Yp, plotW) {
