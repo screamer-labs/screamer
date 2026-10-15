@@ -229,7 +229,9 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 // Every card predicts y, the BTC log return over the next HORIZON_STEPS steps
 // (60 s) in bp. `feature` maps grid step g { open, high, low, close, logp,
 // vol, signed, buy, sell, y } to x; a BayesianRegression learns y_t on
-// x_{t-12}, so it only sees matured pairs, and forecasts intercept + slope * x_t.
+// x_{t-12}, so it only sees matured pairs, and forecasts slope * (x_t - mean x).
+// The intercept is left out: it is the average recent 60 s return, a drift
+// shared by every card, and at this horizon the drift is taken as zero.
 // FIT_SPAN = 240 steps (20 min): with overlapping 60 s targets that is about
 // 20 independent outcomes, enough to be stable and still recent.
 // ---------------------------------------------------------------------------
@@ -501,7 +503,7 @@ function buildForecasts() {
     step: null,                         // the open grid step
     ret: S.LogReturn(H), steps: 0, lastStart: NaN,
     cards: FORECASTS.map((def) => def.feature
-      ? makeScoredCard(def.id, { def, feat: def.make(), lagX: S.Lag(H), reg: S.BayesianRegression({ span: FIT_SPAN, priorSigma: 5 }), coef: null })
+      ? makeScoredCard(def.id, { def, feat: def.make(), lagX: S.Lag(H), xMean: S.EwMean({ span: FIT_SPAN }), reg: S.BayesianRegression({ span: FIT_SPAN, priorSigma: 5 }), coef: null })
       : makeScoredCard(def.id, { def })),
   };
 }
@@ -509,7 +511,7 @@ function disposeForecasts() {
   if (!fc) return;
   fc.ret.dispose();
   for (const c of fc.cards) {
-    for (const op of [c.lagX, c.reg, ...Object.values(c.feat || {}), ...Object.values(c.score)]) if (op) op.dispose();
+    for (const op of [c.lagX, c.xMean, c.reg, ...Object.values(c.feat || {}), ...Object.values(c.score)]) if (op) op.dispose();
   }
   fc = null;
 }
@@ -563,9 +565,10 @@ function closeStep(step) {
   for (const c of fc.cards) {
     if (!c.feat) continue;
     const x = c.def.feature(c.feat, g);
-    const [slope, icpt, , sd] = c.reg(g.y, c.lagX(x));
-    if (Number.isFinite(slope) && Number.isFinite(sd)) c.coef = { slope, icpt, sd };
-    const f = c.coef ? c.coef.icpt + c.coef.slope * x : NaN, s = c.coef ? c.coef.sd : NaN;
+    const lx = c.lagX(x), xm = c.xMean(lx);
+    const [slope, , , sd] = c.reg(g.y, lx);
+    if (Number.isFinite(slope) && Number.isFinite(sd) && Number.isFinite(xm)) c.coef = { slope, xm, sd };
+    const f = c.coef ? c.coef.slope * (x - c.coef.xm) : NaN, s = c.coef ? c.coef.sd : NaN;
     scoreCard(c, f, s, g.y);
     if (Number.isFinite(f) && s > 0) { sw += 1 / (s * s); swf += f / (s * s); }
   }
