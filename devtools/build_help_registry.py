@@ -23,7 +23,9 @@ frontmatter block, this script:
    the live call succeed.
 
 Output: ``screamer/data/help.json`` — a dict keyed by class name. Each
-entry contains the frontmatter fields plus ``details`` and ``examples``.
+entry contains the frontmatter fields plus ``details`` and ``examples``. It
+also writes ``screamer/data/topics.json``, the topic groups of
+``docs/topics.yml``, so the installed package can list them.
 
 Run:
     poetry run python devtools/build_help_registry.py
@@ -42,6 +44,7 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
 OUT = ROOT / "screamer" / "data" / "help.json"
+TOPICS_OUT = ROOT / "screamer" / "data" / "topics.json"
 
 FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---\n", re.DOTALL)
 HELP_END_MARKER = "<!-- HELP_END -->"
@@ -310,8 +313,26 @@ def _validate_function(entry: dict, fn) -> None:
                     f"{name}: schema lists parameters not in the signature: {sorted(extra)}")
 
 
-def main(argv=None, stdout=False):
+def topics_registry() -> list[dict]:
+    """The topic groups of docs/topics.yml, for screamer/data/topics.json.
+
+    A list of groups in display order, each with its topics in display order:
+    ``[{"slug", "name", "desc", "topics": [{"slug", "name", "desc"}, ...]}]``.
+    """
+    from devtools.topics import load_groups, load_topics, validate_groups
+    validate_groups()
+    topics = load_topics()
+    return [{"slug": g, "name": e["name"], "desc": e["desc"],
+             "topics": [{"slug": t, **topics[t]} for t in e["topics"]]}
+            for g, e in load_groups().items()]
+
+
+def main(argv=None, stdout=False, stdout_topics=False):
     sys.path.insert(0, str(ROOT))
+    topics_text = json.dumps(topics_registry(), indent=2, ensure_ascii=False) + "\n"
+    if stdout_topics:
+        sys.stdout.write(topics_text)
+        return
     screamer = importlib.import_module("screamer")
     from devtools.topics import topic_slugs
     valid_topics = topic_slugs()
@@ -369,6 +390,7 @@ def main(argv=None, stdout=False):
         return
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(text)
+    TOPICS_OUT.write_text(topics_text)
     print(f"\nWrote {OUT.relative_to(ROOT)} with {len(registry)} entries", file=sys.stderr)
 
 
@@ -379,5 +401,7 @@ if __name__ == "__main__":
                     help="rebuild only these entries, keeping the rest of help.json (default: all)")
     ap.add_argument("--stdout", action="store_true",
                     help="write the registry to stdout instead of help.json")
+    ap.add_argument("--stdout-topics", action="store_true",
+                    help="write the topic groups to stdout instead of topics.json")
     args = ap.parse_args()
-    main(args.names, stdout=args.stdout)
+    main(args.names, stdout=args.stdout, stdout_topics=args.stdout_topics)

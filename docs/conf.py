@@ -48,6 +48,7 @@ extensions = [
     "sphinx_exec_code",  # execute python snippets in docs and show output
     "sphinx_design",     # grid layouts, cards, tabs, badges
     "function_page",     # function-page header from the frontmatter (docs/_ext)
+    "llms_txt",          # llms.txt and llms-full.txt for agents (docs/_ext)
     # myst-nb replaces the plain 'myst_parser' extension (it loads myst-parser
     # itself, so listing both would conflict) and renders the
     # docs/notebooks/*.ipynb demo notebooks. It supersedes the abandoned

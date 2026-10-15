@@ -5,6 +5,23 @@ All notable changes to this project are documented in this file.
 Unreleased
 ----------
 
+### Added
+
+* `screamer.docs`, the built-in documentation for coding agents and people:
+  `python -m screamer.docs search <keywords>`, `show <Name>`, `topics`, and
+  `guide`, with `--json` for structured output, and the same calls in Python.
+  It describes the installed version: each function's parameters (type,
+  default, allowed values, meaning), inputs and outputs, NaN policy, related
+  functions, details, and examples.
+* An MCP server, `screamer-mcp` (`pip install "screamer[mcp]"`), with the tools
+  `list_topics`, `search_functions`, `get_function`, and `get_guide`. It sends
+  a guide to screamer's conventions as its instructions.
+* `python -m screamer.docs skill` writes that guide as an Agent Skill
+  (`SKILL.md`).
+* The documentation site publishes `llms.txt` and `llms-full.txt`, and a new
+  page, [Using screamer with AI agents](https://screamer.readthedocs.io/en/latest/agents.html),
+  explains each way in.
+
 3.2.0 - 2026-10-14
 ------------------
 

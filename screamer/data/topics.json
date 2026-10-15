@@ -1,0 +1,247 @@
+[
+  {
+    "slug": "statistics",
+    "name": "Statistics",
+    "desc": "Measures of a window: central tendency, dispersion, quantiles, moments, z-scores, running totals, and cross-series relationships.",
+    "topics": [
+      {
+        "slug": "statistics",
+        "name": "Statistics",
+        "desc": "Windowed summary statistics: central tendency, dispersion, quantiles, moments, and extremes."
+      },
+      {
+        "slug": "volatility",
+        "name": "Volatility",
+        "desc": "The size of fluctuations and risk: standard deviation and variance, RMS, range-based OHLC estimators, and ATR."
+      },
+      {
+        "slug": "standardization",
+        "name": "Standardization & normalization",
+        "desc": "Put values on a comparable scale: z-scores, affine rescaling, and detrending."
+      },
+      {
+        "slug": "cumulative",
+        "name": "Cumulative",
+        "desc": "Running aggregates from the start of the series."
+      },
+      {
+        "slug": "regression",
+        "name": "Correlation & regression",
+        "desc": "Relationships between series: correlation, covariance, regression, hedging, pairs, and mean-reversion."
+      }
+    ]
+  },
+  {
+    "slug": "smoothing-filters",
+    "name": "Smoothing & filters",
+    "desc": "Track and denoise the level of a series: moving averages and designed filters.",
+    "topics": [
+      {
+        "slug": "smoothing",
+        "name": "Smoothing & moving averages",
+        "desc": "Track the level of a series and suppress short-term noise."
+      },
+      {
+        "slug": "filtering",
+        "name": "Filtering",
+        "desc": "Designed frequency-domain and state-space filters."
+      }
+    ]
+  },
+  {
+    "slug": "indicators",
+    "name": "Technical indicators",
+    "desc": "Market indicators: trend, momentum, bands, volume, and returns.",
+    "topics": [
+      {
+        "slug": "trend",
+        "name": "Trend",
+        "desc": "Direction and trend-following: trend-tracking averages, slope fits, ADX, and channels."
+      },
+      {
+        "slug": "momentum",
+        "name": "Momentum & oscillators",
+        "desc": "Rate-of-change and overbought/oversold indicators."
+      },
+      {
+        "slug": "bands",
+        "name": "Bands & channels",
+        "desc": "Envelopes around price."
+      },
+      {
+        "slug": "volatility-indicators",
+        "name": "Volatility indicators",
+        "desc": "True range, ATR, and normalized ATR for stops, sizing, and channels."
+      },
+      {
+        "slug": "volume",
+        "name": "Volume",
+        "desc": "Volume-based indicators."
+      },
+      {
+        "slug": "returns",
+        "name": "Returns & changes",
+        "desc": "Differences, returns, rates of change, and lags."
+      },
+      {
+        "slug": "cycles",
+        "name": "Cycles & spectra",
+        "desc": "Dominant cycle, phase, amplitude, and frequency from the analytic signal."
+      }
+    ]
+  },
+  {
+    "slug": "microstructure",
+    "name": "Market microstructure",
+    "desc": "Order flow and liquidity from trades and quotes: trade signing, imbalance, price impact, and arrival intensity.",
+    "topics": [
+      {
+        "slug": "trade-signing",
+        "name": "Trade signing",
+        "desc": "Classify each trade as buyer- or seller-initiated to recover signed order flow."
+      },
+      {
+        "slug": "order-flow-imbalance",
+        "name": "Order-flow imbalance",
+        "desc": "Net buying pressure and its toxicity: trade-flow imbalance, book imbalance, and VPIN."
+      },
+      {
+        "slug": "price-impact",
+        "name": "Price impact & liquidity",
+        "desc": "How far order flow moves price and what trading costs: Kyle's lambda, Amihud, Roll spread, the propagator, and the micro-price."
+      },
+      {
+        "slug": "order-flow-arrivals",
+        "name": "Order-flow arrivals",
+        "desc": "The timing and clustering of trades: self-exciting arrival intensity."
+      }
+    ]
+  },
+  {
+    "slug": "backtesting-risk",
+    "name": "Backtesting & risk",
+    "desc": "Turn signals into positions and costed equity curves, measure drawdown and performance, and test whether a result is more than luck.",
+    "topics": [
+      {
+        "slug": "signals",
+        "name": "Signals & position rules",
+        "desc": "Turn an indicator into a position: entry and exit bands, hysteresis, and holding a value."
+      },
+      {
+        "slug": "backtesting",
+        "name": "Backtesting",
+        "desc": "Simulate a strategy against market data into a costed equity curve: signals, bars, the trade tape, and top-of-book quotes."
+      },
+      {
+        "slug": "risk",
+        "name": "Risk & performance",
+        "desc": "Drawdowns and performance ratios."
+      },
+      {
+        "slug": "significance",
+        "name": "Significance & overfitting",
+        "desc": "Is a backtest more than luck? Randomization tests with p-values, permutations, the probabilistic and deflated Sharpe ratio, and walk-forward evaluation."
+      }
+    ]
+  },
+  {
+    "slug": "portfolio",
+    "name": "Portfolio & pairs",
+    "desc": "Rank assets against each other, turn scores into weights, backtest a book of many assets from one account, and trade pairs.",
+    "topics": [
+      {
+        "slug": "cross-sectional",
+        "name": "Cross-sectional",
+        "desc": "Transforms across the assets of one time step: ranks, z-scores, demeaning, winsorizing, and weight normalization."
+      },
+      {
+        "slug": "portfolio",
+        "name": "Portfolio backtesting",
+        "desc": "Backtest many assets from one shared account: weights, rebalancing, exposure limits, and book statistics."
+      },
+      {
+        "slug": "pairs",
+        "name": "Pairs & mean reversion",
+        "desc": "Hedge ratios, spreads, stationarity tests, and entry and exit rules for a pairs trade."
+      }
+    ]
+  },
+  {
+    "slug": "math-logic",
+    "name": "Math & logic",
+    "desc": "Elementwise numeric, trigonometric, activation, and boolean operations.",
+    "topics": [
+      {
+        "slug": "arithmetic",
+        "name": "Arithmetic",
+        "desc": "Elementwise numeric operations: rounding, powers, logs, exponentials, affine transforms, sign, and special functions."
+      },
+      {
+        "slug": "trig",
+        "name": "Trigonometry & geometry",
+        "desc": "Angles, inverse trigonometric functions, coordinate conversions, and distances."
+      },
+      {
+        "slug": "activations",
+        "name": "Activations",
+        "desc": "Neural-network activation functions."
+      },
+      {
+        "slug": "logic",
+        "name": "Logic & comparison",
+        "desc": "Boolean masks, comparisons, and conditional selection. Outputs are 1.0 (true) or 0.0 (false)."
+      }
+    ]
+  },
+  {
+    "slug": "data-prep",
+    "name": "Data preparation",
+    "desc": "Prepare a series before analysis: bars from ticks, fill or drop missing values, and despike outliers.",
+    "topics": [
+      {
+        "slug": "bars",
+        "name": "Bars & resampling",
+        "desc": "Time, tick, volume, and dollar bars from a trade tape, and OHLC downsampling."
+      },
+      {
+        "slug": "missing-data",
+        "name": "Missing data",
+        "desc": "Filling and removing NaN values."
+      },
+      {
+        "slug": "outliers",
+        "name": "Outliers & robustness",
+        "desc": "Despiking and robust estimators."
+      }
+    ]
+  },
+  {
+    "slug": "streaming",
+    "name": "Streaming & pipelines",
+    "desc": "Align and reshape event streams, and wire operators into a runnable pipeline.",
+    "topics": [
+      {
+        "slug": "streams",
+        "name": "Streams",
+        "desc": "Aligning, combining, and reshaping event streams."
+      },
+      {
+        "slug": "graphs",
+        "name": "Pipelines",
+        "desc": "Building and running a pipeline."
+      }
+    ]
+  },
+  {
+    "slug": "machine-learning",
+    "name": "Forecasting & ML",
+    "desc": "Training sets from time-series data, and online regression and filtering that forecast as they update.",
+    "topics": [
+      {
+        "slug": "supervised",
+        "name": "Supervised learning & online forecasting",
+        "desc": "Forecasting training sets from causal features and targets, and regressions and filters that update and forecast at every step."
+      }
+    ]
+  }
+]

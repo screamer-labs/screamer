@@ -109,6 +109,9 @@ p(data);                                    // bind data at call time; p.live() 
   by topic live at [screamer.readthedocs.io](https://screamer.readthedocs.io/en/latest/).
 - **JavaScript:** see [`js/README.md`](js/README.md) for install and the API. JavaScript
   API reference and guide: [screamer-labs.github.io/screamer](https://screamer-labs.github.io/screamer/).
+- **AI agents:** `python -m screamer.docs search <keywords>` and `show <Name>` describe
+  every function of the installed version, and `pip install "screamer[mcp]"` adds an MCP
+  server. See [Using screamer with AI agents](https://screamer.readthedocs.io/en/latest/agents.html).
 
 ## Contributing
 

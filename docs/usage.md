@@ -267,3 +267,5 @@ The precise reset rules are in the [Polymorphic API reference](polymorphic_api.m
   [Pipelines](pipelines.md) give the precise behaviour.
 - **API reference**: [every function by group](by_group_index.rst), and the
   [gallery](gallery.rst) with a plot for each.
+- **AI agents**: [Using screamer with AI agents](agents.md) shows how a coding
+  agent can look up every function and its parameters.

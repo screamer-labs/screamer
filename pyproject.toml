@@ -39,6 +39,9 @@ classifiers=[
     "Operating System :: OS Independent"
 ]
 
+[project.scripts]
+screamer-mcp = "screamer.mcp:main"
+
 [project.urls]
 Homepage = "https://github.com/screamer-labs/screamer"
 Documentation = "https://screamer.readthedocs.io/en/latest/"
@@ -69,6 +72,13 @@ test = [
     # as the definition they implement. Wheels have bundled the C library
     # since 0.6, so this is a normal test dependency.
     "TA-Lib>=0.6",
+    # The MCP server, screamer/mcp.py, and its stdio test.
+    "mcp>=1.2",
+]
+# The MCP server that serves the documentation to coding agents:
+# `screamer-mcp`, or `python -m screamer.mcp`.
+mcp = [
+    "mcp>=1.2",
 ]
 # Pipeline visualization: Pipeline.to_graphviz() and the Jupyter SVG repr. Rendering also
 # needs the system Graphviz `dot` binary (e.g. `brew install graphviz`,

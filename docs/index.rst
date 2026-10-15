@@ -206,6 +206,7 @@ Functions by group
    :hidden:
 
    choosing_an_operator
+   agents
    backtesting_best_practices
    portfolio_backtesting
    javascript
