@@ -92,6 +92,8 @@
   .indicator-card .card-value.buy { color: var(--buy); }
   .indicator-card .card-value.sell { color: var(--sell); }
   .indicator-surface { flex: 1; min-height: 78px; position: relative; padding: 2px 3px 2px; }
+  .indicator-card.forecast { height: 178px; transition: background-color .4s, border-color .4s; }
+  .indicator-card .card-score { color: var(--muted); font: 10px ui-monospace, Menlo, monospace; padding: 0 8px 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   @media (max-width: 1100px) {
     #app { grid-template-columns: minmax(300px, .85fr) minmax(0, 1.25fr); }
     .indicator-card { flex-basis: 200px; }
@@ -108,6 +110,7 @@
     .category-row { margin-bottom: 8px; }
     .category-track { display: grid; grid-template-columns: minmax(0, 1fr); overflow: visible; }
     .indicator-card { width: 100%; flex: none; height: 150px; }
+    .indicator-card.forecast { height: 172px; }
     .indicator-surface { min-height: 78px; }
   }
 </style>
@@ -151,12 +154,12 @@
       <div id="dashboard">
       <section class="window market">
         <div class="window-head">
-          <div class="title"><span class="kicker">market overview</span><h2 id="marketTitle">BTC-USD · 10-second OHLC</h2><span class="sub">price, low-lag estimate, fair value and aggressor volume</span></div>
+          <div class="title"><span class="kicker">market overview</span><h2 id="marketTitle">BTC-USD · 10-second OHLC</h2><span class="sub">price, low-lag estimate, rolling VWAP and aggressor volume</span></div>
         </div>
         <div class="surface"><canvas id="chartPrice"></canvas><div id="overlay"><div class="box"></div></div></div>
         <div class="legend">
           <span class="lg"><span class="sw" style="background:var(--lowlag)"></span><span class="nm">low-lag price</span> <span class="vl" id="v_lowlag">—</span></span>
-          <span class="lg"><span class="sw" style="background:var(--fair)"></span><span class="nm">fair value</span> <span class="vl" id="v_fair">—</span></span>
+          <span class="lg"><span class="sw" style="background:var(--fair)"></span><span class="nm">fair value · VWAP of (H+L+C)/3</span> <span class="vl" id="v_fair">—</span></span>
           <span class="lg"><span class="sw" style="background:var(--raw)"></span><span class="nm">close</span></span>
           <span class="lg"><span class="sw sq" style="background:var(--buy)"></span><span class="sw sq" style="background:var(--sell)"></span><span class="nm">buy / sell volume</span></span>
         </div>
@@ -209,26 +212,82 @@ try {
 // ---------------------------------------------------------------------------
 // The dashboard shows OHLC prices, volume, and synchronized Screamer
 // indicator cards. Each indicator is fed one sample at a time;
-// `feed` receives { price, size, signed, buy, sell } where signed is the
-// aggressor sign times size.
+// `feed` receives { price, open, high, low, size, signed, buy, sell, ts, ret,
+// imb } where signed is the aggressor sign times size, ret the log return of
+// the sample in bp, and imb = signed / size, the sample's flow imbalance.
 // ---------------------------------------------------------------------------
-const POLY_WIN = 30, VWMA_WIN = 50, FLOW_SPAN = 50, BUFFER_CAPACITY = 5000;
+const POLY_WIN = 30, VWAP_WIN = 50, FLOW_SPAN = 50, BUFFER_CAPACITY = 5000;
+const SCORE_WIN = 60, BP = 1e4;
 
 // helpers to keep the registry terse
 const price  = (mk) => ({ make: () => ({ op: mk() }), feed: (o, s) => o.op(s.price) });
 const signed = (mk) => ({ make: () => ({ op: mk() }), feed: (o, s) => o.op(s.signed) });
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+// Forecast cards predict the next sample. `feed` returns the forecast made
+// after seeing sample t; `target` names what it predicts (s.ret or s.imb).
+// Every forecast card also gets the scoring ops below.
+const bayes = () => S.BayesianRegression({ span: 100, priorSigma: 1 });
+const ols = (reg, y, xPrev, xNow) => { const [slope, icpt] = reg(y, xPrev); return icpt + slope * xNow; };
+const scoreOps = () => ({ lagF: S.Lag(1), hit: S.RollingHitRate(SCORE_WIN), ic: S.EwCorr({ span: SCORE_WIN }), rms: S.EwRms({ span: 100 }) });
+const RETURN_FORECASTS = ["fc_flow", "fc_ar", "fc_ou", "fc_tsf"];
 
 const INDICATORS = [
+  // --- Forecasts: next sample ------------------------------------------------
+  { id: "fc_flow", group: "Forecasts", label: "Order-flow regression", forecast: "ret", unit: "bp",
+    sub: "next return · Bayes on flow",
+    make: () => ({ lagX: S.Lag(1), reg: bayes() }),
+    feed: (o, s) => ols(o.reg, s.ret, o.lagX(s.imb), s.imb) },
+  { id: "fc_ar", group: "Forecasts", label: "Return autoregression", forecast: "ret", unit: "bp",
+    sub: "next return · Bayes AR(1)",
+    make: () => ({ lagR: S.Lag(1), reg: bayes() }),
+    feed: (o, s) => ols(o.reg, s.ret, o.lagR(s.ret), s.ret) },
+  { id: "fc_ou", group: "Forecasts", label: "Mean reversion · OU", forecast: "ret", unit: "bp",
+    sub: "next return · mrr × (μ − x)",
+    make: () => ({ mrr: S.RollingOU({ windowSize: 60, output: "mrr" }), rel: S.RollingOU({ windowSize: 60, output: "relmean" }) }),
+    feed: (o, s) => { const x = Math.log(s.price); return o.mrr(x) * o.rel(x) * BP; } },
+  { id: "fc_tsf", group: "Forecasts", label: "Trend projection · TSF", forecast: "ret", unit: "bp",
+    sub: "next return · TSF − log price",
+    make: () => ({ tsf: S.RollingTSF(20) }),
+    feed: (o, s) => { const x = Math.log(s.price); return (o.tsf(x) - x) * BP; } },
+  // The Hawkes intensity at t excites on samples up to t-1, so this is a
+  // one-sample-stale estimate of the next sample's buy/sell balance.
+  { id: "fc_hawkes", group: "Forecasts", label: "Flow pressure · Hawkes", forecast: "imb", unit: "",
+    sub: "next signed flow, not return",
+    make: () => ({ hb: S.HawkesIntensity({ decay: 0.8 }), hs: S.HawkesIntensity({ decay: 0.8 }) }),
+    feed: (o, s) => { const b = o.hb(s.buy), a = o.hs(s.sell); return b + a > 0 ? (b - a) / (b + a) : NaN; } },
+  // Average of the return forecasts above, each z-scored against its own
+  // recent history; reads their values from s.fc, which addSample fills in
+  // registry order.
+  { id: "fc_consensus", group: "Forecasts", label: "Consensus", forecast: "ret", unit: "σ",
+    sub: "next return · mean z of 4 models",
+    make: () => Object.fromEntries(RETURN_FORECASTS.map((id) => [id, S.EwZscore({ span: 100 })])),
+    feed: (o, s) => {
+      let sum = 0, n = 0;
+      for (const id of RETURN_FORECASTS) { const z = o[id](s.fc[id]); if (Number.isFinite(z)) { sum += z; n++; } }
+      return n ? sum / n : NaN;
+    } },
+
+  // --- Regime ----------------------------------------------------------------
+  { id: "hurst", group: "Regime", label: "Hurst exponent · R/S", short: "H", fixed: [0, 1], refs: [0.5],
+    make: () => ({ op: S.RollingHurst({ windowSize: 128, minScale: 16 }) }), feed: (o, s) => o.op(s.ret) },
+  { id: "kyle", group: "Regime", label: "Kyle λ · bp per BTC", short: "λ", refs: [0],
+    make: () => ({ op: S.EwKyleLambda({ span: 100 }) }), feed: (o, s) => o.op(s.signed, s.ret) },
+  { id: "propagator", group: "Regime", label: "Propagator impact", short: "impact", refs: [0], ...signed(() => S.Propagator(20)) },
+  { id: "hawkesvol", group: "Regime", label: "Volume clustering · Hawkes", short: "λ vol",
+    make: () => ({ op: S.HawkesIntensity({ decay: 0.9 }) }), feed: (o, s) => o.op(s.size) },
+  { id: "vpin", group: "Regime", label: "VPIN · 0.5 BTC buckets", short: "VPIN", fixed: [0, 1], refs: [0.5],
+    make: () => ({ op: S.VPIN(0.5, 20) }), feed: (o, s) => o.op(s.buy, s.sell) },
+  { id: "trendmode", group: "Regime", label: "Ehlers trend-mode", short: "trend?", fixed: [-0.1, 1.1], refs: [0.5], ...price(() => S.TrendMode()) },
+
   // --- Order flow & volume ---------------------------------------------------
   { id: "flow", group: "Order flow & volume", label: "Order-flow pressure", short: "flow", style: "flow",
     make: () => ({ eS: S.EwMean({ span: FLOW_SPAN }), eA: S.EwMean({ span: FLOW_SPAN }) }),
     feed: (o, s) => { const sv = o.eS(s.signed), av = o.eA(s.size); return av > 0 ? Math.max(-1, Math.min(1, sv / av)) : 0; } },
-  { id: "vpin", group: "Order flow & volume", label: "VPIN · 0.5 BTC buckets", short: "VPIN", fixed: [0, 1], refs: [0.5],
-    make: () => ({ op: S.VPIN(0.5, 20) }), feed: (o, s) => o.op(s.buy, s.sell) },
   { id: "cvd", group: "Order flow & volume", label: "Cumulative volume delta", short: "CVD", refs: [0], ...signed(() => S.CumSum()) },
-  { id: "imbalance", group: "Order flow & volume", label: "Trade imbalance", short: "imbal", fixed: [-1, 1], refs: [0],
-    make: () => ({ sumS: S.RollingSum(60), sumA: S.RollingSum(60) }),
-    feed: (o, s) => { const a = o.sumA(s.size); return a > 0 ? Math.max(-1, Math.min(1, o.sumS(s.signed) / a)) : 0; } },
+  { id: "imbalance", group: "Order flow & volume", label: "Trade imbalance · 60 samples", short: "imbal", fixed: [-1, 1], refs: [0],
+    make: () => ({ oi: S.RollingOrderImbalance(60), vol: S.RollingSum(60) }),
+    feed: (o, s) => clamp(o.oi(s.signed) / o.vol(s.size), -1, 1) },
   { id: "bvc", group: "Order flow & volume", label: "Bulk-volume classifier", short: "BVC", ...price(() => S.BulkVolumeClassifier(30)) },
 
   // --- Momentum --------------------------------------------------------------
@@ -241,7 +300,6 @@ const INDICATORS = [
   // --- Trend -----------------------------------------------------------------
   { id: "slope", group: "Trend", label: "Low-lag slope", short: "slope", refs: [0], ...price(() => S.RollingPoly1(30, 1)) },
   { id: "detrend", group: "Trend", label: "Detrended price", short: "detr", refs: [0], ...price(() => S.Detrend(40)) },
-  { id: "trendmode", group: "Trend", label: "Ehlers trend-mode", short: "trend?", fixed: [-0.1, 1.1], refs: [0.5], ...price(() => S.TrendMode()) },
   { id: "fracdiff", group: "Trend", label: "Fractional difference", short: "fracΔ", refs: [0], ...price(() => S.FracDiff(0.4, 100)) },
   { id: "instrend", group: "Trend", label: "Instantaneous-trend gap", short: "IT gap", refs: [0],
     make: () => ({ op: S.InstantaneousTrendline() }), feed: (o, s) => s.price - o.op(s.price) },
@@ -251,6 +309,10 @@ const INDICATORS = [
   { id: "range", group: "Volatility", label: "Rolling range", short: "range", ...price(() => S.RollingRange(30)) },
   { id: "absret", group: "Volatility", label: "Abs log-return", short: "|ret|",
     make: () => ({ op: S.LogReturn(1) }), feed: (o, s) => Math.abs(o.op(s.price)) },
+  { id: "yzvol", group: "Volatility", label: "Yang-Zhang vol · bp per bar", short: "σ YZ",
+    make: () => ({ op: S.EwYangZhangVol({ span: 30 }) }), feed: (o, s) => o.op(s.open, s.high, s.low, s.price) * BP },
+  { id: "pkvol", group: "Volatility", label: "Parkinson vol · bp per bar", short: "σ HL",
+    make: () => ({ op: S.EwParkinsonVol({ span: 30 }) }), feed: (o, s) => o.op(s.high, s.low) * BP },
 
   // --- Cycle (Ehlers) --------------------------------------------------------
   { id: "domcycle", group: "Cycle (Ehlers)", label: "Dominant cycle period", short: "cycle", ...price(() => S.DominantCycle()) },
@@ -261,11 +323,13 @@ const INDICATORS = [
 const INDICATOR_BY_ID = Object.fromEntries(INDICATORS.map((d) => [d.id, d]));
 let indicatorSlots = [];
 let priceOps;
-function buildPriceOps() { priceOps = { poly: S.RollingPoly1(POLY_WIN, 0), sumPV: S.RollingSum(VWMA_WIN), sumV: S.RollingSum(VWMA_WIN) }; }
+function buildPriceOps() { priceOps = { poly: S.RollingPoly1(POLY_WIN, 0), vwap: S.RollingVWAP(VWAP_WIN), ret: S.LogReturn(1) }; }
 function disposePriceOps() { if (priceOps) for (const k in priceOps) priceOps[k].dispose(); }
 function disposeState(state) { if (state) for (const k in state) state[k].dispose(); }
 function buildIndicatorSlots() {
-  indicatorSlots = INDICATORS.map((def) => ({ id: def.id, state: def.make(), values: [] }));
+  indicatorSlots = INDICATORS.map((def) => def.forecast
+    ? { id: def.id, state: { ...def.make(), ...scoreOps() }, values: [], lagged: [], realized: [], z: NaN, hit: NaN, ic: NaN }
+    : { id: def.id, state: def.make(), values: [] });
 }
 function disposeIndicatorSlots() {
   for (const slot of indicatorSlots) { disposeState(slot.state); slot.state = null; slot.values = []; }
@@ -416,20 +480,41 @@ function processTrade(trade, remember, countRate = true) {
 }
 function onTrade(trade) { processTrade(trade, true); }
 
+// Score a forecast against what the sample just realized: the forecast made
+// one sample ago (Lag) times the realized value is positive on a hit. Zero
+// products (a flat sample or a zero forecast) are neither hit nor miss, so
+// they enter RollingHitRate as NaN and are skipped.
+function feedForecast(slot, def, s) {
+  const o = slot.state, f = def.feed(o, s), y = s[def.forecast];
+  const lagged = o.lagF(f), prod = lagged * y;
+  const hit = o.hit(Number.isFinite(prod) && prod !== 0 ? prod : NaN), ic = o.ic(lagged, y);
+  if (Number.isFinite(hit)) slot.hit = hit;
+  if (Number.isFinite(ic)) slot.ic = ic;
+  slot.z = clamp(f / o.rms(f), -2, 2);   // forecast size relative to its own recent RMS
+  slot.lagged.push(lagged); slot.realized.push(y);
+  s.fc[def.id] = f;
+  return f;
+}
+
 function addSample(s) {
-  const ll = priceOps.poly(s.price);
-  const pv = priceOps.sumPV(s.price * s.size), v = priceOps.sumV(s.size);
-  const vw = v > 0 ? pv / v : NaN;
   const open = Number.isFinite(s.open) ? s.open : s.price;
   const high = Number.isFinite(s.high) ? s.high : s.price;
   const low = Number.isFinite(s.low) ? s.low : s.price;
+  s.open = open; s.high = high; s.low = low;
+  s.ret = priceOps.ret(s.price) * BP;
+  s.imb = s.size > 0 ? s.signed / s.size : NaN;
+  s.fc = {};
+  const ll = priceOps.poly(s.price), vw = priceOps.vwap(high, low, s.price, s.size);
   opens.push(open); highs.push(high); lows.push(low);
   prices.push(s.price); lowlag.push(ll); fair.push(vw);
   buyVol.push(s.buy); sellVol.push(s.sell); times.push(s.ts);
-  indicatorSlots.forEach((slot) => slot.values.push(INDICATOR_BY_ID[slot.id].feed(slot.state, s)));
+  indicatorSlots.forEach((slot) => {
+    const def = INDICATOR_BY_ID[slot.id];
+    slot.values.push(def.forecast ? feedForecast(slot, def, s) : def.feed(slot.state, s));
+  });
   while (prices.length > N) {
     opens.shift(); highs.shift(); lows.shift(); prices.shift(); lowlag.shift(); fair.shift(); buyVol.shift(); sellVol.shift(); times.shift();
-    indicatorSlots.forEach((slot) => slot.values.shift());
+    indicatorSlots.forEach((slot) => { slot.values.shift(); if (slot.lagged) { slot.lagged.shift(); slot.realized.shift(); } });
   }
   dirty = true;
 }
@@ -762,6 +847,70 @@ function renderIndicatorChart(slot, surfaceName) {
   return nowVal;
 }
 
+// Forecast card: grey bars are the realized value of each sample on their own
+// symmetric scale; the line is the forecast made one sample earlier, so a
+// line on the same side of zero as its bar is a hit.
+function renderForecastChart(slot, surfaceName) {
+  useSurface(surfaceName);
+  const plotW = cssW - PADL - PADR, plotH = cssH - PADT - PADB;
+  const { X } = sampleX(plotW), def = INDICATOR_BY_ID[slot.id];
+  const absMax = (a) => { let m = 0; for (const v of a) if (Number.isFinite(v)) m = Math.max(m, Math.abs(v)); return m || 1; };
+  const fMax = absMax(slot.lagged) * 1.1, rMax = absMax(slot.realized);
+  const midY = PADT + plotH / 2, Yf = (v) => midY - v / fMax * plotH / 2;
+  ctx.strokeStyle = "#232a33"; ctx.lineWidth = 1;
+  for (const y of [PADT, midY, PADT + plotH]) { ctx.beginPath(); ctx.moveTo(PADL, y); ctx.lineTo(PADL + plotW, y); ctx.stroke(); }
+  ctx.fillStyle = "#8b949e"; ctx.font = "10px ui-monospace, Menlo, monospace"; ctx.textAlign = "left";
+  ctx.fillText(fmtTick(fMax), PADL + plotW + 6, PADT + 3);
+  ctx.fillText("0 " + def.unit, PADL + plotW + 6, midY + 3);
+  ctx.fillText(fmtTick(-fMax), PADL + plotW + 6, PADT + plotH + 3);
+  ctx.save(); ctx.beginPath(); ctx.rect(PADL, PADT, plotW, plotH); ctx.clip();
+  const barW = Math.max(1, Math.min(6, plotW / Math.max(N, 1) * 0.7));
+  for (let i = 0; i < slot.realized.length; i++) {
+    const r = slot.realized[i];
+    if (!Number.isFinite(r) || r === 0) continue;
+    const h = r / rMax * plotH / 2;
+    ctx.fillStyle = "rgba(139,148,158,.5)";
+    ctx.fillRect(X(i) - barW / 2, Math.min(midY, midY - h), barW, Math.abs(h));
+  }
+  line(slot.lagged, "#e6edf3", 1.5, 0.95, X, Yf);
+  ctx.restore();
+}
+
+// Tint from neutral panel grey toward green or red by |z| / 2, z being the
+// forecast over its own recent RMS, clipped to [-2, 2].
+const PANEL_RGB = [22, 27, 34], BUY_RGB = [63, 185, 80], SELL_RGB = [248, 81, 73];
+function tint(z, strength) {
+  if (!Number.isFinite(z)) return null;
+  const to = z >= 0 ? BUY_RGB : SELL_RGB, a = Math.abs(z) / 2 * strength;
+  return "rgb(" + PANEL_RGB.map((c, k) => Math.round(c + (to[k] - c) * a)).join(",") + ")";
+}
+function forecastValue(def, f) {
+  if (!Number.isFinite(f)) return { text: "warming…", className: "" };
+  const digits = def.unit === "bp" ? (Math.abs(f) >= 10 ? 0 : Math.abs(f) >= 1 ? 1 : 2) : 2;
+  const num = f.toFixed(digits), sign = Number(num) === 0 ? 0 : Math.sign(f);
+  const arrow = sign > 0 ? "▲ +" : sign < 0 ? "▼ " : "■ ";
+  return { text: arrow + (sign ? num : (0).toFixed(digits)) + (def.unit ? " " + def.unit : ""), className: sign > 0 ? "buy" : sign < 0 ? "sell" : "" };
+}
+function renderForecastCard(slot) {
+  const def = INDICATOR_BY_ID[slot.id];
+  renderForecastChart(slot, "indicator:" + slot.id);
+  const f = slot.values.length ? slot.values[slot.values.length - 1] : NaN;
+  const meta = forecastValue(def, f);
+  const valueEl = document.getElementById("indicator-value-" + slot.id);
+  if (valueEl) { valueEl.textContent = meta.text; valueEl.className = "card-value" + (meta.className ? " " + meta.className : ""); }
+  const card = document.getElementById("indicator-card-" + slot.id);
+  if (card) {
+    card.style.backgroundColor = tint(slot.z, 0.42) || "";
+    card.style.borderColor = tint(slot.z, 0.9) || "";
+  }
+  const scoreEl = document.getElementById("indicator-score-" + slot.id);
+  if (scoreEl) {
+    const hit = Number.isFinite(slot.hit) ? Math.round(slot.hit * 100) + "%" : "…";
+    const ic = Number.isFinite(slot.ic) ? (slot.ic >= 0 ? "+" : "") + slot.ic.toFixed(2) : "…";
+    scoreEl.textContent = "hit " + hit + " · IC " + ic + " · vs " + (def.forecast === "imb" ? "flow" : "return");
+  }
+}
+
 function indicatorValue(def, value) {
   if (!Number.isFinite(value)) return { text: "warming…", className: "" };
   if (def.style === "flow") {
@@ -774,6 +923,7 @@ function indicatorValue(def, value) {
 
 function renderIndicatorPanels() {
   indicatorSlots.forEach((slot) => {
+    if (INDICATOR_BY_ID[slot.id].forecast) { renderForecastCard(slot); return; }
     const def = INDICATOR_BY_ID[slot.id], value = renderIndicatorChart(slot, "indicator:" + slot.id);
     const meta = indicatorValue(def, value), valueEl = document.getElementById("indicator-value-" + slot.id);
     if (valueEl) { valueEl.textContent = meta.text; valueEl.className = "card-value" + (meta.className ? " " + meta.className : ""); }
@@ -786,6 +936,8 @@ function buildIndicatorGrid() {
   indicatorCanvases.clear();
   const rows = new Map();
   const accents = {
+    "Forecasts": "#c9d1d9",
+    "Regime": "#768390",
     "Order flow & volume": "#58a6ff",
     "Momentum": "#d29922",
     "Trend": "#3fb950",
@@ -801,25 +953,30 @@ function buildIndicatorGrid() {
       const heading = document.createElement("div"); heading.className = "category-row-head";
       const h2 = document.createElement("h2"); h2.textContent = def.group;
       const count = document.createElement("span"); count.textContent = "indicators";
+      if (def.forecast) count.dataset.note = "next sample · line = forecast made one sample earlier, bars = realized";
       heading.append(h2, count);
       const track = document.createElement("div"); track.className = "category-track";
       section.append(heading, track); rail.appendChild(section);
       row = { section, track, count: 0 }; rows.set(def.group, row);
     }
     row.count += 1; row.countEl = row.countEl || row.section.querySelector(".category-row-head span");
-    row.countEl.textContent = row.count + (row.count === 1 ? " indicator" : " indicators");
-    const card = document.createElement("section"); card.className = "indicator-card";
+    row.countEl.textContent = row.count + (row.count === 1 ? " indicator" : " indicators") + (row.countEl.dataset.note ? " · " + row.countEl.dataset.note : "");
+    const card = document.createElement("section"); card.className = "indicator-card" + (def.forecast ? " forecast" : ""); card.id = "indicator-card-" + def.id;
     card.style.setProperty("--accent", accents[def.group] || "#8b949e");
     const head = document.createElement("div"); head.className = "card-head";
     const title = document.createElement("div"); title.className = "card-title";
     const h3 = document.createElement("h3"); h3.textContent = def.label;
-    const sub = document.createElement("span"); sub.className = "card-sub"; sub.textContent = def.group;
+    const sub = document.createElement("span"); sub.className = "card-sub"; sub.textContent = def.sub || def.group;
     title.append(h3, sub);
     const value = document.createElement("span"); value.className = "card-value"; value.id = "indicator-value-" + def.id; value.textContent = "warming…";
     head.append(title, value);
     const surface = document.createElement("div"); surface.className = "indicator-surface";
     const canvas = document.createElement("canvas"); canvas.id = "indicator-chart-" + def.id;
     surface.appendChild(canvas); card.append(head, surface); row.track.appendChild(card);
+    if (def.forecast) {
+      const score = document.createElement("div"); score.className = "card-score"; score.id = "indicator-score-" + def.id; score.textContent = "hit … · IC …";
+      card.appendChild(score);
+    }
     indicatorCanvases.set(surfaceName, canvas);
   });
   document.getElementById("indicatorCount").textContent = indicatorSlots.length;
