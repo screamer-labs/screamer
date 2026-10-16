@@ -64,12 +64,12 @@ Notebook
 
 ```
 
-(area-indicators)=
-## Indicators
+(area-indicators-and-filters)=
+## Indicators and filters
 
-Rolling statistics and technical indicators on arrays or DataFrame columns, from moving averages to RSI, MACD, Bollinger Bands, and ATR.
+Rolling statistics and technical indicators on arrays or DataFrame columns, from moving averages to RSI, MACD, Bollinger Bands, and ATR. For smoother signals with less lag, use the low-lag smoothers, Butterworth filters, a Kalman filter, and Ehlers' cycle tools that measure the dominant cycle and adapt to it.
 
-Functions: [`RollingRSI`](functions_rolling/RollingRSI.md), [`MACD`](functions_rolling/MACD.md), [`BollingerBands`](functions_rolling/BollingerBands.md), [all indicators](by_group/indicators.rst).
+Functions: [`RollingRSI`](functions_rolling/RollingRSI.md), [`MACD`](functions_rolling/MACD.md), [`BollingerBands`](functions_rolling/BollingerBands.md), [`SuperSmoother`](functions_signal/SuperSmoother.md), [`KalmanFilter`](functions_signal/KalmanFilter.md), [`DominantCycle`](functions_signal/DominantCycle.md), [all indicators](by_group/indicators.rst).
 
 ```{grid} 1 2 2 3
 :gutter: 3
@@ -103,18 +103,6 @@ Moving averages, momentum, bands, and volume.
 +++
 Notebook
 :::
-
-```
-
-(area-filtering-and-cycles)=
-## Filtering and cycles
-
-Low-lag smoothers, Butterworth filters, a Kalman filter, and Ehlers' cycle tools that measure the dominant cycle and adapt to it.
-
-Functions: [`SuperSmoother`](functions_signal/SuperSmoother.md), [`KalmanFilter`](functions_signal/KalmanFilter.md), [`DominantCycle`](functions_signal/DominantCycle.md), [`MAMA`](functions_signal/MAMA.md).
-
-```{grid} 1 2 2 3
-:gutter: 3
 
 :::{grid-item-card} Denoising filters: a comparison
 :link: notebooks/04-signal-processing

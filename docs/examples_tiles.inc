@@ -12,21 +12,13 @@
 
       A first costed backtest, and how screamer replaces pandas and TA-Lib calls.
 
-   .. grid-item-card:: Indicators
+   .. grid-item-card:: Indicators and filters
       :img-top: _static/gallery/recipes__pandas-ohlcv-indicators.webp
       :img-alt: Bollinger Bands, RSI, and ATR on one-minute BTC bars
-      :link: area-indicators
+      :link: area-indicators-and-filters
       :link-type: ref
 
-      Moving averages, RSI, MACD, bands, and ATR on arrays or DataFrames.
-
-   .. grid-item-card:: Filtering and cycles
-      :img-top: _static/gallery/functions_signal__MAMA.webp
-      :img-alt: MAMA adaptive moving average on a cycling series
-      :link: area-filtering-and-cycles
-      :link-type: ref
-
-      Low-lag smoothers, Kalman and Butterworth filters, and cycle measurement.
+      RSI, MACD, bands, and ATR, low-lag and Kalman filters, and cycle measurement.
 
    .. grid-item-card:: Bars from ticks
       :img-top: _static/gallery/capability__bars.webp

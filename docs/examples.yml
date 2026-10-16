@@ -47,18 +47,24 @@ areas:
   - doc: notebooks/05-nan-handling
     text: How missing values flow through operators and warm up.
 
-- slug: indicators
-  title: Indicators
-  tile: Moving averages, RSI, MACD, bands, and ATR on arrays or DataFrames.
+- slug: indicators-and-filters
+  title: Indicators and filters
+  tile: RSI, MACD, bands, and ATR, low-lag and Kalman filters, and cycle measurement.
   image: recipes__pandas-ohlcv-indicators.webp
   alt: Bollinger Bands, RSI, and ATR on one-minute BTC bars
   intro: >-
     Rolling statistics and technical indicators on arrays or DataFrame columns,
-    from moving averages to RSI, MACD, Bollinger Bands, and ATR.
+    from moving averages to RSI, MACD, Bollinger Bands, and ATR. For smoother
+    signals with less lag, use the low-lag smoothers, Butterworth filters, a
+    Kalman filter, and Ehlers' cycle tools that measure the dominant cycle and
+    adapt to it.
   functions: >-
     [`RollingRSI`](functions_rolling/RollingRSI.md),
     [`MACD`](functions_rolling/MACD.md),
     [`BollingerBands`](functions_rolling/BollingerBands.md),
+    [`SuperSmoother`](functions_signal/SuperSmoother.md),
+    [`KalmanFilter`](functions_signal/KalmanFilter.md),
+    [`DominantCycle`](functions_signal/DominantCycle.md),
     [all indicators](by_group/indicators.rst).
   examples:
   - doc: recipes/pandas-ohlcv-indicators
@@ -67,21 +73,6 @@ areas:
     text: Rolling mean, dispersion, quantiles, and ranks.
   - doc: notebooks/03-financial-indicators
     text: Moving averages, momentum, bands, and volume.
-
-- slug: filtering-and-cycles
-  title: Filtering and cycles
-  tile: Low-lag smoothers, Kalman and Butterworth filters, and cycle measurement.
-  image: functions_signal__MAMA.webp
-  alt: MAMA adaptive moving average on a cycling series
-  intro: >-
-    Low-lag smoothers, Butterworth filters, a Kalman filter, and Ehlers' cycle
-    tools that measure the dominant cycle and adapt to it.
-  functions: >-
-    [`SuperSmoother`](functions_signal/SuperSmoother.md),
-    [`KalmanFilter`](functions_signal/KalmanFilter.md),
-    [`DominantCycle`](functions_signal/DominantCycle.md),
-    [`MAMA`](functions_signal/MAMA.md).
-  examples:
   - doc: notebooks/04-signal-processing
     text: Filters and smoothers on noisy series.
   - doc: notebooks/19-cycle-and-spectral-analysis
