@@ -109,13 +109,16 @@ of the backtest engines' risk exits:
 4. When no barrier is reached by bar `e + horizon`, the label is `0` and the
    exit is that bar's close.
 
-On every bar that is not ambiguous, the exit bar and price agree with
-[`BacktestOHLCTarget`](BacktestOHLCTarget.md) holding a position from the
-entry close with `stop_loss` and `take_profit` at the same levels.
+With `barrier_unit="fraction"`, a label of `+1` or `-1` exits on the same
+bar and at the same price as a long in
+[`BacktestOHLCTarget`](BacktestOHLCTarget.md) entered at the entry close with
+`take_profit=upper` and `stop_loss=lower`. A label of `0` has no exit in the
+engine; the label exits at the close of bar `e + horizon`.
 
 **Missing prices.** A `NaN` or non-positive close at entry, or a `NaN` or
 non-positive open, high, low, or close inside an entry's window, makes that
-entry's outputs `NaN`; other entries are unaffected.
+entry's outputs `NaN`; other entries are unaffected. A bar whose low is above
+its high counts as missing in the same way.
 
 **Meta-labeling.** With a rule that gives a `side` (`+1` long, `-1` short) at
 each bar, and symmetric barriers, the trade worked when `label == side`, and

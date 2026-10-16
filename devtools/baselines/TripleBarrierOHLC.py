@@ -16,6 +16,7 @@ def _levels(p, upper, lower, unit, s):
 def _sigma(price, vol_span, horizon):
     with np.errstate(divide="ignore", invalid="ignore"):
         r = np.log(price[1:] / price[:-1])
+    r[~((price[1:] > 0) & (price[:-1] > 0))] = np.nan
     r[~np.isfinite(r)] = np.nan
     s = pd.Series(np.r_[np.nan, r]).ewm(span=vol_span, ignore_na=True).std().to_numpy()
     return s * np.sqrt(horizon)
@@ -42,8 +43,8 @@ class TripleBarrierOHLC_numpy:
             res = None
             for k in range(1, h + 1):
                 b = e + k
-                if not all(_valid(x) for x in (o[b], hi[b], lo[b], c[b])):
-                    break
+                if not all(_valid(x) for x in (o[b], hi[b], lo[b], c[b])) or lo[b] > hi[b]:
+                    break                                   # missing or inconsistent bar
                 if o[b] >= U:
                     res = (1.0, o[b], k); break
                 if o[b] <= L:

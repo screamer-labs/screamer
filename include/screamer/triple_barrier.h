@@ -28,7 +28,8 @@
 // both barriers lie inside one bar the order is unknown and the entry's
 // outputs are NaN. A price is a bar with open = high = low = close, so one
 // rule set serves both operators. A NaN or non-positive price at entry or
-// inside an entry's window makes that entry's outputs NaN.
+// inside an entry's window, or a bar with low above high, makes that entry's
+// outputs NaN.
 //
 // State: a ring of `horizon` entries (the open entries of the last `horizon`
 // steps), so each step costs O(horizon) and allocates nothing.
@@ -81,7 +82,7 @@ public:
     template <bool kBar>
     Result step(double open, double high, double low, double close) {
         const bool valid = kBar
-            ? (positive(open) && positive(high) && positive(low) && positive(close))
+            ? (positive(open) && positive(high) && positive(low) && positive(close) && low <= high)
             : positive(close);
         for (Entry& en : ring_) {
             if (!en.open) continue;

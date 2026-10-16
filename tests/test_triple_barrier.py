@@ -79,6 +79,7 @@ def test_vol_unit_skips_bad_prices_in_the_volatility():
     p = _walk(300, 4)
     p[80] = np.nan
     p[150] = 0.0
+    p[200], p[201] = -1.0, -3.0                                  # log(-3 / -1) is finite
     got = np.asarray(TripleBarrier(horizon=5, upper=1.0, lower=1.0, barrier_unit="vol",
                                    vol_span=20)(p))
     want = TB_ref(5, 1.0, 1.0, "vol", 20)(p)
@@ -102,6 +103,44 @@ def test_ohlc_gap_at_open_and_both_inside():
     l2 = np.array([100, 97, 100.0]); c2 = np.array([100, 100, 100.0])
     out2 = np.asarray(TripleBarrierOHLC(horizon=1, upper=0.02, lower=0.02)(o2, h2, l2, c2))
     assert np.isnan(out2[1]).all()
+
+
+def test_price_exactly_at_a_barrier_reaches_it():
+    up = np.asarray(TripleBarrier(horizon=2, upper=0.02, lower=0.02, barrier_unit="price")(
+        np.array([100, 100.02, 100.0])))
+    np.testing.assert_allclose(up[2], [1.0, 0.0002, 1.0])
+    p = np.array([100, 101, 102, 98, 100.0])
+    out = np.asarray(TripleBarrier(horizon=2, upper=1.0, lower=2.0, barrier_unit="price")(p))
+    np.testing.assert_allclose(out[2], [1.0, 0.01, 1.0])               # U = 101 at k=1
+    np.testing.assert_allclose(out[3], [1.0, 1 / 101, 1.0])            # U = 102 at k=1
+    np.testing.assert_allclose(out[4], [-1.0, 98 / 102 - 1, 1.0])      # L = 100 ... 98
+    q = np.array([100, 98, 100.0])
+    low = np.asarray(TripleBarrier(horizon=1, upper=2.0, lower=2.0, barrier_unit="price")(q))
+    np.testing.assert_allclose(low[1], [-1.0, -0.02, 1.0])             # L = 98 exactly
+
+
+def test_ohlc_bar_exactly_at_a_barrier_reaches_it():
+    # entry 100, U = 102 and L = 98 (price units); bar 1 high exactly 102
+    o = np.array([100, 100, 100.0]); h = np.array([100, 102, 100.0])
+    l = np.array([100, 99, 100.0]); c = np.array([100, 101, 100.0])
+    out = np.asarray(TripleBarrierOHLC(horizon=1, upper=2.0, lower=2.0, barrier_unit="price")(o, h, l, c))
+    np.testing.assert_allclose(out[1], [1.0, 0.02, 1.0])
+    # bar 1 low exactly 98
+    h2 = np.array([100, 101, 100.0]); l2 = np.array([100, 98, 100.0])
+    out2 = np.asarray(TripleBarrierOHLC(horizon=1, upper=2.0, lower=2.0, barrier_unit="price")(o, h2, l2, c))
+    np.testing.assert_allclose(out2[1], [-1.0, -0.02, 1.0])
+
+
+def test_ohlc_bar_with_low_above_high_is_invalid():
+    o, hi, lo, c = _bars(60, 21)
+    hi[30], lo[30] = lo[30], hi[30] * 1.01                       # low above high
+    got = np.asarray(TripleBarrierOHLC(horizon=5, upper=0.01, lower=0.01)(o, hi, lo, c))
+    want = TBO_ref(5, 0.01, 0.01, "fraction", 100)(o, hi, lo, c)
+    np.testing.assert_allclose(got, want, rtol=1e-12, atol=1e-12, equal_nan=True)
+    # entries 25..29 have bar 30 in their window and are still open there
+    clean = np.asarray(TripleBarrierOHLC(horizon=5, upper=0.01, lower=0.01)(*_bars(60, 21)))
+    still_open = [e for e in range(25, 30) if not (clean[e + 5, 2] < 30 - e)]
+    assert still_open and np.isnan(got[[e + 5 for e in still_open]]).all()
 
 
 def test_ohlc_exit_is_the_barrier_inside_the_bar():

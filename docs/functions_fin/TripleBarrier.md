@@ -95,8 +95,9 @@ distance below it, in `barrier_unit`:
   the `EwStd(span=vol_span)` of the one-step log returns up to and including
   `e`, times `sqrt(horizon)`.
 
-The units match the backtest engines' `stop_loss` and `take_profit`, so the
-same numbers mean the same levels. A barrier set to `0` is off. With both off,
+With `"fraction"`, the backtest engines' `take_profit` and `stop_loss`
+(fractions of the entry price) give the same levels for the same numbers: for
+a long, `upper` is the take-profit and `lower` the stop. A barrier set to `0` is off. With both off,
 every label is `0` and `return` is the return over the horizon. A price
 exactly at a barrier reaches it.
 
@@ -111,7 +112,7 @@ each step, and symmetric barriers, the trade worked when `label == side`, and
 its return is `side * return`.
 
 [`TripleBarrierOHLC`](TripleBarrierOHLC.md) tests the barriers on each bar's
-high and low instead of one price.
+open, high, and low instead of one price.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling

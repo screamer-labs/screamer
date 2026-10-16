@@ -14,10 +14,11 @@ def _levels(p, upper, lower, unit, s):
 
 
 def _sigma(price, vol_span, horizon):
-    # One-step log returns; a return touching a NaN or non-positive price is
+    # One-step log returns; a return touching a NaN, infinite, or non-positive price is
     # missing and skipped by the weighting (ignore_na=True), as EwStd skips it.
     with np.errstate(divide="ignore", invalid="ignore"):
         r = np.log(price[1:] / price[:-1])
+    r[~((price[1:] > 0) & (price[:-1] > 0))] = np.nan
     r[~np.isfinite(r)] = np.nan
     s = pd.Series(np.r_[np.nan, r]).ewm(span=vol_span, ignore_na=True).std().to_numpy()
     return s * np.sqrt(horizon)
