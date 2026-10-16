@@ -236,6 +236,10 @@ areas:
     text: Pair the features at each step with the return over the next steps, fit a regression, and backtest it.
   - doc: notebooks/23-classifying-direction
     text: Classify the next move as up, down, or flat in volatility units, and trade the predicted probabilities.
+  - doc: notebooks/24-triple-barrier-labels
+    text: Set triple barriers from the price excursions, label OHLC bars, and count labels, holding times, and ambiguous bars.
+  - doc: notebooks/25-meta-labeling
+    text: Filter the trades of a rule with a classifier trained on their triple-barrier outcomes, and backtest with and without the filter.
   - doc: notebooks/17-filtering-and-forecasting-with-uncertainty
     text: Recover a latent signal with `KalmanFilter` and forecast online with a calibrated interval.
 

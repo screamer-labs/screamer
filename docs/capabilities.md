@@ -458,6 +458,26 @@ Classify the next move as up, down, or flat in volatility units, and trade the p
 Notebook
 :::
 
+:::{grid-item-card} Triple-barrier labels
+:link: notebooks/24-triple-barrier-labels
+:link-type: doc
+:img-top: _static/gallery/notebooks__24-triple-barrier-labels.webp
+:img-alt: Triple-barrier labels
+Set triple barriers from the price excursions, label OHLC bars, and count labels, holding times, and ambiguous bars.
++++
+Notebook
+:::
+
+:::{grid-item-card} Meta-labeling
+:link: notebooks/25-meta-labeling
+:link-type: doc
+:img-top: _static/gallery/notebooks__25-meta-labeling.webp
+:img-alt: Meta-labeling
+Filter the trades of a rule with a classifier trained on their triple-barrier outcomes, and backtest with and without the filter.
++++
+Notebook
+:::
+
 :::{grid-item-card} Filtering and forecasting with uncertainty
 :link: notebooks/17-filtering-and-forecasting-with-uncertainty
 :link-type: doc
@@ -590,6 +610,8 @@ recipes/multi-asset
 recipes/ml-features
 notebooks/16-supervised-forecasting
 notebooks/23-classifying-direction
+notebooks/24-triple-barrier-labels
+notebooks/25-meta-labeling
 notebooks/17-filtering-and-forecasting-with-uncertainty
 recipes/live-loop
 recipes/strategy-to-live

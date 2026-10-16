@@ -155,3 +155,7 @@ open, high, and low instead of one price.
 ```
 
 <!-- HELP_END -->
+
+Worked examples:
+[Triple-barrier labels](../notebooks/24-triple-barrier-labels.ipynb) and
+[Meta-labeling](../notebooks/25-meta-labeling.ipynb).

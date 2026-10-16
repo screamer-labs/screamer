@@ -171,3 +171,6 @@ its return is `side * return`.
 ```
 
 <!-- HELP_END -->
+
+Worked example:
+[Triple-barrier labels](../notebooks/24-triple-barrier-labels.ipynb).

@@ -11,7 +11,9 @@ slice: 14 marks a position signal to bars, and 15 drives the event-driven engine
 show one randomization test: 20 on the same BTC slice, 21 and 22 on seeded
 synthetic markets whose answer is known. Notebooks 16 and 23 build training
 sets with `forecast_pairs` on synthetic markets with a planted edge: 16 fits a
-regression and 23 a classifier. Everything runs offline with
+regression and 23 a classifier. Notebook 24 labels synthetic OHLC bars with
+`TripleBarrierOHLC`, and 25 uses `TripleBarrier` labels to train a meta-labeling
+filter for a trading rule. Everything runs offline with
 no downloads.
 
 ## Run / verify

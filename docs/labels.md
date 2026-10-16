@@ -192,6 +192,11 @@ Xp, label = forecast_pairs(X, out[:, 0], count=h, dropna=True)
 print(np.unique(label, return_counts=True))
 ```
 
+The notebook [Triple-barrier labels](notebooks/24-triple-barrier-labels.ipynb)
+sets the barriers from the price excursions and labels OHLC bars, and
+[Meta-labeling](notebooks/25-meta-labeling.ipynb) uses the labels to decide
+which trades of a rule to take.
+
 ### Which assets do best
 
 On a `(T, K)` panel, one column per asset, `LogReturn(h)` gives each asset's

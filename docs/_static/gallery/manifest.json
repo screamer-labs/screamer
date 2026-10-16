@@ -275,6 +275,8 @@
  "notebooks/21-is-the-tuned-result-real": "79e0c6b56b0dd935",
  "notebooks/22-does-the-feature-carry-information": "29f1095eb95966a9",
  "notebooks/23-classifying-direction": "db84b6f5944ce7c0",
+ "notebooks/24-triple-barrier-labels": "72aa904467e5477f",
+ "notebooks/25-meta-labeling": "79da9e37202c19d2",
  "recipes/cross-sectional-momentum": "3aedff3481386530",
  "recipes/first-strategy": "b0a0e646f1215e28",
  "recipes/funding-carry": "70cee3ed175c7ce8",
