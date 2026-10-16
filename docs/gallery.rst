@@ -2136,7 +2136,7 @@ Align and reshape event streams, and wire operators into a runnable pipeline.
 Forecasting & ML
 ----------------
 
-Training sets from time-series data, and online regression and filtering that forecast as they update.
+Training sets and labels from time-series data, and online regression and filtering that forecast as they update.
 
 .. grid:: 2 3 4 4
    :gutter: 2

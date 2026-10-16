@@ -443,7 +443,17 @@ Recipe
 :link-type: doc
 :img-top: _static/gallery/notebooks__16-supervised-forecasting.webp
 :img-alt: Supervised forecasting with `forecast_pairs`
-Build a training set with `forecast_pairs`, fit, and backtest.
+Pair the features at each step with the return over the next steps, fit a regression, and backtest it.
++++
+Notebook
+:::
+
+:::{grid-item-card} Classifying direction
+:link: notebooks/23-classifying-direction
+:link-type: doc
+:img-top: _static/gallery/notebooks__23-classifying-direction.webp
+:img-alt: Classifying direction
+Classify the next move as up, down, or flat in volatility units, and trade the predicted probabilities.
 +++
 Notebook
 :::
@@ -579,6 +589,7 @@ notebooks/18-pairs-and-mean-reversion
 recipes/multi-asset
 recipes/ml-features
 notebooks/16-supervised-forecasting
+notebooks/23-classifying-direction
 notebooks/17-filtering-and-forecasting-with-uncertainty
 recipes/live-loop
 recipes/strategy-to-live

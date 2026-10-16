@@ -233,7 +233,9 @@ areas:
   - doc: recipes/ml-features
     text: Features at each step paired with the return over the next minute by `forecast_pairs`.
   - doc: notebooks/16-supervised-forecasting
-    text: Build a training set with `forecast_pairs`, fit, and backtest.
+    text: Pair the features at each step with the return over the next steps, fit a regression, and backtest it.
+  - doc: notebooks/23-classifying-direction
+    text: Classify the next move as up, down, or flat in volatility units, and trade the predicted probabilities.
   - doc: notebooks/17-filtering-and-forecasting-with-uncertainty
     text: Recover a latent signal with `KalmanFilter` and forecast online with a calibrated interval.
 

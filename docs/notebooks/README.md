@@ -9,7 +9,9 @@ tape carries no quotes. The backtest notebooks (14-15) reuse the same real-data
 slice: 14 marks a position signal to bars, and 15 drives the event-driven engines
 (OHLC, tape, and a synthetic L1 book) from one tape. Notebooks 20-22 each
 show one randomization test: 20 on the same BTC slice, 21 and 22 on seeded
-synthetic markets whose answer is known. Everything runs offline with
+synthetic markets whose answer is known. Notebooks 16 and 23 build training
+sets with `forecast_pairs` on synthetic markets with a planted edge: 16 fits a
+regression and 23 a classifier. Everything runs offline with
 no downloads.
 
 ## Run / verify
