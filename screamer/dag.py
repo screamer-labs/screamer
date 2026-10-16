@@ -473,10 +473,11 @@ class Pipeline:
                     nid = gb.add_delay(inp, int(_setting("Delay: duration", kwargs["duration"], True)))
                 elif name == "forecast_pairs":
                     # The C++ graph definition (dag/forecast_pairs.h).
-                    nid = gb.add_forecast_pairs(inp[0], inp[1], kwargs.get("count"),
-                                                kwargs.get("duration"),
-                                                bool(kwargs.get("dropna", False)),
-                                                kwargs.get("index", "features") == "features")
+                    from .screamer_bindings import _forecast_pairs_index
+                    nid = gb.add_forecast_pairs(
+                        inp[0], inp[1], kwargs.get("count"), kwargs.get("duration"),
+                        bool(kwargs.get("dropna", False)),
+                        _forecast_pairs_index(kwargs.get("index", "features")))
                 else:
                     raise ValueError(
                         f"{name} is not supported as a DAG graph node")

@@ -180,8 +180,8 @@ public:
             }
             case NodeKind::Filter:        node_width[id] = 1; break;
             case NodeKind::Delay:
-            case NodeKind::LagRows:
-            case NodeKind::LeadRows:      node_width[id] = node_width[nd.inputs[0]]; break;
+            case NodeKind::LagRows:       node_width[id] = node_width[nd.inputs[0]]; break;
+            case NodeKind::LeadRows:
             case NodeKind::ForwardAsOf:   node_width[id] = node_width[nd.inputs[0]] + 1; break;
             }
         }
@@ -355,9 +355,19 @@ public:
                 break;
             }
             case NodeKind::LeadRows: {
-                auto ln = std::make_shared<LeadRowsNode<std::int64_t>>(ns.lag_count, *downstream);
+                // inputs[0] = X (port 0), inputs[1] = y (port 1); the node
+                // learns how each port relates to the input merge.
+                auto ln = std::make_shared<LeadRowsNode<std::int64_t>>(ns.lag_count, *downstream,
+                                                                       ns.max_pending);
+                if (order_memo.empty()) order_memo.assign(n, 0);
+                const unsigned rx = merge_relation(s, ns.inputs[0], order_memo);
+                const unsigned ry = merge_relation(s, ns.inputs[1], order_memo);
+                ln->set_ports(rx & 1, rx & 2, ry & 1, ry & 2);
                 reset_nodes_.push_back(ln.get());
-                node_input_sink[id] = [ptr = ln.get()](std::size_t) -> Sink<std::int64_t>* { return ptr; };
+                lead_nodes_.push_back(ln.get());
+                node_input_sink[id] = [ptr = ln.get()](std::size_t slot) -> Sink<std::int64_t>* {
+                    return &ptr->port(slot);
+                };
                 owned_.push_back(ln);
                 break;
             }
@@ -439,6 +449,7 @@ public:
         for (auto* n : clock_nodes_) n->set_merge_order(on);
         for (auto* n : merge_nodes_) n->set_merge_order(on);
         for (auto* n : asof_nodes_) n->set_merge_order(on);
+        for (auto* n : lead_nodes_) n->set_merge_order(on);
     }
 
     // Time-driven finalization: inject a watermark at every input sink so the
@@ -917,16 +928,18 @@ private:
             case NodeKind::DropNa:
             case NodeKind::Delay:
             case NodeKind::LagRows:
-            case NodeKind::LeadRows:
                 w[id] = in_of(nd);
                 zero[id] = nd.inputs.size() == 1 && zero[nd.inputs[0]];
                 break;
+            case NodeKind::LeadRows:
             case NodeKind::ForwardAsOf: {
                 // X of any width, y one value; the row is [X..., y].
                 const std::size_t yw = w[nd.inputs[1]];
                 if (check && yw > 1)
-                    throw std::invalid_argument("a forward as-of join takes y events of one "
-                                                "value, got " + std::to_string(yw));
+                    throw std::invalid_argument(
+                        std::string(nd.kind == NodeKind::LeadRows ? "a lead"
+                                                                  : "a forward as-of join") +
+                        " takes y events of one value, got " + std::to_string(yw));
                 w[id] = w[nd.inputs[0]] != 0 ? w[nd.inputs[0]] + 1 : 0;
                 break;
             }
@@ -1040,6 +1053,7 @@ private:
     std::vector<ResampleNode<std::int64_t>*>      clock_nodes_;     // clock resamples (set_merge_order)
     std::vector<OrderedMergeNode<std::int64_t>*>  merge_nodes_;     // multi-producer inputs (set_merge_order)
     std::vector<ForwardAsOfNode<std::int64_t>*>   asof_nodes_;      // forward as-of joins (set_merge_order)
+    std::vector<LeadRowsNode<std::int64_t>*>      lead_nodes_;      // row leads (set_merge_order)
     std::vector<std::size_t>                      output_widths_;   // expected width for each output
     std::vector<std::size_t>                      result_w_;        // each output's width while it has no rows
     std::vector<std::size_t>                      unknown_result_w_; // result_w_ with no input width known

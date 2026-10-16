@@ -10,8 +10,9 @@
 //
 // index="features": the row for the features at t holds the target over
 // (t, t + horizon], stamped t, and it is emitted once that target is known.
-// Count mode joins X and y into rows (CombineLatest) and pairs each row with
-// the target `count` rows later (LeadRowsNode). Duration mode delays y's index
+// Count mode pairs the k-th X event with the y event `count` events later
+// (LeadRowsNode); X and y tick at the same indexes, and an index only one of
+// them has raises. Duration mode delays y's index
 // by -duration and joins it as-of onto X's clock (ForwardAsOfNode): the last y
 // at or before t + duration, NaN when y ends before t + duration. The rows
 // still waiting at the end of input get a NaN target.
@@ -110,10 +111,9 @@ inline std::size_t add_forecast_pairs(GraphBuilder& gb, std::size_t x, std::size
     std::size_t pairs;
     if (features_index) {
         if (count) {
-            const std::size_t rows = gb.add_combine_latest({x, y}, true);
-            gb.require_width(rows, forecast_pairs_x_rule(0));
-            gb.require_width(rows, forecast_pairs_y_rule(1));
-            pairs = gb.add_lead_rows({rows}, static_cast<std::size_t>(*count));
+            pairs = gb.add_lead_rows({x, y}, static_cast<std::size_t>(*count));
+            gb.require_width(pairs, forecast_pairs_x_rule(0));
+            gb.require_width(pairs, forecast_pairs_y_rule(1));
         } else {
             const std::size_t ahead = gb.add_delay({y}, -*duration);
             pairs = gb.add_forward_asof({x, ahead});

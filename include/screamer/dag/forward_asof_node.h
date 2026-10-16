@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstring>
 #include <limits>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -181,7 +182,7 @@ private:
     // Emits the oldest waiting row with `target`, then removes it. A
     // downstream that rejects the row leaves it waiting.
     void emit(double target) {
-        double* row = rows_.data() + head_ * (xw_ + 1);
+        double* row = rows_.get() + head_ * (xw_ + 1);
         row[xw_] = target;
         downstream_.push(Frame<Index>{stamp_[head_], row, xw_ + 1});
         if (++head_ == cap_) head_ = 0;
@@ -189,26 +190,32 @@ private:
     }
 
     // Appends an X row to the ring of waiting rows, doubling it when full.
+    // The new storage is not zero-filled: only the copied rows are read.
     void append(Index t, const double* x) {
         const std::size_t rw = xw_ + 1;
-        if (size_ == cap_ || rows_.size() < cap_ * rw) {
+        if (size_ == cap_ || rows_len_ / rw < cap_) {
             // Full: double; a wider X after a reset: the same number of rows.
-            const std::size_t cap = std::max<std::size_t>(size_ == cap_ ? cap_ * 2 : cap_, 16);
-            std::vector<double> rows(cap * rw);
-            std::vector<Index> stamp(cap);
+            const std::size_t cap = std::max<std::size_t>(
+                size_ == cap_ ? (cap_ > SIZE_MAX / 2 ? SIZE_MAX : cap_ * 2) : cap_, 16);
+            if (cap > SIZE_MAX / rw || cap > SIZE_MAX / sizeof(double) / rw)
+                throw std::runtime_error("forecast_pairs: " + std::to_string(size_) +
+                                         " rows waiting for their target ran out of memory");
+            std::unique_ptr<double[]> rows(new double[cap * rw]);
+            std::unique_ptr<Index[]> stamp(new Index[cap]);
             for (std::size_t k = 0; k < size_; ++k) {
                 const std::size_t s = (head_ + k) % cap_;
-                std::memcpy(rows.data() + k * rw, rows_.data() + s * rw, rw * sizeof(double));
+                std::memcpy(rows.get() + k * rw, rows_.get() + s * rw, rw * sizeof(double));
                 stamp[k] = stamp_[s];
             }
-            rows_.swap(rows);
-            stamp_.swap(stamp);
+            rows_ = std::move(rows);
+            stamp_ = std::move(stamp);
+            rows_len_ = cap * rw;
             cap_ = cap;
             head_ = 0;
         }
         std::size_t s = head_ + size_;
         if (s >= cap_) s -= cap_;
-        std::memcpy(rows_.data() + s * rw, x, xw_ * sizeof(double));
+        std::memcpy(rows_.get() + s * rw, x, xw_ * sizeof(double));
         stamp_[s] = t;
         ++size_;
     }
@@ -234,8 +241,9 @@ private:
     // The waiting X rows: a ring of cap_ rows of xw_ + 1 values (the last is
     // the target, written when the row is emitted) and their indexes.
     std::size_t xw_ = 0;             // 0 = not set since the last reset
-    std::vector<double> rows_;
-    std::vector<Index> stamp_;
+    std::unique_ptr<double[]> rows_;
+    std::unique_ptr<Index[]> stamp_;
+    std::size_t rows_len_ = 0;       // the values rows_ holds
     std::size_t cap_ = 0;
     std::size_t head_ = 0;
     std::size_t size_ = 0;

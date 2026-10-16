@@ -61,7 +61,9 @@ def cases():
             lambda x, y: [s.forecast_pairs(x, y, count=2, index="target")]),
         "forecast_pairs duration": two(
             lambda x, y: [s.forecast_pairs(x, y, duration=4, index="target")]),
-        "forecast_pairs count features": two(lambda x, y: [s.forecast_pairs(x, y, count=2)]),
+        # count= with index="features" pairs X and y on one clock
+        "forecast_pairs count features": (
+            two(lambda x, y: [s.forecast_pairs(x, y, count=2)])[0], [(P, K), (V, K)]),
         "forecast_pairs duration features": two(
             lambda x, y: [s.forecast_pairs(x, y, duration=4)]),
         "two outputs unaligned": two(lambda x, y: [s.RollingMean(2)(x), s.EwMean(alpha=0.3)(y)], False),

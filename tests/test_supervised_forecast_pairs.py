@@ -972,20 +972,24 @@ def test_forecast_pairs_saved_pipeline_without_index_loads_as_target():
 
 
 def test_forecast_pairs_features_streams_with_bounded_memory():
-    import tracemalloc
-    h = 8
+    """A lazy run keeps the rows waiting for their target, not the dataset:
+    the resident size sampled during 1M events stays flat (rows kept in C++
+    would add tens of MB)."""
+    from tests._memory import rss_mb
+    h, n = 8, 1_000_000
+
     def gen(n):
         for i in range(n):
             yield (float(i), i)
-    tracemalloc.start()
-    it = forecast_pairs(gen(200_000), gen(200_000), count=h, dropna=True)
-    n = 0
-    for _ in it:
-        n += 1
-    peak = tracemalloc.get_traced_memory()[1]
-    tracemalloc.stop()
-    assert n == 200_000 - h
-    assert peak < 5_000_000
+    before = rss_mb()
+    high = before
+    k = 0
+    for _ in forecast_pairs(gen(n), gen(n), count=h, dropna=True):
+        k += 1
+        if k % 100_000 == 0:
+            high = max(high, rss_mb())
+    assert k == n - h
+    assert high - before < 8
 
 
 @pytest.mark.parametrize("mode", [{"count": 3}, {"duration": 5}])
@@ -1060,3 +1064,71 @@ def test_forecast_pairs_features_aligns_with_other_outputs(mode):
     lv = np.concatenate([np.asarray(p[0][0]).reshape(len(p[0][1]), 2) for p in parts])
     li = np.concatenate([p[0][1] for p in parts])
     assert _same(lv, pv) and _same(li, pi)
+
+
+# ---------------------------------------------------------------------------
+# count= with index="features" needs X and y on one clock
+# ---------------------------------------------------------------------------
+
+_ONE_CLOCK = (r'count= with index="features" needs X and y on one clock; at index {} only {} '
+              r'has an event; use duration= for streams on different clocks')
+
+
+def test_forecast_pairs_features_count_on_two_clocks_raises_in_a_pipeline():
+    from screamer import Input, Pipeline
+    X_in, y_in = Input("X"), Input("y")
+    pipe = Pipeline([X_in, y_in], [forecast_pairs(X_in, y_in, count=1)])
+    xi, yi = np.arange(0, 10, 2), np.arange(1, 10, 2)
+    with pytest.raises(ValueError, match=_ONE_CLOCK.format(0, "X")):
+        pipe((np.arange(5.0), xi), (np.arange(5.0), yi))
+    # one clock still pairs, and index="target" keeps its as-of pairing
+    vals, idx = pipe((np.arange(5.0), xi), (np.arange(5.0) * 10, xi))
+    assert _same(idx, xi) and _same(vals[:, 1], [10.0, 20.0, 30.0, 40.0, np.nan])
+    X_in, y_in = Input("X"), Input("y")
+    old = Pipeline([X_in, y_in], [forecast_pairs(X_in, y_in, count=1, index="target")])
+    old((np.arange(5.0), xi), (np.arange(5.0), yi))
+    # an index only X has, found at the end of input
+    with pytest.raises(ValueError, match=_ONE_CLOCK.format(8, "X")):
+        pipe((np.arange(5.0), xi), (np.arange(4.0), xi[:4]))
+
+
+def test_forecast_pairs_features_count_on_two_clocks_raises_lazily():
+    gen = lambda v, i: ((float(a), int(b)) for a, b in zip(v, i))   # noqa: E731
+    xi, yi = np.arange(0, 10, 2), np.arange(1, 10, 2)
+    with pytest.raises(ValueError, match=_ONE_CLOCK.format(0, "X")):
+        list(forecast_pairs(gen(np.arange(5.0), xi), gen(np.arange(5.0), yi), count=1))
+    rows = list(forecast_pairs(gen(np.arange(5.0), xi), gen(np.arange(5.0), xi), count=1))
+    assert [r[1] for r in rows] == xi.tolist()
+
+
+def test_forecast_pairs_features_count_on_two_clocks_raises_live():
+    from screamer import Input, Pipeline
+    X_in, y_in = Input("X"), Input("y")
+    pipe = Pipeline([X_in, y_in], [forecast_pairs(X_in, y_in, count=1)])
+    # raised by the event that shows the gap
+    sess = pipe.live()
+    sess.push("X", 0, 1.0)
+    sess.push("y", 0, 1.0)
+    sess.push("y", 1, 2.0)
+    with pytest.raises(ValueError, match=_ONE_CLOCK.format(1, "y")):
+        sess.push("X", 2, 3.0)
+    # by a watermark past the index
+    sess = pipe.live()
+    sess.push("y", 1, 2.0)
+    with pytest.raises(ValueError, match=_ONE_CLOCK.format(1, "y")):
+        sess.advance(2)
+    # by the end of input
+    sess = pipe.live()
+    sess.push("y", 1, 2.0)
+    with pytest.raises(ValueError, match=_ONE_CLOCK.format(1, "y")):
+        sess.flush()
+    # one clock, pushed in any order across X and y, still pairs
+    sess = pipe.live()
+    for t in range(4):
+        sess.push("y", t, 10.0 * t)
+    for t in range(4):
+        sess.push("X", t, float(t))
+    sess.flush()
+    vals, idx = sess.result()
+    assert _same(idx, np.arange(4))
+    assert _same(np.asarray(vals).reshape(4, 2), [[0, 10], [1, 20], [2, 30], [3, np.nan]])

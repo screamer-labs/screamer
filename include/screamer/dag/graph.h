@@ -51,7 +51,8 @@ struct NodeSpec {
     // (CompiledGraph::validate_widths).
     std::vector<WidthRule> width_rules;
     std::size_t max_pending = kDefaultMaxPending;  // reorder buffer cap: CombineLatest, Filter,
-                                                   // ForwardAsOf, a Functor or DropNa with
+                                                   // LeadRows, ForwardAsOf, a Functor or
+                                                   // DropNa with
                                                    // several inputs
     std::vector<std::size_t> inputs;      // producer node ids (edges into this node)
 };
@@ -168,15 +169,17 @@ public:
         spec_.nodes.push_back(std::move(ns));
         return spec_.nodes.size() - 1;
     }
-    // Pairs each row [features..., target] with the target `count` rows
-    // later, stamped at the features' row (LeadRowsNode).
+    // Pairs the features of X (input 0) with the target of y (input 1)
+    // `count` events later, on one clock, stamped at the features' event
+    // (LeadRowsNode).
     std::size_t add_lead_rows(std::vector<std::size_t> inputs, std::size_t count) {
-        if (inputs.size() != 1 || count < 1)
-            throw std::invalid_argument("a lead takes one input and a count of at least 1");
+        if (inputs.size() != 2 || count < 1)
+            throw std::invalid_argument("a lead takes 2 inputs (X, y) and a count of at least 1");
         NodeSpec ns;
-        ns.kind      = NodeKind::LeadRows;
-        ns.lag_count = count;
-        ns.inputs    = std::move(inputs);
+        ns.kind        = NodeKind::LeadRows;
+        ns.lag_count   = count;
+        ns.max_pending = spec_.max_pending;
+        ns.inputs      = std::move(inputs);
         spec_.nodes.push_back(std::move(ns));
         return spec_.nodes.size() - 1;
     }
