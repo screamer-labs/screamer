@@ -4,12 +4,12 @@
 Forecasting & ML
 ================
 
-Training sets from time-series data, and online regression and filtering that forecast as they update.
+Training sets and labels from time-series data, and online regression and filtering that forecast as they update.
 
 Supervised learning & online forecasting
 ----------------------------------------
 
-Forecasting training sets from causal features and targets, and regressions and filters that update and forecast at every step.
+Forecasting training sets from causal features and targets, labels such as the triple barrier, and regressions and filters that update and forecast at every step.
 
 .. list-table::
    :header-rows: 1
@@ -20,7 +20,7 @@ Forecasting training sets from causal features and targets, and regressions and 
    * - :doc:`Online Bayesian regression </functions_fin/BayesianRegression>`
      - Online Bayesian linear regression with a forgetting factor: the current slope and intercept, and a one-step-ahead predictive mean and standard deviation.
    * - :doc:`forecast_pairs </functions_supervised/forecast_pairs>`
-     - Build a forecasting training set by aligning lagged features with a future causal target.
+     - Build a forecasting training set where row t holds the features at t and the target over the horizon after t.
    * - :doc:`Scalar Kalman filter </functions_signal/KalmanFilter>`
      - Scalar 1-D Kalman filter for a noisy random-walk model.
    * - :doc:`Triple-barrier label on a price series </functions_fin/TripleBarrier>`

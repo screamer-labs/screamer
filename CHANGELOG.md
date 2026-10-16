@@ -9,6 +9,38 @@ Unreleased
 
 * Python 3.15 is listed as supported and tested in CI. The abi3 wheels of
   earlier releases already install and pass the test suite on 3.15.
+* `TripleBarrier` and `TripleBarrierOHLC` (and in JavaScript): a three-state
+  label per step, `+1` when the price reaches the upper barrier first, `-1`
+  when it reaches the lower barrier first, and `0` when it reaches neither
+  within `horizon` steps, with the return to the exit and the holding time.
+  Barriers are a fraction of the entry price, a price amount, or multiples of
+  the volatility expected over the horizon. The OHLC variant tests each bar's
+  open, high, and low with the backtest engines' exit rules, and gives `NaN`
+  when both barriers lie inside one bar.
+* `forecast_pairs(index=...)` and `forecastPairs({ index })`: `"features"`
+  stamps each row at its features, `"target"` at its target.
+* A guide, [Labels and training sets](https://screamer.readthedocs.io/en/latest/labels.html),
+  with a target for each kind of prediction: return, direction, a dead zone,
+  volatility units, realized volatility, run up and down, triple barrier, and
+  cross-sectional rank.
+* Notebooks 23 to 25: classifying direction, triple-barrier labels, and
+  meta-labeling.
+
+### Changed
+
+* `forecast_pairs` and `forecastPairs` now stamp each row at its features by
+  default (`index="features"`): row `t` holds `X[t]` and the target over the
+  next `count` events, and the last `count` targets are NaN. Before, row `t`
+  held `X[t - count]` and `y[t]`, and the first `count` feature rows were NaN;
+  pass `index="target"` for that layout. With `dropna=True` in count mode the
+  result is unchanged. In duration mode the default gives one row per `X`
+  event, holding the last `y` at or before `t + duration`. In a stream, a row
+  is emitted once its target is known, stamped at its features. A `Pipeline`
+  saved before this release keeps the layout it was saved with.
+* `forecast_pairs` with `count=` and `index="features"` in a stream or a
+  `Pipeline` needs `X` and `y` to tick at the same indexes; an index that only
+  one of them has raises `ValueError`. Use `duration=` for inputs on different
+  clocks.
 
 3.4.0 - 2026-10-15
 ------------------

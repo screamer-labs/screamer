@@ -220,17 +220,20 @@ areas:
   image: recipes__ml-features.webp
   alt: Predicted against realized returns, and feature weights
   intro: >-
-    Build training sets from causal features, fit online regressions, and
-    filter a latent signal with uncertainty bands.
+    Build training sets from causal features and labels, fit online
+    regressions, and filter a latent signal with uncertainty bands.
   functions: >-
     [`forecast_pairs`](functions_supervised/forecast_pairs.md),
+    [`TripleBarrier`](functions_fin/TripleBarrier.md),
     [`BayesianRegression`](functions_fin/BayesianRegression.md),
     [`KalmanFilter`](functions_signal/KalmanFilter.md).
+  guides: >-
+    [Labels and training sets](labels.md).
   examples:
   - doc: recipes/ml-features
-    text: Causal features paired with a future target by `forecast_pairs`.
+    text: Features at each step paired with the return over the next minute by `forecast_pairs`.
   - doc: notebooks/16-supervised-forecasting
-    text: Build a leak-safe training set with `forecast_pairs`, fit, and backtest.
+    text: Build a training set with `forecast_pairs`, fit, and backtest.
   - doc: notebooks/17-filtering-and-forecasting-with-uncertainty
     text: Recover a latent signal with `KalmanFilter` and forecast online with a calibrated interval.
 

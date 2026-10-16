@@ -62,7 +62,7 @@ groups:
 
   machine-learning:
     name: "Forecasting & ML"
-    desc: "Training sets from time-series data, and online regression and filtering that forecast as they update."
+    desc: "Training sets and labels from time-series data, and online regression and filtering that forecast as they update."
     topics: [supervised]
 
 topics:
@@ -204,4 +204,4 @@ topics:
 
   supervised:
     name: "Supervised learning & online forecasting"
-    desc: "Forecasting training sets from causal features and targets, and regressions and filters that update and forecast at every step."
+    desc: "Forecasting training sets from causal features and targets, labels such as the triple barrier, and regressions and filters that update and forecast at every step."

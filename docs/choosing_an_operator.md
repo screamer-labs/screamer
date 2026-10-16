@@ -172,7 +172,20 @@ See the [Market microstructure](microstructure) guide and notebooks
 | Make a series stationary but keep its memory | `FracDiff` | Fractional differencing removes the trend with less information loss than a first difference. |
 | Standardise or rank | `RollingZscore`, `EwZscore`, `RollingRank` | Scale-free features for models and thresholds. |
 | Shift a series in time | `Lag`, `Delay` | `Lag` shifts by samples; `Delay` shifts an indexed stream by a time offset. |
-| Build a supervised training set | `forecast_pairs` | Aligns lagged features with a future target without lookahead; see [notebook 16](notebooks/16-supervised-forecasting). |
+| Build a supervised training set | `forecast_pairs` | Pairs the features at each step with the target over the horizon after it; see [Build a training set](#build-a-training-set). |
+
+## Build a training set
+
+A training row holds the features at step `t` and the target over the steps
+after it. The target is a causal series, such as `LogReturn(h)` of the price,
+and `forecast_pairs(X, y, count=h)` pairs it with the features where its
+horizon starts.
+
+| Intent | Operator(s) | Note |
+|:-------|:------------|:-----|
+| Pair features with a target | `forecast_pairs` | `count=` for a horizon in events, `duration=` for one in index units. |
+| Label which of two price levels is reached first | `TripleBarrier`, `TripleBarrierOHLC` | `+1`, `-1`, or `0` per step, with the return and the holding time. |
+| A return, direction, volatility, or range target | `LogReturn`, `Sign`, `RollingStd`, `RollingMax`, `RollingMin` | See the chooser in [Labels and training sets](labels.md). |
 
 ## Build bars from ticks
 

@@ -220,9 +220,9 @@ teaches a detail the reader needs. If a sentence only adds energy, cut it.
 ### Content and purpose (what to write)
 
 - **Lead with what the thing is.** State its identity, not a property, a benefit, or a
-  side effect. `forecast_pairs` is a helper that aligns past features with a future
-  target; it is not "a guard against lookahead bias" (that is a consequence, not the
-  thing).
+  side effect. `forecast_pairs` is a helper that pairs the features at each step with
+  the target over the horizon after it; it is not "a guard against lookahead bias"
+  (that is a consequence, not the thing).
 - **Ground every claim in the actual behavior.** If you cannot point to the code or the
   output that makes a sentence true, cut it. Do not write what sounds plausible; read
   the implementation and describe what it does.

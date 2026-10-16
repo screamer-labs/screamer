@@ -25,6 +25,7 @@ GUIDES = [
     ("choosing_an_operator", "Choosing an operator", "which function for which job"),
     ("backtesting_best_practices", "Backtesting best practices", "costs, fills, and testing for luck"),
     ("portfolio_backtesting", "Portfolios and pairs", "many assets from one account"),
+    ("labels", "Labels and training sets", "targets for supervised learning, paired with forecast_pairs"),
     ("microstructure", "Market microstructure", "order flow, impact, and toxicity"),
     ("conventions", "Conventions", "where screamer matches or differs from TA-Lib and pandas"),
     ("javascript", "JavaScript and the browser", "the WebAssembly package"),

@@ -14040,7 +14040,7 @@
     "name": "forecast_pairs",
     "title": "forecast_pairs",
     "kind": "function",
-    "short": "Build a forecasting training set by aligning lagged features with a future causal target.",
+    "short": "Build a forecasting training set where row t holds the features at t and the target over the horizon after t.",
     "tags": [
       "supervised learning",
       "training set",
@@ -14051,6 +14051,7 @@
     ],
     "see_also": [
       "walk_forward",
+      "TripleBarrier",
       "Lag",
       "Return"
     ],
@@ -14058,7 +14059,7 @@
       "supervised"
     ],
     "covers": [],
-    "details": "`forecast_pairs` pairs historical features with a future target so that a model\ncan learn to predict `count` events (or `duration` index-units) ahead. Row `t`\nin the output holds the features from `count` events ago aligned with the target\nvalue that is known at time `t`. The pairing is fully causal: it lags `X`,\nnever leads `y`, so nothing here peeks into the future.",
+    "details": "`forecast_pairs(X, y, count=h)` is a helper that builds a training set: row `t`\nholds the features `X[t]` and the target over the next `h` events. With\n`duration=` the horizon is a span of the index instead of a number of events.\nThe target `y` is a causal series, so its value at step `t` is known at `t`: a\ntarget over a horizon is stamped at the end of that horizon. For example\n`LogReturn(h)(price)` at step `t` is the return over `(t - h, t]`, and\n`forecast_pairs` moves it back to the row of the features it follows.\n\nA training row and a live row differ only in the target:\n\n| | features | target |\n|---|---|---|\n| training, row t | `X[t]` | outcome of `(t, t + h]` |\n| live, row t | `X[t]` | NaN, not known yet |\n\nThe feature matrix is built by the same code, at the same timestamps, in\nresearch and live, and the model learns \"features now, outcome next\".\n\n`index` chooses whose timestamp a row carries:\n\n| | row holds | NaN padding |\n|---|---|---|\n| `index=\"features\"` (default) | `X[t]` and the target over `(t, t + h]` | the last `h` targets |\n| `index=\"target\"` | `X[t - h]` and `y[t]` | the first `h` feature rows |\n\nIn count mode both settings hold the same pairs and differ only in the stamp\nand in where the padding is. With `dropna=True` they return identical arrays.",
     "examples": [],
     "doc_path": "functions_supervised/forecast_pairs"
   }

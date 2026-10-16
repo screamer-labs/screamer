@@ -10,9 +10,9 @@ import { wasmCall } from "./errors.js";
 import { aKind, flattenRows, throwMessage, toF64Checked } from "./kinds.js";
 
 export interface ForecastPairsOptions {
-  /** Lag X by this many events. Exactly one of `count` and `duration`. */
+  /** The horizon as a number of events. Exactly one of `count` and `duration`. */
   count?: number;
-  /** Delay X's index by this many index units and pair each y with the last delayed X. */
+  /** The horizon in index units, as in `delay`. Exactly one of `count` and `duration`. */
   duration?: number;
   /**
    * Whose index a row carries: `"features"` (the default) stamps row t at the
@@ -20,7 +20,7 @@ export interface ForecastPairsOptions {
    * at the target, holding the features from a horizon before.
    */
   index?: "features" | "target";
-  /** Drop a row whose shifted features or target is NaN. Default `false`. */
+  /** Drop a row whose features or target is NaN. Default `false`. */
   dropna?: boolean;
 }
 
@@ -196,7 +196,7 @@ export function forecastPairs(X: unknown, y: unknown, opts: ForecastPairsOptions
   return split(out, bx.K, bx.wide);
 }
 
-// The output [X_shifted..., y] as [X_shifted, y].
+// The output [X..., y] as [X_paired, y_paired].
 function split(out: Output, K: number, wide: boolean): [Float64Array | NdArray, Float64Array] {
   const nd = asNd(out.values);
   const data = nd ? nd.data : (out.values as Float64Array);

@@ -7,9 +7,9 @@ kernelspec:
 
 # A feature matrix for machine learning
 
-screamer computes features as causal columns, and `forecast_pairs` aligns each
-row of features with the target value from a fixed horizon later. The result is
-a training set for any batch learner. This recipe builds four features from
+screamer computes features as causal columns, and `forecast_pairs` pairs the
+features at each step with the target over a fixed horizon after it. The result
+is a training set for any batch learner. This recipe builds four features from
 10-second BTC bars, pairs them with the next minute's return, and fits a linear
 model with NumPy.
 
@@ -44,9 +44,10 @@ X.shape
 ## Target and pairs
 
 The target is the trailing one-minute return, `LogReturn(6)(close)`: at row `t`
-it is the return from `t - 6` to `t`. `forecast_pairs(X, y, count=6)` delays the
-features by six bars, so each row pairs the features known at `t - 6` with the
-return over the six bars that followed. `dropna=True` drops the warmup rows.
+it is the return from `t - 6` to `t`. `forecast_pairs(X, y, count=6)` moves it
+back six bars, so row `t` holds the features at `t` and the return over the six
+bars that follow. `dropna=True` drops the rows with a NaN feature or target:
+the warmup rows at the start, and the last six rows, whose return is not known.
 
 ```{code-cell} ipython3
 y = LogReturn(6)(close)
@@ -93,6 +94,9 @@ plt.tight_layout()
 The [supervised forecasting notebook](../notebooks/16-supervised-forecasting.ipynb)
 covers time-based horizons with `duration=` and turns a prediction into a
 backtest.
+
+[Labels and training sets](../labels.md) shows other targets: direction,
+volatility, and triple-barrier labels.
 
 Related pages: [`forecast_pairs`](../functions_supervised/forecast_pairs.md),
 [`LogReturn`](../functions_fin/LogReturn.md),

@@ -259,8 +259,9 @@ The precise reset rules are in the [Polymorphic API reference](polymorphic_api.m
   from prices to a costed backtest and a p-value.
 - **Examples**: [What you can build](capabilities.md) groups the recipes and
   notebooks by task.
-- **Guides**: [backtesting best practices](backtesting_best_practices.md) and
-  [portfolios and pairs](portfolio_backtesting.md).
+- **Guides**: [backtesting best practices](backtesting_best_practices.md),
+  [portfolios and pairs](portfolio_backtesting.md), and
+  [labels and training sets](labels.md).
 - **Concepts**: [Polymorphic API](polymorphic_api.md),
   [NaN and warmup](nan_and_warmup.md),
   [Streams, values, and alignment](multistream.md), and

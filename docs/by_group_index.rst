@@ -67,7 +67,7 @@ Every function, grouped by what it does. Pick a group to browse; the search box 
       :link: by_group/machine-learning
       :link-type: doc
 
-      Training sets from time-series data, and online regression and filtering that forecast as they update.
+      Training sets and labels from time-series data, and online regression and filtering that forecast as they update.
 
 .. toctree::
    :hidden:

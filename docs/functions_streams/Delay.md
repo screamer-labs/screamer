@@ -83,4 +83,4 @@ The `forecast_pairs` / separate-call pattern continues to work unchanged.
 ## Reference
 
 A delay line from signal processing. Composes with `CombineLatest` to build an
-as-of-lagged join, and underpins `forecast_pairs(duration=)`.
+as-of-lagged join, and underpins `forecast_pairs(duration=, index="target")`.

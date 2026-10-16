@@ -38,8 +38,9 @@ backtest engines make that timing explicit:
   same step's price. That assumes you can trade at the price you just observed;
   if the signal comes from that price, lag it or use `BacktestOHLCTarget`.
 - For machine learning, [`forecast_pairs`](functions_supervised/forecast_pairs.md)
-  aligns past features with a future target, so a model is trained only on
-  information it would have had.
+  pairs the features at each step with the target over the horizon after it,
+  so a model is trained only on the features it would have had. See
+  [Labels and training sets](labels.md).
 
 Data you supply can still carry look-ahead, for example an index whose members
 were chosen with hindsight, or values revised after the fact. Use data as it was

@@ -257,6 +257,8 @@ TRIX, ROC of a triple-smoothed EMA.
 Tanh, Hyperbolic tangent.
 TickRuleSign, Trade sign by the tick rule (+1 up-tick, -1 down-tick, carry on unchanged).
 TrendMode, Ehlers' trend mode, 1.0 while the series trends and 0.0 while it cycles.
+TripleBarrier, A three-state label over a window: +1 when the price reaches the upper barrier first, -1 when it reaches the lower barrier first, 0 when it reaches neither within `horizon` steps.
+TripleBarrierOHLC, A three-state label over a window of OHLC bars: +1 when the upper barrier is reached first, -1 when the lower barrier is reached first, 0 when neither is reached within `horizon` bars; barriers are tested on each bar's open, high, and low.
 TrueRange, Per-bar true range accounting for overnight gaps (Wilder, 1978).
 UltimateOscillator, Three-period weighted oscillator (Williams, 1976).
 VPIN, Volume-synchronized probability of informed trading (Easley-López de Prado-O'Hara 2012): order-flow toxicity.
@@ -267,7 +269,7 @@ backtest_report, Running statistics and a summary for a backtest engine's output
 choosing_a_backtest_engine, The engine grid by data model and order definition, with fill rules, sizing, volume limits, and encoding.
 circular_shift, Randomly rotated copies of a series, for randomization tests.
 deflated_sharpe, Probabilistic Sharpe ratio against the Sharpe ratio the best of your tried variants would reach by luck.
-forecast_pairs, Build a forecasting training set by aligning lagged features with a future causal target.
+forecast_pairs, Build a forecasting training set where row t holds the features at t and the target over the horizon after t.
 from_pandas, Convert a pandas Series or DataFrame to a (values, index) tuple.
 permute_bars, Bar-permuted copies of an OHLC series that keep its return distribution but no serial structure.
 permute_returns, Copies of a price series with its returns in random order.

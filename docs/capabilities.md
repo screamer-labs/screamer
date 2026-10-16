@@ -419,9 +419,11 @@ Recipe
 (area-forecasting-and-ml)=
 ## Forecasting and ML
 
-Build training sets from causal features, fit online regressions, and filter a latent signal with uncertainty bands.
+Build training sets from causal features and labels, fit online regressions, and filter a latent signal with uncertainty bands.
 
-Functions: [`forecast_pairs`](functions_supervised/forecast_pairs.md), [`BayesianRegression`](functions_fin/BayesianRegression.md), [`KalmanFilter`](functions_signal/KalmanFilter.md).
+Functions: [`forecast_pairs`](functions_supervised/forecast_pairs.md), [`TripleBarrier`](functions_fin/TripleBarrier.md), [`BayesianRegression`](functions_fin/BayesianRegression.md), [`KalmanFilter`](functions_signal/KalmanFilter.md).
+
+Guides: [Labels and training sets](labels.md).
 
 ```{grid} 1 2 2 3
 :gutter: 3
@@ -431,7 +433,7 @@ Functions: [`forecast_pairs`](functions_supervised/forecast_pairs.md), [`Bayesia
 :link-type: doc
 :img-top: _static/gallery/recipes__ml-features.webp
 :img-alt: A feature matrix for machine learning
-Causal features paired with a future target by `forecast_pairs`.
+Features at each step paired with the return over the next minute by `forecast_pairs`.
 +++
 Recipe
 :::
@@ -441,7 +443,7 @@ Recipe
 :link-type: doc
 :img-top: _static/gallery/notebooks__16-supervised-forecasting.webp
 :img-alt: Supervised forecasting with `forecast_pairs`
-Build a leak-safe training set with `forecast_pairs`, fit, and backtest.
+Build a training set with `forecast_pairs`, fit, and backtest.
 +++
 Notebook
 :::
