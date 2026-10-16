@@ -569,7 +569,7 @@ inline const std::vector<OperatorSchema>& operator_schemas() {
         {"Resample", "resample", 1, 2,
          {"every", "freq", "count", "threshold", "clock", "agg", "origin", "label", "fill",
           "max_age", "max_fill"}},
-        {"forecast_pairs", "", 2, 2, {"count", "duration", "dropna"}},
+        {"forecast_pairs", "", 2, 2, {"count", "duration", "index", "dropna"}},
     };
     return s;
 }
@@ -685,7 +685,16 @@ inline json::Value check_graph(const json::Value& doc) {
             } else {
                 node.set("cls", what);
             }
-            node.set("params", params ? *params : json::Value::object());
+            json::Value ps = params ? *params : json::Value::object();
+            // A forecast_pairs node saved before `index` existed stamped its
+            // rows at the target: it keeps that layout.
+            if (op && node.get("op")->s == "forecast_pairs" && !ps.get("index")) {
+                // In the place the bindings write it: before "dropna".
+                auto at = ps.o.begin();
+                while (at != ps.o.end() && at->first != "dropna") ++at;
+                ps.o.emplace(at, "index", json::Value::string("target"));
+            }
+            node.set("params", std::move(ps));
             node.set("in", std::move(in_ids));
         } else {
             throw std::invalid_argument("unknown node kind: " + graph_text(kind));

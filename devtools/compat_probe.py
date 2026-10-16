@@ -338,6 +338,10 @@ def cases():
             (v, idx.astype("datetime64[s]")), (w, idx.astype("datetime64[s]")), duration=20),
         "forecast_pairs duration index None": lambda: fp((v, None), (w, None), duration=1),
         "forecast_pairs duration bare arrays": lambda: fp(v, w, duration=10),
+        "forecast_pairs count index target": lambda: fp(v, w, count=3, index="target"),
+        "forecast_pairs duration index target": lambda: fp(
+            (v, idx), (w[:len(yidx)], yidx), duration=10, index="target"),
+        "forecast_pairs index bad": lambda: fp(v, w, count=1, index="entry"),
         "forecast_pairs duration empty": lambda: fp(
             (v[:0], idx[:0]), (w[:0], idx[:0]), duration=10),
         "forecast_pairs count rank-3 X": lambda: fp(X.reshape(T, 1, K), w, count=1),

@@ -475,7 +475,8 @@ class Pipeline:
                     # The C++ graph definition (dag/forecast_pairs.h).
                     nid = gb.add_forecast_pairs(inp[0], inp[1], kwargs.get("count"),
                                                 kwargs.get("duration"),
-                                                bool(kwargs.get("dropna", False)))
+                                                bool(kwargs.get("dropna", False)),
+                                                kwargs.get("index", "features") == "features")
                 else:
                     raise ValueError(
                         f"{name} is not supported as a DAG graph node")

@@ -438,7 +438,8 @@ public:
                                  bool hasDuration, double duration, bool dropna) {
         return screamer::dag::add_forecast_pairs(
             b_, x, y, horizon(hasCount, count, "count"),
-            horizon(hasDuration, duration, "duration"), dropna);
+            horizon(hasDuration, duration, "duration"), dropna,
+            /*features_index=*/false);   // index="target" until the JS binding takes index
     }
 
     void setOutputs(std::vector<std::size_t> outs) {

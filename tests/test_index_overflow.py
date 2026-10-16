@@ -43,7 +43,12 @@ def test_delay_overflow_raises_in_a_live_session():
 def test_forecast_pairs_duration_past_the_int64_range_raises():
     with pytest.raises(ValueError, match=r"duration=9223372036854775807 moves index 5"):
         sc.forecast_pairs((np.ones(2), np.array([0, 5])), (np.ones(2), np.array([0, 5])),
-                          duration=MAX)
+                          duration=MAX, index="target")
+    # Stamped at the features, y moves back by the duration, which fits: no
+    # target is that far ahead.
+    xs, ys = sc.forecast_pairs((np.ones(2), np.array([0, 5])), (np.ones(2), np.array([0, 5])),
+                               duration=MAX)
+    assert np.isnan(ys).all()
 
 
 @pytest.mark.parametrize("reducer", [False, True])

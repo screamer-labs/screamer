@@ -15,7 +15,7 @@
 namespace screamer { namespace dag {
 
 enum class NodeKind { Input, Functor, CombineLatest, DropNa, Select, Resample, Filter, Delay,
-                      LagRows };
+                      LagRows, LeadRows, ForwardAsOf };
 
 // A rule on the width of input `slot` of a node: exactly `exact` columns
 // (0 = any), and at least `min` columns. A graph given another width raises
@@ -46,12 +46,13 @@ struct NodeSpec {
     std::vector<std::size_t> columns;     // Select only
     ResampleParams resample;              // Resample only
     std::int64_t delay_duration = 0;     // Delay only
-    std::size_t lag_count = 1;            // LagRows only: events to lag by
+    std::size_t lag_count = 1;            // LagRows, LeadRows: events to lag or lead by
     // Width rules on the node's inputs, checked before any event is fed
     // (CompiledGraph::validate_widths).
     std::vector<WidthRule> width_rules;
     std::size_t max_pending = kDefaultMaxPending;  // reorder buffer cap: CombineLatest, Filter,
-                                                   // a Functor or DropNa with several inputs
+                                                   // ForwardAsOf, a Functor or DropNa with
+                                                   // several inputs
     std::vector<std::size_t> inputs;      // producer node ids (edges into this node)
 };
 
@@ -164,6 +165,31 @@ public:
         ns.kind      = NodeKind::LagRows;
         ns.lag_count = count;
         ns.inputs    = std::move(inputs);
+        spec_.nodes.push_back(std::move(ns));
+        return spec_.nodes.size() - 1;
+    }
+    // Pairs each row [features..., target] with the target `count` rows
+    // later, stamped at the features' row (LeadRowsNode).
+    std::size_t add_lead_rows(std::vector<std::size_t> inputs, std::size_t count) {
+        if (inputs.size() != 1 || count < 1)
+            throw std::invalid_argument("a lead takes one input and a count of at least 1");
+        NodeSpec ns;
+        ns.kind      = NodeKind::LeadRows;
+        ns.lag_count = count;
+        ns.inputs    = std::move(inputs);
+        spec_.nodes.push_back(std::move(ns));
+        return spec_.nodes.size() - 1;
+    }
+    // A forward as-of join of y (input 1) on the clock of X (input 0)
+    // (ForwardAsOfNode).
+    std::size_t add_forward_asof(std::vector<std::size_t> inputs) {
+        if (inputs.size() != 2)
+            throw std::invalid_argument("a forward as-of join takes 2 inputs (X, y), got " +
+                                        std::to_string(inputs.size()));
+        NodeSpec ns;
+        ns.kind        = NodeKind::ForwardAsOf;
+        ns.max_pending = spec_.max_pending;
+        ns.inputs      = std::move(inputs);
         spec_.nodes.push_back(std::move(ns));
         return spec_.nodes.size() - 1;
     }

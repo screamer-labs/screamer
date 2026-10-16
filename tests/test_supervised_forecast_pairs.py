@@ -13,7 +13,7 @@ def test_forecast_pairs_count_pairs_features_with_future_target():
     # feature at row t pairs with the target `count` rows later
     X = np.arange(6.0)                       # 0,1,2,3,4,5
     y = np.arange(6.0) * 10                  # 0,10,20,30,40,50
-    Xs, ys = forecast_pairs(X, y, count=2)
+    Xs, ys = forecast_pairs(X, y, count=2, index="target")
     # row t holds feature X[t-2] and target y[t]; first 2 rows warm up to NaN
     assert np.isnan(Xs[:2]).all()
     np.testing.assert_array_equal(Xs[2:], [0.0, 1.0, 2.0, 3.0])   # X[t-2]
@@ -83,7 +83,7 @@ def test_forecast_pairs_duration_async_pairs_by_walltime():
     Xi = np.array([0, 10, 20, 30, 40, 50], dtype=np.int64)
     yv = np.array([100.0, 200.0, 300.0])
     yi = np.array([15, 30, 45], dtype=np.int64)
-    Xs, ys = forecast_pairs((Xv, Xi), (yv, yi), duration=10, dropna=True)
+    Xs, ys = forecast_pairs((Xv, Xi), (yv, yi), duration=10, index="target", dropna=True)
     # y at 15 -> X as-of 5 -> X at 0 = 1 ; y at 30 -> X as-of 20 = 3 ; y at 45 -> X as-of 35 -> X at 30 = 4
     np.testing.assert_array_equal(ys, [100.0, 200.0, 300.0])
     np.testing.assert_allclose(Xs, [1.0, 3.0, 4.0])
@@ -386,9 +386,11 @@ def _live(pipe, xv, xi, yv, yi, drain_every):
 @pytest.mark.parametrize("mode", [{"count": 1}, {"count": 3}, {"duration": 0},
                                   {"duration": 4}, {"duration": 9}])
 @pytest.mark.parametrize("dropna", [False, True])
-def test_forecast_pairs_every_regime_is_identical(seed, mode, dropna):
+@pytest.mark.parametrize("index", ["features", "target"])
+def test_forecast_pairs_every_regime_is_identical(seed, mode, dropna, index):
     from screamer import Input, Pipeline
     xv, xi, yv, yi = _regime_data(seed)
+    mode = dict(mode, index=index)
     if "count" in mode:          # count mode pairs row t with row t: one clock
         yv, yi = xv[::-1].copy(), xi
         eager = forecast_pairs(xv, yv, dropna=dropna, **mode)
@@ -418,21 +420,30 @@ def test_forecast_pairs_wide_features_equal_one_column_at_a_time():
     y = rng.standard_normal(n)
     idx = np.arange(n, dtype=np.int64) * 10
     for dropna in (False, True):
-        Xs, ys = forecast_pairs(X, y, count=2, dropna=dropna)
-        Xd, yd = forecast_pairs((X, idx), (y, idx), duration=20, dropna=dropna)
+        Xs, ys = forecast_pairs(X, y, count=2, index="target", dropna=dropna)
+        Xd, yd = forecast_pairs((X, idx), (y, idx), duration=20, index="target", dropna=dropna)
         assert Xs.shape[1] == 3 and Xd.shape[1] == 3
         if not dropna:            # each column alone gives the same pairs
             for c in range(3):
-                assert _same(Xs[:, c], forecast_pairs(X[:, c], y, count=2)[0])
+                assert _same(Xs[:, c], forecast_pairs(X[:, c], y, count=2, index="target")[0])
                 # Duration samples with a carry resample, which carries a row
                 # only when all of it is NaN; compare on rows without NaN.
                 Xc = np.where(np.isnan(X), 0.0, X)
-                Xw = forecast_pairs((Xc, idx), (y, idx), duration=20)[0]
-                assert _same(Xw[:, c], forecast_pairs((Xc[:, c], idx), (y, idx), duration=20)[0])
+                Xw = forecast_pairs((Xc, idx), (y, idx), duration=20, index="target")[0]
+                Xw1 = forecast_pairs((Xc[:, c], idx), (y, idx), duration=20, index="target")[0]
+                assert _same(Xw[:, c], Xw1)
             assert _same(ys, y) and _same(yd, y[2:])   # y starts at the first delayed X
     # a (T, 1) X keeps its rank in both modes
+    assert forecast_pairs(X[:, :1], y, count=1, index="target")[0].shape == (n, 1)
+    assert forecast_pairs((X[:, :1], idx), (y, idx), duration=10,
+                          index="target")[0].shape == (n - 1, 1)
+    # index="features": X keeps its rows and the target moves back to them
+    Xs, ys = forecast_pairs(X, y, count=2)
+    Xd, yd = forecast_pairs((X, idx), (y, idx), duration=20)
+    assert _same(Xs, X) and _same(Xd, X)
+    assert _same(ys[:-2], y[2:]) and np.isnan(ys[-2:]).all() and _same(yd, ys)
     assert forecast_pairs(X[:, :1], y, count=1)[0].shape == (n, 1)
-    assert forecast_pairs((X[:, :1], idx), (y, idx), duration=10)[0].shape == (n - 1, 1)
+    assert forecast_pairs((X[:, :1], idx), (y, idx), duration=10)[0].shape == (n, 1)
 
 
 def test_forecast_pairs_node_round_trips_through_to_dict():
@@ -442,7 +453,7 @@ def test_forecast_pairs_node_round_trips_through_to_dict():
     d = pipe.to_dict()
     ops = [n for n in d["nodes"] if n["kind"] == "operator"]
     assert [n["op"] for n in ops] == ["forecast_pairs"]
-    assert ops[0]["params"] == {"duration": 20, "dropna": True}
+    assert ops[0]["params"] == {"duration": 20, "index": "features", "dropna": True}
     rng = np.random.default_rng(3)
     idx = np.arange(30, dtype=np.int64) * 10
     feeds = ((rng.standard_normal(30), idx), (rng.standard_normal(30), idx))
@@ -531,10 +542,12 @@ def _rows(xs, ys, k):
 
 
 @pytest.mark.parametrize("chunk", range(12))
-def test_forecast_pairs_random_cases_all_regimes(chunk):
+@pytest.mark.parametrize("index", ["features", "target"])
+def test_forecast_pairs_random_cases_all_regimes(chunk, index):
     from screamer import Input, Pipeline
     for seed in range(chunk * 30, chunk * 30 + 30):          # 360 cases
         X, xi, yv, yi, yc, mode, dropna, dates = _random_case(seed)
+        mode = dict(mode, index=index)
         X2 = X if X.ndim == 2 else X[:, None]
         if "count" in mode:                                 # one clock: row t with row t
             yv, yi = yc, xi
@@ -542,10 +555,13 @@ def test_forecast_pairs_random_cases_all_regimes(chunk):
                   else (xi, yi))
         if "count" in mode:
             xs, ys = forecast_pairs(X, yv, dropna=dropna, **mode)
-            ref = _reference_count(X2, yv, mode["count"])
+            ref = (_reference_count(X2, yv, mode["count"]) if index == "target" else
+                   np.column_stack([X2, _ref_features_count(X2[:, 0], yv, mode["count"])[1]]))
         else:
             xs, ys = forecast_pairs((X, ix), (yv, iy), dropna=dropna, **mode)
-            ref = _reference_duration(X2, xi, yv, yi, mode["duration"])
+            ref = (_reference_duration(X2, xi, yv, yi, mode["duration"]) if index == "target"
+                   else np.column_stack(
+                       [X2, _ref_features_duration(X2[:, 0], xi, yv, yi, mode["duration"])[1]]))
         if dropna:
             ref = ref[~np.isnan(ref).any(axis=1)]
         k = X2.shape[1]
@@ -659,7 +675,7 @@ def test_forecast_pairs_input_rules():
     assert _same(forecast_pairs(v, v, count=1, dropna=np.bool_(True))[0],
                  forecast_pairs(v, v, count=1, dropna=True)[0])
     # (T, 1) y is one column; an empty wide X keeps its width
-    assert _same(forecast_pairs(v, v[:, None], count=1)[1], v)
+    assert _same(forecast_pairs(v, v[:, None], count=1, index="target")[1], v)
     assert forecast_pairs(np.empty((0, 3)), np.empty(0), count=1)[0].shape == (0, 3)
 
 
@@ -718,31 +734,39 @@ def test_forecast_pairs_large_count_costs_memory_only_as_events_arrive():
 
     v = np.arange(10.0)
     before = peak_mb()
-    xs, ys = forecast_pairs(v, v, count=2**31 - 1)
+    xs, ys = forecast_pairs(v, v, count=2**31 - 1, index="target")
     assert np.isnan(xs).all() and _same(ys, v)
-    X_in, y_in = Input("X"), Input("y")
-    pipe = Pipeline([X_in, y_in], [forecast_pairs(X_in, y_in, count=2**31 - 1)])
-    vals, _ = pipe(np.ones((10, 3)), v)
-    assert vals.shape == (10, 4) and np.isnan(vals[:, :3]).all()
+    xs, ys = forecast_pairs(v, v, count=2**31 - 1)
+    assert _same(xs, v) and np.isnan(ys).all()
+    for index in ("target", "features"):
+        X_in, y_in = Input("X"), Input("y")
+        pipe = Pipeline([X_in, y_in], [forecast_pairs(X_in, y_in, count=2**31 - 1, index=index)])
+        vals, _ = pipe(np.ones((10, 3)), v)
+        assert vals.shape == (10, 4)
+        assert np.isnan(vals[:, :3] if index == "target" else vals[:, 3]).all()
     # A count-sized buffer (16 GB) would raise the process peak far above any
     # earlier test's, so the peak's growth is the measure here.
     assert peak_mb() - before < 64
 
 
 @pytest.mark.parametrize("count", [1, 63, 64, 65, 200, 500])
-def test_forecast_pairs_lag_across_ring_growth(count):
+@pytest.mark.parametrize("index", ["features", "target"])
+def test_forecast_pairs_lag_across_ring_growth(count, index):
     rng = np.random.default_rng(count)
     for k in (1, 3):
         X = rng.standard_normal((450, k))
         X[rng.random(X.shape) < 0.1] = np.nan
         y = rng.standard_normal(450)
         Xk = X if k > 1 else X[:, 0]
-        xs, ys = forecast_pairs(Xk, y, count=count)
-        assert _same(_rows(xs, ys, k), _reference_count(X, y, count))
+        xs, ys = forecast_pairs(Xk, y, count=count, index=index)
+        ref = (_reference_count(X, y, count) if index == "target" else
+               np.column_stack([X, _ref_features_count(y, y, count)[1]]))
+        assert _same(_rows(xs, ys, k), ref)
         # the lazy path drives the same node event by event
         lazy = list(forecast_pairs(((r.tolist() if k > 1 else float(r[0]), t)
                                     for t, r in enumerate(X)),
-                                   ((float(v), t) for t, v in enumerate(y)), count=count))
+                                   ((float(v), t) for t, v in enumerate(y)), count=count,
+                                   index=index))
         assert _same(np.array([r[0] for r in lazy]).reshape(450, k + 1), _rows(xs, ys, k))
 
 
@@ -770,3 +794,269 @@ def test_forecast_pairs_zero_width_x_raises_in_every_regime(mode):
         pipe.live().push("X", 0, [])
     with pytest.raises(ValueError):
         list(forecast_pairs(iter([([], 0)]), iter([(1.0, 0)]), **mode))
+
+
+# ---------------------------------------------------------------------------
+# index="features" (the default) and index="target"
+# ---------------------------------------------------------------------------
+
+def _ref_features_count(X, y, h):
+    """Row t: X[t] and y[t + h]; NaN target for the last h rows."""
+    X = np.asarray(X, float); y = np.asarray(y, float)
+    yt = np.full(len(y), np.nan)
+    if h < len(y):
+        yt[:len(y) - h] = y[h:]
+    return X, yt
+
+
+def _ref_features_duration(xv, xi, yv, yi, d):
+    """One row per X event: X[t] and the last y at or before t + d; NaN past the last y."""
+    out = np.full(len(xv), np.nan)
+    if len(yi):
+        for k, t in enumerate(xi):
+            if t + d > yi[-1]:
+                continue
+            j = np.searchsorted(yi, t + d, side="right") - 1
+            if j >= 0:
+                out[k] = yv[j]
+    return np.asarray(xv, float), out
+
+
+def test_forecast_pairs_default_index_is_features():
+    X = np.arange(6.0)
+    y = np.arange(6.0) * 10
+    Xs, ys = forecast_pairs(X, y, count=2)
+    np.testing.assert_array_equal(Xs, X)                              # features keep their row
+    np.testing.assert_array_equal(ys[:4], [20.0, 30.0, 40.0, 50.0])  # target of (t, t+2]
+    assert np.isnan(ys[4:]).all()                                     # not known yet
+
+
+def test_forecast_pairs_index_target_is_the_old_layout():
+    X = np.arange(6.0)
+    y = np.arange(6.0) * 10
+    Xs, ys = forecast_pairs(X, y, count=2, index="target")
+    assert np.isnan(Xs[:2]).all()
+    np.testing.assert_array_equal(Xs[2:], [0.0, 1.0, 2.0, 3.0])
+    np.testing.assert_array_equal(ys, y)
+
+
+@pytest.mark.parametrize("h", [1, 3, 7])
+def test_forecast_pairs_dropna_rows_identical_for_both_index(h):
+    rng = np.random.default_rng(h)
+    X = rng.standard_normal((50, 3))
+    y = rng.standard_normal(50)
+    y[[5, 17]] = np.nan
+    a = forecast_pairs(X, y, count=h, dropna=True)
+    b = forecast_pairs(X, y, count=h, index="target", dropna=True)
+    np.testing.assert_array_equal(a[0], b[0])
+    np.testing.assert_array_equal(a[1], b[1])
+
+
+def test_forecast_pairs_features_count_matches_reference():
+    rng = np.random.default_rng(3)
+    X = rng.standard_normal(40)
+    y = rng.standard_normal(40)
+    Xs, ys = forecast_pairs(X, y, count=4)
+    Xr, yr = _ref_features_count(X, y, 4)
+    np.testing.assert_array_equal(Xs, Xr)
+    np.testing.assert_array_equal(ys, yr)
+
+
+def test_forecast_pairs_features_duration_matches_reference():
+    rng = np.random.default_rng(4)
+    xi = np.cumsum(rng.integers(1, 5, 60)).astype(np.int64)
+    yi = np.cumsum(rng.integers(1, 7, 45)).astype(np.int64)
+    yi[10] = yi[9]                                   # two y events at one index
+    xv = rng.standard_normal(60)
+    yv = rng.standard_normal(45)
+    for d in (0, 3, 10):
+        Xs, ys = forecast_pairs((xv, xi), (yv, yi), duration=d)
+        Xr, yr = _ref_features_duration(xv, xi, yv, yi, d)
+        np.testing.assert_array_equal(Xs, Xr)
+        np.testing.assert_array_equal(ys, yr)
+
+
+def test_forecast_pairs_features_duration_is_inclusive():
+    Xs, ys = forecast_pairs((np.array([1.0, 2.0]), np.array([0, 10], dtype=np.int64)),
+                            (np.array([7.0, 8.0]), np.array([5, 15], dtype=np.int64)),
+                            duration=5)
+    np.testing.assert_array_equal(ys, [7.0, 8.0])     # y at exactly t + 5
+
+
+def test_forecast_pairs_features_duration_nan_past_last_target():
+    Xs, ys = forecast_pairs((np.array([1.0, 2.0, 3.0]), np.array([0, 10, 20], dtype=np.int64)),
+                            (np.array([7.0, 8.0]), np.array([5, 12], dtype=np.int64)),
+                            duration=5)
+    np.testing.assert_array_equal(ys[:1], [7.0])
+    assert np.isnan(ys[1]) and np.isnan(ys[2])        # 15 and 25 are after the last y (12)
+
+
+@pytest.mark.parametrize("index", ["features", "target"])
+@pytest.mark.parametrize("dropna", [False, True])
+def test_forecast_pairs_lazy_and_graph_equal_eager_for_both_index(index, dropna):
+    from screamer import Input, Pipeline
+    rng = np.random.default_rng(5)
+    X = rng.standard_normal(30)
+    y = rng.standard_normal(30)
+    Xe, ye = forecast_pairs(X, y, count=3, index=index, dropna=dropna)
+    # lazy: generators of (value, index) events; rows are ((x, y), index)
+    gen = lambda a: ((float(v), i) for i, v in enumerate(a))   # noqa: E731
+    lazy = list(forecast_pairs(gen(X), gen(y), count=3, index=index, dropna=dropna))
+    lv = np.array([list(r[0]) for r in lazy], dtype=float).reshape(-1, 2)
+    np.testing.assert_array_equal(lv[:, 0], Xe)
+    np.testing.assert_array_equal(lv[:, 1], ye)
+    if index == "features":
+        stamps = [r[1] for r in lazy]
+        assert stamps == sorted(stamps)
+        if not dropna:
+            assert stamps == list(range(30))          # stamped at the features' row
+    # graph
+    xi, yi = Input("X"), Input("y")
+    p = Pipeline([xi, yi], [forecast_pairs(xi, yi, count=3, index=index, dropna=dropna)])
+    out, _ = p(X=X, y=y)
+    np.testing.assert_array_equal(out[:, 0], Xe)
+    np.testing.assert_array_equal(out[:, 1], ye)
+
+
+def test_forecast_pairs_features_live_holds_unknown_rows():
+    from screamer import Input, Pipeline
+    xi, yi = Input("X"), Input("y")
+    p = Pipeline([xi, yi], [forecast_pairs(xi, yi, count=2)])
+    s = p.live()
+    for t in range(5):
+        s.push("X", t, float(t))
+        s.push("y", t, float(10 * t))
+    s.advance(5)                      # no event comes before index 5: row 4 is complete
+    vals, idx = s.result()
+    # only rows 0..2 have known targets after 5 events; nothing for rows 3 and 4 yet
+    assert len(idx) == 3
+    np.testing.assert_array_equal(idx, [0, 1, 2])
+    np.testing.assert_array_equal(np.asarray(vals).reshape(3, 2), [[0, 20], [1, 30], [2, 40]])
+    s.flush()
+    vals, idx = s.result()
+    np.testing.assert_array_equal(idx, [3, 4])          # the rest, with a NaN target
+    assert np.isnan(np.asarray(vals).reshape(2, 2)[:, 1]).all()
+
+
+def test_forecast_pairs_index_setting_is_checked():
+    X = np.arange(5.0); y = np.arange(5.0)
+    with pytest.raises(ValueError, match="features.*target|target.*features"):
+        forecast_pairs(X, y, count=1, index="entry")
+    with pytest.raises(TypeError):
+        forecast_pairs(X, y, count=1, index=1)
+
+
+def test_forecast_pairs_saved_pipeline_without_index_loads_as_target():
+    from screamer import Input, Pipeline
+    xi, yi = Input("X"), Input("y")
+    p = Pipeline([xi, yi], [forecast_pairs(xi, yi, count=2, index="target")])
+    d = p.to_dict()
+    text = repr(d)
+    assert "'index': 'target'" in text                    # always written
+    # an older save has no index key: it must keep the layout it was saved with
+    def drop_index(o):
+        if isinstance(o, dict):
+            return {k: drop_index(v) for k, v in o.items() if k != "index" or not isinstance(v, str)}
+        if isinstance(o, list):
+            return [drop_index(v) for v in o]
+        return o
+    q = Pipeline.from_dict(drop_index(d))
+    X = np.arange(6.0); y = np.arange(6.0) * 10
+    a, b = q(X=X, y=y), p(X=X, y=y)
+    assert _same(a[0], b[0]) and _same(a[1], b[1])
+    # the default is written too, and round-trips
+    r = Pipeline([xi, yi], [forecast_pairs(xi, yi, count=2)])
+    assert "'index': 'features'" in repr(r.to_dict())
+    a, b = Pipeline.from_dict(r.to_dict())(X=X, y=y), r(X=X, y=y)
+    assert _same(a[0], b[0]) and _same(a[1], b[1])
+
+
+def test_forecast_pairs_features_streams_with_bounded_memory():
+    import tracemalloc
+    h = 8
+    def gen(n):
+        for i in range(n):
+            yield (float(i), i)
+    tracemalloc.start()
+    it = forecast_pairs(gen(200_000), gen(200_000), count=h, dropna=True)
+    n = 0
+    for _ in it:
+        n += 1
+    peak = tracemalloc.get_traced_memory()[1]
+    tracemalloc.stop()
+    assert n == 200_000 - h
+    assert peak < 5_000_000
+
+
+@pytest.mark.parametrize("mode", [{"count": 3}, {"duration": 5}])
+def test_forecast_pairs_features_live_with_target_pushed_ahead(mode):
+    """A live session may take y far ahead of X: the rows equal the eager rows."""
+    from screamer import Input, Pipeline
+    rng = np.random.default_rng(11)
+    xi = np.cumsum(rng.integers(1, 4, 40)).astype(np.int64)
+    xv = rng.standard_normal(40)
+    if "count" in mode:
+        yv, yi = rng.standard_normal(40), xi
+        eager = forecast_pairs(xv, yv, **mode)
+    else:
+        yi = np.cumsum(rng.integers(1, 5, 30)).astype(np.int64)
+        yv = rng.standard_normal(30)
+        eager = forecast_pairs((xv, xi), (yv, yi), **mode)
+    X_in, y_in = Input("X"), Input("y")
+    pipe = Pipeline([X_in, y_in], [forecast_pairs(X_in, y_in, **mode)])
+    sess = pipe.live()
+    for v, i in zip(yv, yi):
+        sess.push("y", int(i), float(v))
+    for v, i in zip(xv, xi):
+        sess.push("X", int(i), float(v))
+    sess.flush()
+    vals, idx = sess.result()
+    assert _same(np.asarray(vals).reshape(len(idx), 2), np.column_stack(eager))
+    assert _same(idx, xi)
+
+
+def test_forecast_pairs_features_duration_stalled_features_raise():
+    """y running ahead of X by more than max_pending events in a live session
+    is a stalled stream, as in a CombineLatest."""
+    from screamer import Input, Pipeline
+    X_in, y_in = Input("X"), Input("y")
+    pipe = Pipeline([X_in, y_in], [forecast_pairs(X_in, y_in, duration=1)], max_pending=4)
+    sess = pipe.live()
+    sess.push("X", 0, 1.0)
+    with pytest.raises(RuntimeError, match="target is more than 4 events ahead.*stalled"):
+        for t in range(1, 10):
+            sess.push("y", t * 10, 1.0)
+
+
+@pytest.mark.parametrize("mode", [{"count": 2}, {"duration": 4}])
+def test_forecast_pairs_features_aligns_with_other_outputs(mode):
+    """The rows wait for their target, so a second output waits for them: the
+    aligned outputs of batch, lazy and live drains agree."""
+    from screamer import Input, Pipeline, RollingMean
+    rng = np.random.default_rng(12)
+    xi = np.cumsum(rng.integers(1, 4, 40)).astype(np.int64)
+    xv = rng.standard_normal(40)
+    yi = xi if "count" in mode else np.cumsum(rng.integers(1, 5, 30)).astype(np.int64)
+    yv = rng.standard_normal(len(yi))
+    X_in, y_in = Input("X"), Input("y")
+    pipe = Pipeline([X_in, y_in], [forecast_pairs(X_in, y_in, **mode), RollingMean(2)(X_in)])
+    (pv, pi), (mv, mi) = pipe((xv, xi), (yv, yi))
+    assert _same(pi, xi) and _same(mi, xi)
+    assert _same(mv, np.asarray(RollingMean(2)(xv)))
+    gen = lambda v, i: ((float(a), int(b)) for a, b in zip(v, i))   # noqa: E731
+    lazy = list(pipe(gen(xv, xi), gen(yv, yi)))
+    assert [r[-1] for r in lazy] == xi.tolist()
+    assert _same(np.array([r[0] for r in lazy]), pv)
+    sess = pipe.live()
+    evs = sorted([(int(i), 0, v) for v, i in zip(xv, xi)] +
+                 [(int(i), 1, v) for v, i in zip(yv, yi)], key=lambda e: e[:2])
+    parts = []
+    for k, (i, src, v) in enumerate(evs, 1):
+        sess.push("X" if src == 0 else "y", i, float(v))
+        if k % 6 == 0:
+            parts.append(sess.result())
+    sess.flush()
+    parts.append(sess.result())
+    lv = np.concatenate([np.asarray(p[0][0]).reshape(len(p[0][1]), 2) for p in parts])
+    li = np.concatenate([p[0][1] for p in parts])
+    assert _same(lv, pv) and _same(li, pi)

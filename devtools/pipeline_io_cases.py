@@ -55,8 +55,15 @@ def cases():
         "Select": one(lambda x: Select([1, 0])(x), 4),
         "Filter": two(lambda x, y: [Filter()(x, y)]),
         "Delay": one(lambda x: Delay(3)(x)),
-        "forecast_pairs count": two(lambda x, y: [s.forecast_pairs(x, y, count=2)]),
-        "forecast_pairs duration": two(lambda x, y: [s.forecast_pairs(x, y, duration=4)]),
+        # index="target" under the names of the graphs saved before index=
+        # existed (wasm/smoke/pipeline_io_js.json holds such graphs).
+        "forecast_pairs count": two(
+            lambda x, y: [s.forecast_pairs(x, y, count=2, index="target")]),
+        "forecast_pairs duration": two(
+            lambda x, y: [s.forecast_pairs(x, y, duration=4, index="target")]),
+        "forecast_pairs count features": two(lambda x, y: [s.forecast_pairs(x, y, count=2)]),
+        "forecast_pairs duration features": two(
+            lambda x, y: [s.forecast_pairs(x, y, duration=4)]),
         "two outputs unaligned": two(lambda x, y: [s.RollingMean(2)(x), s.EwMean(alpha=0.3)(y)], False),
         "two outputs aligned": two(lambda x, y: [s.RollingMean(2)(x), s.EwMean(alpha=0.3)(y)]),
         "Resample threshold": two(lambda x, y: [Resample(x, y, threshold=3.0, agg="sum")]),

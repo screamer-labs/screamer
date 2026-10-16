@@ -23,7 +23,9 @@
 #include "screamer/dag/filter_node.h"
 #include "screamer/dag/select_node.h"
 #include "screamer/dag/delay_node.h"
+#include "screamer/dag/forward_asof_node.h"
 #include "screamer/dag/lag_rows_node.h"
+#include "screamer/dag/lead_rows_node.h"
 #include "screamer/dag/ordered_merge_node.h"
 #include "screamer/dag/resample_node.h"
 #include "screamer/dag/resample_generic_node.h"
@@ -178,7 +180,9 @@ public:
             }
             case NodeKind::Filter:        node_width[id] = 1; break;
             case NodeKind::Delay:
-            case NodeKind::LagRows:       node_width[id] = node_width[nd.inputs[0]]; break;
+            case NodeKind::LagRows:
+            case NodeKind::LeadRows:      node_width[id] = node_width[nd.inputs[0]]; break;
+            case NodeKind::ForwardAsOf:   node_width[id] = node_width[nd.inputs[0]] + 1; break;
             }
         }
         join_ = OutputJoin(num_out);
@@ -350,6 +354,30 @@ public:
                 owned_.push_back(ln);
                 break;
             }
+            case NodeKind::LeadRows: {
+                auto ln = std::make_shared<LeadRowsNode<std::int64_t>>(ns.lag_count, *downstream);
+                reset_nodes_.push_back(ln.get());
+                node_input_sink[id] = [ptr = ln.get()](std::size_t) -> Sink<std::int64_t>* { return ptr; };
+                owned_.push_back(ln);
+                break;
+            }
+            case NodeKind::ForwardAsOf: {
+                // inputs[0] = X (port 0), inputs[1] = y (port 1). The node
+                // learns how each port relates to the input merge, as a clock
+                // resample does.
+                auto an = std::make_shared<ForwardAsOfNode<std::int64_t>>(*downstream,
+                                                                          ns.max_pending);
+                if (order_memo.empty()) order_memo.assign(n, 0);
+                an->set_ports(merge_relation(s, ns.inputs[0], order_memo) & 1,
+                              merge_relation(s, ns.inputs[1], order_memo) & 2);
+                reset_nodes_.push_back(an.get());
+                asof_nodes_.push_back(an.get());
+                node_input_sink[id] = [ptr = an.get()](std::size_t slot) -> Sink<std::int64_t>* {
+                    return &ptr->port(slot);
+                };
+                owned_.push_back(an);
+                break;
+            }
             case NodeKind::Delay: {
                 auto dn = std::make_shared<DelayNode<std::int64_t>>(ns.delay_duration, *downstream);
                 node_input_sink[id] = [ptr = dn.get()](std::size_t) -> Sink<std::int64_t>* { return ptr; };
@@ -410,6 +438,7 @@ public:
     void set_merge_order(bool on) {
         for (auto* n : clock_nodes_) n->set_merge_order(on);
         for (auto* n : merge_nodes_) n->set_merge_order(on);
+        for (auto* n : asof_nodes_) n->set_merge_order(on);
     }
 
     // Time-driven finalization: inject a watermark at every input sink so the
@@ -888,9 +917,19 @@ private:
             case NodeKind::DropNa:
             case NodeKind::Delay:
             case NodeKind::LagRows:
+            case NodeKind::LeadRows:
                 w[id] = in_of(nd);
                 zero[id] = nd.inputs.size() == 1 && zero[nd.inputs[0]];
                 break;
+            case NodeKind::ForwardAsOf: {
+                // X of any width, y one value; the row is [X..., y].
+                const std::size_t yw = w[nd.inputs[1]];
+                if (check && yw > 1)
+                    throw std::invalid_argument("a forward as-of join takes y events of one "
+                                                "value, got " + std::to_string(yw));
+                w[id] = w[nd.inputs[0]] != 0 ? w[nd.inputs[0]] + 1 : 0;
+                break;
+            }
             case NodeKind::Select: {
                 const std::size_t iw = in_of(nd);
                 if (check && iw != 0)
@@ -1000,6 +1039,7 @@ private:
     std::vector<OutputBuffer>                     outputs_;         // persistent output buffers
     std::vector<ResampleNode<std::int64_t>*>      clock_nodes_;     // clock resamples (set_merge_order)
     std::vector<OrderedMergeNode<std::int64_t>*>  merge_nodes_;     // multi-producer inputs (set_merge_order)
+    std::vector<ForwardAsOfNode<std::int64_t>*>   asof_nodes_;      // forward as-of joins (set_merge_order)
     std::vector<std::size_t>                      output_widths_;   // expected width for each output
     std::vector<std::size_t>                      result_w_;        // each output's width while it has no rows
     std::vector<std::size_t>                      unknown_result_w_; // result_w_ with no input width known

@@ -885,12 +885,15 @@ void init_bindings_dag(nb::module_& m) {
     // The forecast_pairs graph (dag/forecast_pairs.h), compiled: inputs X and y,
     // one output [X_shifted..., y].
     m.def("_forecast_pairs_graph", [](std::optional<std::int64_t> count,
-                                      std::optional<std::int64_t> duration, bool dropna) {
+                                      std::optional<std::int64_t> duration, bool dropna,
+                                      bool features_index) {
         PyCompiledGraph pcg;
         pcg.cg = std::make_unique<dag::CompiledGraph>(
-            dag::forecast_pairs_graph(count, duration, dropna));
+            dag::forecast_pairs_graph(count, duration, dropna, features_index));
         return pcg;
-    }, "count"_a.none(), "duration"_a.none(), "dropna"_a);
+    }, "count"_a.none(), "duration"_a.none(), "dropna"_a, "features_index"_a);
+    // The index setting ("features" or "target") as features_index.
+    m.def("_forecast_pairs_index", &dag::forecast_pairs_features_index, "index"_a);
     m.def("_check_forecast_pairs_inputs", &dag::check_forecast_pairs_inputs,
           "count_mode"_a, "x_ndim"_a, "x_rows"_a, "x_cols"_a, "y_ndim"_a, "y_rows"_a,
           "y_cols"_a);
@@ -1233,8 +1236,10 @@ void init_bindings_dag(nb::module_& m) {
         // The forecast_pairs nodes (dag/forecast_pairs.h).
         std::size_t add_forecast_pairs(std::size_t x, std::size_t y,
                                        std::optional<std::int64_t> count,
-                                       std::optional<std::int64_t> duration, bool dropna) {
-            return dag::add_forecast_pairs(builder, x, y, count, duration, dropna);
+                                       std::optional<std::int64_t> duration, bool dropna,
+                                       bool features_index) {
+            return dag::add_forecast_pairs(builder, x, y, count, duration, dropna,
+                                           features_index);
         }
 
         void set_max_pending(std::size_t n) { builder.set_max_pending(n); }
@@ -1313,7 +1318,7 @@ void init_bindings_dag(nb::module_& m) {
            "max_fill"_a = dag::kDefaultMaxFill)
         .def("add_forecast_pairs", &PyGraphBuilder::add_forecast_pairs,
              "x"_a, "y"_a, "count"_a.none(), "duration"_a.none(),
-             "dropna"_a)
+             "dropna"_a, "features_index"_a)
         .def("set_outputs", &PyGraphBuilder::set_outputs, "output_ids"_a)
         .def("set_max_pending", &PyGraphBuilder::set_max_pending, "max_pending"_a)
         .def("compile", [](PyGraphBuilder& b) { return b.compile(); })
