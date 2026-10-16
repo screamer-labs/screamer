@@ -291,5 +291,5 @@ make major   # 0.6.2 -> 1.0.0
 ```
 
 Each target bumps the version, commits, tags, and pushes. The pushed tag triggers
-`build-wheels.yml`, which runs the test suite, builds wheels for Python 3.11-3.14 on
+`build-wheels.yml`, which runs the test suite, builds one abi3 wheel per platform for Python 3.12 and later on
 Linux, macOS, and Windows, and publishes to PyPI via OIDC Trusted Publishing.

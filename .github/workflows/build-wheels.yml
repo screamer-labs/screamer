@@ -40,7 +40,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.12', '3.13', '3.14']
+        python-version: ['3.12', '3.13', '3.14', '3.15']
     steps:
       - uses: actions/checkout@v5
 
@@ -84,7 +84,7 @@ jobs:
         # CPython 3.12 (CIBW_BUILD cp312-* in pyproject [tool.cibuildwheel]).
         # The cp312-abi3 wheel installs on 3.12+. cibuildwheel's own
         # test-command smoke-tests it on 3.12; the full pytest run across
-        # 3.12/3.13/3.14 happens in the test_wheels job below.
+        # 3.12 to 3.15 happens in the test_wheels job below.
         uses: pypa/cibuildwheel@v4.1.0
         env:
           # Wheels must run on any CPU, so leave SCREAMER_NATIVE_ARCH off.
@@ -100,8 +100,8 @@ jobs:
   test_wheels:
     # Prove the single abi3 wheel actually runs the full suite on every
     # supported Python, not just the 3.12 it was built on. Downloads the
-    # built wheels, pip-installs the cp312-abi3 wheel into a 3.13 and 3.14
-    # interpreter, and runs pytest against the installed package.
+    # built wheels, pip-installs the cp312-abi3 wheel into each
+    # interpreter of the matrix, and runs pytest against the installed package.
     name: test wheel (${{ matrix.os }}, py${{ matrix.python-version }})
     needs: build_wheels
     runs-on: ${{ matrix.os }}
@@ -109,7 +109,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-15, windows-latest]
-        python-version: ['3.12', '3.13', '3.14']
+        python-version: ['3.12', '3.13', '3.14', '3.15']
     steps:
       - uses: actions/checkout@v5
 

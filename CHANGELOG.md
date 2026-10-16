@@ -5,6 +5,11 @@ All notable changes to this project are documented in this file.
 Unreleased
 ----------
 
+### Added
+
+* Python 3.15 is listed as supported and tested in CI. The abi3 wheels of
+  earlier releases already install and pass the test suite on 3.15.
+
 3.4.0 - 2026-10-15
 ------------------
 

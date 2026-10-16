@@ -35,6 +35,7 @@ classifiers=[
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: C++",
     "Operating System :: OS Independent"
 ]
@@ -246,8 +247,8 @@ replace = '__version__ = "{new_version}"'
 [tool.cibuildwheel]
 # One abi3 wheel per platform. nanobind's STABLE_ABI (see CMakeLists.txt) tags
 # the extension cp312-abi3, so a single wheel built on CPython 3.12 installs and
-# runs on 3.12, 3.13, 3.14, and every later 3.x. We therefore build only on
-# 3.12; the resulting wheel is import- and pytest-tested across 3.12/3.13/3.14
+# runs on 3.12 and every later 3.x. We therefore build only on
+# 3.12; the resulting wheel is import- and pytest-tested on 3.12 to 3.15
 # by the test-matrix job in .github/workflows/build-wheels.yml. See
 # docs/superpowers/plans/2026-08-01-nanobind-migration.md.
 build = "cp312-*"
