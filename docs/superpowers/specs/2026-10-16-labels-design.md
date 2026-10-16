@@ -86,52 +86,62 @@ arguments only.
 
 ## `TripleBarrier` and `TripleBarrierOHLC`
 
-The first barrier a trade touches after entry, following López de Prado
-(2018), with the `side` input of meta-labeling built in.
+A three-state label over a window: which of two price barriers the price
+touches first after each step, following López de Prado (2018). The label
+describes the price path only; no position or side is involved.
 
 Signatures:
 
-- `TripleBarrier(horizon=20, take=2.0, stop=2.0, scale="vol", vol_span=100)`,
-  inputs `side`, `price`.
-- `TripleBarrierOHLC(...)`, same settings, inputs `side`, `open`, `high`,
-  `low`, `close`.
+- `TripleBarrier(horizon=20, upper=0.0, lower=0.0, barrier_unit="fraction",
+  vol_span=100)`, input `price`.
+- `TripleBarrierOHLC(...)`, same settings, inputs `open`, `high`, `low`,
+  `close`.
 - Outputs: `label`, `return`, `holding`.
 
 The price-only and OHLC variants follow the backtest engines' convention
 (`BacktestPriceTarget`, `BacktestOHLCTarget`): an operator has a fixed number
 of inputs, so a second input layout is a second operator.
 
+**Entries.** Every step is an entry, at its price (or close). Which rows to
+train on, for example only the steps where a rule fires, is chosen after
+pairing.
+
 **Stamping.** Like any causal target, the output at step t is the outcome of
-the trade entered at `t - horizon`, the step at which it is certain to be
-resolved. It is NaN for the first `horizon` steps and for steps whose entry
-had no side. `forecast_pairs(X, y, count=horizon)` then puts it next to the
-features of its entry step, with the default `index="features"`. The guide
-and the function page state the rule once, in that form: "use
-`count=horizon`".
+the entry at `t - horizon`, the step at which it is certain to be resolved.
+It is NaN for the first `horizon` steps. `forecast_pairs(X, y,
+count=horizon)` then puts it next to the features of its entry step, with the
+default `index="features"`. The guide and the function page state the rule
+once, in that form: "use `count=horizon`".
 
-**Entries.** `side` at the entry step: `+1` opens a long trade at that step's
-close, `-1` a short, `0` or NaN no trade. Only the sign is used. To label
-every step by direction, pass `side = 1` everywhere: the label is then `+1`
-when the upper barrier comes first and `-1` for the lower.
+**Barriers.** `upper` is the distance above the entry price and `lower` the
+distance below it, both non-negative. Their units follow the engines'
+`stop_loss`, `take_profit`, and `slippage_unit` conventions, so the same
+numbers mean the same thing in a label and in a backtest:
 
-**Barriers**, as log returns from the entry price in the trade's direction:
-
-- profit at `+take * w`, loss at `-stop * w`, with `w = sigma_h(e)` when
-  `scale="vol"` and `w = 1` when `scale="absolute"`;
-- `take=0` or `stop=0` turns that barrier off, as in the engines;
-- the vertical barrier is `horizon` steps after entry.
+- `barrier_unit="fraction"` (default): a fraction of the entry price;
+  `upper=0.02` puts the barrier at `entry * 1.02`, `lower=0.02` at
+  `entry * 0.98`;
+- `barrier_unit="price"`: an absolute price amount;
+- `barrier_unit="vol"`: multiples of `sigma_h(e)`, the fraction
+  `upper * sigma_h(e)` above the entry price (and likewise below).
+- `0` turns a barrier off, as in the engines. With both off, only the
+  vertical barrier remains: every label is 0 and `return` is the return over
+  the horizon.
+- The vertical barrier is `horizon` steps after entry.
 
 `sigma_h(e)` is the volatility expected over the horizon, known at entry:
 `EwStd(span=vol_span)` of the one-step log returns up to and including step
 e, times `sqrt(horizon)`. Before the `EwStd` has data the labels are NaN.
+`vol_span` is used only with `barrier_unit="vol"`.
 
 **Outputs** for the entry `e = t - horizon`:
 
-- `label`: `+1` profit barrier first, `-1` loss barrier first, `0` at the
-  vertical barrier. For meta-labeling, the class to learn is `label == +1`.
-- `return`: the trade's log return to its exit, signed by `side`. Its sign at
-  the vertical barrier gives the alternative "sign at the vertical" label
-  without another setting.
+- `label`: `+1` upper barrier first, `-1` lower barrier first, `0` neither
+  within the horizon.
+- `return`: the simple price return from the entry price to the exit price
+  (the barrier, or the price at the vertical barrier). Its sign at the
+  vertical barrier gives the alternative "sign at the vertical" label without
+  another setting.
 - `holding`: steps from entry to exit, 1 to `horizon`. The label's span is
   `[e, e + holding]`, which is what purging in the research project needs.
 
@@ -141,17 +151,26 @@ e, times `sqrt(horizon)`. Before the `EwStd` has data the labels are NaN.
   exactly at the level counts), and the exit is at that price.
 - `TripleBarrierOHLC`: barriers are tested on each bar's high and low with the
   rules of `detail::risk_exits` in the engines: a gap through a barrier at the
-  open exits at the open; when both barriers lie inside one bar the loss
-  barrier wins, because the order of high and low within the bar is unknown;
-  the exit price is the barrier level clamped to the bar. The implementation
-  reuses `risk_exits`, so labels and backtests agree on the same bars.
+  open exits at the open; the exit price is the barrier level clamped to the
+  bar. When both barriers lie inside one bar, the order of high and low within
+  the bar is unknown: that entry's `label`, `return`, and `holding` are NaN.
+  (The engines resolve this case with "the stop wins", which needs a side; a
+  label has none, so it says it does not know.) On every other bar the exits
+  agree with `BacktestOHLCTarget`.
 
-**State.** Several trades can be open at once (every step can be an entry),
-each resolved on its own. State is a ring of the open entries of the last
-`horizon` steps; each step checks the open entries, at most `horizon`.
+**Meta-labeling** is a recipe on top of the label, not a setting. With a
+rule that gives `side` (+1 long, -1 short): with symmetric barriers the trade
+worked when `label == side`, and its return is `side * return`. With
+asymmetric barriers and both sides (a 2% target and a 1% stop), run two
+barriers, `upper=0.02, lower=0.01` for longs and `upper=0.01, lower=0.02` for
+shorts, and pick per row by side.
 
-A non-positive or NaN price at entry or inside a trade's window gives that
-trade a NaN label; other trades are unaffected.
+**State.** Every step opens an entry and each resolves on its own. State is a
+ring of the open entries of the last `horizon` steps; each step checks the
+open entries, at most `horizon`.
+
+A non-positive or NaN price at entry or inside an entry's window gives that
+entry a NaN label; other entries are unaffected.
 
 ## The guide: `docs/labels.md`, "Labels and training sets"
 
@@ -168,7 +187,7 @@ short, runnable example.
 | a move in units of expected volatility | the paired return divided by a volatility feature from `X` |
 | how volatile the next period is | `RollingStd(h)` of one-step returns |
 | how far it runs for and against me | `RollingMax(h)` and `RollingMin(h)` of the price, over the price h steps ago |
-| whether a trade with a stop and a target works | `TripleBarrier` or `TripleBarrierOHLC` |
+| which of two price levels is reached first: up, down, or neither | `TripleBarrier` or `TripleBarrierOHLC` |
 | which assets do best | `LogReturn(h)` on a `(T, K)` panel, then `CrossRank` |
 
 The volatility row explains why scaling after pairing is the simple way:
@@ -188,11 +207,11 @@ learning problem.
   volatility units; class balance; hit rate; turning predicted probabilities
   into positions; a backtest.
 - **24, "Triple-barrier labels".** Labels drawn on a price chart; choosing
-  take and stop from the excursion recipe; label counts and holding times;
-  `TripleBarrierOHLC` against `BacktestOHLCTarget` on the same bars.
-- **25, "Meta-labeling".** A simple rule gives the side; the triple barrier
-  labels whether each trade worked; a second model decides which trades to
-  take; backtest with and without the filter.
+  the barriers from the excursion recipe; label counts and holding times; how
+  many OHLC bars are ambiguous (both barriers inside one bar).
+- **25, "Meta-labeling".** A simple rule gives the side; the triple-barrier
+  label says whether each trade worked (`label == side`); a second model
+  decides which trades to take; backtest with and without the filter.
 
 ## Other documentation
 
@@ -229,10 +248,12 @@ learning problem.
   - no look-ahead: changing prices after step t leaves every output at or
     before t unchanged;
   - `TripleBarrierOHLC` exits agree with `BacktestOHLCTarget` stop and take
-    exits on the same bars (gap at the open, both barriers in one bar,
-    clamping);
-  - edge cases: `horizon=1`; side changing every step; side NaN; `take=0` or
-    `stop=0`; `scale="vol"` during the `EwStd` warmup;
+    exits on the same bars (gap at the open, clamping), and a bar holding both
+    barriers gives NaN;
+  - `barrier_unit` "fraction", "price", and "vol" against the reference; a bad
+    unit raises; a negative `upper` or `lower` raises;
+  - edge cases: `horizon=1`; `upper=0` or `lower=0` or both;
+    `barrier_unit="vol"` during the `EwStd` warmup;
   - JavaScript parity fixtures as for every operator.
 - Docs: the guide's examples run; the notebooks execute in the docs build.
 
@@ -245,14 +266,17 @@ learning problem.
    stamps: the CHANGELOG names the change and the one-word fix.
 3. Overlapping triple-barrier trades when every step is an entry: each
    resolves on its own; a test covers 1000 consecutive entries.
-4. A price of zero or below, or NaN, inside an open trade's window: that
-   trade's label is NaN, others are unaffected.
+4. A price of zero or below, or NaN, inside an open entry's window: that
+   entry's label is NaN, others are unaffected.
 5. Ties at a barrier (a price exactly at the level): counts as touched, the
    same rule as the engines.
 
-## Open questions for the reviewer
+## Decisions from review (2026-10-16)
 
-1. `TripleBarrier` defaults: `horizon=20, take=2.0, stop=2.0, scale="vol"`.
-2. The notebooks need a classifier. Options: scikit-learn (what users will
-   use in practice; added to the docs extra only), or a few lines of numpy
-   as notebook 16 does for regression. Recommendation: scikit-learn.
+1. Barriers are `upper` and `lower`, with no `side` input: the label is a
+   three-state label over a window, not a trade.
+2. Barrier units follow the engines: `barrier_unit` "fraction" (default),
+   "price", or "vol"; `0` turns a barrier off. Defaults `horizon=20`,
+   `upper=0`, `lower=0`; the guide and notebooks always set the barriers.
+3. Ambiguous OHLC bars (both barriers inside one bar) give NaN.
+4. The notebooks use scikit-learn, added to the docs dependencies only.
