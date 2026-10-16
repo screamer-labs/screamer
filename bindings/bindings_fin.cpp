@@ -63,6 +63,7 @@
 #include "screamer/rolling_residual_std.h"
 #include "screamer/rolling_linear_regression.h"
 #include "screamer/bayesian_regression.h"
+#include "screamer/triple_barrier.h"
 #include <string>
 
 namespace nb = nanobind;
@@ -1378,6 +1379,22 @@ void init_bindings_fin(nb::module_& m) {
              "prior_precision"_a = 1.0, "prior_sigma"_a = 1.0)
         .def("__call__", &screamer::functor_call<screamer::BayesianRegression>)
         .def("reset", &screamer::BayesianRegression::reset, "Reset to the prior.");
+
+    // Triple-barrier labels: 1 -> 3 (price) and 4 -> 3 (OHLC), outputs
+    // (label, return, holding) for the entry `horizon` steps back.
+    nb::class_<screamer::TripleBarrier, screamer::EvalOp>(m, "TripleBarrier")
+        .def(nb::init<screamer::IntArg<int>, screamer::FloatArg, screamer::FloatArg, const std::string&, screamer::FloatArg>(),
+             "horizon"_a = 20, "upper"_a = 0.0, "lower"_a = 0.0,
+             "barrier_unit"_a = "fraction", "vol_span"_a = 100.0)
+        .def("__call__", &screamer::functor_call<screamer::TripleBarrier>)
+        .def("reset", &screamer::TripleBarrier::reset, "Reset.");
+
+    nb::class_<screamer::TripleBarrierOHLC, screamer::EvalOp>(m, "TripleBarrierOHLC")
+        .def(nb::init<screamer::IntArg<int>, screamer::FloatArg, screamer::FloatArg, const std::string&, screamer::FloatArg>(),
+             "horizon"_a = 20, "upper"_a = 0.0, "lower"_a = 0.0,
+             "barrier_unit"_a = "fraction", "vol_span"_a = 100.0)
+        .def("__call__", &screamer::functor_call<screamer::TripleBarrierOHLC>)
+        .def("reset", &screamer::TripleBarrierOHLC::reset, "Reset.");
 
     nb::class_<screamer::BacktestPriceTarget, screamer::EvalOp>(m, "BacktestPriceTarget")
         .def(nb::init<screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, const std::string&, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, const std::string&, screamer::FloatArg, screamer::FloatArg>(),

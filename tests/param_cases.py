@@ -319,6 +319,14 @@ multi_input_definitions = [
     ( ('StochRSI',)                 , {"array_type": ["positive"]}),
     ( ('MACD',)                     , {"array_type": ["positive"],
                                        "array_length": [2000]}),
+    # Triple-barrier labels: positive prices (a random walk for the OHLC bars),
+    # barriers on, in each unit.
+    ( ('TripleBarrier',)            , {"horizon": [5], "upper": [0.5], "lower": [0.5],
+                                       "barrier_unit": ["fraction", "vol"],
+                                       "vol_span": [20.0], "array_type": ["positive"]}),
+    ( ('TripleBarrierOHLC',)        , {"horizon": [10], "upper": [0.01], "lower": [0.01],
+                                       "barrier_unit": ["fraction", "vol"],
+                                       "vol_span": [20.0], "array_type": ["ohlc"]}),
     # EW range-based volatility: same coherent bars, EW weighting.
     ( ('EwParkinsonVar','EwParkinsonVol',
        'EwGarmanKlassVar','EwGarmanKlassVol',

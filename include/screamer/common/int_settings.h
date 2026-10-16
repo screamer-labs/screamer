@@ -152,6 +152,8 @@ inline constexpr IntSettingMin kIntSettingMin[] = {
     {"StochRSI", "stoch_period", 1},
     {"TRIMA", "window_size", 1},
     {"TRIX", "span", 2},
+    {"TripleBarrier", "horizon", 1},
+    {"TripleBarrierOHLC", "horizon", 1},
     {"UltimateOscillator", "period1", 1},
     {"UltimateOscillator", "period2", 1},
     {"UltimateOscillator", "period3", 1},

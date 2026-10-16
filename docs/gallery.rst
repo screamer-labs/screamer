@@ -2155,3 +2155,17 @@ Training sets from time-series data, and online regression and filtering that fo
       :img-top: _static/gallery/functions_signal__KalmanFilter.webp
       :img-alt: KalmanFilter example plot
       :class-card: gallery-card
+
+   .. grid-item-card:: TripleBarrier
+      :link: functions_fin/TripleBarrier
+      :link-type: doc
+      :img-top: _static/gallery/functions_fin__TripleBarrier.webp
+      :img-alt: TripleBarrier example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: TripleBarrierOHLC
+      :link: functions_fin/TripleBarrierOHLC
+      :link-type: doc
+      :img-top: _static/gallery/functions_fin__TripleBarrierOHLC.webp
+      :img-alt: TripleBarrierOHLC example plot
+      :class-card: gallery-card

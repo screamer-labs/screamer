@@ -50,6 +50,9 @@ EXCLUDED = {
 REQUIRED_KWARGS = {
     "Hold": {"n": 3},
     "SchmittTrigger": {"lower": -1.0, "upper": 1.0},
+    # Barriers on, so the labels are not all 0.
+    "TripleBarrier": {"horizon": 5, "upper": 0.01, "lower": 0.01},
+    "TripleBarrierOHLC": {"horizon": 5, "upper": 0.01, "lower": 0.01},
 }
 
 # Takes one (assets, 4) block per event; batch input is (T, assets, 4).
@@ -65,6 +68,7 @@ CHOICES = {
     "rebalance": ("all",),
     "scale": ("unit",),
     "method": ("cutler",),
+    "barrier_unit": ("price", "vol"),
 }
 OUTPUT_CHOICES = {
     "Hampel": ("flag", "nan"),

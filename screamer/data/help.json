@@ -5318,6 +5318,172 @@
     ],
     "doc_path": "functions_fin/RollingTSF"
   },
+  "TripleBarrier": {
+    "name": "TripleBarrier",
+    "title": "Triple-barrier label on a price series",
+    "implementation_family": "fin",
+    "topics": [
+      "supervised"
+    ],
+    "tags": [
+      "triple barrier",
+      "label",
+      "labeling",
+      "target",
+      "classification",
+      "meta-labeling",
+      "take profit",
+      "stop loss",
+      "vertical barrier",
+      "machine learning"
+    ],
+    "short": "A three-state label over a window: +1 when the price reaches the upper barrier first, -1 when it reaches the lower barrier first, 0 when it reaches neither within `horizon` steps.",
+    "inputs": 1,
+    "outputs": 3,
+    "parameters": [
+      {
+        "name": "horizon",
+        "type": "int",
+        "default": 20,
+        "min": 1,
+        "description": "Steps after each entry in which a barrier can be reached. It is also the vertical barrier, and the delay of the output."
+      },
+      {
+        "name": "upper",
+        "type": "float",
+        "default": 0.0,
+        "min": 0.0,
+        "description": "Distance of the upper barrier above the entry price, in `barrier_unit`. 0 turns it off."
+      },
+      {
+        "name": "lower",
+        "type": "float",
+        "default": 0.0,
+        "min": 0.0,
+        "description": "Distance of the lower barrier below the entry price, in `barrier_unit`. 0 turns it off. Below 1 with barrier_unit=\"fraction\"."
+      },
+      {
+        "name": "barrier_unit",
+        "type": "str",
+        "default": "fraction",
+        "description": "Unit of `upper` and `lower`: \"fraction\" of the entry price (0.02 = 2%), \"price\" (an absolute amount), or \"vol\" (multiples of the volatility expected over the horizon)."
+      },
+      {
+        "name": "vol_span",
+        "type": "float",
+        "default": 100.0,
+        "description": "Span of the exponentially weighted standard deviation of one-step log returns that sets the \"vol\" barriers. Must be greater than 1. Used only with barrier_unit=\"vol\"."
+      }
+    ],
+    "nan_policy": "nan-aware",
+    "see_also": [
+      "TripleBarrierOHLC",
+      "forecast_pairs",
+      "BacktestOHLCTarget",
+      "LogReturn"
+    ],
+    "output_names": [
+      "label",
+      "return",
+      "holding"
+    ],
+    "references": [
+      "Lopez de Prado, M. (2018). *Advances in Financial Machine Learning*, chapter 3. Wiley."
+    ],
+    "details": "## Description\n\n`TripleBarrier` is a three-state label over a window. Every step `e` is an\nentry at its price `p_e`. Over the next `horizon` steps the label is `+1`\nwhen the price reaches the upper barrier first, `-1` when it reaches the lower\nbarrier first, and `0` when it reaches neither (Lopez de Prado 2018). The\nlabel describes the price path only; no position or side is involved.\n\nIt returns three columns:\n\n0. `label`: `+1`, `-1`, or `0`.\n1. `return`: `exit / p_e - 1`, the simple return from the entry price to the\n   exit price. The exit price is the first price at or beyond a barrier, or\n   the price `horizon` steps after entry when no barrier is reached.\n2. `holding`: the steps from entry to exit, 1 to `horizon`.\n\n**Stamping.** The output at step `t` is the entry at `t - horizon`, the first\nstep at which its outcome is known. The first `horizon` outputs are `NaN`.\nPair it with the features of its entry step with\n[`forecast_pairs(X, y, count=horizon)`](../functions_supervised/forecast_pairs.md).\n\n**Barriers.** `upper` is the distance above the entry price and `lower` the\ndistance below it, in `barrier_unit`:\n\n- `\"fraction\"`: `p_e * (1 + upper)` and `p_e * (1 - lower)`;\n- `\"price\"`: `p_e + upper` and `p_e - lower`;\n- `\"vol\"`: `p_e * (1 + upper * s)` and `p_e * (1 - lower * s)`, where `s` is\n  the `EwStd(span=vol_span)` of the one-step log returns up to and including\n  `e`, times `sqrt(horizon)`.\n\nThe units match the backtest engines' `stop_loss` and `take_profit`, so the\nsame numbers mean the same levels. A barrier set to `0` is off. With both off,\nevery label is `0` and `return` is the return over the horizon. A price\nexactly at a barrier reaches it.\n\n**Missing prices.** A `NaN` or non-positive price at entry or inside an\nentry's window makes that entry's three outputs `NaN`; other entries are\nunaffected. With `\"vol\"`, a log return that involves such a price is skipped\nby the volatility estimate, and an entry whose `s` is `NaN` or zero (before\nthe estimate has two returns, or on a constant price) is `NaN`.\n\n**Meta-labeling.** With a rule that gives a `side` (`+1` long, `-1` short) at\neach step, and symmetric barriers, the trade worked when `label == side`, and\nits return is `side * return`.\n\n[`TripleBarrierOHLC`](TripleBarrierOHLC.md) tests the barriers on each bar's\nhigh and low instead of one price.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `nan-aware`.** This function is built to process `NaN` inputs, as the Description explains. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import TripleBarrier\n\nrng = np.random.default_rng(3)\nn, h = 200, 10\nprice = 100 * np.exp(np.cumsum(rng.standard_normal(n) * 0.01))\n\nout = TripleBarrier(horizon=h, upper=0.03, lower=0.03)(price)\nlabel = out[h:, 0]                       # row e: the label of the entry at step e\nsteps = np.arange(n - h)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=price, name='price', line=dict(color='gray')))\nfor value, color, name in [(1, 'seagreen', 'upper first (+1)'),\n                           (-1, 'crimson', 'lower first (-1)'),\n                           (0, 'steelblue', 'neither (0)')]:\n    at = steps[label == value]\n    fig.add_trace(go.Scatter(x=at, y=price[at], mode='markers', name=name,\n                             marker=dict(color=color, size=6)))\nfig.update_layout(title='TripleBarrier: each entry marked by the barrier its price reaches first',\n                  yaxis=dict(title='price'), margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ],
+    "doc_path": "functions_fin/TripleBarrier"
+  },
+  "TripleBarrierOHLC": {
+    "name": "TripleBarrierOHLC",
+    "title": "Triple-barrier label on OHLC bars",
+    "implementation_family": "fin",
+    "topics": [
+      "supervised"
+    ],
+    "tags": [
+      "triple barrier",
+      "label",
+      "labeling",
+      "target",
+      "classification",
+      "meta-labeling",
+      "take profit",
+      "stop loss",
+      "vertical barrier",
+      "machine learning",
+      "ohlc",
+      "bars"
+    ],
+    "short": "A three-state label over a window of OHLC bars: +1 when the upper barrier is reached first, -1 when the lower barrier is reached first, 0 when neither is reached within `horizon` bars; barriers are tested on each bar's open, high, and low.",
+    "inputs": 4,
+    "outputs": 3,
+    "parameters": [
+      {
+        "name": "horizon",
+        "type": "int",
+        "default": 20,
+        "min": 1,
+        "description": "Bars after each entry in which a barrier can be reached. It is also the vertical barrier, and the delay of the output."
+      },
+      {
+        "name": "upper",
+        "type": "float",
+        "default": 0.0,
+        "min": 0.0,
+        "description": "Distance of the upper barrier above the entry close, in `barrier_unit`. 0 turns it off."
+      },
+      {
+        "name": "lower",
+        "type": "float",
+        "default": 0.0,
+        "min": 0.0,
+        "description": "Distance of the lower barrier below the entry close, in `barrier_unit`. 0 turns it off. Below 1 with barrier_unit=\"fraction\"."
+      },
+      {
+        "name": "barrier_unit",
+        "type": "str",
+        "default": "fraction",
+        "description": "Unit of `upper` and `lower`: \"fraction\" of the entry close (0.02 = 2%), \"price\" (an absolute amount), or \"vol\" (multiples of the volatility expected over the horizon)."
+      },
+      {
+        "name": "vol_span",
+        "type": "float",
+        "default": 100.0,
+        "description": "Span of the exponentially weighted standard deviation of one-step log returns of the close that sets the \"vol\" barriers. Must be greater than 1. Used only with barrier_unit=\"vol\"."
+      }
+    ],
+    "nan_policy": "nan-aware",
+    "see_also": [
+      "TripleBarrier",
+      "forecast_pairs",
+      "BacktestOHLCTarget",
+      "LogReturn"
+    ],
+    "output_names": [
+      "label",
+      "return",
+      "holding"
+    ],
+    "references": [
+      "Lopez de Prado, M. (2018). *Advances in Financial Machine Learning*, chapter 3. Wiley."
+    ],
+    "details": "## Description\n\n`TripleBarrierOHLC` is a three-state label over a window of OHLC bars. Every\nbar `e` is an entry at its close `p_e`. Over the next `horizon` bars the\nlabel is `+1` when the upper barrier is reached first, `-1` when the lower\nbarrier is reached first, and `0` when neither is reached (Lopez de Prado\n2018). The label describes the price path only; no position or side is\ninvolved. Inputs are `(open, high, low, close)`.\n\nIt returns three columns:\n\n0. `label`: `+1`, `-1`, or `0`.\n1. `return`: `exit / p_e - 1`, the simple return from the entry close to the\n   exit price.\n2. `holding`: the bars from entry to exit, 1 to `horizon`.\n\n**Stamping.** The output at step `t` is the entry at `t - horizon`, the first\nbar at which its outcome is known. The first `horizon` outputs are `NaN`.\nPair it with the features of its entry bar with\n[`forecast_pairs(X, y, count=horizon)`](../functions_supervised/forecast_pairs.md).\n\n**Barriers.** `upper` and `lower` are distances above and below the entry\nclose, in `barrier_unit`: `\"fraction\"` (`p_e * (1 + upper)`), `\"price\"`\n(`p_e + upper`), or `\"vol\"` (`p_e * (1 + upper * s)`, with `s` the\n`EwStd(span=vol_span)` of the one-step log returns of the close up to and\nincluding `e`, times `sqrt(horizon)`); the lower barrier mirrors each. A\nbarrier set to `0` is off. See [`TripleBarrier`](TripleBarrier.md) for the\nunits in full.\n\n**Bars.** Each bar after the entry is tested in this order, with the rules\nof the backtest engines' risk exits:\n\n1. An open at or beyond a barrier exits at the open (a gap through it).\n2. When the high reaches the upper barrier and the low reaches the lower one,\n   the order of the two within the bar is unknown, and the entry's three\n   outputs are `NaN`.\n3. A high at or above the upper barrier gives `+1`, a low at or below the\n   lower barrier gives `-1`. The exit price is the barrier level, kept inside\n   the bar's range.\n4. When no barrier is reached by bar `e + horizon`, the label is `0` and the\n   exit is that bar's close.\n\nOn every bar that is not ambiguous, the exit bar and price agree with\n[`BacktestOHLCTarget`](BacktestOHLCTarget.md) holding a position from the\nentry close with `stop_loss` and `take_profit` at the same levels.\n\n**Missing prices.** A `NaN` or non-positive close at entry, or a `NaN` or\nnon-positive open, high, low, or close inside an entry's window, makes that\nentry's outputs `NaN`; other entries are unaffected.\n\n**Meta-labeling.** With a rule that gives a `side` (`+1` long, `-1` short) at\neach bar, and symmetric barriers, the trade worked when `label == side`, and\nits return is `side * return`.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `nan-aware`.** This function is built to process `NaN` inputs, as the Description explains. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import TripleBarrierOHLC\n\nrng = np.random.default_rng(5)\nn, h = 120, 8\nclose = 100 * np.exp(np.cumsum(rng.standard_normal(n) * 0.01))\nopen_ = np.r_[close[0], close[:-1]] * np.exp(rng.standard_normal(n) * 0.002)\nhigh = np.maximum(open_, close) * np.exp(np.abs(rng.standard_normal(n)) * 0.004)\nlow = np.minimum(open_, close) * np.exp(-np.abs(rng.standard_normal(n)) * 0.004)\n\nout = TripleBarrierOHLC(horizon=h, upper=1.5, lower=1.5, barrier_unit='vol',\n                        vol_span=20)(open_, high, low, close)\nlabel = out[h:, 0]                       # row e: the label of the entry at bar e\nbars = np.arange(n - h)\n\nfig = go.Figure()\nfig.add_trace(go.Candlestick(open=open_, high=high, low=low, close=close,\n                             name='bars', showlegend=False))\nfor value, color, name in [(1, 'seagreen', 'upper first (+1)'),\n                           (-1, 'crimson', 'lower first (-1)'),\n                           (0, 'steelblue', 'neither (0)')]:\n    at = bars[label == value]\n    fig.add_trace(go.Scatter(x=at, y=close[at], mode='markers', name=name,\n                             marker=dict(color=color, size=6)))\nfig.update_layout(title='TripleBarrierOHLC: barriers at 1.5 expected deviations over 8 bars',\n                  yaxis=dict(title='price'), xaxis_rangeslider_visible=False,\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ],
+    "doc_path": "functions_fin/TripleBarrierOHLC"
+  },
   "backtest_report": {
     "name": "backtest_report",
     "title": "backtest_report",

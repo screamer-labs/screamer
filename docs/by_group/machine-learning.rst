@@ -23,8 +23,14 @@ Forecasting training sets from causal features and targets, and regressions and 
      - Build a forecasting training set by aligning lagged features with a future causal target.
    * - :doc:`Scalar Kalman filter </functions_signal/KalmanFilter>`
      - Scalar 1-D Kalman filter for a noisy random-walk model.
+   * - :doc:`Triple-barrier label on a price series </functions_fin/TripleBarrier>`
+     - A three-state label over a window: +1 when the price reaches the upper barrier first, -1 when it reaches the lower barrier first, 0 when it reaches neither within `horizon` steps.
+   * - :doc:`Triple-barrier label on OHLC bars </functions_fin/TripleBarrierOHLC>`
+     - A three-state label over a window of OHLC bars: +1 when the upper barrier is reached first, -1 when the lower barrier is reached first, 0 when neither is reached within `horizon` bars; barriers are tested on each bar's open, high, and low.
 
 .. toctree::
    :hidden:
 
    /functions_supervised/forecast_pairs
+   /functions_fin/TripleBarrier
+   /functions_fin/TripleBarrierOHLC

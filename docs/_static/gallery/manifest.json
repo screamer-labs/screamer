@@ -83,6 +83,8 @@
  "functions_fin/RollingSpread": "12247ad1aa1efe44",
  "functions_fin/RollingTLSBeta": "cd270a284c9418ee",
  "functions_fin/RollingTSF": "11eaaf776e37a256",
+ "functions_fin/TripleBarrier": "242de88fb400f86d",
+ "functions_fin/TripleBarrierOHLC": "0d5d60674d515988",
  "functions_fin/position_test": "c0cbafa6e2ae4b1c",
  "functions_fin/strategy_test": "dde7195be356cb97",
  "functions_math/Abs": "a8951fec445d25f6",
