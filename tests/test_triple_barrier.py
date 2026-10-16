@@ -253,3 +253,28 @@ def test_regimes_agree(ohlc):
     np.testing.assert_array_equal(np.asarray(graph), eager)
     lazy = list(pipeline(*[((float(v), int(i)) for i, v in enumerate(a)) for a in arrays]))
     np.testing.assert_array_equal(np.array([np.asarray(r[0]).ravel() for r in lazy]), eager)
+
+
+def test_large_horizon_costs_memory_only_as_events_arrive():
+    from tests._memory import peak_mb
+
+    before = peak_mb()
+    p = _walk(200, 6)
+    for op, args in ((TripleBarrier, (p,)), (TripleBarrierOHLC, _bars(200, 6))):
+        tb = op(horizon=2**31 - 1, upper=0.01, lower=0.01)
+        assert np.isnan(np.asarray(tb(*args))).all()
+        tb.reset()
+        assert np.isnan(np.asarray(tb(*args))).all()
+    # A horizon-sized ring (over 100 GB) would raise the process peak far
+    # above any earlier test's, so the peak's growth is the measure here.
+    assert peak_mb() - before < 64
+
+
+@pytest.mark.parametrize("h", [1, 63, 64, 65, 200])
+def test_labels_across_ring_growth(h):
+    p = _walk(600, h)
+    tb = TripleBarrier(horizon=h, upper=0.01, lower=0.01)
+    want = TB_ref(h, 0.01, 0.01, "fraction", 100)(p)
+    np.testing.assert_allclose(np.asarray(tb(p)), want, equal_nan=True)
+    tb.reset()
+    np.testing.assert_allclose(np.asarray(tb(p)), want, equal_nan=True)

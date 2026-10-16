@@ -40,7 +40,8 @@ parameters:
   default: 0.0
   min: 0.0
   description: Distance of the lower barrier below the entry close, in `barrier_unit`. 0 turns
-    it off. Below 1 with barrier_unit="fraction".
+    it off. Below 1 with barrier_unit="fraction". With "price" or "vol", a lower level at
+    or below 0 is never reached, so the barrier is off.
 - name: barrier_unit
   type: str
   default: fraction

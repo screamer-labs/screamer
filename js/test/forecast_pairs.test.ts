@@ -365,3 +365,28 @@ test("forecastPairs: a bad index raises", async () => {
   assert.throws(() => forecastPairs([1, 2, 3], [1, 2, 3], { count: 1, index: "entry" as never }),
                 /features.*target|target.*features/);
 });
+
+test("forecastPairs: count with index 'features' on two clocks raises in a Pipeline and live", async () => {
+  await ready();
+  const msg = (t: number, side: string) =>
+    `forecast_pairs: count= with index="features" needs X and y on one clock; at index ${t} only ${side} ` +
+    "has an event; use duration= for streams on different clocks";
+  const X = Input("X"), y = Input("y");
+  const p = new Pipeline([X, y], [forecastPairs(X, y, { count: 1 })]);
+  const vals = Float64Array.from([0, 1, 2, 3, 4]);
+  assert.throws(() => p({ X: { values: vals, index: [0, 2, 4, 6, 8] },
+                          y: { values: vals, index: [1, 3, 5, 7, 9] } }),
+                (e: unknown) => e instanceof RangeError && e.message === msg(0, "X"));
+  // raised live by the event that shows the gap
+  const live = p.live();
+  live.push("X", 0, 1);
+  live.push("y", 0, 1);
+  live.push("y", 1, 2);
+  assert.throws(() => live.push("X", 2, 3),
+                (e: unknown) => e instanceof RangeError && e.message === msg(1, "y"));
+  // one clock still pairs
+  const ok = p({ X: { values: vals, index: [0, 2, 4, 6, 8] },
+                 y: { values: Float64Array.from([0, 10, 20, 30, 40]), index: [0, 2, 4, 6, 8] } }) as Output;
+  assert.deepEqual(Array.from(ok.index), [0, 2, 4, 6, 8]);
+  p.dispose();
+});

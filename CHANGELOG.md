@@ -33,7 +33,8 @@ Unreleased
   next `count` events, and the last `count` targets are NaN. Before, row `t`
   held `X[t - count]` and `y[t]`, and the first `count` feature rows were NaN;
   pass `index="target"` for that layout. With `dropna=True` in count mode the
-  result is unchanged. In duration mode the default gives one row per `X`
+  eager arrays are unchanged; streamed rows, lazy iterators, and `Pipeline`
+  output carry the features' index. In duration mode the default gives one row per `X`
   event, holding the last `y` at or before `t + duration`. In a stream, a row
   is emitted once its target is known, stamped at its features. A `Pipeline`
   saved before this release keeps the layout it was saved with.

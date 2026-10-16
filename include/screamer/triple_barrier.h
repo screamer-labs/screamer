@@ -32,12 +32,15 @@
 // outputs NaN.
 //
 // State: a ring of `horizon` entries (the open entries of the last `horizon`
-// steps), so each step costs O(horizon) and allocates nothing.
+// steps), so each step costs O(horizon). The ring grows geometrically during
+// the warm-up, so memory follows the steps seen rather than `horizon`; once
+// full it allocates nothing, and reset() keeps its capacity.
 
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <limits>
+#include <new>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -60,8 +63,7 @@ public:
           lower_(check_distance(lower, "lower")),
           unit_(parse_unit(barrier_unit)),
           sqrt_h_(std::sqrt(static_cast<double>(horizon))),
-          vol_(std::nullopt, check_span(vol_span)),
-          ring_(static_cast<std::size_t>(horizon))
+          vol_(std::nullopt, check_span(vol_span))
     {
         if (unit_ == Unit::fraction && lower_ >= 1.0)
             throw std::invalid_argument(
@@ -70,7 +72,7 @@ public:
     }
 
     void reset() {
-        for (Entry& en : ring_) en = Entry{};
+        ring_.clear();               // keeps its capacity for the next run
         cursor_ = 0;
         prev_close_ = nan();
         sigma_ = nan();
@@ -91,6 +93,11 @@ public:
             test_bar<kBar>(en, open, high, low, close);
         }
 
+        if (ring_.size() < static_cast<std::size_t>(horizon_)) {   // warm-up
+            keep();
+            open_entry(ring_.back(), close);
+            return Result{nan(), nan(), nan()};
+        }
         Entry& slot = ring_[cursor_];
         const Result out{slot.label, slot.ret, slot.hold};
         open_entry(slot, close);
@@ -121,6 +128,28 @@ private:
     };
 
     static double nan() { return std::numeric_limits<double>::quiet_NaN(); }
+
+    // Appends a warm-up entry, growing the ring geometrically up to horizon.
+    void keep() {
+        if (ring_.size() == ring_.capacity()) {
+            const std::size_t rows = std::min<std::size_t>(
+                std::max<std::size_t>(ring_.size() * 2, 64), static_cast<std::size_t>(horizon_));
+            try {
+                ring_.reserve(rows);
+            } catch (const std::bad_alloc&) {
+                throw out_of_memory();
+            } catch (const std::length_error&) {
+                throw out_of_memory();
+            }
+        }
+        ring_.emplace_back();
+    }
+
+    std::runtime_error out_of_memory() const {
+        return std::runtime_error("a triple barrier with a horizon of " +
+                                  std::to_string(horizon_) + " ran out of memory after " +
+                                  std::to_string(ring_.size()) + " steps");
+    }
     static bool positive(double x) { return std::isfinite(x) && x > 0.0; }
 
     template <bool kBar>

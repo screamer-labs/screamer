@@ -20,14 +20,18 @@ test("labels: TripleBarrier fraction matches Python", () => {
 });
 
 test("labels: TripleBarrier price unit matches Python", () => {
-  const out = TripleBarrier({ horizon: 5, upper: 1, lower: 1, barrierUnit: "price" })(Float64Array.from(price)) as Out;
-  assert.ok(near(rows(out, [5, 20, 34]), expected));
+  // upper 0.5 and lower 2.0 in price units: exits differ from the fraction case
+  const out = TripleBarrier({ horizon: 5, upper: 0.5, lower: 2, barrierUnit: "price" })(Float64Array.from(price)) as Out;
+  assert.ok(near(rows(out, [10, 20, 34]), [1, 0.011744401504859336, 4, 1, 0.006637517805758275, 2,
+                                           0, -0.009599278457675275, 5]), `${rows(out, [10, 20, 34])}`);
 });
 
 test("labels: TripleBarrier vol unit matches Python", () => {
-  const out = TripleBarrier({ horizon: 5, upper: 1, lower: 1, barrierUnit: "vol", volSpan: 10 })(Float64Array.from(price)) as Out;
+  // upper 2 and lower 0.5 expected deviations: exits differ from the other cases
+  const out = TripleBarrier({ horizon: 5, upper: 2, lower: 0.5, barrierUnit: "vol", volSpan: 10 })(Float64Array.from(price)) as Out;
   assert.ok(rows(out, [5]).every(Number.isNaN));
-  assert.ok(near(rows(out, [20, 34]), expected.slice(3)));
+  assert.ok(near(rows(out, [10, 20, 34]), [0, 0.020280610979460212, 5, 1, 0.02377078134957844, 4,
+                                           -1, -0.007872072550773934, 3]), `${rows(out, [10, 20, 34])}`);
 });
 
 test("labels: TripleBarrierOHLC matches Python", () => {
