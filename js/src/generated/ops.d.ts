@@ -5284,7 +5284,7 @@ export interface TripleBarrierOptions {
   horizon?: number;
   /** Distance of the upper barrier above the entry price, in `barrier_unit`. 0 turns it off. @defaultValue `0.0` */
   upper?: number;
-  /** Distance of the lower barrier below the entry price, in `barrier_unit`. 0 turns it off. Below 1 with barrier_unit="fraction". @defaultValue `0.0` */
+  /** Distance of the lower barrier below the entry price, in `barrier_unit`. 0 turns it off. Below 1 with barrier_unit="fraction". With "price" or "vol", a lower level at or below 0 is never reached, so the barrier is off. @defaultValue `0.0` */
   lower?: number;
   /** Unit of `upper` and `lower`: "fraction" of the entry price (0.02 = 2%), "price" (an absolute amount), or "vol" (multiples of the volatility expected over the horizon). @defaultValue `"fraction"` */
   barrierUnit?: string;
@@ -5304,7 +5304,7 @@ export declare function TripleBarrier(options: TripleBarrierOptions): ScreamerOp
  *
  * @param horizon Steps after each entry in which a barrier can be reached. It is also the vertical barrier, and the delay of the output.
  * @param upper Distance of the upper barrier above the entry price, in `barrier_unit`. 0 turns it off.
- * @param lower Distance of the lower barrier below the entry price, in `barrier_unit`. 0 turns it off. Below 1 with barrier_unit="fraction".
+ * @param lower Distance of the lower barrier below the entry price, in `barrier_unit`. 0 turns it off. Below 1 with barrier_unit="fraction". With "price" or "vol", a lower level at or below 0 is never reached, so the barrier is off.
  * @param barrierUnit Unit of `upper` and `lower`: "fraction" of the entry price (0.02 = 2%), "price" (an absolute amount), or "vol" (multiples of the volatility expected over the horizon).
  * @param volSpan Span of the exponentially weighted standard deviation of one-step log returns that sets the "vol" barriers. Must be greater than 1. Used only with barrier_unit="vol".
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/TripleBarrier.html for the full reference.
@@ -5317,7 +5317,7 @@ export interface TripleBarrierOHLCOptions {
   horizon?: number;
   /** Distance of the upper barrier above the entry close, in `barrier_unit`. 0 turns it off. @defaultValue `0.0` */
   upper?: number;
-  /** Distance of the lower barrier below the entry close, in `barrier_unit`. 0 turns it off. Below 1 with barrier_unit="fraction". @defaultValue `0.0` */
+  /** Distance of the lower barrier below the entry close, in `barrier_unit`. 0 turns it off. Below 1 with barrier_unit="fraction". With "price" or "vol", a lower level at or below 0 is never reached, so the barrier is off. @defaultValue `0.0` */
   lower?: number;
   /** Unit of `upper` and `lower`: "fraction" of the entry close (0.02 = 2%), "price" (an absolute amount), or "vol" (multiples of the volatility expected over the horizon). @defaultValue `"fraction"` */
   barrierUnit?: string;
@@ -5337,7 +5337,7 @@ export declare function TripleBarrierOHLC(options: TripleBarrierOHLCOptions): Sc
  *
  * @param horizon Bars after each entry in which a barrier can be reached. It is also the vertical barrier, and the delay of the output.
  * @param upper Distance of the upper barrier above the entry close, in `barrier_unit`. 0 turns it off.
- * @param lower Distance of the lower barrier below the entry close, in `barrier_unit`. 0 turns it off. Below 1 with barrier_unit="fraction".
+ * @param lower Distance of the lower barrier below the entry close, in `barrier_unit`. 0 turns it off. Below 1 with barrier_unit="fraction". With "price" or "vol", a lower level at or below 0 is never reached, so the barrier is off.
  * @param barrierUnit Unit of `upper` and `lower`: "fraction" of the entry close (0.02 = 2%), "price" (an absolute amount), or "vol" (multiples of the volatility expected over the horizon).
  * @param volSpan Span of the exponentially weighted standard deviation of one-step log returns of the close that sets the "vol" barriers. Must be greater than 1. Used only with barrier_unit="vol".
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/TripleBarrierOHLC.html for the full reference.
