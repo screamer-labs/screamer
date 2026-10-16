@@ -1,6 +1,7 @@
 {
  "capability/bars": "e6917024ec0f689c",
  "capability/javascript": "3b745f6459a75357",
+ "capability/labels": "02ad2de60918d081",
  "capability/microstructure": "36894f77c85c60e5",
  "functions_cross/CrossDemean": "a7dafdf0c3db4222",
  "functions_cross/CrossNormalize": "6930ab245eafd778",

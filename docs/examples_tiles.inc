@@ -76,6 +76,14 @@
 
       Training sets from causal features, and online regression and filtering.
 
+   .. grid-item-card:: Labels and classification
+      :img-top: _static/gallery/capability__labels.webp
+      :img-alt: One-minute BTC closes marked by their triple-barrier labels, with one entry's barriers shaded
+      :link: area-labels-and-classification
+      :link-type: ref
+
+      Direction, threshold, and triple-barrier labels, classifiers, and meta-labeling.
+
    .. grid-item-card:: Live streaming
       :img-top: _static/gallery/recipes__live-loop.webp
       :img-alt: Trades processed one at a time, with alerts and order flow

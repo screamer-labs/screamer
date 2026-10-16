@@ -419,9 +419,9 @@ Recipe
 (area-forecasting-and-ml)=
 ## Forecasting and ML
 
-Build training sets from causal features and labels, fit online regressions, and filter a latent signal with uncertainty bands.
+Build training sets from causal features and future returns, fit online regressions, and filter a latent signal with uncertainty bands.
 
-Functions: [`forecast_pairs`](functions_supervised/forecast_pairs.md), [`TripleBarrier`](functions_fin/TripleBarrier.md), [`BayesianRegression`](functions_fin/BayesianRegression.md), [`KalmanFilter`](functions_signal/KalmanFilter.md).
+Functions: [`forecast_pairs`](functions_supervised/forecast_pairs.md), [`BayesianRegression`](functions_fin/BayesianRegression.md), [`KalmanFilter`](functions_signal/KalmanFilter.md).
 
 Guides: [Labels and training sets](labels.md).
 
@@ -447,6 +447,30 @@ Pair the features at each step with the return over the next steps, fit a regres
 +++
 Notebook
 :::
+
+:::{grid-item-card} Filtering and forecasting with uncertainty
+:link: notebooks/17-filtering-and-forecasting-with-uncertainty
+:link-type: doc
+:img-top: _static/gallery/notebooks__17-filtering-and-forecasting-with-uncertainty.webp
+:img-alt: Filtering and forecasting with uncertainty
+Recover a latent signal with `KalmanFilter` and forecast online with a calibrated interval.
++++
+Notebook
+:::
+
+```
+
+(area-labels-and-classification)=
+## Labels and classification
+
+Turn future prices into class labels: the direction of the next move, a move beyond a threshold in volatility units, or the first of an upper, lower, or time barrier to be touched. Train a classifier on them, or use the labels to filter the trades of an existing rule.
+
+Functions: [`TripleBarrier`](functions_fin/TripleBarrier.md), [`TripleBarrierOHLC`](functions_fin/TripleBarrierOHLC.md), [`forecast_pairs`](functions_supervised/forecast_pairs.md).
+
+Guides: [Labels and training sets](labels.md).
+
+```{grid} 1 2 2 3
+:gutter: 3
 
 :::{grid-item-card} Classifying direction
 :link: notebooks/23-classifying-direction
@@ -474,16 +498,6 @@ Notebook
 :img-top: _static/gallery/notebooks__25-meta-labeling.webp
 :img-alt: Meta-labeling
 Filter the trades of a rule with a classifier trained on their triple-barrier outcomes, and backtest with and without the filter.
-+++
-Notebook
-:::
-
-:::{grid-item-card} Filtering and forecasting with uncertainty
-:link: notebooks/17-filtering-and-forecasting-with-uncertainty
-:link-type: doc
-:img-top: _static/gallery/notebooks__17-filtering-and-forecasting-with-uncertainty.webp
-:img-alt: Filtering and forecasting with uncertainty
-Recover a latent signal with `KalmanFilter` and forecast online with a calibrated interval.
 +++
 Notebook
 :::
@@ -609,10 +623,10 @@ notebooks/18-pairs-and-mean-reversion
 recipes/multi-asset
 recipes/ml-features
 notebooks/16-supervised-forecasting
+notebooks/17-filtering-and-forecasting-with-uncertainty
 notebooks/23-classifying-direction
 notebooks/24-triple-barrier-labels
 notebooks/25-meta-labeling
-notebooks/17-filtering-and-forecasting-with-uncertainty
 recipes/live-loop
 recipes/strategy-to-live
 notebooks/06-streaming-live-events
