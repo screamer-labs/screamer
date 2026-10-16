@@ -14,6 +14,12 @@ export interface ForecastPairsOptions {
   count?: number;
   /** Delay X's index by this many index units and pair each y with the last delayed X. */
   duration?: number;
+  /**
+   * Whose index a row carries: `"features"` (the default) stamps row t at the
+   * features, holding the target over (t, t + horizon]; `"target"` stamps it
+   * at the target, holding the features from a horizon before.
+   */
+  index?: "features" | "target";
   /** Drop a row whose shifted features or target is NaN. Default `false`. */
   dropna?: boolean;
 }
@@ -30,7 +36,7 @@ export interface ForecastStream {
 const WHO = "forecastPairs";
 
 // The graph parameters of one call, checked.
-interface Horizon { count?: number; duration?: number; dropna: boolean }
+interface Horizon { count?: number; duration?: number; index: "features" | "target"; dropna: boolean }
 
 // A count or duration: an integer setting (a string or a boolean is a wrong
 // kind, as for every setting), truncated as delay() truncates its duration.
@@ -41,24 +47,29 @@ function horizonValue(name: string, v: unknown): number | undefined {
   return Math.trunc(v);
 }
 
-// The options as a plain object of known keys; the engine checks the horizon.
+// The options as a plain object of known keys, checked in Python's order
+// (index, horizon, dropna); the engine checks the index and the horizon.
 function horizon(opts: unknown): Horizon {
   const o = opts ?? {};
   const proto = typeof o === "object" ? Object.getPrototypeOf(o) : undefined;
   if (proto !== Object.prototype && proto !== null)
     throw new TypeError(`${WHO}: the options are ${aKind(opts)}, expected an object such as { count: 5 }`);
   for (const key of Object.keys(o))
-    if (key !== "count" && key !== "duration" && key !== "dropna")
+    if (key !== "count" && key !== "duration" && key !== "index" && key !== "dropna")
       throw new TypeError(`${WHO}: unknown option '${key}'`);
-  const { count: c, duration: d, dropna } = o as ForecastPairsOptions;
-  if (dropna !== undefined && typeof dropna !== "boolean")
-    throw new TypeError(`${WHO}: dropna must be a boolean, got ${aKind(dropna)}`);
+  const { count: c, duration: d, index, dropna } = o as ForecastPairsOptions;
+  // The index setting, checked by the C++ rule (dag/forecast_pairs.h).
+  if (index !== undefined && typeof index !== "string")
+    throw new TypeError(`${WHO}: index must be a string, got ${aKind(index)}`);
+  const M: any = current();
+  if (index !== undefined) throwMessage(M.forecastPairsIndexMessage(index));
   const count = horizonValue("count", c);
   const duration = horizonValue("duration", d);
-  const M: any = current();
   wasmCall(() => M.checkForecastPairsHorizon(count !== undefined, count ?? 0,
                                              duration !== undefined, duration ?? 0));
-  return { count, duration, dropna: dropna ?? false };
+  if (dropna !== undefined && typeof dropna !== "boolean")
+    throw new TypeError(`${WHO}: dropna must be a boolean, got ${aKind(dropna)}`);
+  return { count, duration, index: index ?? "features", dropna: dropna ?? false };
 }
 
 // One forecastPairs graph node over X (any width) and y.
@@ -67,6 +78,7 @@ function pairsNode(X: Node, y: Node, h: Horizon): Node {
   const sp: Record<string, unknown> = {};
   if (h.count !== undefined) sp.count = h.count;
   if (h.duration !== undefined) sp.duration = h.duration;
+  sp.index = h.index;
   sp.dropna = h.dropna;
   return new Node({ combinator: "forecastPairs", params: { ...h }, spec: { op: "forecast_pairs", params: sp } }, [X, y]);
 }
@@ -102,22 +114,43 @@ function asFeed(b: Block, index?: ArrayLike<number>) {
 }
 
 /**
- * Pair features with a target `count` events (or `duration` index units) ahead.
+ * Pair features with the target over a horizon after them.
  *
- * Row t of the result holds the features from `count` events before t and the
- * target at t, so a model learns to predict `count` ahead. X is delayed and y
- * passes through. The first `count` rows of the shifted features are NaN;
- * `dropna: true` drops every row with a NaN. Pass exactly one of `count` and
- * `duration`.
+ * Returns `[X_paired, y_paired]`, a training set for a model that predicts the
+ * target from the features. y is a causal series: its value at step t is known
+ * at t, so a target over a horizon h is stamped at the end of that horizon (for
+ * example `LogReturn(h)` of a price at t is the return over (t - h, t]). The
+ * horizon is exactly one of `count` (a number of events) and `duration` (index
+ * units, see `delay`).
+ *
+ * `index` chooses whose index a row carries:
+ *
+ * - `"features"` (the default): row t holds X[t] and the target over
+ *   (t, t + h]. This is the row a live model sees, with the target filled in.
+ *   The last rows, whose target is not known yet, have a NaN target. In count
+ *   mode the target is y[t + count]. In duration mode there is one row per X
+ *   event, holding the last y at or before t + duration, NaN when y ends
+ *   before it.
+ * - `"target"`: row t holds X[t - h] and y[t], stamped when the target is
+ *   known. In count mode the first `count` feature rows are NaN. In duration
+ *   mode there is one row per y event, holding the last X at or before
+ *   t - duration.
+ *
+ * In count mode both settings hold the same pairs; with `dropna: true`, which
+ * drops every row that holds a NaN, they return identical arrays.
  *
  * - Count mode: X is a 1-D array, a `[T, K]` NdArray or T rows, and y one
  *   column of the same length.
- * - Duration mode: X and y are `{ values, index }` streams; each y is paired
- *   with the last X whose index plus `duration` is at or before y's index.
- * - With `Input` nodes, returns a Node whose output row is `[X_shifted..., y]`,
- *   for a Pipeline (and its live sessions). X may have any width.
+ * - Duration mode: X and y are `{ values, index }` streams.
+ * - With `Input` nodes, returns a Node whose output row is `[X..., y]`, for a
+ *   Pipeline (and its live sessions). X may have any width.
  *
- * Returns `[X_shifted, y]`: X_shifted has X's rank (a Float64Array, or an
+ * In a live session with `index: "features"`, the row for t is emitted once its
+ * target is known (`count` later events have arrived, or y has passed
+ * t + duration), still stamped t, so stamps stay in order. `flush()` emits the
+ * rows still waiting with a NaN target.
+ *
+ * Returns `[X_paired, y_paired]`: X_paired has X's rank (a Float64Array, or an
  * NdArray of shape `[rows, K]`). Python's `forecast_pairs` gives the same values.
  */
 export function forecastPairs(X: Node, y: Node, opts: ForecastPairsOptions): Node;

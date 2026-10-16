@@ -13,7 +13,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 type Num = number | null;
 interface Case {
   name: string;
-  options: { count?: number; duration?: number; dropna?: boolean };
+  options: { count?: number; duration?: number; index?: "features" | "target"; dropna?: boolean };
   X: { shape: number[]; values: Num[]; index: number[] };
   y: { values: Num[]; index: number[] };
   X_shifted: { shape: number[]; values: Num[] };
@@ -57,10 +57,11 @@ function events(c: Case): Array<[string, number, number | number[]]> {
   return ev.map(([n, t, v]) => [n, t, v]);
 }
 
-test("forecastPairs: the fixture covers count, duration, (T, K) features, NaN, dropna and no rows", () => {
+test("forecastPairs: the fixture covers count, duration, (T, K) features, NaN, dropna, no rows and both indexes", () => {
   const names = cases.map((c) => c.name);
   for (const n of ["count", "count dropna", "count (T,K) dropna", "duration", "duration dropna",
-    "duration (T,K)", "duration empty"])
+    "duration (T,K)", "duration empty", "count target", "count (T,K) dropna target",
+    "duration target", "duration dropna target"])
     assert.ok(names.includes(n), n);
 });
 
@@ -179,11 +180,21 @@ test("forecastPairs: options and inputs are checked as in Python", async () => {
   const [b] = forecastPairs(v, v, { count: 1 });
   assertSame(a as Float64Array, b as Float64Array, "count 1.5");
   const [xn, yn] = forecastPairs([1, null, 3], [1, 2, null], { count: 1 });
-  assertSame(xn as Float64Array, Float64Array.from([NaN, 1, NaN]), "null X");
-  assertSame(yn, Float64Array.from([1, 2, NaN]), "null y");
+  assertSame(xn as Float64Array, Float64Array.from([1, NaN, 3]), "null X");
+  assertSame(yn, Float64Array.from([2, NaN, NaN]), "null y");
+  const [xt, yt] = forecastPairs([1, null, 3], [1, 2, null], { count: 1, index: "target" });
+  assertSame(xt as Float64Array, Float64Array.from([NaN, 1, NaN]), "null X, index target");
+  assertSame(yt, Float64Array.from([1, 2, NaN]), "null y, index target");
   // duration with no index uses row numbers, as Python's (values, None)
-  const [xd] = forecastPairs({ values: v }, { values: v }, { duration: 1 });
-  assertSame(xd as Float64Array, Float64Array.from([1, 2, 3, 4, 5]), "duration, row numbers");
+  const [, yd] = forecastPairs({ values: v }, { values: v }, { duration: 1 });
+  assertSame(yd, Float64Array.from([2, 3, 4, 5, 6, NaN]), "duration, row numbers");
+  const [xd] = forecastPairs({ values: v }, { values: v }, { duration: 1, index: "target" });
+  assertSame(xd as Float64Array, Float64Array.from([1, 2, 3, 4, 5]), "duration, row numbers, index target");
+  // index is "features" or "target", checked by the C++ rule
+  assert.throws(() => forecastPairs(v, v, { count: 1, index: "entry" as any }), (e: any) =>
+    e instanceof RangeError && e.message === `forecast_pairs: index must be "features" or "target", got 'entry'`);
+  assert.throws(() => forecastPairs(v, v, { count: 1, index: 1 as any }), (e: any) =>
+    e instanceof TypeError && e.message === "forecastPairs: index must be a string, got a number");
 });
 
 test("GraphBuilder: a builder compiles once", async () => {
@@ -240,11 +251,16 @@ test("forecastPairs: a large count costs memory only as events arrive", async ()
   await ready();
   const v = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
   const [xs, ys] = forecastPairs(v, v, { count: 2 ** 31 - 1 });
-  assert.ok(Array.from(xs as Float64Array).every(Number.isNaN));
-  assertSame(ys, Float64Array.from(v), "y");
+  assertSame(xs as Float64Array, Float64Array.from(v), "X");
+  assert.ok(Array.from(ys).every(Number.isNaN));
+  const [xt, yt] = forecastPairs(v, v, { count: 2 ** 31 - 1, index: "target" });
+  assert.ok(Array.from(xt as Float64Array).every(Number.isNaN));
+  assertSame(yt, Float64Array.from(v), "y");
   const wide = { data: new Float64Array(30).fill(1), shape: [10, 3] };
-  const [xw] = forecastPairs(wide, v, { count: 2 ** 31 - 1 });
-  assert.deepEqual((xw as NdArray).shape, [10, 3]);
+  for (const index of ["features", "target"] as const) {
+    const [xw] = forecastPairs(wide, v, { count: 2 ** 31 - 1, index });
+    assert.deepEqual((xw as NdArray).shape, [10, 3]);
+  }
 });
 
 test("forecastPairs: a (T, 0) X raises eagerly and in a node, in both modes", async () => {
@@ -288,21 +304,64 @@ test("G24: a CombineLatest of two (T, 0) feeds has a known width of 0", async ()
   } finally { p.dispose(); }
 });
 
-test("G24: a lag that runs out of memory on its first event leaves the graph clean", async () => {
-  // The ring of a count-1000 lag of 4.5e6-wide rows does not fit in WASM
-  // memory. The lag stores the event before it emits, so the rejected event
-  // leaves no state, and the next call runs as on a fresh graph.
+test("G24: a lag or lead that runs out of memory on its first event leaves the graph clean", async () => {
+  // The ring of a count-1000 lag (index "target") or lead (index "features")
+  // of 4.5e6-wide rows does not fit in WASM memory. The node stores the event
+  // before it emits, so the rejected event leaves no state, and the next call
+  // runs as on a fresh graph.
   await ready();
   const W = 4_500_000;
   const X = { data: new Float64Array(W).fill(1), shape: [1, W] };
-  const oom = (e: any) => e instanceof RangeError && /a lag of 1000 events ran out of memory after 0 rows/.test(e.message);
-  assert.throws(() => forecastPairs(X, [1], { count: 1000 }), oom);
-  const x = Input("x"), y = Input("y");
-  const p = new Pipeline([x, y], [forecastPairs(x, y, { count: 1000 })]);
-  try {
-    assert.throws(() => p({ x: X, y: [1] }), oom);
-    const out = p({ x: { data: Float64Array.from([1, 2, 3, 4]), shape: [2, 2] }, y: [5, 6] }) as Output;
-    assert.deepEqual((out.values as NdArray).shape, [2, 3]);
-    assert.deepEqual(Array.from((out.values as NdArray).data), [NaN, NaN, 5, NaN, NaN, 6]);
-  } finally { p.dispose(); }
+  const cases = [
+    ["target", "lag", [NaN, NaN, 5, NaN, NaN, 6]],
+    ["features", "lead", [1, 2, NaN, 3, 4, NaN]],
+  ] as const;
+  for (const [index, kind, rows] of cases) {
+    const oom = (e: any) => e instanceof RangeError &&
+      new RegExp(`a ${kind} of 1000 events ran out of memory after 0 rows`).test(e.message);
+    assert.throws(() => forecastPairs(X, [1], { count: 1000, index }), oom);
+    const x = Input("x"), y = Input("y");
+    const p = new Pipeline([x, y], [forecastPairs(x, y, { count: 1000, index })]);
+    try {
+      assert.throws(() => p({ x: X, y: [1] }), oom);
+      const out = p({ x: { data: Float64Array.from([1, 2, 3, 4]), shape: [2, 2] }, y: [5, 6] }) as Output;
+      assert.deepEqual((out.values as NdArray).shape, [2, 3]);
+      assert.deepEqual(Array.from((out.values as NdArray).data), rows);
+    } finally { p.dispose(); }
+  }
+});
+
+test("forecastPairs: index defaults to the features' row", async () => {
+  await ready();
+  const X = Float64Array.from([0, 1, 2, 3, 4, 5]);
+  const y = Float64Array.from([0, 10, 20, 30, 40, 50]);
+  const [xs, ys] = forecastPairs(X, y, { count: 2 }) as [Float64Array, Float64Array];
+  assert.deepEqual(Array.from(xs), [0, 1, 2, 3, 4, 5]);
+  assert.deepEqual(Array.from(ys.slice(0, 4)), [20, 30, 40, 50]);
+  assert.ok(Number.isNaN(ys[4]) && Number.isNaN(ys[5]));
+});
+
+test("forecastPairs: index 'target' keeps the old layout", async () => {
+  await ready();
+  const X = Float64Array.from([0, 1, 2, 3, 4, 5]);
+  const y = Float64Array.from([0, 10, 20, 30, 40, 50]);
+  const [xs, ys] = forecastPairs(X, y, { count: 2, index: "target" }) as [Float64Array, Float64Array];
+  assert.ok(Number.isNaN(xs[0]) && Number.isNaN(xs[1]));
+  assert.deepEqual(Array.from(xs.slice(2)), [0, 1, 2, 3]);
+  assert.deepEqual(Array.from(ys), [0, 10, 20, 30, 40, 50]);
+});
+
+test("forecastPairs: duration with index 'features' matches Python", async () => {
+  await ready();
+  const X = { values: Float64Array.from([1, 2, 3]), index: [0, 10, 20] };
+  const y = { values: Float64Array.from([7, 8]), index: [5, 12] };
+  const [, ys] = forecastPairs(X, y, { duration: 5 }) as [Float64Array, Float64Array];
+  assert.equal(ys[0], 7);
+  assert.ok(Number.isNaN(ys[1]) && Number.isNaN(ys[2]));
+});
+
+test("forecastPairs: a bad index raises", async () => {
+  await ready();
+  assert.throws(() => forecastPairs([1, 2, 3], [1, 2, 3], { count: 1, index: "entry" as never }),
+                /features.*target|target.*features/);
 });

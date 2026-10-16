@@ -167,6 +167,12 @@ inline void checkForecastPairsHorizon(bool hasCount, double count, bool hasDurat
                                                 horizon(hasDuration, duration, "duration"));
 }
 
+// The forecastPairs index rule (dag/forecast_pairs.h): "" for "features" or
+// "target", else the message.
+inline std::string forecastPairsIndexMessage(const std::string& index) {
+    return message_of([&] { screamer::dag::forecast_pairs_features_index(index); });
+}
+
 inline double defaultMaxPending() { return static_cast<double>(screamer::dag::kDefaultMaxPending); }
 
 // Wraps a compiled graph (non-copyable engine type held by unique_ptr).
@@ -433,13 +439,14 @@ public:
     }
 
     // The forecast_pairs nodes (dag/forecast_pairs.h). A horizon that is not
-    // given is passed as has* = false.
+    // given is passed as has* = false; featuresIndex stamps the rows at the
+    // features (index "features"), else at the target.
     std::size_t addForecastPairs(std::size_t x, std::size_t y, bool hasCount, double count,
-                                 bool hasDuration, double duration, bool dropna) {
+                                 bool hasDuration, double duration, bool dropna,
+                                 bool featuresIndex) {
         return screamer::dag::add_forecast_pairs(
             b_, x, y, horizon(hasCount, count, "count"),
-            horizon(hasDuration, duration, "duration"), dropna,
-            /*features_index=*/false);   // index="target" until the JS binding takes index
+            horizon(hasDuration, duration, "duration"), dropna, featuresIndex);
     }
 
     void setOutputs(std::vector<std::size_t> outs) {
@@ -480,6 +487,8 @@ private:
                          &screamer_wasm::checkForecastPairsInputs);            \
     emscripten::function("checkForecastPairsHorizon",                          \
                          &screamer_wasm::checkForecastPairsHorizon);           \
+    emscripten::function("forecastPairsIndexMessage",                          \
+                         &screamer_wasm::forecastPairsIndexMessage);           \
     emscripten::register_vector<std::size_t>("VectorSizeT");                    \
     emscripten::value_object<screamer_wasm::OutBufFlat>("OutBufFlat")           \
         .field("indexPtr", &screamer_wasm::OutBufFlat::indexPtr)               \

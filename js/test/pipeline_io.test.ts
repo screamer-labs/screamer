@@ -130,6 +130,33 @@ test("pipeline io: toJSONText writes Python's text; toJSON is the object JSON.st
   neg.dispose(); back.dispose();
 });
 
+test("pipeline io: a forecast_pairs saved without index loads as index 'target'; a save writes index", () => {
+  for (const name of ["forecast_pairs count", "forecast_pairs duration"]) {
+    const c = cases.find((x) => x.name === name)!;
+    const d = JSON.parse(c.json);
+    const fp = d.nodes.find((n: any) => n.op === "forecast_pairs");
+    assert.equal(fp.params.index, "target", name);
+    delete fp.params.index;                        // a graph saved before index existed
+    const p = Pipeline.fromJSON(JSON.stringify(d));
+    try {
+      const saved = (p.toDict() as any).nodes.find((n: any) => n.op === "forecast_pairs");
+      assert.equal(saved.params.index, "target", name);
+      assert.deepEqual(Object.keys(saved.params), [...Object.keys(fp.params).filter((k) => k !== "dropna"), "index", "dropna"]);
+      sameOutputs(run(p, c), c.outputs, `${name} without index`);
+    } finally { p.dispose(); }
+  }
+  // A graph built in JavaScript writes its index, "features" by default.
+  const x = Input("x"), y = Input("y");
+  const p = new Pipeline([x, y], [forecastPairs(x, y, { duration: 2 })]);
+  try {
+    const text = p.toJSONText();
+    assert.match(text, /"duration": 2,\n\s*"index": "features",\n\s*"dropna": false/);
+    const q = Pipeline.fromJSON(text);
+    assert.equal(q.toJSONText(), text);
+    q.dispose();
+  } finally { p.dispose(); }
+});
+
 // Graphs built in JavaScript with its own factories, for Python to load.
 function nativeGraphs(): { name: string; pipe: Pipeline; from: string }[] {
   const two = () => { const x = Input("x"), y = Input("y"); return { x, y }; };
@@ -142,7 +169,8 @@ function nativeGraphs(): { name: string; pipe: Pipeline; from: string }[] {
       resample(d, { every: 5, reducer: EwMean({ alpha: 0.25 })(Input("r")), fill: "carry" }),
       select(combineLatest([x, y]), [1]),
       delay(BollingerBands(4, 1.5)(x), 2),
-      forecastPairs(x, y, { count: 2 }),
+      forecastPairs(x, y, { count: 2, index: "target" }),
+      forecastPairs(x, y, { duration: 3 }),
     ], { alignOutputs: false, maxPending: 5000 }) });
   }
   {

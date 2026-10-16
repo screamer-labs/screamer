@@ -308,5 +308,10 @@ test("index arithmetic outside the int64 range raises RangeError naming the sett
     { x: { values: [1], index: [TOP] } }),
     isRange(/index 9223372036854774784 is outside the int64 range when measured from origin=-4096/));
   assert.throws(() => forecastPairs({ values: [1, 1], index: [0, 2000] }, { values: [1, 1], index: [0, 2000] },
-    { duration: TOP }), isRange(/duration=9223372036854774784 moves index 2000/));
+    { duration: TOP, index: "target" }), isRange(/duration=9223372036854774784 moves index 2000/));
+  // Stamped at the features, y moves back by the duration, which fits: no
+  // target is that far ahead.
+  const [, ys] = forecastPairs({ values: [1, 1], index: [0, 2000] }, { values: [1, 1], index: [0, 2000] },
+    { duration: TOP });
+  assert.ok(Array.from(ys).every(Number.isNaN));
 });

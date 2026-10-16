@@ -34,7 +34,7 @@ reproduce exactly. A non-finite number is written as null (NaN), "inf" or
 
 A fifth fixture, wasm/smoke/oracle_forecast_pairs.json, holds forecast_pairs
 in count and duration mode (1-D and (T, K) features, NaN values, dropna, a y
-on its own clock): the inputs, the eager result, and the rows and index of the
+on its own clock), with index "features" (the default) and "target": the inputs, the eager result, and the rows and index of the
 same graph as a Pipeline node, which forecastPairs must reproduce exactly.
 
 A sixth fixture, wasm/smoke/oracle_split.json, holds split's per-source
@@ -292,6 +292,13 @@ def forecast_entries():
         ("duration dropna", xv, xi, yv, yi, {"duration": 7, "dropna": True}),
         ("duration (T,K)", X, xi, yv, yi, {"duration": 0}),
         ("duration empty", xv[:0], xi[:0], yv[:0], yi[:0], {"duration": 1}),
+        # index="target": rows stamped at the target
+        ("count target", xv, rows, yc, rows, {"count": 3, "index": "target"}),
+        ("count (T,K) dropna target", X, rows, yc, rows,
+         {"count": 2, "index": "target", "dropna": True}),
+        ("duration target", xv, xi, yv, yi, {"duration": 4, "index": "target"}),
+        ("duration dropna target", xv, xi, yv, yi,
+         {"duration": 7, "index": "target", "dropna": True}),
     ]
     out = []
     for name, x, ix, y, iy, kw in cases:

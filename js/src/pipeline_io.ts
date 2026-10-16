@@ -139,7 +139,9 @@ function makeOperator(op: string, p: Dict, feeds: Node[]): Node {
     case "Delay":
       return delay(feeds[0], p.duration);
     case "forecast_pairs":
-      return forecastPairs(feeds[0], feeds[1], { count: p.count, duration: p.duration, dropna: p.dropna });
+      return forecastPairs(feeds[0], feeds[1], {
+        count: p.count, duration: p.duration, index: p.index, dropna: p.dropna,
+      });
     case "Resample": {
       const agg = p.agg;
       const functor = agg !== null && typeof agg === "object" && "functor" in agg;
