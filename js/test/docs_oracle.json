@@ -82,8 +82,8 @@
    "permuteBars",
    "BacktestOHLCTarget",
    "BacktestOHLCVTarget",
-   "BacktestOHLCOrders",
-   "BacktestPortfolioOHLCTarget"
+   "TripleBarrierOHLC",
+   "BacktestOHLCOrders"
   ]
  },
  {

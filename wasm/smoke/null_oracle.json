@@ -5555,6 +5555,102 @@
  },
  {
   "accepts_bool": {
+   "barrier_unit": false,
+   "horizon": false,
+   "lower": false,
+   "upper": false,
+   "vol_span": false
+  },
+  "accepts_none": {
+   "barrier_unit": false,
+   "horizon": false,
+   "lower": false,
+   "upper": false,
+   "vol_span": false
+  },
+  "base": {},
+  "below_min": {
+   "horizon": [
+    0,
+    "TripleBarrier: horizon must be at least 1, got 0"
+   ]
+  },
+  "bool_message": {
+   "barrier_unit": "TripleBarrier: barrier_unit must be a string, got bool",
+   "horizon": "TripleBarrier: horizon must be an integer, got bool",
+   "lower": "TripleBarrier: lower must be a number, got bool",
+   "upper": "TripleBarrier: upper must be a number, got bool",
+   "vol_span": "TripleBarrier: vol_span must be a number, got bool"
+  },
+  "name": "TripleBarrier",
+  "non_finite": {
+   "lower": {
+    "-inf": "TripleBarrier: lower must be finite, got -inf",
+    "inf": "TripleBarrier: lower must be finite, got inf",
+    "nan": "TripleBarrier: lower must be finite, got nan"
+   },
+   "upper": {
+    "-inf": "TripleBarrier: upper must be finite, got -inf",
+    "inf": "TripleBarrier: upper must be finite, got inf",
+    "nan": "TripleBarrier: upper must be finite, got nan"
+   },
+   "vol_span": {
+    "-inf": "TripleBarrier: vol_span must be finite, got -inf",
+    "inf": "TripleBarrier: vol_span must be finite, got inf",
+    "nan": "TripleBarrier: vol_span must be finite, got nan"
+   }
+  }
+ },
+ {
+  "accepts_bool": {
+   "barrier_unit": false,
+   "horizon": false,
+   "lower": false,
+   "upper": false,
+   "vol_span": false
+  },
+  "accepts_none": {
+   "barrier_unit": false,
+   "horizon": false,
+   "lower": false,
+   "upper": false,
+   "vol_span": false
+  },
+  "base": {},
+  "below_min": {
+   "horizon": [
+    0,
+    "TripleBarrierOHLC: horizon must be at least 1, got 0"
+   ]
+  },
+  "bool_message": {
+   "barrier_unit": "TripleBarrierOHLC: barrier_unit must be a string, got bool",
+   "horizon": "TripleBarrierOHLC: horizon must be an integer, got bool",
+   "lower": "TripleBarrierOHLC: lower must be a number, got bool",
+   "upper": "TripleBarrierOHLC: upper must be a number, got bool",
+   "vol_span": "TripleBarrierOHLC: vol_span must be a number, got bool"
+  },
+  "name": "TripleBarrierOHLC",
+  "non_finite": {
+   "lower": {
+    "-inf": "TripleBarrierOHLC: lower must be finite, got -inf",
+    "inf": "TripleBarrierOHLC: lower must be finite, got inf",
+    "nan": "TripleBarrierOHLC: lower must be finite, got nan"
+   },
+   "upper": {
+    "-inf": "TripleBarrierOHLC: upper must be finite, got -inf",
+    "inf": "TripleBarrierOHLC: upper must be finite, got inf",
+    "nan": "TripleBarrierOHLC: upper must be finite, got nan"
+   },
+   "vol_span": {
+    "-inf": "TripleBarrierOHLC: vol_span must be finite, got -inf",
+    "inf": "TripleBarrierOHLC: vol_span must be finite, got inf",
+    "nan": "TripleBarrierOHLC: vol_span must be finite, got nan"
+   }
+  }
+ },
+ {
+  "accepts_bool": {
    "period1": false,
    "period2": false,
    "period3": false

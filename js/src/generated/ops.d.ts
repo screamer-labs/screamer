@@ -5278,6 +5278,72 @@ export type TrendModeOptions = Record<string, never>;
  */
 export declare function TrendMode(options?: TrendModeOptions): ScreamerOp;
 
+/** The settings of TripleBarrier by name, for `TripleBarrier({ ... })`. */
+export interface TripleBarrierOptions {
+  /** Steps after each entry in which a barrier can be reached. It is also the vertical barrier, and the delay of the output. @defaultValue `20` */
+  horizon?: number;
+  /** Distance of the upper barrier above the entry price, in `barrier_unit`. 0 turns it off. @defaultValue `0.0` */
+  upper?: number;
+  /** Distance of the lower barrier below the entry price, in `barrier_unit`. 0 turns it off. Below 1 with barrier_unit="fraction". @defaultValue `0.0` */
+  lower?: number;
+  /** Unit of `upper` and `lower`: "fraction" of the entry price (0.02 = 2%), "price" (an absolute amount), or "vol" (multiples of the volatility expected over the horizon). @defaultValue `"fraction"` */
+  barrierUnit?: string;
+  /** Span of the exponentially weighted standard deviation of one-step log returns that sets the "vol" barriers. Must be greater than 1. Used only with barrier_unit="vol". @defaultValue `100.0` */
+  volSpan?: number;
+}
+
+/**
+ * A three-state label over a window: +1 when the price reaches the upper barrier first, -1 when it reaches the lower barrier first, 0 when it reaches neither within `horizon` steps.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/TripleBarrier.html for the full reference.
+ */
+export declare function TripleBarrier(options: TripleBarrierOptions): ScreamerOp;
+/**
+ * A three-state label over a window: +1 when the price reaches the upper barrier first, -1 when it reaches the lower barrier first, 0 when it reaches neither within `horizon` steps.
+ *
+ * @param horizon Steps after each entry in which a barrier can be reached. It is also the vertical barrier, and the delay of the output.
+ * @param upper Distance of the upper barrier above the entry price, in `barrier_unit`. 0 turns it off.
+ * @param lower Distance of the lower barrier below the entry price, in `barrier_unit`. 0 turns it off. Below 1 with barrier_unit="fraction".
+ * @param barrierUnit Unit of `upper` and `lower`: "fraction" of the entry price (0.02 = 2%), "price" (an absolute amount), or "vol" (multiples of the volatility expected over the horizon).
+ * @param volSpan Span of the exponentially weighted standard deviation of one-step log returns that sets the "vol" barriers. Must be greater than 1. Used only with barrier_unit="vol".
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/TripleBarrier.html for the full reference.
+ */
+export declare function TripleBarrier(horizon?: number, upper?: number, lower?: number, barrierUnit?: string, volSpan?: number): ScreamerOp;
+
+/** The settings of TripleBarrierOHLC by name, for `TripleBarrierOHLC({ ... })`. */
+export interface TripleBarrierOHLCOptions {
+  /** Bars after each entry in which a barrier can be reached. It is also the vertical barrier, and the delay of the output. @defaultValue `20` */
+  horizon?: number;
+  /** Distance of the upper barrier above the entry close, in `barrier_unit`. 0 turns it off. @defaultValue `0.0` */
+  upper?: number;
+  /** Distance of the lower barrier below the entry close, in `barrier_unit`. 0 turns it off. Below 1 with barrier_unit="fraction". @defaultValue `0.0` */
+  lower?: number;
+  /** Unit of `upper` and `lower`: "fraction" of the entry close (0.02 = 2%), "price" (an absolute amount), or "vol" (multiples of the volatility expected over the horizon). @defaultValue `"fraction"` */
+  barrierUnit?: string;
+  /** Span of the exponentially weighted standard deviation of one-step log returns of the close that sets the "vol" barriers. Must be greater than 1. Used only with barrier_unit="vol". @defaultValue `100.0` */
+  volSpan?: number;
+}
+
+/**
+ * A three-state label over a window of OHLC bars: +1 when the upper barrier is reached first, -1 when the lower barrier is reached first, 0 when neither is reached within `horizon` bars; barriers are tested on each bar's open, high, and low.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/TripleBarrierOHLC.html for the full reference.
+ */
+export declare function TripleBarrierOHLC(options: TripleBarrierOHLCOptions): ScreamerOp;
+/**
+ * A three-state label over a window of OHLC bars: +1 when the upper barrier is reached first, -1 when the lower barrier is reached first, 0 when neither is reached within `horizon` bars; barriers are tested on each bar's open, high, and low.
+ *
+ * @param horizon Bars after each entry in which a barrier can be reached. It is also the vertical barrier, and the delay of the output.
+ * @param upper Distance of the upper barrier above the entry close, in `barrier_unit`. 0 turns it off.
+ * @param lower Distance of the lower barrier below the entry close, in `barrier_unit`. 0 turns it off. Below 1 with barrier_unit="fraction".
+ * @param barrierUnit Unit of `upper` and `lower`: "fraction" of the entry close (0.02 = 2%), "price" (an absolute amount), or "vol" (multiples of the volatility expected over the horizon).
+ * @param volSpan Span of the exponentially weighted standard deviation of one-step log returns of the close that sets the "vol" barriers. Must be greater than 1. Used only with barrier_unit="vol".
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/TripleBarrierOHLC.html for the full reference.
+ */
+export declare function TripleBarrierOHLC(horizon?: number, upper?: number, lower?: number, barrierUnit?: string, volSpan?: number): ScreamerOp;
+
 /** TrueRange has no settings: its options object is empty. */
 export type TrueRangeOptions = Record<string, never>;
 

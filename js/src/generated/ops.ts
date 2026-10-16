@@ -8363,6 +8363,112 @@ export function TrendMode(options?: TrendModeOptions): ScreamerOp {
   return _params(wrapOp(M, () => new M.TrendMode()), "TrendMode", [], _given);
 }
 
+/** The settings of TripleBarrier by name, for `TripleBarrier({ ... })`. */
+export interface TripleBarrierOptions {
+  /** Steps after each entry in which a barrier can be reached. It is also the vertical barrier, and the delay of the output. @defaultValue `20` */
+  horizon?: number;
+  /** Distance of the upper barrier above the entry price, in `barrier_unit`. 0 turns it off. @defaultValue `0.0` */
+  upper?: number;
+  /** Distance of the lower barrier below the entry price, in `barrier_unit`. 0 turns it off. Below 1 with barrier_unit="fraction". @defaultValue `0.0` */
+  lower?: number;
+  /** Unit of `upper` and `lower`: "fraction" of the entry price (0.02 = 2%), "price" (an absolute amount), or "vol" (multiples of the volatility expected over the horizon). @defaultValue `"fraction"` */
+  barrierUnit?: string;
+  /** Span of the exponentially weighted standard deviation of one-step log returns that sets the "vol" barriers. Must be greater than 1. Used only with barrier_unit="vol". @defaultValue `100.0` */
+  volSpan?: number;
+}
+
+/**
+ * A three-state label over a window: +1 when the price reaches the upper barrier first, -1 when it reaches the lower barrier first, 0 when it reaches neither within `horizon` steps.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/TripleBarrier.html for the full reference.
+ */
+export function TripleBarrier(options: TripleBarrierOptions): ScreamerOp;
+/**
+ * A three-state label over a window: +1 when the price reaches the upper barrier first, -1 when it reaches the lower barrier first, 0 when it reaches neither within `horizon` steps.
+ *
+ * @param horizon Steps after each entry in which a barrier can be reached. It is also the vertical barrier, and the delay of the output.
+ * @param upper Distance of the upper barrier above the entry price, in `barrier_unit`. 0 turns it off.
+ * @param lower Distance of the lower barrier below the entry price, in `barrier_unit`. 0 turns it off. Below 1 with barrier_unit="fraction".
+ * @param barrierUnit Unit of `upper` and `lower`: "fraction" of the entry price (0.02 = 2%), "price" (an absolute amount), or "vol" (multiples of the volatility expected over the horizon).
+ * @param volSpan Span of the exponentially weighted standard deviation of one-step log returns that sets the "vol" barriers. Must be greater than 1. Used only with barrier_unit="vol".
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/TripleBarrier.html for the full reference.
+ */
+export function TripleBarrier(horizon?: number, upper?: number, lower?: number, barrierUnit?: string, volSpan?: number): ScreamerOp;
+export function TripleBarrier(horizon?: any, upper?: any, lower?: any, barrierUnit?: any, volSpan?: any): ScreamerOp {
+  if (_isOptions(horizon)) [horizon, upper, lower, barrierUnit, volSpan] = _options("TripleBarrier", horizon, arguments.length, ["horizon", "upper", "lower", "barrierUnit", "volSpan"], "horizon must be an integer");
+  else if (arguments.length > 5) _tooMany("TripleBarrier", 5, arguments.length);
+  const _given: unknown[] = [horizon, upper, lower, barrierUnit, volSpan];
+  if (horizon === undefined) horizon = 20;
+  if (upper === undefined) upper = 0.0;
+  if (lower === undefined) lower = 0.0;
+  if (barrierUnit === undefined) barrierUnit = "fraction";
+  if (volSpan === undefined) volSpan = 100.0;
+  const M = current();
+  if (typeof horizon !== "number" || !Number.isInteger(horizon)) throw new TypeError(`TripleBarrier: horizon must be an integer, got ${typeof horizon === "number" ? horizon : _what(horizon)}`);
+  if (!(horizon >= -2147483648 && horizon <= 2147483647)) _intRange(M, "TripleBarrier", "horizon", horizon);
+  if (typeof upper !== "number") throw new TypeError(`TripleBarrier: upper must be a number, got ${_what(upper)}`);
+  if (typeof lower !== "number") throw new TypeError(`TripleBarrier: lower must be a number, got ${_what(lower)}`);
+  if (typeof barrierUnit !== "string") throw new TypeError(`TripleBarrier: barrierUnit must be a string, got ${barrierUnit instanceof String ? "a String object" : _what(barrierUnit)}`);
+  if (typeof volSpan !== "number") throw new TypeError(`TripleBarrier: volSpan must be a number, got ${_what(volSpan)}`);
+  try {
+    return _params(wrapOp(M, () => new M.TripleBarrier(horizon, upper, lower, barrierUnit, volSpan)), "TripleBarrier", ["horizon", "upper", "lower", "barrier_unit", "vol_span"], _given);
+  } catch (e) { throw _finite(M, "TripleBarrier", ["horizon", "upper", "lower", "volSpan"], [horizon, upper, lower, volSpan], e); }
+}
+
+/** The settings of TripleBarrierOHLC by name, for `TripleBarrierOHLC({ ... })`. */
+export interface TripleBarrierOHLCOptions {
+  /** Bars after each entry in which a barrier can be reached. It is also the vertical barrier, and the delay of the output. @defaultValue `20` */
+  horizon?: number;
+  /** Distance of the upper barrier above the entry close, in `barrier_unit`. 0 turns it off. @defaultValue `0.0` */
+  upper?: number;
+  /** Distance of the lower barrier below the entry close, in `barrier_unit`. 0 turns it off. Below 1 with barrier_unit="fraction". @defaultValue `0.0` */
+  lower?: number;
+  /** Unit of `upper` and `lower`: "fraction" of the entry close (0.02 = 2%), "price" (an absolute amount), or "vol" (multiples of the volatility expected over the horizon). @defaultValue `"fraction"` */
+  barrierUnit?: string;
+  /** Span of the exponentially weighted standard deviation of one-step log returns of the close that sets the "vol" barriers. Must be greater than 1. Used only with barrier_unit="vol". @defaultValue `100.0` */
+  volSpan?: number;
+}
+
+/**
+ * A three-state label over a window of OHLC bars: +1 when the upper barrier is reached first, -1 when the lower barrier is reached first, 0 when neither is reached within `horizon` bars; barriers are tested on each bar's open, high, and low.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/TripleBarrierOHLC.html for the full reference.
+ */
+export function TripleBarrierOHLC(options: TripleBarrierOHLCOptions): ScreamerOp;
+/**
+ * A three-state label over a window of OHLC bars: +1 when the upper barrier is reached first, -1 when the lower barrier is reached first, 0 when neither is reached within `horizon` bars; barriers are tested on each bar's open, high, and low.
+ *
+ * @param horizon Bars after each entry in which a barrier can be reached. It is also the vertical barrier, and the delay of the output.
+ * @param upper Distance of the upper barrier above the entry close, in `barrier_unit`. 0 turns it off.
+ * @param lower Distance of the lower barrier below the entry close, in `barrier_unit`. 0 turns it off. Below 1 with barrier_unit="fraction".
+ * @param barrierUnit Unit of `upper` and `lower`: "fraction" of the entry close (0.02 = 2%), "price" (an absolute amount), or "vol" (multiples of the volatility expected over the horizon).
+ * @param volSpan Span of the exponentially weighted standard deviation of one-step log returns of the close that sets the "vol" barriers. Must be greater than 1. Used only with barrier_unit="vol".
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/TripleBarrierOHLC.html for the full reference.
+ */
+export function TripleBarrierOHLC(horizon?: number, upper?: number, lower?: number, barrierUnit?: string, volSpan?: number): ScreamerOp;
+export function TripleBarrierOHLC(horizon?: any, upper?: any, lower?: any, barrierUnit?: any, volSpan?: any): ScreamerOp {
+  if (_isOptions(horizon)) [horizon, upper, lower, barrierUnit, volSpan] = _options("TripleBarrierOHLC", horizon, arguments.length, ["horizon", "upper", "lower", "barrierUnit", "volSpan"], "horizon must be an integer");
+  else if (arguments.length > 5) _tooMany("TripleBarrierOHLC", 5, arguments.length);
+  const _given: unknown[] = [horizon, upper, lower, barrierUnit, volSpan];
+  if (horizon === undefined) horizon = 20;
+  if (upper === undefined) upper = 0.0;
+  if (lower === undefined) lower = 0.0;
+  if (barrierUnit === undefined) barrierUnit = "fraction";
+  if (volSpan === undefined) volSpan = 100.0;
+  const M = current();
+  if (typeof horizon !== "number" || !Number.isInteger(horizon)) throw new TypeError(`TripleBarrierOHLC: horizon must be an integer, got ${typeof horizon === "number" ? horizon : _what(horizon)}`);
+  if (!(horizon >= -2147483648 && horizon <= 2147483647)) _intRange(M, "TripleBarrierOHLC", "horizon", horizon);
+  if (typeof upper !== "number") throw new TypeError(`TripleBarrierOHLC: upper must be a number, got ${_what(upper)}`);
+  if (typeof lower !== "number") throw new TypeError(`TripleBarrierOHLC: lower must be a number, got ${_what(lower)}`);
+  if (typeof barrierUnit !== "string") throw new TypeError(`TripleBarrierOHLC: barrierUnit must be a string, got ${barrierUnit instanceof String ? "a String object" : _what(barrierUnit)}`);
+  if (typeof volSpan !== "number") throw new TypeError(`TripleBarrierOHLC: volSpan must be a number, got ${_what(volSpan)}`);
+  try {
+    return _params(wrapOp(M, () => new M.TripleBarrierOHLC(horizon, upper, lower, barrierUnit, volSpan)), "TripleBarrierOHLC", ["horizon", "upper", "lower", "barrier_unit", "vol_span"], _given);
+  } catch (e) { throw _finite(M, "TripleBarrierOHLC", ["horizon", "upper", "lower", "volSpan"], [horizon, upper, lower, volSpan], e); }
+}
+
 /** TrueRange has no settings: its options object is empty. */
 export type TrueRangeOptions = Record<string, never>;
 

@@ -190,6 +190,7 @@
 #include "screamer/transform_functions.h"
 #include "screamer/trend_mode.h"
 #include "screamer/trima.h"
+#include "screamer/triple_barrier.h"
 #include "screamer/trix.h"
 #include "screamer/true_range.h"
 #include "screamer/ultimate_oscillator.h"
@@ -599,6 +600,16 @@ inline screamer::SuperSmoother* make_SuperSmoother(double a0, double a1) {
 
 inline screamer::TEMA* make_TEMA(double a0, double a1, double a2, double a3) {
     return new screamer::TEMA(screamer_wasm::opt(a0), screamer_wasm::opt(a1), screamer_wasm::opt(a2), screamer_wasm::opt(a3));
+}
+
+inline screamer::TripleBarrier* make_TripleBarrier(int a0, double a1, double a2, emscripten::val a3, double a4) {
+    const std::string a3s = a3.as<std::string>();
+    return new screamer::TripleBarrier(a0, a1, a2, a3s, a4);
+}
+
+inline screamer::TripleBarrierOHLC* make_TripleBarrierOHLC(int a0, double a1, double a2, emscripten::val a3, double a4) {
+    const std::string a3s = a3.as<std::string>();
+    return new screamer::TripleBarrierOHLC(a0, a1, a2, a3s, a4);
 }
 
 inline screamer::WMA* make_WMA(int a0, emscripten::val a1) {
@@ -1140,6 +1151,10 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor<>();
     emscripten::class_<screamer::TrendMode, emscripten::base<screamer::EvalOp>>("TrendMode")
         .constructor<>();
+    emscripten::class_<screamer::TripleBarrier, emscripten::base<screamer::EvalOp>>("TripleBarrier")
+        .constructor(&make_TripleBarrier, emscripten::allow_raw_pointers());
+    emscripten::class_<screamer::TripleBarrierOHLC, emscripten::base<screamer::EvalOp>>("TripleBarrierOHLC")
+        .constructor(&make_TripleBarrierOHLC, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::TrueRange, emscripten::base<screamer::EvalOp>>("TrueRange")
         .constructor<>();
     emscripten::class_<screamer::UltimateOscillator, emscripten::base<screamer::EvalOp>>("UltimateOscillator")
