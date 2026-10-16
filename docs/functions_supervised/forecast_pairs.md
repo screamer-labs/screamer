@@ -37,8 +37,8 @@ A training row and a live row differ only in the target:
 | training, row t | `X[t]` | outcome of `(t, t + h]` |
 | live, row t | `X[t]` | NaN, not known yet |
 
-The feature matrix is built by the same code, at the same timestamps, in
-research and live, and the model learns "features now, outcome next".
+The [labels guide](../labels.md) shows how a target is built for each kind of
+prediction.
 
 `index` chooses whose timestamp a row carries:
 
@@ -59,9 +59,10 @@ and in where the padding is. With `dropna=True` they return identical arrays.
 - `y`: target, one column (`(T,)` or `(T, 1)`), in count mode; a
   `(values, index)` tuple in duration mode. Must be causal.
 - `count=` (int): the horizon as a number of events. With
-  `index="features"`, row `t` holds `y[t + count]`. `X` and `y` tick at the
-  same indexes: in a lazy stream or a `Pipeline`, an index that only one of
-  them has raises `ValueError`; use `duration=` for inputs on different clocks.
+  `index="features"`, row `t` holds `y[t + count]`, and `X` and `y` must tick
+  at the same indexes: in a lazy stream or a `Pipeline`, an index that only one
+  of them has raises `ValueError`; use `duration=` for inputs on different
+  clocks.
 - `duration=` (numeric): the horizon in index units, as in `Delay`. `X` and
   `y` carry an index and may tick on different clocks.
 - `index="features"`: `"features"` or `"target"`, as in the table above.
@@ -72,16 +73,18 @@ Exactly one of `count=` and `duration=` is given; both or neither raises
 `ValueError`. `count` is from 1 to 2**31 - 1 and `duration` is at least 0; a
 value out of range raises `ValueError`. Both are numbers: a string raises
 `TypeError`, and a float is truncated, as `Delay` truncates its duration.
-`index` is one of the two strings, and another value raises `ValueError`
-naming both. `dropna` is a bool.
+`index` is one of the two strings: another string raises `ValueError` naming
+both, and a value that is not a string raises `TypeError`. `dropna` is a bool.
+`X` is `(T,)` or `(T, K)`, and `y` is one column; another shape raises
+`ValueError`.
 
 ## Duration mode
 
 Rows follow the clock of the side whose timestamp they carry:
 
 - `index="features"`: one row per `X` event at `t`, holding the last `y` at or
-  before `t + duration`. When `y` ends before `t + duration`, the target is
-  NaN.
+  before `t + duration`. The target is NaN when no `y` event is at or before
+  `t + duration`, and when `y` ends before `t + duration`.
 - `index="target"`: one row per `y` event at `t`, holding the last `X` at or
   before `t - duration`, column by column: a NaN in a column of that row gives
   the column's last non-NaN value.
@@ -125,9 +128,6 @@ of the same length. In duration mode `X` and `y` are `{ values, index }`
 streams. Given `Input` nodes, it returns a Node for a `Pipeline`.
 
 ## Examples
-
-The [labels guide](../labels.md) shows which target to pair for each kind of
-prediction.
 
 ```{eval-rst}
 .. exec_code::

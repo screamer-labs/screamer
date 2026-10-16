@@ -142,10 +142,11 @@ print(f"mean realized volatility over {h} steps: {yp.mean():.5f}")
 
 [`RollingMax(h)`](functions_rolling/RollingMax.md) and
 [`RollingMin(h)`](functions_rolling/RollingMin.md) of the price, divided by the
-price `h` steps ago from [`Lag(h)`](functions_misc/Lag.md), give the largest
-rise and the largest fall over `(t - h, t]` relative to the price at `t - h`.
-Paired with `count=h`, they measure the next `h` steps from the price at the
-features' step. Each target is one column, so each is paired on its own.
+price `h` steps ago from [`Lag(h)`](functions_misc/Lag.md), give the highest
+and the lowest price over `(t - h, t]` relative to the price at `t - h`.
+Paired with `count=h`, row `t` holds the highest and the lowest price over the
+next `h` steps, relative to the price at `t`. Each target is one column, so
+each is paired on its own.
 
 ```{code-cell} ipython3
 start = Lag(h)(close)
@@ -153,7 +154,7 @@ up = RollingMax(h)(close) / start - 1
 down = RollingMin(h)(close) / start - 1
 Xp, up_p = forecast_pairs(X, up, count=h, dropna=True)
 _, down_p = forecast_pairs(X, down, count=h, dropna=True)
-print(f"median run up {np.median(up_p):+.4f}, median run down {np.median(down_p):+.4f}")
+print(f"median high {np.median(up_p):+.4f}, median low {np.median(down_p):+.4f} relative to the start")
 ```
 
 ### Which of two price levels is reached first
