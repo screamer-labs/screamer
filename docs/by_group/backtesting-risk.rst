@@ -39,6 +39,8 @@ Simulate a strategy against market data into a costed equity curve: signals, bar
      - Description
    * - :doc:`backtest_report </functions_fin/backtest_report>`
      - Running statistics and a summary for a backtest engine's output.
+   * - :doc:`backtest_trades </functions_fin/backtest_trades>`
+     - One row per round trip of a backtest engine's output, with its entry and exit, side, length, pnl, and cost.
    * - :doc:`Add funding or carry to a backtest </functions_fin/BacktestCarry>`
      - Charge perpetual funding, borrow, or financing on the position of any backtest engine's output.
    * - :doc:`Backtest a two-sided market maker against L1 quotes </functions_fin/BacktestL1Orders>`
@@ -142,6 +144,7 @@ Is a backtest more than luck? Randomization tests with p-values, permutations, t
    :hidden:
 
    /functions_fin/backtest_report
+   /functions_fin/backtest_trades
    /functions_fin/BacktestCarry
    /functions_fin/BacktestL1Orders
    /functions_fin/BacktestL1Target

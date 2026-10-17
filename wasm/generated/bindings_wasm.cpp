@@ -21,6 +21,7 @@
 #include "screamer/backtest_report.h"
 #include "screamer/backtest_stats.h"
 #include "screamer/backtest_summary.h"
+#include "screamer/backtest_trade_list.h"
 #include "screamer/backtest_trades_orders.h"
 #include "screamer/backtest_trades_target.h"
 #include "screamer/band_signal.h"

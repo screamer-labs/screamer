@@ -10,6 +10,7 @@
 #include <emscripten/bind.h>
 #include <emscripten/val.h>
 #include "screamer/backtest_summary.h"
+#include "screamer/backtest_trade_list.h"
 
 namespace {
 
@@ -64,10 +65,34 @@ emscripten::val backtestReportNames() {
     return all;
 }
 
+// The round trips of the engine output `eng` (T rows of `ncols` values,
+// row-major) as one Float64Array of 7 n values: entry, exit, side, bars, pnl,
+// cost, and closed (1 or 0), n each. The shape is checked first.
+emscripten::val backtestTrades(std::uintptr_t eng, std::size_t T, std::size_t ndim, std::size_t ncols) {
+    screamer::check_trade_rows(ndim, ncols);
+    const auto trades = screamer::backtest_trades(reinterpret_cast<const double*>(eng), T,
+                                                  static_cast<std::ptrdiff_t>(ncols), 1);
+    const std::size_t n = trades.size();
+    std::vector<double> cols(7 * n);
+    for (std::size_t i = 0; i < n; ++i) {
+        const auto& tr = trades[i];
+        cols[i] = static_cast<double>(tr.entry);
+        cols[n + i] = static_cast<double>(tr.exit);
+        cols[2 * n + i] = tr.side;
+        cols[3 * n + i] = static_cast<double>(tr.exit - tr.entry);
+        cols[4 * n + i] = tr.pnl;
+        cols[5 * n + i] = tr.cost;
+        cols[6 * n + i] = tr.closed ? 1.0 : 0.0;
+    }
+    return emscripten::val(emscripten::typed_memory_view(cols.size(), cols.data()))
+        .call<emscripten::val>("slice");
+}
+
 }  // namespace
 
 EMSCRIPTEN_BINDINGS(screamer_backtest) {
     emscripten::function("checkEngineRows", &checkEngineRows);
     emscripten::function("backtestReportInto", &backtestReportInto);
     emscripten::function("backtestReportNames", &backtestReportNames);
+    emscripten::function("backtestTrades", &backtestTrades);
 }

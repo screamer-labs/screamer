@@ -63,7 +63,7 @@ interface EngineRows { data: Float64Array; ndim: number; T: number; ncols: numbe
 // it is, or an array of T rows (flattenRows: null is NaN, a string is a
 // TypeError). A flat array, a number, null, or undefined is not
 // two-dimensional, which C++ rejects as Python does.
-function engineRows(values: unknown): EngineRows {
+function engineRows(values: unknown, who: string = WHO): EngineRows {
   const nd = asNd(values);
   if (nd !== null)
     return { data: nd.data, ndim: nd.shape.length, T: nd.shape[0] ?? 0, ncols: nd.shape[1] ?? 0 };
@@ -71,9 +71,9 @@ function engineRows(values: unknown): EngineRows {
   if (values == null || typeof values === "number") return { ...notRows, ndim: 0 };
   if (ArrayBuffer.isView(values)) return notRows;
   if (!Array.isArray(values))
-    throwWrongKind(WHO, "values", values, "an NdArray or an array of rows");
+    throwWrongKind(who, "values", values, "an NdArray or an array of rows");
   if (values.length === 0 || values[0] === null || typeof values[0] === "number") return notRows;
-  const { data, T, K } = flattenRows(values, WHO, "values");
+  const { data, T, K } = flattenRows(values, who, "values");
   return { data, ndim: 2, T, ncols: K };
 }
 
@@ -133,5 +133,62 @@ export function backtestReport(
     return { running, summary };
   } finally {
     M.freeBuf(inPtr); M.freeBuf(outPtr); M.freeBuf(sumPtr);
+  }
+}
+
+export interface BacktestTradesOptions {
+  /**
+   * An index for the rows: `entry` and `exit` hold its values instead of row
+   * numbers. Its values must be numbers.
+   */
+  index?: ArrayLike<number>;
+}
+
+export interface BacktestTradesResult {
+  entry: Float64Array;
+  exit: Float64Array;
+  /** +1 long, -1 short. */
+  side: Float64Array;
+  /** exit - entry, in rows. */
+  bars: Float64Array;
+  pnl: Float64Array;
+  cost: Float64Array;
+  /** 0 for a trade still open on the last row, else 1. */
+  closed: Uint8Array;
+}
+
+/**
+ * One row per round trip of a backtest engine's output, as
+ * `BacktestStats` counts trades: flat to flat, and a sign flip closes one
+ * trade and opens the next. `values` is the `[T, 4]` engine output. Rows with
+ * a NaN field are skipped; a trade open on the last row has `exit = T - 1`
+ * and `closed = 0`. A `[T, K, 4]` portfolio output throws; call it once per
+ * asset. Mirrors Python's `backtest_trades`.
+ */
+export function backtestTrades(
+  values: NdArray | ArrayLike<ArrayLike<number | null>>,
+  opts: BacktestTradesOptions | null = {},
+): BacktestTradesResult {
+  const who = "backtestTrades";
+  const M = current();
+  const { data, ndim, T, ncols } = engineRows(values, who);
+  let inPtr = 0;
+  try {
+    inPtr = M.allocF64(Math.max(1, data.length));
+    M.viewF64(inPtr, data.length).set(data);
+    const cols = wasmCall(() => M.backtestTrades(inPtr, T, ndim, ncols)) as Float64Array;
+    const n = cols.length / 7;
+    const col = (k: number) => cols.slice(k * n, (k + 1) * n);
+    const entry = col(0), exit = col(1);
+    const o = opts ?? {};
+    if (o.index != null) {
+      const index = toF64Checked(o.index as ArrayLike<unknown>, who, (i) => `index item ${i}`);
+      throwMessage(M.feedLengthMessage(who, -1, T, index.length));
+      for (let i = 0; i < n; i++) { entry[i] = index[entry[i]]; exit[i] = index[exit[i]]; }
+    }
+    return { entry, exit, side: col(2), bars: col(3), pnl: col(4), cost: col(5),
+             closed: Uint8Array.from(col(6)) };
+  } finally {
+    M.freeBuf(inPtr);
   }
 }

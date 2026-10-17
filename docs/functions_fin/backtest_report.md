@@ -14,6 +14,7 @@ see_also:
 - BacktestReport
 - BacktestStats
 - PortfolioReport
+- backtest_trades
 topics:
 - backtesting
 ---

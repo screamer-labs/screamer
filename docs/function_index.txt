@@ -277,6 +277,7 @@ WMA, Linearly weighted moving average.
 Where, Returns a if mask is nonzero, b otherwise. NaN mask yields NaN.
 WilliamsR, Inverse stochastic oscillator in [-100, 0].
 backtest_report, Running statistics and a summary for a backtest engine's output.
+backtest_trades, One row per round trip of a backtest engine's output, with its entry and exit, side, length, pnl, and cost.
 choosing_a_backtest_engine, The engine grid by data model and order definition, with fill rules, sizing, volume limits, and encoding.
 circular_shift, Randomly rotated copies of a series, for randomization tests.
 deflated_sharpe, Probabilistic Sharpe ratio against the Sharpe ratio the best of your tried variants would reach by luck.

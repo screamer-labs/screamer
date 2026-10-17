@@ -47,8 +47,8 @@ export {
   CODES,
 } from "./codes.js";
 export * from "./generated/ops.js";
-export { backtestReport, MARKET } from "./backtest.js";
-export type { BacktestReportOptions, BacktestReportResult } from "./backtest.js";
+export { backtestReport, backtestTrades, MARKET } from "./backtest.js";
+export type { BacktestReportOptions, BacktestReportResult, BacktestTradesOptions, BacktestTradesResult } from "./backtest.js";
 export { forecastPairs } from "./supervised.js";
 export { split } from "./split.js";
 export type { SplitOptions, SplitOutput } from "./split.js";

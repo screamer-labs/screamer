@@ -8,6 +8,7 @@
 #include <tuple>
 #include "screamer/common/functor_base.h"
 #include "screamer/common/float_info.h"
+#include "screamer/detail/round_trips.h"
 
 namespace screamer {
 
@@ -56,7 +57,7 @@ namespace screamer {
             trades_ = 0; wins_ = 0;
             gross_win_ = 0.0; gross_loss_ = 0.0;
             held_total_ = 0;
-            open_ = false; trade_pnl_ = 0.0; trade_len_ = 0; prev_pos_ = 0.0;
+            tracker_.reset();
             pnl_sum_ = 0.0; down_sq_ = 0.0;
             equity_peak_ = -std::numeric_limits<double>::infinity(); worst_dd_ = 0.0;
         }
@@ -74,22 +75,14 @@ namespace screamer {
             if (equity > equity_peak_) equity_peak_ = equity;
             if (equity - equity_peak_ < worst_dd_) worst_dd_ = equity - equity_peak_;
 
-            // Trade bookkeeping. The step's pnl belongs to the trade that was
-            // open coming into the step, or to the trade opened on this step.
-            const bool was_open = open_;
-            const bool flipped = prev_pos_ != 0.0 && position != 0.0 &&
-                                 ((prev_pos_ > 0.0) != (position > 0.0));
-            if (was_open) {
-                trade_pnl_ += pnl;
-                if (position != 0.0 && !flipped) ++trade_len_;   // still held
-            }
-            if (was_open && (position == 0.0 || flipped)) close_trade();
-            if (position != 0.0 && !open_) {
-                open_ = true;
-                trade_pnl_ = was_open ? 0.0 : pnl;   // a flip's pnl went to the old trade
-                trade_len_ = 1;
-            }
-            prev_pos_ = position;
+            // Trade bookkeeping (detail::RoundTripTracker, which
+            // backtest_trades shares).
+            tracker_.step(0, pnl, cost, position, [this](const detail::RoundTrip& t) {
+                ++trades_;
+                if (t.pnl > 0.0) { ++wins_; gross_win_ += t.pnl; }
+                else gross_loss_ += -t.pnl;
+                held_total_ += t.held;
+            });
 
             const double n = static_cast<double>(steps_);
             const double mean = pnl_sum_ / n;
@@ -109,21 +102,10 @@ namespace screamer {
         }
 
     private:
-        void close_trade() {
-            ++trades_;
-            if (trade_pnl_ > 0.0) { ++wins_; gross_win_ += trade_pnl_; }
-            else gross_loss_ += -trade_pnl_;
-            held_total_ += trade_len_;
-            open_ = false; trade_pnl_ = 0.0; trade_len_ = 0;
-        }
-
         double ppy_;
         long long steps_ = 0, exposed_ = 0, trades_ = 0, wins_ = 0, held_total_ = 0;
         double gross_win_ = 0.0, gross_loss_ = 0.0;
-        bool open_ = false;
-        double trade_pnl_ = 0.0;
-        long long trade_len_ = 0;
-        double prev_pos_ = 0.0;
+        detail::RoundTripTracker tracker_;
         double pnl_sum_ = 0.0, down_sq_ = 0.0;
         double equity_peak_ = -std::numeric_limits<double>::infinity();
         double worst_dd_ = 0.0;

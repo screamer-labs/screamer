@@ -96,3 +96,16 @@ test("research: RollingHMM is NaN until its first fit", () => {
   assert.ok(Array.from(out.data.subarray(0, 19 * 3)).every(Number.isNaN));
   assert.ok(Array.from(out.data.subarray(19 * 3)).every(Number.isFinite));
 });
+
+test("research: backtestTrades matches Python", () => {
+  const h = oracle.helpers.backtest_trades;
+  const values = { data: Float64Array.from(h.values, num), shape: [h.T, 4] };
+  const tr = (api as any).backtestTrades(values);
+  for (const k of ["entry", "exit", "side", "bars", "pnl", "cost"]) close(tr[k], h.result[k], `backtestTrades ${k}`);
+  close(Float64Array.from(tr.closed), h.result.closed, "backtestTrades closed");
+});
+
+test("research: backtestTrades rejects a portfolio output", () => {
+  assert.throws(() => (api as any).backtestTrades({ data: new Float64Array(24), shape: [2, 3, 4] }),
+                /once per asset/);
+});

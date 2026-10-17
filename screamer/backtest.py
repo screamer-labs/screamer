@@ -12,14 +12,14 @@ import numpy as np
 
 from .dag import _as_float64
 
-from .screamer_bindings import _backtest_report, _backtest_report_names, _check_feed_length
+from .screamer_bindings import _backtest_report, _backtest_report_names, _backtest_trades, _check_feed_length
 
 #: Market-order price sentinel for the backtest engines. A quote or limit price of
 #: ``MARKET`` (or any non-finite price) is a market order in the aggressive
 #: direction; ``NaN`` works as a side-agnostic shorthand.
 MARKET = math.inf
 
-__all__ = ["backtest_report", "MARKET"]
+__all__ = ["backtest_report", "backtest_trades", "MARKET"]
 
 # Names from C++: the engine columns, the BacktestReport and BacktestStats
 # columns, and the summary.
@@ -63,3 +63,36 @@ def backtest_report(values, index=None, periods_per_year=1.0):
                            index.shape[0] if index.ndim else 1)
         running["index"] = index
     return running, dict(zip(_SUMMARY, summary))
+
+
+def backtest_trades(values, index=None):
+    """One row per round trip of a backtest engine's output.
+
+    ``values`` is the ``(T, 4)`` array a backtest engine emits, with columns
+    ``[equity, pnl, position, cost]``. Returns a dict of equal-length numpy
+    arrays, one entry per trade:
+
+    - ``entry``: the row of the trade's first nonzero position (the index
+      value when ``index`` is given);
+    - ``exit``: the row where the position returns to zero or flips sign, or
+      the last row for a trade still open (the index value when given);
+    - ``side``: +1 long, -1 short;
+    - ``bars``: ``exit - entry`` in rows;
+    - ``pnl``: the pnl over the trade's rows (the pnl column is after cost);
+    - ``cost``: the cost over the trade's rows;
+    - ``closed``: False for a trade still open on the last row.
+
+    Trades are counted as ``BacktestStats`` counts them: flat to flat, a sign
+    flip closes one trade and opens the next, and the flip row's pnl goes to
+    the closing trade. Rows with a NaN field are skipped. A portfolio output
+    ``(T, K, 4)`` raises; call this once per asset. The trades come from C++;
+    this wrapper only labels them.
+    """
+    values = _as_float64(values)
+    entry, exit_, side, bars, pnl, cost, closed = _backtest_trades(values)
+    if index is not None:
+        index = np.asarray(index)
+        _check_feed_length("backtest_trades", -1, len(values), index.shape[0] if index.ndim else 1)
+        entry, exit_ = index[entry], index[exit_]
+    return {"entry": entry, "exit": exit_, "side": side, "bars": bars, "pnl": pnl,
+            "cost": cost, "closed": closed.astype(bool)}

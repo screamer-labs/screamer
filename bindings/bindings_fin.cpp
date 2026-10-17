@@ -40,6 +40,7 @@
 #include "screamer/backtest_report.h"
 #include "screamer/backtest_stats.h"
 #include "screamer/backtest_summary.h"
+#include "screamer/backtest_trade_list.h"
 #include "screamer/backtest_carry.h"
 #include "screamer/validation/surrogates.h"
 #include "screamer/validation/sharpe.h"
@@ -1121,6 +1122,34 @@ nb::object int64_array(const std::vector<std::int64_t>& x) {
     return nb::cast(nb::ndarray<nb::numpy, std::int64_t>(v, 1, shape, owner));
 }
 
+// backtest_trades (screamer/backtest.py): the round trips of an engine's
+// (T, 4) output, any strides, as (entry, exit, side, bars, pnl, cost,
+// closed): int64 arrays except pnl and cost, closed as 0 or 1.
+nb::tuple backtest_trades_py(EngineRows v) {
+    screamer::check_trade_rows(v.ndim(), v.ndim() == 2 ? v.shape(1) : 0);
+    const auto trades = screamer::backtest_trades(
+        v.data(), v.shape(0), static_cast<std::ptrdiff_t>(v.stride(0)),
+        static_cast<std::ptrdiff_t>(v.stride(1)));
+    const std::size_t n = trades.size();
+    std::vector<std::int64_t> entry(n), exit(n), side(n), bars(n), closed(n);
+    auto pnl = screamer::detail::new_output(n);
+    auto cost = screamer::detail::new_output(n);
+    for (std::size_t i = 0; i < n; ++i) {
+        const auto& tr = trades[i];
+        entry[i] = static_cast<std::int64_t>(tr.entry);
+        exit[i] = static_cast<std::int64_t>(tr.exit);
+        side[i] = tr.side > 0.0 ? 1 : -1;
+        bars[i] = static_cast<std::int64_t>(tr.exit - tr.entry);
+        closed[i] = tr.closed ? 1 : 0;
+        pnl[i] = tr.pnl;
+        cost[i] = tr.cost;
+    }
+    using screamer::detail::make_owned_array;
+    return nb::make_tuple(int64_array(entry), int64_array(exit), int64_array(side), int64_array(bars),
+                          make_owned_array(std::move(pnl), {n}), make_owned_array(std::move(cost), {n}),
+                          int64_array(closed));
+}
+
 // (target, choice, fold_start, train_scores, output, stats).
 nb::tuple walk_forward_py(nb::callable run, nb::callable reset, nb::object metric,
                           nb::object original, BlockIn targets, nb::list prices, double train, double test,
@@ -1182,6 +1211,7 @@ void init_bindings_fin(nb::module_& m) {
     });
     m.def("_backtest_report", &backtest_report_py, "values"_a, "periods_per_year"_a.none());
     m.def("_backtest_report_names", &backtest_report_names);
+    m.def("_backtest_trades", &backtest_trades_py, "values"_a);
     m.def("_strategy_test", &strategy_test_py,
           "run"_a, "metric"_a.none(), "inputs"_a, "n"_a, "method"_a, "ohlc"_a, "price"_a,
           "mode"_a, "volume"_a.none(), "volume_mode"_a, "columns"_a, "fixed"_a,

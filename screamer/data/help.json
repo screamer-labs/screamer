@@ -5628,7 +5628,8 @@
     "see_also": [
       "BacktestReport",
       "BacktestStats",
-      "PortfolioReport"
+      "PortfolioReport",
+      "backtest_trades"
     ],
     "topics": [
       "backtesting"
@@ -5636,6 +5637,29 @@
     "details": "Running statistics and a summary for a backtest. It takes a backtest engine's\n`[equity, pnl, position, cost]` output (the four positional columns that\n[`BacktestPriceTarget`](BacktestPriceTarget.md) and the other backtest engines\nemit) and returns `(running, summary)`.\n\n- `running` is a dict of numpy arrays: the four engine columns plus the\n  `BacktestReport` node's `drawdown` (dollar), `cum_cost`, `turnover` (units\n  traded), `trades` (count), `max_drawdown` (running worst), `sharpe` (running),\n  and the [`BacktestStats`](BacktestStats.md) columns `exposure`, `round_trips`,\n  `win_rate`, `profit_factor`, `avg_win`, `avg_loss`, `avg_holding`, `sortino`,\n  and `calmar`. Each is a causal series whose last finite value is the summary.\n- `summary` is a dict of the final statistics: `total_pnl`, `max_drawdown`,\n  `total_cost`, `turnover`, `num_trades`, `sharpe`, and the nine `BacktestStats`\n  values.\n\nThe report and the summary are computed in C++, which runs the `BacktestReport`\nand `BacktestStats` nodes and reads the last finite value of each column. This\nfunction only labels the result, and needs no pandas. Wrap `running` in a\n`pandas.DataFrame` yourself if you want a frame. In JavaScript,\n`backtestReport(values, { index, periodsPerYear })` returns\n`{ running, summary }` with the same keys. There the index must hold numbers,\nand `running.index` is a `Float64Array`; Python passes any index through.",
     "examples": [],
     "doc_path": "functions_fin/backtest_report"
+  },
+  "backtest_trades": {
+    "name": "backtest_trades",
+    "title": "backtest_trades",
+    "kind": "function",
+    "short": "One row per round trip of a backtest engine's output, with its entry and exit, side, length, pnl, and cost.",
+    "tags": [
+      "trades",
+      "trade list",
+      "round trip",
+      "holding period",
+      "trade analysis"
+    ],
+    "see_also": [
+      "backtest_report",
+      "BacktestStats"
+    ],
+    "topics": [
+      "backtesting"
+    ],
+    "details": "The list of round trips in a backtest engine's `[equity, pnl, position, cost]`\noutput, one row per trade. It returns a dict of equal-length numpy arrays:\n\n- `entry`: the row of the trade's first nonzero position;\n- `exit`: the row where the position returns to zero or flips sign, or the\n  last row for a trade still open;\n- `side`: `+1` long, `-1` short;\n- `bars`: `exit - entry`, in rows;\n- `pnl`: the pnl over the trade's rows, which is after cost;\n- `cost`: the cost over the trade's rows;\n- `closed`: `False` for a trade still open on the last row.\n\nTrades are the round trips [`BacktestStats`](BacktestStats.md) counts: a\ntrade opens when the position leaves zero and closes when it returns to zero,\na sign flip closes one trade and opens the next, and resizing without\ncrossing zero stays one trade. The pnl of a flip row goes to the closing\ntrade. On the same output, the closed trades give `BacktestStats`'s count,\nwin rate, average win and loss, and average holding (rows with a `NaN` field\nare skipped by both, and count in `bars` but not in `avg_holding`). Group the\nrows by their `entry` to see results per month or per year; trade statistics\nare not part of [`backtest_report`](backtest_report.md)'s `by=`, because a\ntrade can span groups.\n\nA portfolio output `(T, K, 4)` raises; call `backtest_trades(values[:, k])`\nfor each asset. In JavaScript, `backtestTrades(values, { index })` returns the\nsame keys as typed arrays.",
+    "examples": [],
+    "doc_path": "functions_fin/backtest_trades"
   },
   "choosing_a_backtest_engine": {
     "name": "choosing_a_backtest_engine",

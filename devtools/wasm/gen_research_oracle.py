@@ -69,9 +69,27 @@ CASES = [
 ]
 
 
+def _engine_output():
+    """A BacktestPriceTarget output with long, short, flat, flipping, and
+    resized stretches, two NaN rows, and a trade open on the last row."""
+    rng = np.random.default_rng(7)
+    target = np.repeat([0, 1, 1, -2, 0, 3, -1, 0, 2, 3, 0, -1], 10).astype(float)
+    price = 100 + np.cumsum(rng.standard_normal(len(target)))
+    out = np.asarray(s.BacktestPriceTarget(fee=1e-3)(target, price), dtype=float)
+    out[[33, 34]] = np.nan
+    return out
+
+
 def _helpers():
-    """Inputs and results of the backtest helpers; Tasks 11 to 14 add entries."""
-    return {}
+    """Inputs and results of the backtest helpers; Tasks 12 to 14 add entries."""
+    out = _engine_output()
+    trades = s.backtest_trades(out)
+    return {
+        "backtest_trades": {
+            "values": _flat(out), "T": len(out),
+            "result": {k: _flat(np.asarray(v, dtype=float)) for k, v in trades.items()},
+        },
+    }
 
 
 def _num(v):
