@@ -64,3 +64,8 @@ test("research: RollingSeasonalMean NaN advances the slot clock", () => {
   assert.ok(Number.isNaN(out[2]));
   assert.deepEqual([out[0], out[1], out[3], out[4], out[5]], [1, 10, 15, 3, 25]);
 });
+
+test("research: RollingJumpShare hand example", () => {
+  const out = (api as any).RollingJumpShare({ windowSize: 4 })(Float64Array.from([1, 1, 1, 10])) as Float64Array;
+  assert.ok(Math.abs(out[3] - (1 - 8 * Math.PI / 103)) < 1e-12);
+});

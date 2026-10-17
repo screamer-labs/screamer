@@ -131,12 +131,16 @@ The size of fluctuations and risk: standard deviation and variance, RMS, range-b
      - Volatility-adapted envelope: EMA midline plus/minus a multiple of ATR.
    * - :doc:`Normalized ATR (NATR) </functions_rolling/NATR>`
      - ATR scaled to a percentage of the current close.
+   * - :doc:`Rolling Bipower Variation </functions_rolling/RollingBipowerVar>`
+     - Jump-robust variance of a window of returns, (pi/2) times the sum of products of adjacent absolute returns, on the scale of the realized variance.
    * - :doc:`Rolling Downside Deviation </functions_fin/RollingDownsideDeviation>`
      - Trailing-window downside semideviation: the RMS of returns falling below a minimum acceptable return.
    * - :doc:`Rolling Garman-Klass variance </functions_rolling/RollingGarmanKlassVar>`
      - Var form of the Garman-Klass range-based volatility estimator (OHLC).
    * - :doc:`Rolling Garman-Klass volatility </functions_rolling/RollingGarmanKlassVol>`
      - Vol form of the Garman-Klass range-based volatility estimator (OHLC).
+   * - :doc:`Rolling Jump Share </functions_rolling/RollingJumpShare>`
+     - Share of the realized variance of a window of returns that comes from jumps: max(0, 1 - BV / RV).
    * - :doc:`Rolling Parkinson variance </functions_rolling/RollingParkinsonVar>`
      - Var form of the Parkinson range-based volatility estimator (uses high & low).
    * - :doc:`Rolling Parkinson volatility </functions_rolling/RollingParkinsonVol>`
@@ -345,6 +349,7 @@ Relationships between series: correlation, covariance, regression, hedging, pair
    /functions_rolling/RollingArgmax
    /functions_rolling/RollingArgmin
    /functions_fin/RollingBeta
+   /functions_rolling/RollingBipowerVar
    /functions_fin/RollingCorr
    /functions_fin/RollingCov
    /functions_fin/RollingDownsideDeviation
@@ -352,6 +357,7 @@ Relationships between series: correlation, covariance, regression, hedging, pair
    /functions_rolling/RollingGarmanKlassVol
    /functions_rolling/RollingHurst
    /functions_rolling/RollingIqr
+   /functions_rolling/RollingJumpShare
    /functions_rolling/RollingKurt
    /functions_micro/RollingKyleLambda
    /functions_fin/RollingLinearRegression

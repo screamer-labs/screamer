@@ -409,6 +409,13 @@ Measures of a window: central tendency, dispersion, quantiles, moments, z-scores
       :img-alt: RollingBeta example plot
       :class-card: gallery-card
 
+   .. grid-item-card:: RollingBipowerVar
+      :link: functions_rolling/RollingBipowerVar
+      :link-type: doc
+      :img-top: _static/gallery/functions_rolling__RollingBipowerVar.webp
+      :img-alt: RollingBipowerVar example plot
+      :class-card: gallery-card
+
    .. grid-item-card:: RollingCorr
       :link: functions_fin/RollingCorr
       :link-type: doc
@@ -456,6 +463,13 @@ Measures of a window: central tendency, dispersion, quantiles, moments, z-scores
       :link-type: doc
       :img-top: _static/gallery/functions_rolling__RollingIqr.webp
       :img-alt: RollingIqr example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: RollingJumpShare
+      :link: functions_rolling/RollingJumpShare
+      :link-type: doc
+      :img-top: _static/gallery/functions_rolling__RollingJumpShare.webp
+      :img-alt: RollingJumpShare example plot
       :class-card: gallery-card
 
    .. grid-item-card:: RollingKurt
@@ -2203,6 +2217,13 @@ Training sets and labels from time-series data, online regression and filtering 
       :link-type: doc
       :img-top: _static/gallery/functions_signal__KalmanFilter.webp
       :img-alt: KalmanFilter example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: RollingJumpShare
+      :link: functions_rolling/RollingJumpShare
+      :link-type: doc
+      :img-top: _static/gallery/functions_rolling__RollingJumpShare.webp
+      :img-alt: RollingJumpShare example plot
       :class-card: gallery-card
 
    .. grid-item-card:: TripleBarrier

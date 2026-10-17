@@ -10409,6 +10409,63 @@
     ],
     "doc_path": "functions_rolling/RollingArgmin"
   },
+  "RollingBipowerVar": {
+    "name": "RollingBipowerVar",
+    "title": "Rolling Bipower Variation",
+    "implementation_family": "rolling",
+    "topics": [
+      "volatility"
+    ],
+    "tags": [
+      "bipower variation",
+      "realized variance",
+      "jumps",
+      "jump-robust volatility",
+      "barndorff-nielsen",
+      "shephard"
+    ],
+    "short": "Jump-robust variance of a window of returns, (pi/2) times the sum of products of adjacent absolute returns, on the scale of the realized variance.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Number of most recent returns in the window."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "strict",
+        "enum": [
+          "strict",
+          "expanding",
+          "zero"
+        ],
+        "description": "Output before the window is full: \"strict\" gives NaN, \"expanding\" uses the returns seen so far (at least two), and \"zero\" treats the window as pre-filled with zeros."
+      }
+    ],
+    "nan_policy": "ignore",
+    "see_also": [
+      "RollingJumpShare",
+      "RollingVar",
+      "RollingRms"
+    ],
+    "references": [
+      "Barndorff-Nielsen, O. E. and Shephard, N. (2004). Power and bipower variation with stochastic volatility and jumps. *Journal of Financial Econometrics* 2(1), 1-37."
+    ],
+    "details": "## Description\n\n`RollingBipowerVar` is the bipower variation of a window of `n` returns\n(Barndorff-Nielsen and Shephard 2004):\n\n$$\nBV = \\frac{\\pi}{2} \\sum_{i=2}^{n} |r_i|\\,|r_{i-1}| \\cdot \\frac{n}{n-1}\n$$\n\nThe input is returns. The realized variance `RV = sum r_i^2` counts a jump at\nits full size squared; in `BV` a jump is multiplied by its neighbours, which\nare of normal size, so `BV` estimates the variance of the continuous part of\nthe returns. The factor `n / (n - 1)` scales the `n - 1` pairs to the `n` terms\nof `RV`, so without jumps `BV` and `RV` estimate the same quantity.\n[`RollingJumpShare`](RollingJumpShare.md) compares the two.\n\nA `NaN` return is left out, and the returns on either side of it form a pair.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import RollingBipowerVar, RollingSum\n\nrng = np.random.default_rng(2)\nr = rng.standard_normal(600) * 0.01\nr[[150, 300, 450]] = [0.08, -0.07, 0.09]            # three jumps\nbv = RollingBipowerVar(60)(r)\nrv = RollingSum(60)(r * r)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=rv, name='realized variance', line=dict(color='gray')))\nfig.add_trace(go.Scatter(y=bv, name='bipower variation', line=dict(color='navy')))\nfig.update_layout(title='RollingBipowerVar: the jumps raise RV, not BV',\n                  xaxis_title='step', yaxis_title='variance over 60 steps',\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ],
+    "doc_path": "functions_rolling/RollingBipowerVar"
+  },
   "RollingGarmanKlassVar": {
     "name": "RollingGarmanKlassVar",
     "title": "Rolling Garman-Klass variance",
@@ -10623,6 +10680,63 @@
       }
     ],
     "doc_path": "functions_rolling/RollingIqr"
+  },
+  "RollingJumpShare": {
+    "name": "RollingJumpShare",
+    "title": "Rolling Jump Share",
+    "implementation_family": "rolling",
+    "topics": [
+      "volatility",
+      "regime"
+    ],
+    "tags": [
+      "jumps",
+      "jump share",
+      "jump test",
+      "bipower variation",
+      "realized variance"
+    ],
+    "short": "Share of the realized variance of a window of returns that comes from jumps: max(0, 1 - BV / RV).",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Number of most recent returns in the window."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "strict",
+        "enum": [
+          "strict",
+          "expanding",
+          "zero"
+        ],
+        "description": "Output before the window is full: \"strict\" gives NaN, \"expanding\" uses the returns seen so far (at least two), and \"zero\" treats the window as pre-filled with zeros."
+      }
+    ],
+    "nan_policy": "ignore",
+    "see_also": [
+      "RollingBipowerVar",
+      "RollingVar",
+      "RollingVarianceRatio"
+    ],
+    "references": [
+      "Barndorff-Nielsen, O. E. and Shephard, N. (2004). Power and bipower variation with stochastic volatility and jumps. *Journal of Financial Econometrics* 2(1), 1-37."
+    ],
+    "details": "## Description\n\n`RollingJumpShare` is `max(0, 1 - BV / RV)`, with `BV` the bipower variation of [`RollingBipowerVar`](RollingBipowerVar.md) and `RV = sum r_i^2` the realized variance of the same window. It is the share of the window's variance that comes from jumps (Barndorff-Nielsen and Shephard 2004): near 0 for diffusive returns and near 1 when a few returns carry most of the variance. On a window of returns `[1, 1, 1, 10]`, `BV = 8 pi`, `RV = 103`, and the share is `0.756`. It is 0 when `RV` is 0, and 0 when `BV` exceeds `RV`, which sampling noise causes on windows without jumps.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import RollingJumpShare\n\nrng = np.random.default_rng(2)\nr = rng.standard_normal(600) * 0.01\nr[[150, 300, 450]] = [0.08, -0.07, 0.09]            # three jumps\nshare = RollingJumpShare(60)(r)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.08)\nfig.add_trace(go.Scatter(y=r, name='returns', line=dict(color='gray')), row=1, col=1)\nfig.add_trace(go.Scatter(y=share, name='jump share', line=dict(color='navy')), row=2, col=1)\nfig.update_layout(title='RollingJumpShare: the share of variance from jumps',\n                  xaxis2_title='step',\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ],
+    "doc_path": "functions_rolling/RollingJumpShare"
   },
   "RollingKurt": {
     "name": "RollingKurt",

@@ -4067,6 +4067,29 @@
  },
  {
   "accepts_bool": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "accepts_none": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "RollingBipowerVar: window_size must be at least 2, got 1"
+   ]
+  },
+  "bool_message": {
+   "start_policy": "RollingBipowerVar: start_policy must be a string, got bool",
+   "window_size": "RollingBipowerVar: window_size must be an integer, got bool"
+  },
+  "name": "RollingBipowerVar",
+  "non_finite": {}
+ },
+ {
+  "accepts_bool": {
    "alpha": false,
    "window_size": false
   },
@@ -4338,6 +4361,29 @@
    "window_size": "RollingIqr: window_size must be an integer, got bool"
   },
   "name": "RollingIqr",
+  "non_finite": {}
+ },
+ {
+  "accepts_bool": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "accepts_none": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "RollingJumpShare: window_size must be at least 2, got 1"
+   ]
+  },
+  "bool_message": {
+   "start_policy": "RollingJumpShare: start_policy must be a string, got bool",
+   "window_size": "RollingJumpShare: window_size must be an integer, got bool"
+  },
+  "name": "RollingJumpShare",
   "non_finite": {}
  },
  {

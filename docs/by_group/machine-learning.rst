@@ -41,6 +41,8 @@ Detect a change in a series' behaviour: hidden Markov regimes, Bayesian change p
      - Description
    * - :doc:`CUSUM event filter </functions_signal/CusumFilter>`
      - Symmetric CUSUM event filter: +1 when the cumulative rise since the last event passes a threshold, -1 for a fall, 0 otherwise.
+   * - :doc:`Rolling Jump Share </functions_rolling/RollingJumpShare>`
+     - Share of the realized variance of a window of returns that comes from jumps: max(0, 1 - BV / RV).
 
 .. toctree::
    :hidden:

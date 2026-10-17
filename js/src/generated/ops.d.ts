@@ -3734,6 +3734,30 @@ export declare function RollingBeta(options: RollingBetaOptions): ScreamerOp;
  */
 export declare function RollingBeta(windowSize?: number, startPolicy?: string): ScreamerOp;
 
+/** The settings of RollingBipowerVar by name, for `RollingBipowerVar({ ... })`. */
+export interface RollingBipowerVarOptions {
+  /** Number of most recent returns in the window. @defaultValue `20` */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" uses the returns seen so far (at least two), and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
+  startPolicy?: string;
+}
+
+/**
+ * Jump-robust variance of a window of returns, (pi/2) times the sum of products of adjacent absolute returns, on the scale of the realized variance.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingBipowerVar.html for the full reference.
+ */
+export declare function RollingBipowerVar(options: RollingBipowerVarOptions): ScreamerOp;
+/**
+ * Jump-robust variance of a window of returns, (pi/2) times the sum of products of adjacent absolute returns, on the scale of the realized variance.
+ *
+ * @param windowSize Number of most recent returns in the window.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" uses the returns seen so far (at least two), and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingBipowerVar.html for the full reference.
+ */
+export declare function RollingBipowerVar(windowSize?: number, startPolicy?: string): ScreamerOp;
+
 /** The settings of RollingCVaR by name, for `RollingCVaR({ ... })`. */
 export interface RollingCVaROptions {
   /** Number of most recent returns in the window. @defaultValue `20` */
@@ -3991,6 +4015,30 @@ export declare function RollingIqr(options: RollingIqrOptions): ScreamerOp;
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingIqr.html for the full reference.
  */
 export declare function RollingIqr(windowSize?: number): ScreamerOp;
+
+/** The settings of RollingJumpShare by name, for `RollingJumpShare({ ... })`. */
+export interface RollingJumpShareOptions {
+  /** Number of most recent returns in the window. @defaultValue `20` */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" uses the returns seen so far (at least two), and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
+  startPolicy?: string;
+}
+
+/**
+ * Share of the realized variance of a window of returns that comes from jumps: max(0, 1 - BV / RV).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingJumpShare.html for the full reference.
+ */
+export declare function RollingJumpShare(options: RollingJumpShareOptions): ScreamerOp;
+/**
+ * Share of the realized variance of a window of returns that comes from jumps: max(0, 1 - BV / RV).
+ *
+ * @param windowSize Number of most recent returns in the window.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" uses the returns seen so far (at least two), and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingJumpShare.html for the full reference.
+ */
+export declare function RollingJumpShare(windowSize?: number, startPolicy?: string): ScreamerOp;
 
 /** The settings of RollingKurt by name, for `RollingKurt({ ... })`. */
 export interface RollingKurtOptions {

@@ -53,6 +53,9 @@ CASES = [
     ("RollingUpsideDeviation", {"window_size": 20}, "returns"),
     ("RollingUpsideDeviation", {"window_size": 15, "mar": 0.2, "start_policy": "expanding"}, "returns"),
     ("RollingUpsideDeviation", {"window_size": 15, "start_policy": "zero"}, "returns"),
+    ("RollingBipowerVar", {"window_size": 30}, "returns"),
+    ("RollingJumpShare", {"window_size": 30, "start_policy": "expanding"}, "returns"),
+    ("RollingJumpShare", {"window_size": 12, "start_policy": "zero"}, "returns"),
 ]
 
 

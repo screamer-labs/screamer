@@ -140,6 +140,7 @@
 #include "screamer/rolling_argmax.h"
 #include "screamer/rolling_argmin.h"
 #include "screamer/rolling_beta.h"
+#include "screamer/rolling_bipower.h"
 #include "screamer/rolling_calmar.h"
 #include "screamer/rolling_corr.h"
 #include "screamer/rolling_cov.h"
@@ -465,6 +466,11 @@ inline screamer::RollingBeta* make_RollingBeta(int a0, emscripten::val a1) {
     return new screamer::RollingBeta(a0, a1s);
 }
 
+inline screamer::RollingBipowerVar* make_RollingBipowerVar(int a0, emscripten::val a1) {
+    const std::string a1s = a1.as<std::string>();
+    return new screamer::RollingBipowerVar(a0, a1s);
+}
+
 inline screamer::RollingCorr* make_RollingCorr(int a0, emscripten::val a1) {
     const std::string a1s = a1.as<std::string>();
     return new screamer::RollingCorr(a0, a1s);
@@ -483,6 +489,11 @@ inline screamer::RollingDownsideDeviation* make_RollingDownsideDeviation(int a0,
 inline screamer::RollingHurst* make_RollingHurst(int a0, int a1, emscripten::val a2) {
     const std::string a2s = a2.as<std::string>();
     return new screamer::RollingHurst(a0, a1, a2s);
+}
+
+inline screamer::RollingJumpShare* make_RollingJumpShare(int a0, emscripten::val a1) {
+    const std::string a1s = a1.as<std::string>();
+    return new screamer::RollingJumpShare(a0, a1s);
 }
 
 inline screamer::RollingKurt* make_RollingKurt(int a0, emscripten::val a1) {
@@ -1030,6 +1041,8 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor<int>();
     emscripten::class_<screamer::RollingBeta, emscripten::base<screamer::EvalOp>>("RollingBeta")
         .constructor(&make_RollingBeta, emscripten::allow_raw_pointers());
+    emscripten::class_<screamer::RollingBipowerVar, emscripten::base<screamer::EvalOp>>("RollingBipowerVar")
+        .constructor(&make_RollingBipowerVar, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingCVaR, emscripten::base<screamer::EvalOp>>("RollingCVaR")
         .constructor<int, double>();
     emscripten::class_<screamer::RollingCalmar, emscripten::base<screamer::EvalOp>>("RollingCalmar")
@@ -1052,6 +1065,8 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor<int, double>();
     emscripten::class_<screamer::RollingIqr, emscripten::base<screamer::EvalOp>>("RollingIqr")
         .constructor<int>();
+    emscripten::class_<screamer::RollingJumpShare, emscripten::base<screamer::EvalOp>>("RollingJumpShare")
+        .constructor(&make_RollingJumpShare, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingKurt, emscripten::base<screamer::EvalOp>>("RollingKurt")
         .constructor(&make_RollingKurt, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingKyleLambda, emscripten::base<screamer::EvalOp>>("RollingKyleLambda")

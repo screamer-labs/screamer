@@ -5934,6 +5934,44 @@ export function RollingBeta(windowSize?: any, startPolicy?: any): ScreamerOp {
   } catch (e) { throw _finite(M, "RollingBeta", ["windowSize"], [windowSize], e); }
 }
 
+/** The settings of RollingBipowerVar by name, for `RollingBipowerVar({ ... })`. */
+export interface RollingBipowerVarOptions {
+  /** Number of most recent returns in the window. @defaultValue `20` */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" uses the returns seen so far (at least two), and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
+  startPolicy?: string;
+}
+
+/**
+ * Jump-robust variance of a window of returns, (pi/2) times the sum of products of adjacent absolute returns, on the scale of the realized variance.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingBipowerVar.html for the full reference.
+ */
+export function RollingBipowerVar(options: RollingBipowerVarOptions): ScreamerOp;
+/**
+ * Jump-robust variance of a window of returns, (pi/2) times the sum of products of adjacent absolute returns, on the scale of the realized variance.
+ *
+ * @param windowSize Number of most recent returns in the window.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" uses the returns seen so far (at least two), and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingBipowerVar.html for the full reference.
+ */
+export function RollingBipowerVar(windowSize?: number, startPolicy?: string): ScreamerOp;
+export function RollingBipowerVar(windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingBipowerVar", windowSize, arguments.length, ["windowSize", "startPolicy"], "windowSize must be an integer");
+  else if (arguments.length > 2) _tooMany("RollingBipowerVar", 2, arguments.length);
+  const _given: unknown[] = [windowSize, startPolicy];
+  if (windowSize === undefined) windowSize = 20;
+  if (startPolicy === undefined) startPolicy = "strict";
+  const M = current();
+  if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingBipowerVar: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingBipowerVar", "windowSize", windowSize);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingBipowerVar: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
+  try {
+    return _params(wrapOp(M, () => new M.RollingBipowerVar(windowSize, startPolicy)), "RollingBipowerVar", ["window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollingBipowerVar", ["windowSize"], [windowSize], e); }
+}
+
 /** The settings of RollingCVaR by name, for `RollingCVaR({ ... })`. */
 export interface RollingCVaROptions {
   /** Number of most recent returns in the window. @defaultValue `20` */
@@ -6341,6 +6379,44 @@ export function RollingIqr(windowSize?: any): ScreamerOp {
   try {
     return _params(wrapOp(M, () => new M.RollingIqr(windowSize)), "RollingIqr", ["window_size"], _given);
   } catch (e) { throw _finite(M, "RollingIqr", ["windowSize"], [windowSize], e); }
+}
+
+/** The settings of RollingJumpShare by name, for `RollingJumpShare({ ... })`. */
+export interface RollingJumpShareOptions {
+  /** Number of most recent returns in the window. @defaultValue `20` */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" uses the returns seen so far (at least two), and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
+  startPolicy?: string;
+}
+
+/**
+ * Share of the realized variance of a window of returns that comes from jumps: max(0, 1 - BV / RV).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingJumpShare.html for the full reference.
+ */
+export function RollingJumpShare(options: RollingJumpShareOptions): ScreamerOp;
+/**
+ * Share of the realized variance of a window of returns that comes from jumps: max(0, 1 - BV / RV).
+ *
+ * @param windowSize Number of most recent returns in the window.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" uses the returns seen so far (at least two), and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingJumpShare.html for the full reference.
+ */
+export function RollingJumpShare(windowSize?: number, startPolicy?: string): ScreamerOp;
+export function RollingJumpShare(windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingJumpShare", windowSize, arguments.length, ["windowSize", "startPolicy"], "windowSize must be an integer");
+  else if (arguments.length > 2) _tooMany("RollingJumpShare", 2, arguments.length);
+  const _given: unknown[] = [windowSize, startPolicy];
+  if (windowSize === undefined) windowSize = 20;
+  if (startPolicy === undefined) startPolicy = "strict";
+  const M = current();
+  if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingJumpShare: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingJumpShare", "windowSize", windowSize);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingJumpShare: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
+  try {
+    return _params(wrapOp(M, () => new M.RollingJumpShare(windowSize, startPolicy)), "RollingJumpShare", ["window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollingJumpShare", ["windowSize"], [windowSize], e); }
 }
 
 /** The settings of RollingKurt by name, for `RollingKurt({ ... })`. */

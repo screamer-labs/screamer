@@ -184,6 +184,7 @@ RollingAlpha, Rolling OLS intercept of a target regressed on a regressor (compan
 RollingArgmax, Position of the maximum within the trailing window (0 is the oldest sample).
 RollingArgmin, Position of the minimum within the trailing window (0 is the oldest sample).
 RollingBeta, Rolling regression slope cov(x, y) / var(y) of the first input x (dependent) on the second input y (regressor).
+RollingBipowerVar, Jump-robust variance of a window of returns, (pi/2) times the sum of products of adjacent absolute returns, on the scale of the realized variance.
 RollingCVaR, Historical Conditional Value-at-Risk (Expected Shortfall): the mean loss in the worst alpha tail over a window.
 RollingCalmar, Annualized mean return divided by the worst drawdown in a trailing window.
 RollingCorr, Rolling Pearson correlation of two parallel streams.
@@ -195,6 +196,7 @@ RollingHitRate, Fraction of strictly positive values in a trailing window.
 RollingHurst, Rolling-window Hurst exponent via Anis-Lloyd corrected rescaled-range analysis.
 RollingInfoRatio, Annualized information ratio: the Sharpe ratio of active returns against a benchmark.
 RollingIqr, Q3 minus Q1 over the trailing window.
+RollingJumpShare, Share of the realized variance of a window of returns that comes from jumps: max(0, 1 - BV / RV).
 RollingKurt, Trailing-window excess kurtosis.
 RollingKyleLambda, Rolling-window price-impact slope of return on signed order flow (Kyle 1985).
 RollingLinearRegression, Rolling OLS fit of y on x, returning slope, intercept, R-squared and the standard error of the fit.

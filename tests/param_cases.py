@@ -32,6 +32,8 @@ screamer_classes = [c for c in get_module_public_classes(screamer_module)
 #                      tests/test_rolling_corr.py and friends.
 _ROLLING_AUTO_EXCLUDE = {
     'RollingQuantile',
+    # returns windows; explicit entry below
+    'RollingBipowerVar', 'RollingJumpShare',
     # period x window warm-up; explicit entry below
     'RollingSeasonalMean', 'RollingSeasonalStd', 'RollingSeasonalZscore',
     # extra non-window arg (mar / threshold / alpha) - tested in test_risk_stats.py
@@ -171,6 +173,7 @@ test_definitions = [
     ( tuple(rolling_classes)     , {"window_size": [20]} ),
     ( ('RollingQuantile',)       , {"window_size": [20], "quantile": [0, 0.01, 0.4, 1]} ),
     ( ('RollingPoly1',)          , {"window_size": [20], "derivative_order": [0, 1] }),
+    ( ('RollingBipowerVar','RollingJumpShare'), {"window_size": [20], "start_policy": ["strict", "expanding", "zero"]}),
     ( ('RollingUpsideDeviation',) , {"window_size": [20], "mar": [0.0, 0.5], "start_policy": ["strict", "expanding", "zero"]}),
     ( ('RollingSeasonalMean','RollingSeasonalStd','RollingSeasonalZscore'), {"period": [5], "window_size": [4], "start_policy": ["strict", "expanding", "zero"], "array_length": [200]}),
     ( ('RollingPoly2',)          , {"window_size": [20], "derivative_order": [0, 1, 2] }),

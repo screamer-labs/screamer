@@ -73,6 +73,7 @@
 #include "screamer/rolling_rank.h"
 #include "screamer/rolling_percentile.h"
 #include "screamer/rolling_hurst.h"
+#include "screamer/rolling_bipower.h"
 #include <string>
 
 namespace nb = nanobind;
@@ -601,6 +602,17 @@ void init_bindings_rolling(nb::module_& m) {
              "period"_a = 24, "window_size"_a = 20, "start_policy"_a = "strict")
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingSeasonalZscore::reset, "Reset.");
+
+    nb::class_<screamer::RollingBipowerVar, screamer::ScreamerBase>(m, "RollingBipowerVar")
+        .def(nb::init<screamer::IntArg<int>, const std::string&>(),
+             "window_size"_a = 20, "start_policy"_a = "strict")
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
+        .def("reset", &screamer::RollingBipowerVar::reset, "Reset.");
+    nb::class_<screamer::RollingJumpShare, screamer::ScreamerBase>(m, "RollingJumpShare")
+        .def(nb::init<screamer::IntArg<int>, const std::string&>(),
+             "window_size"_a = 20, "start_policy"_a = "strict")
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
+        .def("reset", &screamer::RollingJumpShare::reset, "Reset.");
 
     nb::class_<screamer::RollingPoly1, screamer::ScreamerBase>(m, "RollingPoly1")
         .def(nb::init<screamer::IntArg<int>, screamer::IntArg<int>, const std::string&>(),
