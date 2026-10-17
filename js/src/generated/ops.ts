@@ -6276,6 +6276,61 @@ export function RollingGarmanKlassVol(windowSize?: any): ScreamerOp {
   } catch (e) { throw _finite(M, "RollingGarmanKlassVol", ["windowSize"], [windowSize], e); }
 }
 
+/** The settings of RollingHMM by name, for `RollingHMM({ ... })`. */
+export interface RollingHMMOptions {
+  /** Number of most recent values the model is fit on. @defaultValue `720` */
+  windowSize?: number;
+  /** Steps between fits. Between fits the model filters each new value with fixed parameters. @defaultValue `24` */
+  refitEvery?: number;
+  /** "gaussian": each state emits a normal value with its own mean and variance; "ar1": each state emits an AR(1) step x_t = c + phi x_{t-1} + e with its own c, phi, and variance (Hamilton's Markov-switching AR(1)). @defaultValue `"gaussian"` */
+  emission?: string;
+  /** Largest number of EM iterations per fit. @defaultValue `50` */
+  maxIter?: number;
+  /** A fit stops when an EM iteration raises the log-likelihood by less than this. @defaultValue `1e-06` */
+  tol?: number;
+}
+
+/**
+ * Two-state hidden Markov model of a series, refit on a trailing window and filtered forward each step; the probability of the high-variance (or more persistent) state and a one-step predictive mean and standard deviation.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingHMM.html for the full reference.
+ */
+export function RollingHMM(options: RollingHMMOptions): ScreamerOp;
+/**
+ * Two-state hidden Markov model of a series, refit on a trailing window and filtered forward each step; the probability of the high-variance (or more persistent) state and a one-step predictive mean and standard deviation.
+ *
+ * @param windowSize Number of most recent values the model is fit on.
+ * @param refitEvery Steps between fits. Between fits the model filters each new value with fixed parameters.
+ * @param emission "gaussian": each state emits a normal value with its own mean and variance; "ar1": each state emits an AR(1) step x_t = c + phi x_{t-1} + e with its own c, phi, and variance (Hamilton's Markov-switching AR(1)).
+ * @param maxIter Largest number of EM iterations per fit.
+ * @param tol A fit stops when an EM iteration raises the log-likelihood by less than this.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingHMM.html for the full reference.
+ */
+export function RollingHMM(windowSize?: number, refitEvery?: number, emission?: string, maxIter?: number, tol?: number): ScreamerOp;
+export function RollingHMM(windowSize?: any, refitEvery?: any, emission?: any, maxIter?: any, tol?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, refitEvery, emission, maxIter, tol] = _options("RollingHMM", windowSize, arguments.length, ["windowSize", "refitEvery", "emission", "maxIter", "tol"], "windowSize must be an integer");
+  else if (arguments.length > 5) _tooMany("RollingHMM", 5, arguments.length);
+  const _given: unknown[] = [windowSize, refitEvery, emission, maxIter, tol];
+  if (windowSize === undefined) windowSize = 720;
+  if (refitEvery === undefined) refitEvery = 24;
+  if (emission === undefined) emission = "gaussian";
+  if (maxIter === undefined) maxIter = 50;
+  if (tol === undefined) tol = 1e-06;
+  const M = current();
+  if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingHMM: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingHMM", "windowSize", windowSize);
+  if (typeof refitEvery !== "number" || !Number.isInteger(refitEvery)) throw new TypeError(`RollingHMM: refitEvery must be an integer, got ${typeof refitEvery === "number" ? refitEvery : _what(refitEvery)}`);
+  if (!(refitEvery >= -2147483648 && refitEvery <= 2147483647)) _intRange(M, "RollingHMM", "refitEvery", refitEvery);
+  if (typeof emission !== "string") throw new TypeError(`RollingHMM: emission must be a string, got ${emission instanceof String ? "a String object" : _what(emission)}`);
+  if (typeof maxIter !== "number" || !Number.isInteger(maxIter)) throw new TypeError(`RollingHMM: maxIter must be an integer, got ${typeof maxIter === "number" ? maxIter : _what(maxIter)}`);
+  if (!(maxIter >= -2147483648 && maxIter <= 2147483647)) _intRange(M, "RollingHMM", "maxIter", maxIter);
+  if (typeof tol !== "number") throw new TypeError(`RollingHMM: tol must be a number, got ${_what(tol)}`);
+  try {
+    return _params(wrapOp(M, () => new M.RollingHMM(windowSize, refitEvery, emission, maxIter, tol)), "RollingHMM", ["window_size", "refit_every", "emission", "max_iter", "tol"], _given);
+  } catch (e) { throw _finite(M, "RollingHMM", ["windowSize", "refitEvery", "maxIter", "tol"], [windowSize, refitEvery, maxIter, tol], e); }
+}
+
 /** The settings of RollingHitRate by name, for `RollingHitRate({ ... })`. */
 export interface RollingHitRateOptions {
   /** Number of most recent values counted. @defaultValue `252` */

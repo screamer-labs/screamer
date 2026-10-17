@@ -88,3 +88,11 @@ test("research: BayesianChangepoint first value", () => {
   assert.deepEqual(out.shape, [1, 3]);
   assert.ok(out.data[0] === 0 && Math.abs(out.data[1] - 0.25) < 1e-12 && Math.abs(out.data[2] - Math.sqrt(3.1875)) < 1e-12);
 });
+
+test("research: RollingHMM is NaN until its first fit", () => {
+  const x = Float64Array.from({ length: 30 }, (_, i) => Math.sin(i) * (i % 7 === 0 ? 3 : 1));
+  const out = (api as any).RollingHMM({ windowSize: 20, refitEvery: 5 })(x) as { data: Float64Array; shape: number[] };
+  assert.deepEqual(out.shape, [30, 3]);
+  assert.ok(Array.from(out.data.subarray(0, 19 * 3)).every(Number.isNaN));
+  assert.ok(Array.from(out.data.subarray(19 * 3)).every(Number.isFinite));
+});

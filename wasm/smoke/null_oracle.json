@@ -4303,6 +4303,52 @@
  },
  {
   "accepts_bool": {
+   "emission": false,
+   "max_iter": false,
+   "refit_every": false,
+   "tol": false,
+   "window_size": false
+  },
+  "accepts_none": {
+   "emission": false,
+   "max_iter": false,
+   "refit_every": false,
+   "tol": false,
+   "window_size": false
+  },
+  "base": {},
+  "below_min": {
+   "max_iter": [
+    0,
+    "RollingHMM: max_iter must be at least 1, got 0"
+   ],
+   "refit_every": [
+    0,
+    "RollingHMM: refit_every must be at least 1, got 0"
+   ],
+   "window_size": [
+    9,
+    "RollingHMM: window_size must be at least 10, got 9"
+   ]
+  },
+  "bool_message": {
+   "emission": "RollingHMM: emission must be a string, got bool",
+   "max_iter": "RollingHMM: max_iter must be an integer, got bool",
+   "refit_every": "RollingHMM: refit_every must be an integer, got bool",
+   "tol": "RollingHMM: tol must be a number, got bool",
+   "window_size": "RollingHMM: window_size must be an integer, got bool"
+  },
+  "name": "RollingHMM",
+  "non_finite": {
+   "tol": {
+    "-inf": "RollingHMM: tol must be finite, got -inf",
+    "inf": "RollingHMM: tol must be finite, got inf",
+    "nan": "RollingHMM: tol must be finite, got nan"
+   }
+  }
+ },
+ {
+  "accepts_bool": {
    "window_size": false
   },
   "accepts_none": {

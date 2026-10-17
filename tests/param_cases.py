@@ -36,6 +36,8 @@ _ROLLING_AUTO_EXCLUDE = {
     'RollingBipowerVar', 'RollingJumpShare', 'RollingVarianceRatio', 'RollingPermutationEntropy',
     # period x window warm-up; explicit entry below
     'RollingSeasonalMean', 'RollingSeasonalStd', 'RollingSeasonalZscore',
+    # 1 -> 3; baseline entry in multi_input_definitions
+    'RollingHMM',
     # extra non-window arg (mar / threshold / alpha) - tested in test_risk_stats.py
     'RollingDownsideDeviation', 'RollingUpsideDeviation', 'RollingOmega', 'RollingCVaR',
     # 2-input (FunctorBase<_, 2, 1>) - need parallel arrays
@@ -355,6 +357,12 @@ multi_input_definitions = [
                                     , {"window_size": [20], "array_type": ["ohlc"]}),
     # Online Bayesian changepoint detection: 1 -> 3, run length truncated at max_run.
     ( ('BayesianChangepoint',)     , {"expected_run": [50.0], "max_run": [100], "prior_var": [1.0], "array_length": [300]}),
+    ( ('RollingHMM',)               , {"window_size": [60], "refit_every": [15], "emission": ["gaussian"],
+                                       "max_iter": [30], "tol": [1e-8], "array_type": ["regime"],
+                                       "array_length": [300]}),
+    ( ('RollingHMM',)               , {"window_size": [60], "refit_every": [15], "emission": ["ar1"],
+                                       "max_iter": [30], "tol": [1e-8], "array_type": ["ar_regime"],
+                                       "array_length": [300]}),
 ]
 
 
@@ -474,6 +482,24 @@ def generate_arrays(array_type, array_length, n_inputs):
     ]
 
 
+def generate_regime_array(array_length):
+    """Returns whose scale switches between 0.5 and 2.0 every 50 steps, so a
+    two-state model has two separated states to find (on i.i.d. input the
+    two fitted variances can tie, and the state order would be arbitrary)."""
+    scale = np.where((np.arange(array_length) // 50) % 2 == 0, 0.5, 2.0)
+    return np.random.randn(array_length) * scale
+
+
+def generate_ar_regime_array(array_length):
+    """An AR(1) series whose coefficient switches between 0.7 and -0.5 every
+    50 steps, for the "ar1" emission of RollingHMM."""
+    e = np.random.randn(array_length)
+    x = np.zeros(array_length)
+    for t in range(1, array_length):
+        x[t] = (0.7 if (t // 50) % 2 == 0 else -0.5) * x[t - 1] + e[t]
+    return x
+
+
 def generate_array(array_type, array_length, seed=None, **kwargs):
     if seed is not None:
         np.random.seed(1000 + seed)
@@ -485,6 +511,10 @@ def generate_array(array_type, array_length, seed=None, **kwargs):
         return generate_positive_array(array_length)
     if array_type == 'with_nan':
         return generate_array_with_nan(array_length)
+    if array_type == 'regime':
+        return generate_regime_array(array_length)
+    if array_type == 'ar_regime':
+        return generate_ar_regime_array(array_length)
     return generate_default_array(array_length)
 
 # ----------------------------------------------------------------------

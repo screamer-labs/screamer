@@ -76,6 +76,7 @@
 #include "screamer/rolling_bipower.h"
 #include "screamer/rolling_variance_ratio.h"
 #include "screamer/rolling_permutation_entropy.h"
+#include "screamer/rolling_hmm.h"
 #include <string>
 
 namespace nb = nanobind;
@@ -627,6 +628,16 @@ void init_bindings_rolling(nb::module_& m) {
              "window_size"_a = 100, "order"_a = 3, "delay"_a = 1, "start_policy"_a = "strict")
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingPermutationEntropy::reset, "Reset.");
+
+    // 1 -> 3 two-state hidden Markov model, refit on a trailing window:
+    // (prob, pred_mean, pred_std).
+    nb::class_<screamer::RollingHMM, screamer::EvalOp>(m, "RollingHMM")
+        .def(nb::init<screamer::IntArg<int>, screamer::IntArg<int>, const std::string&,
+                      screamer::IntArg<int>, screamer::FloatArg>(),
+             "window_size"_a = 720, "refit_every"_a = 24, "emission"_a = "gaussian",
+             "max_iter"_a = 50, "tol"_a = 1e-6)
+        .def("__call__", &screamer::functor_call<screamer::RollingHMM>)
+        .def("reset", &screamer::RollingHMM::reset, "Reset.");
 
     nb::class_<screamer::RollingPoly1, screamer::ScreamerBase>(m, "RollingPoly1")
         .def(nb::init<screamer::IntArg<int>, screamer::IntArg<int>, const std::string&>(),

@@ -70,6 +70,7 @@ CHOICES = {
     "scale": ("unit",),
     "method": ("cutler",),
     "barrier_unit": ("price", "vol"),
+    "emission": ("ar1",),
 }
 OUTPUT_CHOICES = {
     "Hampel": ("flag", "nan"),

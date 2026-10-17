@@ -63,6 +63,9 @@ CASES = [
     ("RollingPermutationEntropy", {"window_size": 20, "order": 4, "start_policy": "zero"}, "events"),
     ("BayesianChangepoint", {"expected_run": 100.0, "max_run": 300}, "returns", 1e-7),
     ("BayesianChangepoint", {"expected_run": 20.0, "max_run": 40, "prior_var": 4.0}, "returns", 1e-7),
+    ("RollingHMM", {"window_size": 150, "refit_every": 40, "max_iter": 20, "tol": 0.0}, "returns", 1e-6),
+    ("RollingHMM", {"window_size": 150, "refit_every": 40, "emission": "ar1", "max_iter": 20, "tol": 0.0},
+     "returns", 1e-6),
 ]
 
 

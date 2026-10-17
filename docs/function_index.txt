@@ -193,6 +193,7 @@ RollingCov, Rolling sample covariance of two parallel streams.
 RollingDownsideDeviation, Trailing-window downside semideviation: the RMS of returns falling below a minimum acceptable return.
 RollingGarmanKlassVar, Var form of the Garman-Klass range-based volatility estimator (OHLC).
 RollingGarmanKlassVol, Vol form of the Garman-Klass range-based volatility estimator (OHLC).
+RollingHMM, Two-state hidden Markov model of a series, refit on a trailing window and filtered forward each step; the probability of the high-variance (or more persistent) state and a one-step predictive mean and standard deviation.
 RollingHitRate, Fraction of strictly positive values in a trailing window.
 RollingHurst, Rolling-window Hurst exponent via Anis-Lloyd corrected rescaled-range analysis.
 RollingInfoRatio, Annualized information ratio: the Sharpe ratio of active returns against a benchmark.

@@ -194,6 +194,7 @@
  "functions_rolling/RollingBipowerVar": "cef1abddbc5f44b8",
  "functions_rolling/RollingGarmanKlassVar": "e7c393432d02bc96",
  "functions_rolling/RollingGarmanKlassVol": "a016aaec6bbae7a9",
+ "functions_rolling/RollingHMM": "b57035279617f8c5",
  "functions_rolling/RollingHurst": "7b3df2bf66d7475c",
  "functions_rolling/RollingIqr": "2e2aed6c9fde4ea4",
  "functions_rolling/RollingJumpShare": "bee0c3a3ce57cf0a",

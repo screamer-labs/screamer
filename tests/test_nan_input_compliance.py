@@ -209,6 +209,14 @@ def _input_for(name: str, n_inputs: int, n_samples: int) -> list[np.ndarray]:
     return _build_input(n_inputs, n_samples)
 
 
+def _n_samples(entry: dict) -> int:
+    """500, or long enough for two windows of the default window_size, so an
+    operator with a long default window has finite output to check."""
+    w = next((p["default"] for p in (entry.get("parameters") or [])
+              if p["name"] == "window_size" and isinstance(p["default"], int)), 0)
+    return max(500, 2 * w + 100)
+
+
 def _xfail_if_in(known: set[str], reason_label: str):
     """Return a per-name marker factory tied to a specific failure set."""
     def factory(name: str):
@@ -271,7 +279,7 @@ def test_no_sticky_nan(name: str, entry: dict):
     """
     policy = entry["nan_policy"]
     n_inputs = int(entry.get("inputs", 1))
-    arrays = _input_for(name, n_inputs, n_samples=500)
+    arrays = _input_for(name, n_inputs, n_samples=_n_samples(entry))
     instance = _instantiate(entry)
     out = _call(instance, arrays)
 
@@ -303,7 +311,7 @@ def test_nan_at_nan_index(name: str, entry: dict):
     policy = entry["nan_policy"]
 
     n_inputs = int(entry.get("inputs", 1))
-    arrays = _input_for(name, n_inputs, n_samples=500)
+    arrays = _input_for(name, n_inputs, n_samples=_n_samples(entry))
     # Add a NaN deep in the middle, far from warmup and far from end.
     nan_idx = 250
     for a in arrays:
@@ -389,7 +397,7 @@ def test_ignore_nan_is_state_transparent(name: str, entry: dict):
     n_inputs = int(entry.get("inputs", 1))
     nan_idx = 250
 
-    clean = _input_for(name, n_inputs, n_samples=500)
+    clean = _input_for(name, n_inputs, n_samples=_n_samples(entry))
     holed = [np.insert(a, nan_idx, np.nan) for a in clean]
 
     out_clean = _call(_instantiate(entry), clean)
@@ -416,7 +424,7 @@ def test_ignore_nan_is_state_transparent_per_input(name: str, entry: dict):
     nan_idx = 250
 
     for bad in range(n_inputs):
-        clean = _input_for(name, n_inputs, n_samples=500)
+        clean = _input_for(name, n_inputs, n_samples=_n_samples(entry))
         # Every input gets the extra row so the streams stay aligned; only the
         # one under test is missing a value there.
         holed = [np.insert(a, nan_idx, a[nan_idx]) for a in clean]

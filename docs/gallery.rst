@@ -2240,6 +2240,13 @@ Training sets and labels from time-series data, online regression and filtering 
       :img-alt: KalmanFilter example plot
       :class-card: gallery-card
 
+   .. grid-item-card:: RollingHMM
+      :link: functions_rolling/RollingHMM
+      :link-type: doc
+      :img-top: _static/gallery/functions_rolling__RollingHMM.webp
+      :img-alt: RollingHMM example plot
+      :class-card: gallery-card
+
    .. grid-item-card:: RollingJumpShare
       :link: functions_rolling/RollingJumpShare
       :link-type: doc

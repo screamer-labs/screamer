@@ -3950,6 +3950,39 @@ export declare function RollingGarmanKlassVol(options: RollingGarmanKlassVolOpti
  */
 export declare function RollingGarmanKlassVol(windowSize?: number): ScreamerOp;
 
+/** The settings of RollingHMM by name, for `RollingHMM({ ... })`. */
+export interface RollingHMMOptions {
+  /** Number of most recent values the model is fit on. @defaultValue `720` */
+  windowSize?: number;
+  /** Steps between fits. Between fits the model filters each new value with fixed parameters. @defaultValue `24` */
+  refitEvery?: number;
+  /** "gaussian": each state emits a normal value with its own mean and variance; "ar1": each state emits an AR(1) step x_t = c + phi x_{t-1} + e with its own c, phi, and variance (Hamilton's Markov-switching AR(1)). @defaultValue `"gaussian"` */
+  emission?: string;
+  /** Largest number of EM iterations per fit. @defaultValue `50` */
+  maxIter?: number;
+  /** A fit stops when an EM iteration raises the log-likelihood by less than this. @defaultValue `1e-06` */
+  tol?: number;
+}
+
+/**
+ * Two-state hidden Markov model of a series, refit on a trailing window and filtered forward each step; the probability of the high-variance (or more persistent) state and a one-step predictive mean and standard deviation.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingHMM.html for the full reference.
+ */
+export declare function RollingHMM(options: RollingHMMOptions): ScreamerOp;
+/**
+ * Two-state hidden Markov model of a series, refit on a trailing window and filtered forward each step; the probability of the high-variance (or more persistent) state and a one-step predictive mean and standard deviation.
+ *
+ * @param windowSize Number of most recent values the model is fit on.
+ * @param refitEvery Steps between fits. Between fits the model filters each new value with fixed parameters.
+ * @param emission "gaussian": each state emits a normal value with its own mean and variance; "ar1": each state emits an AR(1) step x_t = c + phi x_{t-1} + e with its own c, phi, and variance (Hamilton's Markov-switching AR(1)).
+ * @param maxIter Largest number of EM iterations per fit.
+ * @param tol A fit stops when an EM iteration raises the log-likelihood by less than this.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingHMM.html for the full reference.
+ */
+export declare function RollingHMM(windowSize?: number, refitEvery?: number, emission?: string, maxIter?: number, tol?: number): ScreamerOp;
+
 /** The settings of RollingHitRate by name, for `RollingHitRate({ ... })`. */
 export interface RollingHitRateOptions {
   /** Number of most recent values counted. @defaultValue `252` */

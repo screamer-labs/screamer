@@ -148,6 +148,7 @@
 #include "screamer/rolling_cvar.h"
 #include "screamer/rolling_downside_deviation.h"
 #include "screamer/rolling_hit_rate.h"
+#include "screamer/rolling_hmm.h"
 #include "screamer/rolling_hurst.h"
 #include "screamer/rolling_info_ratio.h"
 #include "screamer/rolling_iqr.h"
@@ -487,6 +488,11 @@ inline screamer::RollingCov* make_RollingCov(int a0, emscripten::val a1) {
 inline screamer::RollingDownsideDeviation* make_RollingDownsideDeviation(int a0, double a1, emscripten::val a2) {
     const std::string a2s = a2.as<std::string>();
     return new screamer::RollingDownsideDeviation(a0, a1, a2s);
+}
+
+inline screamer::RollingHMM* make_RollingHMM(int a0, int a1, emscripten::val a2, int a3, double a4) {
+    const std::string a2s = a2.as<std::string>();
+    return new screamer::RollingHMM(a0, a1, a2s, a3, a4);
 }
 
 inline screamer::RollingHurst* make_RollingHurst(int a0, int a1, emscripten::val a2) {
@@ -1073,6 +1079,8 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor<int>();
     emscripten::class_<screamer::RollingGarmanKlassVol, emscripten::base<screamer::EvalOp>>("RollingGarmanKlassVol")
         .constructor<int>();
+    emscripten::class_<screamer::RollingHMM, emscripten::base<screamer::EvalOp>>("RollingHMM")
+        .constructor(&make_RollingHMM, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingHitRate, emscripten::base<screamer::EvalOp>>("RollingHitRate")
         .constructor<int>();
     emscripten::class_<screamer::RollingHurst, emscripten::base<screamer::EvalOp>>("RollingHurst")

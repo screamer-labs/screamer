@@ -43,6 +43,8 @@ Detect a change in a series' behaviour: hidden Markov regimes, Bayesian change p
      - Online Bayesian changepoint detection (Adams-MacKay) on a series with Gaussian segments of unknown mean and variance; the expected run length since the last change and a predictive mean and standard deviation.
    * - :doc:`CUSUM event filter </functions_signal/CusumFilter>`
      - Symmetric CUSUM event filter: +1 when the cumulative rise since the last event passes a threshold, -1 for a fall, 0 otherwise.
+   * - :doc:`Rolling two-state hidden Markov model </functions_rolling/RollingHMM>`
+     - Two-state hidden Markov model of a series, refit on a trailing window and filtered forward each step; the probability of the high-variance (or more persistent) state and a one-step predictive mean and standard deviation.
    * - :doc:`Rolling Jump Share </functions_rolling/RollingJumpShare>`
      - Share of the realized variance of a window of returns that comes from jumps: max(0, 1 - BV / RV).
    * - :doc:`Rolling Permutation Entropy </functions_rolling/RollingPermutationEntropy>`
@@ -55,5 +57,6 @@ Detect a change in a series' behaviour: hidden Markov regimes, Bayesian change p
 
    /functions_fin/BayesianChangepoint
    /functions_supervised/forecast_pairs
+   /functions_rolling/RollingHMM
    /functions_fin/TripleBarrier
    /functions_fin/TripleBarrierOHLC
