@@ -716,6 +716,8 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp, finalize 
   (op as any)[Symbol.dispose] = free;
   (op as any).numInputs = nIn;
   (op as any).opName = opName(raw);
+  // A backtest engine's mark input (walkForward's carry), a static of its class.
+  (op as any).markInput = (raw as any).constructor?.markInput;
   (op as any).numOutputs = nOut;
   if (finalize) releaseWith(op, res);
   return op;
@@ -1288,6 +1290,7 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
   (op as any).rowOp = { fieldsIn: fi, fieldsOut: fo };
   (op as any).numInputs = raw.nIn();
   (op as any).opName = opName(raw);
+  (op as any).markInput = (raw as any).constructor?.markInput;
   (op as any).numOutputs = raw.nOut();
   releaseWith(op, res);
   return op;

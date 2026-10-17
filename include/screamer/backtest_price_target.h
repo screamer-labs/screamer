@@ -2,6 +2,7 @@
 #define SCREAMER_BACKTEST_PRICE_TARGET_H
 
 #include <algorithm>
+#include <cstddef>
 #include <limits>
 #include <stdexcept>
 #include <string>
@@ -46,6 +47,10 @@ namespace screamer {
     // step (nan_policy: ignore).
     class BacktestPriceTarget : public FunctorBase<BacktestPriceTarget, 2, 4> {
     public:
+        // The market input (after the target) that marks a position: the price.
+        // walk_forward's carry marks with it.
+        static constexpr std::size_t mark_input = 0;
+
         BacktestPriceTarget(double spread = 0.0, double fee = 0.0,
                             double min_position = -std::numeric_limits<double>::infinity(),
                             double max_position = std::numeric_limits<double>::infinity(),

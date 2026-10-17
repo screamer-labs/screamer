@@ -392,16 +392,16 @@ function marketData(x: any): Float64Array {
 }
 
 // Heap copies of the target and of the [address, ndim, T, K] specs of the
-// target and the market inputs. The market's data stays in JS unless
-// `withData` (the carry reads the mark price in C++).
-function heapSpecs(target: Target, market: any[], bufs: number[], withData = false) {
+// target and the market inputs. The market's data stays in JS except for
+// input `withData` (the carry reads the mark price in C++; -1: none).
+function heapSpecs(target: Target, market: any[], bufs: number[], withData = -1) {
   const data = heapCopy(target.data);
   bufs.push(data);
   const t = heapCopy([data, target.ndim, target.T, target.K]);
   bufs.push(t);
-  const m = heapCopy(market.flatMap((x) => {
+  const m = heapCopy(market.flatMap((x, i) => {
     let addr = 0;
-    if (withData) { addr = heapCopy(marketData(x)); bufs.push(addr); }
+    if (i === withData) { addr = heapCopy(marketData(x)); bufs.push(addr); }
     return [addr, ...dims(x)];
   }));
   bufs.push(m);
@@ -924,7 +924,7 @@ export interface WalkForwardOptions {
   /**
    * Per-step carry rate (funding, borrow), one value per row, with the sign
    * and timing `BacktestCarry` documents. Every run is scored after
-   * `BacktestCarry`, marked with the engine's last price input. A `[T, K]`
+   * `BacktestCarry`, marked with the engine's `markInput`. A `[T, K]`
    * NdArray for a portfolio engine.
    */
   carry?: ArrayLike<number> | NdArray;
@@ -971,10 +971,12 @@ export interface WalkForwardResult {
  * `carry` is a per-step carry rate (funding, borrow), one value per row, with
  * the sign and timing `BacktestCarry` documents. With it, every candidate's
  * run and the stitched run pass through `BacktestCarry` (multiplier
- * `carryMultiplier`) before they are scored, marked with the engine's last
- * price input (the close for the OHLC engines, the trade price for
- * `BacktestTradesTarget`, the ask for `BacktestL1Target`), so `output` and
- * `stats` are after carry.
+ * `carryMultiplier`) before they are scored, marked with the engine's
+ * `markInput` (the price for `BacktestPriceTarget` and
+ * `BacktestPortfolioTarget`, the close for the OHLC engines, the trade price
+ * for `BacktestTradesTarget`, the ask for `BacktestL1Target`), so `output`
+ * and `stats` are after carry. An engine without `markInput` raises with
+ * `carry`.
  *
  * Portfolio engines (`BacktestPortfolioTarget`, `BacktestPortfolioOHLCTarget`)
  * take a `[T, K, C]` target, C candidates for K assets (`[T, K]` is one
@@ -1013,7 +1015,8 @@ export function walkForward(
         foldStart: Int32Array.from(M.viewF64(foldPtr, F)),
         trainScores: { data: M.viewF64(scoresPtr, F * K).slice(), shape: [F, K] },
         output: outLen > 0
-          ? { data: M.viewF64(outPtr, outLen).slice(), shape: (asNd(state.out) as NdArray).shape }
+          ? { data: M.viewF64(outPtr, outLen).slice(),
+              shape: portfolio ? [tgt.T, tgt.K / tgt.C, 4] : [tgt.T, 4] }
           : state.out,
         stats: statsRecord((i) => stats[i]), metric: name,
       };
@@ -1021,7 +1024,8 @@ export function walkForward(
   });
   const bufs: number[] = [];
   try {
-    const spec = heapSpecs(tgt, market, bufs, opts.carry != null);
+    const markInput: number = (engine as any).markInput ?? -1;
+    const spec = heapSpecs(tgt, market, bufs, opts.carry != null ? markInput : -1);
     let carrySpec = 0;
     if (opts.carry != null) {
       const cnd = asNd(opts.carry);
@@ -1035,7 +1039,7 @@ export function walkForward(
     }
     callbacks.call((cb) => M.walkForwardRun(cb, spec.target, spec.market, market.length,
       num(opts.train), num(opts.test), custom ? "" : name, custom, hasLarger, larger, !!opts.anchored,
-      opts.periodsPerYear ?? 1, portfolio, tgt.C, carrySpec, opts.carryMultiplier ?? 1,
+      opts.periodsPerYear ?? 1, portfolio, tgt.C, carrySpec, opts.carryMultiplier ?? 1, markInput,
       (engine as any).opName ?? ""));
     return result as unknown as WalkForwardResult;
   } finally {

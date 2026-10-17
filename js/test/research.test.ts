@@ -156,3 +156,16 @@ test("research: walkForward with a portfolio engine matches Python", () => {
   close(res.output.data, h.output, "output");
   for (const [k, v] of Object.entries(h.stats as Record<string, Num>)) close([(res.stats as any)[k]], [v], `stats ${k}`);
 });
+
+test("research: engines declare their mark input for walkForward carry", () => {
+  const marks: [string, number][] = [["BacktestPriceTarget", 0], ["BacktestOHLCTarget", 3],
+    ["BacktestOHLCVTarget", 3], ["BacktestTradesTarget", 0], ["BacktestL1Target", 1],
+    ["BacktestPortfolioTarget", 0], ["BacktestPortfolioOHLCTarget", 3]];
+  for (const [name, mark] of marks) assert.equal(((api as any)[name]() as any).markInput, mark, name);
+  assert.equal(((api as any).BacktestCarry() as any).markInput, undefined);
+  const T = 40, c = Float64Array.from({ length: T }, (_, t) => 100 + Math.sin(t));
+  const x = Float64Array.from({ length: T }, (_, t) => (t % 7 < 3 ? 1 : -1));
+  assert.throws(() => walkForward((api as any).BacktestCarry(), x, [c, c, c, c, c, c],
+                                  { train: 10, test: 10, carry: new Float64Array(T) }),
+    { name: "RangeError", message: /carry needs an engine with a mark input.*BacktestCarry has none/ });
+});

@@ -287,7 +287,7 @@ def test_carry_argument_checks():
                      carry_multiplier=0.0)
 
 
-def test_carry_with_an_engine_of_unknown_price_input_raises():
+def test_carry_with_an_engine_without_a_mark_input_raises():
     class Wrapped:
         def __init__(self):
             self.eng = BacktestOHLCTarget()
@@ -302,8 +302,38 @@ def test_carry_with_an_engine_of_unknown_price_input_raises():
     o, h, l, c = _market(T)
     X = _targets(T)
     walk_forward(Wrapped(), X, o, h, l, c, train=50, test=50)
-    with pytest.raises(ValueError, match="carry needs a target engine whose price input is known"):
+    with pytest.raises(ValueError, match="carry needs an engine with a mark input.*Wrapped has none"):
         walk_forward(Wrapped(), X, o, h, l, c, train=50, test=50, carry=np.zeros(T))
+    # declaring the mark input is enough
+    Wrapped.mark_input = 3
+    rate = _rate(T)
+    np.testing.assert_array_equal(
+        walk_forward(Wrapped(), X, o, h, l, c, train=50, test=50, carry=rate).output,
+        walk_forward(BacktestOHLCTarget(), X, o, h, l, c, train=50, test=50, carry=rate).output)
+
+
+def test_engines_declare_their_mark_input():
+    from screamer import BacktestPortfolioOHLCTarget
+    marks = {BacktestPriceTarget: 0, BacktestOHLCTarget: 3, BacktestOHLCVTarget: 3,
+             BacktestTradesTarget: 0, BacktestL1Target: 1, BacktestPortfolioTarget: 0,
+             BacktestPortfolioOHLCTarget: 3}
+    for engine, mark in marks.items():
+        assert engine.mark_input == mark and engine().mark_input == mark, engine.__name__
+    assert not hasattr(BacktestCarry(), "mark_input")
+
+
+def test_carry_with_a_subclass_of_an_engine():
+    class MyOHLC(BacktestOHLCTarget):
+        pass
+
+    T = 200
+    o, h, l, c = _market(T)
+    X = _targets(T)
+    rate = _rate(T)
+    a = walk_forward(MyOHLC(taker_fee=2e-4), X, o, h, l, c, train=50, test=50, carry=rate)
+    b = walk_forward(BacktestOHLCTarget(taker_fee=2e-4), X, o, h, l, c, train=50, test=50, carry=rate)
+    np.testing.assert_array_equal(a.output, b.output)
+    np.testing.assert_array_equal(a.train_scores, b.train_scores)
 
 
 def _book(T, K, seed):

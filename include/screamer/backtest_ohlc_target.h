@@ -1,6 +1,7 @@
 #ifndef SCREAMER_BACKTEST_OHLC_TARGET_H
 #define SCREAMER_BACKTEST_OHLC_TARGET_H
 
+#include <cstddef>
 #include <limits>
 #include <string>
 #include "screamer/common/functor_base.h"
@@ -18,6 +19,10 @@ namespace screamer {
     // limited by volume; BacktestOHLCVTarget adds that.
     class BacktestOHLCTarget : public FunctorBase<BacktestOHLCTarget, 5, 4> {
     public:
+        // The market input (after the target) that marks a position: the close.
+        // walk_forward's carry marks with it.
+        static constexpr std::size_t mark_input = 3;
+
         BacktestOHLCTarget(double taker_fee = 0.0, double tick_size = 0.0,
                            double min_position = -std::numeric_limits<double>::infinity(),
                            double max_position = std::numeric_limits<double>::infinity(),

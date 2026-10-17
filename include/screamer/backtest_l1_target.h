@@ -1,6 +1,7 @@
 #ifndef SCREAMER_BACKTEST_L1_TARGET_H
 #define SCREAMER_BACKTEST_L1_TARGET_H
 
+#include <cstddef>
 #include <limits>
 #include <string>
 #include "screamer/common/functor_base.h"
@@ -30,6 +31,10 @@ namespace screamer {
     // toward the last finite target.
     class BacktestL1Target : public FunctorBase<BacktestL1Target, 5, 4> {
     public:
+        // The market input (after the target) that marks a position: the ask.
+        // walk_forward's carry marks with it.
+        static constexpr std::size_t mark_input = 1;
+
         BacktestL1Target(double taker_fee = 0.0, double tick_size = 0.0,
                          double min_position = -std::numeric_limits<double>::infinity(),
                          double max_position = std::numeric_limits<double>::infinity(),

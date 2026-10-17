@@ -1175,7 +1175,7 @@ nb::tuple walk_forward_py(nb::callable run, nb::callable reset, nb::object metri
                           std::optional<bool> larger_is_better, bool anchored,
                           double periods_per_year, bool portfolio, std::size_t candidates,
                           std::optional<BlockIn> carry, double carry_multiplier,
-                          const std::string& engine) {
+                          std::optional<std::size_t> mark_input, const std::string& engine) {
     sv::WalkForwardOptions opt;
     opt.train = train; opt.test = test; opt.metric = metric_name; opt.custom = custom;
     opt.larger_is_better = larger_is_better; opt.anchored = anchored;
@@ -1183,6 +1183,7 @@ nb::tuple walk_forward_py(nb::callable run, nb::callable reset, nb::object metri
     opt.candidates = candidates;
     if (carry) opt.carry = array_shape(*carry);
     opt.carry_multiplier = carry_multiplier;
+    opt.mark_input = mark_input;
     opt.engine = engine;
     PyEngineHost host(run, reset, metric, original);
     sv::WalkForwardResult r = sv::walk_forward(host, array_shape(targets), array_shapes(prices), opt);
@@ -1257,7 +1258,8 @@ void init_bindings_fin(nb::module_& m) {
     m.def("_walk_forward", &walk_forward_py,
           "run"_a, "reset"_a, "metric"_a.none(), "original"_a, "targets"_a, "prices"_a, "train"_a,
           "test"_a, "metric_name"_a, "custom"_a, "larger_is_better"_a.none(), "anchored"_a,
-          "periods_per_year"_a, "portfolio"_a, "candidates"_a, "carry"_a.none(), "carry_multiplier"_a, "engine"_a);
+          "periods_per_year"_a, "portfolio"_a, "candidates"_a, "carry"_a.none(), "carry_multiplier"_a, "mark_input"_a.none(),
+          "engine"_a);
     m.def("_default_min_shift", [](SurrogateIn x) {
         return screamer::validation::default_min_shift(x.data(), x.shape(0));
     }, "x"_a);
@@ -1478,7 +1480,8 @@ void init_bindings_fin(nb::module_& m) {
              "stop_loss"_a = 0.0, "take_profit"_a = 0.0, "trailing_stop"_a = 0.0,
              "size"_a = "units", "initial_capital"_a = 0.0, "rebalance_band"_a = 0.0)
         .def("__call__", &screamer::functor_call<screamer::BacktestPriceTarget>)
-        .def("reset", &screamer::BacktestPriceTarget::reset, "Reset.");
+        .def("reset", &screamer::BacktestPriceTarget::reset, "Reset.")
+        .def_ro_static("mark_input", &screamer::BacktestPriceTarget::mark_input);
 
     nb::class_<screamer::BacktestOHLCOrders, screamer::EvalOp>(m, "BacktestOHLCOrders")
         .def(nb::init<screamer::FloatArg, screamer::FloatArg, const std::string&, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, const std::string&>(),
@@ -1505,7 +1508,8 @@ void init_bindings_fin(nb::module_& m) {
              "stop_loss"_a = 0.0, "take_profit"_a = 0.0, "trailing_stop"_a = 0.0,
              "size"_a = "units", "initial_capital"_a = 0.0, "rebalance_band"_a = 0.0)
         .def("__call__", &screamer::functor_call<screamer::BacktestOHLCTarget>)
-        .def("reset", &screamer::BacktestOHLCTarget::reset, "Reset.");
+        .def("reset", &screamer::BacktestOHLCTarget::reset, "Reset.")
+        .def_ro_static("mark_input", &screamer::BacktestOHLCTarget::mark_input);
 
     nb::class_<screamer::BacktestOHLCVTarget, screamer::EvalOp>(m, "BacktestOHLCVTarget")
         .def(nb::init<screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, const std::string&, const std::string&, screamer::IntArg<int>, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, const std::string&, screamer::FloatArg, screamer::FloatArg>(),
@@ -1518,7 +1522,8 @@ void init_bindings_fin(nb::module_& m) {
              "stop_loss"_a = 0.0, "take_profit"_a = 0.0, "trailing_stop"_a = 0.0,
              "size"_a = "units", "initial_capital"_a = 0.0, "rebalance_band"_a = 0.0)
         .def("__call__", &screamer::functor_call<screamer::BacktestOHLCVTarget>)
-        .def("reset", &screamer::BacktestOHLCVTarget::reset, "Reset.");
+        .def("reset", &screamer::BacktestOHLCVTarget::reset, "Reset.")
+        .def_ro_static("mark_input", &screamer::BacktestOHLCVTarget::mark_input);
 
     nb::class_<screamer::BacktestTradesOrders, screamer::EvalOp>(m, "BacktestTradesOrders")
         .def(nb::init<screamer::FloatArg, screamer::FloatArg, const std::string&, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, const std::string&>(),
@@ -1558,7 +1563,8 @@ void init_bindings_fin(nb::module_& m) {
              "stop_loss"_a = 0.0, "take_profit"_a = 0.0, "trailing_stop"_a = 0.0,
              "size"_a = "units", "initial_capital"_a = 0.0, "rebalance_band"_a = 0.0)
         .def("__call__", &screamer::functor_call<screamer::BacktestL1Target>)
-        .def("reset", &screamer::BacktestL1Target::reset, "Reset.");
+        .def("reset", &screamer::BacktestL1Target::reset, "Reset.")
+        .def_ro_static("mark_input", &screamer::BacktestL1Target::mark_input);
 
     nb::class_<screamer::BacktestL1TradesOrders, screamer::EvalOp>(m, "BacktestL1TradesOrders")
         .def(nb::init<screamer::FloatArg, screamer::FloatArg, const std::string&, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, const std::string&>(),
@@ -1585,7 +1591,8 @@ void init_bindings_fin(nb::module_& m) {
              "size"_a = "units", "initial_capital"_a = 0.0, "rebalance_band"_a = 0.0,
              "max_participation"_a = std::numeric_limits<double>::infinity())
         .def("__call__", &screamer::functor_call<screamer::BacktestTradesTarget>)
-        .def("reset", &screamer::BacktestTradesTarget::reset, "Reset.");
+        .def("reset", &screamer::BacktestTradesTarget::reset, "Reset.")
+        .def_ro_static("mark_input", &screamer::BacktestTradesTarget::mark_input);
 
     nb::class_<screamer::BacktestReport, screamer::EvalOp>(m, "BacktestReport")
         .def(nb::init<screamer::FloatArg>(), "periods_per_year"_a = 1.0)
@@ -1648,7 +1655,8 @@ void init_bindings_fin(nb::module_& m) {
              "size"_a = "weight", "initial_capital"_a = 1.0, "rebalance_band"_a = 0.0,
              "rebalance"_a = "drifted",
              "max_gross"_a = std::numeric_limits<double>::infinity(),
-             "max_net"_a = std::numeric_limits<double>::infinity());
+             "max_net"_a = std::numeric_limits<double>::infinity())
+        .def_ro_static("mark_input", &screamer::BacktestPortfolioTarget::mark_input);
 
     nb::class_<screamer::BacktestPortfolioOHLCTarget, screamer::RowOp>(m, "BacktestPortfolioOHLCTarget")
         .def(nb::init<screamer::PerAsset, screamer::PerAsset, const std::string&,
@@ -1663,7 +1671,8 @@ void init_bindings_fin(nb::module_& m) {
              "rebalance"_a = "drifted",
              "max_gross"_a = std::numeric_limits<double>::infinity(),
              "max_net"_a = std::numeric_limits<double>::infinity(),
-             "fill_at"_a = "open", "delay"_a = 1);
+             "fill_at"_a = "open", "delay"_a = 1)
+        .def_ro_static("mark_input", &screamer::BacktestPortfolioOHLCTarget::mark_input);
 
     nb::class_<screamer::RollingDownsideDeviation, screamer::ScreamerBase>(m, "RollingDownsideDeviation")
         .def(nb::init<screamer::IntArg<int>, screamer::FloatArg, const std::string&>(),

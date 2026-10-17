@@ -387,19 +387,20 @@ void positionTestRun(emscripten::val cb, std::uintptr_t target, std::uintptr_t m
 }
 
 // walk_forward: `targets` is a (T, K) array spec (a (T,) target as (T, 1);
-// for a portfolio engine (T, assets * candidates)), `prices` array specs (their data is read only with a carry, for the mark
-// price). `carry` is the address of the carry rate's array spec, or 0;
-// `engine` the engine's op name. The result goes to cb.done(statsPtr,
-// foldPtr, choicePtr, scoresPtr, folds, K, outPtr, outLen): the statistics
-// (kNumStats), the fold starts and choices (folds each, as doubles), the
-// (folds, K) scores, and the stitched output after carry (outLen 0 without
+// for a portfolio engine (T, assets * candidates)), `prices` array specs
+// (only the mark input's data is read, with a carry). `carry` is the address
+// of the carry rate's array spec, or 0; `mark_input` the engine's markInput
+// (-1: none); `engine` the engine's op name. The result goes to
+// cb.done(statsPtr, foldPtr, choicePtr, scoresPtr, folds, K, outPtr, outLen):
+// the statistics (kNumStats), the fold starts and choices (folds each, as
+// doubles), the (folds, K) scores, and the stitched output after carry (outLen 0 without
 // carry). The stitched target and the output without carry stay on the JS
 // side (the last run).
 void walkForwardRun(emscripten::val cb, std::uintptr_t targets, std::uintptr_t prices,
                     std::size_t n_prices, double train, double test, emscripten::val metric,
                     bool custom, bool has_larger, bool larger_is_better, bool anchored,
                     double periods_per_year, bool portfolio, double candidates, std::uintptr_t carry,
-                    double carry_multiplier, emscripten::val engine) {
+                    double carry_multiplier, double mark_input, emscripten::val engine) {
     sv::WalkForwardOptions opt;
     opt.train = train;
     opt.test = test;
@@ -412,6 +413,7 @@ void walkForwardRun(emscripten::val cb, std::uintptr_t targets, std::uintptr_t p
     opt.candidates = static_cast<std::size_t>(candidates);
     if (carry != 0) opt.carry = array_shapes(carry, 1)[0];
     opt.carry_multiplier = carry_multiplier;
+    if (mark_input >= 0) opt.mark_input = static_cast<std::size_t>(mark_input);
     opt.engine = engine.as<std::string>();
     JsEngineHost host(std::move(cb));
     const sv::WalkForwardResult r =

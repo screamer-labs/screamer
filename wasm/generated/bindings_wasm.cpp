@@ -711,29 +711,35 @@ EMSCRIPTEN_BINDINGS(screamer) {
     emscripten::class_<screamer::BacktestL1Orders, emscripten::base<screamer::EvalOp>>("BacktestL1Orders")
         .constructor(&make_BacktestL1Orders, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::BacktestL1Target, emscripten::base<screamer::EvalOp>>("BacktestL1Target")
-        .constructor(&make_BacktestL1Target, emscripten::allow_raw_pointers());
+        .constructor(&make_BacktestL1Target, emscripten::allow_raw_pointers())
+        .class_property("markInput", &screamer::BacktestL1Target::mark_input);
     emscripten::class_<screamer::BacktestL1TradesOrders, emscripten::base<screamer::EvalOp>>("BacktestL1TradesOrders")
         .constructor(&make_BacktestL1TradesOrders, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::BacktestOHLCOrders, emscripten::base<screamer::EvalOp>>("BacktestOHLCOrders")
         .constructor(&make_BacktestOHLCOrders, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::BacktestOHLCTarget, emscripten::base<screamer::EvalOp>>("BacktestOHLCTarget")
-        .constructor(&make_BacktestOHLCTarget, emscripten::allow_raw_pointers());
+        .constructor(&make_BacktestOHLCTarget, emscripten::allow_raw_pointers())
+        .class_property("markInput", &screamer::BacktestOHLCTarget::mark_input);
     emscripten::class_<screamer::BacktestOHLCVTarget, emscripten::base<screamer::EvalOp>>("BacktestOHLCVTarget")
-        .constructor(&make_BacktestOHLCVTarget, emscripten::allow_raw_pointers());
+        .constructor(&make_BacktestOHLCVTarget, emscripten::allow_raw_pointers())
+        .class_property("markInput", &screamer::BacktestOHLCVTarget::mark_input);
     emscripten::class_<screamer::BacktestPortfolioOHLCTarget, emscripten::base<screamer::EvalOp>>("BacktestPortfolioOHLCTarget")
         .constructor(&make_BacktestPortfolioOHLCTarget, emscripten::allow_raw_pointers())
         .function("mapRowInto", &screamer_wasm::mapRowInto<screamer::BacktestPortfolioOHLCTarget>)
         .function("mapRowsInto", &screamer_wasm::mapRowsInto<screamer::BacktestPortfolioOHLCTarget>)
         .function("fieldsIn", &screamer_wasm::fieldsIn<screamer::BacktestPortfolioOHLCTarget>)
-        .function("fieldsOut", &screamer_wasm::fieldsOut<screamer::BacktestPortfolioOHLCTarget>);
+        .function("fieldsOut", &screamer_wasm::fieldsOut<screamer::BacktestPortfolioOHLCTarget>)
+        .class_property("markInput", &screamer::BacktestPortfolioOHLCTarget::mark_input);
     emscripten::class_<screamer::BacktestPortfolioTarget, emscripten::base<screamer::EvalOp>>("BacktestPortfolioTarget")
         .constructor(&make_BacktestPortfolioTarget, emscripten::allow_raw_pointers())
         .function("mapRowInto", &screamer_wasm::mapRowInto<screamer::BacktestPortfolioTarget>)
         .function("mapRowsInto", &screamer_wasm::mapRowsInto<screamer::BacktestPortfolioTarget>)
         .function("fieldsIn", &screamer_wasm::fieldsIn<screamer::BacktestPortfolioTarget>)
-        .function("fieldsOut", &screamer_wasm::fieldsOut<screamer::BacktestPortfolioTarget>);
+        .function("fieldsOut", &screamer_wasm::fieldsOut<screamer::BacktestPortfolioTarget>)
+        .class_property("markInput", &screamer::BacktestPortfolioTarget::mark_input);
     emscripten::class_<screamer::BacktestPriceTarget, emscripten::base<screamer::EvalOp>>("BacktestPriceTarget")
-        .constructor(&make_BacktestPriceTarget, emscripten::allow_raw_pointers());
+        .constructor(&make_BacktestPriceTarget, emscripten::allow_raw_pointers())
+        .class_property("markInput", &screamer::BacktestPriceTarget::mark_input);
     emscripten::class_<screamer::BacktestReport, emscripten::base<screamer::EvalOp>>("BacktestReport")
         .constructor<double>();
     emscripten::class_<screamer::BacktestStats, emscripten::base<screamer::EvalOp>>("BacktestStats")
@@ -741,7 +747,8 @@ EMSCRIPTEN_BINDINGS(screamer) {
     emscripten::class_<screamer::BacktestTradesOrders, emscripten::base<screamer::EvalOp>>("BacktestTradesOrders")
         .constructor(&make_BacktestTradesOrders, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::BacktestTradesTarget, emscripten::base<screamer::EvalOp>>("BacktestTradesTarget")
-        .constructor(&make_BacktestTradesTarget, emscripten::allow_raw_pointers());
+        .constructor(&make_BacktestTradesTarget, emscripten::allow_raw_pointers())
+        .class_property("markInput", &screamer::BacktestTradesTarget::mark_input);
     emscripten::class_<screamer::BandSignal, emscripten::base<screamer::EvalOp>>("BandSignal")
         .constructor<double, double, double>();
     emscripten::class_<screamer::BayesianChangepoint, emscripten::base<screamer::EvalOp>>("BayesianChangepoint")

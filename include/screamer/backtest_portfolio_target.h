@@ -18,6 +18,10 @@ namespace screamer {
     // detail/portfolio_engine.h for the target, sizing, drift, and limit rules.
     class BacktestPortfolioTarget : public RowOp {
     public:
+        // The market input (after the target) that marks a position: the price.
+        // walk_forward's carry marks with it.
+        static constexpr std::size_t mark_input = 0;
+
         BacktestPortfolioTarget(std::vector<double> fee = {0.0},
                                 std::vector<double> slippage = {0.0},
                                 const std::string& slippage_unit = "fraction",
@@ -54,6 +58,10 @@ namespace screamer {
     // ("open", "close", "typical", "ohlc4"); delay = 0 needs fill_at = "close".
     class BacktestPortfolioOHLCTarget : public RowOp {
     public:
+        // The market input (after the target) that marks a position: the close.
+        // walk_forward's carry marks with it.
+        static constexpr std::size_t mark_input = 3;
+
         BacktestPortfolioOHLCTarget(std::vector<double> fee = {0.0},
                                     std::vector<double> slippage = {0.0},
                                     const std::string& slippage_unit = "fraction",

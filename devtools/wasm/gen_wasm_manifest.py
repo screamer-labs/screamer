@@ -296,6 +296,10 @@ def parse_file(path: Path) -> list[dict]:
             entry["dynamic_reducer"] = True
         if base == "RowOp":
             entry["row_op"] = True
+        # An engine that marks a position with one of its market inputs
+        # (walk_forward's carry) exposes that input's index as mark_input.
+        if '"mark_input"' in block:
+            entry["mark_input"] = True
         ops.append(entry)
 
     return ops

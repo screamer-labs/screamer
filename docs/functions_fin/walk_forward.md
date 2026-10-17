@@ -91,13 +91,24 @@ carry_multiplier=1.0)`
   [`position_test`](position_test.md). Statistics with no natural direction,
   such as `turnover`, need it.
 - `carry`: a per-step carry rate (perpetual funding, borrow fee), a `(T,)`
-  series (`(T, K)` for a portfolio engine) with the sign and timing [`BacktestCarry`](BacktestCarry.md)
-  documents. With it, every candidate's run and the stitched run pass through
+  series (`(T, K)` for a portfolio engine) with the sign and timing
+  [`BacktestCarry`](BacktestCarry.md) documents. With it, every candidate's
+  run and the stitched run pass through
   `BacktestCarry(multiplier=carry_multiplier)` before they are scored, marked
-  with the engine's last price input: the close for the OHLC engines, the
-  trade price for `BacktestTradesTarget`, and the ask for `BacktestL1Target`.
-  `output` and `stats` are after carry. `carry_multiplier` is the contract
-  multiplier, as in `BacktestCarry`.
+  with the market input named by the engine's `mark_input` attribute:
+
+  | Engine | Marked with |
+  |:-------|:------------|
+  | `BacktestPriceTarget` | the price |
+  | `BacktestOHLCTarget`, `BacktestOHLCVTarget` | the close |
+  | `BacktestTradesTarget` | the trade price |
+  | `BacktestL1Target` | the ask |
+  | `BacktestPortfolioTarget` | the price |
+  | `BacktestPortfolioOHLCTarget` | the close |
+
+  A subclass of one of these engines inherits its mark, and an engine without
+  `mark_input` raises with `carry`. `output` and `stats` are after carry.
+  `carry_multiplier` is the contract multiplier, as in `BacktestCarry`.
 
 It returns a named tuple with these fields:
 
@@ -108,8 +119,7 @@ It returns a named tuple with these fields:
 - `train_scores`: every candidate's metric on every training window, shape
   `(n_folds, K)`.
 - `output`: the engine output on `target`, shape `(T, 4)` (`(T, K, 4)` for a
-  portfolio engine), after carry when
-  `carry` is given.
+  portfolio engine), after carry when `carry` is given.
 - `stats`: every `backtest_report` summary statistic of `output` from the
   first test window to the end, as a dict of floats.
 - `metric`: the name of the metric.

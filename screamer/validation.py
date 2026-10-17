@@ -579,9 +579,11 @@ def walk_forward(
     with the sign and timing ``BacktestCarry`` documents. With it, every
     candidate's run and the stitched run pass through
     ``BacktestCarry(multiplier=carry_multiplier)`` before they are scored,
-    marked with the engine's last price input (the close for the OHLC
-    engines, the trade price for ``BacktestTradesTarget``, the ask for
-    ``BacktestL1Target``), so ``output`` and ``stats`` are after carry.
+    marked with the engine's ``mark_input`` (the price for
+    ``BacktestPriceTarget`` and ``BacktestPortfolioTarget``, the close for the
+    OHLC engines, the trade price for ``BacktestTradesTarget``, the ask for
+    ``BacktestL1Target``), so ``output`` and ``stats`` are after carry. An
+    engine without ``mark_input`` raises with ``carry``.
 
     Portfolio engines (``BacktestPortfolioTarget``,
     ``BacktestPortfolioOHLCTarget``) take ``(T, K, C)`` targets, C candidates
@@ -620,5 +622,6 @@ def walk_forward(
         _number(test, "walk_forward: test"), name, custom,
         _flag(larger_is_better), bool(anchored),
         _float(periods_per_year, "walk_forward: periods_per_year"), portfolio, candidates,
-        carry, _float(carry_multiplier, "walk_forward: carry_multiplier"), type(engine).__name__)
+        carry, _float(carry_multiplier, "walk_forward: carry_multiplier"),
+        getattr(engine, "mark_input", None), type(engine).__name__)
     return WalkForwardResult(target, choice, fold_start, scores, output, stats, name)

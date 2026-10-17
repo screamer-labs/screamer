@@ -112,7 +112,8 @@ namespace screamer { namespace validation {
         std::size_t candidates = 1;              // C, for a portfolio's (T, K, C) targets flattened to (T, K * C)
         std::optional<ArrayShape> carry;         // per-step carry rate, the shape of a price input
         double carry_multiplier = 1.0;
-        std::string engine;                      // the engine's class name, for the carry's price input
+        std::optional<std::size_t> mark_input;   // the engine's mark_input, for the carry; none: no carry
+        std::string engine;                      // the engine's class name, for messages
     };
 
     struct WalkForwardResult {
@@ -225,39 +226,18 @@ namespace screamer { namespace validation {
             return best;
         }
 
-        // The market input BacktestCarry marks with: the last price input of
-        // each target engine (the close of the OHLC engines, the trade price,
-        // the ask of BacktestL1Target).
-        inline std::size_t carry_price_input(const std::string& engine, std::size_t n_inputs) {
-            struct Mark { const char* engine; std::size_t input; };
-            static constexpr Mark kMarks[] = {
-                {"BacktestPriceTarget", 0}, {"BacktestOHLCTarget", 3},
-                {"BacktestOHLCVTarget", 3}, {"BacktestTradesTarget", 0},
-                {"BacktestL1Target", 1}, {"BacktestPortfolioTarget", 0},
-                {"BacktestPortfolioOHLCTarget", 3}};
-            for (const Mark& m : kMarks) {
-                if (engine != m.engine) continue;
-                if (m.input >= n_inputs)
-                    throw std::invalid_argument("carry needs the engine's price inputs as separate arrays");
-                return m.input;
-            }
-            throw std::invalid_argument(
-                "carry needs a target engine whose price input is known (BacktestPriceTarget, "
-                "BacktestOHLCTarget, BacktestOHLCVTarget, BacktestTradesTarget, BacktestL1Target, "
-                "BacktestPortfolioTarget, or BacktestPortfolioOHLCTarget), got " +
-                (engine.empty() ? std::string("another engine") : engine));
-        }
-
         // `out` (T rows of `cols` strategies or assets of 4 values) through
-        // BacktestCarry(multiplier) into `dst`, column by column. Column k is
-        // marked with price[at] and charged rate[at], at = t for one (T,)
-        // series shared by the columns (`shared`), else t * cols + k.
+        // BacktestCarry(multiplier) into `dst`, one BacktestCarry per column,
+        // row by row. Column k is marked with price[at] and charged rate[at],
+        // at = t for one (T,) series shared by the columns (`shared`), else
+        // t * cols + k.
         inline void apply_carry(const double* out, std::size_t T, std::size_t cols,
                                 const double* price, const double* rate, bool shared,
                                 double multiplier, double* dst) {
-            for (std::size_t k = 0; k < cols; ++k) {
-                BacktestCarry carry(multiplier);
-                for (std::size_t t = 0; t < T; ++t) {
+            std::vector<BacktestCarry> carries(cols, BacktestCarry(multiplier));
+            for (std::size_t t = 0; t < T; ++t) {
+                for (std::size_t k = 0; k < cols; ++k) {
+                    BacktestCarry& carry = carries[k];
                     const std::size_t at = shared ? t : t * cols + k;
                     const double* row = out + (t * cols + k) * 4;
                     const BacktestCarry::InputArray in{{row[0], row[1], row[2], row[3], price[at], rate[at]}};
@@ -287,8 +267,14 @@ namespace screamer { namespace validation {
                 throw std::invalid_argument(opt.portfolio
                     ? "carry must be a (T, K) array, the shape of the price inputs"
                     : "carry must be a (T,) series, the shape of the price inputs");
-            const std::size_t m = carry_price_input(opt.engine, prices.size());
-            return CarryInput{prices[m].data, c.data, opt.carry_multiplier};
+            if (!opt.mark_input)
+                throw std::invalid_argument(
+                    "carry needs an engine with a mark input, the price input BacktestCarry marks "
+                    "with (the target-position and portfolio engines have one); " +
+                    (opt.engine.empty() ? std::string("this engine") : opt.engine) + " has none");
+            if (*opt.mark_input >= prices.size())
+                throw std::invalid_argument("carry needs the engine's price inputs as separate arrays");
+            return CarryInput{prices[*opt.mark_input].data, c.data, opt.carry_multiplier};
         }
 
     } // namespace detail
@@ -630,7 +616,7 @@ namespace screamer { namespace validation {
     //
     // With opt.carry, every run (the candidates' and the stitched one) passes
     // through BacktestCarry before it is scored (detail::apply_carry), marked
-    // with the engine's last price input (detail::carry_price_input); the
+    // with the engine's mark input (opt.mark_input); the
     // carried stitched output is returned in `output`.
     //
     // A portfolio engine (opt.portfolio) takes C candidates for K assets as

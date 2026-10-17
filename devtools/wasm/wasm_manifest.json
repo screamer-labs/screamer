@@ -336,7 +336,8 @@
       }
     ],
     "ctor_kind": "plain",
-    "source": "bindings/bindings_fin.cpp"
+    "source": "bindings/bindings_fin.cpp",
+    "mark_input": true
   },
   {
     "name": "BacktestL1TradesOrders",
@@ -569,7 +570,8 @@
       }
     ],
     "ctor_kind": "plain",
-    "source": "bindings/bindings_fin.cpp"
+    "source": "bindings/bindings_fin.cpp",
+    "mark_input": true
   },
   {
     "name": "BacktestOHLCVTarget",
@@ -665,7 +667,8 @@
       }
     ],
     "ctor_kind": "plain",
-    "source": "bindings/bindings_fin.cpp"
+    "source": "bindings/bindings_fin.cpp",
+    "mark_input": true
   },
   {
     "name": "BacktestPortfolioOHLCTarget",
@@ -747,7 +750,8 @@
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp",
-    "row_op": true
+    "row_op": true,
+    "mark_input": true
   },
   {
     "name": "BacktestPortfolioTarget",
@@ -819,7 +823,8 @@
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_fin.cpp",
-    "row_op": true
+    "row_op": true,
+    "mark_input": true
   },
   {
     "name": "BacktestPriceTarget",
@@ -905,7 +910,8 @@
       }
     ],
     "ctor_kind": "plain",
-    "source": "bindings/bindings_fin.cpp"
+    "source": "bindings/bindings_fin.cpp",
+    "mark_input": true
   },
   {
     "name": "BacktestReport",
@@ -1094,7 +1100,8 @@
       }
     ],
     "ctor_kind": "plain",
-    "source": "bindings/bindings_fin.cpp"
+    "source": "bindings/bindings_fin.cpp",
+    "mark_input": true
   },
   {
     "name": "BandSignal",

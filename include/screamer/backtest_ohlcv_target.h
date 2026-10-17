@@ -2,6 +2,7 @@
 #define SCREAMER_BACKTEST_OHLCV_TARGET_H
 
 #include <cmath>
+#include <cstddef>
 #include <limits>
 #include <stdexcept>
 #include <string>
@@ -20,6 +21,10 @@ namespace screamer {
     // A NaN or negative volume skips the bar (nan_policy: ignore).
     class BacktestOHLCVTarget : public FunctorBase<BacktestOHLCVTarget, 6, 4> {
     public:
+        // The market input (after the target) that marks a position: the close.
+        // walk_forward's carry marks with it.
+        static constexpr std::size_t mark_input = 3;
+
         BacktestOHLCVTarget(double max_participation = 1.0,
                             double taker_fee = 0.0, double tick_size = 0.0,
                             double min_position = -std::numeric_limits<double>::infinity(),

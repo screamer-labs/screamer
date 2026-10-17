@@ -153,6 +153,10 @@ def render_class(op: dict) -> str:
         lines.append(f'        .function("mapRowsInto", &screamer_wasm::mapRowsInto<{cpp}>)')
         lines.append(f'        .function("fieldsIn", &screamer_wasm::fieldsIn<{cpp}>)')
         lines.append(f'        .function("fieldsOut", &screamer_wasm::fieldsOut<{cpp}>)')
+    # The market input a backtest engine marks a position with, a static
+    # property of the class (walkForward's carry reads it).
+    if op.get("mark_input"):
+        lines.append(f'        .class_property("markInput", &{cpp}::mark_input)')
     return "\n".join(lines) + ";"
 
 

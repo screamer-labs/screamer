@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <stdexcept>
 #include <limits>
 #include <string>
@@ -33,6 +34,10 @@ namespace screamer {
     // (infinity) fills the whole order on any print.
     class BacktestTradesTarget : public FunctorBase<BacktestTradesTarget, 3, 4> {
     public:
+        // The market input (after the target) that marks a position: the trade price.
+        // walk_forward's carry marks with it.
+        static constexpr std::size_t mark_input = 0;
+
         BacktestTradesTarget(double taker_fee = 0.0, double tick_size = 0.0,
                              double min_position = -std::numeric_limits<double>::infinity(),
                              double max_position = std::numeric_limits<double>::infinity(),
