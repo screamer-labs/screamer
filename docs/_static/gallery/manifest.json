@@ -207,6 +207,7 @@
  "functions_rolling/RollingOU": "0455a2d5776fe00d",
  "functions_rolling/RollingParkinsonVar": "165b106d1ef0f9f6",
  "functions_rolling/RollingParkinsonVol": "d1309af16988317e",
+ "functions_rolling/RollingPermutationEntropy": "c6a10635539d3712",
  "functions_rolling/RollingPoly1": "69d8e6d5d831b176",
  "functions_rolling/RollingPoly2": "41394c48e3bbcc23",
  "functions_rolling/RollingQuantile": "54679cee62a2504e",

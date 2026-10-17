@@ -43,6 +43,8 @@ Detect a change in a series' behaviour: hidden Markov regimes, Bayesian change p
      - Symmetric CUSUM event filter: +1 when the cumulative rise since the last event passes a threshold, -1 for a fall, 0 otherwise.
    * - :doc:`Rolling Jump Share </functions_rolling/RollingJumpShare>`
      - Share of the realized variance of a window of returns that comes from jumps: max(0, 1 - BV / RV).
+   * - :doc:`Rolling Permutation Entropy </functions_rolling/RollingPermutationEntropy>`
+     - Entropy of the ordinal patterns of a series over a trailing window, from 0 (one pattern repeats) to 1 (every pattern equally often).
    * - :doc:`Rolling Variance Ratio </functions_rolling/RollingVarianceRatio>`
      - Lo-MacKinlay variance ratio of a window of returns, near 1 for a random walk, above 1 when returns trend and below 1 when they revert, or its robust z-statistic.
 

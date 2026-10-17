@@ -214,6 +214,7 @@ RollingOrderImbalance, Trailing-window sum of signed order flow (Chordia-Roll-Su
 RollingParkinsonVar, Var form of the Parkinson range-based volatility estimator (uses high & low).
 RollingParkinsonVol, Vol form of the Parkinson range-based volatility estimator (uses high & low).
 RollingPercentile, Percentile rank (rank / window) of the current value within the trailing window.
+RollingPermutationEntropy, Entropy of the ordinal patterns of a series over a trailing window, from 0 (one pattern repeats) to 1 (every pattern equally often).
 RollingPoly1, OLS fit y = a + b*t over a trailing window. derivative_order selects value/slope/zero.
 RollingPoly2, OLS fit y = a + b*t + c*t^2 over a trailing window.
 RollingQuantile, Trailing-window quantile (e.g. 0.25 = lower quartile).

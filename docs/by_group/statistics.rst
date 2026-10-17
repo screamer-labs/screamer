@@ -65,6 +65,8 @@ Windowed summary statistics: central tendency, dispersion, quantiles, moments, a
      - Trailing-window minimum and maximum, computed in one pass.
    * - :doc:`Rolling percentile </functions_fin/RollingPercentile>`
      - Percentile rank (rank / window) of the current value within the trailing window.
+   * - :doc:`Rolling Permutation Entropy </functions_rolling/RollingPermutationEntropy>`
+     - Entropy of the ordinal patterns of a series over a trailing window, from 0 (one pattern repeats) to 1 (every pattern equally often).
    * - :doc:`Rolling quantile </functions_rolling/RollingQuantile>`
      - Trailing-window quantile (e.g. 0.25 = lower quartile).
    * - :doc:`Rolling range </functions_rolling/RollingRange>`
@@ -374,6 +376,7 @@ Relationships between series: correlation, covariance, regression, hedging, pair
    /functions_rolling/RollingParkinsonVar
    /functions_rolling/RollingParkinsonVol
    /functions_fin/RollingPercentile
+   /functions_rolling/RollingPermutationEntropy
    /functions_rolling/RollingPoly1
    /functions_rolling/RollingQuantile
    /functions_rolling/RollingRange

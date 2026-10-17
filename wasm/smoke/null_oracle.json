@@ -4764,6 +4764,43 @@
  },
  {
   "accepts_bool": {
+   "delay": false,
+   "order": false,
+   "start_policy": false,
+   "window_size": false
+  },
+  "accepts_none": {
+   "delay": false,
+   "order": false,
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "below_min": {
+   "delay": [
+    0,
+    "RollingPermutationEntropy: delay must be at least 1, got 0"
+   ],
+   "order": [
+    1,
+    "RollingPermutationEntropy: order must be at least 2, got 1"
+   ],
+   "window_size": [
+    1,
+    "RollingPermutationEntropy: window_size must be at least 2, got 1"
+   ]
+  },
+  "bool_message": {
+   "delay": "RollingPermutationEntropy: delay must be an integer, got bool",
+   "order": "RollingPermutationEntropy: order must be an integer, got bool",
+   "start_policy": "RollingPermutationEntropy: start_policy must be a string, got bool",
+   "window_size": "RollingPermutationEntropy: window_size must be an integer, got bool"
+  },
+  "name": "RollingPermutationEntropy",
+  "non_finite": {}
+ },
+ {
+  "accepts_bool": {
    "derivative_order": false,
    "start_policy": false,
    "window_size": false

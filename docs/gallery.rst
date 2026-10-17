@@ -570,6 +570,13 @@ Measures of a window: central tendency, dispersion, quantiles, moments, z-scores
       :img-alt: RollingPercentile example plot
       :class-card: gallery-card
 
+   .. grid-item-card:: RollingPermutationEntropy
+      :link: functions_rolling/RollingPermutationEntropy
+      :link-type: doc
+      :img-top: _static/gallery/functions_rolling__RollingPermutationEntropy.webp
+      :img-alt: RollingPermutationEntropy example plot
+      :class-card: gallery-card
+
    .. grid-item-card:: RollingPoly1
       :link: functions_rolling/RollingPoly1
       :link-type: doc
@@ -2231,6 +2238,13 @@ Training sets and labels from time-series data, online regression and filtering 
       :link-type: doc
       :img-top: _static/gallery/functions_rolling__RollingJumpShare.webp
       :img-alt: RollingJumpShare example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: RollingPermutationEntropy
+      :link: functions_rolling/RollingPermutationEntropy
+      :link-type: doc
+      :img-top: _static/gallery/functions_rolling__RollingPermutationEntropy.webp
+      :img-alt: RollingPermutationEntropy example plot
       :class-card: gallery-card
 
    .. grid-item-card:: RollingVarianceRatio

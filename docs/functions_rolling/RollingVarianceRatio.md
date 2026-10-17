@@ -50,6 +50,7 @@ nan_policy: ignore
 see_also:
 - RollingHurst
 - RollingOU
+- RollingPermutationEntropy
 references:
 - 'Lo, A. W. and MacKinlay, A. C. (1988). Stock market prices do not follow random walks: evidence
   from a simple specification test. *Review of Financial Studies* 1(1), 41-66.'

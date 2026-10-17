@@ -76,3 +76,9 @@ test("research: RollingVarianceRatio hand example", () => {
   const z = (api as any).RollingVarianceRatio({ windowSize: 5, lag: 2, output: "zscore" })(x) as Float64Array;
   assert.ok(Math.abs(ratio[4] - 1 / 9) < 1e-12 && Math.abs(z[4] + 20 / 9) < 1e-12);
 });
+
+test("research: RollingPermutationEntropy of a monotone series is exactly 0", () => {
+  const x = Float64Array.from({ length: 50 }, (_, i) => i);
+  const out = (api as any).RollingPermutationEntropy({ windowSize: 10, order: 3 })(x) as Float64Array;
+  assert.ok(Array.from(out.subarray(11)).every((v) => v === 0));
+});

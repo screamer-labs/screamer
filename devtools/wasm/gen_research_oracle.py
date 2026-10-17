@@ -58,6 +58,9 @@ CASES = [
     ("RollingJumpShare", {"window_size": 12, "start_policy": "zero"}, "returns"),
     ("RollingVarianceRatio", {"window_size": 60, "lag": 4}, "returns"),
     ("RollingVarianceRatio", {"window_size": 60, "lag": 4, "output": "zscore", "start_policy": "expanding"}, "returns"),
+    ("RollingPermutationEntropy", {"window_size": 50, "order": 3}, "returns"),
+    ("RollingPermutationEntropy", {"window_size": 40, "order": 5, "delay": 2, "start_policy": "expanding"}, "returns"),
+    ("RollingPermutationEntropy", {"window_size": 20, "order": 4, "start_policy": "zero"}, "events"),
 ]
 
 

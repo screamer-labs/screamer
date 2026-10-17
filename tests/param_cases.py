@@ -33,7 +33,7 @@ screamer_classes = [c for c in get_module_public_classes(screamer_module)
 _ROLLING_AUTO_EXCLUDE = {
     'RollingQuantile',
     # returns windows; explicit entry below
-    'RollingBipowerVar', 'RollingJumpShare', 'RollingVarianceRatio',
+    'RollingBipowerVar', 'RollingJumpShare', 'RollingVarianceRatio', 'RollingPermutationEntropy',
     # period x window warm-up; explicit entry below
     'RollingSeasonalMean', 'RollingSeasonalStd', 'RollingSeasonalZscore',
     # extra non-window arg (mar / threshold / alpha) - tested in test_risk_stats.py
@@ -175,6 +175,7 @@ test_definitions = [
     ( ('RollingPoly1',)          , {"window_size": [20], "derivative_order": [0, 1] }),
     ( ('RollingBipowerVar','RollingJumpShare'), {"window_size": [20], "start_policy": ["strict", "expanding", "zero"]}),
     ( ('RollingVarianceRatio',)    , {"window_size": [50], "lag": [2, 5], "output": ["ratio", "zscore"], "start_policy": ["strict", "expanding", "zero"]}),
+    ( ('RollingPermutationEntropy',), {"window_size": [30], "order": [2, 3, 5], "delay": [1, 2], "start_policy": ["strict", "expanding", "zero"]}),
     ( ('RollingUpsideDeviation',) , {"window_size": [20], "mar": [0.0, 0.5], "start_policy": ["strict", "expanding", "zero"]}),
     ( ('RollingSeasonalMean','RollingSeasonalStd','RollingSeasonalZscore'), {"period": [5], "window_size": [4], "start_policy": ["strict", "expanding", "zero"], "array_length": [200]}),
     ( ('RollingPoly2',)          , {"window_size": [20], "derivative_order": [0, 1, 2] }),

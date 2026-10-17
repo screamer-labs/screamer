@@ -11313,6 +11313,79 @@
     ],
     "doc_path": "functions_rolling/RollingParkinsonVol"
   },
+  "RollingPermutationEntropy": {
+    "name": "RollingPermutationEntropy",
+    "title": "Rolling Permutation Entropy",
+    "implementation_family": "rolling",
+    "topics": [
+      "statistics",
+      "regime"
+    ],
+    "tags": [
+      "permutation entropy",
+      "ordinal patterns",
+      "bandt-pompe",
+      "complexity",
+      "randomness",
+      "predictability",
+      "entropy"
+    ],
+    "short": "Entropy of the ordinal patterns of a series over a trailing window, from 0 (one pattern repeats) to 1 (every pattern equally often).",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 100,
+        "min": 2,
+        "description": "Number of patterns, ending at the most recent steps, in the window."
+      },
+      {
+        "name": "order",
+        "type": "int",
+        "default": 3,
+        "min": 2,
+        "description": "Number of values in a pattern, 2 to 7. There are order! patterns."
+      },
+      {
+        "name": "delay",
+        "type": "int",
+        "default": 1,
+        "min": 1,
+        "description": "Steps between the values of a pattern."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "strict",
+        "enum": [
+          "strict",
+          "expanding",
+          "zero"
+        ],
+        "description": "Output before the window holds window_size patterns: \"strict\" gives NaN, \"expanding\" uses the patterns seen so far, and \"zero\" behaves as if the input were preceded by zeros."
+      }
+    ],
+    "nan_policy": "ignore",
+    "see_also": [
+      "RollingVarianceRatio",
+      "RollingHurst",
+      "RollingJumpShare"
+    ],
+    "references": [
+      "Bandt, C. and Pompe, B. (2002). Permutation entropy: a natural complexity measure for time series. *Physical Review Letters* 88(17), 174102."
+    ],
+    "details": "## Description\n\n`RollingPermutationEntropy` is the permutation entropy of Bandt and Pompe\n(2002) over a trailing window. At each step, the `order` values\n`x[t - (order-1)*delay], ..., x[t - delay], x[t]` form an ordinal pattern: the\norder of their ranks, one of `order!` possibilities. The output is the Shannon\nentropy of the patterns that end at the last `window_size` steps, divided by\n`log(order!)`:\n\n$$\nH = -\\frac{1}{\\log(\\text{order}!)} \\sum_{\\pi} p_\\pi \\log p_\\pi\n$$\n\nwhere `p_pi` is the share of pattern `pi` in the window. `H` is 0 when one\npattern fills the window, such as on a monotone or constant series, and near 1\nwhen every pattern is equally frequent, as for white noise. Values in between\nmean that some orderings are more common than others, which a forecast can\nuse.\n\nEqual values rank by order of appearance, the earlier one lower, so on prices\nthat repeat a tick, `(2, 1, 1)` and `(1, 1, 2)` are two patterns. The input can\nbe prices or returns; a pattern of prices describes the signs of the moves\nbetween them.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import RollingPermutationEntropy\n\nrng = np.random.default_rng(6)\nnoise = rng.standard_normal(1500)\ncycle = np.sin(np.arange(1500) * 2 * np.pi / 25) + 0.2 * rng.standard_normal(1500)\nx = np.where(np.arange(1500) < 750, noise, cycle)     # random, then a cycle\nh = RollingPermutationEntropy(200, order=4)(x)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=h, name='entropy', line=dict(color='navy')))\nfig.update_layout(title='RollingPermutationEntropy: near 1 on noise, lower on a cycle',\n                  xaxis_title='step', yaxis_title='normalized entropy',\n                  margin=dict(l=20, r=20, t=60, b=20), showlegend=False)\nfig.show()"
+      }
+    ],
+    "doc_path": "functions_rolling/RollingPermutationEntropy"
+  },
   "RollingPoly1": {
     "name": "RollingPoly1",
     "title": "Rolling 1st-order polynomial fit",
@@ -12359,7 +12432,8 @@
     "nan_policy": "ignore",
     "see_also": [
       "RollingHurst",
-      "RollingOU"
+      "RollingOU",
+      "RollingPermutationEntropy"
     ],
     "references": [
       "Lo, A. W. and MacKinlay, A. C. (1988). Stock market prices do not follow random walks: evidence from a simple specification test. *Review of Financial Studies* 1(1), 41-66."

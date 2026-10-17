@@ -4427,6 +4427,36 @@ export declare function RollingPercentile(options: RollingPercentileOptions): Sc
  */
 export declare function RollingPercentile(windowSize?: number): ScreamerOp;
 
+/** The settings of RollingPermutationEntropy by name, for `RollingPermutationEntropy({ ... })`. */
+export interface RollingPermutationEntropyOptions {
+  /** Number of patterns, ending at the most recent steps, in the window. @defaultValue `100` */
+  windowSize?: number;
+  /** Number of values in a pattern, 2 to 7. There are order! patterns. @defaultValue `3` */
+  order?: number;
+  /** Steps between the values of a pattern. @defaultValue `1` */
+  delay?: number;
+  /** Output before the window holds window_size patterns: "strict" gives NaN, "expanding" uses the patterns seen so far, and "zero" behaves as if the input were preceded by zeros. @defaultValue `"strict"` */
+  startPolicy?: string;
+}
+
+/**
+ * Entropy of the ordinal patterns of a series over a trailing window, from 0 (one pattern repeats) to 1 (every pattern equally often).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingPermutationEntropy.html for the full reference.
+ */
+export declare function RollingPermutationEntropy(options: RollingPermutationEntropyOptions): ScreamerOp;
+/**
+ * Entropy of the ordinal patterns of a series over a trailing window, from 0 (one pattern repeats) to 1 (every pattern equally often).
+ *
+ * @param windowSize Number of patterns, ending at the most recent steps, in the window.
+ * @param order Number of values in a pattern, 2 to 7. There are order! patterns.
+ * @param delay Steps between the values of a pattern.
+ * @param startPolicy Output before the window holds window_size patterns: "strict" gives NaN, "expanding" uses the patterns seen so far, and "zero" behaves as if the input were preceded by zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingPermutationEntropy.html for the full reference.
+ */
+export declare function RollingPermutationEntropy(windowSize?: number, order?: number, delay?: number, startPolicy?: string): ScreamerOp;
+
 /** The settings of RollingPoly1 by name, for `RollingPoly1({ ... })`. */
 export interface RollingPoly1Options {
   /** Number of most recent samples in the window. @defaultValue `20` */

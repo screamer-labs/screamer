@@ -163,6 +163,7 @@
 #include "screamer/rolling_omega.h"
 #include "screamer/rolling_ou.h"
 #include "screamer/rolling_percentile.h"
+#include "screamer/rolling_permutation_entropy.h"
 #include "screamer/rolling_poly1.h"
 #include "screamer/rolling_poly2.h"
 #include "screamer/rolling_quantile.h"
@@ -536,6 +537,11 @@ inline screamer::RollingOU* make_RollingOU(int a0, emscripten::val a1, emscripte
 inline screamer::RollingOrderImbalance* make_RollingOrderImbalance(int a0, emscripten::val a1) {
     const std::string a1s = a1.as<std::string>();
     return new screamer::RollingOrderImbalance(a0, a1s);
+}
+
+inline screamer::RollingPermutationEntropy* make_RollingPermutationEntropy(int a0, int a1, int a2, emscripten::val a3) {
+    const std::string a3s = a3.as<std::string>();
+    return new screamer::RollingPermutationEntropy(a0, a1, a2, a3s);
 }
 
 inline screamer::RollingPoly1* make_RollingPoly1(int a0, int a1, emscripten::val a2) {
@@ -1108,6 +1114,8 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor<int>();
     emscripten::class_<screamer::RollingPercentile, emscripten::base<screamer::EvalOp>>("RollingPercentile")
         .constructor<int>();
+    emscripten::class_<screamer::RollingPermutationEntropy, emscripten::base<screamer::EvalOp>>("RollingPermutationEntropy")
+        .constructor(&make_RollingPermutationEntropy, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingPoly1, emscripten::base<screamer::EvalOp>>("RollingPoly1")
         .constructor(&make_RollingPoly1, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingPoly2, emscripten::base<screamer::EvalOp>>("RollingPoly2")

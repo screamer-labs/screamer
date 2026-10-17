@@ -7030,6 +7030,56 @@ export function RollingPercentile(windowSize?: any): ScreamerOp {
   } catch (e) { throw _finite(M, "RollingPercentile", ["windowSize"], [windowSize], e); }
 }
 
+/** The settings of RollingPermutationEntropy by name, for `RollingPermutationEntropy({ ... })`. */
+export interface RollingPermutationEntropyOptions {
+  /** Number of patterns, ending at the most recent steps, in the window. @defaultValue `100` */
+  windowSize?: number;
+  /** Number of values in a pattern, 2 to 7. There are order! patterns. @defaultValue `3` */
+  order?: number;
+  /** Steps between the values of a pattern. @defaultValue `1` */
+  delay?: number;
+  /** Output before the window holds window_size patterns: "strict" gives NaN, "expanding" uses the patterns seen so far, and "zero" behaves as if the input were preceded by zeros. @defaultValue `"strict"` */
+  startPolicy?: string;
+}
+
+/**
+ * Entropy of the ordinal patterns of a series over a trailing window, from 0 (one pattern repeats) to 1 (every pattern equally often).
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingPermutationEntropy.html for the full reference.
+ */
+export function RollingPermutationEntropy(options: RollingPermutationEntropyOptions): ScreamerOp;
+/**
+ * Entropy of the ordinal patterns of a series over a trailing window, from 0 (one pattern repeats) to 1 (every pattern equally often).
+ *
+ * @param windowSize Number of patterns, ending at the most recent steps, in the window.
+ * @param order Number of values in a pattern, 2 to 7. There are order! patterns.
+ * @param delay Steps between the values of a pattern.
+ * @param startPolicy Output before the window holds window_size patterns: "strict" gives NaN, "expanding" uses the patterns seen so far, and "zero" behaves as if the input were preceded by zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingPermutationEntropy.html for the full reference.
+ */
+export function RollingPermutationEntropy(windowSize?: number, order?: number, delay?: number, startPolicy?: string): ScreamerOp;
+export function RollingPermutationEntropy(windowSize?: any, order?: any, delay?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, order, delay, startPolicy] = _options("RollingPermutationEntropy", windowSize, arguments.length, ["windowSize", "order", "delay", "startPolicy"], "windowSize must be an integer");
+  else if (arguments.length > 4) _tooMany("RollingPermutationEntropy", 4, arguments.length);
+  const _given: unknown[] = [windowSize, order, delay, startPolicy];
+  if (windowSize === undefined) windowSize = 100;
+  if (order === undefined) order = 3;
+  if (delay === undefined) delay = 1;
+  if (startPolicy === undefined) startPolicy = "strict";
+  const M = current();
+  if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingPermutationEntropy: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingPermutationEntropy", "windowSize", windowSize);
+  if (typeof order !== "number" || !Number.isInteger(order)) throw new TypeError(`RollingPermutationEntropy: order must be an integer, got ${typeof order === "number" ? order : _what(order)}`);
+  if (!(order >= -2147483648 && order <= 2147483647)) _intRange(M, "RollingPermutationEntropy", "order", order);
+  if (typeof delay !== "number" || !Number.isInteger(delay)) throw new TypeError(`RollingPermutationEntropy: delay must be an integer, got ${typeof delay === "number" ? delay : _what(delay)}`);
+  if (!(delay >= -2147483648 && delay <= 2147483647)) _intRange(M, "RollingPermutationEntropy", "delay", delay);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingPermutationEntropy: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
+  try {
+    return _params(wrapOp(M, () => new M.RollingPermutationEntropy(windowSize, order, delay, startPolicy)), "RollingPermutationEntropy", ["window_size", "order", "delay", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollingPermutationEntropy", ["windowSize", "order", "delay"], [windowSize, order, delay], e); }
+}
+
 /** The settings of RollingPoly1 by name, for `RollingPoly1({ ... })`. */
 export interface RollingPoly1Options {
   /** Number of most recent samples in the window. @defaultValue `20` */
