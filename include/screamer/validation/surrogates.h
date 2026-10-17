@@ -5,6 +5,8 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
+#include <cstdlib>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -477,6 +479,29 @@ namespace screamer { namespace validation {
             }
         }
 
+
+        // The mode="log" refusal of a series with values at or below zero:
+        // "<who> with mode=\"log\" needs positive <what>, but 2 values are not
+        // positive; the first is close[3] = -1; use mode=\"diff\"." The
+        // position is [row] for one asset and [row, asset] for several.
+        inline std::string not_positive_message(const char* who, const char* what,
+                                                std::size_t count, const char* field,
+                                                std::size_t row, std::size_t asset,
+                                                std::size_t assets, double value) {
+            // shortest decimal that reads back as `value` (to_chars for double
+            // is unavailable on older macOS deployment targets)
+            char num[40];
+            for (int prec = 1; prec <= 17; ++prec) {
+                std::snprintf(num, sizeof num, "%.*g", prec, value);
+                if (std::strtod(num, nullptr) == value) break;
+            }
+            std::string pos = std::to_string(row);
+            if (assets > 1) pos += ", " + std::to_string(asset);
+            return std::string(who) + " with mode=\"log\" needs positive " + what + ", but " +
+                   std::to_string(count) + (count == 1 ? " value is" : " values are") +
+                   " not positive; the first is " + field + "[" + pos + "] = " +
+                   std::string(num) + "; use mode=\"diff\".";
+        }
     } // namespace detail
 
     // Bar permutation for OHLC data (Masters 2020), with an optional volume
@@ -510,16 +535,29 @@ namespace screamer { namespace validation {
             if (T < 2) throw std::invalid_argument("permute_bars needs at least two bars.");
             if (K < 1) throw std::invalid_argument("permute_bars needs at least one asset.");
             const bool log = mode == PermuteMode::Log;
+            const bool positive = log || (notional && vol);
             const std::size_t TK = T * K;
+            static constexpr const char* kFields[4] = {"open", "high", "low", "close"};
+            std::size_t bad = 0, first = 0;
+            int first_field = 0;
             for (std::size_t i = 0; i < TK; ++i) {
-                if (!std::isfinite(o[i] + h[i] + l[i] + c[i]))
-                    throw std::invalid_argument(
-                        "permute_bars needs finite open, high, low, and close prices.");
-                if ((log || (notional && vol)) &&
-                    !(o[i] > 0.0 && h[i] > 0.0 && l[i] > 0.0 && c[i] > 0.0))
-                    throw std::invalid_argument(log
-                        ? "permute_bars with mode=\"log\" needs positive prices; use mode=\"diff\"."
-                        : "volume_mode=\"notional\" needs positive prices.");
+                if (!std::isfinite(o[i] + h[i] + l[i] + c[i])) {
+                    if (bad == 0)
+                        throw std::invalid_argument(
+                            "permute_bars needs finite open, high, low, and close prices.");
+                    continue;
+                }
+                if (!positive) continue;
+                const double v[4] = {o[i], h[i], l[i], c[i]};
+                for (int f = 0; f < 4; ++f)
+                    if (!(v[f] > 0.0) && bad++ == 0) { first = i; first_field = f; }
+            }
+            if (bad > 0) {
+                if (!log) throw std::invalid_argument("volume_mode=\"notional\" needs positive prices.");
+                const double v[4] = {o[first], h[first], l[first], c[first]};
+                throw std::invalid_argument(detail::not_positive_message(
+                    "permute_bars", "prices", bad, kFields[first_field], first / K, first % K, K,
+                    v[first_field]));
             }
             if (mode == PermuteMode::Level) return;
             gap_.resize(TK); dh_.resize(TK); dl_.resize(TK); dc_.resize(TK);
@@ -651,13 +689,20 @@ namespace screamer { namespace validation {
             if (T - p < 2) throw std::invalid_argument(
                 "permute_returns needs at least two values after the NaN warmup.");
             const bool log = mode == PermuteMode::Log;
+            std::size_t bad = 0, first = 0;
             for (std::size_t i = p * K; i < T * K; ++i) {
-                if (!std::isfinite(x[i]))
-                    throw std::invalid_argument("permute_returns needs finite values after the NaN warmup.");
-                if ((log || (notional && vol)) && !(x[i] > 0.0))
-                    throw std::invalid_argument(log
-                        ? "permute_returns with mode=\"log\" needs positive values; use mode=\"diff\"."
-                        : "volume_mode=\"notional\" needs positive prices.");
+                if (!std::isfinite(x[i])) {
+                    if (bad == 0)
+                        throw std::invalid_argument(
+                            "permute_returns needs finite values after the NaN warmup.");
+                    continue;
+                }
+                if ((log || (notional && vol)) && !(x[i] > 0.0) && bad++ == 0) first = i;
+            }
+            if (bad > 0) {
+                if (!log) throw std::invalid_argument("volume_mode=\"notional\" needs positive prices.");
+                throw std::invalid_argument(detail::not_positive_message(
+                    "permute_returns", "values", bad, "x", first / K, first % K, K, x[first]));
             }
             p_ = p;
             const std::size_t L = T - p;

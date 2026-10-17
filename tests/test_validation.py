@@ -1,3 +1,4 @@
+import re
 import sys
 
 import numpy as np
@@ -1301,3 +1302,37 @@ def test_per_strategy_p_values_keep_infinite_metrics():
                              larger_is_better=larger)
         assert np.array_equal(st.p_value, _null_p(st.null, st.observed, want_larger), equal_nan=True)
     assert seen_inf > 0                          # the test has infinite metrics to keep
+
+
+def test_permute_returns_log_error_names_the_first_bad_value():
+    x = np.array([1.0, 2.0, -2.0, 3.0, 0.0])
+    msg = ('permute_returns with mode="log" needs positive values, but 2 values are not '
+           'positive; the first is x[2] = -2; use mode="diff".')
+    with pytest.raises(ValueError, match=re.escape(msg)):
+        s.permute_returns(x, 3)
+
+
+def test_permute_returns_log_error_names_the_asset():
+    x = np.array([[1.0, 2.0], [3.0, -0.5], [2.0, 1.0]])
+    msg = ('permute_returns with mode="log" needs positive values, but 1 value is not '
+           'positive; the first is x[1, 1] = -0.5; use mode="diff".')
+    # the public wrapper takes one series; the kernel takes a (T, K) panel
+    with pytest.raises(ValueError, match=re.escape(msg)):
+        _permute_returns(x, "log", 3, 0, 1, np.zeros(0), False)
+
+
+def test_permute_bars_log_error_names_the_field_and_row():
+    o = np.array([1.0, 2.0, 3.0])
+    h = o + 1.0
+    l = o - 0.5
+    c = np.array([1.5, -1.0, 2.5])
+    msg = ('permute_bars with mode="log" needs positive prices, but 1 value is not '
+           'positive; the first is close[1] = -1; use mode="diff".')
+    with pytest.raises(ValueError, match=re.escape(msg)):
+        s.permute_bars(o, h, l, c, 2)
+
+
+def test_permute_finite_error_keeps_its_precedence():
+    # a non-finite row before any non-positive one still gives the finite message
+    with pytest.raises(ValueError, match="needs finite values after the NaN warmup"):
+        s.permute_returns(np.array([1.0, 2.0, np.inf, -1.0]), 3)
