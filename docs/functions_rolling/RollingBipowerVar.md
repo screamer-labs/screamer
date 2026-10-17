@@ -58,7 +58,7 @@ the returns. The factor `n / (n - 1)` scales the `n - 1` pairs to the `n` terms
 of `RV`, so without jumps `BV` and `RV` estimate the same quantity.
 [`RollingJumpShare`](RollingJumpShare.md) compares the two.
 
-A `NaN` return is left out, and the returns on either side of it form a pair.
+A `NaN` return is left out, and the returns on either side of it form a pair. A window of zero returns gives exactly 0, and the result is clamped to be non-negative.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling

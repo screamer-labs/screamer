@@ -43,7 +43,7 @@ references:
 
 ## Description
 
-`RollingJumpShare` is `max(0, 1 - BV / RV)`, with `BV` the bipower variation of [`RollingBipowerVar`](RollingBipowerVar.md) and `RV = sum r_i^2` the realized variance of the same window. It is the share of the window's variance that comes from jumps (Barndorff-Nielsen and Shephard 2004): near 0 for diffusive returns and near 1 when a few returns carry most of the variance. On a window of returns `[1, 1, 1, 10]`, `BV = 8 pi`, `RV = 103`, and the share is `0.756`. It is 0 when `RV` is 0, and 0 when `BV` exceeds `RV`, which sampling noise causes on windows without jumps.
+`RollingJumpShare` is `max(0, 1 - BV / RV)`, with `BV` the bipower variation of [`RollingBipowerVar`](RollingBipowerVar.md) and `RV = sum r_i^2` the realized variance of the same window. It is the share of the window's variance that comes from jumps (Barndorff-Nielsen and Shephard 2004): near 0 for diffusive returns and near 1 when a few returns carry most of the variance. On a window of returns `[1, 1, 1, 10]`, `BV = 8 pi`, `RV = 103`, and the share is `0.756`. It is 0 when `RV` is 0, and 0 when `BV` exceeds `RV`, which sampling noise causes on windows without jumps. The result is clamped to the interval 0 to 1.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling

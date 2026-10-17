@@ -59,3 +59,23 @@ def test_regimes_agree(cls):
     r = np.random.default_rng(6).standard_normal(300)
     r[40] = np.nan
     assert_regimes_agree(lambda: cls(25), r)
+
+
+@pytest.mark.parametrize("start_policy", ["strict", "expanding", "zero"])
+def test_zero_window_after_nonzero_is_exactly_zero(start_policy):
+    r = np.concatenate([np.random.default_rng(1).standard_normal(30) * 0.01, np.zeros(30)])
+    bv = np.asarray(RollingBipowerVar(10, start_policy=start_policy)(r))
+    share = np.asarray(RollingJumpShare(10, start_policy=start_policy)(r))
+    assert (bv[40:] == 0.0).all()
+    assert (share[40:] == 0.0).all()
+
+
+def test_share_stays_in_unit_interval_and_bv_nonnegative():
+    rng = np.random.default_rng(3)
+    r = rng.standard_normal(5000) * 0.01
+    r[rng.random(5000) < 0.05] *= 20
+    r[rng.random(5000) < 0.3] = 0.0
+    share = np.asarray(RollingJumpShare(10, start_policy="expanding")(r))
+    bv = np.asarray(RollingBipowerVar(10, start_policy="expanding")(r))
+    assert np.nanmin(share) >= 0.0 and np.nanmax(share) <= 1.0
+    assert np.nanmin(bv) >= 0.0
