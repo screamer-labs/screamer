@@ -35,6 +35,7 @@ see_also:
 - BacktestReport
 - backtest_report
 - position_test
+- backtest_trades
 output_names:
 - exposure
 - round_trips

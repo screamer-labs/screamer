@@ -116,10 +116,11 @@ It returns a named tuple with these fields:
 
 - `target`: the stitched out-of-sample target, shape `(T,)`, or `(T, K)` for a
   portfolio engine.
-- `choice`: the column chosen in each fold, shape `(n_folds,)`.
+- `choice`: the candidate index (0 to C - 1) chosen in each fold, shape
+  `(n_folds,)`; -1 marks a fold that stays flat.
 - `fold_start`: the first step `t0` of each test window.
 - `train_scores`: every candidate's metric on every training window, shape
-  `(n_folds, K)`.
+  `(n_folds, C)`.
 - `output`: the engine output on `target`, shape `(T, 4)` (`(T, K, 4)` for a
   portfolio engine), after carry when `carry` is given.
 - `stats`: every `backtest_report` summary statistic of `output` from the

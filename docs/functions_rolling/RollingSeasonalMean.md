@@ -12,7 +12,7 @@ tags:
 - day of week
 - profile
 - slot
-short: Mean of the same slot of the last `window_size` cycles, such as the same hour on each
+short: Mean of the same slot of the last window_size cycles, such as the same hour on each
   of the last 20 days.
 inputs: 1
 outputs: 1
@@ -34,8 +34,9 @@ parameters:
   - strict
   - expanding
   - zero
-  description: 'Output before a slot holds window_size values: "strict" gives NaN, "expanding"
-    uses the values the slot holds, and "zero" starts each slot with window_size zeros.'
+  description: 'Output before a slot holds window_size values: "strict" gives NaN,
+    "expanding" uses the values the slot holds, and "zero" starts each slot with
+    window_size zeros.'
 nan_policy: nan-aware
 see_also:
 - RollingSeasonalStd

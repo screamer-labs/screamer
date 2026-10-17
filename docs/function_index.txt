@@ -227,7 +227,7 @@ RollingResidualStd, Standard deviation of the rolling hedge-adjusted residual y 
 RollingRms, Trailing-window root-mean-square.
 RollingRogersSatchellVar, Var form of the Rogers-Satchell drift-robust range-based estimator.
 RollingRogersSatchellVol, Vol form of the Rogers-Satchell drift-robust range-based estimator.
-RollingSeasonalMean, Mean of the same slot of the last `window_size` cycles, such as the same hour on each of the last 20 days.
+RollingSeasonalMean, Mean of the same slot of the last window_size cycles, such as the same hour on each of the last 20 days.
 RollingSeasonalStd, Sample standard deviation of the same slot of the last window_size cycles.
 RollingSeasonalZscore, (x - mean) / std over the same slot of the last window_size cycles, x included.
 RollingSharpe, Annualized Sharpe ratio over a trailing window of returns.

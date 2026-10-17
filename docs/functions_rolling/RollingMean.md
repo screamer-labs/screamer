@@ -37,6 +37,7 @@ see_also:
 - WMA
 - RollingSum
 - RollingMedian
+- RollingSeasonalMean
 ---
 
 # `RollingMean`

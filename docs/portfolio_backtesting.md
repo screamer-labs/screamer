@@ -246,7 +246,7 @@ from screamer import LogReturn, walk_forward
 lookbacks = (10, 30, 90)
 candidates = np.stack([book(CrossRank()(LogReturn(n)(c))) for n in lookbacks], axis=2)
 wf = walk_forward(engine, candidates, o, h, l, c, train=365, test=90, periods_per_year=365)
-print("lookback per fold:", [lookbacks[k] for k in wf.choice])
+print("lookback per fold:", [lookbacks[k] if k >= 0 else None for k in wf.choice])
 print(f"out-of-sample annualized Sharpe {wf.stats['sharpe']:+.2f}")
 ```
 

@@ -4765,14 +4765,14 @@ export interface RollingSeasonalMeanOptions {
 }
 
 /**
- * Mean of the same slot of the last `window_size` cycles, such as the same hour on each of the last 20 days.
+ * Mean of the same slot of the last window_size cycles, such as the same hour on each of the last 20 days.
  *
  * @param options The settings by name, each one optional where the positional form's is.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingSeasonalMean.html for the full reference.
  */
 export declare function RollingSeasonalMean(options: RollingSeasonalMeanOptions): ScreamerOp;
 /**
- * Mean of the same slot of the last `window_size` cycles, such as the same hour on each of the last 20 days.
+ * Mean of the same slot of the last window_size cycles, such as the same hour on each of the last 20 days.
  *
  * @param period Steps per cycle, for example 24 for hourly data with a daily cycle.
  * @param windowSize Number of cycles in the window.

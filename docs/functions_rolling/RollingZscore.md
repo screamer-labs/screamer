@@ -36,6 +36,7 @@ see_also:
 - RollingStd
 - RollingMean
 - CrossZscore
+- RollingSeasonalZscore
 ---
 
 # `RollingZscore`

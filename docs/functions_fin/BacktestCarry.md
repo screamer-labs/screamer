@@ -29,6 +29,7 @@ see_also:
 - BacktestPriceTarget
 - BacktestOHLCTarget
 - backtest_report
+- walk_forward
 output_names:
 - equity
 - pnl

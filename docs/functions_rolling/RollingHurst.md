@@ -53,6 +53,8 @@ see_also:
 - RollingADF
 - FracDiff
 - TrendMode
+- RollingVarianceRatio
+- RollingPermutationEntropy
 nan_policy: ignore
 ---
 

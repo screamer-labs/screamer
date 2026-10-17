@@ -48,7 +48,7 @@ trade every day.
 ```{code-cell} ipython3
 wf = walk_forward(engine, X, o, h, l, c, train=365, test=91, metric="sharpe",
                   periods_per_year=365)
-chosen = [spans[k] for k in wf.choice]
+chosen = [spans[k] if k >= 0 else None for k in wf.choice]
 print(f"{len(wf.fold_start)} folds, first test day {btc.date[wf.fold_start[0]]:%Y-%m-%d}")
 print("span chosen per fold:", chosen)
 print(f"out-of-sample Sharpe {wf.stats['sharpe']:.2f}, pnl {wf.stats['total_pnl']:,.0f} USD")
@@ -125,7 +125,7 @@ the longs and pays the shorts.
 funding = np.full(len(c), 3e-4)
 wf_carry = walk_forward(engine, X, o, h, l, c, train=365, test=91, metric="sharpe",
                         periods_per_year=365, carry=funding)
-print("span chosen per fold:", [spans[k] for k in wf_carry.choice])
+print("span chosen per fold:", [spans[k] if k >= 0 else None for k in wf_carry.choice])
 print(f"out-of-sample Sharpe {wf_carry.stats['sharpe']:.2f}, "
       f"pnl {wf_carry.stats['total_pnl']:,.0f} USD after funding")
 ```

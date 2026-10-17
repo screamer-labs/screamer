@@ -2032,7 +2032,8 @@
     "see_also": [
       "BacktestPriceTarget",
       "BacktestOHLCTarget",
-      "backtest_report"
+      "backtest_report",
+      "walk_forward"
     ],
     "output_names": [
       "equity",
@@ -3411,7 +3412,8 @@
     "see_also": [
       "BacktestReport",
       "backtest_report",
-      "position_test"
+      "position_test",
+      "backtest_trades"
     ],
     "output_names": [
       "exposure",
@@ -10800,7 +10802,9 @@
       "RollingOU",
       "RollingADF",
       "FracDiff",
-      "TrendMode"
+      "TrendMode",
+      "RollingVarianceRatio",
+      "RollingPermutationEntropy"
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\n`RollingHurst` estimates the Hurst exponent $H$ over a trailing window. $H$ measures\nlong-range dependence in a time series:\n\n- $H \\approx 0.5$: uncorrelated (for example white noise, or the log-returns of a\n  geometric Brownian motion).\n- $H > 0.5$: persistent (moves tend to continue).\n- $H < 0.5$: anti-persistent (moves tend to reverse).\n\nThe estimate uses rescaled-range (R/S) analysis with the Anis-Lloyd small-sample\ncorrection. The trailing window of `window_size` samples is split into\nnon-overlapping blocks of length\n$n_k = \\texttt{min\\_scale}, 2\\cdot\\texttt{min\\_scale}, \\dots, W/2$ (dyadic scales).\nFor each scale the average rescaled range across blocks is corrected for small-sample\nbias, and $\\hat H$ is the slope of its logarithm against $\\log n$:\n\n$$\n\\begin{aligned}\n\\text{R/S}(n) &= \\frac{1}{\\lfloor W/n \\rfloor}\n  \\sum_{p=0}^{\\lfloor W/n \\rfloor-1}\n  \\frac{\\max_j Y_{p,j} - \\min_j Y_{p,j}}{\\sigma_p},\n  \\quad Y_{p,j} = \\sum_{i=1}^{j}(x_{p,i} - \\bar x_p) \\\\[2pt]\n\\text{rsal}(n) &= \\text{R/S}(n) - \\text{ers}(n) + \\sqrt{\\tfrac{\\pi n}{2}} \\\\[2pt]\n\\hat H &= \\text{slope of } \\log \\text{rsal}(n_k) \\text{ on } \\log n_k\n\\end{aligned}\n$$\n\nwhere $\\text{ers}(n)$ is the Anis-Lloyd expected R/S for $H = 1/2$:\n\n$$\n\\text{ers}(n) = \\frac{\\Gamma\\!\\left(\\tfrac{n-1}{2}\\right)}{\\sqrt{\\pi}\\,\\Gamma\\!\\left(\\tfrac{n}{2}\\right)}\n\\sum_{i=1}^{n-1} \\sqrt{\\tfrac{n-i}{i}} \\qquad (n \\le 340; \\text{asymptotic form otherwise}).\n$$\n\nThe first valid output is at sample index `window_size - 1`. The output is also NaN\nwhen any block in the window has zero variance.\n\n## Notes on usage\n\n- For asset prices, apply `RollingHurst` to returns (or log-returns), not to the price\n  itself. Prices are close to a random walk, so the estimate on prices is near\n  $H \\approx 1$ whatever the memory in the returns.\n- With `window_size=256` and `min_scale=4` the regression has 6 scales\n  (4, 8, 16, 32, 64, 128). Smaller windows give noisier estimates; larger windows\n  respond more slowly.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
@@ -10903,7 +10907,7 @@
     "references": [
       "Barndorff-Nielsen, O. E. and Shephard, N. (2004). Power and bipower variation with stochastic volatility and jumps. *Journal of Financial Econometrics* 2(1), 1-37."
     ],
-    "details": "## Description\n\n`RollingJumpShare` is `max(0, 1 - BV / RV)`, with `BV` the bipower variation of [`RollingBipowerVar`](RollingBipowerVar.md) and `RV = sum r_i^2` the realized variance of the same window. It is the share of the window's variance that comes from jumps (Barndorff-Nielsen and Shephard 2004): near 0 for diffusive returns and near 1 when a few returns carry most of the variance. On a window of returns `[1, 1, 1, 10]`, `BV = 8 pi`, `RV = 103`, and the share is `0.756`. It is 0 when `RV` is 0, and 0 when `BV` exceeds `RV`, which sampling noise causes on windows without jumps. The result is clamped to the interval 0 to 1.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "details": "## Description\n\n`RollingJumpShare` is `max(0, 1 - BV / RV)`, with `BV` the bipower variation of\n[`RollingBipowerVar`](RollingBipowerVar.md) and `RV = sum r_i^2` the realized variance of the\nsame window. It is the share of the window's variance that comes from jumps (Barndorff-Nielsen\nand Shephard 2004): near 0 for diffusive returns and near 1 when a few returns carry most of the\nvariance. On a window of returns `[1, 1, 1, 10]`, `BV = 8 pi`, `RV = 103`, and the share is\n`0.756`. It is 0 when `RV` is 0, and 0 when `BV` exceeds `RV`, which sampling noise causes on\nwindows without jumps. The result is clamped to the interval 0 to 1.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
     "examples": [
       {
         "language": "python",
@@ -11112,7 +11116,8 @@
       "ExpandingMean",
       "WMA",
       "RollingSum",
-      "RollingMedian"
+      "RollingMedian",
+      "RollingSeasonalMean"
     ],
     "details": "## Description\n\n`RollingMean` computes the arithmetic mean of the `window_size` most recent values (also called a simple moving average).\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
     "examples": [
@@ -12037,7 +12042,7 @@
       "profile",
       "slot"
     ],
-    "short": "Mean of the same slot of the last `window_size` cycles, such as the same hour on each of the last 20 days.",
+    "short": "Mean of the same slot of the last window_size cycles, such as the same hour on each of the last 20 days.",
     "inputs": 1,
     "outputs": 1,
     "parameters": [
@@ -12386,7 +12391,8 @@
       "EwStd",
       "RollingZscore",
       "RollingParkinsonVol",
-      "RollingYangZhangVol"
+      "RollingYangZhangVol",
+      "RollingSeasonalStd"
     ],
     "details": "## Description\n\n`RollingStd` computes the sample standard deviation (ddof=1) over the `window_size` most recent values:\n\n$$\n\\text{std}_w[t] = \\sqrt{\\frac{1}{n-1} \\sum_{i=t-w+1}^{t} \\bigl(x_i - \\bar{x}_w[t]\\bigr)^2}\n$$\n\nwhere `n = window_size`. Matches `pandas.Series.rolling(w).std()`.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
     "examples": [
@@ -12608,7 +12614,9 @@
     "see_also": [
       "RollingHurst",
       "RollingOU",
-      "RollingPermutationEntropy"
+      "RollingPermutationEntropy",
+      "RollingJumpShare",
+      "RollingHMM"
     ],
     "references": [
       "Lo, A. W. and MacKinlay, A. C. (1988). Stock market prices do not follow random walks: evidence from a simple specification test. *Review of Financial Studies* 1(1), 41-66."
@@ -12771,7 +12779,8 @@
       "EwZscore",
       "RollingStd",
       "RollingMean",
-      "CrossZscore"
+      "CrossZscore",
+      "RollingSeasonalZscore"
     ],
     "details": "## Description\n\n`RollingZscore` standardizes each new value against the trailing window:\n\n$$\nz[t] = \\frac{x[t] - \\bar{x}_w[t]}{\\text{std}_w[t]}\n$$\n\nwhere `std` is the sample standard deviation (ddof=1) over the `window_size` most recent values.\n\nBefore the window is full, `start_policy` works as for `RollingMean` and `RollingStd`: `\"strict\"` gives `NaN`, `\"expanding\"` uses the values seen so far (the first output is `NaN`, since one value has no standard deviation), and `\"zero\"` counts the missing values as zeros.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
     "examples": [
@@ -14042,7 +14051,8 @@
       "SchmittTrigger",
       "BandSignal",
       "Last",
-      "Lag"
+      "Lag",
+      "CusumFilter"
     ],
     "details": "## Description\n\n`Hold` latches a nonzero finite input and outputs it for `n` steps in total: the trigger step plus `n-1` continuation steps. When the hold expires and the next input is zero, the output returns to `release`. A new nonzero input during an active hold replaces the latched value and resets the counter to `n-1` remaining steps. A zero input means no trigger.\n\nAfter a hold expires, nonzero inputs in the next `cooldown` steps are ignored and the output is `release`; a trigger during a hold still restarts it. A `NaN` step does not count as a cooldown step. With `n=2, cooldown=2`, the input `[5, 0, 7, 3, 0, 4, 0]` gives `[5, 5, 0, 0, 0, 4, 4]`: the triggers 7 and 3 fall in the cooldown.\n\n$$\n\\text{output}[t] = \\begin{cases}\n\\text{release} & \\text{if cooldown} > 0 \\text{ and remaining} = 0 \\text{ (decrement cooldown)} \\\\\\\\\nx[t] & \\text{if } x[t] \\neq 0 \\text{ (latch; set remaining} = n-1\\text{)} \\\\\\\\\n\\text{held} & \\text{if } x[t] = 0 \\text{ and remaining} > 0 \\text{ (decrement remaining)} \\\\\\\\\n\\text{release} & \\text{if } x[t] = 0 \\text{ and remaining} = 0 \\\\\\\\\n\\text{NaN} & \\text{if } x[t] = \\text{NaN (state unchanged)}\n\\end{cases}\n$$\n\nWhen a hold ends, the cooldown counter is set to `cooldown`. `reset()` sets `remaining` and the cooldown counter to 0 and `held` to `release`.\n\n## Implementation Details\n\nO(1) per step. Three scalars of state: `cool` (cooldown steps left, initialized to 0), `held` (the most recently latched nonzero value, initialized to `release`) and `remaining` (steps left in the current hold, initialized to 0).\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
     "examples": [

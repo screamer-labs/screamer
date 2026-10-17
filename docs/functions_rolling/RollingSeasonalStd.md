@@ -34,8 +34,9 @@ parameters:
   - strict
   - expanding
   - zero
-  description: 'Output before a slot holds window_size values: "strict" gives NaN, "expanding"
-    uses the values the slot holds (two are needed for a standard deviation), and "zero" starts each slot with window_size zeros.'
+  description: 'Output before a slot holds window_size values: "strict" gives NaN,
+    "expanding" uses the values the slot holds (two are needed for a standard
+    deviation), and "zero" starts each slot with window_size zeros.'
 nan_policy: nan-aware
 see_also:
 - RollingSeasonalMean

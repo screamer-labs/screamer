@@ -42,6 +42,7 @@ see_also:
 - BandSignal
 - Last
 - Lag
+- CusumFilter
 ---
 
 # `Hold`

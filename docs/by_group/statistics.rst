@@ -76,7 +76,7 @@ Windowed summary statistics: central tendency, dispersion, quantiles, moments, a
    * - :doc:`Rolling root-mean-square </functions_rolling/RollingRms>`
      - Trailing-window root-mean-square.
    * - :doc:`Rolling Seasonal Mean </functions_rolling/RollingSeasonalMean>`
-     - Mean of the same slot of the last `window_size` cycles, such as the same hour on each of the last 20 days.
+     - Mean of the same slot of the last window_size cycles, such as the same hour on each of the last 20 days.
    * - :doc:`Rolling Seasonal Standard Deviation </functions_rolling/RollingSeasonalStd>`
      - Sample standard deviation of the same slot of the last window_size cycles.
    * - :doc:`Rolling skewness </functions_rolling/RollingSkew>`

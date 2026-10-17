@@ -47,9 +47,10 @@ Unreleased
   `summary["by_group"]` in Python and `byGroup` in JavaScript.
 * `walk_forward(..., carry=, carry_multiplier=)` and
   `walkForward(..., { carry, carryMultiplier })`: every run is scored after
-  `BacktestCarry`, marked with the engine's last price input. Each engine
-  declares that input as the class attribute `mark_input` (`markInput` in
-  JavaScript).
+  `BacktestCarry`, marked with the engine's last price input. The
+  target-position and portfolio engines declare that input as the class
+  attribute `mark_input` (`markInput` in JavaScript); order engines do not,
+  and raise with `carry`.
 * `walk_forward` and `walkForward` accept the portfolio engines
   (`BacktestPortfolioTarget`, `BacktestPortfolioOHLCTarget`) with `(T, K, C)`
   targets, scored on the book.
