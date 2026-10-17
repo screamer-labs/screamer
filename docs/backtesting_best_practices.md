@@ -92,6 +92,8 @@ Holding a position can also cost money: perpetual futures pay funding, short
 positions pay a borrow fee, and leverage pays interest.
 [`BacktestCarry`](functions_fin/BacktestCarry.md) adds this to any engine's
 output from a per-step rate series.
+[`walk_forward`](functions_fin/walk_forward.md) takes the same rate as
+`carry=`, so every candidate is chosen and scored after its carry.
 
 Run every strategy with and without costs. A large gap means the edge is small
 relative to the cost of trading it.
@@ -204,6 +206,10 @@ and correct for it:
   `probabilistic_sharpe` to the Sharpe ratio that the best of your tried
   variants would reach by luck, given how many there were and how much their
   results varied.
+- [`walk_forward`](functions_fin/walk_forward.md) chooses a variant on each
+  training window and trades it on the next, so the reported result never
+  uses the data the choice was made on. With a portfolio engine the
+  candidates are whole books, `(T, K, C)`.
 
 Both appear in the [significance recipe](recipes/significance-test.md#several-variants).
 Reserve a final stretch of data that no variant was tuned on, and confirm the
@@ -217,6 +223,13 @@ count, Sharpe, and, from [`BacktestStats`](functions_fin/BacktestStats.md),
 exposure, win rate, profit factor, average win and loss, holding period,
 Sortino, and Calmar. Pass `periods_per_year` (for example 252 for daily bars)
 to annualize the ratios; the default 1 gives per-step values.
+
+[`backtest_trades`](functions_fin/backtest_trades.md) lists the round trips
+behind those statistics, one row per trade with its entry, exit, side,
+length, pnl, and cost. `backtest_report(..., by=labels)` adds the totals,
+Sharpe ratio, and drawdown of each group of rows, for example per month with
+`by=dates.astype("datetime64[M]")`. A result that comes from one month, or
+from a few trades, shows there before it shows in the summary.
 
 Read the statistics together. A high Sharpe ratio with a few trades, a large
 share of the profit from one trade, or a profit factor near 1 with high

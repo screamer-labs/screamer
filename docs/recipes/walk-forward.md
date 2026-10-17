@@ -114,6 +114,22 @@ plt.tight_layout()
 The training window and the test window are choices too. Trying several of
 them and reporting the best brings back the same selection bias, one level up.
 
+## With funding
+
+A perpetual pays funding on the position held. `carry=` takes the per-step
+rate and scores every candidate after [`BacktestCarry`](../functions_fin/BacktestCarry.md),
+marked with the close. A flat rate of 0.03% per day, about 11% a year, charges
+the longs and pays the shorts.
+
+```{code-cell} ipython3
+funding = np.full(len(c), 3e-4)
+wf_carry = walk_forward(engine, X, o, h, l, c, train=365, test=91, metric="sharpe",
+                        periods_per_year=365, carry=funding)
+print("span chosen per fold:", [spans[k] for k in wf_carry.choice])
+print(f"out-of-sample Sharpe {wf_carry.stats['sharpe']:.2f}, "
+      f"pnl {wf_carry.stats['total_pnl']:,.0f} USD after funding")
+```
+
 Related pages: [`walk_forward`](../functions_fin/walk_forward.md),
 [`position_test`](../functions_fin/position_test.md),
 [`deflated_sharpe`](../functions_fin/deflated_sharpe.md), and

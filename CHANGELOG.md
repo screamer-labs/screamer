@@ -25,6 +25,34 @@ Unreleased
   cross-sectional rank.
 * Notebooks 23 to 25: classifying direction, triple-barrier labels, and
   meta-labeling.
+* Regime and change-point operators, in Python and JavaScript: `RollingHMM`
+  (a two-state hidden Markov model refit on a trailing window, Gaussian or
+  Markov-switching AR(1) emissions; `prob`, `pred_mean`, `pred_std`),
+  `BayesianChangepoint` (Adams-MacKay online changepoint detection;
+  `run_length`, `pred_mean`, `pred_std`), and `CusumFilter` (the symmetric
+  CUSUM event filter). A "Regimes & change points" topic lists them.
+* `RollingVarianceRatio` (the Lo-MacKinlay variance ratio, or its robust
+  z-statistic with `output="zscore"`), `RollingPermutationEntropy`,
+  `RollingBipowerVar`, `RollingJumpShare`, `RollingUpsideDeviation`, and
+  `RollingSeasonalMean`, `RollingSeasonalStd`, `RollingSeasonalZscore` (the
+  same slot of the last `window_size` cycles).
+* `Hold(cooldown=)` and `Hold({ cooldown })`: after a hold expires, triggers
+  in the next `cooldown` steps are ignored. The default 0 keeps the previous
+  behaviour.
+* `backtest_trades(values, index=None)` and `backtestTrades(values, { index })`:
+  one row per round trip of an engine's output, counted as `BacktestStats`
+  counts trades.
+* `backtest_report(..., by=)` and `backtestReport(values, { by })`: totals,
+  turnover, Sharpe ratio, drawdown, and steps per group of rows, as
+  `summary["by_group"]` in Python and `byGroup` in JavaScript.
+* `walk_forward(..., carry=, carry_multiplier=)` and
+  `walkForward(..., { carry, carryMultiplier })`: every run is scored after
+  `BacktestCarry`, marked with the engine's last price input. Each engine
+  declares that input as the class attribute `mark_input` (`markInput` in
+  JavaScript).
+* `walk_forward` and `walkForward` accept the portfolio engines
+  (`BacktestPortfolioTarget`, `BacktestPortfolioOHLCTarget`) with `(T, K, C)`
+  targets, scored on the book.
 
 ### Changed
 
@@ -42,6 +70,9 @@ Unreleased
   `Pipeline` needs `X` and `y` to tick at the same indexes; an index that only
   one of them has raises `ValueError`. Use `duration=` for inputs on different
   clocks.
+* `permute_bars` and `permute_returns` with `mode="log"` name the first value
+  that is not positive, its row (and asset), and how many there are, in the
+  error message.
 
 3.4.0 - 2026-10-15
 ------------------

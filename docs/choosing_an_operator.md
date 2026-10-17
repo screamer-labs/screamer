@@ -50,6 +50,8 @@ Each section below maps a common signal-processing task to the operators that co
 | OHLC Parkinson volatility (rolling or EW) | `RollingParkinsonVol`, `EwParkinsonVol` | High/low range estimator; assumes no overnight gap. |
 | OHLC Rogers-Satchell volatility (rolling or EW) | `RollingRogersSatchellVol`, `EwRogersSatchellVol` | Corrects for drift; generally preferred over Parkinson. |
 | Yang-Zhang volatility (rolling) | `RollingYangZhangVol` | Combines overnight gap and intraday range; lowest variance among OHLC estimators. |
+| Typical value or spread of each hour of the day | `RollingSeasonalMean`, `RollingSeasonalStd`, `RollingSeasonalZscore` | The same slot of the last `window_size` cycles; the input must be on a regular clock. |
+| Variance without the jumps | `RollingBipowerVar` | Bipower variation of returns, on the scale of the realized variance. |
 | Average true range, for stops and position sizing | `TrueRange`, `ATR`, `NATR` | The true range of each bar, its Wilder average, and that average as a percentage of the close. |
 
 ## Fit a local trend or slope
@@ -111,6 +113,7 @@ the [portfolios and pairs guide](portfolio_backtesting.md) show the whole path.
 | Long or short on the sign of a score | `Sign` | +1, 0, or -1 per step. |
 | Enter and exit at different levels | `BandSignal`, `SchmittTrigger` | Hysteresis stops a score near a threshold from switching the position on and off. |
 | Hold a signal for a fixed number of bars | `Hold` | Latches a nonzero input and keeps it for `n` bars. |
+| Hold a signal, then ignore new ones for a while | `Hold(cooldown=)` | After a hold expires, triggers in the next cooldown steps are ignored. |
 | Size by volatility | `RollingStd`, `EwStd`, `ATR` | Divide a risk budget by the volatility; see the [volatility sizing recipe](recipes/volatility-sizing.md). |
 
 ## Mean reversion and forecasting
@@ -121,7 +124,7 @@ the [portfolios and pairs guide](portfolio_backtesting.md) show the whole path.
 | Online Bayesian regression with calibrated prediction intervals | `BayesianRegression` | Returns slope, intercept, predictive mean, and predictive std per sample; interval widens early and tightens as evidence accumulates. See [notebook 17](notebooks/17-filtering-and-forecasting-with-uncertainty). |
 | Kalman filter as a recursive forecaster | `KalmanFilter` | Tracks a latent level and returns the filtered estimate; tune `process_var` and `observation_var` to set the lag-vs-noise trade-off. |
 
-## Detect cycles and regimes
+## Detect cycles
 
 | Intent | Operator(s) | Note |
 |:-------|:------------|:-----|
@@ -135,6 +138,17 @@ the [portfolios and pairs guide](portfolio_backtesting.md) show the whole path.
 | Turn a noisy indicator into a stable on/off state | `SchmittTrigger` | Hysteresis between two thresholds avoids flip-flopping. |
 
 For a worked example see [notebook 19](notebooks/19-cycle-and-spectral-analysis).
+
+## Detect regimes and change points
+
+| Intent | Operator(s) | Note |
+|:-------|:------------|:-----|
+| Probability of a volatile, or of a trending, regime | `RollingHMM` | Two-state hidden Markov model refit on a trailing window; `prob` is the filtered probability of the high-variance state, or with `emission="ar1"` of the more persistent state. |
+| Detect that the mean or spread of a series changed | `BayesianChangepoint` | Expected run length since the last change, and a predictive mean and standard deviation; feed a standardized series. |
+| Sample events at cumulative moves | `CusumFilter` | +1 or -1 when the move since the last event passes `threshold`; label or trade at the events. |
+| Test whether returns trend or revert | `RollingVarianceRatio`, `RollingHurst` | A variance ratio above 1 trends, below 1 reverts; `output="zscore"` gives the robust test statistic. |
+| Measure how random a series is | `RollingPermutationEntropy` | 1 for noise, lower when some orderings of consecutive values are more common. |
+| Share of the variance from jumps | `RollingJumpShare`, `RollingBipowerVar` | Bipower variation estimates the variance without the jumps. |
 
 ## Analyse order flow and liquidity
 
@@ -160,6 +174,7 @@ See the [Market microstructure](microstructure) guide and notebooks
 | Risk-adjusted return over a window | `RollingSharpe`, `RollingSortino`, `RollingCalmar`, `RollingInfoRatio`, `RollingOmega` | Annualised Sharpe, Sortino, Calmar, and information ratios, and the Omega ratio. |
 | Tail and downside risk | `RollingCVaR`, `RollingDownsideDeviation` | Expected shortfall in the worst tail, and the deviation of returns below a threshold. |
 | Share of winning periods | `RollingHitRate` | Fraction of positive samples in the window. |
+| Spread of the gains above a threshold | `RollingUpsideDeviation` | The mirror of `RollingDownsideDeviation`. |
 | Persistence or mean reversion of a series | `RollingHurst` | Hurst exponent: above 0.5 trends, below 0.5 reverts. |
 
 ## Clean and prepare data
@@ -221,6 +236,7 @@ To evaluate a trading strategy on historical data, use one of screamer's backtes
 | One asset, target position, bar data | `BacktestOHLCTarget`, `BacktestPriceTarget` | Fills at the next open, or at the price you pass. |
 | Many assets from one account | `BacktestPortfolioOHLCTarget`, `BacktestPortfolioTarget` | Weights, units, or notional per asset, with rebalancing rules. |
 | Funding, borrow, or financing | `BacktestCarry` | Charges carry on the position of any engine's output; see the [funding recipe](recipes/funding-carry.md). |
+| A list of the trades, or results per month | `backtest_trades`, `backtest_report(by=)` | One row per round trip; per-group totals, Sharpe, and drawdown. |
 | Summary statistics | `backtest_report`, `BacktestStats`, `PortfolioReport` | `backtest_report` gives a running table and a summary in one call; `BacktestStats` adds round-trip trade statistics as a node; `PortfolioReport` reports a portfolio book. |
 
 ## Is it more than luck?
@@ -231,6 +247,7 @@ To evaluate a trading strategy on historical data, use one of screamer's backtes
 | Compare it with the same rule on randomized markets | `strategy_test` | Reruns the strategy on permuted or shuffled prices. |
 | Correct for the number of variants tried | `deflated_sharpe`, `probabilistic_sharpe` | The Sharpe ratio a best-of-many search would reach by luck. |
 | Choose parameters out of sample | `walk_forward` | Picks the best variant on each training window and trades it on the next test window. |
+| Select between variants with funding, or between portfolio weightings | `walk_forward(carry=)`, `walk_forward` with a portfolio engine | Every run is scored after `BacktestCarry`; a (T, K, C) target is scored on the book. |
 
 See the [significance recipe](recipes/significance-test.md), the
 [walk-forward recipe](recipes/walk-forward.md), and
