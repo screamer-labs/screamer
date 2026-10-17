@@ -1399,6 +1399,30 @@ export type CumSumOptions = Record<string, never>;
  */
 export declare function CumSum(options?: CumSumOptions): ScreamerOp;
 
+/** The settings of CusumFilter by name, for `CusumFilter({ ... })`. */
+export interface CusumFilterOptions {
+  /** Cumulative move, in the units of the input, that triggers an event. Must be positive. */
+  threshold: number;
+  /** Amount subtracted from each rise and from each fall before it is accumulated, so moves smaller than `drift` per step do not build up. 0 or more. @defaultValue `0.0` */
+  drift?: number;
+}
+
+/**
+ * Symmetric CUSUM event filter: +1 when the cumulative rise since the last event passes a threshold, -1 for a fall, 0 otherwise.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/CusumFilter.html for the full reference.
+ */
+export declare function CusumFilter(options: CusumFilterOptions): ScreamerOp;
+/**
+ * Symmetric CUSUM event filter: +1 when the cumulative rise since the last event passes a threshold, -1 for a fall, 0 otherwise.
+ *
+ * @param threshold Cumulative move, in the units of the input, that triggers an event. Must be positive.
+ * @param drift Amount subtracted from each rise and from each fall before it is accumulated, so moves smaller than `drift` per step do not build up. 0 or more.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/CusumFilter.html for the full reference.
+ */
+export declare function CusumFilter(threshold: number, drift?: number): ScreamerOp;
+
 /** CycleAmplitude has no settings: its options object is empty. */
 export type CycleAmplitudeOptions = Record<string, never>;
 

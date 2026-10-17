@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { ready, Hold } from "../src/index.ts";
+import { ready, Hold, CusumFilter } from "../src/index.ts";
 import * as api from "../src/index.ts";
 
 await ready();
@@ -43,4 +43,11 @@ for (const c of oracle.cases) {
 test("research: Hold cooldown worked example", () => {
   const out = Hold({ n: 2, cooldown: 2 })(Float64Array.from([5, 0, 7, 3, 0, 4, 0])) as Float64Array;
   assert.deepEqual(Array.from(out), [5, 5, 0, 0, 0, 4, 4]);
+});
+
+test("research: CusumFilter hand example", () => {
+  const out = CusumFilter({ threshold: 1 })(Float64Array.from([0.5, 0.6, -0.2, 0.3, -1.5, 0.1, NaN, 0.4])) as Float64Array;
+  assert.deepEqual(Array.from(out.subarray(0, 6)), [0, 1, 0, 0, -1, 0]);
+  assert.ok(Number.isNaN(out[6]));
+  assert.equal(out[7], 0);
 });

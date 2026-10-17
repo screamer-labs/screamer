@@ -2324,6 +2324,43 @@ export function CumSum(options?: CumSumOptions): ScreamerOp {
   return _params(wrapOp(M, () => new M.CumSum()), "CumSum", [], _given);
 }
 
+/** The settings of CusumFilter by name, for `CusumFilter({ ... })`. */
+export interface CusumFilterOptions {
+  /** Cumulative move, in the units of the input, that triggers an event. Must be positive. */
+  threshold: number;
+  /** Amount subtracted from each rise and from each fall before it is accumulated, so moves smaller than `drift` per step do not build up. 0 or more. @defaultValue `0.0` */
+  drift?: number;
+}
+
+/**
+ * Symmetric CUSUM event filter: +1 when the cumulative rise since the last event passes a threshold, -1 for a fall, 0 otherwise.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/CusumFilter.html for the full reference.
+ */
+export function CusumFilter(options: CusumFilterOptions): ScreamerOp;
+/**
+ * Symmetric CUSUM event filter: +1 when the cumulative rise since the last event passes a threshold, -1 for a fall, 0 otherwise.
+ *
+ * @param threshold Cumulative move, in the units of the input, that triggers an event. Must be positive.
+ * @param drift Amount subtracted from each rise and from each fall before it is accumulated, so moves smaller than `drift` per step do not build up. 0 or more.
+ * @see https://screamer.readthedocs.io/en/latest/functions_signal/CusumFilter.html for the full reference.
+ */
+export function CusumFilter(threshold: number, drift?: number): ScreamerOp;
+export function CusumFilter(threshold?: any, drift?: any): ScreamerOp {
+  if (_isOptions(threshold)) [threshold, drift] = _options("CusumFilter", threshold, arguments.length, ["threshold", "drift"], "threshold must be a number");
+  else if (arguments.length > 2) _tooMany("CusumFilter", 2, arguments.length);
+  const _given: unknown[] = [threshold, drift];
+  if (threshold === undefined) throw new TypeError(`CusumFilter: threshold is required`);
+  if (drift === undefined) drift = 0.0;
+  const M = current();
+  if (typeof threshold !== "number") throw new TypeError(`CusumFilter: threshold must be a number, got ${_what(threshold)}`);
+  if (typeof drift !== "number") throw new TypeError(`CusumFilter: drift must be a number, got ${_what(drift)}`);
+  try {
+    return _params(wrapOp(M, () => new M.CusumFilter(threshold, drift)), "CusumFilter", ["threshold", "drift"], _given);
+  } catch (e) { throw _finite(M, "CusumFilter", ["threshold", "drift"], [threshold, drift], e); }
+}
+
 /** CycleAmplitude has no settings: its options object is empty. */
 export type CycleAmplitudeOptions = Record<string, never>;
 

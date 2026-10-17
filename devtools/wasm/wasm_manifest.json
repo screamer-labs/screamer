@@ -1521,6 +1521,27 @@
     "source": "bindings/bindings_misc.cpp"
   },
   {
+    "name": "CusumFilter",
+    "cpp_type": "screamer::CusumFilter",
+    "base": "ScreamerBase",
+    "ctor": [
+      "double",
+      "double"
+    ],
+    "ctor_args": [
+      {
+        "name": "threshold",
+        "default": null
+      },
+      {
+        "name": "drift",
+        "default": "0.0"
+      }
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_signal.cpp"
+  },
+  {
     "name": "CycleAmplitude",
     "cpp_type": "screamer::CycleAmplitude",
     "base": "FunctorBase",

@@ -46,6 +46,7 @@
 #include "screamer/cum_min.h"
 #include "screamer/cum_prod.h"
 #include "screamer/cum_sum.h"
+#include "screamer/cusum_filter.h"
 #include "screamer/cycle_amplitude.h"
 #include "screamer/cycle_frequency.h"
 #include "screamer/cycle_phase.h"
@@ -761,6 +762,8 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor<>();
     emscripten::class_<screamer::CumSum, emscripten::base<screamer::EvalOp>>("CumSum")
         .constructor<>();
+    emscripten::class_<screamer::CusumFilter, emscripten::base<screamer::EvalOp>>("CusumFilter")
+        .constructor<double, double>();
     emscripten::class_<screamer::CycleAmplitude, emscripten::base<screamer::EvalOp>>("CycleAmplitude")
         .constructor<>();
     emscripten::class_<screamer::CycleFrequency, emscripten::base<screamer::EvalOp>>("CycleFrequency")

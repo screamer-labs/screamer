@@ -62,5 +62,5 @@
       :link: by_group/machine-learning
       :link-type: doc
 
-      Training sets and labels from time-series data, and online regression and filtering that forecast as they update.
+      Training sets and labels from time-series data, online regression and filtering that forecast as they update, and regime and change-point models.
 

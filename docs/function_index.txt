@@ -55,6 +55,7 @@ CumMax, Running maximum from t=0.
 CumMin, Running minimum from t=0.
 CumProd, Running product from t=0.
 CumSum, Running sum from t=0.
+CusumFilter, Symmetric CUSUM event filter: +1 when the cumulative rise since the last event passes a threshold, -1 for a fall, 0 otherwise.
 CycleAmplitude, Instantaneous amplitude (envelope) of the dominant cycle, scaled to the input amplitude.
 CycleFrequency, Instantaneous frequency, in cycles per sample, via Ehlers' homodyne discriminator.
 CyclePhase, Instantaneous phase, in degrees, of Ehlers' in-phase and quadrature components.

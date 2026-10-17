@@ -19,6 +19,8 @@ Turn an indicator into a position: entry and exit bands, hysteresis, and holding
      - Description
    * - :doc:`Entry and exit bands on a z-score </functions_signal/BandSignal>`
      - Three-state mean-reversion position from a z-score: short above +entry, long below -entry, flat again inside the exit level, with an optional stop and lockout.
+   * - :doc:`CUSUM event filter </functions_signal/CusumFilter>`
+     - Symmetric CUSUM event filter: +1 when the cumulative rise since the last event passes a threshold, -1 for a fall, 0 otherwise.
    * - :doc:`Hold (time-latch operator) </functions_signal/Hold>`
      - Time-latch operator. Latches a nonzero finite input and holds it for n steps; returns the release value once the hold expires.
    * - :doc:`Schmitt trigger (hysteresis comparator) </functions_signal/SchmittTrigger>`
@@ -155,6 +157,7 @@ Is a backtest more than luck? Randomization tests with p-values, permutations, t
    /functions_signal/BandSignal
    /functions_fin/choosing_a_backtest_engine
    /functions_fin/circular_shift
+   /functions_signal/CusumFilter
    /functions_fin/deflated_sharpe
    /functions_fin/permute_bars
    /functions_fin/permute_returns

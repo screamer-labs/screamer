@@ -18,6 +18,7 @@
 #include "screamer/kalman_filter.h"
 #include "screamer/schmitt_trigger.h"
 #include "screamer/hold.h"
+#include "screamer/cusum_filter.h"
 #include "screamer/dominant_cycle.h"
 #include "screamer/hilbert_phasor.h"
 #include "screamer/cycle_phase.h"
@@ -130,6 +131,12 @@ void init_bindings_signal(nb::module_& m) {
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::Hold::reset,
              "Reset to the initial state (remaining=0, cooldown=0, held=release).");
+
+    // CusumFilter: symmetric CUSUM event filter, +1 / -1 / 0 per step.
+    nb::class_<screamer::CusumFilter, screamer::ScreamerBase>(m, "CusumFilter")
+        .def(nb::init<screamer::FloatArg, screamer::FloatArg>(), "threshold"_a, "drift"_a = 0.0)
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
+        .def("reset", &screamer::CusumFilter::reset, "Reset both sums to 0.");
 
     // DominantCycle: 1->1 dominant cycle period (samples) via Ehlers'
     // homodyne discriminator. See detail/hilbert_cycle.h.

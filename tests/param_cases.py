@@ -204,6 +204,7 @@ test_definitions = [
     ( ('DEMA','TEMA')           , {"span": [10]}),
     ( ('Hold',)                  , {"n": [5], "cooldown": [0, 3]}),
     ( ('SchmittTrigger',)        , {"lower": [-1.0], "upper": [1.0]}),
+    ( ('CusumFilter',)           , {"threshold": [0.5, 2.0], "drift": [0.0, 0.1]}),
 ]
 
 

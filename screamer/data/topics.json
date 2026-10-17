@@ -235,12 +235,17 @@
   {
     "slug": "machine-learning",
     "name": "Forecasting & ML",
-    "desc": "Training sets and labels from time-series data, and online regression and filtering that forecast as they update.",
+    "desc": "Training sets and labels from time-series data, online regression and filtering that forecast as they update, and regime and change-point models.",
     "topics": [
       {
         "slug": "supervised",
         "name": "Supervised learning & online forecasting",
         "desc": "Forecasting training sets from causal features and targets, labels such as the triple barrier, and regressions and filters that update and forecast at every step."
+      },
+      {
+        "slug": "regime",
+        "name": "Regimes & change points",
+        "desc": "Detect a change in a series' behaviour: hidden Markov regimes, Bayesian change points, CUSUM events, and tests for persistence, jumps, and randomness."
       }
     ]
   }

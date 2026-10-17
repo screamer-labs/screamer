@@ -61,7 +61,7 @@ def test_topics_registry_loads_in_display_order():
     from devtools.topics import load_topics
     topics = load_topics()
     assert len(topics) >= 15
-    assert list(topics)[0] == "arithmetic" and list(topics)[-1] == "supervised"
+    assert list(topics)[0] == "arithmetic" and list(topics)[-1] == "regime"
 
 
 @pytest.mark.parametrize("name", ["Add", "Sub", "Merge", "Pipeline", "RollingMean"])

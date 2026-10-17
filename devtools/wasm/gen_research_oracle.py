@@ -45,6 +45,8 @@ CASES = [
     ("Hold", {"n": 3}, "events"),
     ("Hold", {"n": 3, "cooldown": 4}, "events"),
     ("Hold", {"n": 1, "release": -1.0, "cooldown": 2}, "events"),
+    ("CusumFilter", {"threshold": 1.0}, "returns"),
+    ("CusumFilter", {"threshold": 2.5, "drift": 0.2}, "returns"),
 ]
 
 

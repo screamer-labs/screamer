@@ -1509,6 +1509,13 @@ Turn signals into positions and costed equity curves, measure drawdown and perfo
       :img-alt: BandSignal example plot
       :class-card: gallery-card
 
+   .. grid-item-card:: CusumFilter
+      :link: functions_signal/CusumFilter
+      :link-type: doc
+      :img-top: _static/gallery/functions_signal__CusumFilter.webp
+      :img-alt: CusumFilter example plot
+      :class-card: gallery-card
+
    .. grid-item-card:: Drawdown
       :link: functions_fin/Drawdown
       :link-type: doc
@@ -2136,7 +2143,7 @@ Align and reshape event streams, and wire operators into a runnable pipeline.
 Forecasting & ML
 ----------------
 
-Training sets and labels from time-series data, and online regression and filtering that forecast as they update.
+Training sets and labels from time-series data, online regression and filtering that forecast as they update, and regime and change-point models.
 
 .. grid:: 2 3 4 4
    :gutter: 2
@@ -2147,6 +2154,13 @@ Training sets and labels from time-series data, and online regression and filter
       :link-type: doc
       :img-top: _static/gallery/functions_fin__BayesianRegression.webp
       :img-alt: BayesianRegression example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: CusumFilter
+      :link: functions_signal/CusumFilter
+      :link-type: doc
+      :img-top: _static/gallery/functions_signal__CusumFilter.webp
+      :img-alt: CusumFilter example plot
       :class-card: gallery-card
 
    .. grid-item-card:: KalmanFilter

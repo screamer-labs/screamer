@@ -235,6 +235,7 @@
  "functions_signal/ButterBandpass": "4477aba16739f83d",
  "functions_signal/ButterBandstop": "7c78b75ab71381c6",
  "functions_signal/ButterHighpass": "eb99ca56c230d517",
+ "functions_signal/CusumFilter": "5d5835549cbb94fd",
  "functions_signal/CycleAmplitude": "53d5ed159c99c33f",
  "functions_signal/CycleFrequency": "ffb916925cee86b0",
  "functions_signal/CyclePhase": "42e0e88dc334cd73",

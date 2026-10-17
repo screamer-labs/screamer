@@ -4,7 +4,7 @@
 Forecasting & ML
 ================
 
-Training sets and labels from time-series data, and online regression and filtering that forecast as they update.
+Training sets and labels from time-series data, online regression and filtering that forecast as they update, and regime and change-point models.
 
 Supervised learning & online forecasting
 ----------------------------------------
@@ -27,6 +27,20 @@ Forecasting training sets from causal features and targets, labels such as the t
      - A three-state label over a window: +1 when the price reaches the upper barrier first, -1 when it reaches the lower barrier first, 0 when it reaches neither within `horizon` steps.
    * - :doc:`Triple-barrier label on OHLC bars </functions_fin/TripleBarrierOHLC>`
      - A three-state label over a window of OHLC bars: +1 when the upper barrier is reached first, -1 when the lower barrier is reached first, 0 when neither is reached within `horizon` bars; barriers are tested on each bar's open, high, and low.
+
+Regimes & change points
+-----------------------
+
+Detect a change in a series' behaviour: hidden Markov regimes, Bayesian change points, CUSUM events, and tests for persistence, jumps, and randomness.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Function
+     - Description
+   * - :doc:`CUSUM event filter </functions_signal/CusumFilter>`
+     - Symmetric CUSUM event filter: +1 when the cumulative rise since the last event passes a threshold, -1 for a fall, 0 otherwise.
 
 .. toctree::
    :hidden:

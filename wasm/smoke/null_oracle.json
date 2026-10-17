@@ -1822,6 +1822,37 @@
  },
  {
   "accepts_bool": {
+   "drift": false,
+   "threshold": false
+  },
+  "accepts_none": {
+   "drift": false,
+   "threshold": false
+  },
+  "base": {
+   "threshold": 1.0
+  },
+  "below_min": {},
+  "bool_message": {
+   "drift": "CusumFilter: drift must be a number, got bool",
+   "threshold": "CusumFilter: threshold must be a number, got bool"
+  },
+  "name": "CusumFilter",
+  "non_finite": {
+   "drift": {
+    "-inf": "CusumFilter: drift must be finite, got -inf",
+    "inf": "CusumFilter: drift must be finite, got inf",
+    "nan": "CusumFilter: drift must be finite, got nan"
+   },
+   "threshold": {
+    "-inf": "CusumFilter: threshold must be finite, got -inf",
+    "inf": "CusumFilter: threshold must be finite, got inf",
+    "nan": "CusumFilter: threshold must be finite, got nan"
+   }
+  }
+ },
+ {
+  "accepts_bool": {
    "alpha": false,
    "com": false,
    "halflife": false,
