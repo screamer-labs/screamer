@@ -495,11 +495,13 @@ namespace screamer { namespace validation {
     // stitched (T, A) target runs once at the end.
     //
     // A portfolio engine reads a finite target as an order and NaN as "hold".
-    // So that every test window starts from the chosen candidate's book, a
-    // NaN target on a test window's first row is restated as the candidate's
-    // last finite target of that asset before it (0 when it has none, the
-    // flat book its own run starts from); the other rows are copied as they
-    // are.
+    // When a test window changes the book (the first test window, a switch
+    // of candidate, or the first window after a flat fold), a NaN target on
+    // its first row is restated as the new candidate's last finite target of
+    // that asset before it (0 when it has none, the flat book its own run
+    // starts from), so the window starts from that candidate's book. When the
+    // same candidate continues, its rows are copied as they are and the held
+    // book carries over without a trade; every other row is copied as well.
     inline WalkForwardResult walk_forward_portfolio(EngineHost& host, const ArrayShape& targets,
                                                     const std::vector<ArrayShape>& prices,
                                                     const WalkForwardOptions& opt,
@@ -579,6 +581,7 @@ namespace screamer { namespace validation {
             const std::size_t c = static_cast<std::size_t>(res.choice[i]), t0 = train + i * test;
             for (std::size_t t = t0; t < std::min(t0 + test, T); ++t)
                 for (std::size_t k = 0; k < A; ++k) target[t * A + k] = at(t, k, c);
+            if (i > 0 && res.choice[i - 1] == res.choice[i]) continue;   // the book carries over
             for (std::size_t k = 0; k < A; ++k) {
                 double& first = target[t0 * A + k];
                 for (std::size_t t = t0; std::isnan(first);) first = t-- > 0 ? at(t, k, c) : 0.0;

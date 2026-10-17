@@ -925,9 +925,9 @@ export interface WalkForwardOptions {
    * Per-step carry rate (funding, borrow), one value per row, with the sign
    * and timing `BacktestCarry` documents. Every run is scored after
    * `BacktestCarry`, marked with the engine's `markInput`. A `[T, K]`
-   * NdArray for a portfolio engine.
+   * NdArray, or T rows of K values, for a portfolio engine.
    */
-  carry?: ArrayLike<number> | NdArray;
+  carry?: ArrayLike<number> | ArrayLike<number>[] | NdArray;
   /** The carry's contract multiplier (default 1). */
   carryMultiplier?: number;
 }
@@ -984,10 +984,12 @@ export interface WalkForwardResult {
  * summed across assets; `target` is `[T, K]`, `output` `[T, K, 4]`, and a
  * callable metric gets one candidate's `[L, K, 4]` window and returns one
  * number. `carry` is then `[T, K]`. A portfolio engine reads a NaN target as
- * "hold", so a NaN on the first row of a test window is restated as the
- * chosen candidate's last finite target for that asset (0 when it has none):
- * each test window starts from the book the candidate holds. Mirrors Python's
- * `screamer.walk_forward`.
+ * "hold". When a test window changes the book (the first one, a switch of
+ * candidate, or the first after a flat fold), a NaN on its first row is
+ * restated as the new candidate's last finite target for that asset (0 when
+ * it has none), so the window starts from that candidate's book; when the
+ * same candidate continues, the held book carries over without a trade.
+ * Mirrors Python's `screamer.walk_forward`.
  */
 export function walkForward(
   engine: ScreamerOp,
@@ -1024,11 +1026,14 @@ export function walkForward(
   });
   const bufs: number[] = [];
   try {
-    const markInput: number = (engine as any).markInput ?? -1;
-    const spec = heapSpecs(tgt, market, bufs, opts.carry != null ? markInput : -1);
+    const markInput: number = opts.carry != null ? (engine as any).markInput ?? -1 : -1;
+    const spec = heapSpecs(tgt, market, bufs, markInput);
     let carrySpec = 0;
     if (opts.carry != null) {
-      const cnd = asNd(opts.carry);
+      // A series, an NdArray, or T rows of K values (a portfolio's (T, K)).
+      const cnd = asNd(opts.carry) ?? (isColumns(opts.carry)
+        ? (({ data, T, K }) => ({ data, shape: [T, K] }))(flattenRows(opts.carry, "walkForward", "carry"))
+        : null);
       const cdata = cnd !== null ? cnd.data : Float64Array.from(opts.carry as ArrayLike<number>);
       const cp = heapCopy(cdata);
       bufs.push(cp);

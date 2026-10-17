@@ -132,9 +132,20 @@ def _helpers():
         "train": 80, "test": 40, "train_scores": _flat(wfp.train_scores), "choice": wfp.choice.tolist(),
         "target": _flat(wfp.target), "output": _flat(wfp.output),
         "stats": {k: _num(v) for k, v in wfp.stats.items()}}
+    # Sparse schedules (NaN holds between orders): the window-start restatement.
+    Xh = np.full((Tp, Kp, Cp), np.nan)
+    Xh[::7, :, 0] = Xp[::7, :, 0]
+    Xh[3::11, :, 1] = Xp[3::11, :, 1]
+    Xh[3::11, 2, 1] = np.nan
+    wfh = s.walk_forward(s.BacktestPortfolioTarget(fee=1e-3), Xh, prices, train=60, test=30, carry=ratep)
+    walk_forward_portfolio_hold = {
+        "targets": _flat(Xh), "train": 60, "test": 30, "train_scores": _flat(wfh.train_scores),
+        "choice": wfh.choice.tolist(), "target": _flat(wfh.target), "output": _flat(wfh.output),
+        "stats": {k: _num(v) for k, v in wfh.stats.items()}}
     return {
         "walk_forward_carry": walk_forward_carry,
         "walk_forward_portfolio": walk_forward_portfolio,
+        "walk_forward_portfolio_hold": walk_forward_portfolio_hold,
         "by": by,
         "backtest_trades": {
             "values": _flat(out), "T": len(out),

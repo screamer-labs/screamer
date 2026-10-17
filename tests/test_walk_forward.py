@@ -433,7 +433,7 @@ def test_portfolio_argument_checks():
                      carry=np.zeros(T))
 
 
-def test_portfolio_restates_a_held_target_on_each_test_window_start():
+def test_portfolio_restates_a_held_target_when_the_book_changes():
     # Rebalancing schedules: orders every 7 or 11 steps, NaN (hold) between.
     T, K, C = 260, 2, 2
     prices = _book(T, K, 4)
@@ -444,11 +444,41 @@ def test_portfolio_restates_a_held_target_on_each_test_window_start():
     res = walk_forward(BacktestPortfolioTarget(), X, prices, train=80, test=40)
     expect = np.zeros((T, K))
     assert (res.choice >= 0).all()
+    assert len(set(res.choice.tolist())) > 1 and (res.choice[1:] == res.choice[:-1]).any()
+    prev = -1
     for t0, c in zip(res.fold_start, res.choice):
         expect[t0:t0 + 40] = X[t0:t0 + 40, :, c]
         for k in range(K):
-            if np.isnan(expect[t0, k]):       # the order the candidate stands on at t0
+            if c != prev and np.isnan(expect[t0, k]):   # a new book: the order c stands on at t0
                 past = X[:t0, k, c][~np.isnan(X[:t0, k, c])]
                 expect[t0, k] = past[-1] if past.size else 0.0
+        prev = c
     np.testing.assert_array_equal(res.target, expect)
-    assert not np.isnan(res.target[res.fold_start]).any()
+    switched = np.r_[True, res.choice[1:] != res.choice[:-1]]
+    assert not np.isnan(res.target[res.fold_start[switched]]).any()
+    assert np.isnan(res.target[res.fold_start[~switched]]).any()
+
+
+def test_portfolio_continuing_candidate_carries_its_book_without_a_trade():
+    # One candidate on a sparse schedule: orders at 5, 35, 65, ..., never on a fold start.
+    T, K = 300, 2
+    prices = _book(T, K, 5)
+    X = np.full((T, K, 1), np.nan)
+    X[5::30, :, 0] = _book_targets(T, K, 1)[5::30, :, 0]
+    for size in ("weight", "units"):
+        make = lambda: BacktestPortfolioTarget(fee=1e-3, size=size)  # noqa: E731
+        res = walk_forward(make(), X, prices, train=80, test=40)
+        assert (res.choice == 0).all()
+        expect = np.zeros((T, K))
+        expect[80:] = X[80:, :, 0]
+        expect[80] = X[65, :, 0]              # restated once, at the first test window
+        np.testing.assert_array_equal(res.target, expect)
+        np.testing.assert_array_equal(res.output, np.asarray(make()(expect, prices)))
+        later = res.fold_start[1:]
+        assert (res.output[later, :, 3] == 0).all()                      # no cost at later fold starts
+        np.testing.assert_array_equal(res.output[later, :, 2], res.output[later - 1, :, 2])
+        if size == "units":
+            # after the first test row the stitched book is the candidate's own run
+            own = np.asarray(make()(np.ascontiguousarray(X[:, :, 0]), prices))
+            np.testing.assert_allclose(res.output[81:, :, 1:3], own[81:, :, 1:3], rtol=1e-12, atol=1e-12)
+            np.testing.assert_array_equal(res.output[81:, :, 3], own[81:, :, 3])

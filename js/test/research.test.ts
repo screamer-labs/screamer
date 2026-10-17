@@ -157,6 +157,22 @@ test("research: walkForward with a portfolio engine matches Python", () => {
   for (const [k, v] of Object.entries(h.stats as Record<string, Num>)) close([(res.stats as any)[k]], [v], `stats ${k}`);
 });
 
+test("research: walkForward restates held portfolio targets as Python does", () => {
+  const p = oracle.helpers.walk_forward_portfolio, h = oracle.helpers.walk_forward_portfolio_hold;
+  const prices = { data: Float64Array.from(p.prices, num), shape: [p.T, p.K] };
+  const targets = { data: Float64Array.from(h.targets, num), shape: [p.T, p.K, p.C] };
+  // the carry as T rows of K values
+  const flat = Float64Array.from(p.carry, num);
+  const carry = Array.from({ length: p.T }, (_, t) => Array.from(flat.subarray(t * p.K, (t + 1) * p.K)));
+  const res = walkForward(BacktestPortfolioTarget({ fee: 1e-3 }), targets, [prices],
+                          { train: h.train, test: h.test, carry });
+  assert.deepEqual(Array.from(res.choice), h.choice);
+  close(res.trainScores.data, h.train_scores, "trainScores");
+  close((res.target as any).data, h.target, "target");
+  close(res.output.data, h.output, "output");
+  for (const [k, v] of Object.entries(h.stats as Record<string, Num>)) close([(res.stats as any)[k]], [v], `stats ${k}`);
+});
+
 test("research: engines declare their mark input for walkForward carry", () => {
   const marks: [string, number][] = [["BacktestPriceTarget", 0], ["BacktestOHLCTarget", 3],
     ["BacktestOHLCVTarget", 3], ["BacktestTradesTarget", 0], ["BacktestL1Target", 1],

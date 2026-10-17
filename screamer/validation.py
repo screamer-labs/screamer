@@ -591,11 +591,12 @@ def walk_forward(
     window is scored on the book, the pnl summed across assets; ``target`` is
     ``(T, K)``, ``output`` ``(T, K, 4)``, and a callable metric gets one
     candidate's ``(L, K, 4)`` window and returns one number. ``carry`` is
-    then ``(T, K)``. A portfolio engine reads a ``NaN`` target as "hold", so a
-    ``NaN`` on the first row of a test window is restated as the chosen
-    candidate's last finite target for that asset (0 when it has none): each
-    test window starts from the book the candidate holds, whatever the
-    previous window held.
+    then ``(T, K)``. A portfolio engine reads a ``NaN`` target as "hold". When
+    a test window changes the book (the first one, a switch of candidate, or
+    the first after a flat fold), a ``NaN`` on its first row is restated as
+    the new candidate's last finite target for that asset (0 when it has
+    none), so the window starts from that candidate's book; when the same
+    candidate continues, the held book carries over without a trade.
 
     ``metric``, ``larger_is_better``, and ``periods_per_year`` mean the same as
     in ``position_test``.
@@ -623,5 +624,5 @@ def walk_forward(
         _flag(larger_is_better), bool(anchored),
         _float(periods_per_year, "walk_forward: periods_per_year"), portfolio, candidates,
         carry, _float(carry_multiplier, "walk_forward: carry_multiplier"),
-        getattr(engine, "mark_input", None), type(engine).__name__)
+        None if carry is None else getattr(engine, "mark_input", None), type(engine).__name__)
     return WalkForwardResult(target, choice, fold_start, scores, output, stats, name)

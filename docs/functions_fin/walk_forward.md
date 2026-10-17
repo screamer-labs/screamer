@@ -48,11 +48,13 @@ one candidate's `(L, K, 4)` window and returns one number, and `carry` is a
 `(T, K)` rate, one column per asset.
 
 A portfolio engine reads a finite target as an order and `NaN` as "hold", so a
-rebalancing schedule has `NaN` between its rebalance steps. So that each test
-window starts from the chosen candidate's book, a `NaN` on the first row of a
-test window is restated as that candidate's last finite target for the asset,
-or 0 when it has none (the flat book its own run starts from). The other rows
-are the candidate's targets as given.
+rebalancing schedule has `NaN` between its rebalance steps. When a test window
+changes the book (the first test window, a switch to another candidate, or the
+first window after a flat fold), a `NaN` on its first row is restated as the
+new candidate's last finite target for the asset, or 0 when it has none (the
+flat book its own run starts from), so the window starts from that candidate's
+book. When the same candidate continues, its targets are used as given and the
+held book carries over without a trade.
 
 The function is batch-only. The backtests and the statistics run in C++; the
 function only slices, compares, and stitches.
