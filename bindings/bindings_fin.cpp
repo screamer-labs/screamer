@@ -803,8 +803,24 @@ nb::object backtest_report_py(EngineRows v, nb::handle ppy) {
                           make_owned_array(std::move(stats), {T, ns}), nb::tuple(sum));
 }
 
+// backtest_report(by=): the per-group statistics of an engine's (T, 4)
+// output for int64 group codes in [0, groups), as a (groups, 6) array.
+using GroupCodes = nb::ndarray<const std::int64_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+
+nb::object backtest_groups_py(EngineRows v, GroupCodes codes, std::size_t groups, double periods_per_year) {
+    screamer::check_engine_rows(v.ndim(), v.ndim() == 2 ? v.shape(1) : 0);
+    const std::size_t T = v.shape(0);
+    screamer::check_group_codes(codes.shape(0), T);
+    constexpr std::size_t ng = screamer::kGroupStats.size();
+    auto out = screamer::detail::new_output(groups * ng);
+    screamer::backtest_groups(v.data(), T, static_cast<std::ptrdiff_t>(v.stride(0)),
+                              static_cast<std::ptrdiff_t>(v.stride(1)), codes.data(), groups,
+                              periods_per_year, out.get());
+    return screamer::detail::make_owned_array(std::move(out), {groups, ng});
+}
+
 // The names of backtest_report: (engine columns, BacktestReport columns,
-// BacktestStats columns, summary).
+// BacktestStats columns, summary, group statistics).
 nb::object backtest_report_names() {
     const auto names = [](const auto& a) {
         nb::list out;
@@ -815,7 +831,8 @@ nb::object backtest_report_names() {
     for (const auto& st : screamer::kStats) summary.append(st.name);
     return nb::make_tuple(names(screamer::kEngineColumns),
                           names(screamer::BacktestReport::column_names),
-                          names(screamer::BacktestStats::column_names), nb::tuple(summary));
+                          names(screamer::BacktestStats::column_names), nb::tuple(summary),
+                          names(screamer::kGroupStats));
 }
 
 namespace sv = screamer::validation;
@@ -1211,6 +1228,8 @@ void init_bindings_fin(nb::module_& m) {
     });
     m.def("_backtest_report", &backtest_report_py, "values"_a, "periods_per_year"_a.none());
     m.def("_backtest_report_names", &backtest_report_names);
+    m.def("_backtest_groups", &backtest_groups_py, "values"_a, "codes"_a, "groups"_a,
+          "periods_per_year"_a);
     m.def("_backtest_trades", &backtest_trades_py, "values"_a);
     m.def("_strategy_test", &strategy_test_py,
           "run"_a, "metric"_a.none(), "inputs"_a, "n"_a, "method"_a, "ohlc"_a, "price"_a,

@@ -4,8 +4,11 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <stdexcept>
+#include <string>
+#include <vector>
 
 #include "screamer/backtest_report.h"
 #include "screamer/backtest_stats.h"
@@ -134,6 +137,83 @@ namespace screamer {
         BacktestReport rep(periods_per_year);
         BacktestStats st(periods_per_year);
         backtest_report(rep, st, eng, T, row_stride, col_stride, report, stats, summary);
+    }
+
+    // backtest_report(by=): the statistics of each group of rows, in this
+    // order.
+    inline constexpr std::array<const char*, 6> kGroupStats{{
+        "total_pnl", "total_cost", "turnover", "sharpe", "max_drawdown", "steps"}};
+
+    // One group label per engine row.
+    inline void check_group_codes(std::size_t n_codes, std::size_t T) {
+        if (n_codes != T)
+            throw std::invalid_argument("by must hold one label per row: " + std::to_string(T) +
+                                        " rows, " + std::to_string(n_codes) + " labels");
+    }
+
+    // The statistics of G groups of T engine rows (`row_stride` and
+    // `col_stride` apart), row t in group codes[t], written to out[g * 6 + j]
+    // in kGroupStats order. Rows with a NaN field are skipped, as
+    // BacktestReport skips them. turnover measures each position change from
+    // the previous finite row of the whole output (the first from flat), and
+    // total_pnl is the equity gained over the group's rows, each measured from
+    // the previous finite row (the first from 0), so the groups add up to the
+    // ungrouped total_pnl (the last equity) even where NaN rows hide a pnl.
+    // For an engine's equity, the running sum of pnl, this is the sum of the
+    // group's pnl. sharpe is BacktestReport's running Sharpe ratio over the group's rows,
+    // so a single group reproduces the ungrouped turnover and sharpe.
+    inline void backtest_groups(const double* eng, std::size_t T, std::ptrdiff_t row_stride,
+                                std::ptrdiff_t col_stride, const std::int64_t* codes,
+                                std::size_t G, double periods_per_year, double* out) {
+        if (!(periods_per_year > 0.0) || !std::isfinite(periods_per_year))
+            throw std::invalid_argument("periods_per_year must be finite and positive.");
+        for (std::size_t t = 0; t < T; ++t)
+            if (codes[t] < 0 || static_cast<std::size_t>(codes[t]) >= G)
+                throw std::invalid_argument("group codes must lie in [0, groups)");
+        struct Acc {
+            double pnl = 0.0, cost = 0.0, turnover = 0.0, mean = 0.0, m2 = 0.0, cum = 0.0;
+            double peak = -std::numeric_limits<double>::infinity(), worst = 0.0;
+            long long n = 0;
+        };
+        std::vector<Acc> acc(G);
+        bool has_prev = false;
+        double prev_pos = 0.0, prev_equity = 0.0;
+        for (std::size_t t = 0; t < T; ++t) {
+            const double* r = eng + static_cast<std::ptrdiff_t>(t) * row_stride;
+            const double equity = r[0], pnl = r[col_stride], pos = r[2 * col_stride],
+                         cost = r[3 * col_stride];
+            if (std::isnan(equity) || std::isnan(pnl) || std::isnan(pos) || std::isnan(cost)) continue;
+            Acc& g = acc[static_cast<std::size_t>(codes[t])];
+            g.pnl += equity - prev_equity;
+            prev_equity = equity;
+            g.cost += cost;
+            g.turnover += std::abs(has_prev ? pos - prev_pos : pos);
+            prev_pos = pos;
+            has_prev = true;
+            g.n += 1;
+            const double delta = pnl - g.mean;
+            g.mean += delta / static_cast<double>(g.n);
+            g.m2 += delta * (pnl - g.mean);
+            g.cum += pnl;
+            if (g.cum > g.peak) g.peak = g.cum;
+            if (g.cum - g.peak < g.worst) g.worst = g.cum - g.peak;
+        }
+        const double sqrt_ppy = std::sqrt(periods_per_year);
+        for (std::size_t k = 0; k < G; ++k) {
+            const Acc& g = acc[k];
+            double sharpe = std::numeric_limits<double>::quiet_NaN();
+            if (g.n > 1) {
+                const double sd = std::sqrt(g.m2 / static_cast<double>(g.n - 1));
+                if (sd > 0.0) sharpe = g.mean / sd * sqrt_ppy;
+            }
+            double* o = out + k * kGroupStats.size();
+            o[0] = g.pnl;
+            o[1] = g.cost;
+            o[2] = g.turnover;
+            o[3] = sharpe;
+            o[4] = g.worst;
+            o[5] = static_cast<double>(g.n);
+        }
     }
 
 } // namespace screamer

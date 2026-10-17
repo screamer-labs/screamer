@@ -47,7 +47,26 @@ void backtestReportInto(std::uintptr_t eng, std::size_t T, std::size_t ndim, std
     columns(stats.data(), kStatsCols);
 }
 
-// [engine columns, BacktestReport columns, BacktestStats columns, summary].
+// backtest_report(by=): the statistics of `groups` groups of the engine
+// output `eng` (T rows of `ncols` values, row-major) for the `n_codes` group
+// codes at `codes` (doubles holding integers in [0, groups)), written row by
+// row to `out` (groups x kGroupStats). The shape and the code count are
+// checked first.
+void backtestGroupsInto(std::uintptr_t eng, std::size_t T, std::size_t ndim, std::size_t ncols,
+                        std::uintptr_t codes, std::size_t n_codes, std::size_t groups,
+                        double periods_per_year, std::uintptr_t out) {
+    screamer::check_engine_rows(ndim, ncols);
+    screamer::check_group_codes(n_codes, T);
+    const double* c = reinterpret_cast<const double*>(codes);
+    std::vector<std::int64_t> ic(T);
+    for (std::size_t t = 0; t < T; ++t) ic[t] = static_cast<std::int64_t>(c[t]);
+    screamer::backtest_groups(reinterpret_cast<const double*>(eng), T,
+                              static_cast<std::ptrdiff_t>(ncols), 1, ic.data(), groups,
+                              periods_per_year, reinterpret_cast<double*>(out));
+}
+
+// [engine columns, BacktestReport columns, BacktestStats columns, summary,
+// group statistics].
 emscripten::val backtestReportNames() {
     const auto names = [](const auto& a) {
         emscripten::val out = emscripten::val::array();
@@ -62,6 +81,7 @@ emscripten::val backtestReportNames() {
     all.set(1, names(screamer::BacktestReport::column_names));
     all.set(2, names(screamer::BacktestStats::column_names));
     all.set(3, summary);
+    all.set(4, names(screamer::kGroupStats));
     return all;
 }
 
@@ -93,6 +113,7 @@ emscripten::val backtestTrades(std::uintptr_t eng, std::size_t T, std::size_t nd
 EMSCRIPTEN_BINDINGS(screamer_backtest) {
     emscripten::function("checkEngineRows", &checkEngineRows);
     emscripten::function("backtestReportInto", &backtestReportInto);
+    emscripten::function("backtestGroupsInto", &backtestGroupsInto);
     emscripten::function("backtestReportNames", &backtestReportNames);
     emscripten::function("backtestTrades", &backtestTrades);
 }

@@ -12,7 +12,7 @@ import numpy as np
 
 from .dag import _as_float64
 
-from .screamer_bindings import _backtest_report, _backtest_report_names, _backtest_trades, _check_feed_length
+from .screamer_bindings import _backtest_groups, _backtest_report, _backtest_report_names, _backtest_trades, _check_feed_length
 
 #: Market-order price sentinel for the backtest engines. A quote or limit price of
 #: ``MARKET`` (or any non-finite price) is a market order in the aggressive
@@ -23,10 +23,23 @@ __all__ = ["backtest_report", "backtest_trades", "MARKET"]
 
 # Names from C++: the engine columns, the BacktestReport and BacktestStats
 # columns, and the summary.
-_ENGINE_COLUMNS, _REPORT_COLUMNS, _STATS_COLUMNS, _SUMMARY = _backtest_report_names()
+_ENGINE_COLUMNS, _REPORT_COLUMNS, _STATS_COLUMNS, _SUMMARY, _GROUP_STATS = _backtest_report_names()
 
 
-def backtest_report(values, index=None, periods_per_year=1.0):
+def _group_codes(by):
+    """The labels of ``by`` as int64 codes numbered in order of first
+    appearance, and the labels in that order."""
+    by = np.asarray(by)
+    if by.ndim != 1:
+        raise ValueError("backtest_report: by must be a 1-D array of labels, one per row")
+    labels, first, inverse = np.unique(by, return_index=True, return_inverse=True)
+    order = np.argsort(first, kind="stable")
+    rank = np.empty(len(order), dtype=np.int64)
+    rank[order] = np.arange(len(order), dtype=np.int64)
+    return np.ascontiguousarray(rank[inverse.reshape(-1)]), [labels[j] for j in order]
+
+
+def backtest_report(values, index=None, periods_per_year=1.0, by=None):
     """Running report columns and a summary for a backtest engine's output.
 
     ``values`` is the ``(T, 4)`` array a backtest engine emits, with columns
@@ -46,6 +59,15 @@ def backtest_report(values, index=None, periods_per_year=1.0):
     ``periods_per_year`` annualizes ``sharpe``, ``sortino``, and ``calmar``
     (for example 252 for daily bars). The default 1 gives per-step ratios.
 
+    ``by`` is one label per row (any NumPy dtype: ``datetime64[M]`` months,
+    integer years, strings), as pandas ``groupby(by=)``. With it, ``summary``
+    gains ``by_group``: a dict from label, in order of first appearance, to
+    ``total_pnl``, ``total_cost``, ``turnover``, ``sharpe`` (annualized with
+    ``periods_per_year``), ``max_drawdown`` (of the cumulative pnl over the
+    group's rows), and ``steps`` (its rows without NaN). Trade statistics are
+    not grouped, because a trade can span groups; group the rows of
+    ``backtest_trades`` by their entry instead.
+
     The report and the summary come from C++; this wrapper only labels them.
     No pandas dependency.
     """
@@ -62,7 +84,14 @@ def backtest_report(values, index=None, periods_per_year=1.0):
         _check_feed_length("backtest_report", -1, len(values),
                            index.shape[0] if index.ndim else 1)
         running["index"] = index
-    return running, dict(zip(_SUMMARY, summary))
+    summary = dict(zip(_SUMMARY, summary))
+    if by is not None:
+        codes, labels = _group_codes(by)
+        table = _backtest_groups(values, codes, len(labels), periods_per_year)
+        summary["by_group"] = {
+            label: {**dict(zip(_GROUP_STATS, map(float, row))), "steps": int(row[-1])}
+            for label, row in zip(labels, table)}
+    return running, summary
 
 
 def backtest_trades(values, index=None):

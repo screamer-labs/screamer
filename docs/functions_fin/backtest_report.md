@@ -48,12 +48,23 @@ and `running.index` is a `Float64Array`; Python passes any index through.
 
 ## Signature
 
-`backtest_report(values, index=None, periods_per_year=1.0)`
+`backtest_report(values, index=None, periods_per_year=1.0, by=None)`
 
 `values` is the `(T, 4)` array a backtest engine emits. `index` optionally adds an
 `"index"` array to `running` for labeling the rows. `periods_per_year` annualizes
 `sharpe`, `sortino`, and `calmar` (for example 252 for daily bars); the default 1
 gives per-step ratios.
+
+`by` is one label per row, of any NumPy dtype, as in pandas `groupby(by=)`:
+`datetime64[M]` months, integer years, or strings. With it, `summary` gains
+`by_group`, a dict from label (in order of first appearance) to that group's
+`total_pnl`, `total_cost`, `turnover`, `sharpe` (annualized with
+`periods_per_year`), `max_drawdown` (of the cumulative pnl over the group's
+rows), and `steps`. Rows with a `NaN` field are skipped. Trade statistics are
+not grouped, because a trade can span two groups; group the rows of
+[`backtest_trades`](backtest_trades.md) by their `entry` instead. In
+JavaScript, `backtestReport(values, { by })` returns the groups as `byGroup`,
+a `Map` from label to the same six statistics.
 
 ## Examples
 
@@ -70,4 +81,21 @@ gives per-step ratios.
     for name, value in summary.items():
         print(f"{name:13s} {value:10.4f}")
     print("\nrunning columns:", list(running))
+```
+
+```{eval-rst}
+.. exec_code::
+
+    import numpy as np
+    from screamer import BacktestPriceTarget, backtest_report
+
+    rng = np.random.default_rng(0)
+    days = np.datetime64("2024-01-01") + np.arange(366)
+    price = 100 + np.cumsum(rng.standard_normal(366))
+    signal = np.sign(rng.standard_normal(366))
+
+    _, summary = backtest_report(BacktestPriceTarget(fee=1e-3)(signal, price),
+                                 periods_per_year=252, by=days.astype("datetime64[M]"))
+    for month, s in summary["by_group"].items():
+        print(month, f"{s['total_pnl']:8.2f} {s['sharpe']:6.2f} {s['steps']:4d}")
 ```

@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { ready, Hold, CusumFilter } from "../src/index.ts";
+import { ready, Hold, CusumFilter, backtestReport } from "../src/index.ts";
 import * as api from "../src/index.ts";
 
 await ready();
@@ -108,4 +108,23 @@ test("research: backtestTrades matches Python", () => {
 test("research: backtestTrades rejects a portfolio output", () => {
   assert.throws(() => (api as any).backtestTrades({ data: new Float64Array(24), shape: [2, 3, 4] }),
                 /once per asset/);
+});
+
+test("research: backtestReport by matches Python", () => {
+  const hb = oracle.helpers.by, ht = oracle.helpers.backtest_trades;
+  const values = { data: Float64Array.from(ht.values, num), shape: [ht.T, 4] };
+  const { byGroup } = backtestReport(values, { periodsPerYear: hb.periods_per_year, by: hb.labels });
+  assert.deepEqual([...byGroup!.keys()], hb.groups.map((g: any) => g[0]));
+  for (const [label, stats] of hb.groups) {
+    const got = byGroup!.get(label)!;
+    for (const [k, v] of Object.entries(stats as Record<string, Num>)) close([got[k]], [v], `by ${label} ${k}`);
+  }
+});
+
+test("research: backtestReport by with one string label equals the summary", () => {
+  const ht = oracle.helpers.backtest_trades;
+  const values = { data: Float64Array.from(ht.values, num), shape: [ht.T, 4] };
+  const { summary, byGroup } = backtestReport(values, { by: Array(ht.T).fill("all") });
+  const g = byGroup!.get("all")!;
+  for (const k of ["total_cost", "turnover", "sharpe"]) assert.ok(Math.abs(g[k] - summary[k]) <= 1e-9 * Math.max(1, Math.abs(summary[k])), k);
 });

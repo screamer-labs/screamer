@@ -28,6 +28,11 @@ export interface BacktestReportOptions {
    * bars). The default 1 gives per-step ratios.
    */
   periodsPerYear?: number;
+  /**
+   * One label per row, numbers or strings (Python's `by=`). The result then
+   * holds `byGroup`.
+   */
+  by?: ArrayLike<number | string>;
 }
 
 export interface BacktestReportResult {
@@ -40,21 +45,43 @@ export interface BacktestReportResult {
   running: Record<string, Float64Array>;
   /** The final statistics, keyed as Python's `backtest_report` summary. */
   summary: Record<string, number>;
+  /**
+   * With `by`: for each label, in order of first appearance, `total_pnl`,
+   * `total_cost`, `turnover`, `sharpe`, `max_drawdown`, and `steps`, as
+   * Python's `summary["by_group"]`.
+   */
+  byGroup?: Map<number | string, Record<string, number>>;
 }
 
 const WHO = "backtestReport";
 
 // The names from WASM, read once: the engine columns, the computed columns
 // (BacktestReport then BacktestStats), and the summary.
-interface Names { engine: string[]; computed: string[]; summary: string[] }
+interface Names { engine: string[]; computed: string[]; summary: string[]; groups: string[] }
 let names: Names | null = null;
 
 function reportNames(): Names {
   if (names) return names;
-  const [engine, report, stats, summary] =
+  const [engine, report, stats, summary, groups] =
     wasmCall(() => current().backtestReportNames()) as string[][];
-  names = { engine, computed: [...report, ...stats], summary };
+  names = { engine, computed: [...report, ...stats], summary, groups };
   return names;
+}
+
+// The labels of `by` as codes numbered in order of first appearance.
+function groupCodes(by: ArrayLike<number | string>): { codes: Float64Array; labels: (number | string)[] } {
+  const codes = new Float64Array(by.length);
+  const labels: (number | string)[] = [];
+  const seen = new Map<number | string, number>();
+  for (let t = 0; t < by.length; t++) {
+    const v = by[t];
+    if (typeof v !== "number" && typeof v !== "string")
+      throw new TypeError(`${WHO}: by item ${t} must be a number or a string, got ${typeof v}`);
+    let c = seen.get(v);
+    if (c === undefined) { c = labels.length; seen.set(v, c); labels.push(v); }
+    codes[t] = c;
+  }
+  return { codes, labels };
 }
 
 interface EngineRows { data: Float64Array; ndim: number; T: number; ncols: number }
@@ -106,7 +133,7 @@ export function backtestReport(
   const index = o.index == null ? null
     : toF64Checked(o.index as ArrayLike<unknown>, WHO, (i) => `index item ${i}`);
   const { engine, computed, summary: summaryNames } = reportNames();
-  let inPtr = 0, outPtr = 0, sumPtr = 0;          // freeBuf(0) is a no-op
+  let inPtr = 0, outPtr = 0, sumPtr = 0, codesPtr = 0, groupPtr = 0;          // freeBuf(0) is a no-op
   try {
     inPtr = M.allocF64(Math.max(1, data.length));
     outPtr = M.allocF64(Math.max(1, T * computed.length));
@@ -130,9 +157,22 @@ export function backtestReport(
     const sums = M.viewF64(sumPtr, summaryNames.length);
     const summary: Record<string, number> = {};
     summaryNames.forEach((name, i) => { summary[name] = sums[i]; });
-    return { running, summary };
+    let byGroup: Map<number | string, Record<string, number>> | undefined;
+    if (o.by != null) {
+      const { codes, labels } = groupCodes(o.by);
+      const { groups } = reportNames();
+      codesPtr = M.allocF64(Math.max(1, codes.length));
+      M.viewF64(codesPtr, codes.length).set(codes);
+      groupPtr = M.allocF64(Math.max(1, labels.length * groups.length));
+      wasmCall(() => M.backtestGroupsInto(inPtr, T, ndim, ncols, codesPtr, codes.length,
+                                          labels.length, ppy, groupPtr));
+      const g = M.viewF64(groupPtr, labels.length * groups.length);
+      byGroup = new Map(labels.map((label, k) =>
+        [label, Object.fromEntries(groups.map((name, j) => [name, g[k * groups.length + j]]))]));
+    }
+    return byGroup === undefined ? { running, summary } : { running, summary, byGroup };
   } finally {
-    M.freeBuf(inPtr); M.freeBuf(outPtr); M.freeBuf(sumPtr);
+    M.freeBuf(inPtr); M.freeBuf(outPtr); M.freeBuf(sumPtr); M.freeBuf(codesPtr); M.freeBuf(groupPtr);
   }
 }
 

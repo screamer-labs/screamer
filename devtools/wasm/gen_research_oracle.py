@@ -84,7 +84,13 @@ def _helpers():
     """Inputs and results of the backtest helpers; Tasks 12 to 14 add entries."""
     out = _engine_output()
     trades = s.backtest_trades(out)
+    labels = (np.arange(len(out)) // 30) * 10
+    _, summary = s.backtest_report(out, periods_per_year=252.0, by=labels)
+    by = {"labels": labels.tolist(), "periods_per_year": 252.0,
+          "groups": [[int(k), {n: _num(v) for n, v in g.items()}]
+                     for k, g in summary["by_group"].items()]}
     return {
+        "by": by,
         "backtest_trades": {
             "values": _flat(out), "T": len(out),
             "result": {k: _flat(np.asarray(v, dtype=float)) for k, v in trades.items()},
