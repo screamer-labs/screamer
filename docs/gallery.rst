@@ -612,6 +612,27 @@ Measures of a window: central tendency, dispersion, quantiles, moments, z-scores
       :img-alt: RollingRogersSatchellVol example plot
       :class-card: gallery-card
 
+   .. grid-item-card:: RollingSeasonalMean
+      :link: functions_rolling/RollingSeasonalMean
+      :link-type: doc
+      :img-top: _static/gallery/functions_rolling__RollingSeasonalMean.webp
+      :img-alt: RollingSeasonalMean example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: RollingSeasonalStd
+      :link: functions_rolling/RollingSeasonalStd
+      :link-type: doc
+      :img-top: _static/gallery/functions_rolling__RollingSeasonalStd.webp
+      :img-alt: RollingSeasonalStd example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: RollingSeasonalZscore
+      :link: functions_rolling/RollingSeasonalZscore
+      :link-type: doc
+      :img-top: _static/gallery/functions_rolling__RollingSeasonalZscore.webp
+      :img-alt: RollingSeasonalZscore example plot
+      :class-card: gallery-card
+
    .. grid-item-card:: RollingSkew
       :link: functions_rolling/RollingSkew
       :link-type: doc

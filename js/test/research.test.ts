@@ -57,3 +57,10 @@ test("research: RollingUpsideDeviation hand example", () => {
   assert.ok(Number.isNaN(out[0]) && Number.isNaN(out[1]));
   assert.ok(Math.abs(out[2] - Math.sqrt(5 / 3)) < 1e-12 && Math.abs(out[3] - Math.sqrt(4 / 3)) < 1e-12);
 });
+
+test("research: RollingSeasonalMean NaN advances the slot clock", () => {
+  const out = (api as any).RollingSeasonalMean({ period: 2, windowSize: 2, startPolicy: "expanding" })(
+    Float64Array.from([1, 10, NaN, 20, 5, 30])) as Float64Array;
+  assert.ok(Number.isNaN(out[2]));
+  assert.deepEqual([out[0], out[1], out[3], out[4], out[5]], [1, 10, 15, 3, 25]);
+});

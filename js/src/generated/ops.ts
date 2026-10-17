@@ -7331,6 +7331,138 @@ export function RollingRogersSatchellVol(windowSize?: any): ScreamerOp {
   } catch (e) { throw _finite(M, "RollingRogersSatchellVol", ["windowSize"], [windowSize], e); }
 }
 
+/** The settings of RollingSeasonalMean by name, for `RollingSeasonalMean({ ... })`. */
+export interface RollingSeasonalMeanOptions {
+  /** Steps per cycle, for example 24 for hourly data with a daily cycle. @defaultValue `24` */
+  period?: number;
+  /** Number of cycles in the window. @defaultValue `20` */
+  windowSize?: number;
+  /** Output before a slot holds window_size values: "strict" gives NaN, "expanding" uses the values the slot holds, and "zero" starts each slot with window_size zeros. @defaultValue `"strict"` */
+  startPolicy?: string;
+}
+
+/**
+ * Mean of the same slot of the last `window_size` cycles, such as the same hour on each of the last 20 days.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingSeasonalMean.html for the full reference.
+ */
+export function RollingSeasonalMean(options: RollingSeasonalMeanOptions): ScreamerOp;
+/**
+ * Mean of the same slot of the last `window_size` cycles, such as the same hour on each of the last 20 days.
+ *
+ * @param period Steps per cycle, for example 24 for hourly data with a daily cycle.
+ * @param windowSize Number of cycles in the window.
+ * @param startPolicy Output before a slot holds window_size values: "strict" gives NaN, "expanding" uses the values the slot holds, and "zero" starts each slot with window_size zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingSeasonalMean.html for the full reference.
+ */
+export function RollingSeasonalMean(period?: number, windowSize?: number, startPolicy?: string): ScreamerOp;
+export function RollingSeasonalMean(period?: any, windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(period)) [period, windowSize, startPolicy] = _options("RollingSeasonalMean", period, arguments.length, ["period", "windowSize", "startPolicy"], "period must be an integer");
+  else if (arguments.length > 3) _tooMany("RollingSeasonalMean", 3, arguments.length);
+  const _given: unknown[] = [period, windowSize, startPolicy];
+  if (period === undefined) period = 24;
+  if (windowSize === undefined) windowSize = 20;
+  if (startPolicy === undefined) startPolicy = "strict";
+  const M = current();
+  if (typeof period !== "number" || !Number.isInteger(period)) throw new TypeError(`RollingSeasonalMean: period must be an integer, got ${typeof period === "number" ? period : _what(period)}`);
+  if (!(period >= -2147483648 && period <= 2147483647)) _intRange(M, "RollingSeasonalMean", "period", period);
+  if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingSeasonalMean: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingSeasonalMean", "windowSize", windowSize);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingSeasonalMean: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
+  try {
+    return _params(wrapOp(M, () => new M.RollingSeasonalMean(period, windowSize, startPolicy)), "RollingSeasonalMean", ["period", "window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollingSeasonalMean", ["period", "windowSize"], [period, windowSize], e); }
+}
+
+/** The settings of RollingSeasonalStd by name, for `RollingSeasonalStd({ ... })`. */
+export interface RollingSeasonalStdOptions {
+  /** Steps per cycle, for example 24 for hourly data with a daily cycle. @defaultValue `24` */
+  period?: number;
+  /** Number of cycles in the window. @defaultValue `20` */
+  windowSize?: number;
+  /** Output before a slot holds window_size values: "strict" gives NaN, "expanding" uses the values the slot holds (two are needed for a standard deviation), and "zero" starts each slot with window_size zeros. @defaultValue `"strict"` */
+  startPolicy?: string;
+}
+
+/**
+ * Sample standard deviation of the same slot of the last window_size cycles.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingSeasonalStd.html for the full reference.
+ */
+export function RollingSeasonalStd(options: RollingSeasonalStdOptions): ScreamerOp;
+/**
+ * Sample standard deviation of the same slot of the last window_size cycles.
+ *
+ * @param period Steps per cycle, for example 24 for hourly data with a daily cycle.
+ * @param windowSize Number of cycles in the window.
+ * @param startPolicy Output before a slot holds window_size values: "strict" gives NaN, "expanding" uses the values the slot holds (two are needed for a standard deviation), and "zero" starts each slot with window_size zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingSeasonalStd.html for the full reference.
+ */
+export function RollingSeasonalStd(period?: number, windowSize?: number, startPolicy?: string): ScreamerOp;
+export function RollingSeasonalStd(period?: any, windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(period)) [period, windowSize, startPolicy] = _options("RollingSeasonalStd", period, arguments.length, ["period", "windowSize", "startPolicy"], "period must be an integer");
+  else if (arguments.length > 3) _tooMany("RollingSeasonalStd", 3, arguments.length);
+  const _given: unknown[] = [period, windowSize, startPolicy];
+  if (period === undefined) period = 24;
+  if (windowSize === undefined) windowSize = 20;
+  if (startPolicy === undefined) startPolicy = "strict";
+  const M = current();
+  if (typeof period !== "number" || !Number.isInteger(period)) throw new TypeError(`RollingSeasonalStd: period must be an integer, got ${typeof period === "number" ? period : _what(period)}`);
+  if (!(period >= -2147483648 && period <= 2147483647)) _intRange(M, "RollingSeasonalStd", "period", period);
+  if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingSeasonalStd: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingSeasonalStd", "windowSize", windowSize);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingSeasonalStd: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
+  try {
+    return _params(wrapOp(M, () => new M.RollingSeasonalStd(period, windowSize, startPolicy)), "RollingSeasonalStd", ["period", "window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollingSeasonalStd", ["period", "windowSize"], [period, windowSize], e); }
+}
+
+/** The settings of RollingSeasonalZscore by name, for `RollingSeasonalZscore({ ... })`. */
+export interface RollingSeasonalZscoreOptions {
+  /** Steps per cycle, for example 24 for hourly data with a daily cycle. @defaultValue `24` */
+  period?: number;
+  /** Number of cycles in the window. @defaultValue `20` */
+  windowSize?: number;
+  /** Output before a slot holds window_size values: "strict" gives NaN, "expanding" uses the values the slot holds (two are needed for a standard deviation), and "zero" starts each slot with window_size zeros. @defaultValue `"strict"` */
+  startPolicy?: string;
+}
+
+/**
+ * (x - mean) / std over the same slot of the last window_size cycles, x included.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingSeasonalZscore.html for the full reference.
+ */
+export function RollingSeasonalZscore(options: RollingSeasonalZscoreOptions): ScreamerOp;
+/**
+ * (x - mean) / std over the same slot of the last window_size cycles, x included.
+ *
+ * @param period Steps per cycle, for example 24 for hourly data with a daily cycle.
+ * @param windowSize Number of cycles in the window.
+ * @param startPolicy Output before a slot holds window_size values: "strict" gives NaN, "expanding" uses the values the slot holds (two are needed for a standard deviation), and "zero" starts each slot with window_size zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingSeasonalZscore.html for the full reference.
+ */
+export function RollingSeasonalZscore(period?: number, windowSize?: number, startPolicy?: string): ScreamerOp;
+export function RollingSeasonalZscore(period?: any, windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(period)) [period, windowSize, startPolicy] = _options("RollingSeasonalZscore", period, arguments.length, ["period", "windowSize", "startPolicy"], "period must be an integer");
+  else if (arguments.length > 3) _tooMany("RollingSeasonalZscore", 3, arguments.length);
+  const _given: unknown[] = [period, windowSize, startPolicy];
+  if (period === undefined) period = 24;
+  if (windowSize === undefined) windowSize = 20;
+  if (startPolicy === undefined) startPolicy = "strict";
+  const M = current();
+  if (typeof period !== "number" || !Number.isInteger(period)) throw new TypeError(`RollingSeasonalZscore: period must be an integer, got ${typeof period === "number" ? period : _what(period)}`);
+  if (!(period >= -2147483648 && period <= 2147483647)) _intRange(M, "RollingSeasonalZscore", "period", period);
+  if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingSeasonalZscore: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingSeasonalZscore", "windowSize", windowSize);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingSeasonalZscore: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
+  try {
+    return _params(wrapOp(M, () => new M.RollingSeasonalZscore(period, windowSize, startPolicy)), "RollingSeasonalZscore", ["period", "window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollingSeasonalZscore", ["period", "windowSize"], [period, windowSize], e); }
+}
+
 /** The settings of RollingSharpe by name, for `RollingSharpe({ ... })`. */
 export interface RollingSharpeOptions {
   /** Number of most recent returns in the window. @defaultValue `252` */

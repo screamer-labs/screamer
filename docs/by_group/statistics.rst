@@ -73,6 +73,10 @@ Windowed summary statistics: central tendency, dispersion, quantiles, moments, a
      - Rank of the current value within the trailing window (1-based, average tie rule).
    * - :doc:`Rolling root-mean-square </functions_rolling/RollingRms>`
      - Trailing-window root-mean-square.
+   * - :doc:`Rolling Seasonal Mean </functions_rolling/RollingSeasonalMean>`
+     - Mean of the same slot of the last `window_size` cycles, such as the same hour on each of the last 20 days.
+   * - :doc:`Rolling Seasonal Standard Deviation </functions_rolling/RollingSeasonalStd>`
+     - Sample standard deviation of the same slot of the last window_size cycles.
    * - :doc:`Rolling skewness </functions_rolling/RollingSkew>`
      - Trailing-window skewness.
    * - :doc:`Rolling standard deviation </functions_rolling/RollingStd>`
@@ -145,6 +149,8 @@ The size of fluctuations and risk: standard deviation and variance, RMS, range-b
      - Var form of the Rogers-Satchell drift-robust range-based estimator.
    * - :doc:`Rolling Rogers-Satchell volatility </functions_rolling/RollingRogersSatchellVol>`
      - Vol form of the Rogers-Satchell drift-robust range-based estimator.
+   * - :doc:`Rolling Seasonal Standard Deviation </functions_rolling/RollingSeasonalStd>`
+     - Sample standard deviation of the same slot of the last window_size cycles.
    * - :doc:`Rolling standard deviation </functions_rolling/RollingStd>`
      - Trailing-window sample standard deviation (ddof=1).
    * - :doc:`Rolling Upside Deviation </functions_fin/RollingUpsideDeviation>`
@@ -177,6 +183,8 @@ Put values on a comparable scale: z-scores, affine rescaling, and detrending.
      - Fractional differencing filter. Removes the trend while keeping more of the series' memory than an integer difference.
    * - :doc:`Linear (affine) </functions_math/Linear>`
      - Affine transform: scale * x + shift.
+   * - :doc:`Rolling Seasonal Z-score </functions_rolling/RollingSeasonalZscore>`
+     - (x - mean) / std over the same slot of the last window_size cycles, x included.
    * - :doc:`Rolling z-score </functions_rolling/RollingZscore>`
      - Latest sample standardized by the trailing-window mean and standard deviation.
 
@@ -366,6 +374,9 @@ Relationships between series: correlation, covariance, regression, hedging, pair
    /functions_rolling/RollingRms
    /functions_rolling/RollingRogersSatchellVar
    /functions_rolling/RollingRogersSatchellVol
+   /functions_rolling/RollingSeasonalMean
+   /functions_rolling/RollingSeasonalStd
+   /functions_rolling/RollingSeasonalZscore
    /functions_rolling/RollingSkew
    /functions_fin/RollingSpread
    /functions_rolling/RollingStd

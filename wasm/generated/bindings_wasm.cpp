@@ -170,6 +170,7 @@
 #include "screamer/rolling_residual_std.h"
 #include "screamer/rolling_rms.h"
 #include "screamer/rolling_rsi.h"
+#include "screamer/rolling_seasonal.h"
 #include "screamer/rolling_sharpe.h"
 #include "screamer/rolling_sigma_clip.h"
 #include "screamer/rolling_skew.h"
@@ -549,6 +550,21 @@ inline screamer::RollingResidualStd* make_RollingResidualStd(int a0, emscripten:
 inline screamer::RollingRms* make_RollingRms(int a0, emscripten::val a1) {
     const std::string a1s = a1.as<std::string>();
     return new screamer::RollingRms(a0, a1s);
+}
+
+inline screamer::RollingSeasonalMean* make_RollingSeasonalMean(int a0, int a1, emscripten::val a2) {
+    const std::string a2s = a2.as<std::string>();
+    return new screamer::RollingSeasonalMean(a0, a1, a2s);
+}
+
+inline screamer::RollingSeasonalStd* make_RollingSeasonalStd(int a0, int a1, emscripten::val a2) {
+    const std::string a2s = a2.as<std::string>();
+    return new screamer::RollingSeasonalStd(a0, a1, a2s);
+}
+
+inline screamer::RollingSeasonalZscore* make_RollingSeasonalZscore(int a0, int a1, emscripten::val a2) {
+    const std::string a2s = a2.as<std::string>();
+    return new screamer::RollingSeasonalZscore(a0, a1, a2s);
 }
 
 inline screamer::RollingSigmaClip* make_RollingSigmaClip(int a0, double a1, double a2, emscripten::val a3, emscripten::val a4) {
@@ -1090,6 +1106,12 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor<int>();
     emscripten::class_<screamer::RollingRogersSatchellVol, emscripten::base<screamer::EvalOp>>("RollingRogersSatchellVol")
         .constructor<int>();
+    emscripten::class_<screamer::RollingSeasonalMean, emscripten::base<screamer::EvalOp>>("RollingSeasonalMean")
+        .constructor(&make_RollingSeasonalMean, emscripten::allow_raw_pointers());
+    emscripten::class_<screamer::RollingSeasonalStd, emscripten::base<screamer::EvalOp>>("RollingSeasonalStd")
+        .constructor(&make_RollingSeasonalStd, emscripten::allow_raw_pointers());
+    emscripten::class_<screamer::RollingSeasonalZscore, emscripten::base<screamer::EvalOp>>("RollingSeasonalZscore")
+        .constructor(&make_RollingSeasonalZscore, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingSharpe, emscripten::base<screamer::EvalOp>>("RollingSharpe")
         .constructor<int, double>();
     emscripten::class_<screamer::RollingSigmaClip, emscripten::base<screamer::EvalOp>>("RollingSigmaClip")

@@ -4959,6 +4959,96 @@
  },
  {
   "accepts_bool": {
+   "period": false,
+   "start_policy": false,
+   "window_size": false
+  },
+  "accepts_none": {
+   "period": false,
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "below_min": {
+   "period": [
+    0,
+    "RollingSeasonalMean: period must be at least 1, got 0"
+   ],
+   "window_size": [
+    0,
+    "RollingSeasonalMean: window_size must be at least 1, got 0"
+   ]
+  },
+  "bool_message": {
+   "period": "RollingSeasonalMean: period must be an integer, got bool",
+   "start_policy": "RollingSeasonalMean: start_policy must be a string, got bool",
+   "window_size": "RollingSeasonalMean: window_size must be an integer, got bool"
+  },
+  "name": "RollingSeasonalMean",
+  "non_finite": {}
+ },
+ {
+  "accepts_bool": {
+   "period": false,
+   "start_policy": false,
+   "window_size": false
+  },
+  "accepts_none": {
+   "period": false,
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "below_min": {
+   "period": [
+    0,
+    "RollingSeasonalStd: period must be at least 1, got 0"
+   ],
+   "window_size": [
+    1,
+    "RollingSeasonalStd: window_size must be at least 2, got 1"
+   ]
+  },
+  "bool_message": {
+   "period": "RollingSeasonalStd: period must be an integer, got bool",
+   "start_policy": "RollingSeasonalStd: start_policy must be a string, got bool",
+   "window_size": "RollingSeasonalStd: window_size must be an integer, got bool"
+  },
+  "name": "RollingSeasonalStd",
+  "non_finite": {}
+ },
+ {
+  "accepts_bool": {
+   "period": false,
+   "start_policy": false,
+   "window_size": false
+  },
+  "accepts_none": {
+   "period": false,
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "below_min": {
+   "period": [
+    0,
+    "RollingSeasonalZscore: period must be at least 1, got 0"
+   ],
+   "window_size": [
+    1,
+    "RollingSeasonalZscore: window_size must be at least 2, got 1"
+   ]
+  },
+  "bool_message": {
+   "period": "RollingSeasonalZscore: period must be an integer, got bool",
+   "start_policy": "RollingSeasonalZscore: start_policy must be a string, got bool",
+   "window_size": "RollingSeasonalZscore: window_size must be an integer, got bool"
+  },
+  "name": "RollingSeasonalZscore",
+  "non_finite": {}
+ },
+ {
+  "accepts_bool": {
    "periods_per_year": false,
    "window_size": false
   },

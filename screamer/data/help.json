@@ -11659,6 +11659,193 @@
     ],
     "doc_path": "functions_rolling/RollingRogersSatchellVol"
   },
+  "RollingSeasonalMean": {
+    "name": "RollingSeasonalMean",
+    "title": "Rolling Seasonal Mean",
+    "implementation_family": "rolling",
+    "topics": [
+      "statistics"
+    ],
+    "tags": [
+      "seasonal",
+      "seasonality",
+      "intraday",
+      "time of day",
+      "day of week",
+      "profile",
+      "slot"
+    ],
+    "short": "Mean of the same slot of the last `window_size` cycles, such as the same hour on each of the last 20 days.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "period",
+        "type": "int",
+        "default": 24,
+        "min": 1,
+        "description": "Steps per cycle, for example 24 for hourly data with a daily cycle."
+      },
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 1,
+        "description": "Number of cycles in the window."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "strict",
+        "enum": [
+          "strict",
+          "expanding",
+          "zero"
+        ],
+        "description": "Output before a slot holds window_size values: \"strict\" gives NaN, \"expanding\" uses the values the slot holds, and \"zero\" starts each slot with window_size zeros."
+      }
+    ],
+    "nan_policy": "nan-aware",
+    "see_also": [
+      "RollingSeasonalStd",
+      "RollingSeasonalZscore",
+      "RollingMean"
+    ],
+    "details": "## Description\n\n`RollingSeasonalMean` is the mean of one slot of a cycle over the last\n`window_size` cycles:\n\n$$\n\\text{mean}_t = \\frac{1}{w} \\sum_{j=0}^{w-1} x_{t - j \\cdot \\text{period}}\n$$\n\nStep `t` belongs to slot `t mod period`, counted in steps from the first input,\nso the input must be on a regular clock: one value per hour for `period=24`,\nfor example. On hourly volume the current hour of the day is compared with the\nsame hour on the last `window_size` days.\n\nA `NaN` step advances the slot clock and enters no window, and its output is\n`NaN`: a missing hour is treated as missing, and the hours after it stay in\ntheir own slots. With `period=2, window_size=2` and `start_policy=\"expanding\"`,\nthe input `[1, 10, NaN, 20, 5, 30]` gives `[1, 10, NaN, 15, 3, 25]`.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `nan-aware`.** This function is built to process `NaN` inputs, as the Description explains. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import RollingSeasonalMean\n\nrng = np.random.default_rng(1)\nhours = np.arange(24 * 30)\n# hourly volume with a daily profile: busy around hour 14\nprofile = 100 + 80 * np.exp(-0.5 * ((hours % 24 - 14) / 3.0) ** 2)\nvolume = profile * rng.lognormal(0.0, 0.3, len(hours))\ntypical = RollingSeasonalMean(period=24, window_size=10)(volume)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=volume, name='volume', line=dict(color='lightgray')))\nfig.add_trace(go.Scatter(y=typical, name='same hour, last 10 days', line=dict(color='navy')))\nfig.update_layout(title='RollingSeasonalMean: the typical value of each hour of the day',\n                  xaxis_title='hour', yaxis_title='volume',\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ],
+    "doc_path": "functions_rolling/RollingSeasonalMean"
+  },
+  "RollingSeasonalStd": {
+    "name": "RollingSeasonalStd",
+    "title": "Rolling Seasonal Standard Deviation",
+    "implementation_family": "rolling",
+    "topics": [
+      "statistics",
+      "volatility"
+    ],
+    "tags": [
+      "seasonal",
+      "seasonality",
+      "intraday",
+      "time of day",
+      "day of week",
+      "profile",
+      "slot"
+    ],
+    "short": "Sample standard deviation of the same slot of the last window_size cycles.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "period",
+        "type": "int",
+        "default": 24,
+        "min": 1,
+        "description": "Steps per cycle, for example 24 for hourly data with a daily cycle."
+      },
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Number of cycles in the window."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "strict",
+        "enum": [
+          "strict",
+          "expanding",
+          "zero"
+        ],
+        "description": "Output before a slot holds window_size values: \"strict\" gives NaN, \"expanding\" uses the values the slot holds (two are needed for a standard deviation), and \"zero\" starts each slot with window_size zeros."
+      }
+    ],
+    "nan_policy": "nan-aware",
+    "see_also": [
+      "RollingSeasonalMean",
+      "RollingSeasonalZscore",
+      "RollingStd"
+    ],
+    "details": "## Description\n\n`RollingSeasonalStd` is the sample standard deviation (ddof 1) of one slot of a\ncycle over the last `window_size` cycles:\n\n$$\n\\text{std}_t = \\sqrt{\\frac{1}{w-1} \\sum_{j=0}^{w-1} \\left(x_{t - j \\cdot \\text{period}} - \\text{mean}_t\\right)^2}\n$$\n\nStep `t` belongs to slot `t mod period`, counted in steps from the first input,\nso the input must be on a regular clock: one value per hour for `period=24`,\nfor example. On hourly volume the current hour of the day is compared with the\nsame hour on the last `window_size` days.\n\nA `NaN` step advances the slot clock and enters no window, and its output is\n`NaN`: a missing hour is treated as missing, and the hours after it stay in\ntheir own slots. With `period=2, window_size=2` and `start_policy=\"expanding\"`,\nthe input `[1, 10, NaN, 20, 5, 30]` gives `[NaN, NaN, NaN, 7.07, 2.83, 7.07]`, where the `NaN` at index 2 is the missing step.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `nan-aware`.** This function is built to process `NaN` inputs, as the Description explains. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import RollingSeasonalStd\n\nrng = np.random.default_rng(1)\nhours = np.arange(24 * 30)\n# hourly volume with a daily profile: busy around hour 14\nprofile = 100 + 80 * np.exp(-0.5 * ((hours % 24 - 14) / 3.0) ** 2)\nvolume = profile * rng.lognormal(0.0, 0.3, len(hours))\nspread = RollingSeasonalStd(period=24, window_size=10)(volume)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=spread, name='same hour, last 10 days', line=dict(color='darkorange')))\nfig.update_layout(title='RollingSeasonalStd: the usual spread of each hour of the day',\n                  xaxis_title='hour', yaxis_title='standard deviation',\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ],
+    "doc_path": "functions_rolling/RollingSeasonalStd"
+  },
+  "RollingSeasonalZscore": {
+    "name": "RollingSeasonalZscore",
+    "title": "Rolling Seasonal Z-score",
+    "implementation_family": "rolling",
+    "topics": [
+      "standardization"
+    ],
+    "tags": [
+      "seasonal",
+      "seasonality",
+      "intraday",
+      "time of day",
+      "day of week",
+      "profile",
+      "slot"
+    ],
+    "short": "(x - mean) / std over the same slot of the last window_size cycles, x included.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "period",
+        "type": "int",
+        "default": 24,
+        "min": 1,
+        "description": "Steps per cycle, for example 24 for hourly data with a daily cycle."
+      },
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Number of cycles in the window."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "strict",
+        "enum": [
+          "strict",
+          "expanding",
+          "zero"
+        ],
+        "description": "Output before a slot holds window_size values: \"strict\" gives NaN, \"expanding\" uses the values the slot holds (two are needed for a standard deviation), and \"zero\" starts each slot with window_size zeros."
+      }
+    ],
+    "nan_policy": "nan-aware",
+    "see_also": [
+      "RollingSeasonalMean",
+      "RollingSeasonalStd",
+      "RollingZscore"
+    ],
+    "details": "## Description\n\n`RollingSeasonalZscore` standardizes each value against the same slot of the last\n`window_size` cycles:\n\n$$\nz_t = \\frac{x_t - \\text{mean}_t}{\\text{std}_t}\n$$\n\nThe mean and the sample standard deviation (ddof 1) are taken over the window\nthat includes `x_t`, as in [`RollingZscore`](RollingZscore.md). With `period=1`\nit equals `RollingZscore(window_size)`. On hourly volume it flags an hour that\nis unusual for that hour of the day.\n\nStep `t` belongs to slot `t mod period`, counted in steps from the first input,\nso the input must be on a regular clock: one value per hour for `period=24`,\nfor example. On hourly volume the current hour of the day is compared with the\nsame hour on the last `window_size` days.\n\nA `NaN` step advances the slot clock and enters no window, and its output is\n`NaN`: a missing hour is treated as missing, and the hours after it stay in\ntheir own slots. With `period=2, window_size=2` and `start_policy=\"expanding\"`,\nthe input `[1, 10, NaN, 20, 5, 30]` gives `[NaN, NaN, NaN, 0.71, 0.71, 0.71]`, where the `NaN` at index 2 is the missing step.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `nan-aware`.** This function is built to process `NaN` inputs, as the Description explains. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import RollingSeasonalZscore\n\nrng = np.random.default_rng(1)\nhours = np.arange(24 * 30)\n# hourly volume with a daily profile: busy around hour 14\nprofile = 100 + 80 * np.exp(-0.5 * ((hours % 24 - 14) / 3.0) ** 2)\nvolume = profile * rng.lognormal(0.0, 0.3, len(hours))\nz = RollingSeasonalZscore(period=24, window_size=10)(volume)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=z, name='seasonal z-score', line=dict(color='navy')))\nfig.add_hline(y=2, line=dict(color='crimson', dash='dash'))\nfig.update_layout(title='RollingSeasonalZscore: how unusual a value is for its hour of the day',\n                  xaxis_title='hour', yaxis_title='z-score',\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ],
+    "doc_path": "functions_rolling/RollingSeasonalZscore"
+  },
   "RollingSigmaClip": {
     "name": "RollingSigmaClip",
     "title": "Rolling sigma-clip",

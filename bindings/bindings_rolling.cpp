@@ -12,6 +12,7 @@
 #include "screamer/rolling_skew.h"
 #include "screamer/rolling_kurt.h"
 #include "screamer/rolling_zscore.h"
+#include "screamer/rolling_seasonal.h"
 #include "screamer/rolling_min.h"
 #include "screamer/rolling_max.h"
 #include "screamer/rolling_median.h"
@@ -583,6 +584,23 @@ void init_bindings_rolling(nb::module_& m) {
             "start_policy"_a = "strict")
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingZscore::reset, "Reset to the initial state.");
+
+    // Seasonal statistics: the same slot of the last window_size cycles.
+    nb::class_<screamer::RollingSeasonalMean, screamer::ScreamerBase>(m, "RollingSeasonalMean")
+        .def(nb::init<screamer::IntArg<int>, screamer::IntArg<int>, const std::string&>(),
+             "period"_a = 24, "window_size"_a = 20, "start_policy"_a = "strict")
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
+        .def("reset", &screamer::RollingSeasonalMean::reset, "Reset.");
+    nb::class_<screamer::RollingSeasonalStd, screamer::ScreamerBase>(m, "RollingSeasonalStd")
+        .def(nb::init<screamer::IntArg<int>, screamer::IntArg<int>, const std::string&>(),
+             "period"_a = 24, "window_size"_a = 20, "start_policy"_a = "strict")
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
+        .def("reset", &screamer::RollingSeasonalStd::reset, "Reset.");
+    nb::class_<screamer::RollingSeasonalZscore, screamer::ScreamerBase>(m, "RollingSeasonalZscore")
+        .def(nb::init<screamer::IntArg<int>, screamer::IntArg<int>, const std::string&>(),
+             "period"_a = 24, "window_size"_a = 20, "start_policy"_a = "strict")
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
+        .def("reset", &screamer::RollingSeasonalZscore::reset, "Reset.");
 
     nb::class_<screamer::RollingPoly1, screamer::ScreamerBase>(m, "RollingPoly1")
         .def(nb::init<screamer::IntArg<int>, screamer::IntArg<int>, const std::string&>(),

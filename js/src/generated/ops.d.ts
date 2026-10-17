@@ -4616,6 +4616,87 @@ export declare function RollingRogersSatchellVol(options: RollingRogersSatchellV
  */
 export declare function RollingRogersSatchellVol(windowSize?: number): ScreamerOp;
 
+/** The settings of RollingSeasonalMean by name, for `RollingSeasonalMean({ ... })`. */
+export interface RollingSeasonalMeanOptions {
+  /** Steps per cycle, for example 24 for hourly data with a daily cycle. @defaultValue `24` */
+  period?: number;
+  /** Number of cycles in the window. @defaultValue `20` */
+  windowSize?: number;
+  /** Output before a slot holds window_size values: "strict" gives NaN, "expanding" uses the values the slot holds, and "zero" starts each slot with window_size zeros. @defaultValue `"strict"` */
+  startPolicy?: string;
+}
+
+/**
+ * Mean of the same slot of the last `window_size` cycles, such as the same hour on each of the last 20 days.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingSeasonalMean.html for the full reference.
+ */
+export declare function RollingSeasonalMean(options: RollingSeasonalMeanOptions): ScreamerOp;
+/**
+ * Mean of the same slot of the last `window_size` cycles, such as the same hour on each of the last 20 days.
+ *
+ * @param period Steps per cycle, for example 24 for hourly data with a daily cycle.
+ * @param windowSize Number of cycles in the window.
+ * @param startPolicy Output before a slot holds window_size values: "strict" gives NaN, "expanding" uses the values the slot holds, and "zero" starts each slot with window_size zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingSeasonalMean.html for the full reference.
+ */
+export declare function RollingSeasonalMean(period?: number, windowSize?: number, startPolicy?: string): ScreamerOp;
+
+/** The settings of RollingSeasonalStd by name, for `RollingSeasonalStd({ ... })`. */
+export interface RollingSeasonalStdOptions {
+  /** Steps per cycle, for example 24 for hourly data with a daily cycle. @defaultValue `24` */
+  period?: number;
+  /** Number of cycles in the window. @defaultValue `20` */
+  windowSize?: number;
+  /** Output before a slot holds window_size values: "strict" gives NaN, "expanding" uses the values the slot holds (two are needed for a standard deviation), and "zero" starts each slot with window_size zeros. @defaultValue `"strict"` */
+  startPolicy?: string;
+}
+
+/**
+ * Sample standard deviation of the same slot of the last window_size cycles.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingSeasonalStd.html for the full reference.
+ */
+export declare function RollingSeasonalStd(options: RollingSeasonalStdOptions): ScreamerOp;
+/**
+ * Sample standard deviation of the same slot of the last window_size cycles.
+ *
+ * @param period Steps per cycle, for example 24 for hourly data with a daily cycle.
+ * @param windowSize Number of cycles in the window.
+ * @param startPolicy Output before a slot holds window_size values: "strict" gives NaN, "expanding" uses the values the slot holds (two are needed for a standard deviation), and "zero" starts each slot with window_size zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingSeasonalStd.html for the full reference.
+ */
+export declare function RollingSeasonalStd(period?: number, windowSize?: number, startPolicy?: string): ScreamerOp;
+
+/** The settings of RollingSeasonalZscore by name, for `RollingSeasonalZscore({ ... })`. */
+export interface RollingSeasonalZscoreOptions {
+  /** Steps per cycle, for example 24 for hourly data with a daily cycle. @defaultValue `24` */
+  period?: number;
+  /** Number of cycles in the window. @defaultValue `20` */
+  windowSize?: number;
+  /** Output before a slot holds window_size values: "strict" gives NaN, "expanding" uses the values the slot holds (two are needed for a standard deviation), and "zero" starts each slot with window_size zeros. @defaultValue `"strict"` */
+  startPolicy?: string;
+}
+
+/**
+ * (x - mean) / std over the same slot of the last window_size cycles, x included.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingSeasonalZscore.html for the full reference.
+ */
+export declare function RollingSeasonalZscore(options: RollingSeasonalZscoreOptions): ScreamerOp;
+/**
+ * (x - mean) / std over the same slot of the last window_size cycles, x included.
+ *
+ * @param period Steps per cycle, for example 24 for hourly data with a daily cycle.
+ * @param windowSize Number of cycles in the window.
+ * @param startPolicy Output before a slot holds window_size values: "strict" gives NaN, "expanding" uses the values the slot holds (two are needed for a standard deviation), and "zero" starts each slot with window_size zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingSeasonalZscore.html for the full reference.
+ */
+export declare function RollingSeasonalZscore(period?: number, windowSize?: number, startPolicy?: string): ScreamerOp;
+
 /** The settings of RollingSharpe by name, for `RollingSharpe({ ... })`. */
 export interface RollingSharpeOptions {
   /** Number of most recent returns in the window. @defaultValue `252` */
