@@ -30,6 +30,7 @@ BacktestStats, Turn a backtest engine's [equity, pnl, position, cost] into runni
 BacktestTradesOrders, Backtest a two-sided order poster against the trade tape, filling resting quotes when prints cross them, into a costed equity curve.
 BacktestTradesTarget, Backtest a target-position strategy against the trade tape, taking each print as a market fill to reach the target immediately.
 BandSignal, Three-state mean-reversion position from a z-score: short above +entry, long below -entry, flat again inside the exit level, with an optional stop and lockout.
+BayesianChangepoint, Online Bayesian changepoint detection (Adams-MacKay) on a series with Gaussian segments of unknown mean and variance; the expected run length since the last change and a predictive mean and standard deviation.
 BayesianRegression, Online Bayesian linear regression with a forgetting factor: the current slope and intercept, and a one-step-ahead predictive mean and standard deviation.
 BollingerBands, Mean +/- num_std rolling standard deviations.
 BulkVolumeClassifier, Buy-initiated share of a bar's volume estimated as the normal CDF of return / trailing-window volatility.

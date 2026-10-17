@@ -24,6 +24,7 @@
 #include "screamer/backtest_trades_orders.h"
 #include "screamer/backtest_trades_target.h"
 #include "screamer/band_signal.h"
+#include "screamer/bayesian_changepoint.h"
 #include "screamer/bayesian_regression.h"
 #include "screamer/bollinger_bands.h"
 #include "screamer/bop.h"
@@ -736,6 +737,8 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor(&make_BacktestTradesTarget, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::BandSignal, emscripten::base<screamer::EvalOp>>("BandSignal")
         .constructor<double, double, double>();
+    emscripten::class_<screamer::BayesianChangepoint, emscripten::base<screamer::EvalOp>>("BayesianChangepoint")
+        .constructor<double, int, double>();
     emscripten::class_<screamer::BayesianRegression, emscripten::base<screamer::EvalOp>>("BayesianRegression")
         .constructor(&make_BayesianRegression, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::BollingerBands, emscripten::base<screamer::EvalOp>>("BollingerBands")

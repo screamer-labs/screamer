@@ -54,6 +54,7 @@
  "functions_fin/BacktestStats": "09b55b54b1c10572",
  "functions_fin/BacktestTradesOrders": "a71fb25d5e5ccfaa",
  "functions_fin/BacktestTradesTarget": "fc727731f03f6839",
+ "functions_fin/BayesianChangepoint": "514746d6f31d9d00",
  "functions_fin/BayesianRegression": "bcad85a096a07b6e",
  "functions_fin/Drawdown": "dd88f0a185ad676e",
  "functions_fin/KalmanRegression": "c22d928f79a06e9d",

@@ -353,6 +353,8 @@ multi_input_definitions = [
        'RollingRogersSatchellVar','RollingRogersSatchellVol',
        'RollingYangZhangVar','RollingYangZhangVol')
                                     , {"window_size": [20], "array_type": ["ohlc"]}),
+    # Online Bayesian changepoint detection: 1 -> 3, run length truncated at max_run.
+    ( ('BayesianChangepoint',)     , {"expected_run": [50.0], "max_run": [100], "prior_var": [1.0], "array_length": [300]}),
 ]
 
 

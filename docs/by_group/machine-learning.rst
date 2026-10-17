@@ -39,6 +39,8 @@ Detect a change in a series' behaviour: hidden Markov regimes, Bayesian change p
 
    * - Function
      - Description
+   * - :doc:`Bayesian online changepoint detection </functions_fin/BayesianChangepoint>`
+     - Online Bayesian changepoint detection (Adams-MacKay) on a series with Gaussian segments of unknown mean and variance; the expected run length since the last change and a predictive mean and standard deviation.
    * - :doc:`CUSUM event filter </functions_signal/CusumFilter>`
      - Symmetric CUSUM event filter: +1 when the cumulative rise since the last event passes a threshold, -1 for a fall, 0 otherwise.
    * - :doc:`Rolling Jump Share </functions_rolling/RollingJumpShare>`
@@ -51,6 +53,7 @@ Detect a change in a series' behaviour: hidden Markov regimes, Bayesian change p
 .. toctree::
    :hidden:
 
+   /functions_fin/BayesianChangepoint
    /functions_supervised/forecast_pairs
    /functions_fin/TripleBarrier
    /functions_fin/TripleBarrierOHLC

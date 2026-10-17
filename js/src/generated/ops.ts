@@ -1641,6 +1641,49 @@ export function BandSignal(entry?: any, exit?: any, stop?: any): ScreamerOp {
   } catch (e) { throw _finite(M, "BandSignal", ["entry", "exit", "stop"], [entry, exit, stop], e); }
 }
 
+/** The settings of BayesianChangepoint by name, for `BayesianChangepoint({ ... })`. */
+export interface BayesianChangepointOptions {
+  /** Expected number of steps between changes; the hazard of a change at each step is 1 / expected_run. @defaultValue `250.0` */
+  expectedRun?: number;
+  /** Longest run length tracked. Longer runs are dropped, which bounds the cost per step. @defaultValue `1000` */
+  maxRun?: number;
+  /** Scale of the prior on a segment's variance (the normal-gamma beta). Must be positive. 1 suits a standardized input. @defaultValue `1.0` */
+  priorVar?: number;
+}
+
+/**
+ * Online Bayesian changepoint detection (Adams-MacKay) on a series with Gaussian segments of unknown mean and variance; the expected run length since the last change and a predictive mean and standard deviation.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/BayesianChangepoint.html for the full reference.
+ */
+export function BayesianChangepoint(options: BayesianChangepointOptions): ScreamerOp;
+/**
+ * Online Bayesian changepoint detection (Adams-MacKay) on a series with Gaussian segments of unknown mean and variance; the expected run length since the last change and a predictive mean and standard deviation.
+ *
+ * @param expectedRun Expected number of steps between changes; the hazard of a change at each step is 1 / expected_run.
+ * @param maxRun Longest run length tracked. Longer runs are dropped, which bounds the cost per step.
+ * @param priorVar Scale of the prior on a segment's variance (the normal-gamma beta). Must be positive. 1 suits a standardized input.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/BayesianChangepoint.html for the full reference.
+ */
+export function BayesianChangepoint(expectedRun?: number, maxRun?: number, priorVar?: number): ScreamerOp;
+export function BayesianChangepoint(expectedRun?: any, maxRun?: any, priorVar?: any): ScreamerOp {
+  if (_isOptions(expectedRun)) [expectedRun, maxRun, priorVar] = _options("BayesianChangepoint", expectedRun, arguments.length, ["expectedRun", "maxRun", "priorVar"], "expectedRun must be a number");
+  else if (arguments.length > 3) _tooMany("BayesianChangepoint", 3, arguments.length);
+  const _given: unknown[] = [expectedRun, maxRun, priorVar];
+  if (expectedRun === undefined) expectedRun = 250.0;
+  if (maxRun === undefined) maxRun = 1000;
+  if (priorVar === undefined) priorVar = 1.0;
+  const M = current();
+  if (typeof expectedRun !== "number") throw new TypeError(`BayesianChangepoint: expectedRun must be a number, got ${_what(expectedRun)}`);
+  if (typeof maxRun !== "number" || !Number.isInteger(maxRun)) throw new TypeError(`BayesianChangepoint: maxRun must be an integer, got ${typeof maxRun === "number" ? maxRun : _what(maxRun)}`);
+  if (!(maxRun >= -2147483648 && maxRun <= 2147483647)) _intRange(M, "BayesianChangepoint", "maxRun", maxRun);
+  if (typeof priorVar !== "number") throw new TypeError(`BayesianChangepoint: priorVar must be a number, got ${_what(priorVar)}`);
+  try {
+    return _params(wrapOp(M, () => new M.BayesianChangepoint(expectedRun, maxRun, priorVar)), "BayesianChangepoint", ["expected_run", "max_run", "prior_var"], _given);
+  } catch (e) { throw _finite(M, "BayesianChangepoint", ["expectedRun", "maxRun", "priorVar"], [expectedRun, maxRun, priorVar], e); }
+}
+
 /** The settings of BayesianRegression by name, for `BayesianRegression({ ... })`. */
 export interface BayesianRegressionOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */

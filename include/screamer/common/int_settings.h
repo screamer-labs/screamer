@@ -42,6 +42,7 @@ inline constexpr IntSettingMin kIntSettingMin[] = {
     {"BacktestOHLCTarget", "delay", 0},
     {"BacktestOHLCVTarget", "delay", 0},
     {"BacktestPortfolioOHLCTarget", "delay", 0},
+    {"BayesianChangepoint", "max_run", 1},
     {"BollingerBands", "window_size", 2},
     {"BulkVolumeClassifier", "window_size", 2},
     {"Butter", "order", 1},

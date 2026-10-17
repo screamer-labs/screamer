@@ -1427,6 +1427,43 @@
  },
  {
   "accepts_bool": {
+   "expected_run": false,
+   "max_run": false,
+   "prior_var": false
+  },
+  "accepts_none": {
+   "expected_run": false,
+   "max_run": false,
+   "prior_var": false
+  },
+  "base": {},
+  "below_min": {
+   "max_run": [
+    0,
+    "BayesianChangepoint: max_run must be at least 1, got 0"
+   ]
+  },
+  "bool_message": {
+   "expected_run": "BayesianChangepoint: expected_run must be a number, got bool",
+   "max_run": "BayesianChangepoint: max_run must be an integer, got bool",
+   "prior_var": "BayesianChangepoint: prior_var must be a number, got bool"
+  },
+  "name": "BayesianChangepoint",
+  "non_finite": {
+   "expected_run": {
+    "-inf": "BayesianChangepoint: expected_run must be finite, got -inf",
+    "inf": "BayesianChangepoint: expected_run must be finite, got inf",
+    "nan": "BayesianChangepoint: expected_run must be finite, got nan"
+   },
+   "prior_var": {
+    "-inf": "BayesianChangepoint: prior_var must be finite, got -inf",
+    "inf": "BayesianChangepoint: prior_var must be finite, got inf",
+    "nan": "BayesianChangepoint: prior_var must be finite, got nan"
+   }
+  }
+ },
+ {
+  "accepts_bool": {
    "alpha": false,
    "com": false,
    "halflife": false,

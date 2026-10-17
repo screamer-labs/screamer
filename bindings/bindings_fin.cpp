@@ -64,6 +64,7 @@
 #include "screamer/rolling_residual_std.h"
 #include "screamer/rolling_linear_regression.h"
 #include "screamer/bayesian_regression.h"
+#include "screamer/bayesian_changepoint.h"
 #include "screamer/triple_barrier.h"
 #include <string>
 
@@ -1380,6 +1381,13 @@ void init_bindings_fin(nb::module_& m) {
              "prior_precision"_a = 1.0, "prior_sigma"_a = 1.0)
         .def("__call__", &screamer::functor_call<screamer::BayesianRegression>)
         .def("reset", &screamer::BayesianRegression::reset, "Reset to the prior.");
+
+    // 1 -> 3 online Bayesian changepoint detection: (run_length, pred_mean, pred_std).
+    nb::class_<screamer::BayesianChangepoint, screamer::EvalOp>(m, "BayesianChangepoint")
+        .def(nb::init<screamer::FloatArg, screamer::IntArg<int>, screamer::FloatArg>(),
+             "expected_run"_a = 250.0, "max_run"_a = 1000, "prior_var"_a = 1.0)
+        .def("__call__", &screamer::functor_call<screamer::BayesianChangepoint>)
+        .def("reset", &screamer::BayesianChangepoint::reset, "Reset to the prior.");
 
     // Triple-barrier labels: 1 -> 3 (price) and 4 -> 3 (OHLC), outputs
     // (label, return, holding) for the entry `horizon` steps back.

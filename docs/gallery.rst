@@ -2212,6 +2212,13 @@ Training sets and labels from time-series data, online regression and filtering 
    :gutter: 2
    :class-container: gallery-grid
 
+   .. grid-item-card:: BayesianChangepoint
+      :link: functions_fin/BayesianChangepoint
+      :link-type: doc
+      :img-top: _static/gallery/functions_fin__BayesianChangepoint.webp
+      :img-alt: BayesianChangepoint example plot
+      :class-card: gallery-card
+
    .. grid-item-card:: BayesianRegression
       :link: functions_fin/BayesianRegression
       :link-type: doc

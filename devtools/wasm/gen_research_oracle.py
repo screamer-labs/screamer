@@ -61,6 +61,8 @@ CASES = [
     ("RollingPermutationEntropy", {"window_size": 50, "order": 3}, "returns"),
     ("RollingPermutationEntropy", {"window_size": 40, "order": 5, "delay": 2, "start_policy": "expanding"}, "returns"),
     ("RollingPermutationEntropy", {"window_size": 20, "order": 4, "start_policy": "zero"}, "events"),
+    ("BayesianChangepoint", {"expected_run": 100.0, "max_run": 300}, "returns", 1e-7),
+    ("BayesianChangepoint", {"expected_run": 20.0, "max_run": 40, "prior_var": 4.0}, "returns", 1e-7),
 ]
 
 
