@@ -76,7 +76,8 @@ every 2-sum is 0 and the ratio is `1/9`.
 `output="zscore"` gives the heteroskedasticity-robust statistic `z*(q)`, which
 is approximately standard normal when the returns are uncorrelated, even with
 changing volatility; `|z*| > 1.96` rejects a random walk at the 5% level. The
-output is `NaN` on a window whose returns are all equal.
+output is `NaN` on a window whose returns are all equal, and for `"zscore"` also when
+no two nonzero deviations from the mean lie within `lag` steps of each other.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling

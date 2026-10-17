@@ -37,11 +37,21 @@ def test_trending_and_mean_reverting_returns():
 
 
 def test_constant_window_is_nan():
-    # 0.5 is exact in binary, so the window mean is exactly 0.5 and the dispersion exactly 0
-    out = np.asarray(RollingVarianceRatio(10, lag=2)(np.full(30, 0.5)))
-    assert np.isnan(out).all()
-    out = np.asarray(RollingVarianceRatio(10, lag=2, output="zscore")(np.full(30, 0.5)))
-    assert np.isnan(out).all()
+    # 0.1 is not exact in binary: the window mean is off by an ulp, the window is still constant
+    for output in ("ratio", "zscore"):
+        out = np.asarray(RollingVarianceRatio(10, lag=2, output=output)(np.full(30, 0.1)))
+        assert np.isnan(out).all()
+        r = np.concatenate([np.random.default_rng(5).standard_normal(300), np.full(300, 0.1)])
+        out = np.asarray(RollingVarianceRatio(100, lag=3, output=output)(r))
+        assert np.isnan(out[399:]).all() and np.isfinite(out[99:299]).all()
+
+
+def test_zero_theta_zscore_is_nan():
+    # no two nonzero deviations lie within lag of each other: theta is 0, not an infinite z
+    x = np.array([1.0, 0.0, -1.0, 0.0, 0.0])
+    out = np.asarray(RollingVarianceRatio(5, lag=2, output="zscore")(x))
+    assert np.isnan(out[4])
+    assert np.isfinite(np.asarray(RollingVarianceRatio(5, lag=2)(x))[4])
 
 
 @pytest.mark.parametrize("output", ["ratio", "zscore"])

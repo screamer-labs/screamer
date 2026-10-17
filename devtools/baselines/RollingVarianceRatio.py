@@ -10,6 +10,8 @@ from ._windowing import ignoring_nan, trailing
 
 def variance_ratio(r, q, output):
     n = len(r)
+    if r.min() == r.max():
+        return math.nan
     mu = r.mean()
     e = r - mu
     s2 = np.sum(e * e)
@@ -23,6 +25,8 @@ def variance_ratio(r, q, output):
         return ratio
     theta = sum((2.0 * (q - j) / q) ** 2 * n * np.sum(e[j:] ** 2 * e[:-j] ** 2) / s2 ** 2
                 for j in range(1, q))
+    if not theta > 0.0:
+        return math.nan
     return math.sqrt(n) * (ratio - 1.0) / math.sqrt(theta)
 
 

@@ -14,7 +14,7 @@
 //     z*(q) = sqrt(n) (ratio - 1) / sqrt(theta),
 //     theta = sum_{j=1..q-1} (2 (q - j) / q)^2 delta_j,
 //     delta_j = n sum_{i>j} (r_i - mu)^2 (r_{i-j} - mu)^2 / (sum_i (r_i - mu)^2)^2.
-// NaN when the window has no dispersion.
+// NaN when the window has no dispersion, and for "zscore" when theta is 0.
 //
 // start_policy: "strict" gives NaN until the window holds window_size
 // returns, "expanding" uses the returns seen so far once there are more than
@@ -81,12 +81,18 @@ private:
         const double nan = std::numeric_limits<double>::quiet_NaN();
         const std::size_t W = ring_.size(), n = count_;
         const std::size_t start = (head_ + W - n) % W;   // the oldest value in the window
-        double sum = 0.0;
+        // copy the window oldest first as two contiguous segments
+        const std::size_t first = std::min(n, W - start);
+        std::copy(ring_.begin() + start, ring_.begin() + start + first, dev_.begin());
+        std::copy(ring_.begin(), ring_.begin() + (n - first), dev_.begin() + first);
+        double sum = 0.0, lo = dev_[0], hi = dev_[0];
         for (std::size_t i = 0; i < n; ++i) {
-            const double v = ring_[(start + i) % W];
-            dev_[i] = v;
+            const double v = dev_[i];
             sum += v;
+            if (v < lo) lo = v;
+            if (v > hi) hi = v;
         }
+        if (lo == hi) return nan;   // an exactly constant window has no dispersion
         const double nd = static_cast<double>(n);
         const double mu = sum / nd;
         const std::size_t q = static_cast<std::size_t>(q_);
@@ -117,6 +123,7 @@ private:
             const double wj = 2.0 * static_cast<double>(q - j) / qd;
             theta += wj * wj * nd * d / (s2 * s2);
         }
+        if (!(theta > 0.0)) return nan;
         return std::sqrt(nd) * (ratio - 1.0) / std::sqrt(theta);
     }
 
