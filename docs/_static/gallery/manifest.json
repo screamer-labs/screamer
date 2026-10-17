@@ -84,6 +84,7 @@
  "functions_fin/RollingSpread": "12247ad1aa1efe44",
  "functions_fin/RollingTLSBeta": "cd270a284c9418ee",
  "functions_fin/RollingTSF": "11eaaf776e37a256",
+ "functions_fin/RollingUpsideDeviation": "4c39fc83896e213d",
  "functions_fin/TripleBarrier": "242de88fb400f86d",
  "functions_fin/TripleBarrierOHLC": "0d5d60674d515988",
  "functions_fin/position_test": "c0cbafa6e2ae4b1c",

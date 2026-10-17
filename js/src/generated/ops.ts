@@ -7688,6 +7688,49 @@ export function RollingTSF(windowSize?: any): ScreamerOp {
   } catch (e) { throw _finite(M, "RollingTSF", ["windowSize"], [windowSize], e); }
 }
 
+/** The settings of RollingUpsideDeviation by name, for `RollingUpsideDeviation({ ... })`. */
+export interface RollingUpsideDeviationOptions {
+  /** Number of most recent returns in the window. @defaultValue `20` */
+  windowSize?: number;
+  /** Minimum acceptable return. Only returns above it contribute to the deviation. @defaultValue `0.0` */
+  mar?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
+  startPolicy?: string;
+}
+
+/**
+ * Trailing-window upside semideviation: the RMS of the returns above a minimum acceptable return.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingUpsideDeviation.html for the full reference.
+ */
+export function RollingUpsideDeviation(options: RollingUpsideDeviationOptions): ScreamerOp;
+/**
+ * Trailing-window upside semideviation: the RMS of the returns above a minimum acceptable return.
+ *
+ * @param windowSize Number of most recent returns in the window.
+ * @param mar Minimum acceptable return. Only returns above it contribute to the deviation.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingUpsideDeviation.html for the full reference.
+ */
+export function RollingUpsideDeviation(windowSize?: number, mar?: number, startPolicy?: string): ScreamerOp;
+export function RollingUpsideDeviation(windowSize?: any, mar?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, mar, startPolicy] = _options("RollingUpsideDeviation", windowSize, arguments.length, ["windowSize", "mar", "startPolicy"], "windowSize must be an integer");
+  else if (arguments.length > 3) _tooMany("RollingUpsideDeviation", 3, arguments.length);
+  const _given: unknown[] = [windowSize, mar, startPolicy];
+  if (windowSize === undefined) windowSize = 20;
+  if (mar === undefined) mar = 0.0;
+  if (startPolicy === undefined) startPolicy = "strict";
+  const M = current();
+  if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingUpsideDeviation: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingUpsideDeviation", "windowSize", windowSize);
+  if (typeof mar !== "number") throw new TypeError(`RollingUpsideDeviation: mar must be a number, got ${_what(mar)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingUpsideDeviation: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
+  try {
+    return _params(wrapOp(M, () => new M.RollingUpsideDeviation(windowSize, mar, startPolicy)), "RollingUpsideDeviation", ["window_size", "mar", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollingUpsideDeviation", ["windowSize", "mar"], [windowSize, mar], e); }
+}
+
 /** The settings of RollingVWAP by name, for `RollingVWAP({ ... })`. */
 export interface RollingVWAPOptions {
   /** Number of most recent bars in the window. @defaultValue `20` */

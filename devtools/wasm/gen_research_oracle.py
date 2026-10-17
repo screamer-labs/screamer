@@ -47,6 +47,9 @@ CASES = [
     ("Hold", {"n": 1, "release": -1.0, "cooldown": 2}, "events"),
     ("CusumFilter", {"threshold": 1.0}, "returns"),
     ("CusumFilter", {"threshold": 2.5, "drift": 0.2}, "returns"),
+    ("RollingUpsideDeviation", {"window_size": 20}, "returns"),
+    ("RollingUpsideDeviation", {"window_size": 15, "mar": 0.2, "start_policy": "expanding"}, "returns"),
+    ("RollingUpsideDeviation", {"window_size": 15, "start_policy": "zero"}, "returns"),
 ]
 
 

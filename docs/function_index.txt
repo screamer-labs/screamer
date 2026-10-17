@@ -231,6 +231,7 @@ RollingStd, Trailing-window sample standard deviation (ddof=1).
 RollingSum, Trailing-window sum.
 RollingTLSBeta, Rolling total least squares (orthogonal regression) slope of the first input on the second: a hedge ratio that does not depend on which leg is called dependent.
 RollingTSF, Linear regression of the input on time, projected one step ahead (TA-Lib TSF).
+RollingUpsideDeviation, Trailing-window upside semideviation: the RMS of the returns above a minimum acceptable return.
 RollingVWAP, Rolling volume-weighted average price (typical-price weighted).
 RollingVar, Trailing-window sample variance (ddof=1).
 RollingYangZhangVar, Var form of the Yang-Zhang estimator (drift + gap robust).

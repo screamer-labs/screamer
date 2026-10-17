@@ -5206,6 +5206,38 @@
  },
  {
   "accepts_bool": {
+   "mar": false,
+   "start_policy": false,
+   "window_size": false
+  },
+  "accepts_none": {
+   "mar": false,
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "RollingUpsideDeviation: window_size must be at least 2, got 1"
+   ]
+  },
+  "bool_message": {
+   "mar": "RollingUpsideDeviation: mar must be a number, got bool",
+   "start_policy": "RollingUpsideDeviation: start_policy must be a string, got bool",
+   "window_size": "RollingUpsideDeviation: window_size must be an integer, got bool"
+  },
+  "name": "RollingUpsideDeviation",
+  "non_finite": {
+   "mar": {
+    "-inf": "RollingUpsideDeviation: mar must be finite, got -inf",
+    "inf": "RollingUpsideDeviation: mar must be finite, got inf",
+    "nan": "RollingUpsideDeviation: mar must be finite, got nan"
+   }
+  }
+ },
+ {
+  "accepts_bool": {
    "window_size": false
   },
   "accepts_none": {

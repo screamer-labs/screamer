@@ -51,3 +51,9 @@ test("research: CusumFilter hand example", () => {
   assert.ok(Number.isNaN(out[6]));
   assert.equal(out[7], 0);
 });
+
+test("research: RollingUpsideDeviation hand example", () => {
+  const out = (api as any).RollingUpsideDeviation({ windowSize: 3 })(Float64Array.from([1, -2, 2, 0])) as Float64Array;
+  assert.ok(Number.isNaN(out[0]) && Number.isNaN(out[1]));
+  assert.ok(Math.abs(out[2] - Math.sqrt(5 / 3)) < 1e-12 && Math.abs(out[3] - Math.sqrt(4 / 3)) < 1e-12);
+});

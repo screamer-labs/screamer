@@ -4841,6 +4841,33 @@ export declare function RollingTSF(options: RollingTSFOptions): ScreamerOp;
  */
 export declare function RollingTSF(windowSize?: number): ScreamerOp;
 
+/** The settings of RollingUpsideDeviation by name, for `RollingUpsideDeviation({ ... })`. */
+export interface RollingUpsideDeviationOptions {
+  /** Number of most recent returns in the window. @defaultValue `20` */
+  windowSize?: number;
+  /** Minimum acceptable return. Only returns above it contribute to the deviation. @defaultValue `0.0` */
+  mar?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
+  startPolicy?: string;
+}
+
+/**
+ * Trailing-window upside semideviation: the RMS of the returns above a minimum acceptable return.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingUpsideDeviation.html for the full reference.
+ */
+export declare function RollingUpsideDeviation(options: RollingUpsideDeviationOptions): ScreamerOp;
+/**
+ * Trailing-window upside semideviation: the RMS of the returns above a minimum acceptable return.
+ *
+ * @param windowSize Number of most recent returns in the window.
+ * @param mar Minimum acceptable return. Only returns above it contribute to the deviation.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" computes from the samples seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingUpsideDeviation.html for the full reference.
+ */
+export declare function RollingUpsideDeviation(windowSize?: number, mar?: number, startPolicy?: string): ScreamerOp;
+
 /** The settings of RollingVWAP by name, for `RollingVWAP({ ... })`. */
 export interface RollingVWAPOptions {
   /** Number of most recent bars in the window. @defaultValue `20` */

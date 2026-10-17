@@ -139,6 +139,7 @@ inline constexpr IntSettingMin kIntSettingMin[] = {
     {"RollingSum", "window_size", 1},
     {"RollingTLSBeta", "window_size", 2},
     {"RollingTSF", "window_size", 2},
+    {"RollingUpsideDeviation", "window_size", 2},
     {"RollingVWAP", "window_size", 1},
     {"RollingVar", "window_size", 2},
     {"RollingYangZhangVar", "window_size", 2},

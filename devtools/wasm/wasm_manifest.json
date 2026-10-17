@@ -4579,6 +4579,32 @@
     "source": "bindings/bindings_rolling.cpp"
   },
   {
+    "name": "RollingUpsideDeviation",
+    "cpp_type": "screamer::RollingUpsideDeviation",
+    "base": "ScreamerBase",
+    "ctor": [
+      "int",
+      "double",
+      "std::string"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": "20"
+      },
+      {
+        "name": "mar",
+        "default": "0.0"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"strict\""
+      }
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
     "name": "RollingVWAP",
     "cpp_type": "screamer::RollingVWAP",
     "base": "FunctorBase",

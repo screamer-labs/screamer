@@ -4637,6 +4637,7 @@
     ],
     "nan_policy": "ignore",
     "see_also": [
+      "RollingUpsideDeviation",
       "RollingSortino",
       "RollingStd",
       "RollingCVaR",
@@ -5317,6 +5318,67 @@
       }
     ],
     "doc_path": "functions_fin/RollingTSF"
+  },
+  "RollingUpsideDeviation": {
+    "name": "RollingUpsideDeviation",
+    "title": "Rolling Upside Deviation",
+    "implementation_family": "fin",
+    "topics": [
+      "risk",
+      "volatility"
+    ],
+    "tags": [
+      "upside deviation",
+      "upside risk",
+      "semideviation",
+      "upside volatility",
+      "gain-loss ratio"
+    ],
+    "short": "Trailing-window upside semideviation: the RMS of the returns above a minimum acceptable return.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Number of most recent returns in the window."
+      },
+      {
+        "name": "mar",
+        "type": "float",
+        "default": 0.0,
+        "description": "Minimum acceptable return. Only returns above it contribute to the deviation."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "strict",
+        "enum": [
+          "strict",
+          "expanding",
+          "zero"
+        ],
+        "description": "Output before the window is full: \"strict\" gives NaN, \"expanding\" computes from the samples seen so far, and \"zero\" treats the window as pre-filled with zeros."
+      }
+    ],
+    "nan_policy": "ignore",
+    "see_also": [
+      "RollingDownsideDeviation",
+      "RollingStd",
+      "RollingSortino",
+      "RollingOmega"
+    ],
+    "details": "## Description\n\n`RollingUpsideDeviation` is the upside semideviation over a trailing window:\nthe root-mean-square of the excesses above a minimum acceptable return `mar`,\n\n    sqrt( mean( max(return - mar, 0)^2 ) ).\n\nOnly returns above `mar` contribute; anything at or below it counts as zero.\nIt is the mirror of [`RollingDownsideDeviation`](RollingDownsideDeviation.md):\n`RollingUpsideDeviation(w, mar)(r)` equals `RollingDownsideDeviation(w, -mar)(-r)`.\nThe ratio of the two measures the asymmetry of a return distribution, for\nexample a strategy whose gains are larger than its losses.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import RollingDownsideDeviation, RollingUpsideDeviation\n\nrng = np.random.default_rng(0)\nn = 500\n# returns with occasional sharp gains (right skew)\nr = rng.standard_normal(n) * 0.01 + (rng.random(n) < 0.05) * 0.03\nup = RollingUpsideDeviation(60)(r)\ndown = RollingDownsideDeviation(60)(r)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=up, name='upside deviation', line=dict(color='seagreen')))\nfig.add_trace(go.Scatter(y=down, name='downside deviation', line=dict(color='crimson')))\nfig.update_layout(title='RollingUpsideDeviation: the gains above mar, against the losses below it',\n                  xaxis_title='step', yaxis_title='per-step deviation',\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ],
+    "doc_path": "functions_fin/RollingUpsideDeviation"
   },
   "TripleBarrier": {
     "name": "TripleBarrier",

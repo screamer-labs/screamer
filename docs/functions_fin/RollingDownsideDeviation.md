@@ -38,6 +38,7 @@ parameters:
     from the samples seen so far, and "zero" treats the window as pre-filled with zeros.'
 nan_policy: ignore
 see_also:
+- RollingUpsideDeviation
 - RollingSortino
 - RollingStd
 - RollingCVaR

@@ -51,6 +51,7 @@
 #include "screamer/backtest_portfolio_target.h"
 #include "screamer/common/per_asset.h"
 #include "screamer/rolling_downside_deviation.h"
+#include "screamer/rolling_upside_deviation.h"
 #include "screamer/rolling_omega.h"
 #include "screamer/rolling_cvar.h"
 #include "screamer/rolling_max_drawdown.h"
@@ -1599,6 +1600,13 @@ void init_bindings_fin(nb::module_& m) {
              "start_policy"_a = "strict")
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingDownsideDeviation::reset, "Reset.");
+
+    nb::class_<screamer::RollingUpsideDeviation, screamer::ScreamerBase>(m, "RollingUpsideDeviation")
+        .def(nb::init<screamer::IntArg<int>, screamer::FloatArg, const std::string&>(),
+             "window_size"_a = 20, "mar"_a = 0.0,
+             "start_policy"_a = "strict")
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
+        .def("reset", &screamer::RollingUpsideDeviation::reset, "Reset.");
 
     nb::class_<screamer::RollingOmega, screamer::ScreamerBase>(m, "RollingOmega")
         .def(nb::init<screamer::IntArg<int>, screamer::FloatArg>(),

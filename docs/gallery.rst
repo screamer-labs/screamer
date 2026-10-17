@@ -654,6 +654,13 @@ Measures of a window: central tendency, dispersion, quantiles, moments, z-scores
       :img-alt: RollingTSF example plot
       :class-card: gallery-card
 
+   .. grid-item-card:: RollingUpsideDeviation
+      :link: functions_fin/RollingUpsideDeviation
+      :link-type: doc
+      :img-top: _static/gallery/functions_fin__RollingUpsideDeviation.webp
+      :img-alt: RollingUpsideDeviation example plot
+      :class-card: gallery-card
+
    .. grid-item-card:: RollingVar
       :link: functions_rolling/RollingVar
       :link-type: doc
@@ -1605,6 +1612,13 @@ Turn signals into positions and costed equity curves, measure drawdown and perfo
       :link-type: doc
       :img-top: _static/gallery/functions_fin__RollingSortino.webp
       :img-alt: RollingSortino example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: RollingUpsideDeviation
+      :link: functions_fin/RollingUpsideDeviation
+      :link-type: doc
+      :img-top: _static/gallery/functions_fin__RollingUpsideDeviation.webp
+      :img-alt: RollingUpsideDeviation example plot
       :class-card: gallery-card
 
    .. grid-item-card:: SchmittTrigger

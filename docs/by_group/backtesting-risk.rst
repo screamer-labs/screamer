@@ -105,6 +105,8 @@ Drawdowns and performance ratios.
      - Annualized Sharpe ratio over a trailing window of returns.
    * - :doc:`Rolling Sortino ratio </functions_fin/RollingSortino>`
      - Annualized Sortino ratio: the Sharpe ratio with downside deviation in the denominator.
+   * - :doc:`Rolling Upside Deviation </functions_fin/RollingUpsideDeviation>`
+     - Trailing-window upside semideviation: the RMS of the returns above a minimum acceptable return.
 
 Significance & overfitting
 --------------------------

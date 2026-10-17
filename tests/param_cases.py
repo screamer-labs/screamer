@@ -33,7 +33,7 @@ screamer_classes = [c for c in get_module_public_classes(screamer_module)
 _ROLLING_AUTO_EXCLUDE = {
     'RollingQuantile',
     # extra non-window arg (mar / threshold / alpha) - tested in test_risk_stats.py
-    'RollingDownsideDeviation', 'RollingOmega', 'RollingCVaR',
+    'RollingDownsideDeviation', 'RollingUpsideDeviation', 'RollingOmega', 'RollingCVaR',
     # 2-input (FunctorBase<_, 2, 1>) - need parallel arrays
     'RollingCorr', 'RollingCov', 'RollingBeta', 'RollingSpread', 'RollingTLSBeta',
     # 1-input M>1-output (FunctorBase<_, 1, M>) - output shape is
@@ -169,6 +169,7 @@ test_definitions = [
     ( tuple(rolling_classes)     , {"window_size": [20]} ),
     ( ('RollingQuantile',)       , {"window_size": [20], "quantile": [0, 0.01, 0.4, 1]} ),
     ( ('RollingPoly1',)          , {"window_size": [20], "derivative_order": [0, 1] }),
+    ( ('RollingUpsideDeviation',) , {"window_size": [20], "mar": [0.0, 0.5], "start_policy": ["strict", "expanding", "zero"]}),
     ( ('RollingPoly2',)          , {"window_size": [20], "derivative_order": [0, 1, 2] }),
     ( tuple(ew_classes)          , {"span": [5]}),
     ( tuple(ew_classes)          , {"alpha": [0.2]}),

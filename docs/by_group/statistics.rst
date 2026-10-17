@@ -147,6 +147,8 @@ The size of fluctuations and risk: standard deviation and variance, RMS, range-b
      - Vol form of the Rogers-Satchell drift-robust range-based estimator.
    * - :doc:`Rolling standard deviation </functions_rolling/RollingStd>`
      - Trailing-window sample standard deviation (ddof=1).
+   * - :doc:`Rolling Upside Deviation </functions_fin/RollingUpsideDeviation>`
+     - Trailing-window upside semideviation: the RMS of the returns above a minimum acceptable return.
    * - :doc:`Rolling variance </functions_rolling/RollingVar>`
      - Trailing-window sample variance (ddof=1).
    * - :doc:`Rolling Yang-Zhang variance </functions_rolling/RollingYangZhangVar>`
@@ -370,6 +372,7 @@ Relationships between series: correlation, covariance, regression, hedging, pair
    /functions_rolling/RollingSum
    /functions_fin/RollingTLSBeta
    /functions_fin/RollingTSF
+   /functions_fin/RollingUpsideDeviation
    /functions_rolling/RollingVar
    /functions_rolling/RollingYangZhangVar
    /functions_rolling/RollingYangZhangVol

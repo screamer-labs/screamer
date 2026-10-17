@@ -179,6 +179,7 @@
 #include "screamer/rolling_sum.h"
 #include "screamer/rolling_tls_beta.h"
 #include "screamer/rolling_tsf.h"
+#include "screamer/rolling_upside_deviation.h"
 #include "screamer/rolling_var.h"
 #include "screamer/rolling_zscore.h"
 #include "screamer/roofing_filter.h"
@@ -579,6 +580,11 @@ inline screamer::RollingSum* make_RollingSum(int a0, emscripten::val a1) {
 inline screamer::RollingTLSBeta* make_RollingTLSBeta(int a0, emscripten::val a1) {
     const std::string a1s = a1.as<std::string>();
     return new screamer::RollingTLSBeta(a0, a1s);
+}
+
+inline screamer::RollingUpsideDeviation* make_RollingUpsideDeviation(int a0, double a1, emscripten::val a2) {
+    const std::string a2s = a2.as<std::string>();
+    return new screamer::RollingUpsideDeviation(a0, a1, a2s);
 }
 
 inline screamer::RollingVar* make_RollingVar(int a0, emscripten::val a1) {
@@ -1102,6 +1108,8 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor(&make_RollingTLSBeta, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingTSF, emscripten::base<screamer::EvalOp>>("RollingTSF")
         .constructor<int>();
+    emscripten::class_<screamer::RollingUpsideDeviation, emscripten::base<screamer::EvalOp>>("RollingUpsideDeviation")
+        .constructor(&make_RollingUpsideDeviation, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingVWAP, emscripten::base<screamer::EvalOp>>("RollingVWAP")
         .constructor<int>();
     emscripten::class_<screamer::RollingVar, emscripten::base<screamer::EvalOp>>("RollingVar")
