@@ -78,14 +78,13 @@ def test_degenerate_input_stays_finite(x):
     assert (out[:, 2] >= 0.0).all()
 
 
-def test_pred_std_of_an_overflowing_step_is_not_zero():
+def test_pred_std_of_an_overflowing_step_is_nan():
     # 1e155 squared overflows: every term is -inf, the detector restarts at the
     # prior with 1e155 as the first value of a run. The predictive spread there
-    # overflows too (inf, or NaN where the mixture variance is inf - inf),
-    # never a finite number and never 0.
+    # overflows too and is reported as NaN, never inf and never 0.
     x = np.r_[np.random.default_rng(4).standard_normal(20), 1e155, 0.5]
     out = np.asarray(BayesianChangepoint()(x))
-    assert not np.isfinite(out[20, 2])
+    assert np.isnan(out[20, 2])
     assert out[20, 0] == 0.0
 
 

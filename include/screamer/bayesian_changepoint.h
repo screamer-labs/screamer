@@ -148,6 +148,8 @@ private:
             mean += p * mu_[r];
             second += p * (beta_[r] * v_[r] + mu_[r] * mu_[r]);
         }
+        if (!std::isfinite(second) || !std::isfinite(mean * mean))
+            return std::make_tuple(rl, mean, std::numeric_limits<double>::quiet_NaN());
         const double var = second - mean * mean;
         return std::make_tuple(rl, mean, std::sqrt(var < 0.0 ? 0.0 : var));   // NaN stays NaN
     }
