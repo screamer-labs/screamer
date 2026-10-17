@@ -40,6 +40,20 @@ window and 0 before the first one. It runs through the engine once, so a
 position carried from one fold into the next pays no extra cost, and a switch
 pays exactly the trade it causes.
 
+With a portfolio engine, each candidate is a `(T, K)` target for the whole
+book. Every window is scored on the book: equity, pnl and cost summed across
+the assets, as [`position_test`](position_test.md) scores a portfolio. The
+result's `target` is `(T, K)` and `output` `(T, K, 4)`, a callable metric gets
+one candidate's `(L, K, 4)` window and returns one number, and `carry` is a
+`(T, K)` rate, one column per asset.
+
+A portfolio engine reads a finite target as an order and `NaN` as "hold", so a
+rebalancing schedule has `NaN` between its rebalance steps. So that each test
+window starts from the chosen candidate's book, a `NaN` on the first row of a
+test window is restated as that candidate's last finite target for the asset,
+or 0 when it has none (the flat book its own run starts from). The other rows
+are the candidate's targets as given.
+
 The function is batch-only. The backtests and the statistics run in C++; the
 function only slices, compares, and stitches.
 
@@ -51,12 +65,15 @@ function only slices, compares, and stitches.
 anchored=False, periods_per_year=1.0, larger_is_better=None, carry=None,
 carry_multiplier=1.0)`
 
-- `engine`: a single-asset target-position engine, such as
+- `engine`: a target-position engine, such as
   [`BacktestOHLCTarget`](BacktestOHLCTarget.md) or
-  [`BacktestPriceTarget`](BacktestPriceTarget.md). Portfolio engines are not
-  supported.
+  [`BacktestPriceTarget`](BacktestPriceTarget.md), or a portfolio engine,
+  [`BacktestPortfolioTarget`](BacktestPortfolioTarget.md) or
+  [`BacktestPortfolioOHLCTarget`](BacktestPortfolioOHLCTarget.md).
 - `targets`: a `(T, K)` array with one target series per candidate, for
   example one column per parameter value. A `(T,)` series is one candidate.
+  For a portfolio engine, `(T, K, C)`: C candidates for K assets (`(T, K)` is
+  one candidate), with `(T, K)` prices.
 - `prices`: the engine's market inputs, as in `engine(target, *prices)`.
 - `train`: the length of each training window, at least 2 and shorter than
   the series.
@@ -74,7 +91,7 @@ carry_multiplier=1.0)`
   [`position_test`](position_test.md). Statistics with no natural direction,
   such as `turnover`, need it.
 - `carry`: a per-step carry rate (perpetual funding, borrow fee), a `(T,)`
-  series with the sign and timing [`BacktestCarry`](BacktestCarry.md)
+  series (`(T, K)` for a portfolio engine) with the sign and timing [`BacktestCarry`](BacktestCarry.md)
   documents. With it, every candidate's run and the stitched run pass through
   `BacktestCarry(multiplier=carry_multiplier)` before they are scored, marked
   with the engine's last price input: the close for the OHLC engines, the
@@ -84,12 +101,14 @@ carry_multiplier=1.0)`
 
 It returns a named tuple with these fields:
 
-- `target`: the stitched out-of-sample target, shape `(T,)`.
+- `target`: the stitched out-of-sample target, shape `(T,)`, or `(T, K)` for a
+  portfolio engine.
 - `choice`: the column chosen in each fold, shape `(n_folds,)`.
 - `fold_start`: the first step `t0` of each test window.
 - `train_scores`: every candidate's metric on every training window, shape
   `(n_folds, K)`.
-- `output`: the engine output on `target`, shape `(T, 4)`, after carry when
+- `output`: the engine output on `target`, shape `(T, 4)` (`(T, K, 4)` for a
+  portfolio engine), after carry when
   `carry` is given.
 - `stats`: every `backtest_report` summary statistic of `output` from the
   first test window to the end, as a dict of floats.

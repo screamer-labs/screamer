@@ -583,12 +583,33 @@ def walk_forward(
     engines, the trade price for ``BacktestTradesTarget``, the ask for
     ``BacktestL1Target``), so ``output`` and ``stats`` are after carry.
 
+    Portfolio engines (``BacktestPortfolioTarget``,
+    ``BacktestPortfolioOHLCTarget``) take ``(T, K, C)`` targets, C candidates
+    for K assets (``(T, K)`` is one candidate), and ``(T, K)`` prices. Each
+    window is scored on the book, the pnl summed across assets; ``target`` is
+    ``(T, K)``, ``output`` ``(T, K, 4)``, and a callable metric gets one
+    candidate's ``(L, K, 4)`` window and returns one number. ``carry`` is
+    then ``(T, K)``. A portfolio engine reads a ``NaN`` target as "hold", so a
+    ``NaN`` on the first row of a test window is restated as the chosen
+    candidate's last finite target for that asset (0 when it has none): each
+    test window starts from the book the candidate holds, whatever the
+    previous window held.
+
     ``metric``, ``larger_is_better``, and ``periods_per_year`` mean the same as
-    in ``position_test``. Portfolio engines are not supported.
+    in ``position_test``.
     """
     name, custom = _metric_label(metric)
+    portfolio = isinstance(engine, RowOp)
     targets = _as_float64(targets)
-    if targets.ndim == 1:
+    candidates = 1
+    if portfolio:
+        if targets.ndim == 2:
+            targets = targets[:, :, None]
+        if targets.ndim != 3:
+            raise ValueError("walk_forward: a portfolio engine needs (T, K) or (T, K, C) targets")
+        candidates = targets.shape[2]
+        targets = np.ascontiguousarray(targets).reshape(targets.shape[0], -1)
+    elif targets.ndim == 1:
         targets = targets[:, None]
     targets = np.ascontiguousarray(targets)
     prices = [_as_float64(p, contiguous=True) for p in prices]
@@ -598,6 +619,6 @@ def walk_forward(
         run, reset, score, targets, targets, prices, _number(train, "walk_forward: train"),
         _number(test, "walk_forward: test"), name, custom,
         _flag(larger_is_better), bool(anchored),
-        _float(periods_per_year, "walk_forward: periods_per_year"), isinstance(engine, RowOp),
+        _float(periods_per_year, "walk_forward: periods_per_year"), portfolio, candidates,
         carry, _float(carry_multiplier, "walk_forward: carry_multiplier"), type(engine).__name__)
     return WalkForwardResult(target, choice, fold_start, scores, output, stats, name)

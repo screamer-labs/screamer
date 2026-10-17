@@ -191,8 +191,8 @@ def test_input_errors():
         walk_forward(eng, X, o, h, l, c, train=10, test=10, metric="turnover")
     with pytest.raises(ValueError, match="same length"):
         walk_forward(eng, X, o[:-1], h, l, c, train=10, test=10)
-    with pytest.raises(ValueError, match="portfolio"):
-        walk_forward(BacktestPortfolioTarget(), X, np.ones((T, 3)), train=10, test=10)
+    with pytest.raises(ValueError, match=r"\(T, K\) or \(T, K, C\)"):
+        walk_forward(BacktestPortfolioTarget(), X[:, 0], np.ones((T, 3)), train=10, test=10)
 
 
 def test_golden_values():
@@ -304,3 +304,121 @@ def test_carry_with_an_engine_of_unknown_price_input_raises():
     walk_forward(Wrapped(), X, o, h, l, c, train=50, test=50)
     with pytest.raises(ValueError, match="carry needs a target engine whose price input is known"):
         walk_forward(Wrapped(), X, o, h, l, c, train=50, test=50, carry=np.zeros(T))
+
+
+def _book(T, K, seed):
+    rng = np.random.default_rng(seed)
+    return 100 * np.exp(np.cumsum(rng.standard_normal((T, K)) * 0.01, axis=0))
+
+
+def _book_targets(T, K, C):
+    t = np.arange(T)[:, None, None]
+    return 0.3 * np.sign(np.sin(t / (5.0 + 3.0 * np.arange(C))[None, None, :]
+                                + np.arange(K)[None, :, None]))
+
+
+def _book_sharpe(out, a, b):
+    pnl = np.nansum(out[a:b, :, 1], axis=1)
+    return pnl.mean() / pnl.std(ddof=1)
+
+
+def test_portfolio_scores_selection_and_stitching():
+    T, K, C = 300, 3, 4
+    prices, X = _book(T, K, 0), _book_targets(T, K, C)
+    eng = BacktestPortfolioTarget(fee=1e-4)
+    res = walk_forward(eng, X, prices, train=100, test=50)
+    assert res.train_scores.shape == (4, C)
+    assert res.target.shape == (T, K) and res.output.shape == (T, K, 4)
+    for c in range(C):
+        eng.reset()
+        out = np.asarray(eng(np.ascontiguousarray(X[:, :, c]), prices))
+        for i, t0 in enumerate(res.fold_start):
+            np.testing.assert_allclose(res.train_scores[i, c], _book_sharpe(out, t0 - 100, t0), rtol=1e-9)
+    expect = np.zeros((T, K))
+    for t0, c in zip(res.fold_start, res.choice):
+        expect[t0:t0 + 50] = X[t0:t0 + 50, :, c]
+    np.testing.assert_array_equal(res.target, expect)
+    eng.reset()
+    np.testing.assert_array_equal(res.output, np.asarray(eng(expect, prices)))
+
+
+def test_portfolio_with_one_asset_equals_the_single_asset_result():
+    T = 300
+    _, _, _, c = _market(T)
+    X = _targets(T)
+    book = lambda: BacktestPortfolioTarget(fee=1e-4, size="units", initial_capital=0.0)  # noqa: E731
+    # the two engines agree on one asset
+    np.testing.assert_allclose(np.asarray(book()(X[:, :1], c[:, None]))[:, 0, :],
+                               np.asarray(BacktestPriceTarget(fee=1e-4)(X[:, 0], c)), rtol=1e-12, atol=1e-12)
+    a = walk_forward(BacktestPriceTarget(fee=1e-4), X, c, train=100, test=50)
+    b = walk_forward(book(), X[:, None, :], c[:, None], train=100, test=50)
+    np.testing.assert_allclose(b.train_scores, a.train_scores, rtol=1e-9, atol=1e-12)
+    np.testing.assert_array_equal(b.choice, a.choice)
+    np.testing.assert_array_equal(b.target[:, 0], a.target)
+    np.testing.assert_allclose(b.output[:, 0, :], a.output, rtol=1e-12, atol=1e-12)
+    for key in ("total_pnl", "total_cost", "turnover", "num_trades", "sharpe", "max_drawdown"):
+        np.testing.assert_allclose(b.stats[key], a.stats[key], rtol=1e-9, atol=1e-12)
+
+
+def test_portfolio_callable_metric_gets_one_candidate_book():
+    T, K, C = 240, 2, 3
+    prices, X = _book(T, K, 1), _book_targets(T, K, C)
+    shapes = []
+
+    def book_pnl(out):
+        shapes.append(out.shape)
+        return float(np.nansum(out[:, :, 1]))
+
+    res = walk_forward(BacktestPortfolioTarget(), X, prices, train=80, test=40, metric=book_pnl)
+    assert shapes and all(sh[1:] == (K, 4) for sh in shapes)
+    eng = BacktestPortfolioTarget()
+    for c in range(C):
+        eng.reset()
+        out = np.asarray(eng(np.ascontiguousarray(X[:, :, c]), prices))
+        for i, t0 in enumerate(res.fold_start):
+            np.testing.assert_allclose(res.train_scores[i, c], np.nansum(out[t0 - 80:t0, :, 1]),
+                                       rtol=1e-9, atol=1e-12)
+
+
+def test_portfolio_carry_per_asset():
+    T, K, C = 240, 3, 2
+    prices, X = _book(T, K, 2), _book_targets(T, K, C)
+    rate = 1e-3 * np.cos(np.arange(T)[:, None] / 5.0 + np.arange(K))
+    res = walk_forward(BacktestPortfolioTarget(), X, prices, train=80, test=40, carry=rate)
+    raw = np.asarray(BacktestPortfolioTarget()(res.target, prices))
+    want = np.stack([np.asarray(BacktestCarry()(*raw[:, k, :].T, prices[:, k], rate[:, k]))
+                     for k in range(K)], axis=1)
+    np.testing.assert_allclose(res.output, want, rtol=1e-12, atol=1e-12)
+
+
+def test_portfolio_argument_checks():
+    T = 120
+    prices = _book(T, 3, 3)
+    with pytest.raises(ValueError, match=r"\(T, K\) or \(T, K, C\)"):
+        walk_forward(BacktestPortfolioTarget(), np.ones(T), prices, train=40, test=40)
+    with pytest.raises(ValueError, match="price inputs"):
+        walk_forward(BacktestPortfolioTarget(), np.ones((T, 3, 2)), prices[:, :2], train=40, test=40)
+    with pytest.raises(ValueError, match=r"carry must be a \(T, K\) array"):
+        walk_forward(BacktestPortfolioTarget(), np.ones((T, 3, 2)), prices, train=40, test=40,
+                     carry=np.zeros(T))
+
+
+def test_portfolio_restates_a_held_target_on_each_test_window_start():
+    # Rebalancing schedules: orders every 7 or 11 steps, NaN (hold) between.
+    T, K, C = 260, 2, 2
+    prices = _book(T, K, 4)
+    X = np.full((T, K, C), np.nan)
+    X[::7, :, 0] = _book_targets(T, K, 1)[::7, :, 0]
+    X[::11, :, 1] = -_book_targets(T, K, 1)[::11, :, 0]
+    X[::11, 1, 1] = np.nan                    # asset 1 of candidate 1 never trades
+    res = walk_forward(BacktestPortfolioTarget(), X, prices, train=80, test=40)
+    expect = np.zeros((T, K))
+    assert (res.choice >= 0).all()
+    for t0, c in zip(res.fold_start, res.choice):
+        expect[t0:t0 + 40] = X[t0:t0 + 40, :, c]
+        for k in range(K):
+            if np.isnan(expect[t0, k]):       # the order the candidate stands on at t0
+                past = X[:t0, k, c][~np.isnan(X[:t0, k, c])]
+                expect[t0, k] = past[-1] if past.size else 0.0
+    np.testing.assert_array_equal(res.target, expect)
+    assert not np.isnan(res.target[res.fold_start]).any()

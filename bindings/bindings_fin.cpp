@@ -998,9 +998,10 @@ public:
     }
 
     std::size_t metric(sv::MetricOf what, double* values, std::size_t count,
-                       std::size_t rows) override {
-        nb::object arg = what == sv::MetricOf::Window
-            ? screamer::detail::make_owned_array(std::move(window_buf_), {rows, count, 4})
+                       std::size_t rows, std::size_t width) override {
+        const bool window = what == sv::MetricOf::Window || what == sv::MetricOf::BookWindow;
+        nb::object arg = window
+            ? screamer::detail::make_owned_array(std::move(window_buf_), {rows, width, 4})
             : last_obj_;
         return metric_values(metric_(arg), values, count);
     }
@@ -1172,13 +1173,14 @@ nb::tuple walk_forward_py(nb::callable run, nb::callable reset, nb::object metri
                           nb::object original, BlockIn targets, nb::list prices, double train, double test,
                           const std::string& metric_name, bool custom,
                           std::optional<bool> larger_is_better, bool anchored,
-                          double periods_per_year, bool portfolio,
+                          double periods_per_year, bool portfolio, std::size_t candidates,
                           std::optional<BlockIn> carry, double carry_multiplier,
                           const std::string& engine) {
     sv::WalkForwardOptions opt;
     opt.train = train; opt.test = test; opt.metric = metric_name; opt.custom = custom;
     opt.larger_is_better = larger_is_better; opt.anchored = anchored;
     opt.periods_per_year = periods_per_year; opt.portfolio = portfolio;
+    opt.candidates = candidates;
     if (carry) opt.carry = array_shape(*carry);
     opt.carry_multiplier = carry_multiplier;
     opt.engine = engine;
@@ -1255,7 +1257,7 @@ void init_bindings_fin(nb::module_& m) {
     m.def("_walk_forward", &walk_forward_py,
           "run"_a, "reset"_a, "metric"_a.none(), "original"_a, "targets"_a, "prices"_a, "train"_a,
           "test"_a, "metric_name"_a, "custom"_a, "larger_is_better"_a.none(), "anchored"_a,
-          "periods_per_year"_a, "portfolio"_a, "carry"_a.none(), "carry_multiplier"_a, "engine"_a);
+          "periods_per_year"_a, "portfolio"_a, "candidates"_a, "carry"_a.none(), "carry_multiplier"_a, "engine"_a);
     m.def("_default_min_shift", [](SurrogateIn x) {
         return screamer::validation::default_min_shift(x.data(), x.shape(0));
     }, "x"_a);

@@ -4,7 +4,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { ready, Hold, CusumFilter, backtestReport, walkForward, BacktestOHLCTarget } from "../src/index.ts";
+import { ready, Hold, CusumFilter, backtestReport, walkForward, BacktestOHLCTarget,
+         BacktestPortfolioTarget } from "../src/index.ts";
 import * as api from "../src/index.ts";
 
 await ready();
@@ -138,6 +139,20 @@ test("research: walkForward with carry matches Python", () => {
     { train: h.train, test: h.test, carry: Float64Array.from(h.carry, num), carryMultiplier: h.carry_multiplier });
   close(res.trainScores.data, h.train_scores, "trainScores");
   assert.deepEqual(Array.from(res.choice), h.choice);
+  close(res.output.data, h.output, "output");
+  for (const [k, v] of Object.entries(h.stats as Record<string, Num>)) close([(res.stats as any)[k]], [v], `stats ${k}`);
+});
+
+test("research: walkForward with a portfolio engine matches Python", () => {
+  const h = oracle.helpers.walk_forward_portfolio;
+  const prices = { data: Float64Array.from(h.prices, num), shape: [h.T, h.K] };
+  const targets = { data: Float64Array.from(h.targets, num), shape: [h.T, h.K, h.C] };
+  const carry = { data: Float64Array.from(h.carry, num), shape: [h.T, h.K] };
+  const res = walkForward(BacktestPortfolioTarget({ fee: 1e-4 }), targets, [prices],
+                          { train: h.train, test: h.test, carry });
+  close(res.trainScores.data, h.train_scores, "trainScores");
+  assert.deepEqual(Array.from(res.choice), h.choice);
+  close((res.target as any).data, h.target, "target");
   close(res.output.data, h.output, "output");
   for (const [k, v] of Object.entries(h.stats as Record<string, Num>)) close([(res.stats as any)[k]], [v], `stats ${k}`);
 });

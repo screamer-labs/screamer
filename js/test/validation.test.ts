@@ -610,8 +610,10 @@ test("validation: positionTest and walkForward errors use the Python text", asyn
   msg(() => positionTest(BacktestPriceTarget(), tgt, [pan]), "market input must be a 1-D series");
   msg(() => positionTest(BacktestPriceTarget(), tgt, [c], { metric: "turnover" }),
     'metric "turnover" has no natural direction; pass larger_is_better');
-  msg(() => walkForward(BacktestPortfolioTarget(), pan, [pan], { train: 10, test: 10 }),
-    "walk_forward needs a single-asset engine; portfolio engines are not supported");
+  msg(() => walkForward(BacktestPortfolioTarget(), tgt, [pan], { train: 10, test: 10 }),
+    "walkForward: a portfolio engine needs (T, K) or (T, K, C) targets");
+  msg(() => walkForward(BacktestPortfolioTarget(), pan, [c], { train: 10, test: 10 }),
+    "a portfolio engine needs (T, K) price inputs, the shape of each candidate's target");
   const bad: any = () => ({ data: new Float64Array(3 * T), shape: [T, 3] });
   bad.reset = () => {};
   msg(() => positionTest(bad, tgt, [c], { n: 2 }),

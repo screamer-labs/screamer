@@ -267,18 +267,30 @@ function positionTarget(target: any, portfolio: boolean): Target {
 }
 
 // walkForward: K candidate columns, a (T,) or (T, K) NdArray, or one series;
-// always (T, K) for the driver.
-function candidates(targets: any): Target {
+// always (T, K) for the driver. A portfolio engine takes a [T, K, C] or
+// [T, K] NdArray, or T rows of K values, flattened to (T, K * C).
+function candidates(targets: any, portfolio: boolean): Target & { C: number } {
   const nd = asNd(targets);
+  if (portfolio) {
+    if (nd !== null && (nd.shape.length === 2 || nd.shape.length === 3)) {
+      const [T, K] = nd.shape, C = nd.shape.length === 3 ? nd.shape[2] : 1;
+      return { data: nd.data, ndim: 2, T, K: K * C, original: nd, C };
+    }
+    if (isColumns(targets)) {
+      const { data, T, K } = flattenRows(targets, "walkForward", "targets");
+      return { data, ndim: 2, T, K, original: { data, shape: [T, K] }, C: 1 };
+    }
+    throw new RangeError("walkForward: a portfolio engine needs (T, K) or (T, K, C) targets");
+  }
   if (nd !== null) {
     const T = nd.shape[0] ?? 0, K = nd.shape.length === 2 ? nd.shape[1] : 1;
     return { data: nd.data, ndim: nd.shape.length === 1 ? 2 : nd.shape.length, T, K,
-             original: nd.shape.length === 2 ? nd : { data: nd.data, shape: [T, K] } };
+             original: nd.shape.length === 2 ? nd : { data: nd.data, shape: [T, K] }, C: 1 };
   }
   const data = isColumns(targets) ? fromColumns(targets, "targets and price inputs")
     : Float64Array.from(targets as ArrayLike<number>);
   const K = isColumns(targets) ? targets.length : 1, T = data.length / Math.max(1, K);
-  return { data, ndim: 2, T, K, original: { data, shape: [T, K] } };
+  return { data, ndim: 2, T, K, original: { data, shape: [T, K] }, C: 1 };
 }
 
 // A custom metric's result as [first value, values given, kind] at out[at],
@@ -345,15 +357,19 @@ function engineCallbacks(engine: ScreamerOp, original: any, market: any[], metri
     },
     reset: () => { engine.reset(); },
     // Each of `count` strategies of `what`: 0 the last output, 1 the output
-    // as one book, 2 the (rows, count, 4) window at windowPtr. Writes
+    // as one book, 2 the (rows, count, 4) window at windowPtr, 3 one
+    // candidate's (rows, width, 4) book window at windowPtr. Writes
     // metricEntry's triple per strategy to resPtr, once at the end, up to the
     // first result of the wrong kind or count.
-    metric: (what: number, count: number, rows: number, windowPtr: number, resPtr: number) => {
+    metric: (what: number, count: number, rows: number, width: number, windowPtr: number,
+             resPtr: number) => {
       const f = metric as (out: NdArray) => unknown;
       const last = state.last as NdArray;
       const res = new Float64Array(3 * count);
       for (let j = 0; j < count; j++) {
-        const arg = what === 2     // a fresh view each time: the metric may grow the heap
+        const arg = what === 3
+          ? { data: M.viewF64(windowPtr, rows * width * 4).slice(), shape: [rows, width, 4] }
+          : what === 2     // a fresh view each time: the metric may grow the heap
           ? strategyOf({ data: M.viewF64(windowPtr, rows * count * 4), shape: [rows, count, 4] }, j)
           : what === 1 || last.shape.length === 2 ? last : strategyOf(last, j);
         metricEntry(f(arg), res, 3 * j);
@@ -908,23 +924,30 @@ export interface WalkForwardOptions {
   /**
    * Per-step carry rate (funding, borrow), one value per row, with the sign
    * and timing `BacktestCarry` documents. Every run is scored after
-   * `BacktestCarry`, marked with the engine's last price input.
+   * `BacktestCarry`, marked with the engine's last price input. A `[T, K]`
+   * NdArray for a portfolio engine.
    */
-  carry?: ArrayLike<number>;
+  carry?: ArrayLike<number> | NdArray;
   /** The carry's contract multiplier (default 1). */
   carryMultiplier?: number;
 }
 
 export interface WalkForwardResult {
-  /** The stitched out-of-sample target: 0 before the first test window. */
-  target: Float64Array;
+  /**
+   * The stitched out-of-sample target: 0 before the first test window;
+   * `[T, K]` for a portfolio engine.
+   */
+  target: Float64Array | NdArray;
   /** The chosen candidate per fold; -1 when every score was NaN (flat). */
   choice: Int32Array;
   /** The first step of each test window. */
   foldStart: Int32Array;
-  /** Every candidate's metric on every training window, (nFolds, K) row-major. */
+  /** Every candidate's metric on every training window, (nFolds, C) row-major. */
   trainScores: NdArray;
-  /** The engine output on `target`, (T, 4), after carry when `carry` is given. */
+  /**
+   * The engine output on `target`, (T, 4), or (T, K, 4) for a portfolio
+   * engine, after carry when `carry` is given.
+   */
   output: NdArray;
   /** Every statistic of `output` from the first test window to the end. */
   stats: Record<StatName, number>;
@@ -951,12 +974,23 @@ export interface WalkForwardResult {
  * `carryMultiplier`) before they are scored, marked with the engine's last
  * price input (the close for the OHLC engines, the trade price for
  * `BacktestTradesTarget`, the ask for `BacktestL1Target`), so `output` and
- * `stats` are after carry. Mirrors Python's `screamer.walk_forward`.
+ * `stats` are after carry.
+ *
+ * Portfolio engines (`BacktestPortfolioTarget`, `BacktestPortfolioOHLCTarget`)
+ * take a `[T, K, C]` target, C candidates for K assets (`[T, K]` is one
+ * candidate), and `[T, K]` prices. Each window is scored on the book, the pnl
+ * summed across assets; `target` is `[T, K]`, `output` `[T, K, 4]`, and a
+ * callable metric gets one candidate's `[L, K, 4]` window and returns one
+ * number. `carry` is then `[T, K]`. A portfolio engine reads a NaN target as
+ * "hold", so a NaN on the first row of a test window is restated as the
+ * chosen candidate's last finite target for that asset (0 when it has none):
+ * each test window starts from the book the candidate holds. Mirrors Python's
+ * `screamer.walk_forward`.
  */
 export function walkForward(
   engine: ScreamerOp,
   targets: ArrayLike<number> | ArrayLike<number>[] | NdArray,
-  market: ArrayLike<number>[],
+  market: (ArrayLike<number> | NdArray)[],
   opts: WalkForwardOptions,
 ): WalkForwardResult {
   noBools("walkForward", { train: [opts.train, true], test: [opts.test, true],
@@ -965,7 +999,8 @@ export function walkForward(
   const M = current();
   const metric = opts.metric ?? "sharpe";
   const { custom, name, hasLarger, larger } = metricArgs(metric, opts.largerIsBetter);
-  const tgt = candidates(targets);
+  const portfolio = !!(engine as any).rowOp;
+  const tgt = candidates(targets, portfolio);
   const { fns, state } = engineCallbacks(engine, tgt.original, market, metric);
   let result: WalkForwardResult | null = null;
   const callbacks = wasmCallbacks({
@@ -986,18 +1021,21 @@ export function walkForward(
   });
   const bufs: number[] = [];
   try {
-    const carry = opts.carry == null ? null : Float64Array.from(opts.carry as ArrayLike<number>);
-    const spec = heapSpecs(tgt, market, bufs, carry !== null);
+    const spec = heapSpecs(tgt, market, bufs, opts.carry != null);
     let carrySpec = 0;
-    if (carry !== null) {
-      const cp = heapCopy(carry);
+    if (opts.carry != null) {
+      const cnd = asNd(opts.carry);
+      const cdata = cnd !== null ? cnd.data : Float64Array.from(opts.carry as ArrayLike<number>);
+      const cp = heapCopy(cdata);
       bufs.push(cp);
-      carrySpec = heapCopy([cp, 1, carry.length, 1]);
+      carrySpec = cnd !== null
+        ? heapCopy([cp, cnd.shape.length, cnd.shape[0] ?? 0, cnd.shape[1] ?? 1])
+        : heapCopy([cp, 1, cdata.length, 1]);
       bufs.push(carrySpec);
     }
     callbacks.call((cb) => M.walkForwardRun(cb, spec.target, spec.market, market.length,
       num(opts.train), num(opts.test), custom ? "" : name, custom, hasLarger, larger, !!opts.anchored,
-      opts.periodsPerYear ?? 1, !!(engine as any).rowOp, carrySpec, opts.carryMultiplier ?? 1,
+      opts.periodsPerYear ?? 1, portfolio, tgt.C, carrySpec, opts.carryMultiplier ?? 1,
       (engine as any).opName ?? ""));
     return result as unknown as WalkForwardResult;
   } finally {

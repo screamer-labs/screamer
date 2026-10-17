@@ -42,6 +42,7 @@ namespace screamer { namespace validation {
         Columns,   // each strategy of the last output: (T, 4) or (T, k, 4)
         Book,      // the last (T, K, 4) portfolio output as one book
         Window,    // each strategy of the last window_buffer, (rows, K, 4)
+        BookWindow,   // one candidate's (rows, width, 4) window of a portfolio, one value
     };
 
     // The binding's side of the drivers: it owns the engine, the market
@@ -60,16 +61,18 @@ namespace screamer { namespace validation {
         virtual EngineOutput run(bool original, std::size_t T, std::size_t cols) = 0;
         // Resets the engine after the last run.
         virtual void reset() = 0;
-        // Room for a (rows, K, 4) window that the driver fills before
-        // metric(MetricOf::Window, ...). The same rule as target_buffer.
+        // Room for a (rows, width, 4) window that the driver fills before
+        // metric(MetricOf::Window or BookWindow, ...). The same rule as
+        // target_buffer.
         virtual double* window_buffer(std::size_t size) = 0;
         // The custom metric of `what`: `count` values, one per strategy (one
         // for a book). Checks the result with check_metric_result (the
         // binding knows how many strategies each call of the user's metric
-        // sees), writes `count` values, and returns `count`. `rows` is the
-        // window length.
+        // sees), writes `count` values, and returns `count`. `rows` and
+        // `width` are the window's shape, (rows, width, 4), for Window and
+        // BookWindow.
         virtual std::size_t metric(MetricOf what, double* values, std::size_t count,
-                                   std::size_t rows) = 0;
+                                   std::size_t rows, std::size_t width) = 0;
     };
 
     // position_test's results go to the host in batches (ResultSink), so the
@@ -105,7 +108,8 @@ namespace screamer { namespace validation {
         std::optional<bool> larger_is_better;
         bool anchored = false;
         double periods_per_year = 1.0;
-        bool portfolio = false;                  // rejected: a single-asset engine is needed
+        bool portfolio = false;                  // a portfolio engine: targets (T, K * candidates)
+        std::size_t candidates = 1;              // C, for a portfolio's (T, K, C) targets flattened to (T, K * C)
         std::optional<ArrayShape> carry;         // per-step carry rate, the shape of a price input
         double carry_multiplier = 1.0;
         std::string engine;                      // the engine's class name, for the carry's price input
@@ -145,9 +149,10 @@ namespace screamer { namespace validation {
 
         // The custom metric of `what`, checked to give `count` values.
         inline const double* custom_metric(EngineHost& host, MetricOf what, std::vector<double>& buf,
-                                           std::size_t count, std::size_t rows = 0) {
+                                           std::size_t count, std::size_t rows = 0,
+                                           std::size_t width = 0) {
             buf.assign(count, std::numeric_limits<double>::quiet_NaN());
-            check_metric_values(count, host.metric(what, buf.data(), count, rows));
+            check_metric_values(count, host.metric(what, buf.data(), count, rows, width));
             return buf.data();
         }
 
@@ -496,6 +501,120 @@ namespace screamer { namespace validation {
         return res;
     }
 
+    // walk_forward for a portfolio engine. `targets` is (T, A * C), the
+    // row-major (T, A, C) block of C candidates for A assets; the prices are
+    // (T, A). Each candidate runs once over the whole history, and each
+    // training window, (L, A, 4) with each asset's equity shifted as
+    // window_rows does, is scored as one book (RunScorer::score). The
+    // stitched (T, A) target runs once at the end.
+    //
+    // A portfolio engine reads a finite target as an order and NaN as "hold".
+    // So that every test window starts from the chosen candidate's book, a
+    // NaN target on a test window's first row is restated as the candidate's
+    // last finite target of that asset before it (0 when it has none, the
+    // flat book its own run starts from); the other rows are copied as they
+    // are.
+    inline WalkForwardResult walk_forward_portfolio(EngineHost& host, const ArrayShape& targets,
+                                                    const std::vector<ArrayShape>& prices,
+                                                    const WalkForwardOptions& opt,
+                                                    const Metric& metric, std::size_t train,
+                                                    std::size_t test) {
+        const std::size_t T = targets.T, C = opt.candidates;
+        if (C == 0 || targets.K == 0 || targets.K % C != 0)
+            throw std::invalid_argument("targets must be a (T, K) or (T, K, C) array");
+        const std::size_t A = targets.K / C;
+        for (const ArrayShape& p : prices)
+            if (p.ndim != 2 || p.T != T || p.K != A)
+                throw std::invalid_argument(
+                    "a portfolio engine needs (T, K) price inputs, the shape of each candidate's target");
+        const auto carry = detail::carry_input(opt, prices, T, A);
+        const auto at = [&](std::size_t t, std::size_t k, std::size_t c) {
+            return targets.data[(t * A + k) * C + c];
+        };
+
+        WalkForwardResult res;
+        res.K = C;
+        res.folds = (T - train + test - 1) / test;
+        const std::size_t F = res.folds;
+        res.fold_start.resize(F);
+        res.choice.resize(F);
+        res.scores.reset(new double[F * C ? F * C : 1]);
+        for (std::size_t i = 0; i < F; ++i) res.fold_start[i] = static_cast<std::int64_t>(train + i * test);
+
+        RunScorer scorer(opt.periods_per_year);
+        std::vector<double> carried, rows, custom;
+        // Rows [a, b) of every asset of a (T, A, 4) output, as (b - a, A, 4).
+        const auto book = [&](const double* o, std::size_t a, std::size_t b, double* dst) {
+            for (std::size_t k = 0; k < A; ++k) detail::window_rows(o, T, A, k, a, b, dst + k * 4, A * 4);
+        };
+        const auto score = [&](const double* w, std::size_t len) {
+            EngineOutput win;
+            win.data = w;
+            win.ndim = 3;
+            win.shape[0] = len;
+            win.shape[1] = A;
+            win.shape[2] = 4;
+            return scorer.score(win);
+        };
+        for (std::size_t c = 0; c < C; ++c) {
+            double* buf = host.target_buffer(T * A);
+            for (std::size_t t = 0; t < T; ++t)
+                for (std::size_t k = 0; k < A; ++k) buf[t * A + k] = at(t, k, c);
+            const EngineOutput out = host.run(false, T, A);
+            detail::check_book_output(out, T, A);
+            const double* o = out.data;
+            if (carry) {
+                carried.resize(T * A * 4);
+                detail::apply_carry(o, T, A, carry->price, carry->rate, false, carry->multiplier,
+                                    carried.data());
+                o = carried.data();
+            }
+            for (std::size_t i = 0; i < F; ++i) {
+                const std::size_t t0 = train + i * test, a = opt.anchored ? 0 : t0 - train, len = t0 - a;
+                double v;
+                if (metric.custom()) {
+                    double* w = host.window_buffer(len * A * 4);
+                    book(o, a, t0, w);
+                    v = detail::custom_metric(host, MetricOf::BookWindow, custom, 1, len, A)[0];
+                } else {
+                    rows.resize(len * A * 4);
+                    book(o, a, t0, rows.data());
+                    v = score(rows.data(), len)[metric.stat];
+                }
+                res.scores[i * C + c] = v;
+            }
+        }
+        for (std::size_t i = 0; i < F; ++i) res.choice[i] = detail::pick(res.scores.get() + i * C, C, metric.larger);
+
+        double* target = host.target_buffer(T * A);
+        std::fill(target, target + T * A, 0.0);
+        for (std::size_t i = 0; i < F; ++i) {
+            if (res.choice[i] < 0) continue;
+            const std::size_t c = static_cast<std::size_t>(res.choice[i]), t0 = train + i * test;
+            for (std::size_t t = t0; t < std::min(t0 + test, T); ++t)
+                for (std::size_t k = 0; k < A; ++k) target[t * A + k] = at(t, k, c);
+            for (std::size_t k = 0; k < A; ++k) {
+                double& first = target[t0 * A + k];
+                for (std::size_t t = t0; std::isnan(first);) first = t-- > 0 ? at(t, k, c) : 0.0;
+            }
+        }
+        const EngineOutput out = host.run(false, T, A);
+        detail::check_book_output(out, T, A);
+        host.reset();
+        const double* o = out.data;
+        if (carry) {
+            res.output.resize(T * A * 4);
+            res.output_shape = {T, A, 4};
+            detail::apply_carry(out.data, T, A, carry->price, carry->rate, false, carry->multiplier,
+                                res.output.data());
+            o = res.output.data();
+        }
+        rows.resize((T - train) * A * 4);
+        book(o, train, T, rows.data());
+        res.stats = score(rows.data(), T - train);
+        return res;
+    }
+
     // walk_forward: pick the best of K candidate targets on each training
     // window and trade it on the test window that follows.
     //
@@ -514,22 +633,18 @@ namespace screamer { namespace validation {
     // with the engine's last price input (detail::carry_price_input); the
     // carried stitched output is returned in `output`.
     //
+    // A portfolio engine (opt.portfolio) takes C candidates for K assets as
+    // a (T, K * C) block and (T, K) prices; each window is scored as one book
+    // and the stitched target is (T, K) (walk_forward_portfolio).
+    //
     // `targets` is (T, K); a binding passes a (T,) target as (T, 1).
     inline WalkForwardResult walk_forward(EngineHost& host, const ArrayShape& targets,
                                           const std::vector<ArrayShape>& prices,
                                           const WalkForwardOptions& opt) {
-        if (opt.portfolio)
-            throw std::invalid_argument("walk_forward needs a single-asset engine; portfolio "
-                                        "engines are not supported");
         const Metric metric = resolve_metric(opt.metric, opt.custom, opt.larger_is_better);
         if (targets.ndim != 2) throw std::invalid_argument("targets must be a (T,) or (T, K) array");
         const std::size_t T = targets.T, K = targets.K;
         if (K == 0) throw std::invalid_argument("targets must hold at least one candidate");
-        for (const ArrayShape& p : prices)
-            if (p.ndim != 1) throw std::invalid_argument("price input must be a 1-D series");
-        for (const ArrayShape& p : prices)
-            if (p.T != T)
-                throw std::invalid_argument("targets and price inputs must have the same length");
         const auto integer = [](double x) { return std::isfinite(x) && x == std::floor(x); };
         if (!integer(opt.train) || opt.train < 2)
             throw std::invalid_argument("train must be an integer of at least 2");
@@ -539,6 +654,12 @@ namespace screamer { namespace validation {
             throw std::invalid_argument("train must be shorter than the series");
         const std::size_t train = static_cast<std::size_t>(opt.train);
         const std::size_t test = opt.test >= static_cast<double>(T) ? T : static_cast<std::size_t>(opt.test);
+        if (opt.portfolio) return walk_forward_portfolio(host, targets, prices, opt, metric, train, test);
+        for (const ArrayShape& p : prices)
+            if (p.ndim != 1) throw std::invalid_argument("price input must be a 1-D series");
+        for (const ArrayShape& p : prices)
+            if (p.T != T)
+                throw std::invalid_argument("targets and price inputs must have the same length");
 
         WalkForwardResult res;
         res.K = K;
@@ -571,7 +692,7 @@ namespace screamer { namespace validation {
                 double* w = host.window_buffer(len * K * 4);
                 for (std::size_t k = 0; k < K; ++k)
                     detail::window_rows(fd, T, K, k, a, t0, w + k * 4, K * 4);
-                const double* v = detail::custom_metric(host, MetricOf::Window, custom, K, len);
+                const double* v = detail::custom_metric(host, MetricOf::Window, custom, K, len, K);
                 std::copy(v, v + K, scores);
             } else {
                 rows.resize(len * 4);

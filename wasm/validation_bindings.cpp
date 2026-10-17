@@ -242,9 +242,10 @@ private:
 //     targetPtr, with the market inputs. Writes [ndim, d0, d1, d2] to hdrPtr.
 //   fetch(outPtr, count), as for strategy_test.
 //   reset(): resets the engine.
-//   metric(what, count, rows, windowPtr, resPtr): the custom metric of each
-//     of `count` strategies of `what` (0: the last output, 1: the last output
-//     as one book, 2: the (rows, count, 4) window at windowPtr), as [first
+//   metric(what, count, rows, width, windowPtr, resPtr): the custom metric of
+//     each of `count` strategies of `what` (0: the last output, 1: the last
+//     output as one book, 2: the (rows, count, 4) window at windowPtr, 3: one
+//     candidate's (rows, width, 4) book window at windowPtr), as [first
 //     value, values given, kind] per strategy to resPtr.
 //   begin and emit, as for strategy_test (position_test only).
 //   done(...): the rest of the result (positionTestRun, walkForwardRun).
@@ -272,10 +273,10 @@ public:
     }
 
     std::size_t metric(sv::MetricOf what, double* values, std::size_t count,
-                       std::size_t rows) override {
+                       std::size_t rows, std::size_t width) override {
         // One call into JS; it calls the user's metric once per strategy.
         res_.resize(3 * count);
-        js_.call("metric", static_cast<int>(what), count, rows, JsCallbacks::addr(window_.data()),
+        js_.call("metric", static_cast<int>(what), count, rows, width, JsCallbacks::addr(window_.data()),
                  JsCallbacks::addr(res_.data()));
         JsCallbacks::metric_values(res_.data(), values, count);
         return count;
@@ -385,8 +386,8 @@ void positionTestRun(emscripten::val cb, std::uintptr_t target, std::uintptr_t m
                    r.min_shift ? static_cast<double>(*r.min_shift) : -1.0, r.null_count);
 }
 
-// walk_forward: `targets` is a (T, K) array spec (a (T,) target as (T, 1)),
-// `prices` array specs (their data is read only with a carry, for the mark
+// walk_forward: `targets` is a (T, K) array spec (a (T,) target as (T, 1);
+// for a portfolio engine (T, assets * candidates)), `prices` array specs (their data is read only with a carry, for the mark
 // price). `carry` is the address of the carry rate's array spec, or 0;
 // `engine` the engine's op name. The result goes to cb.done(statsPtr,
 // foldPtr, choicePtr, scoresPtr, folds, K, outPtr, outLen): the statistics
@@ -397,7 +398,7 @@ void positionTestRun(emscripten::val cb, std::uintptr_t target, std::uintptr_t m
 void walkForwardRun(emscripten::val cb, std::uintptr_t targets, std::uintptr_t prices,
                     std::size_t n_prices, double train, double test, emscripten::val metric,
                     bool custom, bool has_larger, bool larger_is_better, bool anchored,
-                    double periods_per_year, bool portfolio, std::uintptr_t carry,
+                    double periods_per_year, bool portfolio, double candidates, std::uintptr_t carry,
                     double carry_multiplier, emscripten::val engine) {
     sv::WalkForwardOptions opt;
     opt.train = train;
@@ -408,6 +409,7 @@ void walkForwardRun(emscripten::val cb, std::uintptr_t targets, std::uintptr_t p
     opt.anchored = anchored;
     opt.periods_per_year = periods_per_year;
     opt.portfolio = portfolio;
+    opt.candidates = static_cast<std::size_t>(candidates);
     if (carry != 0) opt.carry = array_shapes(carry, 1)[0];
     opt.carry_multiplier = carry_multiplier;
     opt.engine = engine.as<std::string>();

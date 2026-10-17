@@ -21,6 +21,7 @@ crypto assets.
 | Hedge ratio and spread of a pair | [`KalmanRegression`](functions_fin/KalmanRegression.md), [`RollingTLSBeta`](functions_fin/RollingTLSBeta.md), [`RollingBeta`](functions_fin/RollingBeta.md) |
 | Is the pair still mean-reverting? | [`RollingADF`](functions_fin/RollingADF.md), [`RollingOU`](functions_rolling/RollingOU.md) |
 | Entry and exit rules | [`BandSignal`](functions_signal/BandSignal.md) |
+| Pick a book out of sample | [`walk_forward`](functions_fin/walk_forward.md) |
 | Is the result luck? | [`position_test`](functions_fin/position_test.md#a-portfolio), [`strategy_test`](functions_fin/strategy_test.md) |
 
 All of them take `(T, K)` arrays with time down the rows and one asset per
@@ -232,6 +233,22 @@ print(f"annualized Sharpe {res.observed:+.2f}, p = {res.p_value:.3f}")
 The p-value of 0.55 says the timing of the weights adds nothing here.
 `res.null_stats` holds every statistic of every randomized book, for plots of
 the null distribution next to the real result.
+
+[`walk_forward`](functions_fin/walk_forward.md) selects between candidate
+books. Pass the candidates on a last axis, `(T, K, C)`; each training window is
+scored on the summed pnl of the book, and the chosen book trades the test
+window that follows. Here the candidates are the rank-weighted book on three
+lookbacks, re-chosen every 90 days on the year before:
+
+```{code-cell} ipython3
+from screamer import LogReturn, walk_forward
+
+lookbacks = (10, 30, 90)
+candidates = np.stack([book(CrossRank()(LogReturn(n)(c))) for n in lookbacks], axis=2)
+wf = walk_forward(engine, candidates, o, h, l, c, train=365, test=90, periods_per_year=365)
+print("lookback per fold:", [lookbacks[k] for k in wf.choice])
+print(f"out-of-sample annualized Sharpe {wf.stats['sharpe']:+.2f}")
+```
 
 [`strategy_test`](functions_fin/strategy_test.md) re-runs a whole strategy on
 randomized data and accepts a strategy that returns a `(T, K, 4)` book. It

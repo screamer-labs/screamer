@@ -120,8 +120,21 @@ def _helpers():
         "carry": _flat(rate), "carry_multiplier": 2.0, "train": 100, "test": 40,
         "train_scores": _flat(wf.train_scores), "choice": wf.choice.tolist(),
         "output": _flat(wf.output), "stats": {k: _num(v) for k, v in wf.stats.items()}}
+    Tp, Kp, Cp = 240, 3, 2
+    rng = np.random.default_rng(11)
+    prices = 100 * np.exp(np.cumsum(rng.standard_normal((Tp, Kp)) * 0.01, axis=0))
+    t = np.arange(Tp)[:, None, None]
+    Xp = 0.3 * np.sign(np.sin(t / (5.0 + 3.0 * np.arange(Cp))[None, None, :] + np.arange(Kp)[None, :, None]))
+    ratep = 1e-3 * np.cos(np.arange(Tp)[:, None] / 5.0 + np.arange(Kp))
+    wfp = s.walk_forward(s.BacktestPortfolioTarget(fee=1e-4), Xp, prices, train=80, test=40, carry=ratep)
+    walk_forward_portfolio = {
+        "T": Tp, "K": Kp, "C": Cp, "prices": _flat(prices), "targets": _flat(Xp), "carry": _flat(ratep),
+        "train": 80, "test": 40, "train_scores": _flat(wfp.train_scores), "choice": wfp.choice.tolist(),
+        "target": _flat(wfp.target), "output": _flat(wfp.output),
+        "stats": {k: _num(v) for k, v in wfp.stats.items()}}
     return {
         "walk_forward_carry": walk_forward_carry,
+        "walk_forward_portfolio": walk_forward_portfolio,
         "by": by,
         "backtest_trades": {
             "values": _flat(out), "T": len(out),
