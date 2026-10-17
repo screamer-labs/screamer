@@ -160,8 +160,9 @@ namespace screamer {
     // the previous finite row (the first from 0), so the groups add up to the
     // ungrouped total_pnl (the last equity) even where NaN rows hide a pnl.
     // For an engine's equity, the running sum of pnl, this is the sum of the
-    // group's pnl. sharpe is BacktestReport's running Sharpe ratio over the group's rows,
-    // so a single group reproduces the ungrouped turnover and sharpe.
+    // group's pnl. sharpe is BacktestReport's running Sharpe ratio over the
+    // group's rows, so a single group reproduces the ungrouped turnover and
+    // sharpe.
     inline void backtest_groups(const double* eng, std::size_t T, std::ptrdiff_t row_stride,
                                 std::ptrdiff_t col_stride, const std::int64_t* codes,
                                 std::size_t G, double periods_per_year, double* out) {

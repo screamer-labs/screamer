@@ -32,6 +32,12 @@ def _group_codes(by):
     by = np.asarray(by)
     if by.ndim != 1:
         raise ValueError("backtest_report: by must be a 1-D array of labels, one per row")
+    if by.dtype == object:
+        # np.unique sorts, which fails on labels of mixed types such as 1 and 'a'
+        index = {}
+        codes = np.fromiter((index.setdefault(v, len(index)) for v in by.tolist()),
+                            dtype=np.int64, count=len(by))
+        return codes, list(index)
     labels, first, inverse = np.unique(by, return_index=True, return_inverse=True)
     order = np.argsort(first, kind="stable")
     rank = np.empty(len(order), dtype=np.int64)
@@ -112,8 +118,8 @@ def backtest_trades(values, index=None):
     - ``closed``: False for a trade still open on the last row.
 
     Trades are counted as ``BacktestStats`` counts them: flat to flat, a sign
-    flip closes one trade and opens the next, and the flip row's pnl goes to
-    the closing trade. Rows with a NaN field are skipped. A portfolio output
+    flip closes one trade and opens the next, and the flip row's cost, like
+    its pnl, goes to the closing trade. Rows with a NaN field are skipped. A portfolio output
     ``(T, K, 4)`` raises; call this once per asset. The trades come from C++;
     this wrapper only labels them.
     """

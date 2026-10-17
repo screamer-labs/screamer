@@ -34,8 +34,8 @@ output, one row per trade. It returns a dict of equal-length numpy arrays:
 Trades are the round trips [`BacktestStats`](BacktestStats.md) counts: a
 trade opens when the position leaves zero and closes when it returns to zero,
 a sign flip closes one trade and opens the next, and resizing without
-crossing zero stays one trade. The pnl of a flip row goes to the closing
-trade. On the same output, the closed trades give `BacktestStats`'s count,
+crossing zero stays one trade. The pnl and the cost of a flip row go to the
+closing trade. On the same output, the closed trades give `BacktestStats`'s count,
 win rate, average win and loss, and average holding (rows with a `NaN` field
 are skipped by both, and count in `bars` but not in `avg_holding`). Group the
 rows by their `entry` to see results per month or per year; trade statistics

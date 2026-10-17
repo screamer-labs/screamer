@@ -200,7 +200,8 @@ export interface BacktestTradesResult {
 /**
  * One row per round trip of a backtest engine's output, as
  * `BacktestStats` counts trades: flat to flat, and a sign flip closes one
- * trade and opens the next. `values` is the `[T, 4]` engine output. Rows with
+ * trade and opens the next, with the flip row's pnl and cost going to the
+ * closing trade. `values` is the `[T, 4]` engine output. Rows with
  * a NaN field are skipped; a trade open on the last row has `exit = T - 1`
  * and `closed = 0`. A `[T, K, 4]` portfolio output throws; call it once per
  * asset. Mirrors Python's `backtest_trades`.

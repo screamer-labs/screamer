@@ -85,3 +85,26 @@ def test_portfolio_output_raises():
         backtest_trades(np.zeros((10, 3, 4)))
     with pytest.raises(ValueError, match=r"\(T, 4\)"):
         backtest_trades(np.zeros((10, 3)))
+
+
+def test_open_trade_with_nan_tail_rows_exits_on_the_last_row():
+    v = _hand()
+    v[-1] = np.nan                       # the open long's last row is NaN
+    tr = backtest_trades(v)
+    assert tr["exit"][-1] == len(v) - 1 and not tr["closed"][-1]
+    np.testing.assert_allclose(tr["pnl"][-1], -0.1, rtol=1e-12)
+    np.testing.assert_array_equal(tr["bars"][-1], len(v) - 1 - 6)
+
+
+def test_close_on_a_nan_row_is_deferred_to_the_next_row():
+    # the flat row 5 is NaN, so the short closes on row 6, which opens a long
+    v = _hand()
+    v[5] = np.nan
+    tr = backtest_trades(v)
+    np.testing.assert_array_equal(tr["entry"], [1, 3, 6])
+    np.testing.assert_array_equal(tr["exit"], [3, 6, 7])
+    np.testing.assert_array_equal(tr["side"], [1, -1, 1])
+    # row 6 is a flip: its pnl and its cost go to the closing short
+    np.testing.assert_allclose(tr["pnl"], [0.7, -0.3, 0.6], rtol=1e-12)
+    np.testing.assert_allclose(tr["cost"], [0.3, 0.1, 0.0], atol=1e-15)
+    np.testing.assert_array_equal(tr["closed"], [True, True, False])

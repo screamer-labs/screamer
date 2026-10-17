@@ -66,3 +66,15 @@ def test_without_by_nothing_changes_and_bad_labels_raise():
         backtest_report(out, by=np.zeros(len(out) - 1))
     with pytest.raises(ValueError, match="1-D"):
         backtest_report(out, by=np.zeros((len(out), 2)))
+
+
+def test_mixed_type_object_labels():
+    pnl = np.array([1.0, -2.0, 3.0, 0.5, -1.0])
+    v = np.column_stack([np.cumsum(pnl), pnl, [1.0, 1, 0, -1, -1], [0.1, 0, 0.1, 0.1, 0]])
+    _, mixed = backtest_report(v, by=np.array([1, 1, "a", 1, "a"], dtype=object))
+    _, plain = backtest_report(v, by=np.array(["b", "b", "a", "b", "a"]))
+    assert list(mixed["by_group"]) == [1, "a"]
+    assert mixed["by_group"][1] == plain["by_group"]["b"]
+    assert mixed["by_group"]["a"] == plain["by_group"]["a"]
+    _, listed = backtest_report(v, by=[1, 1, "a", 1, "a"])     # a list becomes strings
+    assert list(listed["by_group"]) == ["1", "a"]
