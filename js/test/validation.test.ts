@@ -276,6 +276,10 @@ test("validation: permute errors come from C++ as RangeError; panels are rejecte
     { name: "RangeError", message: "permute_returns needs finite values after the NaN warmup." });
   assert.throws(() => permuteReturns([1, -2, 3], 2),
     { name: "RangeError", message: 'permute_returns with mode="log" needs positive values, but 1 value is not positive; the first is x[1] = -2; use mode="diff".' });
+  assert.throws(() => permuteReturns([1, 2, -100, 3], 2),
+    { name: "RangeError", message: 'permute_returns with mode="log" needs positive values, but 1 value is not positive; the first is x[2] = -100; use mode="diff".' });
+  assert.throws(() => permuteReturns([1, 2, -0.25, 3], 2),
+    { name: "RangeError", message: 'permute_returns with mode="log" needs positive values, but 1 value is not positive; the first is x[2] = -0.25; use mode="diff".' });
   assert.throws(() => permuteReturns([NaN_, 1], 2),
     { name: "RangeError", message: "permute_returns needs at least two values after the NaN warmup." });
   assert.throws(() => permuteBars([1], [1], [1], [1], 2),

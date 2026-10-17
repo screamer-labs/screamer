@@ -1336,3 +1336,11 @@ def test_permute_finite_error_keeps_its_precedence():
     # a non-finite row before any non-positive one still gives the finite message
     with pytest.raises(ValueError, match="needs finite values after the NaN warmup"):
         s.permute_returns(np.array([1.0, 2.0, np.inf, -1.0]), 3)
+
+
+@pytest.mark.parametrize("bad,text", [(-100.0, "-100"), (-0.25, "-0.25"), (-10.0, "-10"),
+                                      (-1e5, "-100000"), (-1e-7, "-1e-07"), (0.0, "0")])
+def test_permute_log_error_prints_the_shortest_decimal(bad, text):
+    x = np.array([1.0, 2.0, bad, 3.0])
+    with pytest.raises(ValueError, match=re.escape(f"x[2] = {text}; use")):
+        s.permute_returns(x, 3)

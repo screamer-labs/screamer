@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -490,17 +491,31 @@ namespace screamer { namespace validation {
                                                 std::size_t assets, double value) {
             // shortest decimal that reads back as `value` (to_chars for double
             // is unavailable on older macOS deployment targets)
-            char num[40];
-            for (int prec = 1; prec <= 17; ++prec) {
-                std::snprintf(num, sizeof num, "%.*g", prec, value);
-                if (std::strtod(num, nullptr) == value) break;
+            // Scientific form with the fewest digits that round-trips, then
+            // the fixed form of the same digits. Fixed notation is used for
+            // decimal exponents -5 .. 14, scientific outside (so -100 and
+            // -1e5 print in full and -1e-7 as "-1e-07").
+            char sci[48], fix[400];
+            int digits = 1;
+            for (; digits <= 17; ++digits) {
+                std::snprintf(sci, sizeof sci, "%.*e", digits - 1, value);
+                if (std::strtod(sci, nullptr) == value) break;
             }
+            // %e already prints at least two exponent digits, as to_chars does
+            const char* e = std::strchr(sci, 'e');
+            const std::string sci_s(sci);
+            const int exp10 = std::atoi(e + 1);
+            const int decimals = digits - 1 - exp10 > 0 ? digits - 1 - exp10 : 0;
+            std::snprintf(fix, sizeof fix, "%.*f", decimals, value);
+            const bool fixed_ok = exp10 >= -5 && exp10 < 15 &&
+                                  std::strtod(fix, nullptr) == value;
+            const std::string num = fixed_ok ? std::string(fix) : sci_s;
             std::string pos = std::to_string(row);
             if (assets > 1) pos += ", " + std::to_string(asset);
             return std::string(who) + " with mode=\"log\" needs positive " + what + ", but " +
                    std::to_string(count) + (count == 1 ? " value is" : " values are") +
                    " not positive; the first is " + field + "[" + pos + "] = " +
-                   std::string(num) + "; use mode=\"diff\".";
+                   num + "; use mode=\"diff\".";
         }
     } // namespace detail
 
