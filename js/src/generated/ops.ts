@@ -8010,6 +8010,55 @@ export function RollingVar(windowSize?: any, startPolicy?: any): ScreamerOp {
   } catch (e) { throw _finite(M, "RollingVar", ["windowSize"], [windowSize], e); }
 }
 
+/** The settings of RollingVarianceRatio by name, for `RollingVarianceRatio({ ... })`. */
+export interface RollingVarianceRatioOptions {
+  /** Number of most recent returns in the window. Must be more than 2 lag. @defaultValue `256` */
+  windowSize?: number;
+  /** Number of returns summed into each long-horizon return (q). @defaultValue `2` */
+  lag?: number;
+  /** "ratio" for the variance ratio VR(q), "zscore" for the heteroskedasticity-robust statistic z*(q). @defaultValue `"ratio"` */
+  output?: string;
+  /** Output before the window is full: "strict" gives NaN, "expanding" uses the returns seen so far once there are more than 2 lag, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
+  startPolicy?: string;
+}
+
+/**
+ * Lo-MacKinlay variance ratio of a window of returns, near 1 for a random walk, above 1 when returns trend and below 1 when they revert, or its robust z-statistic.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingVarianceRatio.html for the full reference.
+ */
+export function RollingVarianceRatio(options: RollingVarianceRatioOptions): ScreamerOp;
+/**
+ * Lo-MacKinlay variance ratio of a window of returns, near 1 for a random walk, above 1 when returns trend and below 1 when they revert, or its robust z-statistic.
+ *
+ * @param windowSize Number of most recent returns in the window. Must be more than 2 lag.
+ * @param lag Number of returns summed into each long-horizon return (q).
+ * @param output "ratio" for the variance ratio VR(q), "zscore" for the heteroskedasticity-robust statistic z*(q).
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" uses the returns seen so far once there are more than 2 lag, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingVarianceRatio.html for the full reference.
+ */
+export function RollingVarianceRatio(windowSize?: number, lag?: number, output?: string, startPolicy?: string): ScreamerOp;
+export function RollingVarianceRatio(windowSize?: any, lag?: any, output?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, lag, output, startPolicy] = _options("RollingVarianceRatio", windowSize, arguments.length, ["windowSize", "lag", "output", "startPolicy"], "windowSize must be an integer");
+  else if (arguments.length > 4) _tooMany("RollingVarianceRatio", 4, arguments.length);
+  const _given: unknown[] = [windowSize, lag, output, startPolicy];
+  if (windowSize === undefined) windowSize = 256;
+  if (lag === undefined) lag = 2;
+  if (output === undefined) output = "ratio";
+  if (startPolicy === undefined) startPolicy = "strict";
+  const M = current();
+  if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingVarianceRatio: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingVarianceRatio", "windowSize", windowSize);
+  if (typeof lag !== "number" || !Number.isInteger(lag)) throw new TypeError(`RollingVarianceRatio: lag must be an integer, got ${typeof lag === "number" ? lag : _what(lag)}`);
+  if (!(lag >= -2147483648 && lag <= 2147483647)) _intRange(M, "RollingVarianceRatio", "lag", lag);
+  if (typeof output !== "string") throw new TypeError(`RollingVarianceRatio: output must be a string, got ${output instanceof String ? "a String object" : _what(output)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingVarianceRatio: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
+  try {
+    return _params(wrapOp(M, () => new M.RollingVarianceRatio(windowSize, lag, output, startPolicy)), "RollingVarianceRatio", ["window_size", "lag", "output", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollingVarianceRatio", ["windowSize", "lag"], [windowSize, lag], e); }
+}
+
 /** The settings of RollingYangZhangVar by name, for `RollingYangZhangVar({ ... })`. */
 export interface RollingYangZhangVarOptions {
   /** Number of bars n in each variance component; the first estimate needs n + 1 bars. @defaultValue `20` */

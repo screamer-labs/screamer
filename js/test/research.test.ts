@@ -69,3 +69,10 @@ test("research: RollingJumpShare hand example", () => {
   const out = (api as any).RollingJumpShare({ windowSize: 4 })(Float64Array.from([1, 1, 1, 10])) as Float64Array;
   assert.ok(Math.abs(out[3] - (1 - 8 * Math.PI / 103)) < 1e-12);
 });
+
+test("research: RollingVarianceRatio hand example", () => {
+  const x = Float64Array.from([1, -1, 1, -1, 1]);
+  const ratio = (api as any).RollingVarianceRatio({ windowSize: 5, lag: 2 })(x) as Float64Array;
+  const z = (api as any).RollingVarianceRatio({ windowSize: 5, lag: 2, output: "zscore" })(x) as Float64Array;
+  assert.ok(Math.abs(ratio[4] - 1 / 9) < 1e-12 && Math.abs(z[4] + 20 / 9) < 1e-12);
+});

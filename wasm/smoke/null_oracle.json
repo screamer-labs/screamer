@@ -5417,6 +5417,39 @@
  },
  {
   "accepts_bool": {
+   "lag": false,
+   "output": false,
+   "start_policy": false,
+   "window_size": false
+  },
+  "accepts_none": {
+   "lag": false,
+   "output": false,
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "below_min": {
+   "lag": [
+    1,
+    "RollingVarianceRatio: lag must be at least 2, got 1"
+   ],
+   "window_size": [
+    4,
+    "RollingVarianceRatio: window_size must be at least 5, got 4"
+   ]
+  },
+  "bool_message": {
+   "lag": "RollingVarianceRatio: lag must be an integer, got bool",
+   "output": "RollingVarianceRatio: output must be a string, got bool",
+   "start_policy": "RollingVarianceRatio: start_policy must be a string, got bool",
+   "window_size": "RollingVarianceRatio: window_size must be an integer, got bool"
+  },
+  "name": "RollingVarianceRatio",
+  "non_finite": {}
+ },
+ {
+  "accepts_bool": {
    "window_size": false
   },
   "accepts_none": {

@@ -76,6 +76,7 @@ OUTPUT_CHOICES = {
     "ImpulseClip": ("flag", "nan"),
     "RollingOU": ("mean", "relmean", "std"),
     "RollingSigmaClip": ("mean", "std", "nan"),
+    "RollingVarianceRatio": ("zscore",),
 }
 # Backtest costs, stops and bands (all default to 0), set together.
 COSTS = {

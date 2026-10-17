@@ -703,6 +703,13 @@ Measures of a window: central tendency, dispersion, quantiles, moments, z-scores
       :img-alt: RollingVar example plot
       :class-card: gallery-card
 
+   .. grid-item-card:: RollingVarianceRatio
+      :link: functions_rolling/RollingVarianceRatio
+      :link-type: doc
+      :img-top: _static/gallery/functions_rolling__RollingVarianceRatio.webp
+      :img-alt: RollingVarianceRatio example plot
+      :class-card: gallery-card
+
    .. grid-item-card:: RollingYangZhangVar
       :link: functions_rolling/RollingYangZhangVar
       :link-type: doc
@@ -2224,6 +2231,13 @@ Training sets and labels from time-series data, online regression and filtering 
       :link-type: doc
       :img-top: _static/gallery/functions_rolling__RollingJumpShare.webp
       :img-alt: RollingJumpShare example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: RollingVarianceRatio
+      :link: functions_rolling/RollingVarianceRatio
+      :link-type: doc
+      :img-top: _static/gallery/functions_rolling__RollingVarianceRatio.webp
+      :img-alt: RollingVarianceRatio example plot
       :class-card: gallery-card
 
    .. grid-item-card:: TripleBarrier

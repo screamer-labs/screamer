@@ -183,6 +183,7 @@
 #include "screamer/rolling_tsf.h"
 #include "screamer/rolling_upside_deviation.h"
 #include "screamer/rolling_var.h"
+#include "screamer/rolling_variance_ratio.h"
 #include "screamer/rolling_zscore.h"
 #include "screamer/roofing_filter.h"
 #include "screamer/schmitt_trigger.h"
@@ -617,6 +618,12 @@ inline screamer::RollingUpsideDeviation* make_RollingUpsideDeviation(int a0, dou
 inline screamer::RollingVar* make_RollingVar(int a0, emscripten::val a1) {
     const std::string a1s = a1.as<std::string>();
     return new screamer::RollingVar(a0, a1s);
+}
+
+inline screamer::RollingVarianceRatio* make_RollingVarianceRatio(int a0, int a1, emscripten::val a2, emscripten::val a3) {
+    const std::string a2s = a2.as<std::string>();
+    const std::string a3s = a3.as<std::string>();
+    return new screamer::RollingVarianceRatio(a0, a1, a2s, a3s);
 }
 
 inline screamer::RollingZscore* make_RollingZscore(int a0, emscripten::val a1) {
@@ -1151,6 +1158,8 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor<int>();
     emscripten::class_<screamer::RollingVar, emscripten::base<screamer::EvalOp>>("RollingVar")
         .constructor(&make_RollingVar, emscripten::allow_raw_pointers());
+    emscripten::class_<screamer::RollingVarianceRatio, emscripten::base<screamer::EvalOp>>("RollingVarianceRatio")
+        .constructor(&make_RollingVarianceRatio, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingYangZhangVar, emscripten::base<screamer::EvalOp>>("RollingYangZhangVar")
         .constructor<int>();
     emscripten::class_<screamer::RollingYangZhangVol, emscripten::base<screamer::EvalOp>>("RollingYangZhangVol")

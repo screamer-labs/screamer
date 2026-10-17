@@ -56,6 +56,8 @@ CASES = [
     ("RollingBipowerVar", {"window_size": 30}, "returns"),
     ("RollingJumpShare", {"window_size": 30, "start_policy": "expanding"}, "returns"),
     ("RollingJumpShare", {"window_size": 12, "start_policy": "zero"}, "returns"),
+    ("RollingVarianceRatio", {"window_size": 60, "lag": 4}, "returns"),
+    ("RollingVarianceRatio", {"window_size": 60, "lag": 4, "output": "zscore", "start_policy": "expanding"}, "returns"),
 ]
 
 

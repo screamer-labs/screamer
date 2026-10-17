@@ -74,6 +74,7 @@
 #include "screamer/rolling_percentile.h"
 #include "screamer/rolling_hurst.h"
 #include "screamer/rolling_bipower.h"
+#include "screamer/rolling_variance_ratio.h"
 #include <string>
 
 namespace nb = nanobind;
@@ -613,6 +614,12 @@ void init_bindings_rolling(nb::module_& m) {
              "window_size"_a = 20, "start_policy"_a = "strict")
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollingJumpShare::reset, "Reset.");
+
+    nb::class_<screamer::RollingVarianceRatio, screamer::ScreamerBase>(m, "RollingVarianceRatio")
+        .def(nb::init<screamer::IntArg<int>, screamer::IntArg<int>, const std::string&, const std::string&>(),
+             "window_size"_a = 256, "lag"_a = 2, "output"_a = "ratio", "start_policy"_a = "strict")
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
+        .def("reset", &screamer::RollingVarianceRatio::reset, "Reset.");
 
     nb::class_<screamer::RollingPoly1, screamer::ScreamerBase>(m, "RollingPoly1")
         .def(nb::init<screamer::IntArg<int>, screamer::IntArg<int>, const std::string&>(),

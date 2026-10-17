@@ -224,6 +224,7 @@
  "functions_rolling/RollingSum": "2c6a8c20b3f7145b",
  "functions_rolling/RollingVWAP": "ad1f82f105daf6ff",
  "functions_rolling/RollingVar": "843896557be1e421",
+ "functions_rolling/RollingVarianceRatio": "9a1454a24627eba9",
  "functions_rolling/RollingYangZhangVar": "c1e182ca2c21ec65",
  "functions_rolling/RollingYangZhangVol": "c2faab4e4a46ab84",
  "functions_rolling/RollingZscore": "2b8ea5d4442ba7eb",

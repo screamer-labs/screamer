@@ -12299,6 +12299,81 @@
     ],
     "doc_path": "functions_rolling/RollingVar"
   },
+  "RollingVarianceRatio": {
+    "name": "RollingVarianceRatio",
+    "title": "Rolling Variance Ratio",
+    "implementation_family": "rolling",
+    "topics": [
+      "statistics",
+      "regime"
+    ],
+    "tags": [
+      "variance ratio",
+      "lo-mackinlay",
+      "random walk test",
+      "autocorrelation",
+      "trend",
+      "mean reversion",
+      "efficiency"
+    ],
+    "short": "Lo-MacKinlay variance ratio of a window of returns, near 1 for a random walk, above 1 when returns trend and below 1 when they revert, or its robust z-statistic.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 256,
+        "min": 5,
+        "description": "Number of most recent returns in the window. Must be more than 2 lag."
+      },
+      {
+        "name": "lag",
+        "type": "int",
+        "default": 2,
+        "min": 2,
+        "description": "Number of returns summed into each long-horizon return (q)."
+      },
+      {
+        "name": "output",
+        "type": "str",
+        "default": "ratio",
+        "enum": [
+          "ratio",
+          "zscore"
+        ],
+        "description": "\"ratio\" for the variance ratio VR(q), \"zscore\" for the heteroskedasticity-robust statistic z*(q)."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "strict",
+        "enum": [
+          "strict",
+          "expanding",
+          "zero"
+        ],
+        "description": "Output before the window is full: \"strict\" gives NaN, \"expanding\" uses the returns seen so far once there are more than 2 lag, and \"zero\" treats the window as pre-filled with zeros."
+      }
+    ],
+    "nan_policy": "ignore",
+    "see_also": [
+      "RollingHurst",
+      "RollingOU"
+    ],
+    "references": [
+      "Lo, A. W. and MacKinlay, A. C. (1988). Stock market prices do not follow random walks: evidence from a simple specification test. *Review of Financial Studies* 1(1), 41-66."
+    ],
+    "details": "## Description\n\n`RollingVarianceRatio` is the variance ratio of Lo and MacKinlay (1988) on a\ntrailing window of `n` returns: the variance of the overlapping `q`-step sums\nof returns, divided by `q` times the variance of one-step returns, with\n`q = lag`. Returns that are uncorrelated give a ratio near 1; returns that\ncontinue in the same direction (a trend) give more than 1; returns that\nreverse (mean reversion) give less than 1.\n\nWith `mu` the window mean, the one-step variance is\n`sum (r_i - mu)^2 / (n - 1)` and the `q`-step variance is the sum of the\nsquared deviations of the `n - q + 1` overlapping `q`-sums from `q mu`,\ndivided by `m = q (n - q + 1)(1 - q / n)`; both are the authors'\nbias-corrected estimators. On the returns `[1, -1, 1, -1, 1]` with `lag=2`,\nevery 2-sum is 0 and the ratio is `1/9`.\n\n`output=\"zscore\"` gives the heteroskedasticity-robust statistic `z*(q)`, which\nis approximately standard normal when the returns are uncorrelated, even with\nchanging volatility; `|z*| > 1.96` rejects a random walk at the 5% level. The\noutput is `NaN` on a window whose returns are all equal.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import RollingVarianceRatio\n\nrng = np.random.default_rng(4)\ne = rng.standard_normal(3000)\nr = np.empty(3000)\nr[0] = e[0]\nfor t in range(1, 3000):\n    phi = 0.3 if t < 1500 else -0.3         # trending, then reverting\n    r[t] = phi * r[t - 1] + e[t]\nvr = RollingVarianceRatio(250, lag=5)(r)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=vr, name='VR(5)', line=dict(color='navy')))\nfig.add_hline(y=1.0, line=dict(color='gray', dash='dot'))\nfig.update_layout(title='RollingVarianceRatio: above 1 while returns trend, below 1 while they revert',\n                  xaxis_title='step', yaxis_title='variance ratio',\n                  margin=dict(l=20, r=20, t=60, b=20), showlegend=False)\nfig.show()"
+      }
+    ],
+    "doc_path": "functions_rolling/RollingVarianceRatio"
+  },
   "RollingYangZhangVar": {
     "name": "RollingYangZhangVar",
     "title": "Rolling Yang-Zhang variance",

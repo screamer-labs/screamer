@@ -5042,6 +5042,36 @@ export declare function RollingVar(options: RollingVarOptions): ScreamerOp;
  */
 export declare function RollingVar(windowSize?: number, startPolicy?: string): ScreamerOp;
 
+/** The settings of RollingVarianceRatio by name, for `RollingVarianceRatio({ ... })`. */
+export interface RollingVarianceRatioOptions {
+  /** Number of most recent returns in the window. Must be more than 2 lag. @defaultValue `256` */
+  windowSize?: number;
+  /** Number of returns summed into each long-horizon return (q). @defaultValue `2` */
+  lag?: number;
+  /** "ratio" for the variance ratio VR(q), "zscore" for the heteroskedasticity-robust statistic z*(q). @defaultValue `"ratio"` */
+  output?: string;
+  /** Output before the window is full: "strict" gives NaN, "expanding" uses the returns seen so far once there are more than 2 lag, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
+  startPolicy?: string;
+}
+
+/**
+ * Lo-MacKinlay variance ratio of a window of returns, near 1 for a random walk, above 1 when returns trend and below 1 when they revert, or its robust z-statistic.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingVarianceRatio.html for the full reference.
+ */
+export declare function RollingVarianceRatio(options: RollingVarianceRatioOptions): ScreamerOp;
+/**
+ * Lo-MacKinlay variance ratio of a window of returns, near 1 for a random walk, above 1 when returns trend and below 1 when they revert, or its robust z-statistic.
+ *
+ * @param windowSize Number of most recent returns in the window. Must be more than 2 lag.
+ * @param lag Number of returns summed into each long-horizon return (q).
+ * @param output "ratio" for the variance ratio VR(q), "zscore" for the heteroskedasticity-robust statistic z*(q).
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" uses the returns seen so far once there are more than 2 lag, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingVarianceRatio.html for the full reference.
+ */
+export declare function RollingVarianceRatio(windowSize?: number, lag?: number, output?: string, startPolicy?: string): ScreamerOp;
+
 /** The settings of RollingYangZhangVar by name, for `RollingYangZhangVar({ ... })`. */
 export interface RollingYangZhangVarOptions {
   /** Number of bars n in each variance component; the first estimate needs n + 1 bars. @defaultValue `20` */

@@ -239,6 +239,7 @@ RollingTSF, Linear regression of the input on time, projected one step ahead (TA
 RollingUpsideDeviation, Trailing-window upside semideviation: the RMS of the returns above a minimum acceptable return.
 RollingVWAP, Rolling volume-weighted average price (typical-price weighted).
 RollingVar, Trailing-window sample variance (ddof=1).
+RollingVarianceRatio, Lo-MacKinlay variance ratio of a window of returns, near 1 for a random walk, above 1 when returns trend and below 1 when they revert, or its robust z-statistic.
 RollingYangZhangVar, Var form of the Yang-Zhang estimator (drift + gap robust).
 RollingYangZhangVol, Vol form of the Yang-Zhang estimator (drift + gap robust).
 RollingZscore, Latest sample standardized by the trailing-window mean and standard deviation.

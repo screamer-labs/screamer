@@ -85,6 +85,8 @@ Windowed summary statistics: central tendency, dispersion, quantiles, moments, a
      - Trailing-window sum.
    * - :doc:`Rolling variance </functions_rolling/RollingVar>`
      - Trailing-window sample variance (ddof=1).
+   * - :doc:`Rolling Variance Ratio </functions_rolling/RollingVarianceRatio>`
+     - Lo-MacKinlay variance ratio of a window of returns, near 1 for a random walk, above 1 when returns trend and below 1 when they revert, or its robust z-statistic.
 
 Volatility
 ----------
@@ -391,6 +393,7 @@ Relationships between series: correlation, covariance, regression, hedging, pair
    /functions_fin/RollingTSF
    /functions_fin/RollingUpsideDeviation
    /functions_rolling/RollingVar
+   /functions_rolling/RollingVarianceRatio
    /functions_rolling/RollingYangZhangVar
    /functions_rolling/RollingYangZhangVol
    /functions_rolling/RollingZscore
