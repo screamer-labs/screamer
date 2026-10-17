@@ -76,12 +76,12 @@ public:
             const double nan = std::numeric_limits<double>::quiet_NaN();
             return std::make_tuple(nan, nan, nan);
         }
-        if (len_ == 0) {
+        if (len_ == 0 || !step(x)) {
+            // the first value, or every term underflowed to -inf (|x| beyond
+            // ~1e154): restart at the prior with x as the first value of a run
             prob_[0] = 1.0;
             logp_[0] = 0.0;
             len_ = 1;
-        } else {
-            step(x);
         }
         mu_[0] = 0.5 * x;                                         // the run that starts at x
         beta_[0] = prior_var_ + 0.25 * x * x;
@@ -99,19 +99,22 @@ private:
     }
 
     // One value after the first. next_ first holds the unnormalized
-    // log-probabilities: the changepoint at 0 and run r grown to r + 1.
-    void step(double x) {
+    // log-probabilities: the changepoint at 0 and run r grown to r + 1. Returns
+    // false, leaving the state untouched, when every term is -inf.
+    bool step(double x) {
         const std::size_t n = std::min(len_ + 1, R_);
         next_[0] = c0_ - 1.5 * std::log1p(x * x / (2.0 * s0_));   // log H + log t_0(x)
         double m = next_[0];
         for (std::size_t r = 0; r + 1 < n; ++r) {
             const double s2 = beta_[r] * g_[r];
             const double d = x - mu_[r];
-            const double a = logp_[r] + log_1mh_ + c_[r] - 0.5 * std::log(s2)
-                             - h_[r] * std::log1p(d * d / (nu_[r] * s2));
+            double a = logp_[r] + log_1mh_ + c_[r] - 0.5 * std::log(s2)
+                       - h_[r] * std::log1p(d * d / (nu_[r] * s2));
+            if (a != a) a = -std::numeric_limits<double>::infinity();   // inf / inf after an overflow
             next_[r + 1] = a;
             if (a > m) m = a;
         }
+        if (!(m > -std::numeric_limits<double>::infinity())) return false;
         double total = 0.0;
         for (std::size_t r = 0; r < n; ++r) {
             next_[r] -= m;
@@ -133,12 +136,14 @@ private:
             beta_[r] = beta_[r - 1] + kappa * d * d / (2.0 * (kappa + 1.0));
         }
         len_ = n;
+        return true;
     }
 
     ResultTuple outputs() const {
         double rl = 0.0, mean = 0.0, second = 0.0;
         for (std::size_t r = 0; r < len_; ++r) {
             const double p = prob_[r];
+            if (p == 0.0) continue;                               // a dead run may hold inf parameters
             rl += p * static_cast<double>(r);
             mean += p * mu_[r];
             second += p * (beta_[r] * v_[r] + mu_[r] * mu_[r]);

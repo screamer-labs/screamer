@@ -51,7 +51,7 @@ public:
     {
         if (lag < 2) throw std::invalid_argument("lag must be 2 or more.");
         if (window_size <= 2 * lag)
-            throw std::invalid_argument("window_size must be more than 2 lag.");
+            throw std::invalid_argument("Window size must be more than 2 lag.");
         ring_.assign(static_cast<std::size_t>(w_), 0.0);
         dev_.assign(static_cast<std::size_t>(w_), 0.0);
         reset();

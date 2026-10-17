@@ -25,15 +25,20 @@ class BayesianChangepoint_numpy:
         for t, v in enumerate(x):
             if math.isnan(v):
                 continue
+            if prob is not None:
+                with np.errstate(all="ignore"):
+                    r = np.arange(len(prob))
+                    kappa, alpha = r + 2.0, 1.5 + r / 2.0
+                    lp = np.array([_t_logpdf(v, mu[i], beta[i] * (kappa[i] + 1) / (alpha[i] * kappa[i]),
+                                             2.0 * alpha[i]) for i in range(len(prob))])
+                    lp0 = _t_logpdf(v, 0.0, 2.0 * self.b0, 2.0)
+                    lp = np.where(np.isnan(lp), -np.inf, lp)
+                    if not max(lp0, lp.max()) > -np.inf:
+                        prob = None          # every term is -inf: restart at the prior
             if prob is None:
                 prob = np.array([1.0])
                 mu, beta = np.array([v / 2.0]), np.array([self.b0 + v * v / 4.0])
             else:
-                r = np.arange(len(prob))
-                kappa, alpha = r + 2.0, 1.5 + r / 2.0
-                lp = np.array([_t_logpdf(v, mu[i], beta[i] * (kappa[i] + 1) / (alpha[i] * kappa[i]),
-                                         2.0 * alpha[i]) for i in range(len(prob))])
-                lp0 = _t_logpdf(v, 0.0, 2.0 * self.b0, 2.0)
                 m = max(lp0, lp.max())
                 grow = prob * np.exp(lp - m) * (1.0 - self.h)
                 new = np.concatenate([[self.h * math.exp(lp0 - m)], grow])[: self.R]
@@ -45,6 +50,9 @@ class BayesianChangepoint_numpy:
             r = np.arange(len(prob))
             kappa, alpha = r + 2.0, 1.5 + r / 2.0
             var = beta * (kappa + 1.0) / (kappa * (alpha - 1.0))
-            mean = prob @ mu
-            out[t] = (prob @ r, mean, math.sqrt(max(prob @ (var + mu * mu) - mean * mean, 0.0)))
+            live = prob > 0.0
+            pl, rl, ml, vl = prob[live], r[live], mu[live], var[live]
+            with np.errstate(all="ignore"):
+                mean = pl @ ml
+                out[t] = (pl @ rl, mean, math.sqrt(max(pl @ (vl + ml * ml) - mean * mean, 0.0)))
         return out

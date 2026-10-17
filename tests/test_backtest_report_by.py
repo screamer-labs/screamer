@@ -76,5 +76,8 @@ def test_mixed_type_object_labels():
     assert list(mixed["by_group"]) == [1, "a"]
     assert mixed["by_group"][1] == plain["by_group"]["b"]
     assert mixed["by_group"]["a"] == plain["by_group"]["a"]
-    _, listed = backtest_report(v, by=[1, 1, "a", 1, "a"])     # a list becomes strings
-    assert list(listed["by_group"]) == ["1", "a"]
+    _, listed = backtest_report(v, by=[1, 1, "a", 1, "a"])     # a list keeps its Python values
+    assert list(listed["by_group"]) == [1, "a"]
+    # 1 and '1' are different labels (as in JavaScript)
+    _, split = backtest_report(v[:4], by=[1, "1", 1, "1"])
+    assert list(split["by_group"]) == [1, "1"]

@@ -18,12 +18,13 @@
 // ones from the previous fit with the initial distribution reset to
 // (0.5, 0.5) and its variances floored for the current window. A warm start
 // whose two states coincide, whose first E-step fails, or whose first E-step
-// leaves a state without weight falls back to the deterministic split. EM stops after max_iter M-steps or when the
-// log-likelihood gains less than tol; an M-step whose parameters give a
-// non-finite log-likelihood is undone. Every variance is floored at 1e-6
-// times the window variance. After a fit the states are ordered so that state 1 has the
-// larger variance ("gaussian") or the larger phi ("ar1"), and a forward pass
-// over the window gives the filtered probability. Between fits the forward
+// leaves a state without weight falls back to the deterministic split. EM
+// stops after max_iter M-steps or when the log-likelihood gains less than
+// tol; an M-step whose parameters give a non-finite log-likelihood is undone.
+// Every variance is floored at 1e-6 times the window variance. After a fit
+// the states are ordered so that state 1 has the larger variance ("gaussian")
+// or the larger phi ("ar1"), and a forward pass over the window gives the
+// filtered probability. Between fits the forward
 // recursion runs with fixed parameters on each new value.
 //
 // Outputs at t use values up to t: prob = P(state 1 | x_1..x_t); with
@@ -134,7 +135,7 @@ private:
     static constexpr double kLog2Pi = 1.8378770664093453;   // log(2 pi)
 
     static std::size_t check_window(int w) {
-        if (w < 10) throw std::invalid_argument("window_size must be 10 or more.");
+        if (w < 10) throw std::invalid_argument("Window size must be 10 or more.");
         return static_cast<std::size_t>(w);
     }
 

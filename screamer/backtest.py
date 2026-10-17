@@ -29,7 +29,10 @@ _ENGINE_COLUMNS, _REPORT_COLUMNS, _STATS_COLUMNS, _SUMMARY, _GROUP_STATS = _back
 def _group_codes(by):
     """The labels of ``by`` as int64 codes numbered in order of first
     appearance, and the labels in that order."""
-    by = np.asarray(by)
+    # Only a NumPy array takes the fast path. Any other sequence keeps its Python
+    # values, so 1 and '1' stay two labels, as in the JavaScript groupCodes.
+    if not isinstance(by, np.ndarray):
+        by = np.asarray(by, dtype=object)
     if by.ndim != 1:
         raise ValueError("backtest_report: by must be a 1-D array of labels, one per row")
     if by.dtype == object:

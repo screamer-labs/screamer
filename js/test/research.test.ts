@@ -185,3 +185,10 @@ test("research: engines declare their mark input for walkForward carry", () => {
                                   { train: 10, test: 10, carry: new Float64Array(T) }),
     { name: "RangeError", message: /carry needs an engine with a mark input.*BacktestCarry has none/ });
 });
+
+test("research: backtestReport by keeps the number 1 and the string '1' apart", () => {
+  const ht = oracle.helpers.backtest_trades;
+  const values = { data: Float64Array.from(ht.values, num).slice(0, 16), shape: [4, 4] };
+  const { byGroup } = backtestReport(values, { by: [1, "1", 1, "1"] });
+  assert.deepEqual([...byGroup!.keys()], [1, "1"]);
+});
