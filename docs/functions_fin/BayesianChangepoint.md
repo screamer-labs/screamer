@@ -61,8 +61,9 @@ the probability of every run length `r`, the number of steps since the last
 change (0 on the step of a change), and returns three columns:
 
 0. `run_length`: the posterior expected run length.
-1. `pred_mean`: the mean of the predictive distribution of the next value.
-2. `pred_std`: its standard deviation.
+1. `pred_mean`: the mean of the predictive distribution of the next value,
+   mixed over the current run lengths, given no change at the next step.
+2. `pred_std`: the standard deviation of that mixture.
 
 Each segment's mean and variance have a normal-gamma prior with mean 0,
 `kappa=1`, `alpha=1`, and `beta=prior_var`, so the predictive of a run is a

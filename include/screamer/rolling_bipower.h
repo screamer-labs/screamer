@@ -71,9 +71,13 @@ public:
         double pair_sum = nan;
         if (has_prev_) {
             const double prod = prev_abs_ * a;
-            pair_sum = pairs_.append(prod);
-            track(pair_nz_, pair_pos_, pair_count_, prod != 0.0);
-            if (!std::isnan(pair_sum)) pair_sum = pair_count_ == 0 ? 0.0 : pair_sum;
+            // inf * 0 is NaN: RollingSum skips it, and so does the flag ring,
+            // so the two hold the same terms.
+            if (!std::isnan(prod)) {
+                pair_sum = pairs_.append(prod);
+                track(pair_nz_, pair_pos_, pair_count_, prod != 0.0);
+                if (!std::isnan(pair_sum)) pair_sum = pair_count_ == 0 ? 0.0 : pair_sum;
+            }
         }
         prev_abs_ = a;
         has_prev_ = true;

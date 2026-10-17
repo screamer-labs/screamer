@@ -14,8 +14,9 @@
 // predictive. Runs longer than max_run are dropped. 1 -> 3:
 //     [run_length, pred_mean, pred_std]
 // run_length = sum r P(r); pred_mean and pred_std are the mean and standard
-// deviation of the predictive mixture of the next value, with component
-// means mu_r and variances beta_r (kappa_r + 1) / (kappa_r (alpha_r - 1)).
+// deviation of the predictive of the next value mixed over the current run
+// lengths, given no change at the next step: weights P(r), component means
+// mu_r and variances beta_r (kappa_r + 1) / (kappa_r (alpha_r - 1)).
 //
 // The distribution is kept as log-probabilities and normalized every step
 // against its largest term, so no run's mass underflows to zero and the
@@ -143,7 +144,7 @@ private:
             second += p * (beta_[r] * v_[r] + mu_[r] * mu_[r]);
         }
         const double var = second - mean * mean;
-        return std::make_tuple(rl, mean, std::sqrt(var > 0.0 ? var : 0.0));
+        return std::make_tuple(rl, mean, std::sqrt(var < 0.0 ? 0.0 : var));   // NaN stays NaN
     }
 
     const double prior_var_;

@@ -56,7 +56,8 @@ $$
 The mean and the sample standard deviation (ddof 1) are taken over the window
 that includes `x_t`, as in [`RollingZscore`](RollingZscore.md). With `period=1`
 it equals `RollingZscore(window_size)`. On hourly volume it flags an hour that
-is unusual for that hour of the day.
+is unusual for that hour of the day. A slot window whose values are all equal
+has standard deviation 0 and gives `NaN` (0 / 0), as in `RollingZscore`.
 
 Step `t` belongs to slot `t mod period`, counted in steps from the first input,
 so the input must be on a regular clock: one value per hour for `period=24`,

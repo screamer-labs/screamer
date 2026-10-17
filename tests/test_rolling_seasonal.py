@@ -76,3 +76,12 @@ def test_settings_are_checked():
     with pytest.raises(ValueError):
         RollingSeasonalStd(window_size=1)
     RollingSeasonalMean(window_size=1)            # one value has a mean
+
+
+def test_constant_slot_window_gives_nan_as_rolling_zscore():
+    # slot 0 is constant (0.1), slot 1 varies; a zero standard deviation gives NaN
+    x = np.array([0.1, 1.0, 0.1, 2.0, 0.1, 4.0, 0.1, 8.0])
+    z = np.asarray(RollingSeasonalZscore(period=2, window_size=3)(x))
+    assert np.isnan(z[[4, 6]]).all()
+    assert np.isfinite(z[[5, 7]]).all()
+    assert np.isnan(np.asarray(RollingZscore(3)(np.full(5, 0.1)))[2:]).all()

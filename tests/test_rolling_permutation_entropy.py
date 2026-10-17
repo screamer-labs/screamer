@@ -78,3 +78,20 @@ def test_settings_are_checked():
         RollingPermutationEntropy(10, delay=0)
     with pytest.raises(ValueError):
         RollingPermutationEntropy(1)
+
+
+def test_huge_delay_is_rejected():
+    with pytest.raises(ValueError, match="delay"):
+        RollingPermutationEntropy(window_size=10, order=7, delay=2**31 - 1)
+    with pytest.raises(ValueError, match="delay"):
+        RollingPermutationEntropy(window_size=10, order=3, delay=2**23 + 1)
+    RollingPermutationEntropy(window_size=10, order=3, delay=2**23)
+
+
+@pytest.mark.parametrize("window_size,order", [(2, 7), (5, 6), (30, 5)])
+def test_window_shorter_than_order_factorial_matches_baseline(window_size, order):
+    x = np.random.default_rng(window_size).standard_normal(400)
+    x[::37] = np.nan
+    np.testing.assert_allclose(
+        np.asarray(RollingPermutationEntropy(window_size, order)(x)),
+        RollingPermutationEntropy_numpy(window_size, order)(x), rtol=1e-12, atol=1e-14, equal_nan=True)

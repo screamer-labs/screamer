@@ -60,3 +60,32 @@ def test_settings_are_checked():
         CusumFilter(threshold=1.0, drift=-0.1)
     with pytest.raises(ValueError, match="threshold must be finite"):
         CusumFilter(threshold=math.inf)
+
+
+def _reset_both(x, threshold, drift):
+    # reference that restarts both sums at every event
+    pos = neg = 0.0
+    out = np.full(len(x), np.nan)
+    for t, v in enumerate(x):
+        if math.isnan(v):
+            continue
+        pos = max(0.0, pos + v - drift)
+        neg = min(0.0, neg + v + drift)
+        out[t] = 0.0
+        if neg < -threshold:
+            out[t] = -1.0
+        elif pos > threshold:
+            out[t] = 1.0
+        if out[t] != 0.0:
+            pos = neg = 0.0
+    return out
+
+
+@pytest.mark.parametrize("drift", [0.0, 0.1, 0.5])
+def test_resetting_only_the_fired_sum_equals_resetting_both(drift):
+    rng = np.random.default_rng(42)
+    x = rng.standard_normal(5000)
+    x[::113] = np.nan
+    out = np.asarray(CusumFilter(threshold=1.0, drift=drift)(x))
+    assert (np.abs(out[~np.isnan(out)]) == 1).sum() > 50
+    np.testing.assert_array_equal(out, _reset_both(x, 1.0, drift))

@@ -76,3 +76,11 @@ def test_degenerate_input_stays_finite(x):
     assert np.isfinite(out).all()
     assert (out[:, 0] >= 0.0).all() and (out[:, 0] <= 200.0).all()
     assert (out[:, 2] >= 0.0).all()
+
+
+def test_pred_std_is_nan_when_the_variance_is_nan():
+    # 1e155 squared overflows: the mixture variance is NaN, and so is pred_std
+    x = np.r_[np.random.default_rng(4).standard_normal(20), 1e155, 0.5]
+    out = np.asarray(BayesianChangepoint()(x))
+    assert np.isnan(out[20:, 2]).all()
+    np.testing.assert_array_equal(np.isnan(out[20:, 2]), np.isnan(BayesianChangepoint_numpy()(x)[20:, 2]))

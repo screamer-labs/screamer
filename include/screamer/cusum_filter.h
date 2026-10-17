@@ -5,7 +5,9 @@
 // section 2.5.2.1). Two running sums of the input,
 //     S+ = max(0, S+ + x - drift),   S- = min(0, S- + x + drift),
 // give -1 when S- < -threshold and +1 when S+ > threshold; the sum that fired
-// restarts from 0 (as in the book's code), otherwise the output is 0. The input
+// restarts from 0 (as in the book's code), otherwise the output is 0. At the
+// step an event fires, the other sum is already 0, so resetting it would
+// change nothing. The input
 // is normally returns or price differences, and an event marks a cumulative
 // move of more than `threshold` since the last event. 1 -> 1, O(1) per step.
 // nan_policy: ignore (a NaN gives NaN and leaves both sums unchanged).

@@ -32,7 +32,8 @@ parameters:
   type: int
   default: 1
   min: 1
-  description: Steps between the values of a pattern.
+  description: Steps between the values of a pattern. `(order - 1) * delay` must be 16777216
+    or less.
 - name: start_policy
   type: str
   default: strict

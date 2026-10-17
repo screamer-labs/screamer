@@ -53,9 +53,8 @@ $$
 
 and outputs `-1` when `S- < -threshold`, `+1` when `S+ > threshold`, and `0`
 otherwise. After an event the sum that fired restarts from 0, as in the code of
-the book (section 2.5.2.1). The other sum is not reset: a rise can only reach
-the threshold after `S-` has climbed back to 0, and the reverse holds for a
-fall, so the other sum is already 0 when an event occurs. The input is normally
+the book (section 2.5.2.1). At the step an event fires, the other sum is
+already 0, so resetting it would change nothing. The input is normally
 returns or price differences, so an event marks a cumulative move of more than
 `threshold` since the last event, in either direction.
 

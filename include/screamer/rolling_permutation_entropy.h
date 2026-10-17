@@ -14,8 +14,10 @@
 // the number of later values strictly below value i, which is a bijection
 // with the tie-broken ranks. The counts of the order! codes and
 // S = sum_c n_c log n_c are updated as patterns enter and leave, so a step
-// costs O(order^2); S is recomputed from the counts every window_size steps,
-// which bounds the rounding the updates accumulate. Entropy =
+// costs O(order^2); S is recomputed every window_size steps, which bounds
+// the rounding the updates accumulate, from the counts when order! <=
+// window_size and else as sum over the window's patterns of log n_c, so the
+// recompute costs O(min(window_size, order!)). Entropy =
 // (W log W - S) / (W log(order!)), W the patterns in the window, and exactly 0
 // when one distinct pattern fills the window.
 //
@@ -27,6 +29,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
 #include <stdexcept>
 #include <string>
@@ -42,7 +45,7 @@ public:
     RollingPermutationEntropy(int window_size = 100, int order = 3, int delay = 1,
                               const std::string& start_policy = "strict")
         : W_(check(window_size, order, delay)), m_(order), tau_(delay),
-          span_(static_cast<std::size_t>((order - 1) * delay)),
+          span_(static_cast<std::size_t>(static_cast<std::int64_t>(order - 1) * delay)),
           policy_(detail::parse_start_policy(start_policy))
     {
         std::size_t f = 1;
@@ -56,6 +59,10 @@ public:
         nlogn_.assign(W_ + 1, 0.0);
         for (std::size_t k = 2; k <= W_; ++k)
             nlogn_[k] = static_cast<double>(k) * std::log(static_cast<double>(k));
+        if (W_ < n_codes_) {
+            logn_.assign(W_ + 1, 0.0);
+            for (std::size_t k = 2; k <= W_; ++k) logn_[k] = std::log(static_cast<double>(k));
+        }
         values_.assign(span_ + 1, 0.0);
         codes_.assign(W_, 0);
         counts_.assign(n_codes_, 0);
@@ -103,6 +110,8 @@ private:
         if (order > 7) throw std::invalid_argument("order must be 7 or less.");
         if (delay < 1) throw std::invalid_argument("delay must be 1 or more.");
         if (window_size < 2) throw std::invalid_argument("Window size must be 2 or more.");
+        if (static_cast<std::int64_t>(order - 1) * delay > kMaxSpan)
+            throw std::invalid_argument("(order - 1) * delay must be 16777216 or less.");
         return static_cast<std::size_t>(window_size);
     }
 
@@ -147,12 +156,19 @@ private:
         tick();
     }
 
-    // Every W_ patterns, S from the counts (bounds the rounding of the updates).
+    // Every W_ patterns, S recomputed exactly (bounds the rounding of the
+    // updates): sum_c n_c log n_c over the order! counts, or, when the window
+    // is shorter than that, the same sum as sum over the window's patterns of
+    // log n_c.
     void tick() {
         if (++since_exact_ < W_) return;
         since_exact_ = 0;
         double s = 0.0;
-        for (std::size_t n : counts_) s += nlogn_[n];
+        if (W_ < n_codes_) {
+            for (std::size_t i = 0; i < ncodes_; ++i) s += logn_[counts_[codes_[i]]];
+        } else {
+            for (std::size_t n : counts_) s += nlogn_[n];
+        }
         S_ = s;
     }
 
@@ -163,6 +179,8 @@ private:
         return h < 0.0 ? 0.0 : (h > 1.0 ? 1.0 : h);
     }
 
+    static constexpr std::int64_t kMaxSpan = std::int64_t{1} << 24;
+
     const std::size_t W_;
     const int m_;
     const int tau_;
@@ -172,6 +190,7 @@ private:
     double log_norm_ = 0.0;
     std::vector<std::size_t> weights_;
     std::vector<double> nlogn_;
+    std::vector<double> logn_;      // log k, only when window_size < order!
     std::vector<double> values_;
     std::vector<std::size_t> codes_;
     std::vector<std::size_t> counts_;

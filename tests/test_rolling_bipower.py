@@ -79,3 +79,16 @@ def test_share_stays_in_unit_interval_and_bv_nonnegative():
     bv = np.asarray(RollingBipowerVar(10, start_policy="expanding")(r))
     assert np.nanmin(share) >= 0.0 and np.nanmax(share) <= 1.0
     assert np.nanmin(bv) >= 0.0
+
+
+def test_inf_next_to_zero_keeps_the_window_aligned():
+    # inf * 0 is NaN, so the pairs (0, inf) and (inf, 0) do not enter the
+    # window; once they have left it the output equals a run without them
+    W = 6
+    rng = np.random.default_rng(3)
+    tail = rng.standard_normal(60)
+    tail[[2, 3, 4, 5, 6, 20, 21, 22, 23, 24]] = 0.0
+    head = np.array([1.0, 2.0, 0.0, np.inf, 0.0])
+    bad = np.asarray(RollingBipowerVar(W)(np.r_[head, tail]))[len(head):]
+    clean = np.asarray(RollingBipowerVar(W)(np.r_[1.0, 2.0, 0.0, 0.0, 0.0, tail]))[5:]
+    np.testing.assert_allclose(bad[W:], clean[W:], rtol=1e-12, atol=1e-14)
