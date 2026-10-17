@@ -3168,10 +3168,12 @@
  },
  {
   "accepts_bool": {
+   "cooldown": false,
    "n": false,
    "release": false
   },
   "accepts_none": {
+   "cooldown": false,
    "n": false,
    "release": false
   },
@@ -3179,12 +3181,17 @@
    "n": 3
   },
   "below_min": {
+   "cooldown": [
+    -1,
+    "Hold: cooldown must be at least 0, got -1"
+   ],
    "n": [
     0,
     "Hold: n must be at least 1, got 0"
    ]
   },
   "bool_message": {
+   "cooldown": "Hold: cooldown must be an integer, got bool",
    "n": "Hold: n must be an integer, got bool",
    "release": "Hold: release must be a number, got bool"
   },

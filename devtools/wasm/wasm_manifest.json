@@ -2715,7 +2715,8 @@
     "base": "ScreamerBase",
     "ctor": [
       "int",
-      "double"
+      "double",
+      "int"
     ],
     "ctor_args": [
       {
@@ -2725,6 +2726,10 @@
       {
         "name": "release",
         "default": "0.0"
+      },
+      {
+        "name": "cooldown",
+        "default": "0"
       }
     ],
     "ctor_kind": "plain",

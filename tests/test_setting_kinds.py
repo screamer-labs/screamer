@@ -100,6 +100,6 @@ def test_a_list_for_one_number_is_a_wrong_kind():
 
 
 def test_required_settings_show_no_default():
-    assert s.Hold.__doc__.splitlines()[0] == "Hold(n, release=0.0)"
+    assert s.Hold.__doc__.splitlines()[0] == "Hold(n, release=0.0, cooldown=0)"
     assert s.SchmittTrigger.__doc__.splitlines()[0] == "SchmittTrigger(lower, upper, initial=0.0)"
     assert "n : int, required" in s.Hold.__doc__

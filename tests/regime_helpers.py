@@ -28,3 +28,21 @@ def assert_bitwise(a, b):
     na, nb = np.isnan(a), np.isnan(b)
     assert np.array_equal(na, nb)
     assert np.array_equal(a[~na].view(np.uint64), b[~nb].view(np.uint64))
+
+
+def assert_regimes_agree(op_factory, x):
+    """Eager, per-event, graph (Pipeline) and lazy runs of a one-input operator
+    give the same output bit for bit, NaN in the same places."""
+    import screamer
+    x = np.asarray(x, dtype=float)
+    eager = np.asarray(op_factory()(x), dtype=float)
+    op = op_factory()
+    stream = np.array([np.asarray(op(float(v)), dtype=float) for v in x]).reshape(eager.shape)
+    node = screamer.Input("x")
+    pipeline = screamer.Pipeline(inputs=[node], outputs=[op_factory()(node)])
+    graph, _ = pipeline((x, np.arange(len(x))))
+    lazy = np.array([np.asarray(r[0], dtype=float)
+                     for r in pipeline(((float(v), i) for i, v in enumerate(x)))])
+    assert_bitwise(stream, eager)
+    assert_bitwise(np.asarray(graph, dtype=float).reshape(eager.shape), eager)
+    assert_bitwise(lazy.reshape(eager.shape), eager)

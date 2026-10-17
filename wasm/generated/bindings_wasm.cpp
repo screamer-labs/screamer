@@ -886,7 +886,7 @@ EMSCRIPTEN_BINDINGS(screamer) {
     emscripten::class_<screamer::HilbertPhasor, emscripten::base<screamer::EvalOp>>("HilbertPhasor")
         .constructor<>();
     emscripten::class_<screamer::Hold, emscripten::base<screamer::EvalOp>>("Hold")
-        .constructor<int, double>();
+        .constructor<int, double, int>();
     emscripten::class_<screamer::HullMA, emscripten::base<screamer::EvalOp>>("HullMA")
         .constructor<int>();
     emscripten::class_<screamer::Hypot, emscripten::base<screamer::EvalOp>>("Hypot")

@@ -2657,6 +2657,8 @@ export interface HoldOptions {
   n: number;
   /** Value returned when no hold is active and the input is zero. May be finite or NaN; inf is rejected. @defaultValue `0.0` */
   release?: number;
+  /** Steps after a hold expires in which nonzero inputs are ignored and the output is `release`. 0 turns it off. @defaultValue `0` */
+  cooldown?: number;
 }
 
 /**
@@ -2671,9 +2673,10 @@ export declare function Hold(options: HoldOptions): ScreamerOp;
  *
  * @param n Number of steps the latched value is held, counting the trigger step: a nonzero input at t is output at t, t+1, ..., t+n-1.
  * @param release Value returned when no hold is active and the input is zero. May be finite or NaN; inf is rejected.
+ * @param cooldown Steps after a hold expires in which nonzero inputs are ignored and the output is `release`. 0 turns it off.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/Hold.html for the full reference.
  */
-export declare function Hold(n: number, release?: number): ScreamerOp;
+export declare function Hold(n: number, release?: number, cooldown?: number): ScreamerOp;
 
 /** The settings of HullMA by name, for `HullMA({ ... })`. */
 export interface HullMAOptions {

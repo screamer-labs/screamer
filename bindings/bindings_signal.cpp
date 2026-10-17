@@ -125,11 +125,11 @@ void init_bindings_signal(nb::module_& m) {
     // Hold: time-latch operator. Latches a nonzero finite input and holds it
     // for n bars total; returns release after the hold expires.
     nb::class_<screamer::Hold, screamer::ScreamerBase>(m, "Hold")
-        .def(nb::init<screamer::IntArg<int>, screamer::FloatArg>(),
-             "n"_a, "release"_a = 0.0)
+        .def(nb::init<screamer::IntArg<int>, screamer::FloatArg, screamer::IntArg<int>>(),
+             "n"_a, "release"_a = 0.0, "cooldown"_a = 0)
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::Hold::reset,
-             "Reset to the initial state (remaining=0, held=release).");
+             "Reset to the initial state (remaining=0, cooldown=0, held=release).");
 
     // DominantCycle: 1->1 dominant cycle period (samples) via Ehlers'
     // homodyne discriminator. See detail/hilbert_cycle.h.

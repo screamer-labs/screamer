@@ -30,6 +30,12 @@ parameters:
   default: 0.0
   description: Value returned when no hold is active and the input is zero. May be finite
     or NaN; inf is rejected.
+- name: cooldown
+  type: int
+  default: 0
+  min: 0
+  description: Steps after a hold expires in which nonzero inputs are ignored and the output
+    is `release`. 0 turns it off.
 nan_policy: ignore
 see_also:
 - SchmittTrigger
@@ -44,8 +50,11 @@ see_also:
 
 `Hold` latches a nonzero finite input and outputs it for `n` steps in total: the trigger step plus `n-1` continuation steps. When the hold expires and the next input is zero, the output returns to `release`. A new nonzero input during an active hold replaces the latched value and resets the counter to `n-1` remaining steps. A zero input means no trigger.
 
+After a hold expires, nonzero inputs in the next `cooldown` steps are ignored and the output is `release`; a trigger during a hold still restarts it. A `NaN` step does not count as a cooldown step. With `n=2, cooldown=2`, the input `[5, 0, 7, 3, 0, 4, 0]` gives `[5, 5, 0, 0, 0, 4, 4]`: the triggers 7 and 3 fall in the cooldown.
+
 $$
 \text{output}[t] = \begin{cases}
+\text{release} & \text{if cooldown} > 0 \text{ and remaining} = 0 \text{ (decrement cooldown)} \\\\
 x[t] & \text{if } x[t] \neq 0 \text{ (latch; set remaining} = n-1\text{)} \\\\
 \text{held} & \text{if } x[t] = 0 \text{ and remaining} > 0 \text{ (decrement remaining)} \\\\
 \text{release} & \text{if } x[t] = 0 \text{ and remaining} = 0 \\\\
@@ -53,11 +62,11 @@ x[t] & \text{if } x[t] \neq 0 \text{ (latch; set remaining} = n-1\text{)} \\\\
 \end{cases}
 $$
 
-`reset()` sets `remaining` to 0 and `held` to `release`.
+When a hold ends, the cooldown counter is set to `cooldown`. `reset()` sets `remaining` and the cooldown counter to 0 and `held` to `release`.
 
 ## Implementation Details
 
-O(1) per step. Two scalars of state: `held` (the most recently latched nonzero value, initialized to `release`) and `remaining` (steps left in the current hold, initialized to 0).
+O(1) per step. Three scalars of state: `cool` (cooldown steps left, initialized to 0), `held` (the most recently latched nonzero value, initialized to `release`) and `remaining` (steps left in the current hold, initialized to 0).
 
 
 <!-- NAN_FOOTNOTE_START -->

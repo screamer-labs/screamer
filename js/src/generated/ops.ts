@@ -4254,6 +4254,8 @@ export interface HoldOptions {
   n: number;
   /** Value returned when no hold is active and the input is zero. May be finite or NaN; inf is rejected. @defaultValue `0.0` */
   release?: number;
+  /** Steps after a hold expires in which nonzero inputs are ignored and the output is `release`. 0 turns it off. @defaultValue `0` */
+  cooldown?: number;
 }
 
 /**
@@ -4268,22 +4270,26 @@ export function Hold(options: HoldOptions): ScreamerOp;
  *
  * @param n Number of steps the latched value is held, counting the trigger step: a nonzero input at t is output at t, t+1, ..., t+n-1.
  * @param release Value returned when no hold is active and the input is zero. May be finite or NaN; inf is rejected.
+ * @param cooldown Steps after a hold expires in which nonzero inputs are ignored and the output is `release`. 0 turns it off.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/Hold.html for the full reference.
  */
-export function Hold(n: number, release?: number): ScreamerOp;
-export function Hold(n?: any, release?: any): ScreamerOp {
-  if (_isOptions(n)) [n, release] = _options("Hold", n, arguments.length, ["n", "release"], "n must be an integer");
-  else if (arguments.length > 2) _tooMany("Hold", 2, arguments.length);
-  const _given: unknown[] = [n, release];
+export function Hold(n: number, release?: number, cooldown?: number): ScreamerOp;
+export function Hold(n?: any, release?: any, cooldown?: any): ScreamerOp {
+  if (_isOptions(n)) [n, release, cooldown] = _options("Hold", n, arguments.length, ["n", "release", "cooldown"], "n must be an integer");
+  else if (arguments.length > 3) _tooMany("Hold", 3, arguments.length);
+  const _given: unknown[] = [n, release, cooldown];
   if (n === undefined) throw new TypeError(`Hold: n is required`);
   if (release === undefined) release = 0.0;
+  if (cooldown === undefined) cooldown = 0;
   const M = current();
   if (typeof n !== "number" || !Number.isInteger(n)) throw new TypeError(`Hold: n must be an integer, got ${typeof n === "number" ? n : _what(n)}`);
   if (!(n >= -2147483648 && n <= 2147483647)) _intRange(M, "Hold", "n", n);
   if (typeof release !== "number") throw new TypeError(`Hold: release must be a number, got ${_what(release)}`);
+  if (typeof cooldown !== "number" || !Number.isInteger(cooldown)) throw new TypeError(`Hold: cooldown must be an integer, got ${typeof cooldown === "number" ? cooldown : _what(cooldown)}`);
+  if (!(cooldown >= -2147483648 && cooldown <= 2147483647)) _intRange(M, "Hold", "cooldown", cooldown);
   try {
-    return _params(wrapOp(M, () => new M.Hold(n, release)), "Hold", ["n", "release"], _given);
-  } catch (e) { throw _finite(M, "Hold", ["n", "release"], [n, release], e); }
+    return _params(wrapOp(M, () => new M.Hold(n, release, cooldown)), "Hold", ["n", "release", "cooldown"], _given);
+  } catch (e) { throw _finite(M, "Hold", ["n", "release", "cooldown"], [n, release, cooldown], e); }
 }
 
 /** The settings of HullMA by name, for `HullMA({ ... })`. */

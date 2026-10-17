@@ -56,6 +56,7 @@ inline constexpr IntSettingMin kIntSettingMin[] = {
     {"DonchianChannels", "window_size", 1},
     {"FracDiff", "window_size", 1},
     {"Hampel", "window_size", 1},
+    {"Hold", "cooldown", 0},
     {"Hold", "n", 1},
     {"HullMA", "window_size", 4},
     {"ImpulseClip", "window_size", 1},

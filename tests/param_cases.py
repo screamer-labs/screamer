@@ -202,7 +202,7 @@ test_definitions = [
     # 1-in/1-out classes whose constructor has a required argument, so the
     # auto-adoption below (which drives constructor defaults) cannot reach them.
     ( ('DEMA','TEMA')           , {"span": [10]}),
-    ( ('Hold',)                  , {"n": [5]}),
+    ( ('Hold',)                  , {"n": [5], "cooldown": [0, 3]}),
     ( ('SchmittTrigger',)        , {"lower": [-1.0], "upper": [1.0]}),
 ]
 
