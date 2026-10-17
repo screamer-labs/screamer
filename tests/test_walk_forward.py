@@ -2,7 +2,9 @@
 import numpy as np
 import pytest
 
-from screamer import BacktestOHLCTarget, BacktestPriceTarget, BacktestPortfolioTarget, walk_forward
+from screamer import (BacktestCarry, BacktestL1Target, BacktestOHLCTarget, BacktestOHLCVTarget,
+                      BacktestPortfolioTarget, BacktestPriceTarget, BacktestTradesTarget,
+                      walk_forward)
 
 
 def _market(T):
@@ -215,3 +217,90 @@ GOLDEN_SCORES_COL0 = [1.2084732360973462, 0.9425475505694672, 1.620956872474087,
 GOLDEN_SHARPE = -0.8521351650503325
 GOLDEN_PNL = -4.302590266628476
 GOLDEN_ANCHORED_CHOICE = [1, 1, 1, 0, 0]
+
+
+def _rate(T):
+    return 1e-3 * np.sin(np.arange(T) / 7.0)
+
+
+def test_zero_carry_equals_no_carry():
+    T = 300
+    o, h, l, c = _market(T)
+    X = _targets(T)
+    a = walk_forward(BacktestOHLCTarget(taker_fee=2e-4), X, o, h, l, c, train=100, test=50)
+    b = walk_forward(BacktestOHLCTarget(taker_fee=2e-4), X, o, h, l, c, train=100, test=50,
+                     carry=np.zeros(T))
+    np.testing.assert_array_equal(a.train_scores, b.train_scores)
+    np.testing.assert_array_equal(a.choice, b.choice)
+    np.testing.assert_array_equal(a.output, b.output)
+    np.testing.assert_equal(a.stats, b.stats)
+
+
+def test_carry_is_backtest_carry_on_the_close():
+    T = 300
+    o, h, l, c = _market(T)
+    X = _targets(T)
+    rate = _rate(T)
+    res = walk_forward(BacktestOHLCTarget(taker_fee=2e-4), X, o, h, l, c, train=100, test=50,
+                       metric="total_pnl", carry=rate, carry_multiplier=2.0)
+    eng = BacktestOHLCTarget(taker_fee=2e-4)
+    raw = np.asarray(eng(res.target, o, h, l, c))
+    want = np.asarray(BacktestCarry(multiplier=2.0)(*raw.T, c, rate))
+    np.testing.assert_allclose(res.output, want, rtol=1e-12, atol=1e-12)
+    for k in range(X.shape[1]):
+        eng.reset()
+        run = np.asarray(eng(np.ascontiguousarray(X[:, k]), o, h, l, c))
+        carried = np.asarray(BacktestCarry(multiplier=2.0)(*run.T, c, rate))
+        for i, t0 in enumerate(res.fold_start):
+            np.testing.assert_allclose(res.train_scores[i, k], np.nansum(carried[t0 - 100:t0, 1]),
+                                       rtol=1e-9, atol=1e-12)
+    assert res.stats["total_pnl"] == pytest.approx(np.nansum(res.output[100:, 1]), rel=1e-12, abs=1e-12)
+
+
+@pytest.mark.parametrize("kind", ["ohlcv", "trades", "l1"])
+def test_carry_marks_the_last_price_input(kind):
+    T = 300
+    o, h, l, c = _market(T)
+    X = _targets(T)
+    rate = _rate(T)
+    if kind == "ohlcv":
+        make, market, mark = BacktestOHLCVTarget, (o, h, l, c, np.full(T, 1e6)), c
+    elif kind == "trades":
+        make, market, mark = BacktestTradesTarget, (c, np.full(T, 100.0)), c
+    else:
+        bid, ask = c * 0.999, c * 1.001
+        make, market, mark = BacktestL1Target, (bid, ask, np.full(T, 10.0), np.full(T, 10.0)), ask
+    res = walk_forward(make(), X, *market, train=100, test=50, carry=rate)
+    raw = np.asarray(make()(res.target, *market))
+    np.testing.assert_allclose(res.output, np.asarray(BacktestCarry()(*raw.T, mark, rate)),
+                               rtol=1e-12, atol=1e-12)
+
+
+def test_carry_argument_checks():
+    T = 200
+    o, h, l, c = _market(T)
+    X = _targets(T)
+    with pytest.raises(ValueError, match=r"carry must be a \(T,\) series"):
+        walk_forward(BacktestOHLCTarget(), X, o, h, l, c, train=50, test=50, carry=np.zeros(T - 1))
+    with pytest.raises(ValueError, match="carry_multiplier"):
+        walk_forward(BacktestOHLCTarget(), X, o, h, l, c, train=50, test=50, carry=np.zeros(T),
+                     carry_multiplier=0.0)
+
+
+def test_carry_with_an_engine_of_unknown_price_input_raises():
+    class Wrapped:
+        def __init__(self):
+            self.eng = BacktestOHLCTarget()
+
+        def __call__(self, target, *market):
+            return self.eng(target, *market)
+
+        def reset(self):
+            self.eng.reset()
+
+    T = 200
+    o, h, l, c = _market(T)
+    X = _targets(T)
+    walk_forward(Wrapped(), X, o, h, l, c, train=50, test=50)
+    with pytest.raises(ValueError, match="carry needs a target engine whose price input is known"):
+        walk_forward(Wrapped(), X, o, h, l, c, train=50, test=50, carry=np.zeros(T))

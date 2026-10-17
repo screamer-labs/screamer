@@ -1172,18 +1172,30 @@ nb::tuple walk_forward_py(nb::callable run, nb::callable reset, nb::object metri
                           nb::object original, BlockIn targets, nb::list prices, double train, double test,
                           const std::string& metric_name, bool custom,
                           std::optional<bool> larger_is_better, bool anchored,
-                          double periods_per_year, bool portfolio) {
+                          double periods_per_year, bool portfolio,
+                          std::optional<BlockIn> carry, double carry_multiplier,
+                          const std::string& engine) {
     sv::WalkForwardOptions opt;
     opt.train = train; opt.test = test; opt.metric = metric_name; opt.custom = custom;
     opt.larger_is_better = larger_is_better; opt.anchored = anchored;
     opt.periods_per_year = periods_per_year; opt.portfolio = portfolio;
+    if (carry) opt.carry = array_shape(*carry);
+    opt.carry_multiplier = carry_multiplier;
+    opt.engine = engine;
     PyEngineHost host(run, reset, metric, original);
     sv::WalkForwardResult r = sv::walk_forward(host, array_shape(targets), array_shapes(prices), opt);
     nb::dict stats;
     for (std::size_t q = 0; q < sv::kNumStats; ++q) stats[sv::kStats[q].name] = r.stats[q];
+    nb::object output = host.last_output();
+    if (!r.output.empty()) {
+        auto p = screamer::detail::new_output(r.output.size());
+        std::copy(r.output.begin(), r.output.end(), p.get());
+        output = screamer::detail::make_owned_array(
+            std::move(p), std::vector<size_t>(r.output_shape.begin(), r.output_shape.end()));
+    }
     return nb::make_tuple(host.last_target(), int64_array(r.choice), int64_array(r.fold_start),
                           screamer::detail::make_owned_array(std::move(r.scores), {r.folds, r.K}),
-                          host.last_output(), stats);
+                          output, stats);
 }
 
 }  // namespace
@@ -1243,7 +1255,7 @@ void init_bindings_fin(nb::module_& m) {
     m.def("_walk_forward", &walk_forward_py,
           "run"_a, "reset"_a, "metric"_a.none(), "original"_a, "targets"_a, "prices"_a, "train"_a,
           "test"_a, "metric_name"_a, "custom"_a, "larger_is_better"_a.none(), "anchored"_a,
-          "periods_per_year"_a, "portfolio"_a);
+          "periods_per_year"_a, "portfolio"_a, "carry"_a.none(), "carry_multiplier"_a, "engine"_a);
     m.def("_default_min_shift", [](SurrogateIn x) {
         return screamer::validation::default_min_shift(x.data(), x.shape(0));
     }, "x"_a);

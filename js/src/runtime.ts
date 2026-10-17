@@ -715,6 +715,7 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp, finalize 
   op.dispose = free;
   (op as any)[Symbol.dispose] = free;
   (op as any).numInputs = nIn;
+  (op as any).opName = opName(raw);
   (op as any).numOutputs = nOut;
   if (finalize) releaseWith(op, res);
   return op;
@@ -1077,6 +1078,7 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
   op.dispose = free;
   (op as any)[Symbol.dispose] = free;
   (op as any).numInputs = width;
+  (op as any).opName = opName(raw);
   (op as any).numOutputs = nOut;
   releaseWith(op, res);
   return op;
@@ -1285,6 +1287,7 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
   // tell a portfolio engine from a per-column one.
   (op as any).rowOp = { fieldsIn: fi, fieldsOut: fo };
   (op as any).numInputs = raw.nIn();
+  (op as any).opName = opName(raw);
   (op as any).numOutputs = raw.nOut();
   releaseWith(op, res);
   return op;

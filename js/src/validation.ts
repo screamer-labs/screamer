@@ -367,14 +367,27 @@ function engineCallbacks(engine: ScreamerOp, original: any, market: any[], metri
   return { fns, state };
 }
 
+// Row-major data of a market input: a series, an NdArray, or T rows of K values.
+function marketData(x: any): Float64Array {
+  const nd = asNd(x);
+  if (nd !== null) return nd.data;
+  if (dims(x)[0] === 2) return flattenRows(x, "walkForward", "market").data;
+  return Float64Array.from(x as ArrayLike<number>);
+}
+
 // Heap copies of the target and of the [address, ndim, T, K] specs of the
-// target and the market inputs (the market's data stays in JS).
-function heapSpecs(target: Target, market: any[], bufs: number[]) {
+// target and the market inputs. The market's data stays in JS unless
+// `withData` (the carry reads the mark price in C++).
+function heapSpecs(target: Target, market: any[], bufs: number[], withData = false) {
   const data = heapCopy(target.data);
   bufs.push(data);
   const t = heapCopy([data, target.ndim, target.T, target.K]);
   bufs.push(t);
-  const m = heapCopy(market.flatMap((x) => [0, ...dims(x)]));
+  const m = heapCopy(market.flatMap((x) => {
+    let addr = 0;
+    if (withData) { addr = heapCopy(marketData(x)); bufs.push(addr); }
+    return [addr, ...dims(x)];
+  }));
   bufs.push(m);
   return { target: t, market: m };
 }
@@ -892,6 +905,14 @@ export interface WalkForwardOptions {
   /** Annualizes the ratios, as in `backtestReport` (default 1: per step). */
   periodsPerYear?: number;
   largerIsBetter?: boolean;
+  /**
+   * Per-step carry rate (funding, borrow), one value per row, with the sign
+   * and timing `BacktestCarry` documents. Every run is scored after
+   * `BacktestCarry`, marked with the engine's last price input.
+   */
+  carry?: ArrayLike<number>;
+  /** The carry's contract multiplier (default 1). */
+  carryMultiplier?: number;
 }
 
 export interface WalkForwardResult {
@@ -903,7 +924,7 @@ export interface WalkForwardResult {
   foldStart: Int32Array;
   /** Every candidate's metric on every training window, (nFolds, K) row-major. */
   trainScores: NdArray;
-  /** The engine output on `target`, (T, 4). */
+  /** The engine output on `target`, (T, 4), after carry when `carry` is given. */
   output: NdArray;
   /** Every statistic of `output` from the first test window to the end. */
   stats: Record<StatName, number>;
@@ -922,8 +943,15 @@ export interface WalkForwardResult {
  * backtest of its own. NaN scores lose, ties go to the lowest column, and a
  * fold where every score is NaN stays flat with choice -1. The stitched target
  * (0 before the first test window) runs through the engine once, and `stats`
- * covers it from the first test window on. Mirrors Python's
- * `screamer.walk_forward`.
+ * covers it from the first test window on.
+ *
+ * `carry` is a per-step carry rate (funding, borrow), one value per row, with
+ * the sign and timing `BacktestCarry` documents. With it, every candidate's
+ * run and the stitched run pass through `BacktestCarry` (multiplier
+ * `carryMultiplier`) before they are scored, marked with the engine's last
+ * price input (the close for the OHLC engines, the trade price for
+ * `BacktestTradesTarget`, the ask for `BacktestL1Target`), so `output` and
+ * `stats` are after carry. Mirrors Python's `screamer.walk_forward`.
  */
 export function walkForward(
   engine: ScreamerOp,
@@ -932,7 +960,8 @@ export function walkForward(
   opts: WalkForwardOptions,
 ): WalkForwardResult {
   noBools("walkForward", { train: [opts.train, true], test: [opts.test, true],
-                          periodsPerYear: [opts.periodsPerYear, false] });
+                          periodsPerYear: [opts.periodsPerYear, false],
+                          carryMultiplier: [opts.carryMultiplier, false] });
   const M = current();
   const metric = opts.metric ?? "sharpe";
   const { custom, name, hasLarger, larger } = metricArgs(metric, opts.largerIsBetter);
@@ -941,22 +970,35 @@ export function walkForward(
   let result: WalkForwardResult | null = null;
   const callbacks = wasmCallbacks({
     ...fns,
-    done: (statsPtr: number, foldPtr: number, choicePtr: number, scoresPtr: number, F: number, K: number) => {
+    done: (statsPtr: number, foldPtr: number, choicePtr: number, scoresPtr: number, F: number, K: number,
+           outPtr: number, outLen: number) => {
       const stats = M.viewF64(statsPtr, statNames().length).slice();
       result = {
         target: state.target, choice: Int32Array.from(M.viewF64(choicePtr, F)),
         foldStart: Int32Array.from(M.viewF64(foldPtr, F)),
         trainScores: { data: M.viewF64(scoresPtr, F * K).slice(), shape: [F, K] },
-        output: state.out, stats: statsRecord((i) => stats[i]), metric: name,
+        output: outLen > 0
+          ? { data: M.viewF64(outPtr, outLen).slice(), shape: (asNd(state.out) as NdArray).shape }
+          : state.out,
+        stats: statsRecord((i) => stats[i]), metric: name,
       };
     },
   });
   const bufs: number[] = [];
   try {
-    const spec = heapSpecs(tgt, market, bufs);
+    const carry = opts.carry == null ? null : Float64Array.from(opts.carry as ArrayLike<number>);
+    const spec = heapSpecs(tgt, market, bufs, carry !== null);
+    let carrySpec = 0;
+    if (carry !== null) {
+      const cp = heapCopy(carry);
+      bufs.push(cp);
+      carrySpec = heapCopy([cp, 1, carry.length, 1]);
+      bufs.push(carrySpec);
+    }
     callbacks.call((cb) => M.walkForwardRun(cb, spec.target, spec.market, market.length,
       num(opts.train), num(opts.test), custom ? "" : name, custom, hasLarger, larger, !!opts.anchored,
-      opts.periodsPerYear ?? 1, !!(engine as any).rowOp));
+      opts.periodsPerYear ?? 1, !!(engine as any).rowOp, carrySpec, opts.carryMultiplier ?? 1,
+      (engine as any).opName ?? ""));
     return result as unknown as WalkForwardResult;
   } finally {
     bufs.forEach((p) => M.freeBuf(p));

@@ -548,6 +548,8 @@ def walk_forward(
     anchored: bool = False,
     periods_per_year: float = 1.0,
     larger_is_better: Optional[bool] = None,
+    carry=None,
+    carry_multiplier: float = 1.0,
 ) -> WalkForwardResult:
     """Walk-forward selection: pick the best candidate on each training window
     and trade it on the next test window.
@@ -573,6 +575,14 @@ def walk_forward(
     every ``backtest_report`` statistic of that run from the first test window
     on.
 
+    ``carry`` is a per-step carry rate (funding, borrow), a ``(T,)`` series,
+    with the sign and timing ``BacktestCarry`` documents. With it, every
+    candidate's run and the stitched run pass through
+    ``BacktestCarry(multiplier=carry_multiplier)`` before they are scored,
+    marked with the engine's last price input (the close for the OHLC
+    engines, the trade price for ``BacktestTradesTarget``, the ask for
+    ``BacktestL1Target``), so ``output`` and ``stats`` are after carry.
+
     ``metric``, ``larger_is_better``, and ``periods_per_year`` mean the same as
     in ``position_test``. Portfolio engines are not supported.
     """
@@ -583,9 +593,11 @@ def walk_forward(
     targets = np.ascontiguousarray(targets)
     prices = [_as_float64(p, contiguous=True) for p in prices]
     run, reset, score = _engine_calls(engine, prices, metric)
+    carry = None if carry is None else _as_float64(carry, contiguous=True)
     target, choice, fold_start, scores, output, stats = _walk_forward(
         run, reset, score, targets, targets, prices, _number(train, "walk_forward: train"),
         _number(test, "walk_forward: test"), name, custom,
         _flag(larger_is_better), bool(anchored),
-        _float(periods_per_year, "walk_forward: periods_per_year"), isinstance(engine, RowOp))
+        _float(periods_per_year, "walk_forward: periods_per_year"), isinstance(engine, RowOp),
+        carry, _float(carry_multiplier, "walk_forward: carry_multiplier"), type(engine).__name__)
     return WalkForwardResult(target, choice, fold_start, scores, output, stats, name)

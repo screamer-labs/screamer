@@ -48,7 +48,8 @@ function only slices, compares, and stitches.
 ## Signature
 
 `walk_forward(engine, targets, *prices, train, test, metric="sharpe",
-anchored=False, periods_per_year=1.0, larger_is_better=None)`
+anchored=False, periods_per_year=1.0, larger_is_better=None, carry=None,
+carry_multiplier=1.0)`
 
 - `engine`: a single-asset target-position engine, such as
   [`BacktestOHLCTarget`](BacktestOHLCTarget.md) or
@@ -72,6 +73,14 @@ anchored=False, periods_per_year=1.0, larger_is_better=None)`
 - `larger_is_better`: the direction of the metric, as in
   [`position_test`](position_test.md). Statistics with no natural direction,
   such as `turnover`, need it.
+- `carry`: a per-step carry rate (perpetual funding, borrow fee), a `(T,)`
+  series with the sign and timing [`BacktestCarry`](BacktestCarry.md)
+  documents. With it, every candidate's run and the stitched run pass through
+  `BacktestCarry(multiplier=carry_multiplier)` before they are scored, marked
+  with the engine's last price input: the close for the OHLC engines, the
+  trade price for `BacktestTradesTarget`, and the ask for `BacktestL1Target`.
+  `output` and `stats` are after carry. `carry_multiplier` is the contract
+  multiplier, as in `BacktestCarry`.
 
 It returns a named tuple with these fields:
 
@@ -80,7 +89,8 @@ It returns a named tuple with these fields:
 - `fold_start`: the first step `t0` of each test window.
 - `train_scores`: every candidate's metric on every training window, shape
   `(n_folds, K)`.
-- `output`: the engine output on `target`, shape `(T, 4)`.
+- `output`: the engine output on `target`, shape `(T, 4)`, after carry when
+  `carry` is given.
 - `stats`: every `backtest_report` summary statistic of `output` from the
   first test window to the end, as a dict of floats.
 - `metric`: the name of the metric.

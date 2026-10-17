@@ -11,8 +11,10 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <tuple>
 #include <vector>
 
+#include "screamer/backtest_carry.h"
 #include "screamer/validation/scoring.h"
 #include "screamer/validation/surrogates.h"
 
@@ -104,6 +106,9 @@ namespace screamer { namespace validation {
         bool anchored = false;
         double periods_per_year = 1.0;
         bool portfolio = false;                  // rejected: a single-asset engine is needed
+        std::optional<ArrayShape> carry;         // per-step carry rate, the shape of a price input
+        double carry_multiplier = 1.0;
+        std::string engine;                      // the engine's class name, for the carry's price input
     };
 
     struct WalkForwardResult {
@@ -111,6 +116,8 @@ namespace screamer { namespace validation {
         std::vector<std::int64_t> fold_start, choice;
         std::unique_ptr<double[]> scores;        // (folds, K)
         std::array<double, kNumStats> stats{};
+        std::vector<double> output;              // the stitched output after carry; empty without carry
+        std::vector<std::size_t> output_shape;
     };
 
     // Doubles of the (T, n) working arrays per chunk of randomized targets,
@@ -211,6 +218,72 @@ namespace screamer { namespace validation {
                 if (best < 0 || v > bv) { best = static_cast<std::int64_t>(k); bv = v; }
             }
             return best;
+        }
+
+        // The market input BacktestCarry marks with: the last price input of
+        // each target engine (the close of the OHLC engines, the trade price,
+        // the ask of BacktestL1Target).
+        inline std::size_t carry_price_input(const std::string& engine, std::size_t n_inputs) {
+            struct Mark { const char* engine; std::size_t input; };
+            static constexpr Mark kMarks[] = {
+                {"BacktestPriceTarget", 0}, {"BacktestOHLCTarget", 3},
+                {"BacktestOHLCVTarget", 3}, {"BacktestTradesTarget", 0},
+                {"BacktestL1Target", 1}, {"BacktestPortfolioTarget", 0},
+                {"BacktestPortfolioOHLCTarget", 3}};
+            for (const Mark& m : kMarks) {
+                if (engine != m.engine) continue;
+                if (m.input >= n_inputs)
+                    throw std::invalid_argument("carry needs the engine's price inputs as separate arrays");
+                return m.input;
+            }
+            throw std::invalid_argument(
+                "carry needs a target engine whose price input is known (BacktestPriceTarget, "
+                "BacktestOHLCTarget, BacktestOHLCVTarget, BacktestTradesTarget, BacktestL1Target, "
+                "BacktestPortfolioTarget, or BacktestPortfolioOHLCTarget), got " +
+                (engine.empty() ? std::string("another engine") : engine));
+        }
+
+        // `out` (T rows of `cols` strategies or assets of 4 values) through
+        // BacktestCarry(multiplier) into `dst`, column by column. Column k is
+        // marked with price[at] and charged rate[at], at = t for one (T,)
+        // series shared by the columns (`shared`), else t * cols + k.
+        inline void apply_carry(const double* out, std::size_t T, std::size_t cols,
+                                const double* price, const double* rate, bool shared,
+                                double multiplier, double* dst) {
+            for (std::size_t k = 0; k < cols; ++k) {
+                BacktestCarry carry(multiplier);
+                for (std::size_t t = 0; t < T; ++t) {
+                    const std::size_t at = shared ? t : t * cols + k;
+                    const double* row = out + (t * cols + k) * 4;
+                    const BacktestCarry::InputArray in{{row[0], row[1], row[2], row[3], price[at], rate[at]}};
+                    const auto r = carry.call(in);
+                    double* d = dst + (t * cols + k) * 4;
+                    d[0] = std::get<0>(r);
+                    d[1] = std::get<1>(r);
+                    d[2] = std::get<2>(r);
+                    d[3] = std::get<3>(r);
+                }
+            }
+        }
+
+        struct CarryInput { const double* price; const double* rate; double multiplier; };
+
+        // The carry of a walk_forward call, checked: a (T,) rate for one asset,
+        // (T, assets) for a portfolio, and a finite positive multiplier.
+        inline std::optional<CarryInput> carry_input(const WalkForwardOptions& opt,
+                                                     const std::vector<ArrayShape>& prices,
+                                                     std::size_t T, std::size_t assets) {
+            if (!opt.carry) return std::nullopt;
+            if (!(opt.carry_multiplier > 0.0) || !std::isfinite(opt.carry_multiplier))
+                throw std::invalid_argument("carry_multiplier must be finite and positive");
+            const ArrayShape& c = *opt.carry;
+            if (opt.portfolio ? !(c.ndim == 2 && c.T == T && c.K == assets)
+                              : !(c.ndim == 1 && c.T == T))
+                throw std::invalid_argument(opt.portfolio
+                    ? "carry must be a (T, K) array, the shape of the price inputs"
+                    : "carry must be a (T,) series, the shape of the price inputs");
+            const std::size_t m = carry_price_input(opt.engine, prices.size());
+            return CarryInput{prices[m].data, c.data, opt.carry_multiplier};
         }
 
     } // namespace detail
@@ -436,6 +509,11 @@ namespace screamer { namespace validation {
     // engine once, into the host's target_buffer, and the statistics cover
     // it from the first test window on.
     //
+    // With opt.carry, every run (the candidates' and the stitched one) passes
+    // through BacktestCarry before it is scored (detail::apply_carry), marked
+    // with the engine's last price input (detail::carry_price_input); the
+    // carried stitched output is returned in `output`.
+    //
     // `targets` is (T, K); a binding passes a (T,) target as (T, 1).
     inline WalkForwardResult walk_forward(EngineHost& host, const ArrayShape& targets,
                                           const std::vector<ArrayShape>& prices,
@@ -471,8 +549,17 @@ namespace screamer { namespace validation {
         res.scores.reset(new double[F * K ? F * K : 1]);
         for (std::size_t i = 0; i < F; ++i) res.fold_start[i] = static_cast<std::int64_t>(train + i * test);
 
+        const auto carry = detail::carry_input(opt, prices, T, 0);
         const EngineOutput full = host.run(true, T, K);
         detail::check_engine_output(full, T, K);
+        std::vector<double> carried;
+        const double* fd = full.data;
+        if (carry) {
+            carried.resize(T * K * 4);
+            detail::apply_carry(full.data, T, K, carry->price, carry->rate, true, carry->multiplier,
+                                carried.data());
+            fd = carried.data();
+        }
         RunScorer scorer(opt.periods_per_year);
         std::vector<double> rows, custom;
         double* target = host.target_buffer(T);
@@ -483,13 +570,13 @@ namespace screamer { namespace validation {
             if (metric.custom()) {
                 double* w = host.window_buffer(len * K * 4);
                 for (std::size_t k = 0; k < K; ++k)
-                    detail::window_rows(full.data, T, K, k, a, t0, w + k * 4, K * 4);
+                    detail::window_rows(fd, T, K, k, a, t0, w + k * 4, K * 4);
                 const double* v = detail::custom_metric(host, MetricOf::Window, custom, K, len);
                 std::copy(v, v + K, scores);
             } else {
                 rows.resize(len * 4);
                 for (std::size_t k = 0; k < K; ++k) {
-                    detail::window_rows(full.data, T, K, k, a, t0, rows.data(), 4);
+                    detail::window_rows(fd, T, K, k, a, t0, rows.data(), 4);
                     scores[k] = scorer.score_column(rows.data(), len, 1, 0)[metric.stat];
                 }
             }
@@ -503,9 +590,17 @@ namespace screamer { namespace validation {
         const EngineOutput out = host.run(false, T, 0);
         detail::check_engine_output(out, T, 0);
         host.reset();
+        const double* od = out.data;
+        if (carry) {
+            res.output.resize(T * 4);
+            res.output_shape = {T, 4};
+            detail::apply_carry(out.data, T, 1, carry->price, carry->rate, true, carry->multiplier,
+                                res.output.data());
+            od = res.output.data();
+        }
         const std::size_t a = train;   // the first test window
         rows.resize((T - a) * 4);
-        detail::window_rows(out.data, T, 1, 0, a, T, rows.data(), 4);
+        detail::window_rows(od, T, 1, 0, a, T, rows.data(), 4);
         res.stats = scorer.score_column(rows.data(), T - a, 1, 0);
         return res;
     }

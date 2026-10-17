@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { ready, Hold, CusumFilter, backtestReport } from "../src/index.ts";
+import { ready, Hold, CusumFilter, backtestReport, walkForward, BacktestOHLCTarget } from "../src/index.ts";
 import * as api from "../src/index.ts";
 
 await ready();
@@ -127,4 +127,17 @@ test("research: backtestReport by with one string label equals the summary", () 
   const { summary, byGroup } = backtestReport(values, { by: Array(ht.T).fill("all") });
   const g = byGroup!.get("all")!;
   for (const k of ["total_cost", "turnover", "sharpe"]) assert.ok(Math.abs(g[k] - summary[k]) <= 1e-9 * Math.max(1, Math.abs(summary[k])), k);
+});
+
+test("research: walkForward with carry matches Python", () => {
+  const h = oracle.helpers.walk_forward_carry;
+  const T = h.carry.length;
+  const market = h.market.map((x: Num[]) => Float64Array.from(x, num));
+  const targets = { data: Float64Array.from(h.targets, num), shape: [T, h.K] };
+  const res = walkForward(BacktestOHLCTarget({ takerFee: 2e-4 }), targets, market,
+    { train: h.train, test: h.test, carry: Float64Array.from(h.carry, num), carryMultiplier: h.carry_multiplier });
+  close(res.trainScores.data, h.train_scores, "trainScores");
+  assert.deepEqual(Array.from(res.choice), h.choice);
+  close(res.output.data, h.output, "output");
+  for (const [k, v] of Object.entries(h.stats as Record<string, Num>)) close([(res.stats as any)[k]], [v], `stats ${k}`);
 });

@@ -80,6 +80,26 @@ def _engine_output():
     return out
 
 
+def _market(T):
+    """The deterministic OHLC market of tests/test_walk_forward.py."""
+    o, h, l, c = [], [], [], []
+    p = 100.0
+    for t in range(T):
+        prev = p
+        p *= np.exp(0.01 * np.sin(1.7 * t) * np.cos(0.31 * t * t))
+        o.append(prev)
+        c.append(p)
+        h.append(max(prev, p) * 1.001)
+        l.append(min(prev, p) * 0.999)
+    return [np.array(x) for x in (o, h, l, c)]
+
+
+def _candidates(T):
+    t = np.arange(T)
+    return np.column_stack([np.sign(np.sin(t / 6.0)), np.sign(np.cos(t / 17.0)),
+                            ((t // 5) % 3) - 1.0]).astype(float)
+
+
 def _helpers():
     """Inputs and results of the backtest helpers; Tasks 12 to 14 add entries."""
     out = _engine_output()
@@ -89,7 +109,19 @@ def _helpers():
     by = {"labels": labels.tolist(), "periods_per_year": 252.0,
           "groups": [[int(k), {n: _num(v) for n, v in g.items()}]
                      for k, g in summary["by_group"].items()]}
+    T = 260
+    o, h, l, c = _market(T)
+    X = _candidates(T)
+    rate = 1e-3 * np.sin(np.arange(T) / 7.0)
+    wf = s.walk_forward(s.BacktestOHLCTarget(taker_fee=2e-4), X, o, h, l, c, train=100, test=40,
+                        carry=rate, carry_multiplier=2.0)
+    walk_forward_carry = {
+        "market": [_flat(x) for x in (o, h, l, c)], "targets": _flat(X), "K": X.shape[1],
+        "carry": _flat(rate), "carry_multiplier": 2.0, "train": 100, "test": 40,
+        "train_scores": _flat(wf.train_scores), "choice": wf.choice.tolist(),
+        "output": _flat(wf.output), "stats": {k: _num(v) for k, v in wf.stats.items()}}
     return {
+        "walk_forward_carry": walk_forward_carry,
         "by": by,
         "backtest_trades": {
             "values": _flat(out), "T": len(out),
