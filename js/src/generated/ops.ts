@@ -7134,7 +7134,7 @@ export interface RollingPermutationEntropyOptions {
   windowSize?: number;
   /** Number of values in a pattern, 2 to 7. There are order! patterns. @defaultValue `3` */
   order?: number;
-  /** Steps between the values of a pattern. @defaultValue `1` */
+  /** Steps between the values of a pattern. `(order - 1) * delay` must be 16777216 or less. @defaultValue `1` */
   delay?: number;
   /** Output before the window holds window_size patterns: "strict" gives NaN, "expanding" uses the patterns seen so far, and "zero" behaves as if the input were preceded by zeros. @defaultValue `"strict"` */
   startPolicy?: string;
@@ -7152,7 +7152,7 @@ export function RollingPermutationEntropy(options: RollingPermutationEntropyOpti
  *
  * @param windowSize Number of patterns, ending at the most recent steps, in the window.
  * @param order Number of values in a pattern, 2 to 7. There are order! patterns.
- * @param delay Steps between the values of a pattern.
+ * @param delay Steps between the values of a pattern. `(order - 1) * delay` must be 16777216 or less.
  * @param startPolicy Output before the window holds window_size patterns: "strict" gives NaN, "expanding" uses the patterns seen so far, and "zero" behaves as if the input were preceded by zeros.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingPermutationEntropy.html for the full reference.
  */

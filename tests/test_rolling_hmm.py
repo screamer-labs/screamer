@@ -114,3 +114,16 @@ def test_zero_and_large_inputs_stay_finite(emission):
     for x in (np.zeros(150), rng.standard_normal(150) * 1e100, rng.standard_normal(150) * 1e-100):
         out = np.asarray(RollingHMM(window_size=50, refit_every=7, emission=emission)(x))
         assert np.isfinite(out[49:]).all()
+
+
+@pytest.mark.parametrize("emission", ["gaussian", "ar1"])
+def test_refits_recover_after_a_collapsed_fit_and_a_huge_value(emission):
+    # a window of zeros fits two equal states with tiny variances; a value of
+    # 1e5 then breaks the warm start. The next fits must recover: the variance
+    # is floored by the current window, and prob does not stay at 0.5.
+    x = np.r_[np.zeros(60), 1e5, np.random.default_rng(12).standard_normal(400)]
+    out = np.asarray(RollingHMM(window_size=30, refit_every=5, emission=emission)(x))
+    assert np.isfinite(out[29:]).all()
+    assert (out[64:, 2] > 1e-3).all()                 # 64 is the first refit after 1e5
+    assert np.std(out[-200:, 0]) > 1e-3
+    np.testing.assert_allclose(out, RollingHMM_numpy(30, 5, emission)(x), rtol=1e-6, atol=1e-9)

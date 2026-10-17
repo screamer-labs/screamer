@@ -16,9 +16,12 @@
 // median |x| form state 0, the rest state 1; "ar1": phi = rho -/+ 0.5,
 // clipped to [-0.99, 0.99], rho the window's lag-1 autocorrelation), later
 // ones from the previous fit with the initial distribution reset to
-// (0.5, 0.5). EM stops after max_iter M-steps or when the log-likelihood
-// gains less than tol. Every variance is floored at 1e-6 times the window
-// variance. After a fit the states are ordered so that state 1 has the
+// (0.5, 0.5) and its variances floored for the current window. A warm start
+// whose two states coincide, whose first E-step fails, or whose first E-step
+// leaves a state without weight falls back to the deterministic split. EM stops after max_iter M-steps or when the
+// log-likelihood gains less than tol; an M-step whose parameters give a
+// non-finite log-likelihood is undone. Every variance is floored at 1e-6
+// times the window variance. After a fit the states are ordered so that state 1 has the
 // larger variance ("gaussian") or the larger phi ("ar1"), and a forward pass
 // over the window gives the filtered probability. Between fits the forward
 // recursion runs with fixed parameters on each new value.
@@ -71,6 +74,7 @@ public:
         alpha_.assign(2 * W_, 0.0);
         beta_.assign(2 * W_, 0.0);
         scale_.assign(W_, 0.0);
+        gamma_.assign(2 * W_, 0.0);
         reset();
     }
 
@@ -196,17 +200,32 @@ private:
         }
     }
 
-    double gamma(std::size_t i, int k) const {
-        const double g0 = alpha_[2 * i] * beta_[2 * i];
-        const double g1 = alpha_[2 * i + 1] * beta_[2 * i + 1];
-        return (k == 0 ? g0 : g1) / (g0 + g1);
+    // gamma_ = the normalized state probabilities alpha * beta, once per M-step.
+    void smooth(std::size_t N) {
+        for (std::size_t i = 0; i < N; ++i) {
+            const double g0 = alpha_[2 * i] * beta_[2 * i];
+            const double g1 = alpha_[2 * i + 1] * beta_[2 * i + 1];
+            gamma_[2 * i] = g0 / (g0 + g1);
+            gamma_[2 * i + 1] = g1 / (g0 + g1);
+        }
     }
 
+    // Some state has no weight in gamma_.
+    bool empty_state(std::size_t N) const {
+        double s0 = 0.0, s1 = 0.0;
+        for (std::size_t i = 0; i < N; ++i) {
+            s0 += gamma_[2 * i];
+            s1 += gamma_[2 * i + 1];
+        }
+        return !(s0 > 0.0) || !(s1 > 0.0);
+    }
+
+    // One M-step from gamma_ (smooth() after backward()).
     Params m_step(const Params& th, std::size_t N, double center, double floor) const {
         Params nw = th;
         const double* y = ys();
         const double* z = zs();
-        const double g00 = gamma(0, 0), g01 = gamma(0, 1);
+        const double g00 = gamma_[0], g01 = gamma_[1];
         nw.pi[0] = g00 / (g00 + g01);
         nw.pi[1] = g01 / (g00 + g01);
         double X[2][2] = {{0.0, 0.0}, {0.0, 0.0}};
@@ -229,7 +248,7 @@ private:
         for (int k = 0; k < 2; ++k) {
             double S0 = 0.0, Sy = 0.0, Sz = 0.0, Szz = 0.0, Szy = 0.0;
             for (std::size_t i = 0; i < N; ++i) {
-                const double w = gamma(i, k);
+                const double w = gamma_[2 * i + static_cast<std::size_t>(k)];
                 const double yc = y[i] - center;
                 S0 += w;
                 Sy += w * yc;
@@ -252,7 +271,7 @@ private:
             double ss = 0.0;
             for (std::size_t i = 0; i < N; ++i) {
                 const double r = ar1_ ? y[i] - c - phi * z[i] : y[i] - c;
-                ss += gamma(i, k) * r * r;
+                ss += gamma_[2 * i + static_cast<std::size_t>(k)] * r * r;
             }
             nw.mu[k] = c;
             nw.phi[k] = phi;
@@ -337,18 +356,45 @@ private:
         for (double v : win_) ss += (v - center) * (v - center);
         const double floor = std::max(1e-6 * (ss / Wd), 1e-300);
         Params th;
-        if (fitted_) {
+        bool warm = fitted_;
+        if (warm) {
             th = th_;
             th.pi[0] = 0.5;
             th.pi[1] = 0.5;
-        } else {
-            th = initial(floor);
+            for (int k = 0; k < 2; ++k) th.var[k] = std::max(th.var[k], floor);
+            th.set_logv();
+            // two equal states carry nothing to start from
+            warm = !(th.mu[0] == th.mu[1] && th.phi[0] == th.phi[1] && th.var[0] == th.var[1]);
         }
+        if (!warm) th = initial(floor);
+        Params good = th;                 // the last parameters with a finite log-likelihood
         double ll_prev = -std::numeric_limits<double>::infinity();
         for (int it = 0; it < max_iter_; ++it) {
-            const double ll = forward(th, N);
-            if (std::isnan(ll) || (it > 0 && !(ll - ll_prev >= tol_))) break;
-            backward(th, N);
+            double ll = forward(th, N);
+            bool smoothed = false;
+            if (it == 0 && warm) {
+                if (std::isfinite(ll)) {
+                    backward(th, N);
+                    smooth(N);
+                    smoothed = true;
+                }
+                if (!smoothed || empty_state(N)) {
+                    th = initial(floor);
+                    good = th;
+                    smoothed = false;
+                    ll = forward(th, N);
+                }
+            }
+            if (!std::isfinite(ll)) {
+                th = good;
+                break;
+            }
+            if (it > 0 && !(ll - ll_prev >= tol_)) break;
+            good = th;
+            if (!smoothed) {
+                backward(th, N);
+                smooth(N);
+            }
             th = m_step(th, N, center, floor);
             ll_prev = ll;
         }
@@ -397,7 +443,7 @@ private:
     const bool ar1_;
     const int max_iter_;
     const double tol_;
-    std::vector<double> buf_, win_, eb_, alpha_, beta_, scale_;
+    std::vector<double> buf_, win_, eb_, alpha_, beta_, scale_, gamma_;
     std::size_t head_ = 0, count_ = 0;
     int since_ = 0;
     bool fitted_ = false;

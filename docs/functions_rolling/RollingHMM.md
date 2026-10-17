@@ -99,9 +99,11 @@ It returns three columns:
 The first `window_size - 1` rows are `NaN`. The first fit starts from a
 deterministic split (values below and above the median absolute value for
 `"gaussian"`; `phi` at the window's lag-1 autocorrelation minus and plus 0.5
-for `"ar1"`), so the result is reproducible. Variances are floored at
-`1e-6` times the window variance, which keeps a fit finite on a constant
-window. A fit costs `O(max_iter * window_size)`; a step between fits is
+for `"ar1"`), so the result is reproducible. Later fits start from the
+previous one, and from the deterministic split again when the previous fit
+gives two equal states, fails on the new window, or leaves a state without
+weight in it. Variances are floored at `1e-6` times the window variance,
+which keeps a fit finite on a constant window. A fit costs `O(max_iter * window_size)`; a step between fits is
 `O(1)`.
 
 <!-- NAN_FOOTNOTE_START -->

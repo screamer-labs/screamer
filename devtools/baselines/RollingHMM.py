@@ -1,14 +1,19 @@
 """Two-state hidden Markov model refit on a trailing window, written as a
 direct numpy transcription of the algorithm in include/screamer/rolling_hmm.h:
 the deterministic first split, Baum-Welch with a scaled forward-backward pass,
-the variance floor, the state ordering, the warm start, and forward filtering
-between refits."""
+the variance floor, the state ordering, the warm start with its fallbacks, and
+forward filtering between refits."""
 import math
 
 import numpy as np
 
 _LOG2PI = math.log(2.0 * math.pi)
 _A0 = ((0.95, 0.05), (0.05, 0.95))
+
+
+def _gamma(alpha, beta):
+    g = alpha * beta
+    return g / g.sum(axis=1, keepdims=True)
 
 
 class _Params:
@@ -65,8 +70,7 @@ class RollingHMM_numpy:
         return beta
 
     def _mstep(self, th, y, z, alpha, beta, eb, scale, center, floor):
-        g = alpha * beta
-        g = g / g.sum(axis=1, keepdims=True)
+        g = _gamma(alpha, beta)
         new = th.copy()
         new.pi = g[0] / g[0].sum()
         X = np.zeros((2, 2))
@@ -125,16 +129,32 @@ class RollingHMM_numpy:
         y, z = (win[1:], win[:-1]) if self.ar1 else (win, win)
         center = win.mean()
         floor = max(1e-6 * win.var(), 1e-300)
-        if warm is None:
-            th = self._initial(win, floor)
-        else:
+        if warm is not None:
             th = warm.copy()
             th.pi = np.array([0.5, 0.5])
-        ll_prev = -math.inf
+            th.var = np.maximum(th.var, floor)
+            if th.mu[0] == th.mu[1] and th.phi[0] == th.phi[1] and th.var[0] == th.var[1]:
+                warm = None                     # two equal states carry nothing
+        if warm is None:
+            th = self._initial(win, floor)
+        good, ll_prev = th, -math.inf
         for it in range(self.max_iter):
             ll, alpha, eb, scale = self._forward(th, self._logb(th, y, z))
-            if math.isnan(ll) or (it > 0 and not (ll - ll_prev >= self.tol)):
+            if it == 0 and warm is not None:
+                # a failed or one-state first E-step: restart from the split
+                restart = not math.isfinite(ll)
+                if not restart:
+                    beta = self._backward(th, eb, scale)
+                    restart = not (_gamma(alpha, beta).sum(axis=0) > 0.0).all()
+                if restart:
+                    th = good = self._initial(win, floor)
+                    ll, alpha, eb, scale = self._forward(th, self._logb(th, y, z))
+            if not math.isfinite(ll):
+                th = good                       # undo the M-step that broke the fit
                 break
+            if it > 0 and not (ll - ll_prev >= self.tol):
+                break
+            good = th
             beta = self._backward(th, eb, scale)
             th = self._mstep(th, y, z, alpha, beta, eb, scale, center, floor)
             ll_prev = ll
