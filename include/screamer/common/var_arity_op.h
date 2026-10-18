@@ -29,8 +29,10 @@ constexpr std::size_t kMaxVarArityOutputs = 32;
 template <class Derived>
 class VarArityOp : public EvalOp {
 public:
+    // At least two inputs: the Python dispatch routes a one-input operator
+    // through ScreamerBase or FunctorBase<_, 1, M>, never through a view.
     VarArityOp(std::size_t n_in, std::size_t n_out) : n_in_(n_in), n_out_(n_out) {
-        if (n_in < 1 || n_in > kMaxColumnInputs || n_out < 1 || n_out > kMaxVarArityOutputs)
+        if (n_in < 2 || n_in > kMaxColumnInputs || n_out < 1 || n_out > kMaxVarArityOutputs)
             throw std::invalid_argument("unsupported number of inputs or outputs.");
     }
 
