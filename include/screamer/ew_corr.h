@@ -10,6 +10,9 @@
 // The bias-correction factor that EwVar / EwCov apply cancels in the
 // numerator-vs-denominator ratio, so we use the simpler unbiased form.
 // Matches pandas.Series.ewm(adjust=True).corr(other). O(1) per update.
+//
+// The output is NaN while either input is constant, and once either has
+// stopped varying (detail/ew_flat.h): about 45 / alpha rows after it stops.
 
 #include <cmath>
 #include <limits>
@@ -17,6 +20,7 @@
 #include <stdexcept>
 #include "screamer/common/functor_base.h"
 #include "screamer/common/float_info.h"
+#include "screamer/detail/ew_flat.h"
 #include "screamer/detail/shifted_power_sums.h"
 
 namespace screamer {
@@ -49,12 +53,15 @@ public:
         }
         one_minus_alpha_  = 1.0 - alpha_;
         one_minus_alpha2_ = one_minus_alpha_ * one_minus_alpha_;
+        peak_decay_ = detail::ew_flat_peak_decay(one_minus_alpha_);
         reset();
     }
 
     void reset() override {
         sums_.reset();
         sum_w2_ = 0.0;
+        flat_x_.reset();
+        flat_y_.reset();
     }
 
     ResultTuple call(const InputArray& inputs) override {
@@ -79,22 +86,27 @@ public:
         const double q_xx = sums_.sxx * inv_w;
         const double q_xy = sums_.sxy * inv_w;
         const double q_yy = sums_.syy * inv_w;
+        const double mean_x = sums_.sx * inv_w;
+        const double mean_y = sums_.sy * inv_w;
+        const double mean_xx = mean_x * mean_x;
+        const double mean_yy = mean_y * mean_y;
+        const double var_x  = q_xx - mean_xx;
+        const double var_y  = q_yy - mean_yy;
+        // NaN once either input has stopped varying (detail/ew_flat.h).
+        // Each input has its own peak: the variance of one that stopped falls
+        // steadily away from its peak, so once flagged it stays flagged.
+        const bool flat_x = flat_x_.flat(var_x, peak_decay_);
+        const bool flat_y = flat_y_.flat(var_y, peak_decay_);
         const double n_eff = sum_w * sum_w / sum_w2_;
         if (n_eff <= 1.0) {
             return std::numeric_limits<double>::quiet_NaN();
         }
         // Each product is its own statement (see detail/shifted_power_sums.h).
-        const double mean_x = sums_.sx * inv_w;
-        const double mean_y = sums_.sy * inv_w;
-        const double mean_xx = mean_x * mean_x;
-        const double mean_yy = mean_y * mean_y;
         const double mean_xy = mean_x * mean_y;
-        const double var_x  = q_xx - mean_xx;
-        const double var_y  = q_yy - mean_yy;
         const double cov_xy = q_xy - mean_xy;
 
         const double denom = std::sqrt(var_x * var_y);
-        if (!(denom > 0.0)) {
+        if (flat_x | flat_y) {
             return std::numeric_limits<double>::quiet_NaN();
         }
         return cov_xy / denom;
@@ -106,6 +118,9 @@ private:
     double one_minus_alpha2_{};
     detail::ShiftedCoPowerSums sums_;
     double sum_w2_ = 0.0;
+    double peak_decay_ = 1.0;
+    detail::EwFlatPeak flat_x_;
+    detail::EwFlatPeak flat_y_;
 };
 
 }  // namespace screamer

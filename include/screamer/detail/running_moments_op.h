@@ -7,9 +7,11 @@
 // sums (detail::ShiftedPowerSums<P, kTime>) and, for the weighted ones, the sum of
 // squared weights, and runs the per-event and batch loops; Derived supplies
 //
-//     double value(const State& st, double x) const
+//     double value(State& st, double x) const
 //
-// the output for the state st after adding x. The batch loop keeps the state
+// the output for the state st after adding x (value may take a const State&
+// when it changes nothing). With kFlat the state also holds the decaying peak
+// of the weighted variance (st.flat, detail/ew_flat.h), which value updates. The batch loop keeps the state
 // in a local, and both loops call the same step and value, so batch and
 // streaming give the same numbers. A NaN input gives NaN and leaves the state
 // untouched (the "ignore" NaN policy).
@@ -18,17 +20,25 @@
 #include <limits>
 #include "screamer/common/base.h"
 #include "screamer/common/float_info.h"
+#include "screamer/detail/ew_flat.h"
 #include "screamer/detail/shifted_power_sums.h"
 
 namespace screamer {
 namespace detail {
 
-template <class Derived, int P, bool kDecay, bool kTime = false>
+// The flat-series peak as a base of State: empty without kFlat.
+template <bool kFlat>
+struct FlatStatePart { EwFlatPeak flat; };
+template <>
+struct FlatStatePart<false> {};
+
+template <class Derived, int P, bool kDecay, bool kTime = false, bool kFlat = false>
 class RunningMomentsOp : public ScreamerBase {
     static_assert(!(kDecay && kTime), "time sums are for the expanding operators");
+    static_assert(!kFlat || kDecay, "the flat test is for the weighted operators");
 
 protected:
-    struct State {
+    struct State : FlatStatePart<kFlat> {
         ShiftedPowerSums<P, kTime> sums;  // w = sum of the weights
         double w2 = 0.0;           // sum of the squared weights (kDecay only)
     };

@@ -10,7 +10,7 @@
 
 namespace screamer {
 
-    class EwSkew : public detail::RunningMomentsOp<EwSkew, 3, true> {
+    class EwSkew : public detail::RunningMomentsOp<EwSkew, 3, true, false, true> {
     public:
         explicit EwSkew(
             std::optional<double> com = std::nullopt,
@@ -43,11 +43,12 @@ namespace screamer {
             }
             one_minus_alpha_ = 1.0 - alpha_;
             one_minus_alpha2_ = one_minus_alpha_ * one_minus_alpha_;
+            peak_decay_ = detail::ew_flat_peak_decay(one_minus_alpha_);
 
             reset();
         }
 
-        inline double value(const State& st, double) const {
+        inline double value(State& st, double) const {
             // The power sums are taken about an origin that follows the mean,
             // so they do not cancel when the mean is large next to the spread;
             // the formulas below do not depend on the origin. Each product is
@@ -67,6 +68,10 @@ namespace screamer {
             const double t2 = 2 * mean * mean * mean;
             const double m2 = q2 - mean_sq;
             const double m3 = q3 - t1 + t2;
+            // NaN once the series has stopped varying (detail/ew_flat.h).
+            if (st.flat.flat(m2, peak_decay_)) {
+                return std::numeric_limits<double>::quiet_NaN();
+            }
 
             // Adjusted Fisher-Pearson skewness, the estimator scipy returns
             // for bias=False and pandas returns from rolling().skew():
@@ -90,6 +95,7 @@ namespace screamer {
 
     private:
         double alpha_;
+        double peak_decay_ = 1.0;
         
     };
 

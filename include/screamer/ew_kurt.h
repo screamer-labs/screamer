@@ -10,7 +10,7 @@
 
 namespace screamer {
 
-    class EwKurt : public detail::RunningMomentsOp<EwKurt, 4, true> {
+    class EwKurt : public detail::RunningMomentsOp<EwKurt, 4, true, false, true> {
     public:
         explicit EwKurt(
             std::optional<double> com = std::nullopt,
@@ -42,11 +42,12 @@ namespace screamer {
             }
             one_minus_alpha_ = 1.0 - alpha_;
             one_minus_alpha2_ = one_minus_alpha_ * one_minus_alpha_;
+            peak_decay_ = detail::ew_flat_peak_decay(one_minus_alpha_);
 
             reset();
         }
 
-        inline double value(const State& st, double) const {
+        inline double value(State& st, double) const {
             // The power sums are taken about an origin that follows the mean,
             // so they do not cancel when the mean is large next to the spread;
             // the formulas below do not depend on the origin. Each product is
@@ -64,6 +65,10 @@ namespace screamer {
 
             // Population (biased) second central moment, weighted.
             const double m2 = q2 - mean2;
+            // NaN once the series has stopped varying (detail/ew_flat.h).
+            if (st.flat.flat(m2, peak_decay_)) {
+                return std::numeric_limits<double>::quiet_NaN();
+            }
 
             // Compute the fourth central moment (m4)
             const double t1 = 4 * mean * q3;
@@ -94,6 +99,7 @@ namespace screamer {
 
     private:
         double alpha_;
+        double peak_decay_ = 1.0;
         
     };
 
