@@ -12,8 +12,8 @@ series stops, 414 to 434 rows at alpha = 0.1 in these tests.
 
 EwCorr and EwZscore keep their values: with one series flat they decay toward
 0 with the exact value. They give NaN only where the denominator underflows:
-EwCorr once the product of the two variances is subnormal (both inputs flat
-for a long time), EwZscore once the variance is 0 (it gave +-inf when the
+EwCorr once either variance is subnormal (after about 6700 rows at
+alpha = 0.1 for unit variance), EwZscore once the variance is 0 (it gave +-inf when the
 deviation was still a subnormal).
 
 The references are exact weighted moments, from sums kept in 300-digit
@@ -35,10 +35,10 @@ def _dec(v):
     return Decimal(float(v))
 
 
-def _exact(x, y, t, alpha=ALPHA):
+def _exact(x, y, t, alpha=ALPHA, prec=300):
     """Exact weighted moments of x (and y) over rows 0..t, with the weights
-    (1 - alpha)^(t - i) the operators use."""
-    getcontext().prec = 300
+    (1 - alpha)^(t - i) the operators use, in decimals of prec digits."""
+    getcontext().prec = prec
     a = _dec(1.0 - alpha)
     W = W2 = Sx = Sy = Sxx = Syy = Sxy = Sx3 = Sx4 = Decimal(0)
     for i in range(t + 1):
@@ -254,8 +254,8 @@ def test_batch_equals_stream_on_a_flat_tail(case):
     np.testing.assert_array_equal(batch, stream)
 
 
-def _exact_corr_z(x, y, t):
-    e = _exact(x, y, t)
+def _exact_corr_z(x, y, t, prec=300):
+    e = _exact(x, y, t, prec=prec)
     corr = e["cxy"] / (e["m2"] * e["vy"]).sqrt() if y is not None else None
     n = e["n"]
     z = (e["x"] - e["mx"]) / (e["m2"] * n / (n - 1)).sqrt()
@@ -279,28 +279,66 @@ def test_ewcorr_and_ewzscore_keep_exact_values_on_one_flat_series(level):
         assert z[t] == pytest.approx(float(rz), rel=1e-6, abs=1e-14), t
 
 
-def test_ewcorr_both_flat_is_nan_once_the_variance_product_underflows():
-    """Both inputs flat: the correlation of the earlier rows stays exact while
-    the product of the variances is a normal double, then the ratio was noise
-    (off by up to 0.9, or NaN on some rows). It is NaN from the first row
-    where the product is subnormal, about 3360 rows at alpha = 0.1 for unit
-    variances, and stays NaN."""
+def _first_nan_after(out, start):
+    return start + np.flatnonzero(np.isnan(out[start:]))[0]
+
+
+def test_ewcorr_both_flat_is_exact_until_a_variance_is_subnormal():
+    """Both inputs flat: the correlation of the earlier rows stays exact. The
+    product of the variances turns subnormal after about 3400 rows at
+    alpha = 0.1 (main lost its precision there: off by up to 0.87, or NaN);
+    the denominator is then a product of square roots. Once a variance is
+    subnormal, after about 6700 rows, the output is NaN for good."""
     for seed in range(3):
         rng = np.random.default_rng(seed)
-        n_flat = 6000
+        n_flat = 9000
         x = np.r_[rng.standard_normal(N1), np.full(n_flat, 3.7)]
         y = np.r_[2 * rng.standard_normal(N1) + 1, np.full(n_flat, -3.2)]
         out = s.EwCorr(alpha=ALPHA)(x, y)
-        nan = np.flatnonzero(np.isnan(out[5:])) + 5
-        first = nan[0]
-        assert 3200 <= first - N1 <= 3600, first - N1
+        first = _first_nan_after(out, 5)
+        assert 6400 <= first - N1 <= 7000, first - N1
         assert np.isnan(out[first:]).all()
-        vx = s.EwVar(alpha=ALPHA)(x)
-        vy = s.EwVar(alpha=ALPHA)(y)
-        assert vx[first - 1] * vy[first - 1] > 1e-308 > vx[first + 5] * vy[first + 5]
-        for t in (N1 + 1000, first - 1):
-            rc, _ = _exact_corr_z(x, y, t)
+        for t in (N1 + 3000, N1 + 4000, first - 1):
+            rc, _ = _exact_corr_z(x, y, t, prec=800)
             assert out[t] == pytest.approx(float(rc), rel=1e-9), t
+
+
+@pytest.mark.parametrize("level", [3.7, 0.0])
+def test_ewcorr_one_flat_input_is_a_clean_nan_once_its_variance_is_subnormal(level):
+    """One input flat: exact values that decay toward 0 until its variance is
+    subnormal (about 6700 rows at alpha = 0.1), then NaN on every row. Main
+    gave a mix of NaN and values below 1e-154 there."""
+    f, r = _stops(level, 1, n_flat=9000)
+    for out in (s.EwCorr(alpha=ALPHA)(f, r), s.EwCorr(alpha=ALPHA)(r, f)):
+        first = _first_nan_after(out, 5)
+        assert 6400 <= first - N1 <= 7000, first - N1
+        assert np.isnan(out[first:]).all()
+        rc, _ = _exact_corr_z(f, r, first - 1, prec=800)
+        assert out[first - 1] == pytest.approx(float(rc), rel=1e-6, abs=1e-14)
+
+
+@pytest.mark.parametrize("scale", [1e-60, 1e-77, 1e-78, 1e-80, 1e-150])
+def test_ewcorr_does_not_depend_on_a_small_scale(scale):
+    """Inputs at a small scale: the product of the variances is subnormal
+    from 1e-77 on (main lost digits there, 5e-4 at 1e-80, and was NaN at
+    1e-150), each variance is still a normal double, and the correlation
+    matches the one at unit scale."""
+    rng = np.random.default_rng(3)
+    x = rng.standard_normal(5000)
+    y = 0.6 * x + 0.8 * rng.standard_normal(5000)
+    ref = s.EwCorr(alpha=ALPHA)(x, y)
+    out = s.EwCorr(alpha=ALPHA)(x * scale, y * scale)
+    assert np.isnan(out[0]) and np.isfinite(out[1:]).all()
+    np.testing.assert_allclose(out[1:], ref[1:], rtol=0, atol=1e-13)
+
+
+def test_ewcorr_is_nan_when_a_variance_is_subnormal():
+    """x at a scale of 1e-160 has a variance near 1e-320, a subnormal with 3
+    or 4 digits left; main's correlation was off by up to 5e-4. It is NaN."""
+    rng = np.random.default_rng(3)
+    x = rng.standard_normal(5000)
+    y = 0.6 * x + 0.8 * rng.standard_normal(5000)
+    assert np.isnan(s.EwCorr(alpha=ALPHA)(x * 1e-160, y)).all()
 
 
 @pytest.mark.parametrize("seed", [0, 1, 2])

@@ -34,7 +34,9 @@ def _inputs():
     """flat: 100 varying rows, 200 at 3.7, 300 varying again. rand: varying.
     tick: returns of spread 0.01 with one 1e10 tick at row 100. bx, by: two
     series that both stop varying after row 100 (1200 rows). z: 0.001 after
-    100 varying rows (1200 rows), whose variance underflows at alpha = 0.5."""
+    100 varying rows (1200 rows), whose variance underflows at alpha = 0.5.
+    tx, ty: correlated noise at a scale of 1e-80, whose variances have a
+    subnormal product."""
     rng = np.random.default_rng(20261018)
     T = 600
     flat = rng.standard_normal(T)
@@ -46,7 +48,10 @@ def _inputs():
     bx = np.r_[rng.standard_normal(100), np.full(1100, 3.7)]
     by = np.r_[2 * rng.standard_normal(100) + 1, np.full(1100, -3.2)]
     z = np.r_[0.001 + 0.0005 * rng.standard_normal(100), np.full(1100, 0.001)]
-    return {"flat": flat, "rand": rand, "tick": tick, "small": small, "bx": bx, "by": by, "z": z}
+    tx = 1e-80 * rng.standard_normal(300)
+    ty = 0.6 * tx + 0.8e-80 * rng.standard_normal(300)
+    return {"flat": flat, "rand": rand, "tick": tick, "small": small, "bx": bx, "by": by, "z": z,
+            "tx": tx, "ty": ty}
 
 
 # (operator, input series[, alpha]).
@@ -68,6 +73,7 @@ CASES = [
     ("EwKurt", ["tick"]),
     ("EwCorr", ["bx", "by"], 0.5),
     ("EwZscore", ["z"], 0.5),
+    ("EwCorr", ["tx", "ty"]),
 ]
 
 

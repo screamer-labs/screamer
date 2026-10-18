@@ -64,14 +64,14 @@ namespace screamer {
 
             // Population (biased) central moments, weighted.
             const double mean_sq = mean * mean;
-            const double t1 = 3 * mean * q2;
-            const double t2 = 2 * mean * mean * mean;
             const double m2 = q2 - mean_sq;
-            const double m3 = q3 - t1 + t2;
             // NaN once the series has stopped varying (detail/ew_flat.h).
             if (st.flat.flat(m2, peak_decay_)) {
                 return std::numeric_limits<double>::quiet_NaN();
             }
+            const double t1 = 3 * mean * q2;
+            const double t2 = 2 * mean * mean * mean;
+            const double m3 = q3 - t1 + t2;
 
             // Adjusted Fisher-Pearson skewness, the estimator scipy returns
             // for bias=False and pandas returns from rolling().skew():
