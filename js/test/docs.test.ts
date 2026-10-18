@@ -40,6 +40,7 @@ test("docs: every functor accepts its documented options with their defaults", a
     const opts: Record<string, unknown> = {};
     for (const p of e.parameters)
       if (p.defaultText !== undefined) opts[p.name] = Function(`return (${p.defaultText})`)();
+      else if (p.required) opts[p.name] = p.default;   // the docs example value
     const op = lib[name](opts);
     op.dispose?.();
     checked++;

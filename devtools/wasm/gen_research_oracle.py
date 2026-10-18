@@ -7,7 +7,8 @@ of the input series below; js/test/research.test.ts builds the same operator
 in JavaScript (settings in camelCase), runs it on the same series, and
 compares the result, to 1e-9 relative unless the case gives a tolerance. The
 helper cases hold the inputs and results of backtest_trades, backtest_report
-with by=, and walk_forward with carry= and portfolio engines. A non-finite
+with by=, walk_forward with carry= and portfolio engines, and
+LiquidationDistance on (T, K) columns. A non-finite
 number is written as null (NaN), "inf" or "-inf".
 
 Modes:
@@ -36,11 +37,31 @@ def _inputs():
     scale = np.where((np.arange(T) // 150) % 2 == 0, 0.5, 2.0)
     returns = rng.standard_normal(T) * scale
     returns[[100, 450]] = np.nan
-    return {"events": events, "returns": returns}
+    return {"events": events, "returns": returns, **_liquidation_market()}
 
 
-# (operator, settings, input series[, relative tolerance]). Each operator
-# task adds its cases here.
+def _liquidation_market(T=600, K=1):
+    """A position with long, short, flat, flipping, and resized stretches and
+    NaN holds, on volatile OHLC bars with NaN prices (one on an entry open),
+    for LiquidationDistance. K > 1 gives (T, K) columns."""
+    rng = np.random.default_rng(20261018 + K)
+    steps = np.repeat(rng.choice([0.0, 1.0, 2.0, -1.0, -3.0], size=(T // 25 + 1, K)), 25, axis=0)[:T]
+    position = steps.copy()
+    position[rng.random((T, K)) < 0.03] = np.nan
+    close = 100 * np.exp(np.cumsum(rng.standard_normal((T, K)) * 0.02, axis=0))
+    open_ = np.vstack([close[:1], close[:-1]])
+    high = np.maximum(open_, close) * (1 + np.abs(rng.standard_normal((T, K))) * 0.01)
+    low = np.minimum(open_, close) * (1 - np.abs(rng.standard_normal((T, K))) * 0.01)
+    open_[[25, 26], 0] = np.nan                    # an entry bar and the bar after it
+    high[[90, 200], 0] = np.nan
+    low[[91, 201], 0] = np.nan
+    cols = {"liq_position": position, "liq_open": open_, "liq_high": high, "liq_low": low}
+    return {k: v[:, 0] for k, v in cols.items()} if K == 1 else cols
+
+
+# (operator, settings, input series or a list of them[, relative tolerance]).
+# Each operator task adds its cases here.
+_LIQ = ["liq_position", "liq_open", "liq_high", "liq_low"]
 CASES = [
     ("Hold", {"n": 3}, "events"),
     ("Hold", {"n": 3, "cooldown": 4}, "events"),
@@ -66,6 +87,8 @@ CASES = [
     ("RollingHMM", {"window_size": 150, "refit_every": 40, "max_iter": 20, "tol": 0.0}, "returns", 1e-6),
     ("RollingHMM", {"window_size": 150, "refit_every": 40, "emission": "ar1", "max_iter": 20, "tol": 0.0},
      "returns", 1e-6),
+    ("LiquidationDistance", {"leverage": 10.0}, _LIQ),
+    ("LiquidationDistance", {"leverage": 25.0, "maintenance": 0.01}, _LIQ),
 ]
 
 
@@ -142,7 +165,13 @@ def _helpers():
         "targets": _flat(Xh), "train": 60, "test": 30, "train_scores": _flat(wfh.train_scores),
         "choice": wfh.choice.tolist(), "target": _flat(wfh.target), "output": _flat(wfh.output),
         "stats": {k: _num(v) for k, v in wfh.stats.items()}}
+    liq = _liquidation_market(T=300, K=3)
+    liq_out = s.LiquidationDistance(leverage=8.0)(*(liq[k] for k in _LIQ))
+    liquidation_2d = {"T": 300, "K": 3, "leverage": 8.0,
+                      "inputs": [_flat(liq[k]) for k in _LIQ],
+                      "shape": list(np.shape(liq_out)), "output": _flat(liq_out)}
     return {
+        "liquidation_2d": liquidation_2d,
         "walk_forward_carry": walk_forward_carry,
         "walk_forward_portfolio": walk_forward_portfolio,
         "walk_forward_portfolio_hold": walk_forward_portfolio_hold,
@@ -172,7 +201,8 @@ def build():
     cases = []
     for case in CASES:
         name, settings, key = case[:3]
-        out = np.asarray(getattr(s, name)(**settings)(inputs[key]), dtype=float)
+        args = [inputs[k] for k in key] if isinstance(key, list) else [inputs[key]]
+        out = np.asarray(getattr(s, name)(**settings)(*args), dtype=float)
         entry = {"name": name, "settings": settings, "input": key,
                  "shape": list(out.shape), "out": _flat(out)}
         if len(case) > 3:

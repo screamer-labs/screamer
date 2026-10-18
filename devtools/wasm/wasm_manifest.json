@@ -3090,6 +3090,27 @@
     "source": "bindings/bindings_math.cpp"
   },
   {
+    "name": "LiquidationDistance",
+    "cpp_type": "screamer::LiquidationDistance",
+    "base": "FunctorBase",
+    "ctor": [
+      "double",
+      "double"
+    ],
+    "ctor_args": [
+      {
+        "name": "leverage",
+        "default": null
+      },
+      {
+        "name": "maintenance",
+        "default": "0.005"
+      }
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
     "name": "Log",
     "cpp_type": "screamer::Transform<(double (*)(double)) std::log>",
     "base": "ScreamerBase",

@@ -142,6 +142,7 @@ LessEqual, Returns 1.0 if a <= b, else 0.0. NaN in either input yields NaN.
 LessThan, Returns 1.0 if a < b, else 0.0. NaN in either input yields NaN.
 Linear, Affine transform: scale * x + shift.
 Linear2, Two-input affine combination: a*x + b*y + c.
+LiquidationDistance, How far each bar's worst price is from the liquidation price of an isolated-margin position at a given leverage.
 Log, Natural logarithm of each element.
 LogReturn, Log return log(x[t] / x[t-k]) at lag k.
 MACD, MACD line, signal line, and histogram (3 outputs).

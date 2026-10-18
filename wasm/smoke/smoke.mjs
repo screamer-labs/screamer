@@ -56,6 +56,7 @@ function parseDefault(name, type, text) {
 const REQUIRED = {
   SchmittTrigger: { lower: 0.0, upper: 1.0 },         // lower < upper
   RoofingFilter: { hp_period: 48, lp_period: 10 },     // one of period or cutoff per filter
+  LiquidationDistance: { leverage: 10.0 },             // leverage > 1
 };
 
 // Build constructor args for one manifest entry from its defaults.

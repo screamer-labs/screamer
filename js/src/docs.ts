@@ -18,8 +18,10 @@ export const DOCS_URL = "https://screamer.readthedocs.io/en/latest/";
 export interface DocParameter {
   name: string;
   type?: string;
-  /** The default as written in JavaScript, such as `14`, `"wilder"`, or `-Infinity`. */
+  /** The default as written in JavaScript, such as `14`, `"wilder"`, or `-Infinity`. Absent for a required setting. */
   defaultText?: string;
+  /** True when the setting has no default and must be given. */
+  required?: boolean;
   enum?: unknown[];
   min?: number | string;
   max?: number | string;
@@ -235,6 +237,7 @@ export function formatShow(e: DocEntry): string {
       const extra: string[] = [];
       if (p.type) extra.push(p.type);
       if (p.defaultText !== undefined) extra.push(`default ${p.defaultText}`);
+      else if (p.required) extra.push("required");
       if (p.enum) extra.push("one of " + p.enum.map((v) => JSON.stringify(v)).join(", "));
       if (p.min !== undefined) extra.push(`min ${p.min}`);
       if (p.max !== undefined) extra.push(`max ${p.max}`);

@@ -15,17 +15,26 @@ not close positions or change pnl.
 
 ## Semantics
 
-Inputs (four streams, in this order): `position` (signed size; only its sign
-and its changes matter), `open`, `high`, `low` (the trigger price series,
-ideally mark-price bars).
+Inputs (four streams, in this order): `position` (signed size), `open`,
+`high`, `low` (the trigger price series, ideally mark-price bars). The
+position is the one a backtest engine reports (column 2 of
+`[equity, pnl, position, cost]`), already filled at that bar's open; a raw
+target would place each fill one bar early (look-ahead).
 
 Parameters: `leverage` (> 1), `maintenance` (maintenance-margin rate,
 0 <= maintenance < 1 / leverage, default 0.005).
 
-Segments: a segment starts on a bar where the position changes to a nonzero
-value (including a sign flip or a resize) and fills at that bar's open. Under
-isolated margin with no top-up, the segment posts |size| * entry / leverage.
-The liquidation price is
+Position changes follow exchange accounting, with every fill at the bar's
+open (ruling, fix round 1):
+
+- from flat, or a sign flip: a fresh entry at the open;
+- same-sign increase: the entry blends,
+  `entry = (|p0| * e0 + (|p1| - |p0|) * open) / |p1|`, and margin is posted on
+  the added size;
+- same-sign reduce: the entry, and so the liquidation price, is unchanged.
+
+Under isolated margin with no top-up, the position holds
+|size| * entry / leverage. The liquidation price is
 
 - long: `entry * (1 - 1 / leverage + maintenance)`
 - short: `entry * (1 + 1 / leverage - maintenance)`
@@ -36,14 +45,16 @@ Outputs per bar (output_names order):
   reach liquidation, as a fraction of that price: long `(low - liq) / low`,
   short `(liq - high) / high`. Negative or zero means the bar breached.
   NaN when flat.
-- `liq_price`: the segment's liquidation price; NaN when flat.
-- `breached`: 1.0 from the first breaching bar to the end of the segment,
-  0.0 before it in a segment, NaN when flat.
+- `liq_price`: the liquidation price of the current position; NaN when flat.
+- `breached`: 1.0 from the first breaching bar until the position goes flat
+  or flips, 0.0 before it, NaN when flat. A resize does not clear it, since
+  the position was in reality liquidated.
 
-A resize starts a new segment at the new fill (the conservative reading:
-margin is re-posted at the current price, with no credit for earlier gains).
 NaN inputs: a NaN position counts as unchanged (hold); NaN prices give NaN
-outputs for that bar without ending the segment.
+outputs for that bar without changing the state, except that a position
+change on that bar is still taken. A fill that needs the open (a fresh entry
+or an increase) happens at the next finite open; going flat before it cancels
+it.
 
 ## Shape and bindings
 
@@ -55,7 +66,8 @@ bindings with identical numbers, a docs page entry with a short example, and
 
 ## Tests
 
-Hand-computed long and short segments, a sign flip, a resize, a breach that
-latches, flat bars, NaN inputs, leverage / maintenance validation errors,
+Hand-computed long and short positions, a sign flip, a blended increase, a
+reduce that keeps the entry, a breach that latches through a resize, flat
+bars, going flat while a fill is pending, a flip on a NaN-open bar, NaN inputs, leverage / maintenance validation errors,
 batch vs streaming equality, Python vs JS parity in the existing parity
 harness.

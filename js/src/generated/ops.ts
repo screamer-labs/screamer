@@ -4886,6 +4886,43 @@ export function Linear2(a?: any, b?: any, c?: any): ScreamerOp {
   } catch (e) { throw _finite(M, "Linear2", ["a", "b", "c"], [a, b, c], e); }
 }
 
+/** The settings of LiquidationDistance by name, for `LiquidationDistance({ ... })`. */
+export interface LiquidationDistanceOptions {
+  /** Leverage of the position. The margin posted at each fill is |size| * entry / leverage. More than 1. */
+  leverage: number;
+  /** Maintenance-margin rate, as a fraction of the position value. 0 or more and less than 1 / leverage. @defaultValue `0.005` */
+  maintenance?: number;
+}
+
+/**
+ * How far each bar's worst price is from the liquidation price of an isolated-margin position at a given leverage.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/LiquidationDistance.html for the full reference.
+ */
+export function LiquidationDistance(options: LiquidationDistanceOptions): ScreamerOp;
+/**
+ * How far each bar's worst price is from the liquidation price of an isolated-margin position at a given leverage.
+ *
+ * @param leverage Leverage of the position. The margin posted at each fill is |size| * entry / leverage. More than 1.
+ * @param maintenance Maintenance-margin rate, as a fraction of the position value. 0 or more and less than 1 / leverage.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/LiquidationDistance.html for the full reference.
+ */
+export function LiquidationDistance(leverage: number, maintenance?: number): ScreamerOp;
+export function LiquidationDistance(leverage?: any, maintenance?: any): ScreamerOp {
+  if (_isOptions(leverage)) [leverage, maintenance] = _options("LiquidationDistance", leverage, arguments.length, ["leverage", "maintenance"], "leverage must be a number");
+  else if (arguments.length > 2) _tooMany("LiquidationDistance", 2, arguments.length);
+  const _given: unknown[] = [leverage, maintenance];
+  if (leverage === undefined) throw new TypeError(`LiquidationDistance: leverage is required`);
+  if (maintenance === undefined) maintenance = 0.005;
+  const M = current();
+  if (typeof leverage !== "number") throw new TypeError(`LiquidationDistance: leverage must be a number, got ${_what(leverage)}`);
+  if (typeof maintenance !== "number") throw new TypeError(`LiquidationDistance: maintenance must be a number, got ${_what(maintenance)}`);
+  try {
+    return _params(wrapOp(M, () => new M.LiquidationDistance(leverage, maintenance)), "LiquidationDistance", ["leverage", "maintenance"], _given);
+  } catch (e) { throw _finite(M, "LiquidationDistance", ["leverage", "maintenance"], [leverage, maintenance], e); }
+}
+
 /** Log has no settings: its options object is empty. */
 export type LogOptions = Record<string, never>;
 

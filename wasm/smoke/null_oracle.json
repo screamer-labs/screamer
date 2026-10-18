@@ -3563,6 +3563,37 @@
  },
  {
   "accepts_bool": {
+   "leverage": false,
+   "maintenance": false
+  },
+  "accepts_none": {
+   "leverage": false,
+   "maintenance": false
+  },
+  "base": {
+   "leverage": 10.0
+  },
+  "below_min": {},
+  "bool_message": {
+   "leverage": "LiquidationDistance: leverage must be a number, got bool",
+   "maintenance": "LiquidationDistance: maintenance must be a number, got bool"
+  },
+  "name": "LiquidationDistance",
+  "non_finite": {
+   "leverage": {
+    "-inf": "LiquidationDistance: leverage must be finite, got -inf",
+    "inf": "LiquidationDistance: leverage must be finite, got inf",
+    "nan": "LiquidationDistance: leverage must be finite, got nan"
+   },
+   "maintenance": {
+    "-inf": "LiquidationDistance: maintenance must be finite, got -inf",
+    "inf": "LiquidationDistance: maintenance must be finite, got inf",
+    "nan": "LiquidationDistance: maintenance must be finite, got nan"
+   }
+  }
+ },
+ {
+  "accepts_bool": {
    "window_size": false
   },
   "accepts_none": {

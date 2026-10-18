@@ -42,6 +42,7 @@
 #include "screamer/backtest_summary.h"
 #include "screamer/backtest_trade_list.h"
 #include "screamer/backtest_carry.h"
+#include "screamer/liquidation_distance.h"
 #include "screamer/validation/surrogates.h"
 #include "screamer/validation/sharpe.h"
 #include "screamer/validation/position_test.h"
@@ -1603,6 +1604,13 @@ void init_bindings_fin(nb::module_& m) {
         .def(nb::init<screamer::FloatArg>(), "multiplier"_a = 1.0)
         .def("__call__", &screamer::functor_call<screamer::BacktestCarry>)
         .def("reset", &screamer::BacktestCarry::reset, "Reset.");
+
+    // 4 -> 3 isolated-margin liquidation distance: (distance, liq_price, breached).
+    nb::class_<screamer::LiquidationDistance, screamer::EvalOp>(m, "LiquidationDistance")
+        .def(nb::init<screamer::FloatArg, screamer::FloatArg>(),
+             "leverage"_a, "maintenance"_a = 0.005)
+        .def("__call__", &screamer::functor_call<screamer::LiquidationDistance>)
+        .def("reset", &screamer::LiquidationDistance::reset, "Reset.");
 
     nb::class_<screamer::BacktestStats, screamer::EvalOp>(m, "BacktestStats")
         .def(nb::init<screamer::FloatArg>(), "periods_per_year"_a = 1.0)

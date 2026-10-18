@@ -176,7 +176,8 @@ def build() -> dict[Path, str]:
             for p in e["parameters"]:
                 q = {k: json_safe(v) for k, v in p.items()}
                 q["name"] = camel(p["name"])
-                if "default" in p:
+                # A required setting's default is only the docs example value.
+                if "default" in p and not p.get("required"):
                     q["defaultText"] = js_literal(p["default"])
                 params.append(q)
             out["parameters"] = params
