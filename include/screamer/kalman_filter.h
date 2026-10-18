@@ -26,11 +26,11 @@
 // observation variance observation_var / w, w = huber / |z_std|, in place of
 // observation_var (a Huber M-estimate step, Masreliez and Martin 1977). An
 // outlier's pull on the state is then bounded, however large it is; smaller
-// innovations update exactly as before. The weight applies only while
-// P_pred < observation_var: while the state carries less information than one
-// observation, no observation can be an outlier relative to it, so the
-// start-up transient is not damped. An infinite observation gets w = 0: the
-// update is skipped (x stays, P = P_pred).
+// innovations update exactly as before. The weight applies on every
+// observation after the first (the first has only the prior to compare with).
+// A robust filter trusts its prediction, so a confident prior far from the
+// data damps the start-up; initial_variance = inf avoids that. An infinite
+// observation gets w = 0: the update is skipped (x stays, P = P_pred).
 
 #include "screamer/common/finite_settings.h"
 #include <cmath>
@@ -79,6 +79,7 @@ public:
         x_ = initial_state_;
         P_ = initial_variance_;
         diffuse_pending_ = std::isinf(initial_variance_);
+        seen_ = false;
     }
 
     double process_scalar(double z) override {
@@ -98,13 +99,14 @@ public:
             x_ = z;
             P_ = observation_var_;
             diffuse_pending_ = false;
+            seen_ = true;
             return x_;
         }
         // Predict.
         const double P_pred = P_ + process_var_;
         const double e = z - x_;
         double R = observation_var_;
-        if (robust_ && P_pred < R) {
+        if (robust_ && seen_) {
             // Huber weight on the standardized innovation: inflate the
             // observation variance of an outlier to R / w.
             const double az = std::fabs(e) / std::sqrt(P_pred + R);
@@ -117,6 +119,7 @@ public:
                 R /= w;
             }
         }
+        seen_ = true;
         // Update.
         const double K = P_pred / (P_pred + R);
         x_ = x_ + K * e;
@@ -134,6 +137,7 @@ private:
     double x_ = 0.0;
     double P_ = 0.0;
     bool diffuse_pending_ = false;   // inf initial_variance, before the first observation
+    bool seen_ = false;              // an observation has been taken
 };
 
 }  // namespace screamer

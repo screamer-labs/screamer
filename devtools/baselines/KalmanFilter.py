@@ -5,7 +5,7 @@
              x[t] = x_pred + K * (z - x_pred)
              P[t] = (1 - K) * P_pred
 
-With a finite huber and P_pred < observation_var, an innovation e beyond huber
+With a finite huber, after the first observation, an innovation e beyond huber
 standard deviations (|z| = |e| / sqrt(P_pred + observation_var) > huber) uses
 the observation variance observation_var * |z| / huber in the gain.
 """
@@ -28,7 +28,7 @@ class KalmanFilter_numpy:
             p_pred = p + self.q
             r = self.r
             az = abs(obs - x) / math.sqrt(p_pred + r)
-            if p_pred < r and az > self.h:
+            if i > 0 and az > self.h:
                 r = r * az / self.h
             k = p_pred / (p_pred + r)
             x = x + k * (obs - x)

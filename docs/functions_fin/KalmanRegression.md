@@ -114,14 +114,13 @@ This is the Huber M-estimate step of the Masreliez and Martin (1977) robust
 filter. Steps within `huber` standard deviations update exactly as without it;
 2 to 3 is a typical value.
 
-The weight applies only while the coefficients' part of the predicted
-variance, `h R h'` with `h = [1, x]`, is below `obs_var`, and never on the
-first step, which has no prediction. While the state carries less information
-than one observation, no observation can be an outlier relative to it, so the
-start-up transient from the zero prior is followed as without `huber`. The
-state noise alone adds `delta / (1 - delta) * (1 + x^2)` to `h R h'`, so with a
-`delta` that is large next to `obs_var` the weight never applies. An
-infinite observation, when the weight applies, gets the weight 0: the
+The weight applies on every step that has a prediction, so on all but the
+first. A robust filter trusts its prediction, so it needs a prior that does not
+contradict the data. With the default prior (both coefficients zero, variance
+1) the early steps can be down-weighted as outliers and the line found slowly.
+Start from a wider prior, such as `prior_var=100` on log prices, so the first
+steps set the line; a very large `prior_var` is numerically ill-conditioned on
+inputs far from zero, as described above. An infinite observation gets the weight 0: the
 coefficients keep their values and their variance grows by the state noise.
 
 The outputs `spread` and `spread_std` are the same as without `huber`: the raw

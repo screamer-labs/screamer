@@ -1,9 +1,8 @@
 """The robust (Huber) update of KalmanFilter and KalmanRegression.
 
 An innovation beyond `huber` standard deviations updates the state with the
-observation variance R / w, w = huber / |z|, while the state's predicted
-variance is below the observation variance; the default huber = inf is the
-ordinary filter, bit for bit.
+observation variance R / w, w = huber / |z|, on every step that has a
+prediction; the default huber = inf is the ordinary filter, bit for bit.
 """
 import math
 
@@ -49,8 +48,7 @@ def _kalman_regression_numpy(y, x, delta, obs_var, prior_var=1.0, huber=math.inf
         q = h @ R @ h + obs_var
         e = y[t] - h @ theta
         az = abs(e) / math.sqrt(q)
-        gated = n >= 1 and h @ R @ h < obs_var
-        v = obs_var * az / huber if gated and az > huber else obs_var
+        v = obs_var * az / huber if n >= 1 and az > huber else obs_var
         qv = h @ R @ h + v
         k = R @ h / qv
         theta = theta + k * e
@@ -85,47 +83,62 @@ def test_kalman_regression_inf_is_the_ordinary_filter(args):
 # ---- the weight on one outlier, by hand --------------------------------------
 
 def test_kalman_filter_outlier_step_by_hand():
-    # P_pred = 0.1 + 0.1 = 0.2 < R, Q = P_pred + R = 1.2, z = 10 -> |z| / sqrt(Q) = 9.13.
+    # The first observation equals the state (no innovation); the second is an
+    # outlier: P_pred = P_1 + q, Q = P_pred + R, |z| = 10 / sqrt(Q) > huber.
     q, r, x0, p0, h = 0.1, 1.0, 0.0, 0.1, 2.0
-    obs = 10.0
     p_pred = p0 + q
-    az = abs(obs - x0) / math.sqrt(p_pred + r)
-    r_eff = r / (h / az)
-    k = p_pred / (p_pred + r_eff)
-    x1 = x0 + k * (obs - x0)
-    p1 = (1 - k) * p_pred
+    p1 = (1 - p_pred / (p_pred + r)) * p_pred
+    p_pred = p1 + q
+    az = 10.0 / math.sqrt(p_pred + r)
+    k = p_pred / (p_pred + r / (h / az))
+    x2 = k * 10.0
+    p2 = (1 - k) * p_pred
 
     kf = s.KalmanFilter(q, r, x0, p0, huber=h)
-    assert kf(obs) == pytest.approx(x1, rel=1e-15)
-    plain = s.KalmanFilter(q, r, x0, p0)(obs)
-    assert plain == pytest.approx(10.0 / 6.0, rel=1e-15)
-    assert abs(x1) < abs(plain)
-    # The next step uses the robust posterior variance p1.
-    z2 = 1.0
-    p_pred2 = p1 + q
-    x2 = x1 + p_pred2 / (p_pred2 + r) * (z2 - x1)
-    assert abs(z2 - x1) / math.sqrt(p_pred2 + r) <= h
-    assert kf(z2) == pytest.approx(x2, rel=1e-14)
+    assert kf(0.0) == 0.0
+    assert kf(10.0) == pytest.approx(x2, rel=1e-14)
+    plain = s.KalmanFilter(q, r, x0, p0)
+    plain(0.0)
+    assert x2 < plain(10.0)
+    # The next step uses the robust posterior variance p2.
+    z3 = x2 + 0.5
+    p_pred3 = p2 + q
+    x3 = x2 + p_pred3 / (p_pred3 + r) * (z3 - x2)
+    assert kf(z3) == pytest.approx(x3, rel=1e-14)
+
+
+def test_kalman_filter_first_observation_is_not_weighted():
+    # The first observation has only the prior to compare with.
+    for var in (1.0, math.inf):
+        assert s.KalmanFilter(0.1, 1.0, 0.0, var, huber=2.0)(50.0) == s.KalmanFilter(0.1, 1.0, 0.0, var)(50.0)
 
 
 def test_kalman_filter_outlier_influence_is_bounded():
     # As the outlier grows the step tends to P_pred * huber * sqrt(Q) / R.
     q, r, h = 0.1, 1.0, 2.0
-    steps = [s.KalmanFilter(q, r, 0.0, 0.1, huber=h)(z) for z in (1e2, 1e4, 1e8)]
-    limit = 0.2 * h * math.sqrt(1.2) / r
+    p_pred = 0.2
+    p_pred = (1 - p_pred / (p_pred + r)) * p_pred + q
+    steps = []
+    for z in (1e2, 1e4, 1e8):
+        kf = s.KalmanFilter(q, r, 0.0, 0.1, huber=h)
+        kf(0.0)
+        steps.append(kf(z))
+    limit = p_pred * h * math.sqrt(p_pred + r) / r
     assert steps[0] < steps[1] < steps[2] < limit
     assert steps[2] == pytest.approx(limit, rel=1e-7)
 
 
 def test_kalman_filter_infinite_observation_is_skipped():
-    # Where the weight applies, an infinite observation has weight 0: the state
-    # stays and its variance grows to P_pred.
+    # After the first observation an infinite one has weight 0: the state stays
+    # and its variance grows to P_pred.
     kf = s.KalmanFilter(0.1, 1.0, 2.0, 0.1, huber=2.0)
+    assert kf(2.0) == 2.0
     assert kf(math.inf) == 2.0
-    after = kf(2.5)
-    ref = s.KalmanFilter(0.1, 1.0, 2.0, 0.2)(2.5)
-    assert after == ref
-    assert s.KalmanFilter(0.1, 1.0, 2.0, 0.1, huber=2.0)(-math.inf) == 2.0
+    assert kf(-math.inf) == 2.0
+    ref = s.KalmanFilter(0.1, 1.0, 2.0, 0.1)
+    ref(2.0)
+    p1 = (1 - 0.2 / 1.2) * 0.2
+    assert kf(2.5) == s.KalmanFilter(0.1, 1.0, 2.0, p1 + 0.2)(2.5)
     y, x = _pair(300)
     y = np.nan_to_num(y, nan=1.0)
     out = s.KalmanRegression(1e-6, 1e-4, huber=2.0)(np.append(y, math.inf), np.append(x, x[-1]))
@@ -133,48 +146,62 @@ def test_kalman_filter_infinite_observation_is_skipped():
     assert out[-1, 2] == math.inf and np.isfinite(out[-1, 3])
 
 
-# ---- warm-up: the start-up transient is not an outlier -----------------------
+# ---- warm-up: a robust filter needs a prior that agrees with the data --------
 
-def test_kalman_filter_warm_up_follows_like_the_default():
+def test_kalman_filter_warm_up():
     g = np.random.default_rng(3)
     z = 100.0 + g.standard_normal(300)
-    # A diffuse or wide prior: the first steps have P_pred >= observation_var,
-    # so the state reaches the data as fast as the ordinary filter.
-    for var in (math.inf, 1e6):
-        plain = s.KalmanFilter(0.01, 1.0, 0.0, var)(z)
-        robust = s.KalmanFilter(0.01, 1.0, 0.0, var, huber=2.0)(z)
-        assert robust[0] == plain[0] and robust[1] == plain[1]
-        np.testing.assert_allclose(robust, plain, atol=0.5)
-    # A confident prior far from the data (state 0 with variance 1) is followed
-    # more slowly, and the filter still converges.
+    # A diffuse prior: the first observation sets the state, and the robust
+    # filter tracks the ordinary one from the start.
+    plain = s.KalmanFilter(0.01, 1.0, 0.0, math.inf)(z)
+    robust = s.KalmanFilter(0.01, 1.0, 0.0, math.inf, huber=2.0)(z)
+    assert robust[0] == plain[0] == z[0]
+    np.testing.assert_allclose(robust, plain, atol=1.0)
+    np.testing.assert_allclose(robust[20:], plain[20:], atol=0.5)
+    # The default prior (state 0, variance 1) contradicts data near 100: the
+    # robust filter takes those observations for outliers and lags.
     plain = s.KalmanFilter(0.01, 1.0)(z)
     robust = s.KalmanFilter(0.01, 1.0, huber=2.0)(z)
     assert robust[0] == plain[0]
-    np.testing.assert_allclose(robust[150:], plain[150:], atol=0.5)
-    # After convergence an outlier is still down-weighted.
-    z2 = z.copy()
-    z2[250] += 50.0
-    var = math.inf
-    jump_plain = s.KalmanFilter(0.01, 1.0, 0.0, var)(z2)[250] - s.KalmanFilter(0.01, 1.0, 0.0, var)(z)[249]
-    robust = s.KalmanFilter(0.01, 1.0, 0.0, var, huber=2.0)
-    jump_robust = robust(z2)[250] - robust(z)[249]
-    assert 0 < jump_robust < jump_plain / 4
+    assert robust[9] < plain[9] - 20.0
+    assert abs(robust[-1] - plain[-1]) < 0.5
 
 
-def test_kalman_regression_warm_up_follows_like_the_default():
+def test_kalman_filter_outlier_after_convergence_has_the_expected_weight():
+    # A constant level gives zero innovations, so P follows the plain recursion.
+    q, r, h, n = 0.01, 1.0, 3.0, 200
+    z = np.full(n + 1, 100.0)
+    z[n] += 50.0
+    out = s.KalmanFilter(q, r, 0.0, math.inf, huber=h)(z)
+    assert (out[:n] == 100.0).all()
+    p = r
+    for _ in range(n - 1):
+        p_pred = p + q
+        p = (1 - p_pred / (p_pred + r)) * p_pred
+    p_pred = p + q
+    w = h / (50.0 / math.sqrt(p_pred + r))
+    expected = 100.0 + p_pred / (p_pred + r / w) * 50.0
+    assert out[n] == pytest.approx(expected, rel=1e-14)
+    plain = s.KalmanFilter(q, r, 0.0, math.inf)(z)[n]
+    assert out[n] - 100.0 < (plain - 100.0) / 4
+
+
+def test_kalman_regression_down_weights_an_outlier_on_log_prices():
     g = np.random.default_rng(0)
-    n = 600
-    x = 4.0 + np.cumsum(g.standard_normal(n)) * 0.02
-    y = 0.5 + 1.1 * x + g.standard_normal(n) * 0.01
-    plain = s.KalmanRegression(1e-6, 1e-4)(y, x)
-    robust = s.KalmanRegression(1e-6, 1e-4, huber=2.0)(y, x)
-    np.testing.assert_allclose(robust[:, 0], plain[:, 0], atol=0.02)
-    np.testing.assert_allclose(robust[100:, 0], plain[100:, 0], atol=0.005)
-    y2 = y.copy()
-    y2[500] += 0.5
-    p2 = s.KalmanRegression(1e-6, 1e-4)(y2, x)
-    r2 = s.KalmanRegression(1e-6, 1e-4, huber=2.0)(y2, x)
-    assert abs(r2[500, 0] - r2[499, 0]) < abs(p2[500, 0] - p2[499, 0]) / 4
+    n = 1000
+    x = 4.0 + np.cumsum(g.standard_normal(n)) * 0.01
+    y = 0.5 + 1.1 * x + g.standard_normal(n) * 0.004
+    for prior_var in (1.0, 100.0):
+        plain = s.KalmanRegression(1e-6, 1.6e-5, prior_var)(y, x)
+        robust = s.KalmanRegression(1e-6, 1.6e-5, prior_var, huber=2.0)(y, x)
+        np.testing.assert_allclose(robust[300:, 0], plain[300:, 0], atol=0.005)
+        y2 = y.copy()
+        y2[800] += 0.1
+        p2 = s.KalmanRegression(1e-6, 1.6e-5, prior_var)(y2, x)
+        r2 = s.KalmanRegression(1e-6, 1.6e-5, prior_var, huber=2.0)(y2, x)
+        assert abs(r2[800, 0] - r2[799, 0]) < abs(p2[800, 0] - p2[799, 0]) / 3
+        np.testing.assert_allclose(r2[800], _kalman_regression_numpy(y2, x, 1e-6, 1.6e-5, prior_var, 2.0)[800],
+                                   rtol=1e-4)
 
 
 # ---- huber = inf gives the outputs recorded before the change ----------------

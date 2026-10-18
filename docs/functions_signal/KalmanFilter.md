@@ -87,9 +87,9 @@ $$
 
 and the gain and variance update use the observation variance $\sigma^2_o / w$ in place of $\sigma^2_o$. This is the Huber M-estimate step of the Masreliez and Martin (1977) robust filter. Observations within `huber` standard deviations update exactly as without it. A value of 2 to 3 is typical.
 
-The weight applies only while $P_\text{pred} < \sigma^2_o$. While the state carries less information than one observation, no observation can be an outlier relative to it, so the start-up transient from `initial_state` is followed as without `huber`. In the steady state the condition holds when `process_var` is below half of `observation_var`; with a larger `process_var` the weight never applies. A diffuse prior, `initial_variance=inf`, sets the state to the first observation and also avoids a long transient.
+The weight applies to every observation after the first. A robust filter trusts its prediction, so it needs a prior that does not contradict the data: with the default prior (state 0, variance 1) on data near 100, the early observations are down-weighted as outliers and the filter takes many steps to reach the data. Start from a diffuse prior, `initial_variance=inf`, which sets the state to the first observation, or from an informed `initial_state`.
 
-An infinite observation, when the weight applies, gets the weight 0: the update is skipped, so the state keeps its value and its variance grows to $P_\text{pred}$.
+An infinite observation after the first gets the weight 0: the update is skipped, so the state keeps its value and its variance grows to $P_\text{pred}$.
 
 The protection has a cost: a genuine level shift is also treated as an outlier at first, so the filter takes longer to follow it.
 

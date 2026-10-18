@@ -40,10 +40,10 @@
 // update uses obs_var / w, w = huber / (|e| / sqrt(Q)), in place of obs_var in
 // Q, the gain and the Joseph form (a Huber M-estimate step, Masreliez and
 // Martin 1977), so an outlier's pull on the coefficients is bounded. The
-// weight applies only while h R h' < obs_var, never on the first step (which
-// has no prediction): while the state carries less information than one
-// observation, no observation can be an outlier relative to it. An infinite
-// observation gets w = 0: the coefficients stay and P = R. The spread and
+// weight applies on every step with a prediction (not the first). A robust
+// filter trusts its prediction, so it needs a prior that does not contradict
+// the data, such as a wider prior_var. An infinite observation gets w = 0:
+// the coefficients stay and P = R. The spread and
 // spread_std outputs keep the raw innovation and the un-inflated sqrt(Q).
 
 #include <cmath>
@@ -96,7 +96,7 @@ public:
         const double sq = std::sqrt(q);
         const double e = y - (a_ + b_ * x);
         double v = obs_var_, qv = q;               // observation variance used by the update
-        if (robust_ && n_ > 0 && hrh < obs_var_) {
+        if (robust_ && n_ > 0) {
             // Huber weight on the standardized innovation: inflate the
             // observation variance of an outlier to obs_var / w.
             const double az = std::fabs(e) / sq;

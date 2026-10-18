@@ -36,8 +36,8 @@ test("pairs: robust (huber) Kalman updates match Python", () => {
   assert.ok(near(pick(KalmanFilter(0.1, 1.0, 0.0, 1.0, 2.5)(z), [14, 15, 16, 39]),
     [-0.6852343002984592, 0.3756760957352624, 0.8734531901016516, 4.993678476150991], 1e-12));
   assert.deepEqual(KalmanFilter({ huber: Infinity })(z), KalmanFilter()(z));
-  // Where the weight applies, an infinite observation is skipped.
-  assert.deepEqual(KalmanFilter(0.1, 1.0, 2.0, 0.1, 2.0)([Infinity, -Infinity]), [2, 2]);
+  // After the first observation, an infinite one is skipped.
+  assert.deepEqual(KalmanFilter(0.1, 1.0, 2.0, 0.1, 2.0)([2, Infinity, -Infinity]), [2, 2, 2]);
   assert.throws(() => KalmanFilter({ huber: 0 }), /huber must be > 0/);
   assert.throws(() => KalmanRegression({ huber: NaN }), /huber must be finite or Infinity, got NaN/);
 });
