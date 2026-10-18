@@ -1586,6 +1586,13 @@ Turn signals into positions and costed equity curves, measure drawdown and perfo
       :img-alt: Hold example plot
       :class-card: gallery-card
 
+   .. grid-item-card:: LiquidationDistance
+      :link: functions_fin/LiquidationDistance
+      :link-type: doc
+      :img-top: _static/gallery/functions_fin__LiquidationDistance.webp
+      :img-alt: LiquidationDistance example plot
+      :class-card: gallery-card
+
    .. grid-item-card:: MaxDrawdown
       :link: functions_fin/MaxDrawdown
       :link-type: doc

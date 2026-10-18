@@ -109,6 +109,7 @@
 #include "screamer/lee_ready_sign.h"
 #include "screamer/linear.h"
 #include "screamer/linear2.h"
+#include "screamer/liquidation_distance.h"
 #include "screamer/log_return.h"
 #include "screamer/logic.h"
 #include "screamer/macd.h"
@@ -989,6 +990,8 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor<double, double>();
     emscripten::class_<screamer::Linear2, emscripten::base<screamer::EvalOp>>("Linear2")
         .constructor<double, double, double>();
+    emscripten::class_<screamer::LiquidationDistance, emscripten::base<screamer::EvalOp>>("LiquidationDistance")
+        .constructor<double, double>();
     emscripten::class_<screamer::Transform<(double (*)(double)) std::log>, emscripten::base<screamer::EvalOp>>("Log")
         .constructor<>();
     emscripten::class_<screamer::LogReturn, emscripten::base<screamer::EvalOp>>("LogReturn")

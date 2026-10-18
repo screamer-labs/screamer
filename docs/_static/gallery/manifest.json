@@ -58,6 +58,7 @@
  "functions_fin/BayesianRegression": "bcad85a096a07b6e",
  "functions_fin/Drawdown": "dd88f0a185ad676e",
  "functions_fin/KalmanRegression": "c22d928f79a06e9d",
+ "functions_fin/LiquidationDistance": "c9ddffd5fba0ed7c",
  "functions_fin/LogReturn": "5924c17eaa5db86b",
  "functions_fin/MaxDrawdown": "1e3adb8f8fe98b9e",
  "functions_fin/ROC": "71c6643fd1afadb0",

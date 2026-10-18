@@ -30,6 +30,7 @@ see_also:
 - BacktestOHLCTarget
 - backtest_report
 - walk_forward
+- LiquidationDistance
 output_names:
 - equity
 - pnl

@@ -4,14 +4,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { ready, Hold, CusumFilter, backtestReport, walkForward, BacktestOHLCTarget,
+import { ready, Hold, CusumFilter, LiquidationDistance, backtestReport, walkForward, BacktestOHLCTarget,
          BacktestPortfolioTarget } from "../src/index.ts";
 import * as api from "../src/index.ts";
 
 await ready();
 
 type Num = number | null | "inf" | "-inf";
-type Case = { name: string; settings: Record<string, unknown>; input: string; shape: number[];
+type Case = { name: string; settings: Record<string, unknown>; input: string | string[]; shape: number[];
               out: Num[]; tol?: number };
 const oracle: { inputs: Record<string, Num[]>; cases: Case[]; helpers: Record<string, any> } =
   JSON.parse(readFileSync(new URL("../../wasm/smoke/oracle_research.json", import.meta.url), "utf8"));
@@ -36,7 +36,8 @@ const dataOf = (out: any): ArrayLike<number> => (ArrayBuffer.isView(out) ? out a
 for (const c of oracle.cases) {
   test(`research: ${c.name}(${JSON.stringify(c.settings)}) matches Python`, () => {
     const make = (api as any)[c.name];
-    const out = make(options(c.settings))(series(c.input));
+    const inputs = Array.isArray(c.input) ? c.input.map(series) : [series(c.input)];
+    const out = make(options(c.settings))(...inputs);
     close(dataOf(out), c.out, c.name, c.tol ?? 1e-9);
   });
 }
@@ -191,4 +192,35 @@ test("research: backtestReport by keeps the number 1 and the string '1' apart", 
   const values = { data: Float64Array.from(ht.values, num).slice(0, 16), shape: [4, 4] };
   const { byGroup } = backtestReport(values, { by: [1, "1", 1, "1"] });
   assert.deepEqual([...byGroup!.keys()], [1, "1"]);
+});
+
+test("research: LiquidationDistance hand example", () => {
+  // Long 1 from bar 1 at 100 (liq 90.5), resized to 2 at 95 on bar 3 (liq 85.975),
+  // flipped short on bar 5 at 100 (liq 109.5), flat on bar 7.
+  const f = (xs: number[]) => Float64Array.from(xs);
+  const out = LiquidationDistance({ leverage: 10 })(
+    f([0, 1, 1, 2, 2, -1, -1, 0]), f([100, 100, 98, 95, 90, 100, 104, 100]),
+    f([102, 102, 100, 97, 92, 102, 110, 102]), f([97, 97, 90, 92, 85, 97, 101, 97])) as any;
+  const rows = Array.from({ length: 8 }, (_, i) => Array.from(dataOf(out)).slice(3 * i, 3 * i + 3));
+  assert.ok(rows[0].every(Number.isNaN) && rows[7].every(Number.isNaN));
+  close(rows[1], [(97 - 90.5) / 97, 90.5, 0], "long");
+  close(rows[2], [(90 - 90.5) / 90, 90.5, 1], "long breach");
+  close(rows[3], [(92 - 85.975) / 92, 85.975, 0], "resize");
+  close(rows[4], [(85 - 85.975) / 85, 85.975, 1], "resize breach");
+  close(rows[5], [(109.5 - 102) / 102, 109.5, 0], "short");
+  close(rows[6], [(109.5 - 110) / 110, 109.5, 1], "short breach");
+});
+
+test("research: LiquidationDistance on (T, K) columns matches Python", () => {
+  const h = oracle.helpers.liquidation_2d;
+  const nd = (xs: Num[]) => ({ data: Float64Array.from(xs, num), shape: [h.T, h.K] });
+  const out = LiquidationDistance({ leverage: h.leverage })(...h.inputs.map(nd)) as any;
+  assert.deepEqual(Array.from(out.shape), h.shape);
+  close(dataOf(out), h.output, "LiquidationDistance 2-D");
+});
+
+test("research: LiquidationDistance setting checks", () => {
+  assert.throws(() => LiquidationDistance({ leverage: 1 }), { name: "RangeError", message: /leverage must be more than 1/ });
+  assert.throws(() => LiquidationDistance({ leverage: 10, maintenance: 0.1 }),
+    { name: "RangeError", message: /maintenance must be 0 or more and less than 1 \/ leverage/ });
 });

@@ -50,6 +50,7 @@ EXCLUDED = {
 REQUIRED_KWARGS = {
     "Hold": {"n": 3},
     "CusumFilter": {"threshold": 1.0},
+    "LiquidationDistance": {"leverage": 10.0},
     "SchmittTrigger": {"lower": -1.0, "upper": 1.0},
     # Barriers on, so the labels are not all 0.
     "TripleBarrier": {"horizon": 5, "upper": 0.01, "lower": 0.01},

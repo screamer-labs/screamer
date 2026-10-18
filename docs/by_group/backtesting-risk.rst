@@ -71,6 +71,8 @@ Simulate a strategy against market data into a costed equity curve: signals, bar
      - Backtest a target-position strategy against the trade tape, taking each print as a market fill to reach the target immediately.
    * - :doc:`Choosing a backtest engine </functions_fin/choosing_a_backtest_engine>`
      - The engine grid by data model and order definition, with fill rules, sizing, volume limits, and encoding.
+   * - :doc:`Distance to liquidation of a leveraged position </functions_fin/LiquidationDistance>`
+     - How far each bar's worst price is from the liquidation price of an isolated-margin position at a given leverage.
    * - :doc:`Running report columns for a multi-asset backtest </functions_fin/PortfolioReport>`
      - Reduce a multi-asset backtest engine output into causal portfolio-level report columns.
 
@@ -87,6 +89,8 @@ Drawdowns and performance ratios.
      - Description
    * - :doc:`Drawdown </functions_fin/Drawdown>`
      - Running drawdown from the cumulative peak.
+   * - :doc:`Distance to liquidation of a leveraged position </functions_fin/LiquidationDistance>`
+     - How far each bar's worst price is from the liquidation price of an isolated-margin position at a given leverage.
    * - :doc:`Maximum drawdown </functions_fin/MaxDrawdown>`
      - Worst drawdown experienced so far (since reset).
    * - :doc:`Rolling Calmar ratio </functions_fin/RollingCalmar>`
@@ -164,6 +168,7 @@ Is a backtest more than luck? Randomization tests with p-values, permutations, t
    /functions_fin/circular_shift
    /functions_signal/CusumFilter
    /functions_fin/deflated_sharpe
+   /functions_fin/LiquidationDistance
    /functions_fin/permute_bars
    /functions_fin/permute_returns
    /functions_fin/PortfolioReport
