@@ -123,6 +123,17 @@ steps set the line; a very large `prior_var` is numerically ill-conditioned on
 inputs far from zero, as described above. An infinite observation gets the weight 0: the
 coefficients keep their values and their variance grows by the state noise.
 
+`huber` protects the hedge ratio from bad prints only when `spread_std` is
+close to the one-step noise of the spread: with a fast `delta`, or with
+`obs_var` set to the variance of the one-step change. With a slow `delta`, as
+the unit-root check above favours, the filter is nearly static and the
+prediction error includes the spread's own deviation from its mean. A bad print
+then scores a modest z, while a wide spread scores a large one, so `huber`
+down-weights wide spreads, which are the moments a pairs trade bets on, and
+slows the hedge ratio there. To protect a slowly varying hedge ratio from bad
+prints, clean the prices first, or use `huber` with `obs_var` calibrated to the
+one-step change.
+
 The outputs `spread` and `spread_std` are the same as without `huber`: the raw
 prediction error and its un-inflated deviation, so `spread / spread_std` still
 shows an outlier in full. The cost of the protection is that a genuine break in

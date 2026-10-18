@@ -45,6 +45,13 @@
 // the data, such as a wider prior_var. An infinite observation gets w = 0:
 // the coefficients stay and P = R. The spread and
 // spread_std outputs keep the raw innovation and the un-inflated sqrt(Q).
+//
+// huber protects the hedge ratio from bad prints only when sqrt(Q) is close to
+// the one-step noise (a fast delta, or obs_var set to the variance of the
+// one-step change). With a slow delta the innovation also holds the spread's
+// own deviation, so huber then down-weights wide spreads rather than bad
+// prints. For bad-print protection on a slowly varying hedge ratio, clean the
+// prices first, or use huber with obs_var calibrated to the one-step change.
 
 #include <cmath>
 #include <limits>
