@@ -105,7 +105,9 @@ The first fit needs `p + 1` rows, with `p = k + 1` coefficients with an intercep
 without; `r2` and the coefficients are `NaN` before that, and `pred` until the row after. With an
 intercept `r2` is `1 - SSE / sum(w (y - mean_w(y))^2)`, with `SSE = sum(w e^2)` and `mean_w` the
 weighted mean; without one it is the uncentered `1 - SSE / sum(w y^2)`. Collinear regressors give a
-`NaN` fit, and the accuracy is that of `RollingMultiRegression`: with an intercept the level of
+`NaN` fit. A regressor that stops varying makes the fit `NaN` once the weight of its earlier,
+varying rows has decayed, after roughly `45 / alpha` rows (with an intercept, or
+without one when the regressor stays at 0). The accuracy is that of `RollingMultiRegression`: with an intercept the level of
 the data costs no digits, and without one the coefficients keep about `16 - 2 log10(cond)`
 significant digits, `cond` being the condition number of the weighted regressor matrix.
 

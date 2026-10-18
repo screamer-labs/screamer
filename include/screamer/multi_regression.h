@@ -51,7 +51,11 @@
 // whose regressors are collinear (a pivot of the Cholesky factor below 1e-12
 // of its diagonal, for example a regressor that is constant in the window with
 // an intercept) is singular: r2 and the coefficients are NaN, as is the next
-// pred.
+// pred. In EwMultiRegression a regressor that stops varying keeps a spread
+// that decays geometrically toward the rounding of its mean, which the pivot
+// test does not see; the fit is also singular once a regressor's spread (its
+// root mean square without an intercept) falls below 2.3e-10 of the largest
+// root mean square it has had (kFlat).
 
 #include <algorithm>
 #include <array>
@@ -114,14 +118,8 @@ public:
         out[0] = pred;
         out[1] = z[k_] - pred;
 
-        if constexpr (kEw) {
-            scale(decay_);
-            add(z.data());
-        } else if (w_) {
-            push_rolling(z.data());
-        } else {
-            add(z.data());
-        }
+        if (!kEw && w_) push_rolling(z.data());
+        else add(z.data());
         fit();
 
         out[2] = fitted_ ? r2_ : nan;
@@ -151,6 +149,7 @@ private:
         fitted_ = false;
         b0_ = r2_ = 0.0;
         b_.fill(0.0);
+        peak_.fill(0.0);
     }
 
     double& c(std::size_t i, std::size_t j) { return c_[i * D + j]; }
@@ -162,23 +161,20 @@ private:
         else return static_cast<double>(n_);
     }
 
-    // Multiplies every weight by a: the total weight and the centered
-    // cross-products scale by a, the means do not change.
-    void scale(double a) {
-        wsum_ *= a;
-        for (std::size_t i = 0; i < d_; ++i)
-            for (std::size_t j = i; j < d_; ++j) c(i, j) *= a;
-    }
-
     // Adds a row with weight 1 to the sums (upper triangle, i <= j). The row
     // enters as z - origin, which is exact while z is within a factor 2 of
     // the origin; mean_ is the weighted mean of z - origin and c_ holds the
-    // centered cross-products, with or without an intercept.
+    // centered cross-products, with or without an intercept. With kEw every
+    // earlier weight is first multiplied by decay_: the total weight and the
+    // cross-products scale with it (in the same pass), the means do not.
     void add(const double* z) {
         if (n_ == 0)
             for (std::size_t i = 0; i < d_; ++i) origin_[i] = z[i];
         n_ += 1;
-        if constexpr (kEw) wsum_ += 1.0;
+        if constexpr (kEw) {
+            const double scaled = wsum_ * decay_;
+            wsum_ = scaled + 1.0;
+        }
         const double nd = weight();
         std::array<double, D> dz, e;
         for (std::size_t i = 0; i < d_; ++i) {
@@ -190,7 +186,12 @@ private:
         for (std::size_t i = 0; i < d_; ++i)
             for (std::size_t j = i; j < d_; ++j) {
                 const double t = dz[i] * e[j];
-                c(i, j) += t;
+                if constexpr (kEw) {
+                    const double scaled = c(i, j) * decay_;
+                    c(i, j) = scaled + t;
+                } else {
+                    c(i, j) += t;
+                }
             }
         recenter();
     }
@@ -296,9 +297,19 @@ private:
     // in them; their condition number is that of the regressors squared.
     void fit() {
         fitted_ = false;
-        if (n_ < n_min_) return;
         const std::size_t k = k_;
         const double nd = weight();
+        if constexpr (kEw) {
+            // The largest second moment per unit weight, sum w z^2 / W, that
+            // each regressor has had, the reference of the test below.
+            for (std::size_t j = 0; j < k; ++j) {
+                const double level = origin_[j] + mean_[j];
+                const double l2 = level * level;
+                const double m2 = c(j, j) / nd + l2;
+                if (m2 > peak_[j]) peak_[j] = m2;
+            }
+        }
+        if (n_ < n_min_) return;
         std::array<double, D> mu{};          // the column means, without an intercept
         if (!icpt_)
             for (std::size_t i = 0; i <= k; ++i) mu[i] = origin_[i] + mean_[i];
@@ -320,6 +331,17 @@ private:
                 s -= t;
             }
             if (!(s > kSingular * ajj)) return;   // collinear, constant, or NaN
+            if constexpr (kEw) {
+                // A regressor that has stopped varying: its weighted spread
+                // decays geometrically while the sums keep the rounding of
+                // its mean (a few ulps of its level), or underflow, so the
+                // pivot test above cannot see it. It counts as constant once
+                // its diagonal per unit weight is below kFlat^2 times the
+                // largest second moment it has had; see kFlat.
+                const double ref = kFlat2 * nd;
+                const double floor = ref * peak_[j];
+                if (!(ajj > floor)) return;
+            }
             const double inv = 1.0 / std::sqrt(s);
             inv_[j] = inv;
             for (std::size_t i = j + 1; i < k; ++i) {
@@ -377,6 +399,20 @@ private:
     static constexpr double kFar = 16.0;
     static constexpr double kDrift = 16.0;
     static constexpr double kSingular = 1e-12;
+    // EwMultiRegression: a regressor whose weighted standard deviation (with
+    // an intercept; its root mean square without one) is below kFlat times
+    // the root of the largest second moment it has had, sum w z^2 / W, is
+    // constant. Once a regressor stops varying, the weighted spread of its
+    // earlier rows decays geometrically while the sums keep the rounding of
+    // its running mean, and the slope loses a digit for every factor 10 the
+    // spread falls toward that rounding. kFlat = 2^20 eps (2.3e-10) stops
+    // the fit while it still has about 7 digits (in tests, a varying
+    // regressor that then stays at 3.7, 1, 0 or -5); a real spread that
+    // small next to the column's level or history is rare: a regressor at
+    // level 3.7 moving by 1e-5 over the effective window is thousands of
+    // times above it.
+    static constexpr double kFlat = 1048576.0 * std::numeric_limits<double>::epsilon();
+    static constexpr double kFlat2 = kFlat * kFlat;
 
     const std::size_t k_, d_, m_;   // regressors, row width, outputs
     const bool icpt_;
@@ -391,6 +427,7 @@ private:
     std::array<double, D * D> l_{};
     std::array<double, D> inv_{};
     std::array<double, kMaxOLSRegressors> b_{};
+    std::array<double, kMaxOLSRegressors> peak_{};   // with kEw
     double b0_ = 0.0, r2_ = 0.0;
     bool fitted_ = false;
 };

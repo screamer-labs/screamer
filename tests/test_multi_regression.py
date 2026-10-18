@@ -421,3 +421,71 @@ def test_ew_settings():
     with pytest.raises(ValueError, match="^EwMultiRegression expects 3 inputs, got 2$"):
         s.EwMultiRegression(2, alpha=0.1)(*_data(1)[::-1])
     assert repr(s.EwMultiRegression(2, span=10)) == "EwMultiRegression(n_regressors=2, span=10)"
+
+
+def _ew_exact_b1(x, y, t, alpha, intercept):
+    """b1 of the k = 1 weighted fit at row t, in 80-digit decimals."""
+    from decimal import Decimal as D, localcontext
+    with localcontext() as ctx:
+        ctx.prec = 80
+        lam, w = D(1.0 - alpha), D(1)
+        W = Sx = Sy = Sxx = Sxy = D(0)
+        for i in range(t, -1, -1):
+            xi, yi = D(float(x[i])), D(float(y[i]))
+            W += w
+            Sx += w * xi
+            Sy += w * yi
+            Sxx += w * xi * xi
+            Sxy += w * xi * yi
+            w *= lam
+        if intercept:
+            return float((Sxy - Sx * Sy / W) / (Sxx - Sx * Sx / W))
+        return float(Sxy / Sxx)
+
+
+@pytest.mark.parametrize("level", [3.7, 1.0, 0.0, -5.0])
+@pytest.mark.parametrize("intercept", [True, False])
+def test_ew_regressor_that_stops_varying(level, intercept):
+    """A regressor that varies and then stays at one value: once the weight of
+    its varying rows has decayed, the fit is NaN with an intercept (the
+    constant is collinear with it), and without one when the value is 0. Up to
+    that row the slope is the exact weighted one; a constant other than 0
+    without an intercept is a valid regressor and stays exact throughout."""
+    rng = np.random.default_rng(11)
+    x = np.r_[rng.standard_normal(300), np.full(3000, level)]
+    y = rng.standard_normal(len(x))
+    alpha = 0.1
+    out = s.EwMultiRegression(1, intercept, alpha=alpha)(y, x)
+    b1 = out[:, -1]
+    singular = intercept or level == 0.0
+    if singular:
+        nan = np.flatnonzero(np.isnan(b1[300:]))
+        assert len(nan) and np.isnan(out[300 + nan[0]:, 2:]).all()   # stays NaN
+        first = 300 + nan[0]
+        assert 300 + 200 < first < 300 + 900         # after the old weight decayed
+        check = [320, first - 200, first - 1]
+    else:
+        assert np.isfinite(out[2:, 2:]).all()
+        check = [320, 1000, len(x) - 1]
+    for t in check:
+        ref = _ew_exact_b1(x, y, t, alpha, intercept)
+        assert b1[t] == pytest.approx(ref, rel=1e-6, abs=1e-9), t
+    # It recovers once the regressor varies again.
+    x2 = np.r_[x, rng.standard_normal(50)]
+    y2 = np.r_[y, rng.standard_normal(50)]
+    assert np.isfinite(s.EwMultiRegression(1, intercept, alpha=alpha)(y2, x2)[-1, 2:]).all()
+
+
+@pytest.mark.parametrize("intercept", [True, False])
+def test_ew_slowly_varying_regressor_is_not_constant(intercept):
+    """A regressor that moves by 1e-3 over hundreds of rows at level 3.7 has a
+    tiny spread over the effective window but is not constant."""
+    rng = np.random.default_rng(12)
+    t = np.arange(3000)
+    x = np.r_[rng.standard_normal(300), 3.7 + 1e-3 * np.sin(t / 500.0)]
+    y = rng.standard_normal(len(x))
+    out = s.EwMultiRegression(1, intercept, alpha=0.1)(y, x)
+    assert np.isfinite(out[2:, 2:]).all()
+    for row in (1500, len(x) - 1):
+        ref = _ew_exact_b1(x, y, row, 0.1, intercept)
+        assert out[row, -1] == pytest.approx(ref, rel=1e-6), row
