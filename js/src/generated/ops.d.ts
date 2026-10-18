@@ -2872,6 +2872,8 @@ export interface KalmanFilterOptions {
   initialState?: number;
   /** Variance P_0 of the starting state. A large value such as 1e9 makes the filter forget the initial state quickly. inf is a diffuse prior, so the first observation sets the state, with the observation variance. @defaultValue `1.0` */
   initialVariance?: number;
+  /** Outlier threshold, in standard deviations of the prediction error. An observation further out than this updates the state with a weight that falls with its distance, so it cannot pull the state far. 2 to 3 is typical. inf, the default, is the ordinary Kalman update. Must be positive. @defaultValue `Infinity` */
+  huber?: number;
 }
 
 /**
@@ -2888,9 +2890,10 @@ export declare function KalmanFilter(options: KalmanFilterOptions): ScreamerOp;
  * @param observationVar Variance of the measurement noise. Must be positive.
  * @param initialState Starting state estimate x_0, used before the first observation.
  * @param initialVariance Variance P_0 of the starting state. A large value such as 1e9 makes the filter forget the initial state quickly. inf is a diffuse prior, so the first observation sets the state, with the observation variance.
+ * @param huber Outlier threshold, in standard deviations of the prediction error. An observation further out than this updates the state with a weight that falls with its distance, so it cannot pull the state far. 2 to 3 is typical. inf, the default, is the ordinary Kalman update. Must be positive.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/KalmanFilter.html for the full reference.
  */
-export declare function KalmanFilter(processVar?: number, observationVar?: number, initialState?: number, initialVariance?: number): ScreamerOp;
+export declare function KalmanFilter(processVar?: number, observationVar?: number, initialState?: number, initialVariance?: number, huber?: number): ScreamerOp;
 
 /** The settings of KalmanRegression by name, for `KalmanRegression({ ... })`. */
 export interface KalmanRegressionOptions {
@@ -2900,6 +2903,8 @@ export interface KalmanRegressionOptions {
   obsVar?: number;
   /** Starting variance of the intercept and slope, which both start at zero. @defaultValue `1.0` */
   priorVar?: number;
+  /** Outlier threshold, in standard deviations of the spread. A step whose spread is further out than this updates the intercept and slope with a weight that falls with its distance, so one bad print cannot jerk the hedge ratio. 2 to 3 is typical. inf, the default, is the ordinary Kalman update. The spread and spread_std outputs are not changed by it. Must be positive. @defaultValue `Infinity` */
+  huber?: number;
 }
 
 /**
@@ -2915,9 +2920,10 @@ export declare function KalmanRegression(options: KalmanRegressionOptions): Scre
  * @param delta How fast the intercept and slope may move. The state noise variance is delta / (1 - delta) per step; smaller values give steadier estimates and a spread that keeps its mean reversion. The right value scales with the bar frequency, from about 1e-10 on one-minute log prices to 1e-8 to 1e-6 on daily ones. Must be in (0, 1).
  * @param obsVar Variance of the spread (the regression error), in squared units of the first input. Must be positive.
  * @param priorVar Starting variance of the intercept and slope, which both start at zero.
+ * @param huber Outlier threshold, in standard deviations of the spread. A step whose spread is further out than this updates the intercept and slope with a weight that falls with its distance, so one bad print cannot jerk the hedge ratio. 2 to 3 is typical. inf, the default, is the ordinary Kalman update. The spread and spread_std outputs are not changed by it. Must be positive.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/KalmanRegression.html for the full reference.
  */
-export declare function KalmanRegression(delta?: number, obsVar?: number, priorVar?: number): ScreamerOp;
+export declare function KalmanRegression(delta?: number, obsVar?: number, priorVar?: number, huber?: number): ScreamerOp;
 
 /** The settings of KeltnerChannels by name, for `KeltnerChannels({ ... })`. */
 export interface KeltnerChannelsOptions {

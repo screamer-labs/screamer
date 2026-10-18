@@ -36,6 +36,14 @@ parameters:
   default: 1.0
   min: 0.0
   description: Starting variance of the intercept and slope, which both start at zero.
+- name: huber
+  type: float
+  default: .inf
+  description: Outlier threshold, in standard deviations of the spread. A step whose spread
+    is further out than this updates the intercept and slope with a weight that falls with
+    its distance, so one bad print cannot jerk the hedge ratio. 2 to 3 is typical. inf, the
+    default, is the ordinary Kalman update. The spread and spread_std outputs are not
+    changed by it. Must be positive.
 nan_policy: ignore
 see_also:
 - RollingBeta
@@ -50,6 +58,11 @@ output_names:
 - spread_std
 references:
 - 'Chan, E. P. (2013). *Algorithmic Trading: Winning Strategies and Their Rationale*. Wiley.'
+- 'Masreliez, C. J., and Martin, R. D. (1977). Robust Bayesian estimation for the linear model
+  and robustifying the Kalman filter. *IEEE Transactions on Automatic Control*, 22(3), 361-371.
+  doi:10.1109/TAC.1977.1101538'
+- 'Huber, P. J. (1964). Robust estimation of a location parameter. *The Annals of Mathematical
+  Statistics*, 35(1), 73-101. doi:10.1214/aoms/1177703732'
 ---
 
 # `KalmanRegression`
@@ -88,6 +101,45 @@ of 1 is weak enough that the data sets the line within a few steps, and keeps
 the first updates numerically well conditioned. The spread and its deviation
 are `NaN` on the first step, which has no prediction. The first input is
 the dependent series, as in [`RollingBeta`](RollingBeta.md).
+
+### Robust update
+
+The filter assumes Gaussian errors, so a large spread moves the hedge ratio in
+proportion to its size: a bad print, a gap or an event jerks `beta`, and the
+distortion carries forward. Setting `huber` caps that influence. When
+`|spread| / spread_std` exceeds `huber`, the update uses the observation
+variance `obs_var / w` in place of `obs_var`, with
+`w = huber / (|spread| / spread_std)`, in the gain and the covariance update.
+This is the Huber M-estimate step of the Masreliez and Martin (1977) robust
+filter. Steps within `huber` standard deviations update exactly as without it;
+2 to 3 is a typical value.
+
+The weight applies on every step that has a prediction, so on all but the
+first. A robust filter trusts its prediction, so it needs a prior that does not
+contradict the data. With the default prior (both coefficients zero, variance
+1) the early steps can be down-weighted as outliers and the line found slowly.
+Start from a wider prior, such as `prior_var=100` on log prices, so the first
+steps set the line; a very large `prior_var` is numerically ill-conditioned on
+inputs far from zero, as described above. An infinite observation gets the weight 0: the
+coefficients keep their values and their variance grows by the state noise.
+
+`huber` protects the hedge ratio from bad prints only when `spread_std` is
+close to the one-step noise of the spread: with a fast `delta`, or with
+`obs_var` set to the variance of the one-step change. With a slow `delta`, as
+the unit-root check above favours, the filter is nearly static and the
+prediction error includes the spread's own deviation from its mean. A bad print
+then scores a modest z, while a wide spread scores a large one, so `huber`
+down-weights wide spreads, which are the moments a pairs trade bets on, and
+slows the hedge ratio there. To protect a slowly varying hedge ratio from bad
+prints, clean the prices first, or use `huber` with `obs_var` calibrated to the
+one-step change.
+
+The outputs `spread` and `spread_std` are the same as without `huber`: the raw
+prediction error and its un-inflated deviation, so `spread / spread_std` still
+shows an outlier in full. The cost of the protection is that a genuine break in
+the relationship is also absorbed more slowly. Pair a robust filter with a
+break test on the standardized spread, which sees each large error at its full
+size.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling

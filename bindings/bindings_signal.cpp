@@ -1,3 +1,4 @@
+#include <limits>
 #include <optional>
 #include <nanobind/nanobind.h>
 #include "screamer/common/int_arg.h"
@@ -107,11 +108,13 @@ void init_bindings_signal(nb::module_& m) {
 
     // KalmanFilter: scalar 1-D random-walk-with-noise model.
     nb::class_<screamer::KalmanFilter, screamer::ScreamerBase>(m, "KalmanFilter")
-        .def(nb::init<screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg>(),
+        .def(nb::init<screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg,
+                      screamer::FloatArg>(),
              "process_var"_a = 0.01,
              "observation_var"_a = 1.0,
              "initial_state"_a = 0.0,
-             "initial_variance"_a = 1.0)
+             "initial_variance"_a = 1.0,
+             "huber"_a = std::numeric_limits<double>::infinity())
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::KalmanFilter::reset, "Reset.");
 
