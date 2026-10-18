@@ -56,7 +56,7 @@ $$
 
 where $\beta_{ew}$ = `EwBeta(x, y)` and the means are exponentially weighted with the same smoothing factor. The first argument is the target and the second is the regressor, as in `EwBeta`; together they give the fitted line `x ≈ alpha + beta * y`. The smoothing factor `alpha` is set by exactly one of the `com`, `span`, `halflife` or `alpha` parameters (the `alpha` parameter is the smoothing factor, unrelated to the intercept this function returns).
 
-The output is `NaN` while `EwBeta` is undefined, that is when `y` is constant over the effective window, which includes the first sample.
+The output is `NaN` while `EwBeta` is undefined, that is when `y` is constant over the effective window, which includes the first sample. It is also `NaN` once `y` has stopped varying, after roughly 45 / alpha rows, and for a while after a single extreme value of `y` (see `EwBeta`).
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling

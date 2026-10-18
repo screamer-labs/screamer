@@ -57,7 +57,7 @@ $$
 
 The first argument is the target and the second is the regressor, as in [`EwBeta`](EwBeta.md) and `EwSpread`. The smoothing factor `alpha` is set by exactly one of `com`, `span`, `halflife` or `alpha`, and the same value is used for the hedge ratio and for the standard deviation.
 
-The output is `NaN` until the spread has two defined values.
+The output is `NaN` until the spread has two defined values. It is also `NaN` once `y` has stopped varying, after roughly 45 / alpha rows, and for a while after a single extreme value of `y`: the spread is `NaN` on those rows (see `EwBeta`).
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
