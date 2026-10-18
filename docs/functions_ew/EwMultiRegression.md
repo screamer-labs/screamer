@@ -107,7 +107,10 @@ intercept `r2` is `1 - SSE / sum(w (y - mean_w(y))^2)`, with `SSE = sum(w e^2)` 
 weighted mean; without one it is the uncentered `1 - SSE / sum(w y^2)`. Collinear regressors give a
 `NaN` fit. A regressor that stops varying makes the fit `NaN` once the weight of its earlier,
 varying rows has decayed, after roughly `45 / alpha` rows (with an intercept, or
-without one when the regressor stays at 0). The accuracy is that of `RollingMultiRegression`: with an intercept the level of
+without one when the regressor stays at 0). The test compares the regressor's variance with a
+peak of it that decays eight times slower than the weights, so a single extreme value can also give
+`NaN` for a while: a tick of 1e10 in returns of spread 0.01 does for up to about 1000 rows at
+`alpha = 0.1`, a tick of 1e8 does not. The accuracy is that of `RollingMultiRegression`: with an intercept the level of
 the data costs no digits, and without one the coefficients keep about `16 - 2 log10(cond)`
 significant digits, `cond` being the condition number of the weighted regressor matrix.
 

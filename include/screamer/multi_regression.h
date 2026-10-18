@@ -54,8 +54,8 @@
 // pred. In EwMultiRegression a regressor that stops varying keeps a spread
 // that decays geometrically toward the rounding of its mean, which the pivot
 // test does not see; the fit is also singular once a regressor's spread (its
-// root mean square without an intercept) falls below 2.3e-10 of the largest
-// root mean square it has had (kFlat).
+// root mean square without an intercept) falls below 3.7e-9 of a slowly
+// decaying peak of it (kFlat).
 
 #include <algorithm>
 #include <array>
@@ -86,7 +86,8 @@ public:
                               static_cast<std::size_t>(n_regressors) + (intercept ? 4 : 3)),
           k_(static_cast<std::size_t>(n_regressors)), d_(k_ + 1), m_(k_ + (intercept ? 4 : 3)),
           icpt_(intercept), w_(window),
-          n_min_(window ? window : k_ + (intercept ? 2 : 1)), decay_(decay)
+          n_min_(window ? window : k_ + (intercept ? 2 : 1)), decay_(decay),
+          peak_decay_(slow_decay(decay))
     {
         if (w_) ring_.assign(w_ * d_, 0.0);
         reset_fit();
@@ -131,6 +132,9 @@ public:
     void reset() override { reset_fit(); }
 
 protected:
+    // d^(1/8) by three square roots, correctly rounded in every binding.
+    static double slow_decay(double d) { return std::sqrt(std::sqrt(std::sqrt(d))); }
+
     static std::size_t check_k(int k) {
         if (k < 1 || k > static_cast<int>(kMaxOLSRegressors))
             throw std::invalid_argument("n_regressors must be between 1 and 16.");
@@ -300,13 +304,18 @@ private:
         const std::size_t k = k_;
         const double nd = weight();
         if constexpr (kEw) {
-            // The largest second moment per unit weight, sum w z^2 / W, that
-            // each regressor has had, the reference of the test below.
+            // A slowly decaying peak of each regressor's diagonal per unit
+            // weight (its weighted variance with an intercept, its mean
+            // square without), the reference of the test below.
             for (std::size_t j = 0; j < k; ++j) {
-                const double level = origin_[j] + mean_[j];
-                const double l2 = level * level;
-                const double m2 = c(j, j) / nd + l2;
-                if (m2 > peak_[j]) peak_[j] = m2;
+                double d = c(j, j) / nd;
+                if (!icpt_) {
+                    const double level = origin_[j] + mean_[j];
+                    const double l2 = level * level;
+                    d += l2;
+                }
+                const double old = peak_[j] * peak_decay_;
+                peak_[j] = d > old ? d : old;
             }
         }
         if (n_ < n_min_) return;
@@ -337,9 +346,9 @@ private:
                 // its mean (a few ulps of its level), or underflow, so the
                 // pivot test above cannot see it. It counts as constant once
                 // its diagonal per unit weight is below kFlat^2 times the
-                // largest second moment it has had; see kFlat.
-                const double ref = kFlat2 * nd;
-                const double floor = ref * peak_[j];
+                // decaying peak of it; see kFlat.
+                const double fp = kFlat2 * peak_[j];
+                const double floor = nd * fp;
                 if (!(ajj > floor)) return;
             }
             const double inv = 1.0 / std::sqrt(s);
@@ -399,25 +408,37 @@ private:
     static constexpr double kFar = 16.0;
     static constexpr double kDrift = 16.0;
     static constexpr double kSingular = 1e-12;
-    // EwMultiRegression: a regressor whose weighted standard deviation (with
-    // an intercept; its root mean square without one) is below kFlat times
-    // the root of the largest second moment it has had, sum w z^2 / W, is
-    // constant. Once a regressor stops varying, the weighted spread of its
-    // earlier rows decays geometrically while the sums keep the rounding of
-    // its running mean, and the slope loses a digit for every factor 10 the
-    // spread falls toward that rounding. kFlat = 2^20 eps (2.3e-10) stops
-    // the fit while it still has about 7 digits (in tests, a varying
-    // regressor that then stays at 3.7, 1, 0 or -5); a real spread that
-    // small next to the column's level or history is rare: a regressor at
-    // level 3.7 moving by 1e-5 over the effective window is thousands of
-    // times above it.
-    static constexpr double kFlat = 1048576.0 * std::numeric_limits<double>::epsilon();
+    // EwMultiRegression: a regressor that stops varying keeps a weighted
+    // spread that decays geometrically while the sums keep the rounding of
+    // its running mean, so the slope loses a digit for every factor 10 the
+    // spread falls toward that rounding. The regressor counts as constant
+    // when its weighted variance (its mean square without an intercept) is
+    // below kFlat^2 times a slowly decaying peak of it.
+    //
+    // The peak is a running maximum that decays by (1 - alpha)^(1/8) per
+    // row, eight times slower than the weights. A constant regressor's
+    // variance falls away from it as (1 - alpha)^(7n/8), so it is flagged
+    // after about 2 ln(1 / kFlat) * 8 / 7 / alpha, some 45 / alpha rows;
+    // in tests (a varying regressor that then stays at 3.7, 1, 0 or -5, or
+    // at 1e6 after a spread of 1e-4) the slope keeps 5 digits or more up to
+    // that row. An old large value is forgotten: a peak R times the current
+    // variance stops marking the column after about 8 ln(R kFlat^2) / alpha
+    // rows, about 1070 rows at alpha = 0.1 after one 1e10 tick in returns
+    // of spread 0.01, and never marks it when R kFlat^2 < 1 (a 1e8 tick).
+    //
+    // kFlat = 2^24 eps (3.7e-9). Real data can fall below it: a regressor
+    // whose variance falls more than 16 orders of magnitude below its
+    // decaying peak gives NaN until the peak has decayed.
+    // The level does not enter: the sums are centered about an origin near
+    // the column's mean, so a small spread at a high level is exact.
+    static constexpr double kFlat = 16777216.0 * std::numeric_limits<double>::epsilon();
     static constexpr double kFlat2 = kFlat * kFlat;
 
     const std::size_t k_, d_, m_;   // regressors, row width, outputs
     const bool icpt_;
     const std::size_t w_, n_min_;
     const double decay_;             // 1 - alpha with kEw
+    const double peak_decay_;        // decay_^(1/8), the decay of peak_
     std::vector<double> ring_;
     std::size_t n_ = 0, head_ = 0, since_refresh_ = 0;
     double wsum_ = 0.0;              // the total weight, with kEw

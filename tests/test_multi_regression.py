@@ -467,13 +467,19 @@ def test_ew_regressor_that_stops_varying(level, intercept):
     else:
         assert np.isfinite(out[2:, 2:]).all()
         check = [320, 1000, len(x) - 1]
-    for t in check:
+    # The slope degrades as the spread falls toward the rounding of the mean:
+    # exact 200 rows before the NaN, about 5 digits (or better) on the row before.
+    for t, rel in zip(check, (1e-9, 1e-6, 1e-4)):
         ref = _ew_exact_b1(x, y, t, alpha, intercept)
-        assert b1[t] == pytest.approx(ref, rel=1e-6, abs=1e-9), t
-    # It recovers once the regressor varies again.
+        assert b1[t] == pytest.approx(ref, rel=rel, abs=1e-9), t
+    # It recovers on the first row where the regressor varies again.
     x2 = np.r_[x, rng.standard_normal(50)]
     y2 = np.r_[y, rng.standard_normal(50)]
-    assert np.isfinite(s.EwMultiRegression(1, intercept, alpha=alpha)(y2, x2)[-1, 2:]).all()
+    out2 = s.EwMultiRegression(1, intercept, alpha=alpha)(y2, x2)
+    assert np.isfinite(out2[len(x):, 2:]).all()
+    for t in (len(x), len(x2) - 1):
+        ref = _ew_exact_b1(x2, y2, t, alpha, intercept)
+        assert out2[t, -1] == pytest.approx(ref, rel=1e-6, abs=1e-9), t
 
 
 @pytest.mark.parametrize("intercept", [True, False])
@@ -489,3 +495,58 @@ def test_ew_slowly_varying_regressor_is_not_constant(intercept):
     for row in (1500, len(x) - 1):
         ref = _ew_exact_b1(x, y, row, 0.1, intercept)
         assert out[row, -1] == pytest.approx(ref, rel=1e-6), row
+
+
+def _first_finite_after_last_nan(b, start):
+    nan = np.flatnonzero(np.isnan(b[start:]))
+    return start + (nan[-1] + 1 if len(nan) else 0)
+
+
+@pytest.mark.parametrize("seed", [0, 1, 2])
+def test_ew_outlier_is_forgotten(seed):
+    """One huge tick in returns of spread 0.01 raises the regressor's decaying
+    peak. A 1e10 tick (peak about 1e19 against a variance of 1e-4) gives NaN
+    until the peak has decayed below the variance over kFlat^2, after about
+    8 ln(1e23 kFlat^2) / alpha, some 1070 rows at alpha = 0.1, and none after
+    that. A 1e8 tick stays below that bound: no NaN at all."""
+    rng = np.random.default_rng(seed)
+    T, at = 4000, 1000
+    for tick, bound in ((1e10, 1300), (1e8, 0)):
+        x = 0.01 * rng.standard_normal(T)
+        x[at] = tick
+        y = 0.5 * x + 0.01 * rng.standard_normal(T)
+        y[at] = 0.0
+        out = s.EwMultiRegression(1, alpha=0.1)(y, x)
+        assert np.isfinite(out[3:at, 2:]).all()
+        back = _first_finite_after_last_nan(out[:, -1], at)
+        assert back <= at + bound, (tick, back - at)
+        assert np.isfinite(out[back:, 2:]).all()
+        if tick == 1e8:
+            assert np.isfinite(out[3:, 2:]).all()
+        else:
+            assert np.isnan(out[at:, -1]).any()
+
+
+@pytest.mark.parametrize("seed", [0, 1, 2])
+@pytest.mark.parametrize("up", [False, True])
+def test_ew_level_switch(seed, up):
+    """A regressor that jumps between a level of 1e6 and 0, with a spread of
+    1e-4 after the jump (and 1 or 1e-4 before). The jump dominates the
+    variance for a while and then decays faster than the peak, so the fit
+    may be NaN on a few rows; it is finite again within 600 rows (alpha =
+    0.1) and stays so. The spread after the jump is exact in the centered
+    sums at either level, so it is never treated as constant for good."""
+    rng = np.random.default_rng(seed)
+    if up:
+        x = np.r_[1e-4 * rng.standard_normal(1000), 1e6 + 1e-4 * rng.standard_normal(3000)]
+    else:
+        x = np.r_[1e6 + rng.standard_normal(1000), 1e-4 * rng.standard_normal(3000)]
+    y = rng.standard_normal(len(x))
+    out = s.EwMultiRegression(1, alpha=0.1)(y, x)
+    assert np.isfinite(out[3:1000, 2:]).all()
+    back = _first_finite_after_last_nan(out[:, -1], 1000)
+    assert back <= 1000 + 600
+    assert np.isfinite(out[back:, 2:]).all()
+    t = len(x) - 1
+    ref = _ew_exact_b1(x, y, t, 0.1, True)
+    assert out[t, -1] == pytest.approx(ref, rel=1e-6)
