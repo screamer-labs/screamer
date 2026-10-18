@@ -2104,6 +2104,47 @@
     "source": "bindings/bindings_ew.cpp"
   },
   {
+    "name": "EwMultiRegression",
+    "cpp_type": "screamer::EwMultiRegression",
+    "base": "FunctorBase",
+    "ctor": [
+      "int",
+      "bool",
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>"
+    ],
+    "ctor_args": [
+      {
+        "name": "n_regressors",
+        "default": null
+      },
+      {
+        "name": "intercept",
+        "default": "true"
+      },
+      {
+        "name": "com",
+        "default": null
+      },
+      {
+        "name": "span",
+        "default": null
+      },
+      {
+        "name": "halflife",
+        "default": null
+      },
+      {
+        "name": "alpha",
+        "default": null
+      }
+    ],
+    "ctor_kind": "ew_optional",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
     "name": "EwParkinsonVar",
     "cpp_type": "screamer::EwParkinsonVar",
     "base": "FunctorBase",
@@ -2552,8 +2593,8 @@
     "source": "bindings/bindings_expanding.cpp"
   },
   {
-    "name": "ExpandingOLS",
-    "cpp_type": "screamer::ExpandingOLS",
+    "name": "ExpandingMultiRegression",
+    "cpp_type": "screamer::ExpandingMultiRegression",
     "base": "FunctorBase",
     "ctor": [
       "int",
@@ -4186,8 +4227,8 @@
     "source": "bindings/bindings_rolling.cpp"
   },
   {
-    "name": "RollingOLS",
-    "cpp_type": "screamer::RollingOLS",
+    "name": "RollingMultiRegression",
+    "cpp_type": "screamer::RollingMultiRegression",
     "base": "FunctorBase",
     "ctor": [
       "int",

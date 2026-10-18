@@ -108,7 +108,7 @@ struct FloatArg {
     }
 };
 
-// A yes-or-no setting (RollingOLS's intercept): a Python bool, a NumPy bool or
+// A yes-or-no setting (RollingMultiRegression's intercept): a Python bool, a NumPy bool or
 // a 0-d NumPy bool array. Any other value, a number included, is a wrong kind.
 struct BoolArg {
     bool value = false;

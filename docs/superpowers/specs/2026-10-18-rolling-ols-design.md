@@ -11,7 +11,7 @@ forecast (HAR-RV, factor betas, multi-leg hedge ratios).
 
 ## Shape
 
-`RollingOLS(window, n_regressors, intercept=True)`; inputs: y then x_1..x_k (k = n_regressors, 1 <= k <= 16);
+`RollingMultiRegression(window, n_regressors, intercept=True)`; inputs: y then x_1..x_k (k = n_regressors, 1 <= k <= 16);
 `window` >= k + 1 + (1 if intercept) is a trailing count of rows, or 0 for an expanding fit over every row so
 far (follow the library's existing convention for expanding windows if one exists, e.g. a separate parameter
 or `window=None`; pick the established one and say so). Outputs (output_names order): `pred` (the prediction
@@ -33,3 +33,15 @@ forward, x = log RV_1, RV_7, RV_30), see_also RollingLinearRegression, RollingBe
 KalmanRegression. Tests: equals numpy lstsq per window (random data, k = 1..4, with and without intercept,
 rolling and expanding), pred uses only past rows (perturbing y_t does not change pred_t), NaN rows skipped,
 singular window gives NaN, batch == streaming, Python/JS parity, k = 1 agrees with RollingLinearRegression.
+
+## Follow-up: names and the exponentially weighted variant
+
+The operators are named `RollingMultiRegression` and `ExpandingMultiRegression` (renamed from
+their working names) and live in `include/screamer/multi_regression.h` with a third,
+`EwMultiRegression(n_regressors, intercept=True, com=None, span=None, halflife=None, alpha=None)`.
+It is the weighted least-squares fit over every row so far with weight `(1 - alpha)^i` on the row
+`i` rows back (pandas `adjust=True`, as `EwBeta`), with the same inputs, outputs, warmup, NaN-row
+skipping and singular handling. It shares the fit of the other two: before each row the total weight
+and the centered cross-products are scaled by `1 - alpha`, then the row enters by West's weighted
+update; no row ever leaves, so there is no exact recomputation. `n_regressors` comes first because
+it is required and the smoothing settings are keyword options (exactly one of them).

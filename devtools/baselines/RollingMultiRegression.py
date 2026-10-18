@@ -1,11 +1,13 @@
 """Least squares of y on k regressors over a trailing window, by
 numpy.linalg.lstsq on each window. pred and resid use the fit of the window
 that ends one row earlier; r2 is centered with an intercept and uncentered
-without one. NaN rows are dropped before the windows are formed."""
+without one. NaN rows are dropped before the windows are formed. With alpha,
+the rows so far are weighted, the row i rows back by (1 - alpha)^i, and the
+fit is the weighted one (lstsq on rows scaled by sqrt(weight))."""
 import numpy as np
 
 
-def ols_rows(y, xs, window, intercept):
+def ols_rows(y, xs, window, intercept, alpha=None):
     """(T, k + 3 [+ 1]) outputs; window None fits every row so far."""
     y = np.asarray(y, dtype=float)
     X = np.column_stack([np.asarray(x, dtype=float) for x in xs])
@@ -22,23 +24,26 @@ def ols_rows(y, xs, window, intercept):
         A = X[sel]
         if intercept:
             A = np.column_stack([np.ones(len(sel)), A])
+        v = y[sel]
+        w = np.ones(len(sel)) if alpha is None else (1.0 - alpha) ** np.arange(len(sel) - 1, -1, -1)
+        sw = np.sqrt(w)
         b = None
-        if len(sel) >= need and np.linalg.matrix_rank(A) == p:
-            b = np.linalg.lstsq(A, y[sel], rcond=None)[0]
+        if len(sel) >= need and np.linalg.matrix_rank(A * sw[:, None]) == p:
+            b = np.linalg.lstsq(A * sw[:, None], v * sw, rcond=None)[0]
         row = np.r_[1.0, X[t]] if intercept else X[t]
         if prev is not None:
             out[t, 0] = row @ prev
             out[t, 1] = y[t] - out[t, 0]
         if b is not None:
-            e = y[sel] - A @ b
-            ref = y[sel] - y[sel].mean() if intercept else y[sel]
-            out[t, 2] = 1.0 - (e @ e) / (ref @ ref)
+            e = v - A @ b
+            ref = v - (w @ v) / w.sum() if intercept else v
+            out[t, 2] = 1.0 - (w @ (e * e)) / (w @ (ref * ref))
             out[t, 3:] = b
         prev = b
     return out
 
 
-class RollingOLS_numpy:
+class RollingMultiRegression_numpy:
 
     def __init__(self, window_size=250, n_regressors=3, intercept=True):
         self.window_size = window_size

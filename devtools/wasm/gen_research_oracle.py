@@ -7,8 +7,8 @@ of the input series below; js/test/research.test.ts builds the same operator
 in JavaScript (settings in camelCase), runs it on the same series, and
 compares the result, to 1e-9 relative unless the case gives a tolerance. The
 helper cases hold the inputs and results of backtest_trades, backtest_report
-with by=, walk_forward with carry= and portfolio engines, and RollingOLS on
-(T, K) columns. A non-finite
+with by=, walk_forward with carry= and portfolio engines, and
+RollingMultiRegression and EwMultiRegression on (T, K) columns. A non-finite
 number is written as null (NaN), "inf" or "-inf".
 
 Modes:
@@ -42,8 +42,8 @@ def _inputs():
 
 def _ols_rows(T=600, k=16, K=1, seed=20261018):
     """y and k regressors with a linear relation, a level of 1e3 on two of
-    them, NaN rows, and a stretch where x1 is constant, for RollingOLS and
-    ExpandingOLS. K > 1 gives (T, K) columns."""
+    them, NaN rows, and a stretch where x1 is constant, for the multiple
+    regression operators. K > 1 gives (T, K) columns."""
     rng = np.random.default_rng(seed + K)
     X = rng.standard_normal((T, k, K))
     X[:, 1] += 1e3
@@ -84,11 +84,14 @@ CASES = [
     ("RollingHMM", {"window_size": 150, "refit_every": 40, "max_iter": 20, "tol": 0.0}, "returns", 1e-6),
     ("RollingHMM", {"window_size": 150, "refit_every": 40, "emission": "ar1", "max_iter": 20, "tol": 0.0},
      "returns", 1e-6),
-    ("RollingOLS", {"window_size": 40, "n_regressors": 3}, _OLS[:4]),
-    ("RollingOLS", {"window_size": 25, "n_regressors": 2, "intercept": False}, _OLS[:3]),
-    ("RollingOLS", {"window_size": 60, "n_regressors": 16}, _OLS),
-    ("ExpandingOLS", {"n_regressors": 4}, _OLS[:5]),
-    ("ExpandingOLS", {"n_regressors": 1, "intercept": False}, _OLS[:2]),
+    ("RollingMultiRegression", {"window_size": 40, "n_regressors": 3}, _OLS[:4]),
+    ("RollingMultiRegression", {"window_size": 25, "n_regressors": 2, "intercept": False}, _OLS[:3]),
+    ("RollingMultiRegression", {"window_size": 60, "n_regressors": 16}, _OLS),
+    ("ExpandingMultiRegression", {"n_regressors": 4}, _OLS[:5]),
+    ("ExpandingMultiRegression", {"n_regressors": 1, "intercept": False}, _OLS[:2]),
+    ("EwMultiRegression", {"n_regressors": 3, "alpha": 0.05}, _OLS[:4]),
+    ("EwMultiRegression", {"n_regressors": 2, "intercept": False, "halflife": 20.0}, _OLS[:3]),
+    ("EwMultiRegression", {"n_regressors": 16, "span": 120.0}, _OLS),
 ]
 
 
@@ -166,12 +169,16 @@ def _helpers():
         "choice": wfh.choice.tolist(), "target": _flat(wfh.target), "output": _flat(wfh.output),
         "stats": {k: _num(v) for k, v in wfh.stats.items()}}
     ols = _ols_rows(T=300, k=3, K=3)
-    ols_out = s.RollingOLS(30, 3)(*(ols[n] for n in _OLS[:4]))
+    ols_out = s.RollingMultiRegression(30, 3)(*(ols[n] for n in _OLS[:4]))
     ols_2d = {"T": 300, "K": 3, "window_size": 30, "n_regressors": 3,
               "inputs": [_flat(ols[n]) for n in _OLS[:4]],
               "shape": list(np.shape(ols_out)), "output": _flat(ols_out)}
+    ew_out = s.EwMultiRegression(3, span=30.0)(*(ols[n] for n in _OLS[:4]))
+    ew_2d = {"T": 300, "K": 3, "span": 30.0, "n_regressors": 3,
+             "inputs": ols_2d["inputs"], "shape": list(np.shape(ew_out)), "output": _flat(ew_out)}
     return {
         "ols_2d": ols_2d,
+        "ew_2d": ew_2d,
         "walk_forward_carry": walk_forward_carry,
         "walk_forward_portfolio": walk_forward_portfolio,
         "walk_forward_portfolio_hold": walk_forward_portfolio_hold,

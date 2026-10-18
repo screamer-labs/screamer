@@ -158,7 +158,8 @@ def _build_input(n_inputs: int, n_samples: int) -> list[np.ndarray]:
 #   * RollingCalmar + monotone-positive prices -> rolling drawdown = 0.
 #   * RollingInfoRatio with identical input streams -> excess = 0 -> std = 0.
 #   * RollingOmega with all-positive returns -> no downside -> ratio undefined.
-#   * RollingOLS, ExpandingOLS with identical regressors -> a singular fit.
+#   * RollingMultiRegression, ExpandingMultiRegression, EwMultiRegression with
+#     identical regressors -> a singular fit.
 # For these, the test must use a centered input (and independent streams
 # for InfoRatio) so the function has something meaningful to compute.
 # BacktestStats needs a position that changes sign, or no trade ever closes
@@ -166,8 +167,9 @@ def _build_input(n_inputs: int, n_samples: int) -> list[np.ndarray]:
 _NEEDS_CENTERED_INPUT: set[str] = {
     "BacktestStats",
     # Identical regressors are collinear, so the fit is singular (NaN).
-    "ExpandingOLS",
-    "RollingOLS",
+    "EwMultiRegression",
+    "ExpandingMultiRegression",
+    "RollingMultiRegression",
     "RollingCalmar",
     "RollingInfoRatio",
     "RollingOmega",

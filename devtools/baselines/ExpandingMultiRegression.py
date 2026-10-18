@@ -1,9 +1,9 @@
 """Least squares of y on k regressors over every row so far, by
-numpy.linalg.lstsq (devtools/baselines/RollingOLS.py with no window)."""
-from devtools.baselines.RollingOLS import ols_rows
+numpy.linalg.lstsq (devtools/baselines/RollingMultiRegression.py with no window)."""
+from devtools.baselines.RollingMultiRegression import ols_rows
 
 
-class ExpandingOLS_numpy:
+class ExpandingMultiRegression_numpy:
 
     def __init__(self, n_regressors=3, intercept=True):
         self.intercept = intercept

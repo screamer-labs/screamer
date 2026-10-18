@@ -259,11 +259,13 @@ Relationships between series: correlation, covariance, regression, hedging, pair
      - EW covariance of two parallel streams.
    * - :doc:`Kyle's Lambda (exponentially weighted) </functions_micro/EwKyleLambda>`
      - Exponentially-weighted price-impact slope of return on signed order flow.
+   * - :doc:`Exponentially-weighted multiple regression </functions_ew/EwMultiRegression>`
+     - Exponentially weighted least-squares fit of y on k regressors, with the one-step-ahead prediction made before each row enters, R-squared, and the coefficients.
    * - :doc:`Exponentially-weighted residual std </functions_ew/EwResidualStd>`
      - EW std of the spread x - EwBeta(x, y) * y.
    * - :doc:`Exponentially-weighted spread </functions_ew/EwSpread>`
      - EW hedge-adjusted residual x - EwBeta(x, y) * y.
-   * - :doc:`Expanding multiple regression </functions_expanding/ExpandingOLS>`
+   * - :doc:`Expanding multiple regression </functions_expanding/ExpandingMultiRegression>`
      - Least-squares fit of y on k regressors over every row so far, with the one-step-ahead prediction made before each row enters, R-squared, and the coefficients.
    * - :doc:`Kalman filter regression (dynamic hedge ratio) </functions_fin/KalmanRegression>`
      - Regression with a random-walk intercept and slope, estimated by a Kalman filter: the dynamic hedge ratio of a pairs trade, its spread, and the spread's predicted deviation.
@@ -283,7 +285,7 @@ Relationships between series: correlation, covariance, regression, hedging, pair
      - Rolling-window price-impact slope of return on signed order flow (Kyle 1985).
    * - :doc:`Rolling linear regression </functions_fin/RollingLinearRegression>`
      - Rolling OLS fit of y on x, returning slope, intercept, R-squared and the standard error of the fit.
-   * - :doc:`Rolling multiple regression </functions_fin/RollingOLS>`
+   * - :doc:`Rolling multiple regression </functions_fin/RollingMultiRegression>`
      - Rolling least-squares fit of y on k regressors, with the one-step-ahead prediction made before each row enters, R-squared, and the coefficients.
    * - :doc:`Rolling Ornstein-Uhlenbeck fit </functions_rolling/RollingOU>`
      - Rolling MLE fit of a mean-reverting Ornstein-Uhlenbeck process.
@@ -321,6 +323,7 @@ Relationships between series: correlation, covariance, regression, hedging, pair
    /functions_ew/EwKurt
    /functions_micro/EwKyleLambda
    /functions_ew/EwMean
+   /functions_ew/EwMultiRegression
    /functions_ew/EwParkinsonVar
    /functions_ew/EwParkinsonVol
    /functions_ew/EwResidualStd
@@ -338,7 +341,7 @@ Relationships between series: correlation, covariance, regression, hedging, pair
    /functions_expanding/ExpandingMax
    /functions_expanding/ExpandingMean
    /functions_expanding/ExpandingMin
-   /functions_expanding/ExpandingOLS
+   /functions_expanding/ExpandingMultiRegression
    /functions_expanding/ExpandingProd
    /functions_expanding/ExpandingSkew
    /functions_expanding/ExpandingStd
@@ -377,7 +380,7 @@ Relationships between series: correlation, covariance, regression, hedging, pair
    /functions_rolling/RollingMedianAD
    /functions_rolling/RollingMin
    /functions_rolling/RollingMinMax
-   /functions_fin/RollingOLS
+   /functions_fin/RollingMultiRegression
    /functions_rolling/RollingOU
    /functions_rolling/RollingParkinsonVar
    /functions_rolling/RollingParkinsonVol

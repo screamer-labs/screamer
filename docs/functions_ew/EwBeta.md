@@ -41,6 +41,7 @@ see_also:
 - EwAlpha
 - EwSpread
 - EwCov
+- EwMultiRegression
 - RollingBeta
 - KalmanRegression
 nan_policy: ignore

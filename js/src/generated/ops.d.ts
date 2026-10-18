@@ -2017,6 +2017,42 @@ export declare function EwMean(options: EwMeanOptions): ScreamerOp;
  */
 export declare function EwMean(com?: number | null, span?: number | null, halflife?: number | null, alpha?: number | null): ScreamerOp;
 
+/** The settings of EwMultiRegression by name, for `EwMultiRegression({ ... })`. */
+export interface EwMultiRegressionOptions {
+  /** Number of regressors k. The operator takes k + 1 inputs, y first, and returns k + 3 outputs, plus 1 with an intercept. */
+  nRegressors: number;
+  /** Fit an intercept b0. Without one, the line goes through the origin and r2 is the uncentered R-squared. @defaultValue `true` */
+  intercept?: boolean;
+  /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  com?: number | null;
+  /** Span s in rows, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  span?: number | null;
+  /** Half-life h in rows, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  halflife?: number | null;
+  /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent rows more weight. Give exactly one of com, span, halflife and alpha. */
+  alpha?: number | null;
+}
+
+/**
+ * Exponentially weighted least-squares fit of y on k regressors, with the one-step-ahead prediction made before each row enters, R-squared, and the coefficients.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwMultiRegression.html for the full reference.
+ */
+export declare function EwMultiRegression(options: EwMultiRegressionOptions): ScreamerOp;
+/**
+ * Exponentially weighted least-squares fit of y on k regressors, with the one-step-ahead prediction made before each row enters, R-squared, and the coefficients.
+ *
+ * @param nRegressors Number of regressors k. The operator takes k + 1 inputs, y first, and returns k + 3 outputs, plus 1 with an intercept.
+ * @param intercept Fit an intercept b0. Without one, the line goes through the origin and r2 is the uncentered R-squared.
+ * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param span Span s in rows, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param halflife Half-life h in rows, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent rows more weight. Give exactly one of com, span, halflife and alpha.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwMultiRegression.html for the full reference.
+ */
+export declare function EwMultiRegression(nRegressors: number, intercept?: boolean, com?: number | null, span?: number | null, halflife?: number | null, alpha?: number | null): ScreamerOp;
+
 /** The settings of EwParkinsonVar by name, for `EwParkinsonVar({ ... })`. */
 export interface EwParkinsonVarOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
@@ -2462,8 +2498,8 @@ export type ExpandingMinOptions = Record<string, never>;
  */
 export declare function ExpandingMin(options?: ExpandingMinOptions): ScreamerOp;
 
-/** The settings of ExpandingOLS by name, for `ExpandingOLS({ ... })`. */
-export interface ExpandingOLSOptions {
+/** The settings of ExpandingMultiRegression by name, for `ExpandingMultiRegression({ ... })`. */
+export interface ExpandingMultiRegressionOptions {
   /** Number of regressors k. The operator takes k + 1 inputs, y first, and returns k + 3 outputs, plus 1 with an intercept. */
   nRegressors: number;
   /** Fit an intercept b0. Without one, the line goes through the origin and r2 is the uncentered R-squared. @defaultValue `true` */
@@ -2474,17 +2510,17 @@ export interface ExpandingOLSOptions {
  * Least-squares fit of y on k regressors over every row so far, with the one-step-ahead prediction made before each row enters, R-squared, and the coefficients.
  *
  * @param options The settings by name, each one optional where the positional form's is.
- * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingOLS.html for the full reference.
+ * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingMultiRegression.html for the full reference.
  */
-export declare function ExpandingOLS(options: ExpandingOLSOptions): ScreamerOp;
+export declare function ExpandingMultiRegression(options: ExpandingMultiRegressionOptions): ScreamerOp;
 /**
  * Least-squares fit of y on k regressors over every row so far, with the one-step-ahead prediction made before each row enters, R-squared, and the coefficients.
  *
  * @param nRegressors Number of regressors k. The operator takes k + 1 inputs, y first, and returns k + 3 outputs, plus 1 with an intercept.
  * @param intercept Fit an intercept b0. Without one, the line goes through the origin and r2 is the uncentered R-squared.
- * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingOLS.html for the full reference.
+ * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingMultiRegression.html for the full reference.
  */
-export declare function ExpandingOLS(nRegressors: number, intercept?: boolean): ScreamerOp;
+export declare function ExpandingMultiRegression(nRegressors: number, intercept?: boolean): ScreamerOp;
 
 /** ExpandingProd has no settings: its options object is empty. */
 export type ExpandingProdOptions = Record<string, never>;
@@ -4373,8 +4409,8 @@ export declare function RollingMinMax(options: RollingMinMaxOptions): ScreamerOp
  */
 export declare function RollingMinMax(windowSize?: number): ScreamerOp;
 
-/** The settings of RollingOLS by name, for `RollingOLS({ ... })`. */
-export interface RollingOLSOptions {
+/** The settings of RollingMultiRegression by name, for `RollingMultiRegression({ ... })`. */
+export interface RollingMultiRegressionOptions {
   /** Number of most recent rows in the fit. At least n_regressors + 1, plus 1 with an intercept, so the fit keeps a residual degree of freedom. */
   windowSize: number;
   /** Number of regressors k. The operator takes k + 1 inputs, y first, and returns k + 3 outputs, plus 1 with an intercept. */
@@ -4387,18 +4423,18 @@ export interface RollingOLSOptions {
  * Rolling least-squares fit of y on k regressors, with the one-step-ahead prediction made before each row enters, R-squared, and the coefficients.
  *
  * @param options The settings by name, each one optional where the positional form's is.
- * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingOLS.html for the full reference.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingMultiRegression.html for the full reference.
  */
-export declare function RollingOLS(options: RollingOLSOptions): ScreamerOp;
+export declare function RollingMultiRegression(options: RollingMultiRegressionOptions): ScreamerOp;
 /**
  * Rolling least-squares fit of y on k regressors, with the one-step-ahead prediction made before each row enters, R-squared, and the coefficients.
  *
  * @param windowSize Number of most recent rows in the fit. At least n_regressors + 1, plus 1 with an intercept, so the fit keeps a residual degree of freedom.
  * @param nRegressors Number of regressors k. The operator takes k + 1 inputs, y first, and returns k + 3 outputs, plus 1 with an intercept.
  * @param intercept Fit an intercept b0. Without one, the line goes through the origin and r2 is the uncentered R-squared.
- * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingOLS.html for the full reference.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingMultiRegression.html for the full reference.
  */
-export declare function RollingOLS(windowSize: number, nRegressors: number, intercept?: boolean): ScreamerOp;
+export declare function RollingMultiRegression(windowSize: number, nRegressors: number, intercept?: boolean): ScreamerOp;
 
 /** The settings of RollingOU by name, for `RollingOU({ ... })`. */
 export interface RollingOUOptions {

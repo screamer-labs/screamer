@@ -64,7 +64,7 @@
 #include "screamer/rolling_alpha.h"
 #include "screamer/rolling_residual_std.h"
 #include "screamer/rolling_linear_regression.h"
-#include "screamer/rolling_ols.h"
+#include "screamer/multi_regression.h"
 #include "screamer/common/var_arity_dispatch.h"
 #include "screamer/bayesian_regression.h"
 #include "screamer/bayesian_changepoint.h"
@@ -1439,17 +1439,28 @@ void init_bindings_fin(nb::module_& m) {
         .def("reset", &screamer::RollingLinearRegression::reset, "Reset.");
 
     // (1 + k) -> (3 + [1] + k) least squares of y on k regressors over a
-    // trailing window or every row so far: (pred, resid, r2, [b0], b1..bk).
-    nb::class_<screamer::RollingOLS, screamer::EvalOp>(m, "RollingOLS")
+    // trailing window, every row so far, or every row so far with exponential
+    // weights: (pred, resid, r2, [b0], b1..bk).
+    nb::class_<screamer::RollingMultiRegression, screamer::EvalOp>(m, "RollingMultiRegression")
         .def(nb::init<screamer::IntArg<int>, screamer::IntArg<int>, screamer::BoolArg>(),
              "window_size"_a, "n_regressors"_a, "intercept"_a = true)
-        .def("__call__", &screamer::var_arity_call<screamer::RollingOLS>)
-        .def("reset", &screamer::RollingOLS::reset, "Reset.");
+        .def("__call__", &screamer::var_arity_call<screamer::RollingMultiRegression>)
+        .def("reset", &screamer::RollingMultiRegression::reset, "Reset.");
 
-    nb::class_<screamer::ExpandingOLS, screamer::EvalOp>(m, "ExpandingOLS")
+    nb::class_<screamer::ExpandingMultiRegression, screamer::EvalOp>(m, "ExpandingMultiRegression")
         .def(nb::init<screamer::IntArg<int>, screamer::BoolArg>(), "n_regressors"_a, "intercept"_a = true)
-        .def("__call__", &screamer::var_arity_call<screamer::ExpandingOLS>)
-        .def("reset", &screamer::ExpandingOLS::reset, "Reset.");
+        .def("__call__", &screamer::var_arity_call<screamer::ExpandingMultiRegression>)
+        .def("reset", &screamer::ExpandingMultiRegression::reset, "Reset.");
+
+    nb::class_<screamer::EwMultiRegression, screamer::EvalOp>(m, "EwMultiRegression")
+        .def(nb::init<screamer::IntArg<int>, screamer::BoolArg,
+                      std::optional<screamer::FloatArg>, std::optional<screamer::FloatArg>,
+                      std::optional<screamer::FloatArg>, std::optional<screamer::FloatArg>>(),
+             "n_regressors"_a, "intercept"_a = true,
+             "com"_a = nb::none(), "span"_a = nb::none(),
+             "halflife"_a = nb::none(), "alpha"_a = nb::none())
+        .def("__call__", &screamer::var_arity_call<screamer::EwMultiRegression>)
+        .def("reset", &screamer::EwMultiRegression::reset, "Reset.");
 
     // 2 -> 4 online Bayesian regression returning (pred_mean, pred_std, slope, intercept).
     // Uses exponential forgetting with a conjugate Normal-Inverse-Gamma prior.

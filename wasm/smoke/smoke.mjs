@@ -57,7 +57,7 @@ function parseDefault(name, type, text) {
 const REQUIRED = {
   SchmittTrigger: { lower: 0.0, upper: 1.0 },         // lower < upper
   RoofingFilter: { hp_period: 48, lp_period: 10 },     // one of period or cutoff per filter
-  RollingOLS: { window_size: 20 },                     // at least n_regressors + 2
+  RollingMultiRegression: { window_size: 20 },         // at least n_regressors + 2
 };
 
 // Build constructor args for one manifest entry from its defaults.

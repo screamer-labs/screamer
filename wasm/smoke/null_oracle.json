@@ -2495,6 +2495,65 @@
    "alpha": false,
    "com": false,
    "halflife": false,
+   "intercept": true,
+   "n_regressors": false,
+   "span": false
+  },
+  "accepts_none": {
+   "alpha": true,
+   "com": true,
+   "halflife": true,
+   "intercept": false,
+   "n_regressors": false,
+   "span": true
+  },
+  "base": {
+   "com": 10.0,
+   "n_regressors": 3
+  },
+  "below_min": {
+   "n_regressors": [
+    0,
+    "EwMultiRegression: n_regressors must be at least 1, got 0"
+   ]
+  },
+  "bool_message": {
+   "alpha": "EwMultiRegression: alpha must be a number, got bool",
+   "com": "EwMultiRegression: com must be a number, got bool",
+   "halflife": "EwMultiRegression: halflife must be a number, got bool",
+   "intercept": null,
+   "n_regressors": "EwMultiRegression: n_regressors must be an integer, got bool",
+   "span": "EwMultiRegression: span must be a number, got bool"
+  },
+  "name": "EwMultiRegression",
+  "non_finite": {
+   "alpha": {
+    "-inf": "EwMultiRegression: alpha must be finite, got -inf",
+    "inf": "EwMultiRegression: alpha must be finite, got inf",
+    "nan": "EwMultiRegression: alpha must be finite, got nan"
+   },
+   "com": {
+    "-inf": "EwMultiRegression: com must be finite, got -inf",
+    "inf": "EwMultiRegression: com must be finite, got inf",
+    "nan": "EwMultiRegression: com must be finite, got nan"
+   },
+   "halflife": {
+    "-inf": "EwMultiRegression: halflife must be finite, got -inf",
+    "inf": "EwMultiRegression: halflife must be finite, got inf",
+    "nan": "EwMultiRegression: halflife must be finite, got nan"
+   },
+   "span": {
+    "-inf": "EwMultiRegression: span must be finite, got -inf",
+    "inf": "EwMultiRegression: span must be finite, got inf",
+    "nan": "EwMultiRegression: span must be finite, got nan"
+   }
+  }
+ },
+ {
+  "accepts_bool": {
+   "alpha": false,
+   "com": false,
+   "halflife": false,
    "span": false
   },
   "accepts_none": {
@@ -3116,14 +3175,14 @@
   "below_min": {
    "n_regressors": [
     0,
-    "ExpandingOLS: n_regressors must be at least 1, got 0"
+    "ExpandingMultiRegression: n_regressors must be at least 1, got 0"
    ]
   },
   "bool_message": {
    "intercept": null,
-   "n_regressors": "ExpandingOLS: n_regressors must be an integer, got bool"
+   "n_regressors": "ExpandingMultiRegression: n_regressors must be an integer, got bool"
   },
-  "name": "ExpandingOLS",
+  "name": "ExpandingMultiRegression",
   "non_finite": {}
  },
  {
@@ -4750,19 +4809,19 @@
   "below_min": {
    "n_regressors": [
     0,
-    "RollingOLS: n_regressors must be at least 1, got 0"
+    "RollingMultiRegression: n_regressors must be at least 1, got 0"
    ],
    "window_size": [
     1,
-    "RollingOLS: window_size must be at least 2, got 1"
+    "RollingMultiRegression: window_size must be at least 2, got 1"
    ]
   },
   "bool_message": {
    "intercept": null,
-   "n_regressors": "RollingOLS: n_regressors must be an integer, got bool",
-   "window_size": "RollingOLS: window_size must be an integer, got bool"
+   "n_regressors": "RollingMultiRegression: n_regressors must be an integer, got bool",
+   "window_size": "RollingMultiRegression: window_size must be an integer, got bool"
   },
-  "name": "RollingOLS",
+  "name": "RollingMultiRegression",
   "non_finite": {}
  },
  {

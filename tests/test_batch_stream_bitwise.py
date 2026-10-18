@@ -50,8 +50,9 @@ EXCLUDED = {
 REQUIRED_KWARGS = {
     "Hold": {"n": 3},
     "CusumFilter": {"threshold": 1.0},
-    "RollingOLS": {"window_size": 20, "n_regressors": 3},
-    "ExpandingOLS": {"n_regressors": 3},
+    "RollingMultiRegression": {"window_size": 20, "n_regressors": 3},
+    "ExpandingMultiRegression": {"n_regressors": 3},
+    "EwMultiRegression": {"n_regressors": 3, "alpha": 0.1},
     "SchmittTrigger": {"lower": -1.0, "upper": 1.0},
     # Barriers on, so the labels are not all 0.
     "TripleBarrier": {"horizon": 5, "upper": 0.01, "lower": 0.01},

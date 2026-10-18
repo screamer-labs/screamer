@@ -1,12 +1,16 @@
-#ifndef SCREAMER_ROLLING_OLS_H
-#define SCREAMER_ROLLING_OLS_H
+#ifndef SCREAMER_MULTI_REGRESSION_H
+#define SCREAMER_MULTI_REGRESSION_H
 
-// RollingOLS and ExpandingOLS: ordinary least squares of y on k regressors,
+// RollingMultiRegression, ExpandingMultiRegression and EwMultiRegression:
+// least squares of y on k regressors,
 //
 //     y = b0 + b1 x1 + ... + bk xk + e      (b0 only with an intercept)
 //
-// over a trailing window of rows (RollingOLS) or over every row so far
-// (ExpandingOLS). Inputs are y, x1, ..., xk (1 <= k <= 16). Outputs, per row:
+// over a trailing window of rows (RollingMultiRegression), over every row so
+// far (ExpandingMultiRegression), or over every row so far with exponentially
+// decaying weights (EwMultiRegression: the row i rows back has weight
+// (1 - alpha)^i, the pandas adjust=True convention of the other Ew operators).
+// Inputs are y, x1, ..., xk (1 <= k <= 16). Outputs, per row:
 //
 //     pred   b0 + b . x_t with the coefficients fitted on the rows before t,
 //            a one-step-ahead forecast of y_t
@@ -15,42 +19,46 @@
 //     b0     the intercept after row t enters (with an intercept only)
 //     b1..bk the coefficients after row t enters
 //
-// A fit needs a full window (RollingOLS) or p + 1 rows (ExpandingOLS), with
-// p = k + 1 parameters with an intercept and p = k without; r2 and the
-// coefficients are NaN before that, and pred is NaN until the row after the
-// first fit. A row with a NaN in any input is skipped: it does not enter the
-// window and its outputs are NaN.
+// A fit needs a full window (RollingMultiRegression) or p + 1 rows (the other
+// two), with p = k + 1 parameters with an intercept and p = k without; r2 and
+// the coefficients are NaN before that, and pred is NaN until the row after
+// the first fit. A row with a NaN in any input is skipped: it does not enter
+// the window (nor decay the weights) and its outputs are NaN.
 //
-// The operator keeps the means of the window's columns and their centered
-// cross-products, updated in O(k^2) per row (Welford's add and remove). Each
-// column enters as z - origin, with the origin near the column's mean (moved
-// there when the mean drifts more than four standard deviations from it, and
-// at every exact recomputation), so the sums stay accurate when the levels
-// are large next to the spread. Each row then solves the k x k normal
+// The operator keeps the (weighted) means of the columns and their centered
+// cross-products, updated in O(k^2) per row (Welford's add and remove; West's
+// weighted add, after scaling the sums by 1 - alpha, for EwMultiRegression).
+// Each column enters as z - origin, with the origin near the column's mean
+// (moved there when the mean drifts more than four standard deviations from
+// it, and at every exact recomputation), so the sums stay accurate when the
+// levels are large next to the spread. Each row then solves the k x k normal
 // equations by Cholesky, O(k^3), so a step costs O(k^3) in all. With an
 // intercept they are the centered ones; the intercept is mean_y - b . mean_x
-// and r2 = 1 - SSE / sum (y - mean_y)^2. Without an intercept they are the raw
-// ones, X'X = C + n m m', formed at the solve, and r2 is the uncentered
-// 1 - SSE / sum y^2 (the statsmodels convention for a model without a
-// constant). The normal equations square the condition number of the
+// and r2 = 1 - SSE / sum w (y - mean_y)^2. Without an intercept they are the
+// raw ones, X'WX = C + W m m' (W the total weight), formed at the solve, and
+// r2 is the uncentered 1 - SSE / sum w y^2 (the statsmodels convention for a
+// model without a constant). The weights w are 1 except in
+// EwMultiRegression. The normal equations square the condition number of the
 // regressors: without an intercept on levels far from zero (prices), the
 // coefficients keep about 16 - 2 log10(cond) digits, where cond is the
-// condition number of the window's regressor matrix.
+// condition number of the (weighted) regressor matrix.
 //
-// RollingOLS recomputes its cross-products exactly from the stored rows every
-// window_size rows, and at once when the row that left was far out of the
-// rest (its squared deviation more than 16 times the remaining sum of squares
-// in some column, or not finite), so rounding from the removals stays
-// bounded. A window whose regressors are collinear (a pivot of the Cholesky
-// factor below 1e-12 of its diagonal, for example a regressor that is constant
-// in the window with an intercept) is singular: r2 and the coefficients are
-// NaN, as is the next pred.
+// RollingMultiRegression recomputes its cross-products exactly from the stored
+// rows every window_size rows, and at once when the row that left was far out
+// of the rest (its squared deviation more than 16 times the remaining sum of
+// squares in some column, or not finite), so rounding from the removals stays
+// bounded. The other two never remove a row and need no recomputation. A fit
+// whose regressors are collinear (a pivot of the Cholesky factor below 1e-12
+// of its diagonal, for example a regressor that is constant in the window with
+// an intercept) is singular: r2 and the coefficients are NaN, as is the next
+// pred.
 
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
 #include <limits>
+#include <optional>
 #include <stdexcept>
 #include <vector>
 #include "screamer/common/float_info.h"
@@ -61,18 +69,20 @@ namespace detail {
 
 constexpr std::size_t kMaxOLSRegressors = 16;
 
-// The fit shared by RollingOLS (window > 0) and ExpandingOLS (window 0).
-template <class Derived>
+// The fit shared by RollingMultiRegression (window > 0),
+// ExpandingMultiRegression (window 0) and, with kEw, EwMultiRegression
+// (window 0, every weight scaled by decay before each row enters).
+template <class Derived, bool kEw = false>
 class OLSFit : public VarArityOp<Derived> {
     static constexpr std::size_t D = kMaxOLSRegressors + 1;   // x1..xk, y
 
 public:
-    OLSFit(std::size_t window, int n_regressors, bool intercept)
+    OLSFit(std::size_t window, int n_regressors, bool intercept, double decay = 1.0)
         : VarArityOp<Derived>(check_k(n_regressors) + 1,
                               static_cast<std::size_t>(n_regressors) + (intercept ? 4 : 3)),
           k_(static_cast<std::size_t>(n_regressors)), d_(k_ + 1), m_(k_ + (intercept ? 4 : 3)),
           icpt_(intercept), w_(window),
-          n_min_(window ? window : k_ + (intercept ? 2 : 1))
+          n_min_(window ? window : k_ + (intercept ? 2 : 1)), decay_(decay)
     {
         if (w_) ring_.assign(w_ * d_, 0.0);
         reset_fit();
@@ -104,8 +114,14 @@ public:
         out[0] = pred;
         out[1] = z[k_] - pred;
 
-        if (w_) push_rolling(z.data());
-        else add(z.data());
+        if constexpr (kEw) {
+            scale(decay_);
+            add(z.data());
+        } else if (w_) {
+            push_rolling(z.data());
+        } else {
+            add(z.data());
+        }
         fit();
 
         out[2] = fitted_ ? r2_ : nan;
@@ -126,6 +142,7 @@ protected:
 private:
     void reset_fit() {
         n_ = 0;
+        wsum_ = 0.0;
         head_ = 0;
         since_refresh_ = 0;
         mean_.fill(0.0);
@@ -138,15 +155,31 @@ private:
 
     double& c(std::size_t i, std::size_t j) { return c_[i * D + j]; }
 
-    // Adds a row to the sums (upper triangle, i <= j). The row enters as
-    // z - origin, which is exact while z is within a factor 2 of the origin;
-    // mean_ is the mean of z - origin and c_ holds the centered
-    // cross-products, with or without an intercept.
+    // The total weight of the rows in the sums: their count, or with kEw the
+    // sum of their decayed weights.
+    double weight() const {
+        if constexpr (kEw) return wsum_;
+        else return static_cast<double>(n_);
+    }
+
+    // Multiplies every weight by a: the total weight and the centered
+    // cross-products scale by a, the means do not change.
+    void scale(double a) {
+        wsum_ *= a;
+        for (std::size_t i = 0; i < d_; ++i)
+            for (std::size_t j = i; j < d_; ++j) c(i, j) *= a;
+    }
+
+    // Adds a row with weight 1 to the sums (upper triangle, i <= j). The row
+    // enters as z - origin, which is exact while z is within a factor 2 of
+    // the origin; mean_ is the weighted mean of z - origin and c_ holds the
+    // centered cross-products, with or without an intercept.
     void add(const double* z) {
         if (n_ == 0)
             for (std::size_t i = 0; i < d_; ++i) origin_[i] = z[i];
         n_ += 1;
-        const double nd = static_cast<double>(n_);
+        if constexpr (kEw) wsum_ += 1.0;
+        const double nd = weight();
         std::array<double, D> dz, e;
         for (std::size_t i = 0; i < d_; ++i) {
             const double v = z[i] - origin_[i];
@@ -243,7 +276,7 @@ private:
     // than four standard deviations from it, so z - origin stays near the
     // spread. The centered cross-products do not depend on the origin.
     void recenter() {
-        const double nd = static_cast<double>(n_);
+        const double nd = weight();
         for (std::size_t i = 0; i < d_; ++i) {
             const double m = mean_[i];
             const double m2 = m * m;
@@ -265,7 +298,7 @@ private:
         fitted_ = false;
         if (n_ < n_min_) return;
         const std::size_t k = k_;
-        const double nd = static_cast<double>(n_);
+        const double nd = weight();
         std::array<double, D> mu{};          // the column means, without an intercept
         if (!icpt_)
             for (std::size_t i = 0; i <= k; ++i) mu[i] = origin_[i] + mean_[i];
@@ -348,8 +381,10 @@ private:
     const std::size_t k_, d_, m_;   // regressors, row width, outputs
     const bool icpt_;
     const std::size_t w_, n_min_;
+    const double decay_;             // 1 - alpha with kEw
     std::vector<double> ring_;
     std::size_t n_ = 0, head_ = 0, since_refresh_ = 0;
+    double wsum_ = 0.0;              // the total weight, with kEw
     std::array<double, D> mean_{};     // mean of z - origin
     std::array<double, D> origin_{};
     std::array<double, D * D> c_{};
@@ -362,10 +397,10 @@ private:
 
 }  // namespace detail
 
-class RollingOLS : public detail::OLSFit<RollingOLS> {
+class RollingMultiRegression : public detail::OLSFit<RollingMultiRegression> {
 public:
-    RollingOLS(int window_size, int n_regressors, bool intercept = true)
-        : detail::OLSFit<RollingOLS>(check_window(window_size, n_regressors, intercept),
+    RollingMultiRegression(int window_size, int n_regressors, bool intercept = true)
+        : detail::OLSFit<RollingMultiRegression>(check_window(window_size, n_regressors, intercept),
                                      n_regressors, intercept) {}
 
 private:
@@ -379,10 +414,41 @@ private:
     }
 };
 
-class ExpandingOLS : public detail::OLSFit<ExpandingOLS> {
+class ExpandingMultiRegression : public detail::OLSFit<ExpandingMultiRegression> {
 public:
-    ExpandingOLS(int n_regressors, bool intercept = true)
-        : detail::OLSFit<ExpandingOLS>(0, n_regressors, intercept) {}
+    ExpandingMultiRegression(int n_regressors, bool intercept = true)
+        : detail::OLSFit<ExpandingMultiRegression>(0, n_regressors, intercept) {}
+};
+
+class EwMultiRegression : public detail::OLSFit<EwMultiRegression, true> {
+public:
+    EwMultiRegression(int n_regressors, bool intercept = true,
+                      std::optional<double> com = std::nullopt,
+                      std::optional<double> span = std::nullopt,
+                      std::optional<double> halflife = std::nullopt,
+                      std::optional<double> alpha = std::nullopt)
+        : detail::OLSFit<EwMultiRegression, true>(
+              0, n_regressors, intercept, decay(n_regressors, com, span, halflife, alpha)) {}
+
+private:
+    // 1 - alpha, with alpha from exactly one of com, span, halflife and alpha
+    // as in EwBeta.
+    static double decay(int k, std::optional<double> com, std::optional<double> span,
+                        std::optional<double> halflife, std::optional<double> alpha) {
+        check_k(k);
+        const int provided = (com.has_value() ? 1 : 0) + (span.has_value() ? 1 : 0)
+                           + (halflife.has_value() ? 1 : 0) + (alpha.has_value() ? 1 : 0);
+        if (provided != 1)
+            throw std::invalid_argument("Exactly one of com, span, halflife, or alpha must be provided");
+        double a;
+        if (alpha.has_value())          a = alpha.value();
+        else if (com.has_value())       a = 1.0 / (1.0 + com.value());
+        else if (span.has_value())      a = 2.0 / (span.value() + 1.0);
+        else                            a = 1.0 - std::exp(-std::log(2.0) / halflife.value());
+        if (!std::isfinite(a) || a <= 0.0 || a >= 1.0)
+            throw std::invalid_argument("Alpha must be a finite value between 0 and 1 (exclusive)");
+        return 1.0 - a;
+    }
 };
 
 }  // namespace screamer

@@ -1,5 +1,5 @@
 ---
-name: RollingOLS
+name: RollingMultiRegression
 title: Rolling multiple regression
 implementation_family: fin
 topics:
@@ -51,7 +51,8 @@ output_names:
 - b2
 - b3
 see_also:
-- ExpandingOLS
+- ExpandingMultiRegression
+- EwMultiRegression
 - RollingLinearRegression
 - RollingBeta
 - BayesianRegression
@@ -61,12 +62,12 @@ references:
   Financial Econometrics*, 7(2), 174-196.'
 ---
 
-# `RollingOLS`
+# `RollingMultiRegression`
 
 ## Description
 
-`RollingOLS` fits `y = b0 + b1 x1 + ... + bk xk + e` by ordinary least squares over the last
-`window_size` rows. It takes `k + 1` inputs, `y` first and then the `k = n_regressors`
+`RollingMultiRegression` fits `y = b0 + b1 x1 + ... + bk xk + e` by ordinary least squares over
+the last `window_size` rows. It takes `k + 1` inputs, `y` first and then the `k = n_regressors`
 regressors, and returns per row:
 
 | Output | Meaning |
@@ -97,13 +98,16 @@ The operator keeps the window means and the centered cross-products of the colum
 `window_size` rows, and at once when the row leaving the window was far out of the others, so
 rounding does not build up. With an intercept the fit uses the centered normal equations, so the
 level of the data costs no digits: on well-conditioned regressors `b1` to `bk` match
-`numpy.linalg.lstsq` on the same window to about 1e-14 at any level. Without an intercept it solves the raw normal equations `X'X b = X'y`, formed from the centered sums at each
-row. Normal equations square the condition number of the regressors, so the coefficients keep about
+`numpy.linalg.lstsq` on the same window to about 1e-14 at any level. Without an intercept it
+solves the raw normal equations `X'X b = X'y`, formed from the centered sums at each row.
+Normal equations square the condition number of the regressors, so the coefficients keep about
 `16 - 2 log10(cond)` significant digits, where `cond` is the condition number of the window's
 regressor matrix. On data far from zero, such as prices near 1e5 with unit moves, `cond` is large
 and the coefficients keep only a few digits; prefer an intercept there, or regress on differences.
 For the fit over the whole history so far, use
-[`ExpandingOLS`](../functions_expanding/ExpandingOLS.md).
+[`ExpandingMultiRegression`](../functions_expanding/ExpandingMultiRegression.md), and for weights
+that decay with age instead of a window,
+[`EwMultiRegression`](../functions_ew/EwMultiRegression.md).
 
 For a forecast `h` rows ahead, regress `y` on the regressors lagged by `h` rows, as in the example
 below. The forecast made at a row is then `b0 + b1 x1 + ... + bk xk` with that row's coefficients
@@ -132,7 +136,7 @@ days earlier.
     import numpy as np
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
-    from screamer import Lag, RollingMean, RollingOLS
+    from screamer import Lag, RollingMean, RollingMultiRegression
 
     # Daily realized variance with HAR dynamics in its log.
     rng = np.random.default_rng(1)
@@ -147,7 +151,7 @@ days earlier.
     h = 30
     y = rv30                                        # log RV over the 30 days up to t
     x = [Lag(h)(v) for v in (rv1, rv7, rv30)]       # the regressors 30 days earlier
-    out = RollingOLS(window_size=500, n_regressors=3)(y, *x)
+    out = RollingMultiRegression(window_size=500, n_regressors=3)(y, *x)
     b0, b = out[:, 3], out[:, 4:]
 
     # Made at t for the 30 days after t, from today's coefficients and regressors.
@@ -164,7 +168,8 @@ days earlier.
         fig.add_trace(go.Scatter(y=b[:, j], name=f"b, {name}"), row=2, col=1)
     fig.update_yaxes(title_text="log variance", row=1, col=1)
     fig.update_yaxes(title_text="coefficient", row=2, col=1)
-    fig.update_layout(title="HAR forecast with RollingOLS over 500 days", xaxis2_title="day",
+    fig.update_layout(title="HAR forecast with RollingMultiRegression over 500 days",
+                      xaxis2_title="day",
                       margin=dict(l=20, r=20, t=60, b=20),
                       legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
     fig.show()

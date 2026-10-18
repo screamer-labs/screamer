@@ -4,8 +4,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { ready, Hold, CusumFilter, RollingOLS, ExpandingOLS, backtestReport, walkForward,
-         BacktestOHLCTarget, BacktestPortfolioTarget } from "../src/index.ts";
+import { ready, Hold, CusumFilter, RollingMultiRegression, ExpandingMultiRegression, EwMultiRegression,
+         backtestReport, walkForward, BacktestOHLCTarget, BacktestPortfolioTarget } from "../src/index.ts";
 import * as api from "../src/index.ts";
 
 await ready();
@@ -194,31 +194,61 @@ test("research: backtestReport by keeps the number 1 and the string '1' apart", 
   assert.deepEqual([...byGroup!.keys()], [1, "1"]);
 });
 
-test("research: RollingOLS on (T, K) columns matches Python", () => {
+test("research: RollingMultiRegression on (T, K) columns matches Python", () => {
   const h = oracle.helpers.ols_2d;
   const nd = (xs: Num[]) => ({ data: Float64Array.from(xs, num), shape: [h.T, h.K] });
-  const out = RollingOLS({ windowSize: h.window_size, nRegressors: h.n_regressors })(...h.inputs.map(nd)) as any;
+  const out = RollingMultiRegression({ windowSize: h.window_size, nRegressors: h.n_regressors })(...h.inputs.map(nd)) as any;
   assert.deepEqual(Array.from(out.shape), h.shape);
-  close(dataOf(out), h.output, "RollingOLS 2-D");
+  close(dataOf(out), h.output, "RollingMultiRegression 2-D");
 });
 
-test("research: RollingOLS one event at a time equals the batch", () => {
+test("research: RollingMultiRegression one event at a time equals the batch", () => {
   const ins = ["ols_y", "ols_x1", "ols_x2"].map(series);
-  const batch = dataOf(RollingOLS(20, 2)(...ins));
-  const op = RollingOLS(20, 2);
+  const batch = dataOf(RollingMultiRegression(20, 2)(...ins));
+  const op = RollingMultiRegression(20, 2);
   const rows: number[] = [];
   for (let t = 0; t < ins[0].length; t++) rows.push(...(op(ins[0][t], ins[1][t], ins[2][t]) as number[]));
   assert.equal(rows.length, batch.length);
   for (let i = 0; i < rows.length; i++) assert.ok(Object.is(rows[i], batch[i]) || rows[i] === batch[i], `[${i}]`);
 });
 
-test("research: RollingOLS and ExpandingOLS setting checks", () => {
-  assert.throws(() => RollingOLS({ windowSize: 3, nRegressors: 2 }),
+test("research: RollingMultiRegression and ExpandingMultiRegression setting checks", () => {
+  assert.throws(() => RollingMultiRegression({ windowSize: 3, nRegressors: 2 }),
     { name: "RangeError", message: /window_size must be at least n_regressors \+ 1/ });
-  assert.throws(() => RollingOLS(40, 17), { name: "RangeError", message: /n_regressors must be between 1 and 16/ });
-  assert.throws(() => ExpandingOLS(0), { name: "RangeError", message: /^ExpandingOLS: nRegressors must be at least 1, got 0$/ });
-  assert.throws(() => ExpandingOLS(2, 1 as any), { name: "TypeError", message: /^ExpandingOLS: intercept must be a bool, got number$/ });
-  assert.throws(() => RollingOLS(20, 2)(series("ols_y"), series("ols_x1")),
-    { name: "RangeError", message: /^RollingOLS expects 3 inputs, got 2$/ });
-  assert.equal((ExpandingOLS(2, false)(1, 2, 3) as number[]).length, 5);
+  assert.throws(() => RollingMultiRegression(40, 17), { name: "RangeError", message: /n_regressors must be between 1 and 16/ });
+  assert.throws(() => ExpandingMultiRegression(0), { name: "RangeError", message: /^ExpandingMultiRegression: nRegressors must be at least 1, got 0$/ });
+  assert.throws(() => ExpandingMultiRegression(2, 1 as any), { name: "TypeError", message: /^ExpandingMultiRegression: intercept must be a bool, got number$/ });
+  assert.throws(() => RollingMultiRegression(20, 2)(series("ols_y"), series("ols_x1")),
+    { name: "RangeError", message: /^RollingMultiRegression expects 3 inputs, got 2$/ });
+  assert.equal((ExpandingMultiRegression(2, false)(1, 2, 3) as number[]).length, 5);
+});
+
+test("research: EwMultiRegression on (T, K) columns matches Python", () => {
+  const h = oracle.helpers.ew_2d;
+  const nd = (xs: Num[]) => ({ data: Float64Array.from(xs, num), shape: [h.T, h.K] });
+  const out = EwMultiRegression({ nRegressors: h.n_regressors, span: h.span })(...h.inputs.map(nd)) as any;
+  assert.deepEqual(Array.from(out.shape), h.shape);
+  close(dataOf(out), h.output, "EwMultiRegression 2-D");
+});
+
+test("research: EwMultiRegression one event at a time equals the batch", () => {
+  const ins = ["ols_y", "ols_x1", "ols_x2"].map(series);
+  const batch = dataOf(EwMultiRegression({ nRegressors: 2, alpha: 0.1 })(...ins));
+  const op = EwMultiRegression({ nRegressors: 2, alpha: 0.1 });
+  const rows: number[] = [];
+  for (let t = 0; t < ins[0].length; t++) rows.push(...(op(ins[0][t], ins[1][t], ins[2][t]) as number[]));
+  assert.equal(rows.length, batch.length);
+  for (let i = 0; i < rows.length; i++) assert.ok(Object.is(rows[i], batch[i]) || rows[i] === batch[i], `[${i}]`);
+});
+
+test("research: EwMultiRegression setting checks", () => {
+  assert.throws(() => EwMultiRegression(2), { name: "RangeError", message: /Exactly one of com, span, halflife, or alpha/ });
+  assert.throws(() => EwMultiRegression({ nRegressors: 2, span: 10, alpha: 0.1 }),
+    { name: "RangeError", message: /Exactly one of com, span, halflife, or alpha/ });
+  assert.throws(() => EwMultiRegression({ nRegressors: 2, alpha: 1 }), { name: "RangeError", message: /Alpha must be a finite value/ });
+  assert.throws(() => EwMultiRegression({ nRegressors: 0, alpha: 0.1 }),
+    { name: "RangeError", message: /^EwMultiRegression: nRegressors must be at least 1, got 0$/ });
+  assert.throws(() => EwMultiRegression(2, 1 as any, null, null, null, 0.1),
+    { name: "TypeError", message: /^EwMultiRegression: intercept must be a bool, got number$/ });
+  assert.equal((EwMultiRegression(2, false, null, 10)(1, 2, 3) as number[]).length, 5);
 });

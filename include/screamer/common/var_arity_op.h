@@ -2,7 +2,7 @@
 #define SCREAMER_COMMON_VAR_ARITY_OP_H
 
 // VarArityOp: the base of an operator whose number of inputs and outputs is a
-// setting, fixed when it is built, such as RollingOLS (one input per
+// setting, fixed when it is built, such as RollingMultiRegression (one input per
 // regressor). FunctorBase fixes the counts in the type; here they are
 // n_in() and n_out() of the instance. Every event still takes exactly n_in()
 // values and returns n_out(), so an operator built with given settings

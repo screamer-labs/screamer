@@ -62,7 +62,7 @@ see_also:
 - EwBeta
 - RollingLinearRegression
 - RollingBeta
-- RollingOLS
+- RollingMultiRegression
 ---
 
 # `BayesianRegression`

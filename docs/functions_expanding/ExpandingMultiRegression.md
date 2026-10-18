@@ -1,5 +1,5 @@
 ---
-name: ExpandingOLS
+name: ExpandingMultiRegression
 title: Expanding multiple regression
 implementation_family: expanding
 topics:
@@ -41,18 +41,20 @@ output_names:
 - b2
 - b3
 see_also:
-- RollingOLS
+- RollingMultiRegression
+- EwMultiRegression
 - ExpandingSlope
 - BayesianRegression
 - KalmanRegression
 ---
 
-# `ExpandingOLS`
+# `ExpandingMultiRegression`
 
 ## Description
 
-`ExpandingOLS` fits `y = b0 + b1 x1 + ... + bk xk + e` by ordinary least squares over every row
-seen so far. It is the whole-history counterpart of [`RollingOLS`](../functions_fin/RollingOLS.md),
+`ExpandingMultiRegression` fits `y = b0 + b1 x1 + ... + bk xk + e` by ordinary least squares over
+every row seen so far. It is the whole-history counterpart of
+[`RollingMultiRegression`](../functions_fin/RollingMultiRegression.md),
 with the same inputs and outputs. It takes `y` and then the `k = n_regressors` regressors, and
 returns per row:
 
@@ -71,8 +73,9 @@ of the default `n_regressors=3`.
 The first fit needs `p + 1` rows, with `p = k + 1` coefficients with an intercept and `p = k`
 without, so that one residual degree of freedom is left; `r2` and the coefficients are `NaN` before
 that, and `pred` until the row after. `r2`, collinear regressors (a `NaN` fit), the uncentered
-`r2` without an intercept, and the accuracy follow `RollingOLS`: with an intercept the level of the data costs no digits, and without one they keep
-about `16 - 2 log10(cond)` significant digits, `cond` being the condition number of the regressor
+`r2` without an intercept, and the accuracy follow `RollingMultiRegression`: with an intercept
+the level of the data costs no digits, and without one they keep about `16 - 2 log10(cond)`
+significant digits, `cond` being the condition number of the regressor
 matrix. Each row costs `O(k^2)` to update the means and centered cross-products (by Welford's
 method) and `O(k^3)` to solve, so `O(k^3)` in all, and memory does not grow with the number of rows.
 
@@ -93,14 +96,14 @@ method) and `O(k^3)` to solve, so `O(k^3)` in all, and memory does not grow with
     import numpy as np
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
-    from screamer import ExpandingOLS
+    from screamer import ExpandingMultiRegression
 
     rng = np.random.default_rng(0)
     n = 400
     x = rng.standard_normal((n, 2))
     y = 0.5 + 1.5 * x[:, 0] - 0.8 * x[:, 1] + 0.5 * rng.standard_normal(n)
 
-    out = ExpandingOLS(n_regressors=2)(y, x[:, 0], x[:, 1])
+    out = ExpandingMultiRegression(n_regressors=2)(y, x[:, 0], x[:, 1])
     resid, b = out[:, 1], out[:, 3:]
 
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.08)
@@ -111,7 +114,7 @@ method) and `O(k^3)` to solve, so `O(k^3)` in all, and memory does not grow with
                              marker=dict(size=3, color="gray")), row=2, col=1)
     fig.update_yaxes(title_text="coefficient", row=1, col=1)
     fig.update_yaxes(title_text="residual", row=2, col=1)
-    fig.update_layout(title="ExpandingOLS coefficients settle on the true values",
+    fig.update_layout(title="ExpandingMultiRegression coefficients settle on the true values",
                       xaxis2_title="row", margin=dict(l=20, r=20, t=60, b=20),
                       legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
     fig.show()
