@@ -66,7 +66,7 @@ $$
                      {\dfrac{S_{yy}}{S_w} - \bar{y}^2}
 $$
 
-This equals `EwCov(x, y) / EwVar(y)`, and pandas `x.ewm(adjust=True).cov(y) / y.ewm(adjust=True).var()`: the bias-correction factors cancel, so they are left out. The output is `NaN` when the denominator is not positive, that is when `y` is constant over the effective window, which includes the first sample.
+This equals `EwCov(x, y) / EwVar(y)`, and pandas `x.ewm(adjust=True).cov(y) / y.ewm(adjust=True).var()`: the bias-correction factors cancel, so they are left out. The output is `NaN` when the denominator is not positive, that is when `y` is constant over the effective window, which includes the first sample. It is also `NaN` once `y` has stopped varying, after roughly 45 / alpha rows, when its weighted variance holds only rounding noise, and for a while after a single extreme value of `y`.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling

@@ -61,7 +61,7 @@ $$
 
 The first argument is the target and the second is the hedge instrument, as in [`EwBeta`](EwBeta.md). `EwSpread(price_a, price_b)` measures how far `a` is from its hedge against `b`, the input to a pairs-trading mean-reversion signal. To turn it into such a signal, apply [`EwZscore`](EwZscore.md) to the spread, or divide by [`EwResidualStd`](EwResidualStd.md). The smoothing factor `alpha` is set by exactly one of `com`, `span`, `halflife` or `alpha`.
 
-The output is `NaN` while `EwBeta` is undefined, that is when `y` is constant over the effective window, which includes the first sample.
+The output is `NaN` while `EwBeta` is undefined, that is when `y` is constant over the effective window, which includes the first sample. It is also `NaN` once `y` has stopped varying, after roughly 45 / alpha rows, and for a while after a single extreme value of `y` (see `EwBeta`).
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling

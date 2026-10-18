@@ -75,7 +75,9 @@ keywords, `EwKyleLambda(span=20)(signed_flow=f, return_=r)`.
 JavaScript has no keyword arguments, so pass the two inputs in order.
 
 The first output is `NaN`, since a slope needs at least two observations. Later
-outputs are `NaN` when `signed_flow` has zero weighted variance.
+outputs are `NaN` when `signed_flow` has zero weighted variance, once it has
+stopped varying (after roughly 45 / alpha rows), and for a while after a single
+extreme value of it.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling

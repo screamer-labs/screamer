@@ -93,14 +93,37 @@ public:
         const double var_y  = q_yy - mean_yy;
         const double cov_xy = q_xy - mean_xy;
 
-        const double denom = std::sqrt(var_x * var_y);
-        if (!(denom > 0.0)) {
-            return std::numeric_limits<double>::quiet_NaN();
+        // NaN when either variance is not a normal positive double: a
+        // subnormal variance has lost its precision (an input that stopped
+        // varying, after about 6700 rows at alpha = 0.1 for unit variance),
+        // and the ratio would be rounding noise. When only the product of
+        // the variances is subnormal (small scales, or both inputs flat for a
+        // long time) the denominator is taken as a product of square roots,
+        // which does not underflow; otherwise as the root of the product.
+        constexpr double kMin = std::numeric_limits<double>::min();
+        const double var_xy = var_x * var_y;
+        const double vmin = std::fmin(var_x, var_y);
+        if ((vmin >= kMin) & (var_xy >= kMin)) {
+            const double denom = std::sqrt(var_xy);
+            return cov_xy / denom;
         }
-        return cov_xy / denom;
+        return small(var_x, var_y, cov_xy);
     }
 
 private:
+    // The ratio when a variance or their product is below the smallest
+    // normal double.
+    SCREAMER_NOINLINE static double small(double var_x, double var_y, double cov_xy) {
+        constexpr double kMin = std::numeric_limits<double>::min();
+        if (!(var_x >= kMin) | !(var_y >= kMin)) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
+        const double sx = std::sqrt(var_x);
+        const double sy = std::sqrt(var_y);
+        const double denom = sx * sy;
+        return cov_xy / denom;
+    }
+
     double alpha_{};
     double one_minus_alpha_{};
     double one_minus_alpha2_{};

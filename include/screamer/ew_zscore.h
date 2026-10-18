@@ -62,6 +62,12 @@ namespace screamer {
             const double mean_sq = mean * mean;
             double variance = q2 - mean_sq;
             variance *= n_eff / (n_eff - 1.0);
+            // NaN when the variance is 0, also when it has underflowed to 0
+            // after a long constant stretch (the deviation can then still be
+            // a subnormal, which gave +-inf).
+            if (!(variance > 0.0)) {
+                return std::numeric_limits<double>::quiet_NaN();
+            }
             return ((x - st.sums.origin) - mean) / std::sqrt(variance);
         }
 

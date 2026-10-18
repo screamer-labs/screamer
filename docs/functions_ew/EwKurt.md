@@ -73,7 +73,7 @@ $$
 \left( (N_\text{eff} + 1)\frac{m_4}{m_2^2} - 3(N_\text{eff} - 1) \right)
 $$
 
-The output is `NaN` while $N_\text{eff} \le 3$.
+The output is `NaN` while $N_\text{eff} \le 3$. It is also `NaN` once the series has stopped varying, after roughly 45 / alpha rows, and for a while after a single extreme value.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling

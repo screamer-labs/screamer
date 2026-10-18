@@ -15,6 +15,9 @@
 // returns the asset's beta with respect to the market, matching the CAPM
 // definition and the existing RollingBeta convention. Pandas uses the
 // opposite convention (slope of y on x).
+//
+// The output is NaN while the regressor is constant, and once it has stopped
+// varying (detail/ew_flat.h): about 45 / alpha rows after it stops.
 
 #include <cmath>
 #include <limits>
@@ -22,6 +25,7 @@
 #include <stdexcept>
 #include "screamer/common/functor_base.h"
 #include "screamer/common/float_info.h"
+#include "screamer/detail/ew_flat.h"
 #include "screamer/detail/shifted_power_sums.h"
 
 namespace screamer {
@@ -54,12 +58,14 @@ public:
         }
         one_minus_alpha_  = 1.0 - alpha_;
         one_minus_alpha2_ = one_minus_alpha_ * one_minus_alpha_;
+        peak_decay_ = detail::ew_flat_peak_decay(one_minus_alpha_);
         reset();
     }
 
     void reset() override {
         sums_.reset();
         sum_w2_ = 0.0;
+        flat_y_.reset();
     }
 
     ResultTuple call(const InputArray& inputs) override {
@@ -83,19 +89,21 @@ public:
         const double inv_w = 1.0 / sum_w;
         const double q_xy = sums_.sxy * inv_w;
         const double q_yy = sums_.syy * inv_w;
+        const double mean_y = sums_.sy * inv_w;
+        const double mean_yy = mean_y * mean_y;
+        const double var_y  = q_yy - mean_yy;
+        // NaN once the regressor has stopped varying (detail/ew_flat.h).
+        const bool flat = flat_y_.flat(var_y, peak_decay_);
         const double n_eff = sum_w * sum_w / sum_w2_;
         if (n_eff <= 1.0) {
             return std::numeric_limits<double>::quiet_NaN();
         }
         // Each product is its own statement (see detail/shifted_power_sums.h).
         const double mean_x = sums_.sx * inv_w;
-        const double mean_y = sums_.sy * inv_w;
-        const double mean_yy = mean_y * mean_y;
         const double mean_xy = mean_x * mean_y;
-        const double var_y  = q_yy - mean_yy;
         const double cov_xy = q_xy - mean_xy;
 
-        if (!(var_y > 0.0)) {
+        if (flat) {
             return std::numeric_limits<double>::quiet_NaN();
         }
         return cov_xy / var_y;
@@ -107,6 +115,8 @@ private:
     double one_minus_alpha2_{};
     detail::ShiftedCoPowerSums sums_;
     double sum_w2_ = 0.0;
+    double peak_decay_ = 1.0;
+    detail::EwFlatPeak flat_y_;
 };
 
 }  // namespace screamer

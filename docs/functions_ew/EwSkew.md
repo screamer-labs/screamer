@@ -71,7 +71,7 @@ $$
 \text{EwSkew}[t] = \frac{\sqrt{N_\text{eff}(N_\text{eff} - 1)}}{N_\text{eff} - 2} \cdot \frac{m_3}{m_2^{3/2}}
 $$
 
-The output is `NaN` while $N_\text{eff} \le 2$.
+The output is `NaN` while $N_\text{eff} \le 2$. It is also `NaN` once the series has stopped varying, after roughly 45 / alpha rows, and for a while after a single extreme value.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
