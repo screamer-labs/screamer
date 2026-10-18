@@ -19,10 +19,16 @@ Forecasting training sets from causal features and targets, labels such as the t
      - Description
    * - :doc:`Online Bayesian regression </functions_fin/BayesianRegression>`
      - Online Bayesian linear regression with a forgetting factor: the current slope and intercept, and a one-step-ahead predictive mean and standard deviation.
+   * - :doc:`Exponentially-weighted multiple regression </functions_ew/EwMultiRegression>`
+     - Exponentially weighted least-squares fit of y on k regressors, with the one-step-ahead prediction made before each row enters, R-squared, and the coefficients.
+   * - :doc:`Expanding multiple regression </functions_expanding/ExpandingMultiRegression>`
+     - Least-squares fit of y on k regressors over every row so far, with the one-step-ahead prediction made before each row enters, R-squared, and the coefficients.
    * - :doc:`forecast_pairs </functions_supervised/forecast_pairs>`
      - Build a forecasting training set where row t holds the features at t and the target over the horizon after t.
    * - :doc:`Scalar Kalman filter </functions_signal/KalmanFilter>`
      - Scalar 1-D Kalman filter for a noisy random-walk model.
+   * - :doc:`Rolling multiple regression </functions_fin/RollingMultiRegression>`
+     - Rolling least-squares fit of y on k regressors, with the one-step-ahead prediction made before each row enters, R-squared, and the coefficients.
    * - :doc:`Triple-barrier label on a price series </functions_fin/TripleBarrier>`
      - A three-state label over a window: +1 when the price reaches the upper barrier first, -1 when it reaches the lower barrier first, 0 when it reaches neither within `horizon` steps.
    * - :doc:`Triple-barrier label on OHLC bars </functions_fin/TripleBarrierOHLC>`

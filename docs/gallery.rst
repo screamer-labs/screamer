@@ -157,6 +157,13 @@ Measures of a window: central tendency, dispersion, quantiles, moments, z-scores
       :img-alt: EwMean example plot
       :class-card: gallery-card
 
+   .. grid-item-card:: EwMultiRegression
+      :link: functions_ew/EwMultiRegression
+      :link-type: doc
+      :img-top: _static/gallery/functions_ew__EwMultiRegression.webp
+      :img-alt: EwMultiRegression example plot
+      :class-card: gallery-card
+
    .. grid-item-card:: EwParkinsonVar
       :link: functions_ew/EwParkinsonVar
       :link-type: doc
@@ -274,6 +281,13 @@ Measures of a window: central tendency, dispersion, quantiles, moments, z-scores
       :link-type: doc
       :img-top: _static/gallery/functions_expanding__ExpandingMin.webp
       :img-alt: ExpandingMin example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: ExpandingMultiRegression
+      :link: functions_expanding/ExpandingMultiRegression
+      :link-type: doc
+      :img-top: _static/gallery/functions_expanding__ExpandingMultiRegression.webp
+      :img-alt: ExpandingMultiRegression example plot
       :class-card: gallery-card
 
    .. grid-item-card:: ExpandingProd
@@ -540,6 +554,13 @@ Measures of a window: central tendency, dispersion, quantiles, moments, z-scores
       :link-type: doc
       :img-top: _static/gallery/functions_rolling__RollingMinMax.webp
       :img-alt: RollingMinMax example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: RollingMultiRegression
+      :link: functions_fin/RollingMultiRegression
+      :link-type: doc
+      :img-top: _static/gallery/functions_fin__RollingMultiRegression.webp
+      :img-alt: RollingMultiRegression example plot
       :class-card: gallery-card
 
    .. grid-item-card:: RollingOU
@@ -2240,6 +2261,20 @@ Training sets and labels from time-series data, online regression and filtering 
       :img-alt: CusumFilter example plot
       :class-card: gallery-card
 
+   .. grid-item-card:: EwMultiRegression
+      :link: functions_ew/EwMultiRegression
+      :link-type: doc
+      :img-top: _static/gallery/functions_ew__EwMultiRegression.webp
+      :img-alt: EwMultiRegression example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: ExpandingMultiRegression
+      :link: functions_expanding/ExpandingMultiRegression
+      :link-type: doc
+      :img-top: _static/gallery/functions_expanding__ExpandingMultiRegression.webp
+      :img-alt: ExpandingMultiRegression example plot
+      :class-card: gallery-card
+
    .. grid-item-card:: KalmanFilter
       :link: functions_signal/KalmanFilter
       :link-type: doc
@@ -2259,6 +2294,13 @@ Training sets and labels from time-series data, online regression and filtering 
       :link-type: doc
       :img-top: _static/gallery/functions_rolling__RollingJumpShare.webp
       :img-alt: RollingJumpShare example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: RollingMultiRegression
+      :link: functions_fin/RollingMultiRegression
+      :link-type: doc
+      :img-top: _static/gallery/functions_fin__RollingMultiRegression.webp
+      :img-alt: RollingMultiRegression example plot
       :class-card: gallery-card
 
    .. grid-item-card:: RollingPermutationEntropy

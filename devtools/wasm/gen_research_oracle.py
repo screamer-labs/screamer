@@ -8,7 +8,8 @@ in JavaScript (settings in camelCase), runs it on the same series, and
 compares the result, to 1e-9 relative unless the case gives a tolerance. The
 helper cases hold the inputs and results of backtest_trades, backtest_report
 with by=, walk_forward with carry= and portfolio engines, and
-LiquidationDistance on (T, K) columns. A non-finite
+LiquidationDistance, RollingMultiRegression and EwMultiRegression on (T, K)
+columns. A non-finite
 number is written as null (NaN), "inf" or "-inf".
 
 Modes:
@@ -37,7 +38,7 @@ def _inputs():
     scale = np.where((np.arange(T) // 150) % 2 == 0, 0.5, 2.0)
     returns = rng.standard_normal(T) * scale
     returns[[100, 450]] = np.nan
-    return {"events": events, "returns": returns, **_liquidation_market()}
+    return {"events": events, "returns": returns, **_liquidation_market(), **_ols_rows()}
 
 
 def _liquidation_market(T=600, K=1):
@@ -59,9 +60,26 @@ def _liquidation_market(T=600, K=1):
     return {k: v[:, 0] for k, v in cols.items()} if K == 1 else cols
 
 
+def _ols_rows(T=600, k=16, K=1, seed=20261018):
+    """y and k regressors with a linear relation, a level of 1e3 on two of
+    them, NaN rows, and a stretch where x1 is constant, for the multiple
+    regression operators. K > 1 gives (T, K) columns."""
+    rng = np.random.default_rng(seed + K)
+    X = rng.standard_normal((T, k, K))
+    X[:, 1] += 1e3
+    X[:, 2] = 0.5 * X[:, 2] + 0.5 * X[:, 0]
+    X[200:240, 0] = 1.5
+    y = 0.3 + np.einsum("tjk,j->tk", X, rng.standard_normal(k) / k) + 0.2 * rng.standard_normal((T, K))
+    y[[50, 290]] = np.nan
+    X[[51, 120], 1] = np.nan
+    cols = {"ols_y": y, **{f"ols_x{j + 1}": X[:, j] for j in range(k)}}
+    return {n: v[:, 0] for n, v in cols.items()} if K == 1 else cols
+
+
 # (operator, settings, input series or a list of them[, relative tolerance]).
 # Each operator task adds its cases here.
 _LIQ = ["liq_position", "liq_open", "liq_high", "liq_low"]
+_OLS = ["ols_y"] + [f"ols_x{j}" for j in range(1, 17)]
 CASES = [
     ("Hold", {"n": 3}, "events"),
     ("Hold", {"n": 3, "cooldown": 4}, "events"),
@@ -89,6 +107,14 @@ CASES = [
      "returns", 1e-6),
     ("LiquidationDistance", {"leverage": 10.0}, _LIQ),
     ("LiquidationDistance", {"leverage": 25.0, "maintenance": 0.01}, _LIQ),
+    ("RollingMultiRegression", {"window_size": 40, "n_regressors": 3}, _OLS[:4]),
+    ("RollingMultiRegression", {"window_size": 25, "n_regressors": 2, "intercept": False}, _OLS[:3]),
+    ("RollingMultiRegression", {"window_size": 60, "n_regressors": 16}, _OLS),
+    ("ExpandingMultiRegression", {"n_regressors": 4}, _OLS[:5]),
+    ("ExpandingMultiRegression", {"n_regressors": 1, "intercept": False}, _OLS[:2]),
+    ("EwMultiRegression", {"n_regressors": 3, "alpha": 0.05}, _OLS[:4]),
+    ("EwMultiRegression", {"n_regressors": 2, "intercept": False, "halflife": 20.0}, _OLS[:3]),
+    ("EwMultiRegression", {"n_regressors": 16, "span": 120.0}, _OLS),
 ]
 
 
@@ -170,8 +196,18 @@ def _helpers():
     liquidation_2d = {"T": 300, "K": 3, "leverage": 8.0,
                       "inputs": [_flat(liq[k]) for k in _LIQ],
                       "shape": list(np.shape(liq_out)), "output": _flat(liq_out)}
+    ols = _ols_rows(T=300, k=3, K=3)
+    ols_out = s.RollingMultiRegression(30, 3)(*(ols[n] for n in _OLS[:4]))
+    ols_2d = {"T": 300, "K": 3, "window_size": 30, "n_regressors": 3,
+              "inputs": [_flat(ols[n]) for n in _OLS[:4]],
+              "shape": list(np.shape(ols_out)), "output": _flat(ols_out)}
+    ew_out = s.EwMultiRegression(3, span=30.0)(*(ols[n] for n in _OLS[:4]))
+    ew_2d = {"T": 300, "K": 3, "span": 30.0, "n_regressors": 3,
+             "inputs": ols_2d["inputs"], "shape": list(np.shape(ew_out)), "output": _flat(ew_out)}
     return {
         "liquidation_2d": liquidation_2d,
+        "ols_2d": ols_2d,
+        "ew_2d": ew_2d,
         "walk_forward_carry": walk_forward_carry,
         "walk_forward_portfolio": walk_forward_portfolio,
         "walk_forward_portfolio_hold": walk_forward_portfolio_hold,

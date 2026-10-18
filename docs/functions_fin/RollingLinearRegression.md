@@ -44,6 +44,8 @@ see_also:
 - RollingPoly1
 - RollingTSF
 - KalmanRegression
+- RollingMultiRegression
+- EwMultiRegression
 ---
 
 # `RollingLinearRegression`

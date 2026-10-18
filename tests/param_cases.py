@@ -59,6 +59,8 @@ _ROLLING_AUTO_EXCLUDE = {
     'RollingInfoRatio',
     # 2-input regression family (FunctorBase<_, 2, _>)
     'RollingAlpha', 'RollingResidualStd', 'RollingLinearRegression',
+    # (1 + k)-input multiple regression; baseline entry in multi_input_definitions
+    'RollingMultiRegression',
     # Multi-scale R/S analysis: needs window_size >= 4 * min_scale = 16,
     # which the default auto-harness window_size=20 only barely satisfies
     # with min_scale=4 and 2 scales. Bespoke tests in test_rolling_hurst.py.
@@ -81,6 +83,8 @@ _EW_AUTO_EXCLUDE = {
     'EwGarmanKlassVar', 'EwGarmanKlassVol',
     'EwRogersSatchellVar', 'EwRogersSatchellVol',
     'EwYangZhangVar', 'EwYangZhangVol',
+    # (1 + k)-input multiple regression; baseline entry in multi_input_definitions
+    'EwMultiRegression',
 }
 ew_classes = [cls for cls in screamer_classes
               if cls.startswith('Ew') and cls not in _EW_AUTO_EXCLUDE]
@@ -328,6 +332,12 @@ multi_input_definitions = [
     # parity coverage as well as the baseline comparison.
     ( ('RollingCorr','RollingCov','RollingBeta','RollingTLSBeta') , {"window_size": [20]}),
     ( ('RollingVWAP',)              , {"window_size": [20], "array_type": ["ohlcv"]}),
+    # Multiple regression on three regressors, 4 -> 7.
+    ( ('RollingMultiRegression',)   , {"window_size": [30], "n_regressors": [3],
+                                       "intercept": [True, False]}),
+    ( ('ExpandingMultiRegression',) , {"n_regressors": [3], "intercept": [True, False]}),
+    ( ('EwMultiRegression',)        , {"n_regressors": [3], "alpha": [0.05],
+                                       "intercept": [True, False]}),
     ( ('StochRSI',)                 , {"array_type": ["positive"]}),
     ( ('MACD',)                     , {"array_type": ["positive"],
                                        "array_length": [2000]}),

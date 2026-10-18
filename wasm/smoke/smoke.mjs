@@ -38,11 +38,12 @@ const TOL = 1e-9;
 function parseDefault(name, type, text) {
   if (text === null || text === undefined) {
     if (type === "std::optional<double>") return NaN;     // a missing optional slot
-    return { int: 3, double: 1.0, "std::string": "strict", "std::vector<double>": [1.0] }[type];
+    return { int: 3, double: 1.0, bool: true, "std::string": "strict", "std::vector<double>": [1.0] }[type];
   }
   const t = text.trim();
   let m;
   if ((m = /^"(.*)"$/.exec(t))) return m[1];
+  if (type === "bool" && (t === "true" || t === "false")) return t === "true";
   if ((m = /^(-?)std::numeric_limits<double>::infinity\(\)$/.exec(t))) return m[1] ? -Infinity : Infinity;
   if ((m = /^screamer::PerAsset\{(.*)\}$/.exec(t)) || (m = /^std::vector<double>\{(.*)\}$/.exec(t)))
     return m[1].split(",").map((x) => Number(x.trim()));
@@ -57,6 +58,7 @@ const REQUIRED = {
   SchmittTrigger: { lower: 0.0, upper: 1.0 },         // lower < upper
   RoofingFilter: { hp_period: 48, lp_period: 10 },     // one of period or cutoff per filter
   LiquidationDistance: { leverage: 10.0 },             // leverage > 1
+  RollingMultiRegression: { window_size: 20 },         // at least n_regressors + 2
 };
 
 // Build constructor args for one manifest entry from its defaults.

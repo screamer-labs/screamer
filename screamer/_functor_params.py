@@ -187,6 +187,12 @@ def setting_error(cls_name, args, kwargs):
     if "args" in params:              # more arguments than settings: not a kind error
         return None
     for p in entry.get("parameters", []):
+        if p.get("type") == "bool" and p["name"] in params:
+            value = params[p["name"]]
+            if not _is_bool(value):
+                kind = "None" if value is None else type(value).__name__
+                return f"{cls_name}: {p['name']} must be a bool, got {kind}"
+            continue
         if p.get("type") == "str" and p["name"] in params:
             value = params[p["name"]]
             if not isinstance(value, str) and not (value is None and p.get("default") is None):
@@ -283,7 +289,11 @@ def _make_wrapper(name, base):
             if msg is None:
                 raise
             raise ValueError(msg) from None
-        self._screamer_params = bind_params(name, args, kwargs)
+        params = bind_params(name, args, kwargs)
+        for p in (_load_help().get(name) or {}).get("parameters", []):
+            if p.get("type") == "bool" and p["name"] in params:
+                params[p["name"]] = bool(params[p["name"]])   # np.True_ and array(True) too
+        self._screamer_params = params
 
     def __repr__(self):
         return format_call(name, getattr(self, "_screamer_params", {}))

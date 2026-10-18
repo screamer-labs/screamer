@@ -210,6 +210,9 @@ def _normalize_ctor_arg(arg: str) -> str:
     # A float setting is FloatArg in the Python binding (it refuses a bool);
     # the WASM binding takes double, and the JS factory refuses bools.
     a = a.replace("screamer::FloatVecArg", "std::vector<double>").replace("screamer::FloatArg", "double")
+    # A yes-or-no setting is BoolArg in the Python binding (it refuses a
+    # number); the WASM binding takes bool, and the JS factory a boolean.
+    a = a.replace("screamer::BoolArg", "bool")
     return a
 
 

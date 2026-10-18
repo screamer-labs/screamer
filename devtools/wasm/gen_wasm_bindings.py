@@ -61,6 +61,7 @@ OPTIONAL_T = "std::optional<double>"
 EXCLUDED_HEADERS = {
     "screamer/common/base.h",
     "screamer/common/dispatch.h",
+    "screamer/common/var_arity_dispatch.h",  # the Python call of a VarArityOp (nanobind)
     "screamer/common/functor_base.h",
     "screamer/common/async_generator.h",
     "screamer/common/cast_double.h",  # the Python value readers (nanobind)

@@ -2104,6 +2104,47 @@
     "source": "bindings/bindings_ew.cpp"
   },
   {
+    "name": "EwMultiRegression",
+    "cpp_type": "screamer::EwMultiRegression",
+    "base": "FunctorBase",
+    "ctor": [
+      "int",
+      "bool",
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>",
+      "std::optional<double>"
+    ],
+    "ctor_args": [
+      {
+        "name": "n_regressors",
+        "default": null
+      },
+      {
+        "name": "intercept",
+        "default": "true"
+      },
+      {
+        "name": "com",
+        "default": null
+      },
+      {
+        "name": "span",
+        "default": null
+      },
+      {
+        "name": "halflife",
+        "default": null
+      },
+      {
+        "name": "alpha",
+        "default": null
+      }
+    ],
+    "ctor_kind": "ew_optional",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
     "name": "EwParkinsonVar",
     "cpp_type": "screamer::EwParkinsonVar",
     "base": "FunctorBase",
@@ -2550,6 +2591,27 @@
     "ctor_args": [],
     "ctor_kind": "plain",
     "source": "bindings/bindings_expanding.cpp"
+  },
+  {
+    "name": "ExpandingMultiRegression",
+    "cpp_type": "screamer::ExpandingMultiRegression",
+    "base": "FunctorBase",
+    "ctor": [
+      "int",
+      "bool"
+    ],
+    "ctor_args": [
+      {
+        "name": "n_regressors",
+        "default": null
+      },
+      {
+        "name": "intercept",
+        "default": "true"
+      }
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
   },
   {
     "name": "ExpandingProd",
@@ -4194,6 +4256,32 @@
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingMultiRegression",
+    "cpp_type": "screamer::RollingMultiRegression",
+    "base": "FunctorBase",
+    "ctor": [
+      "int",
+      "int",
+      "bool"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": null
+      },
+      {
+        "name": "n_regressors",
+        "default": null
+      },
+      {
+        "name": "intercept",
+        "default": "true"
+      }
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
   },
   {
     "name": "RollingOU",

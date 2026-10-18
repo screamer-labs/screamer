@@ -122,6 +122,7 @@
 #include "screamer/minus_dm.h"
 #include "screamer/momentum.h"
 #include "screamer/moving_average.h"
+#include "screamer/multi_regression.h"
 #include "screamer/natr.h"
 #include "screamer/obv.h"
 #include "screamer/ofi.h"
@@ -376,6 +377,10 @@ inline screamer::EwKyleLambda* make_EwKyleLambda(double a0, double a1, double a2
 
 inline screamer::EwMean* make_EwMean(double a0, double a1, double a2, double a3) {
     return new screamer::EwMean(screamer_wasm::opt(a0), screamer_wasm::opt(a1), screamer_wasm::opt(a2), screamer_wasm::opt(a3));
+}
+
+inline screamer::EwMultiRegression* make_EwMultiRegression(int a0, bool a1, double a2, double a3, double a4, double a5) {
+    return new screamer::EwMultiRegression(a0, a1, screamer_wasm::opt(a2), screamer_wasm::opt(a3), screamer_wasm::opt(a4), screamer_wasm::opt(a5));
 }
 
 inline screamer::EwParkinsonVar* make_EwParkinsonVar(double a0, double a1, double a2, double a3) {
@@ -884,6 +889,8 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor(&make_EwKyleLambda, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::EwMean, emscripten::base<screamer::EvalOp>>("EwMean")
         .constructor(&make_EwMean, emscripten::allow_raw_pointers());
+    emscripten::class_<screamer::EwMultiRegression, emscripten::base<screamer::EvalOp>>("EwMultiRegression")
+        .constructor(&make_EwMultiRegression, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::EwParkinsonVar, emscripten::base<screamer::EvalOp>>("EwParkinsonVar")
         .constructor(&make_EwParkinsonVar, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::EwParkinsonVol, emscripten::base<screamer::EvalOp>>("EwParkinsonVol")
@@ -920,6 +927,8 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor<>();
     emscripten::class_<screamer::ExpandingMin, emscripten::base<screamer::EvalOp>>("ExpandingMin")
         .constructor<>();
+    emscripten::class_<screamer::ExpandingMultiRegression, emscripten::base<screamer::EvalOp>>("ExpandingMultiRegression")
+        .constructor<int, bool>();
     emscripten::class_<screamer::ExpandingProd, emscripten::base<screamer::EvalOp>>("ExpandingProd")
         .constructor<>();
     emscripten::class_<screamer::ExpandingSkew, emscripten::base<screamer::EvalOp>>("ExpandingSkew")
@@ -1124,6 +1133,8 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor<int>();
     emscripten::class_<screamer::RollingMinMax, emscripten::base<screamer::EvalOp>>("RollingMinMax")
         .constructor<int>();
+    emscripten::class_<screamer::RollingMultiRegression, emscripten::base<screamer::EvalOp>>("RollingMultiRegression")
+        .constructor<int, int, bool>();
     emscripten::class_<screamer::RollingOU, emscripten::base<screamer::EvalOp>>("RollingOU")
         .constructor(&make_RollingOU, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingOmega, emscripten::base<screamer::EvalOp>>("RollingOmega")

@@ -3275,6 +3275,64 @@ export function EwMean(com?: any, span?: any, halflife?: any, alpha?: any): Scre
   } catch (e) { throw _finite(M, "EwMean", ["com", "span", "halflife", "alpha"], [(Number.isNaN(com) ? null : com), (Number.isNaN(span) ? null : span), (Number.isNaN(halflife) ? null : halflife), (Number.isNaN(alpha) ? null : alpha)], e); }
 }
 
+/** The settings of EwMultiRegression by name, for `EwMultiRegression({ ... })`. */
+export interface EwMultiRegressionOptions {
+  /** Number of regressors k. The operator takes k + 1 inputs, y first, and returns k + 3 outputs, plus 1 with an intercept. */
+  nRegressors: number;
+  /** Fit an intercept b0. Without one, the line goes through the origin and r2 is the uncentered R-squared. @defaultValue `true` */
+  intercept?: boolean;
+  /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  com?: number | null;
+  /** Span s in rows, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  span?: number | null;
+  /** Half-life h in rows, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
+  halflife?: number | null;
+  /** Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent rows more weight. Give exactly one of com, span, halflife and alpha. */
+  alpha?: number | null;
+}
+
+/**
+ * Exponentially weighted least-squares fit of y on k regressors, with the one-step-ahead prediction made before each row enters, R-squared, and the coefficients.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwMultiRegression.html for the full reference.
+ */
+export function EwMultiRegression(options: EwMultiRegressionOptions): ScreamerOp;
+/**
+ * Exponentially weighted least-squares fit of y on k regressors, with the one-step-ahead prediction made before each row enters, R-squared, and the coefficients.
+ *
+ * @param nRegressors Number of regressors k. The operator takes k + 1 inputs, y first, and returns k + 3 outputs, plus 1 with an intercept.
+ * @param intercept Fit an intercept b0. Without one, the line goes through the origin and r2 is the uncentered R-squared.
+ * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param span Span s in rows, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param halflife Half-life h in rows, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
+ * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent rows more weight. Give exactly one of com, span, halflife and alpha.
+ * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwMultiRegression.html for the full reference.
+ */
+export function EwMultiRegression(nRegressors: number, intercept?: boolean, com?: number | null, span?: number | null, halflife?: number | null, alpha?: number | null): ScreamerOp;
+export function EwMultiRegression(nRegressors?: any, intercept?: any, com?: any, span?: any, halflife?: any, alpha?: any): ScreamerOp {
+  if (_isOptions(nRegressors)) [nRegressors, intercept, com, span, halflife, alpha] = _options("EwMultiRegression", nRegressors, arguments.length, ["nRegressors", "intercept", "com", "span", "halflife", "alpha"], "nRegressors must be an integer");
+  else if (arguments.length > 6) _tooMany("EwMultiRegression", 6, arguments.length);
+  const _given: unknown[] = [nRegressors, intercept, (Number.isNaN(com) ? undefined : com), (Number.isNaN(span) ? undefined : span), (Number.isNaN(halflife) ? undefined : halflife), (Number.isNaN(alpha) ? undefined : alpha)];
+  if (nRegressors === undefined) throw new TypeError(`EwMultiRegression: nRegressors is required`);
+  if (intercept === undefined) intercept = true;
+  com ??= NaN;
+  span ??= NaN;
+  halflife ??= NaN;
+  alpha ??= NaN;
+  const M = current();
+  if (typeof nRegressors !== "number" || !Number.isInteger(nRegressors)) throw new TypeError(`EwMultiRegression: nRegressors must be an integer, got ${typeof nRegressors === "number" ? nRegressors : _what(nRegressors)}`);
+  if (!(nRegressors >= -2147483648 && nRegressors <= 2147483647)) _intRange(M, "EwMultiRegression", "nRegressors", nRegressors);
+  if (typeof intercept !== "boolean") throw new TypeError(`EwMultiRegression: intercept must be a bool, got ${_what(intercept)}`);
+  if (typeof com !== "number") throw new TypeError(`EwMultiRegression: com must be a number, got ${_what(com)}`);
+  if (typeof span !== "number") throw new TypeError(`EwMultiRegression: span must be a number, got ${_what(span)}`);
+  if (typeof halflife !== "number") throw new TypeError(`EwMultiRegression: halflife must be a number, got ${_what(halflife)}`);
+  if (typeof alpha !== "number") throw new TypeError(`EwMultiRegression: alpha must be a number, got ${_what(alpha)}`);
+  try {
+    return _params(wrapOp(M, () => new M.EwMultiRegression(nRegressors, intercept, com, span, halflife, alpha)), "EwMultiRegression", ["n_regressors", "intercept", "com", "span", "halflife", "alpha"], _given);
+  } catch (e) { throw _finite(M, "EwMultiRegression", ["nRegressors", "com", "span", "halflife", "alpha"], [nRegressors, (Number.isNaN(com) ? null : com), (Number.isNaN(span) ? null : span), (Number.isNaN(halflife) ? null : halflife), (Number.isNaN(alpha) ? null : alpha)], e); }
+}
+
 /** The settings of EwParkinsonVar by name, for `EwParkinsonVar({ ... })`. */
 export interface EwParkinsonVarOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
@@ -3964,6 +4022,44 @@ export function ExpandingMin(options?: ExpandingMinOptions): ScreamerOp {
   const _given: unknown[] = [];
   const M = current();
   return _params(wrapOp(M, () => new M.ExpandingMin()), "ExpandingMin", [], _given);
+}
+
+/** The settings of ExpandingMultiRegression by name, for `ExpandingMultiRegression({ ... })`. */
+export interface ExpandingMultiRegressionOptions {
+  /** Number of regressors k. The operator takes k + 1 inputs, y first, and returns k + 3 outputs, plus 1 with an intercept. */
+  nRegressors: number;
+  /** Fit an intercept b0. Without one, the line goes through the origin and r2 is the uncentered R-squared. @defaultValue `true` */
+  intercept?: boolean;
+}
+
+/**
+ * Least-squares fit of y on k regressors over every row so far, with the one-step-ahead prediction made before each row enters, R-squared, and the coefficients.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingMultiRegression.html for the full reference.
+ */
+export function ExpandingMultiRegression(options: ExpandingMultiRegressionOptions): ScreamerOp;
+/**
+ * Least-squares fit of y on k regressors over every row so far, with the one-step-ahead prediction made before each row enters, R-squared, and the coefficients.
+ *
+ * @param nRegressors Number of regressors k. The operator takes k + 1 inputs, y first, and returns k + 3 outputs, plus 1 with an intercept.
+ * @param intercept Fit an intercept b0. Without one, the line goes through the origin and r2 is the uncentered R-squared.
+ * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingMultiRegression.html for the full reference.
+ */
+export function ExpandingMultiRegression(nRegressors: number, intercept?: boolean): ScreamerOp;
+export function ExpandingMultiRegression(nRegressors?: any, intercept?: any): ScreamerOp {
+  if (_isOptions(nRegressors)) [nRegressors, intercept] = _options("ExpandingMultiRegression", nRegressors, arguments.length, ["nRegressors", "intercept"], "nRegressors must be an integer");
+  else if (arguments.length > 2) _tooMany("ExpandingMultiRegression", 2, arguments.length);
+  const _given: unknown[] = [nRegressors, intercept];
+  if (nRegressors === undefined) throw new TypeError(`ExpandingMultiRegression: nRegressors is required`);
+  if (intercept === undefined) intercept = true;
+  const M = current();
+  if (typeof nRegressors !== "number" || !Number.isInteger(nRegressors)) throw new TypeError(`ExpandingMultiRegression: nRegressors must be an integer, got ${typeof nRegressors === "number" ? nRegressors : _what(nRegressors)}`);
+  if (!(nRegressors >= -2147483648 && nRegressors <= 2147483647)) _intRange(M, "ExpandingMultiRegression", "nRegressors", nRegressors);
+  if (typeof intercept !== "boolean") throw new TypeError(`ExpandingMultiRegression: intercept must be a bool, got ${_what(intercept)}`);
+  try {
+    return _params(wrapOp(M, () => new M.ExpandingMultiRegression(nRegressors, intercept)), "ExpandingMultiRegression", ["n_regressors", "intercept"], _given);
+  } catch (e) { throw _finite(M, "ExpandingMultiRegression", ["nRegressors"], [nRegressors], e); }
 }
 
 /** ExpandingProd has no settings: its options object is empty. */
@@ -6955,6 +7051,50 @@ export function RollingMinMax(windowSize?: any): ScreamerOp {
   try {
     return _params(wrapOp(M, () => new M.RollingMinMax(windowSize)), "RollingMinMax", ["window_size"], _given);
   } catch (e) { throw _finite(M, "RollingMinMax", ["windowSize"], [windowSize], e); }
+}
+
+/** The settings of RollingMultiRegression by name, for `RollingMultiRegression({ ... })`. */
+export interface RollingMultiRegressionOptions {
+  /** Number of most recent rows in the fit. At least n_regressors + 1, plus 1 with an intercept, so the fit keeps a residual degree of freedom. */
+  windowSize: number;
+  /** Number of regressors k. The operator takes k + 1 inputs, y first, and returns k + 3 outputs, plus 1 with an intercept. */
+  nRegressors: number;
+  /** Fit an intercept b0. Without one, the line goes through the origin and r2 is the uncentered R-squared. @defaultValue `true` */
+  intercept?: boolean;
+}
+
+/**
+ * Rolling least-squares fit of y on k regressors, with the one-step-ahead prediction made before each row enters, R-squared, and the coefficients.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingMultiRegression.html for the full reference.
+ */
+export function RollingMultiRegression(options: RollingMultiRegressionOptions): ScreamerOp;
+/**
+ * Rolling least-squares fit of y on k regressors, with the one-step-ahead prediction made before each row enters, R-squared, and the coefficients.
+ *
+ * @param windowSize Number of most recent rows in the fit. At least n_regressors + 1, plus 1 with an intercept, so the fit keeps a residual degree of freedom.
+ * @param nRegressors Number of regressors k. The operator takes k + 1 inputs, y first, and returns k + 3 outputs, plus 1 with an intercept.
+ * @param intercept Fit an intercept b0. Without one, the line goes through the origin and r2 is the uncentered R-squared.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingMultiRegression.html for the full reference.
+ */
+export function RollingMultiRegression(windowSize: number, nRegressors: number, intercept?: boolean): ScreamerOp;
+export function RollingMultiRegression(windowSize?: any, nRegressors?: any, intercept?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, nRegressors, intercept] = _options("RollingMultiRegression", windowSize, arguments.length, ["windowSize", "nRegressors", "intercept"], "windowSize must be an integer");
+  else if (arguments.length > 3) _tooMany("RollingMultiRegression", 3, arguments.length);
+  const _given: unknown[] = [windowSize, nRegressors, intercept];
+  if (windowSize === undefined) throw new TypeError(`RollingMultiRegression: windowSize is required`);
+  if (nRegressors === undefined) throw new TypeError(`RollingMultiRegression: nRegressors is required`);
+  if (intercept === undefined) intercept = true;
+  const M = current();
+  if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingMultiRegression: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingMultiRegression", "windowSize", windowSize);
+  if (typeof nRegressors !== "number" || !Number.isInteger(nRegressors)) throw new TypeError(`RollingMultiRegression: nRegressors must be an integer, got ${typeof nRegressors === "number" ? nRegressors : _what(nRegressors)}`);
+  if (!(nRegressors >= -2147483648 && nRegressors <= 2147483647)) _intRange(M, "RollingMultiRegression", "nRegressors", nRegressors);
+  if (typeof intercept !== "boolean") throw new TypeError(`RollingMultiRegression: intercept must be a bool, got ${_what(intercept)}`);
+  try {
+    return _params(wrapOp(M, () => new M.RollingMultiRegression(windowSize, nRegressors, intercept)), "RollingMultiRegression", ["window_size", "n_regressors", "intercept"], _given);
+  } catch (e) { throw _finite(M, "RollingMultiRegression", ["windowSize", "nRegressors"], [windowSize, nRegressors], e); }
 }
 
 /** The settings of RollingOU by name, for `RollingOU({ ... })`. */
