@@ -2,6 +2,55 @@
 
 All notable changes to this project are documented in this file.
 
+3.7.0 - 2026-10-18
+------------------
+
+### Added
+
+* `LiquidationDistance`, in Python and JavaScript: how far each bar's worst
+  price is from the liquidation price of an isolated-margin position at a
+  given `leverage` and `maintenance` rate. It takes the signed position an
+  engine reports and the bar's open, high, and low, follows exchange
+  accounting on resizes (an increase blends the entry, a reduce keeps it),
+  and returns `distance`, `liq_price`, and `breached`. It only measures: it
+  does not close positions or change any pnl.
+* `RollingMultiRegression`, `ExpandingMultiRegression`, and
+  `EwMultiRegression`, in Python and JavaScript: least-squares regression of
+  `y` on 1 to 16 regressors over a trailing window, every row so far, or
+  exponentially weighted rows. The outputs are `pred` (the one-step-ahead
+  prediction, fitted on earlier rows only), `resid`, `r2`, and the
+  coefficients `b0` (with `intercept=True`, the default) and `b1` to `bk`.
+* `KalmanFilter(huber=)` and `KalmanRegression(huber=)`, and `{ huber }` in
+  JavaScript: a robust (Huber-weighted) update. An observation more than
+  `huber` standard deviations from the prediction updates the state with a
+  weight that falls with its distance, so one bad print cannot pull the
+  state far. The default `inf` is the ordinary Kalman update. It needs a
+  prior that does not contradict the data, such as `initial_variance=inf`.
+  In `KalmanRegression` it protects the hedge ratio from bad prints only
+  when the observation variance is calibrated to the one-step noise (a fast
+  `delta`, or `obs_var` set to the variance of the one-step change); with a
+  slow `delta` it down-weights wide spreads instead.
+
+### Changed
+
+* `screamer.docs.show`, `docs.show` in JavaScript, and the function pages
+  mark a required setting as `required` instead of listing the value the
+  examples use as its default.
+
+### Fixed
+
+* `EwBeta`, and `EwAlpha`, `EwSpread`, `EwResidualStd`, and `EwKyleLambda`
+  that build on it, `EwSkew`, and `EwKurt` return `NaN` instead of rounding
+  noise once a series stops varying, after roughly `45 / alpha` rows.
+  Previously `EwBeta` could return 1, 2 or -1 on a constant regressor, and
+  `EwSkew` and `EwKurt` grew to `1e100` and then infinity.
+* `EwCorr` returns `NaN` when either EW variance is subnormal, where it
+  returned noise (up to 1.14 with both inputs flat), and is exact at
+  tiny input scales (such as `1e-80`), where it lost precision.
+* `EwZscore` returns `NaN` instead of `+-inf` when the variance underflows
+  to 0 after a long constant stretch.
+* Output on data that keeps varying is unchanged.
+
 3.6.0 - 2026-10-17
 ------------------
 
