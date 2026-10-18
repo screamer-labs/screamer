@@ -207,7 +207,9 @@ def test_kalman_regression_down_weights_an_outlier_on_log_prices():
 # ---- huber = inf gives the outputs recorded before the change ----------------
 
 def test_huber_inf_gives_the_recorded_outputs():
-    # Recorded from the build before huber was added (commit 222b052).
+    # Recorded from the build before huber was added (commit 222b052), on macOS arm64.
+    # Other platforms' libm and code generation differ in the last bits, so the
+    # comparison allows a few ulps rather than demanding the same bits.
     g = np.random.default_rng(7)
     n = 5000
     z = np.cumsum(g.standard_t(2, n))
@@ -219,11 +221,11 @@ def test_huber_inf_gives_the_recorded_outputs():
     y[2000] += 500
     idx = [2, 10, 1234, 1235, 2000, 4999]
     for args, expected in RECORDED_KF.items():
-        got = s.KalmanFilter(*args, huber=math.inf)(z)[idx].tolist()
-        assert got == expected, args
+        got = s.KalmanFilter(*args, huber=math.inf)(z)[idx]
+        np.testing.assert_allclose(got, expected, rtol=1e-12, atol=0, err_msg=str(args))
     for args, expected in RECORDED_KR.items():
-        got = s.KalmanRegression(*args, huber=math.inf)(y, x)[idx].tolist()
-        assert got == expected, args
+        got = s.KalmanRegression(*args, huber=math.inf)(y, x)[idx]
+        np.testing.assert_allclose(got, expected, rtol=1e-12, atol=0, err_msg=str(args))
 
 
 def test_kalman_filter_matches_the_numpy_filter():
