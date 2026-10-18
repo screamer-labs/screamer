@@ -19,8 +19,17 @@
 //
 // 1 -> 1, O(1) per step. Initial state = 0, initial variance = 1.0
 // by default; both are optional constructor parameters.
+//
+// Robust update (huber, default inf = off): with innovation e = z - x_pred
+// and its predicted variance Q = P_pred + observation_var, let
+// |z_std| = |e| / sqrt(Q). When |z_std| > huber the update uses the
+// observation variance observation_var / w, w = huber / |z_std|, in place of
+// observation_var (a Huber M-estimate step, Masreliez and Martin 1977). An
+// outlier's pull on the state is then bounded, however large it is; smaller
+// innovations update exactly as before.
 
 #include "screamer/common/finite_settings.h"
+#include <cmath>
 #include <stdexcept>
 #include <limits>
 #include "screamer/common/base.h"
@@ -33,16 +42,20 @@ public:
     KalmanFilter(double process_var,
                  double observation_var,
                  double initial_state = 0.0,
-                 double initial_variance = 1.0)
+                 double initial_variance = 1.0,
+                 double huber = std::numeric_limits<double>::infinity())
         : process_var_(process_var),
           observation_var_(observation_var),
           initial_state_(initial_state),
-          initial_variance_(initial_variance)
+          initial_variance_(initial_variance),
+          huber_(huber),
+          robust_(huber < std::numeric_limits<double>::infinity())
     {
         require_finite("process_var", process_var);
         require_finite("observation_var", observation_var);
         require_finite("initial_state", initial_state);
         require_finite("initial_variance", initial_variance, kTakesPosInf);   // inf: a diffuse prior
+        require_finite("huber", huber, kTakesPosInf);                         // inf: off
         if (!(process_var >= 0.0)) {
             throw std::invalid_argument("process_var must be >= 0.");
         }
@@ -51,6 +64,9 @@ public:
         }
         if (!(initial_variance >= 0.0)) {
             throw std::invalid_argument("initial_variance must be >= 0.");
+        }
+        if (!(huber > 0.0)) {
+            throw std::invalid_argument("huber must be > 0.");
         }
         reset();
     }
@@ -82,9 +98,17 @@ public:
         }
         // Predict.
         const double P_pred = P_ + process_var_;
+        const double e = z - x_;
+        double R = observation_var_;
+        if (robust_) {
+            // Huber weight on the standardized innovation: inflate the
+            // observation variance of an outlier to R / w.
+            const double az = std::fabs(e) / std::sqrt(P_pred + R);
+            if (az > huber_) R /= huber_ / az;
+        }
         // Update.
-        const double K = P_pred / (P_pred + observation_var_);
-        x_ = x_ + K * (z - x_);
+        const double K = P_pred / (P_pred + R);
+        x_ = x_ + K * e;
         P_ = (1.0 - K) * P_pred;
         return x_;
     }
@@ -94,6 +118,8 @@ private:
     const double observation_var_;
     const double initial_state_;
     const double initial_variance_;
+    const double huber_;
+    const bool robust_;              // huber finite
     double x_ = 0.0;
     double P_ = 0.0;
     bool diffuse_pending_ = false;   // inf initial_variance, before the first observation

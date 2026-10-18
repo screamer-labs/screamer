@@ -1329,8 +1329,9 @@ void init_bindings_fin(nb::module_& m) {
         .def("reset", &screamer::RollingTLSBeta::reset, "Reset to the initial state.");
 
     nb::class_<screamer::KalmanRegression, screamer::EvalOp>(m, "KalmanRegression")
-        .def(nb::init<screamer::FloatArg, screamer::FloatArg, screamer::FloatArg>(),
-             "delta"_a = 1e-6, "obs_var"_a = 1e-3, "prior_var"_a = 1.0)
+        .def(nb::init<screamer::FloatArg, screamer::FloatArg, screamer::FloatArg, screamer::FloatArg>(),
+             "delta"_a = 1e-6, "obs_var"_a = 1e-3, "prior_var"_a = 1.0,
+             "huber"_a = std::numeric_limits<double>::infinity())
         .def("__call__", &screamer::functor_call<screamer::KalmanRegression>)
         .def("reset", &screamer::KalmanRegression::reset, "Reset to the diffuse prior.");
 

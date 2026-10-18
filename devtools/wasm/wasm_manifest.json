@@ -2915,6 +2915,7 @@
       "double",
       "double",
       "double",
+      "double",
       "double"
     ],
     "ctor_args": [
@@ -2933,6 +2934,10 @@
       {
         "name": "initial_variance",
         "default": "1.0"
+      },
+      {
+        "name": "huber",
+        "default": "std::numeric_limits<double>::infinity()"
       }
     ],
     "ctor_kind": "plain",
@@ -2943,6 +2948,7 @@
     "cpp_type": "screamer::KalmanRegression",
     "base": "FunctorBase",
     "ctor": [
+      "double",
       "double",
       "double",
       "double"
@@ -2959,6 +2965,10 @@
       {
         "name": "prior_var",
         "default": "1.0"
+      },
+      {
+        "name": "huber",
+        "default": "std::numeric_limits<double>::infinity()"
       }
     ],
     "ctor_kind": "plain",

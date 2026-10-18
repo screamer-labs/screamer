@@ -4588,6 +4588,8 @@ export interface KalmanFilterOptions {
   initialState?: number;
   /** Variance P_0 of the starting state. A large value such as 1e9 makes the filter forget the initial state quickly. inf is a diffuse prior, so the first observation sets the state, with the observation variance. @defaultValue `1.0` */
   initialVariance?: number;
+  /** Outlier threshold, in standard deviations of the prediction error. An observation further out than this updates the state with a weight that falls with its distance, so it cannot pull the state far. 2 to 3 is typical. inf, the default, is the ordinary Kalman update. Must be positive. @defaultValue `Infinity` */
+  huber?: number;
 }
 
 /**
@@ -4604,25 +4606,28 @@ export function KalmanFilter(options: KalmanFilterOptions): ScreamerOp;
  * @param observationVar Variance of the measurement noise. Must be positive.
  * @param initialState Starting state estimate x_0, used before the first observation.
  * @param initialVariance Variance P_0 of the starting state. A large value such as 1e9 makes the filter forget the initial state quickly. inf is a diffuse prior, so the first observation sets the state, with the observation variance.
+ * @param huber Outlier threshold, in standard deviations of the prediction error. An observation further out than this updates the state with a weight that falls with its distance, so it cannot pull the state far. 2 to 3 is typical. inf, the default, is the ordinary Kalman update. Must be positive.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/KalmanFilter.html for the full reference.
  */
-export function KalmanFilter(processVar?: number, observationVar?: number, initialState?: number, initialVariance?: number): ScreamerOp;
-export function KalmanFilter(processVar?: any, observationVar?: any, initialState?: any, initialVariance?: any): ScreamerOp {
-  if (_isOptions(processVar)) [processVar, observationVar, initialState, initialVariance] = _options("KalmanFilter", processVar, arguments.length, ["processVar", "observationVar", "initialState", "initialVariance"], "processVar must be a number");
-  else if (arguments.length > 4) _tooMany("KalmanFilter", 4, arguments.length);
-  const _given: unknown[] = [processVar, observationVar, initialState, initialVariance];
+export function KalmanFilter(processVar?: number, observationVar?: number, initialState?: number, initialVariance?: number, huber?: number): ScreamerOp;
+export function KalmanFilter(processVar?: any, observationVar?: any, initialState?: any, initialVariance?: any, huber?: any): ScreamerOp {
+  if (_isOptions(processVar)) [processVar, observationVar, initialState, initialVariance, huber] = _options("KalmanFilter", processVar, arguments.length, ["processVar", "observationVar", "initialState", "initialVariance", "huber"], "processVar must be a number");
+  else if (arguments.length > 5) _tooMany("KalmanFilter", 5, arguments.length);
+  const _given: unknown[] = [processVar, observationVar, initialState, initialVariance, huber];
   if (processVar === undefined) processVar = 0.01;
   if (observationVar === undefined) observationVar = 1.0;
   if (initialState === undefined) initialState = 0.0;
   if (initialVariance === undefined) initialVariance = 1.0;
+  if (huber === undefined) huber = Infinity;
   const M = current();
   if (typeof processVar !== "number") throw new TypeError(`KalmanFilter: processVar must be a number, got ${_what(processVar)}`);
   if (typeof observationVar !== "number") throw new TypeError(`KalmanFilter: observationVar must be a number, got ${_what(observationVar)}`);
   if (typeof initialState !== "number") throw new TypeError(`KalmanFilter: initialState must be a number, got ${_what(initialState)}`);
   if (typeof initialVariance !== "number") throw new TypeError(`KalmanFilter: initialVariance must be a number, got ${_what(initialVariance)}`);
+  if (typeof huber !== "number") throw new TypeError(`KalmanFilter: huber must be a number, got ${_what(huber)}`);
   try {
-    return _params(wrapOp(M, () => new M.KalmanFilter(processVar, observationVar, initialState, initialVariance)), "KalmanFilter", ["process_var", "observation_var", "initial_state", "initial_variance"], _given);
-  } catch (e) { throw _finite(M, "KalmanFilter", ["processVar", "observationVar", "initialState", "initialVariance"], [processVar, observationVar, initialState, initialVariance], e); }
+    return _params(wrapOp(M, () => new M.KalmanFilter(processVar, observationVar, initialState, initialVariance, huber)), "KalmanFilter", ["process_var", "observation_var", "initial_state", "initial_variance", "huber"], _given);
+  } catch (e) { throw _finite(M, "KalmanFilter", ["processVar", "observationVar", "initialState", "initialVariance", "huber"], [processVar, observationVar, initialState, initialVariance, huber], e); }
 }
 
 /** The settings of KalmanRegression by name, for `KalmanRegression({ ... })`. */
@@ -4633,6 +4638,8 @@ export interface KalmanRegressionOptions {
   obsVar?: number;
   /** Starting variance of the intercept and slope, which both start at zero. @defaultValue `1.0` */
   priorVar?: number;
+  /** Outlier threshold, in standard deviations of the spread. A step whose spread is further out than this updates the intercept and slope with a weight that falls with its distance, so one bad print cannot jerk the hedge ratio. 2 to 3 is typical. inf, the default, is the ordinary Kalman update. The spread and spread_std outputs are not changed by it. Must be positive. @defaultValue `Infinity` */
+  huber?: number;
 }
 
 /**
@@ -4648,23 +4655,26 @@ export function KalmanRegression(options: KalmanRegressionOptions): ScreamerOp;
  * @param delta How fast the intercept and slope may move. The state noise variance is delta / (1 - delta) per step; smaller values give steadier estimates and a spread that keeps its mean reversion. The right value scales with the bar frequency, from about 1e-10 on one-minute log prices to 1e-8 to 1e-6 on daily ones. Must be in (0, 1).
  * @param obsVar Variance of the spread (the regression error), in squared units of the first input. Must be positive.
  * @param priorVar Starting variance of the intercept and slope, which both start at zero.
+ * @param huber Outlier threshold, in standard deviations of the spread. A step whose spread is further out than this updates the intercept and slope with a weight that falls with its distance, so one bad print cannot jerk the hedge ratio. 2 to 3 is typical. inf, the default, is the ordinary Kalman update. The spread and spread_std outputs are not changed by it. Must be positive.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/KalmanRegression.html for the full reference.
  */
-export function KalmanRegression(delta?: number, obsVar?: number, priorVar?: number): ScreamerOp;
-export function KalmanRegression(delta?: any, obsVar?: any, priorVar?: any): ScreamerOp {
-  if (_isOptions(delta)) [delta, obsVar, priorVar] = _options("KalmanRegression", delta, arguments.length, ["delta", "obsVar", "priorVar"], "delta must be a number");
-  else if (arguments.length > 3) _tooMany("KalmanRegression", 3, arguments.length);
-  const _given: unknown[] = [delta, obsVar, priorVar];
+export function KalmanRegression(delta?: number, obsVar?: number, priorVar?: number, huber?: number): ScreamerOp;
+export function KalmanRegression(delta?: any, obsVar?: any, priorVar?: any, huber?: any): ScreamerOp {
+  if (_isOptions(delta)) [delta, obsVar, priorVar, huber] = _options("KalmanRegression", delta, arguments.length, ["delta", "obsVar", "priorVar", "huber"], "delta must be a number");
+  else if (arguments.length > 4) _tooMany("KalmanRegression", 4, arguments.length);
+  const _given: unknown[] = [delta, obsVar, priorVar, huber];
   if (delta === undefined) delta = 1e-06;
   if (obsVar === undefined) obsVar = 0.001;
   if (priorVar === undefined) priorVar = 1.0;
+  if (huber === undefined) huber = Infinity;
   const M = current();
   if (typeof delta !== "number") throw new TypeError(`KalmanRegression: delta must be a number, got ${_what(delta)}`);
   if (typeof obsVar !== "number") throw new TypeError(`KalmanRegression: obsVar must be a number, got ${_what(obsVar)}`);
   if (typeof priorVar !== "number") throw new TypeError(`KalmanRegression: priorVar must be a number, got ${_what(priorVar)}`);
+  if (typeof huber !== "number") throw new TypeError(`KalmanRegression: huber must be a number, got ${_what(huber)}`);
   try {
-    return _params(wrapOp(M, () => new M.KalmanRegression(delta, obsVar, priorVar)), "KalmanRegression", ["delta", "obs_var", "prior_var"], _given);
-  } catch (e) { throw _finite(M, "KalmanRegression", ["delta", "obsVar", "priorVar"], [delta, obsVar, priorVar], e); }
+    return _params(wrapOp(M, () => new M.KalmanRegression(delta, obsVar, priorVar, huber)), "KalmanRegression", ["delta", "obs_var", "prior_var", "huber"], _given);
+  } catch (e) { throw _finite(M, "KalmanRegression", ["delta", "obsVar", "priorVar", "huber"], [delta, obsVar, priorVar, huber], e); }
 }
 
 /** The settings of KeltnerChannels by name, for `KeltnerChannels({ ... })`. */

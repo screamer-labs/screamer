@@ -3363,12 +3363,14 @@
  },
  {
   "accepts_bool": {
+   "huber": false,
    "initial_state": false,
    "initial_variance": false,
    "observation_var": false,
    "process_var": false
   },
   "accepts_none": {
+   "huber": false,
    "initial_state": false,
    "initial_variance": false,
    "observation_var": false,
@@ -3377,6 +3379,7 @@
   "base": {},
   "below_min": {},
   "bool_message": {
+   "huber": "KalmanFilter: huber must be a number, got bool",
    "initial_state": "KalmanFilter: initial_state must be a number, got bool",
    "initial_variance": "KalmanFilter: initial_variance must be a number, got bool",
    "observation_var": "KalmanFilter: observation_var must be a number, got bool",
@@ -3384,6 +3387,11 @@
   },
   "name": "KalmanFilter",
   "non_finite": {
+   "huber": {
+    "-inf": "KalmanFilter: huber must be finite or inf, got -inf",
+    "inf": null,
+    "nan": "KalmanFilter: huber must be finite or inf, got nan"
+   },
    "initial_state": {
     "-inf": "KalmanFilter: initial_state must be finite, got -inf",
     "inf": "KalmanFilter: initial_state must be finite, got inf",
@@ -3409,11 +3417,13 @@
  {
   "accepts_bool": {
    "delta": false,
+   "huber": false,
    "obs_var": false,
    "prior_var": false
   },
   "accepts_none": {
    "delta": false,
+   "huber": false,
    "obs_var": false,
    "prior_var": false
   },
@@ -3421,6 +3431,7 @@
   "below_min": {},
   "bool_message": {
    "delta": "KalmanRegression: delta must be a number, got bool",
+   "huber": "KalmanRegression: huber must be a number, got bool",
    "obs_var": "KalmanRegression: obs_var must be a number, got bool",
    "prior_var": "KalmanRegression: prior_var must be a number, got bool"
   },
@@ -3430,6 +3441,11 @@
     "-inf": "KalmanRegression: delta must be finite, got -inf",
     "inf": "KalmanRegression: delta must be finite, got inf",
     "nan": "KalmanRegression: delta must be finite, got nan"
+   },
+   "huber": {
+    "-inf": "KalmanRegression: huber must be finite or inf, got -inf",
+    "inf": null,
+    "nan": "KalmanRegression: huber must be finite or inf, got nan"
    },
    "obs_var": {
     "-inf": "KalmanRegression: obs_var must be finite, got -inf",

@@ -970,9 +970,9 @@ EMSCRIPTEN_BINDINGS(screamer) {
     emscripten::class_<screamer::KAMA, emscripten::base<screamer::EvalOp>>("KAMA")
         .constructor<int, int, int>();
     emscripten::class_<screamer::KalmanFilter, emscripten::base<screamer::EvalOp>>("KalmanFilter")
-        .constructor<double, double, double, double>();
+        .constructor<double, double, double, double, double>();
     emscripten::class_<screamer::KalmanRegression, emscripten::base<screamer::EvalOp>>("KalmanRegression")
-        .constructor<double, double, double>();
+        .constructor<double, double, double, double>();
     emscripten::class_<screamer::KeltnerChannels, emscripten::base<screamer::EvalOp>>("KeltnerChannels")
         .constructor<int, double>();
     emscripten::class_<screamer::Lag, emscripten::base<screamer::EvalOp>>("Lag")

@@ -88,6 +88,9 @@ inline constexpr NonFiniteAllowed kNonFiniteAllowed[] = {
     {"ImpulseClip", "n_sigma", kTakesPosInf},
     // inf is a diffuse prior: the first observation sets the state.
     {"KalmanFilter", "initial_variance", kTakesPosInf},
+    // inf turns the robust (Huber) update off.
+    {"KalmanFilter", "huber", kTakesPosInf},
+    {"KalmanRegression", "huber", kTakesPosInf},
     // NaN is a documented output or state.
     {"Hold", "release", kTakesNaN},
     {"SchmittTrigger", "initial", kTakesNaN},

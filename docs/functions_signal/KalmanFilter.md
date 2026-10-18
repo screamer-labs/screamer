@@ -38,6 +38,14 @@ parameters:
   min: 0.0
   description: Variance P_0 of the starting state. A large value such as 1e9 makes
     the filter forget the initial state quickly. inf is a diffuse prior, so the first observation sets the state, with the observation variance.
+- name: huber
+  type: float
+  default: .inf
+  min: 0.0
+  description: Outlier threshold, in standard deviations of the prediction error. An
+    observation further out than this updates the state with a weight that falls with its
+    distance, so it cannot pull the state far. 2 to 3 is typical. inf, the default, is the
+    ordinary Kalman update. Must be positive.
 nan_policy: ignore
 see_also:
 - KalmanRegression
@@ -46,6 +54,11 @@ see_also:
 references:
 - Kalman, R. E. (1960). A new approach to linear filtering and prediction problems. *Journal
   of Basic Engineering*, 82(1), 35-45. doi:10.1115/1.3662552
+- 'Masreliez, C. J., and Martin, R. D. (1977). Robust Bayesian estimation for the linear model
+  and robustifying the Kalman filter. *IEEE Transactions on Automatic Control*, 22(3), 361-371.
+  doi:10.1109/TAC.1977.1101538'
+- 'Huber, P. J. (1964). Robust estimation of a location parameter. *The Annals of Mathematical
+  Statistics*, 35(1), 73-101. doi:10.1214/aoms/1177703732'
 ---
 
 # `KalmanFilter`
@@ -64,6 +77,18 @@ $$
 $$
 
 In the steady state $K$ converges to a constant determined by $\sigma^2_p / \sigma^2_o$, at which point the filter behaves like an exponential smoother with that effective $\alpha$.
+
+### Robust update
+
+The filter assumes Gaussian measurement noise, so a single bad observation moves the state in proportion to its size, and the error carries forward. Setting `huber` caps that influence. With the prediction error $e = z_t - x_\text{pred}$, its predicted variance $Q = P_\text{pred} + \sigma^2_o$ and the standardized error $|e| / \sqrt{Q}$, an observation beyond `huber` standard deviations gets the weight
+
+$$
+w = \frac{\text{huber}}{|e| / \sqrt{Q}} < 1,
+$$
+
+and the gain and variance update use the observation variance $\sigma^2_o / w$ in place of $\sigma^2_o$. This is the Huber M-estimate step of the Masreliez and Martin (1977) robust filter. Observations within `huber` standard deviations update exactly as without it. A value of 2 to 3 is typical.
+
+The protection has a cost: a genuine level shift is also treated as an outlier at first, so the filter takes longer to follow it.
 
 ## Implementation Details
 
