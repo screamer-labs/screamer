@@ -56,7 +56,7 @@ $$
 \text{EwZscore}[t] = \frac{x_t - \text{EwMean}[t]}{\text{EwStd}[t]}
 $$
 
-The mean and standard deviation at step $t$ include $x_t$ itself. $\text{EwStd}$ is the bias-corrected estimate described on [`EwStd`](EwStd.md), so the first output is `NaN`. The output is also `NaN` for a series that is constant, once a series has stopped varying (after roughly 45 / alpha rows), and for a while after a single extreme value.
+The mean and standard deviation at step $t$ include $x_t$ itself. $\text{EwStd}$ is the bias-corrected estimate described on [`EwStd`](EwStd.md), so the first output is `NaN`. The output is also `NaN` where the weighted variance is 0: for a constant series, and for a series that has been constant long enough for its variance to underflow.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling

@@ -2,8 +2,11 @@
 #define SCREAMER_DETAIL_EW_FLAT_H
 
 // The test for an exponentially weighted series that has stopped varying,
-// shared by the operators that divide by its weighted variance (EwBeta,
-// EwCorr, EwZscore, EwSkew, EwKurt).
+// shared by the operators whose ratio with its weighted variance turns into
+// rounding noise (EwBeta for its regressor, EwSkew, EwKurt). EwCorr and
+// EwZscore do not use it: with one input flat their values stay exact (they
+// decay toward 0 with the exact value), so they only give NaN where their
+// denominator underflows.
 //
 // Once a series stops varying, the weighted spread of its earlier rows decays
 // as (1 - alpha)^n while the sums keep the rounding of its running mean, so a

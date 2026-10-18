@@ -12,7 +12,7 @@
 
 namespace screamer {
 
-    class EwZscore : public detail::RunningMomentsOp<EwZscore, 2, true, false, true> {
+    class EwZscore : public detail::RunningMomentsOp<EwZscore, 2, true> {
     public:
         explicit EwZscore(
             std::optional<double> com = std::nullopt,
@@ -47,12 +47,11 @@ namespace screamer {
             }
             one_minus_alpha_ = 1.0 - alpha_;
             one_minus_alpha2_ = one_minus_alpha_*one_minus_alpha_;
-            peak_decay_ = detail::ew_flat_peak_decay(one_minus_alpha_);
 
             reset();
         }
 
-        inline double value(State& st, double x) const {
+        inline double value(const State& st, double x) const {
             const double sum_w = st.sums.w;
             const double inv_w = 1.0 / sum_w;
             const double q2 = st.sums.s2 * inv_w;
@@ -62,17 +61,18 @@ namespace screamer {
             const double mean = st.sums.s1 * inv_w;
             const double mean_sq = mean * mean;
             double variance = q2 - mean_sq;
-            // NaN once the series has stopped varying (detail/ew_flat.h).
-            if (st.flat.flat(variance, peak_decay_)) {
+            variance *= n_eff / (n_eff - 1.0);
+            // NaN when the variance is 0, also when it has underflowed to 0
+            // after a long constant stretch (the deviation can then still be
+            // a subnormal, which gave +-inf).
+            if (!(variance > 0.0)) {
                 return std::numeric_limits<double>::quiet_NaN();
             }
-            variance *= n_eff / (n_eff - 1.0);
             return ((x - st.sums.origin) - mean) / std::sqrt(variance);
         }
 
     private:
         double alpha_;
-        double peak_decay_ = 1.0;
         
     };
 

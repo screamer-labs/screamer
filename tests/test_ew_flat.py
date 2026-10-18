@@ -2,12 +2,19 @@
 
 Once a series stops varying, its weighted variance decays as (1 - alpha)^n
 while the sums keep the rounding of its running mean, so a ratio with that
-variance in the denominator ends in rounding noise (EwBeta returned 1, 2 or
--1 on a regressor that had been constant for 19000 rows at alpha = 0.1). The
-operators that divide by it give NaN once the variance is below kEwFlat^2 =
-(2^24 eps)^2 times a peak of it that decays by (1 - alpha)^(1/8) per row
-(include/screamer/detail/ew_flat.h): about 45 / alpha rows after the series
-stops, 414 to 434 rows at alpha = 0.1 in these tests.
+variance in the denominator can end in rounding noise (EwBeta returned 1, 2
+or -1 on a regressor that had been constant for 19000 rows at alpha = 0.1).
+EwBeta (for its regressor, also in EwAlpha, EwSpread, EwResidualStd and
+EwKyleLambda), EwSkew and EwKurt give NaN once the variance is below
+kEwFlat^2 = (2^24 eps)^2 times a peak of it that decays by (1 - alpha)^(1/8)
+per row (include/screamer/detail/ew_flat.h): about 45 / alpha rows after the
+series stops, 414 to 434 rows at alpha = 0.1 in these tests.
+
+EwCorr and EwZscore keep their values: with one series flat they decay toward
+0 with the exact value. They give NaN only where the denominator underflows:
+EwCorr once the product of the two variances is subnormal (both inputs flat
+for a long time), EwZscore once the variance is 0 (it gave +-inf when the
+deviation was still a subnormal).
 
 The references are exact weighted moments, from sums kept in 300-digit
 decimals.
@@ -91,9 +98,6 @@ CASES = {
     "EwAlpha": ("EwAlpha", lambda f, r: (r, f)),
     "EwSpread": ("EwSpread", lambda f, r: (r, f)),
     "EwResidualStd": ("EwResidualStd", lambda f, r: (r, f)),
-    "EwCorr first flat": ("EwCorr", lambda f, r: (f, r)),
-    "EwCorr second flat": ("EwCorr", lambda f, r: (r, f)),
-    "EwZscore": ("EwZscore", lambda f, r: (f,)),
     "EwSkew": ("EwSkew", lambda f, r: (f,)),
     "EwKurt": ("EwKurt", lambda f, r: (f,)),
 }
@@ -102,15 +106,21 @@ EXACT = {
     "EwBeta": lambda f, r: (r, f),
     "EwAlpha": lambda f, r: (r, f),
     "EwSpread": lambda f, r: (r, f),
-    "EwCorr": lambda f, r: (f, r),
-    "EwZscore": lambda f, r: (f, None),
     "EwSkew": lambda f, r: (f, None),
     "EwKurt": lambda f, r: (f, None),
 }
 
 
+# Every operator this file covers, for the tests that hold for all of them.
+ALL = dict(CASES, **{
+    "EwCorr first flat": ("EwCorr", lambda f, r: (f, r)),
+    "EwCorr second flat": ("EwCorr", lambda f, r: (r, f)),
+    "EwZscore": ("EwZscore", lambda f, r: (f,)),
+})
+
+
 def _run(case, f, r):
-    name, feed = CASES[case]
+    name, feed = ALL[case]
     return getattr(s, name)(alpha=ALPHA)(*feed(f, r))
 
 
@@ -186,8 +196,7 @@ def _first_finite_after_last_nan(v, start):
     return start + (nan[-1] + 1 if len(nan) else 0)
 
 
-@pytest.mark.parametrize("case", ["EwBeta", "EwCorr first flat", "EwCorr second flat",
-                                  "EwZscore", "EwSkew", "EwKurt"])
+@pytest.mark.parametrize("case", ["EwBeta", "EwSkew", "EwKurt"])
 @pytest.mark.parametrize("seed", [0, 1, 2])
 def test_outlier_is_forgotten(case, seed):
     """One huge tick in returns of spread 0.01 raises the decaying peak. A 1e10
@@ -212,7 +221,7 @@ def test_outlier_is_forgotten(case, seed):
             assert np.isnan(out[at:]).any()
 
 
-@pytest.mark.parametrize("case", list(CASES))
+@pytest.mark.parametrize("case", list(ALL))
 def test_slowly_varying_series_is_not_flat(case):
     """A series at 3.7 that moves by 1e-3, slowly, is never flagged: from the
     start, or after unit noise."""
@@ -225,7 +234,7 @@ def test_slowly_varying_series_is_not_flat(case):
         assert np.isfinite(out[5:]).all()
 
 
-@pytest.mark.parametrize("case", list(CASES))
+@pytest.mark.parametrize("case", list(ALL))
 def test_constant_from_the_start_is_nan(case):
     """A series that never varies has variance 0: NaN on every row, as pandas
     gives for ewm().corr() with a constant."""
@@ -234,12 +243,80 @@ def test_constant_from_the_start_is_nan(case):
     assert np.isnan(_run(case, f, r)).all()
 
 
-@pytest.mark.parametrize("case", list(CASES))
+@pytest.mark.parametrize("case", list(ALL))
 def test_batch_equals_stream_on_a_flat_tail(case):
     f, r = _stops(3.7, 5, n_flat=800)
     batch = _run(case, f, r)
-    name, feed = CASES[case]
+    name, feed = ALL[case]
     op = getattr(s, name)(alpha=ALPHA)
     cols = feed(f, r)
     stream = np.array([op(*(c[i] for c in cols)) for i in range(len(f))])
     np.testing.assert_array_equal(batch, stream)
+
+
+def _exact_corr_z(x, y, t):
+    e = _exact(x, y, t)
+    corr = e["cxy"] / (e["m2"] * e["vy"]).sqrt() if y is not None else None
+    n = e["n"]
+    z = (e["x"] - e["mx"]) / (e["m2"] * n / (n - 1)).sqrt()
+    return corr, z
+
+
+@pytest.mark.parametrize("level", [3.7, 1.0, 0.0, -5.0])
+def test_ewcorr_and_ewzscore_keep_exact_values_on_one_flat_series(level):
+    """With one series flat, EwCorr and EwZscore decay toward 0 with the
+    exact value, and stay finite: no NaN for a flat stretch of 3000 rows."""
+    f, r = _stops(level, 0, n_flat=3000)
+    corr = s.EwCorr(alpha=ALPHA)(f, r)
+    corr2 = s.EwCorr(alpha=ALPHA)(r, f)
+    z = s.EwZscore(alpha=ALPHA)(f)
+    for out in (corr, corr2, z):
+        assert np.isfinite(out[5:]).all()
+    np.testing.assert_array_equal(corr, corr2)
+    for t in (N1 + 100, N1 + 1000, len(f) - 1):
+        rc, rz = _exact_corr_z(f, r, t)
+        assert corr[t] == pytest.approx(float(rc), rel=1e-6, abs=1e-14), t
+        assert z[t] == pytest.approx(float(rz), rel=1e-6, abs=1e-14), t
+
+
+def test_ewcorr_both_flat_is_nan_once_the_variance_product_underflows():
+    """Both inputs flat: the correlation of the earlier rows stays exact while
+    the product of the variances is a normal double, then the ratio was noise
+    (off by up to 0.9, or NaN on some rows). It is NaN from the first row
+    where the product is subnormal, about 3360 rows at alpha = 0.1 for unit
+    variances, and stays NaN."""
+    for seed in range(3):
+        rng = np.random.default_rng(seed)
+        n_flat = 6000
+        x = np.r_[rng.standard_normal(N1), np.full(n_flat, 3.7)]
+        y = np.r_[2 * rng.standard_normal(N1) + 1, np.full(n_flat, -3.2)]
+        out = s.EwCorr(alpha=ALPHA)(x, y)
+        nan = np.flatnonzero(np.isnan(out[5:])) + 5
+        first = nan[0]
+        assert 3200 <= first - N1 <= 3600, first - N1
+        assert np.isnan(out[first:]).all()
+        vx = s.EwVar(alpha=ALPHA)(x)
+        vy = s.EwVar(alpha=ALPHA)(y)
+        assert vx[first - 1] * vy[first - 1] > 1e-308 > vx[first + 5] * vy[first + 5]
+        for t in (N1 + 1000, first - 1):
+            rc, _ = _exact_corr_z(x, y, t)
+            assert out[t] == pytest.approx(float(rc), rel=1e-9), t
+
+
+@pytest.mark.parametrize("seed", [0, 1, 2])
+def test_ewzscore_is_nan_not_inf_when_the_variance_underflows(seed):
+    """At alpha = 0.5, 0.001 after 100 varying rows: some 1050 rows later the
+    variance underflows to 0 while the deviation is still a subnormal, which
+    gave +-inf on about 10 rows. Those rows are NaN; the other rows keep
+    their values, tiny and finite, or NaN where the deviation is 0 too."""
+    rng = np.random.default_rng(seed)
+    c = 0.001
+    x = np.r_[c + 0.5 * c * rng.standard_normal(100), np.full(1500, c)]
+    z = s.EwZscore(alpha=0.5)(x)
+    assert not np.isinf(z).any()
+    assert np.isnan(z[1300:]).all()
+    v = s.EwVar(alpha=0.5)(x)
+    zero = np.flatnonzero(v[1:] == 0) + 1
+    assert len(zero) and np.isnan(z[zero]).all()
+    fin = np.isfinite(z[200:])
+    assert np.abs(z[200:][fin]).max() < 1e-10

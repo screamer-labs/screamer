@@ -3,10 +3,11 @@
 series that stops varying, computed by the Python binding, for
 js/test/ew_flat.test.ts.
 
-The operators that divide by an EW variance (EwBeta and the operators built on
-it, EwCorr, EwZscore, EwSkew, EwKurt) give NaN once that variance has fallen
-far below a decaying peak of it (include/screamer/detail/ew_flat.h). Each case
-names the operator, its settings in Python names, and the input series below;
+EwBeta (and the operators built on it), EwSkew and EwKurt give NaN once that
+variance has fallen far below a decaying peak of it
+(include/screamer/detail/ew_flat.h). EwCorr and EwZscore keep their values on
+one flat series and give NaN only where their denominator underflows. Each
+case names the operator, its settings in Python names, and the input series below;
 the JavaScript test runs the same operator on the same series and compares the
 result, NaN for NaN, to 1e-9 relative. A NaN is written as null.
 
@@ -31,7 +32,9 @@ ALPHA = 0.3
 
 def _inputs():
     """flat: 100 varying rows, 200 at 3.7, 300 varying again. rand: varying.
-    tick: returns of spread 0.01 with one 1e10 tick at row 100."""
+    tick: returns of spread 0.01 with one 1e10 tick at row 100. bx, by: two
+    series that both stop varying after row 100 (1200 rows). z: 0.001 after
+    100 varying rows (1200 rows), whose variance underflows at alpha = 0.5."""
     rng = np.random.default_rng(20261018)
     T = 600
     flat = rng.standard_normal(T)
@@ -40,10 +43,13 @@ def _inputs():
     tick = 0.01 * rng.standard_normal(T)
     tick[100] = 1e10
     small = 0.01 * rng.standard_normal(T)
-    return {"flat": flat, "rand": rand, "tick": tick, "small": small}
+    bx = np.r_[rng.standard_normal(100), np.full(1100, 3.7)]
+    by = np.r_[2 * rng.standard_normal(100) + 1, np.full(1100, -3.2)]
+    z = np.r_[0.001 + 0.0005 * rng.standard_normal(100), np.full(1100, 0.001)]
+    return {"flat": flat, "rand": rand, "tick": tick, "small": small, "bx": bx, "by": by, "z": z}
 
 
-# (operator, input series).
+# (operator, input series[, alpha]).
 CASES = [
     ("EwBeta", ["rand", "flat"]),
     ("EwBeta", ["flat", "rand"]),
@@ -60,6 +66,8 @@ CASES = [
     ("EwCorr", ["tick", "small"]),
     ("EwZscore", ["tick"]),
     ("EwKurt", ["tick"]),
+    ("EwCorr", ["bx", "by"], 0.5),
+    ("EwZscore", ["z"], 0.5),
 ]
 
 
@@ -70,9 +78,10 @@ def _num(v):
 def build():
     inputs = _inputs()
     cases = []
-    for name, cols in CASES:
-        out = getattr(s, name)(alpha=ALPHA)(*(inputs[c] for c in cols))
-        cases.append({"name": name, "settings": {"alpha": ALPHA}, "inputs": cols,
+    for name, cols, *alpha in CASES:
+        a = alpha[0] if alpha else ALPHA
+        out = getattr(s, name)(alpha=a)(*(inputs[c] for c in cols))
+        cases.append({"name": name, "settings": {"alpha": a}, "inputs": cols,
                       "out": [_num(v) for v in out]})
     return {"inputs": {k: [_num(v) for v in x] for k, x in inputs.items()}, "cases": cases}
 
