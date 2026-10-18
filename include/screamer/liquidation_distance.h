@@ -3,32 +3,39 @@
 
 // LiquidationDistance: 4 -> 3. How close an isolated-margin position comes to
 // liquidation, bar by bar. Inputs are the signed `position` and the `open`,
-// `high`, `low` of the trigger price (ideally mark-price bars).
+// `high`, `low` of the trigger price (ideally mark-price bars). The position
+// is the one a backtest engine reports for the bar, already filled at that
+// bar's open.
 //
-// A segment starts on a bar where the position changes to a nonzero value (a
-// new position, a sign flip, or a resize) and fills at that bar's open. The
-// segment posts |size| * entry / leverage of margin, with no top-up, so its
-// liquidation price is
+// Position changes follow exchange accounting, with every fill at the bar's
+// open:
+//     from flat, or a sign flip:  a fresh entry at the open.
+//     same-sign increase:         the entry blends,
+//                                 entry = (|p0| * e0 + (|p1| - |p0|) * open) / |p1|,
+//                                 and margin is posted on the added size.
+//     same-sign reduce:           the entry, and so the liquidation price,
+//                                 are unchanged.
+// The position holds |size| * entry / leverage of margin, with no top-up, so
+// its liquidation price is
 //     long:  entry * (1 - 1 / leverage + maintenance)
 //     short: entry * (1 + 1 / leverage - maintenance)
-// A resize starts a new segment at the new fill: the margin is re-posted at
-// the current price, with no credit for earlier gains.
 //
 // Outputs, per bar:
 //     distance  the adverse move still needed from the bar's worst price to
 //               reach liquidation, as a fraction of that price:
 //               long (low - liq) / low, short (liq - high) / high.
 //               0 or less means the bar reached the liquidation price.
-//     liq_price the segment's liquidation price.
-//     breached  1 from the first bar that reached it to the end of the
-//               segment, 0 before.
+//     liq_price the liquidation price of the current position.
+//     breached  1 from the first bar that reached it until the position goes
+//               flat or flips, 0 before. A resize does not clear it: the
+//               position was liquidated in reality.
 // All three are NaN while flat.
 //
 // NaN handling: a NaN position holds the previous position. A NaN open, high,
-// or low gives a NaN row and leaves the segment as it is; a position change
-// and a fill at a finite open on that bar are still taken. When the open of a
-// segment's first bar is NaN, the segment fills at the next finite open. The operator only
-// measures: it does not close positions or change any pnl.
+// or low gives a NaN row and leaves the state as it is, except that a
+// position change on that bar is still taken; a fill that needs the open (a
+// fresh entry or an increase) then happens at the next finite open. The
+// operator only measures: it does not close positions or change any pnl.
 
 #include <cmath>
 #include <limits>
@@ -59,9 +66,11 @@ public:
 
     void reset() override {
         prev_position_ = 0.0;
+        target_ = 0.0;
+        filled_ = 0.0;
+        entry_ = 0.0;
         liq_ = 0.0;
         side_ = 0;
-        pending_ = false;
         breached_ = false;
     }
 
@@ -70,16 +79,23 @@ public:
         constexpr double nan = std::numeric_limits<double>::quiet_NaN();
         if (!isnan2(position) && position != prev_position_) {
             prev_position_ = position;
-            side_ = (position > 0.0) - (position < 0.0);
-            pending_ = side_ != 0;
-            breached_ = false;
+            const int side = (position > 0.0) - (position < 0.0);
+            target_ = std::fabs(position);
+            if (side != side_) {                 // flat, fresh entry, or flip
+                side_ = side;
+                filled_ = 0.0;
+                breached_ = false;
+            } else if (target_ < filled_) {      // same-sign reduce: entry kept
+                filled_ = target_;
+            }
         }
         if (side_ == 0) return std::make_tuple(nan, nan, nan);
-        if (pending_ && !isnan2(open)) {
-            liq_ = open * (side_ > 0 ? long_factor_ : short_factor_);
-            pending_ = false;
+        if (target_ > filled_ && !isnan2(open)) {   // fill the added size at the open
+            entry_ = (filled_ * entry_ + (target_ - filled_) * open) / target_;
+            filled_ = target_;
+            liq_ = entry_ * (side_ > 0 ? long_factor_ : short_factor_);
         }
-        if (pending_ || isnan2(open) || isnan2(high) || isnan2(low))
+        if (target_ > filled_ || isnan2(open) || isnan2(high) || isnan2(low))
             return std::make_tuple(nan, nan, nan);
         const double distance = side_ > 0 ? (low - liq_) / low : (liq_ - high) / high;
         if (distance <= 0.0) breached_ = true;
@@ -90,9 +106,11 @@ private:
     double long_factor_ = 0.0;
     double short_factor_ = 0.0;
     double prev_position_ = 0.0;
+    double target_ = 0.0;     // |position| to hold
+    double filled_ = 0.0;     // |position| filled at entry_
+    double entry_ = 0.0;
     double liq_ = 0.0;
     int side_ = 0;
-    bool pending_ = false;
     bool breached_ = false;
 };
 

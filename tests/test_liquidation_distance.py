@@ -36,7 +36,7 @@ def test_flat_bars_are_nan():
     assert np.isfinite(out[1]).all()
 
 
-def test_breach_latches_to_the_end_of_the_segment():
+def test_breach_latches_until_flat():
     pos = [1, 1, 1, 1, 0, 1]
     o = [100, 95, 92, 99, 99, 100]
     h = [101, 96, 93, 100, 100, 101]
@@ -46,25 +46,43 @@ def test_breach_latches_to_the_end_of_the_segment():
     np.testing.assert_array_equal(out[:4, 2], [0, 1, 1, 1])
     assert out[2, 0] > 0 and out[3, 0] > 0   # recovered, still breached
     assert np.isnan(out[4]).all()
-    assert out[5, 2] == 0.0                   # a new segment starts unbreached
+    assert out[5, 2] == 0.0                   # a fresh entry starts unbreached
 
 
-def test_sign_flip_starts_a_new_segment_at_the_open():
+def test_sign_flip_rebases_at_the_open():
     out = _run([1, 1, -1, -1], [100, 98, 96, 97], [101, 99, 97, 98], [99, 97, 95, 96])
     np.testing.assert_allclose(out[:2, 1], 90.5)
     np.testing.assert_allclose(out[2:, 1], 96 * 1.095)
     np.testing.assert_allclose(out[3, 0], (96 * 1.095 - 98) / 98)
 
 
-def test_resize_starts_a_new_segment_and_clears_the_breach():
-    pos = [1, 1, 3, 3]
-    o = [100, 92, 80, 81]
-    h = [101, 93, 82, 82]
-    l = [99, 90, 79, 72]
+def test_increase_blends_the_entry():
+    # 1 at 100, then 2 more at 110: entry = (1 * 100 + 2 * 110) / 3
+    out = _run([1, 1, 3, 3], [100, 105, 110, 108], [101, 106, 111, 109], [99, 104, 109, 107])
+    np.testing.assert_allclose(out[:2, 1], 90.5)
+    entry = (100 + 2 * 110) / 3
+    np.testing.assert_allclose(out[2:, 1], entry * 0.905)
+    np.testing.assert_allclose(out[3, 0], (107 - entry * 0.905) / 107)
+    # a short increase blends the same way
+    out = _run([-2, -3], [100, 94], [101, 95], [99, 93])
+    np.testing.assert_allclose(out[1, 1], (2 * 100 + 94) / 3 * 1.095)
+
+
+def test_reduce_keeps_the_entry():
+    out = _run([3, 3, 1, 1], [100, 105, 110, 108], [101, 106, 111, 109], [99, 104, 109, 107])
+    np.testing.assert_allclose(out[:, 1], 90.5)
+    # reduce, then increase: the blend starts from the kept entry
+    out = _run([2, 1, 2], [100, 120, 110], [101, 121, 111], [99, 119, 109])
+    np.testing.assert_allclose(out[2, 1], (100 + 110) / 2 * 0.905)
+
+
+def test_resize_keeps_the_breach_and_a_flip_clears_it():
+    pos = [1, 1, 2, 1, -1]
+    o = [100, 92, 93, 94, 95]
+    h = [101, 93, 95, 95, 96]
+    l = [99, 90, 92, 93, 94]
     out = _run(pos, o, h, l)
-    np.testing.assert_array_equal(out[:, 2], [0, 1, 0, 1])
-    np.testing.assert_allclose(out[2:, 1], 80 * 0.905)
-    np.testing.assert_allclose(out[2, 0], (79 - 72.4) / 79)
+    np.testing.assert_array_equal(out[:, 2], [0, 1, 1, 1, 0])
 
 
 def test_nan_position_holds():
@@ -94,6 +112,31 @@ def test_entry_fills_at_a_finite_open_when_high_or_low_is_nan():
     out = _run([0, 1, 1], [100, 100, 98], [101, NAN, 99], [99, 99, 97])
     assert np.isnan(out[1]).all()
     np.testing.assert_allclose(out[2, 1], 90.5)
+
+
+def test_increase_on_a_nan_open_fills_at_the_next_finite_open():
+    out = _run([1, 2, 2], [100, NAN, 110], [101, 101, 111], [99, 99, 109])
+    assert np.isnan(out[1]).all()
+    np.testing.assert_allclose(out[2, 1], (100 + 110) / 2 * 0.905)
+
+
+def test_going_flat_while_a_fill_is_pending():
+    out = _run([0, 1, 0, 0], [100, NAN, 100, 100], [101] * 4, [99] * 4)
+    assert np.isnan(out).all()
+    out = _run([0, 1, 0, 1], [100, NAN, 100, 97], [101, 101, 101, 98], [99, 99, 99, 96])
+    assert np.isnan(out[:3]).all()
+    np.testing.assert_allclose(out[3], [(96 - 97 * 0.905) / 96, 97 * 0.905, 0.0])
+
+
+def test_flip_on_a_nan_open_fills_at_the_next_finite_open():
+    pos = [1, 1, -1, -1]
+    o = [100, 92, NAN, 97]
+    h = [101, 93, 98, 98]
+    l = [99, 90, 96, 96]                     # bar 1 breaches the long
+    out = _run(pos, o, h, l)
+    assert out[1, 2] == 1.0
+    assert np.isnan(out[2]).all()
+    np.testing.assert_allclose(out[3], [(97 * 1.095 - 98) / 98, 97 * 1.095, 0.0])
 
 
 @pytest.mark.parametrize("kw", [

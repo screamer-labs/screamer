@@ -24,7 +24,7 @@ parameters:
   type: float
   default: 10.0
   required: true
-  description: Leverage of the position. The margin posted at each fill is size * entry / leverage.
+  description: Leverage of the position. The margin posted at each fill is |size| * entry / leverage.
     More than 1.
 - name: maintenance
   type: float
@@ -54,17 +54,24 @@ liquidation, bar by bar. Its inputs are the signed `position` and the `open`,
 bars. It only measures: it does not close positions or change any pnl, so use
 it to choose a leverage that leaves a buffer.
 
-A segment starts on a bar where the position changes to a nonzero value (a new
-position, a sign flip, or a resize) and fills at that bar's open. The segment
-posts `|size| * entry / leverage` of margin with no top-up, which puts its
-liquidation price at
+Pass the position a backtest engine reports, column 2 of its
+`[equity, pnl, position, cost]` output, which is already filled at that bar's
+open. A raw target is decided at a bar's close and fills at the next open, so
+passing it here would place each fill one bar early, a look-ahead.
+
+Position changes follow exchange accounting, with every fill at the bar's open:
+
+- From flat, or on a sign flip, the position is a fresh entry at the open.
+- A same-sign increase blends the entry,
+  `entry = (|p0| * e0 + (|p1| - |p0|) * open) / |p1|`, and posts margin on the
+  added size.
+- A same-sign reduce keeps the entry, and so the liquidation price, unchanged.
+
+The position holds `|size| * entry / leverage` of margin with no top-up, which
+puts its liquidation price at
 
 - long: `entry * (1 - 1 / leverage + maintenance)`
 - short: `entry * (1 + 1 / leverage - maintenance)`
-
-Only the sign of the position and its changes matter. A resize starts a new
-segment at the new fill: the margin is re-posted at the current price, with no
-credit for earlier gains.
 
 The three outputs, per bar:
 
@@ -72,19 +79,21 @@ The three outputs, per bar:
   the liquidation price, as a fraction of that price. For a long it is
   `(low - liq_price) / low`, for a short `(liq_price - high) / high`. 0 or less
   means the bar reached the liquidation price.
-- `liq_price`: the liquidation price of the current segment.
-- `breached`: 1 from the first bar that reached the liquidation price to the end
-  of the segment, 0 before it.
+- `liq_price`: the liquidation price of the current position.
+- `breached`: 1 from the first bar that reached the liquidation price until the
+  position goes flat or flips, 0 before it. A resize does not clear it, since
+  the position would have been liquidated.
 
-All three are `NaN` while the position is flat. For example, a long entered at
-100 with `leverage=10` and the default `maintenance=0.005` has
+All three are `NaN` while the position is flat. For example, a long of 1
+entered at 100 with `leverage=10` and the default `maintenance=0.005` has
 `liq_price = 100 * (1 - 0.1 + 0.005) = 90.5`; a bar with a low of 95 then has
-`distance = (95 - 90.5) / 95 = 0.047`.
+`distance = (95 - 90.5) / 95 = 0.047`. Adding 1 more at an open of 110 blends the
+entry to 105 and moves `liq_price` to `105 * 0.905 = 95.025`.
 
 A `NaN` position holds the previous position. A `NaN` open, high, or low gives
-a `NaN` row and leaves the segment as it is. A position change on such a bar
-still starts a segment, which fills at the bar's open when that is finite and
-otherwise at the next finite open.
+a `NaN` row and leaves the state as it is, except that a position change on
+that bar is still taken. A fill that needs the open, a fresh entry or an
+increase, then happens at the next finite open.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling
@@ -103,7 +112,7 @@ otherwise at the next finite open.
     import numpy as np
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
-    from screamer import LiquidationDistance
+    from screamer import BacktestOHLCTarget, LiquidationDistance
 
     rng = np.random.default_rng(7)
     n = 24 * 30                                      # 30 days of hourly bars
@@ -111,7 +120,10 @@ otherwise at the next finite open.
     open_ = np.r_[close[0], close[:-1]]
     high = np.maximum(open_, close) * (1 + np.abs(rng.standard_normal(n)) * 0.002)
     low = np.minimum(open_, close) * (1 - np.abs(rng.standard_normal(n)) * 0.002)
-    position = np.where(np.arange(n) % 240 < 200, 1.0, 0.0)   # long, flat, long, ...
+    target = np.where(np.arange(n) % 240 < 200, 1.0, 0.0)   # long, flat, long, ...
+
+    # The engine fills each target at the next open; pass the position it reports.
+    position = np.asarray(BacktestOHLCTarget()(target, open_, high, low, close))[:, 2]
 
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.08)
     fig.add_trace(go.Scatter(y=close, name='close', line=dict(color='gray')), row=1, col=1)

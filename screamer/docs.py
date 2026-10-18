@@ -124,10 +124,16 @@ def search(query: str, topic: str | None = None, limit: int = 10) -> list[dict]:
     return [_summary(e) for _, _, e in scored[:limit]]
 
 
+def _has_default(p: dict) -> bool:
+    """A required parameter's ``default`` is only the value the docs examples
+    use; the binding has none."""
+    return "default" in p and not p.get("required")
+
+
 def _signature(entry: dict) -> str | None:
     params = entry.get("parameters")
     if params is not None:
-        args = ", ".join(f"{p['name']}={p['default']!r}" if "default" in p else p["name"]
+        args = ", ".join(f"{p['name']}={p['default']!r}" if _has_default(p) else p["name"]
                          for p in params)
         return f"{entry['name']}({args})"
     import screamer
@@ -227,8 +233,10 @@ def _format_show(e: dict) -> str:
             extra = []
             if "type" in p:
                 extra.append(p["type"])
-            if "default" in p:
+            if _has_default(p):
                 extra.append(f"default {p['default']!r}")
+            elif p.get("required"):
+                extra.append("required")
             if "enum" in p:
                 extra.append("one of " + ", ".join(repr(v) for v in p["enum"]))
             if "min" in p:

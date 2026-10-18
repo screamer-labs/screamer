@@ -3064,7 +3064,7 @@ export declare function Linear2(a?: number, b?: number, c?: number): ScreamerOp;
 
 /** The settings of LiquidationDistance by name, for `LiquidationDistance({ ... })`. */
 export interface LiquidationDistanceOptions {
-  /** Leverage of the position. The margin posted at each fill is size * entry / leverage. More than 1. */
+  /** Leverage of the position. The margin posted at each fill is |size| * entry / leverage. More than 1. */
   leverage: number;
   /** Maintenance-margin rate, as a fraction of the position value. 0 or more and less than 1 / leverage. @defaultValue `0.005` */
   maintenance?: number;
@@ -3080,7 +3080,7 @@ export declare function LiquidationDistance(options: LiquidationDistanceOptions)
 /**
  * How far each bar's worst price is from the liquidation price of an isolated-margin position at a given leverage.
  *
- * @param leverage Leverage of the position. The margin posted at each fill is size * entry / leverage. More than 1.
+ * @param leverage Leverage of the position. The margin posted at each fill is |size| * entry / leverage. More than 1.
  * @param maintenance Maintenance-margin rate, as a fraction of the position value. 0 or more and less than 1 / leverage.
  * @see https://screamer.readthedocs.io/en/latest/functions_fin/LiquidationDistance.html for the full reference.
  */

@@ -115,7 +115,10 @@ def _parameter_table(fm):
             extra.append(f"At least {p['min']}.")
         elif "max" in p:
             extra.append(f"At most {p['max']}.")
-        default = f"`{_fmt_default(p['default'])}`" if "default" in p else "required"
+        # A required parameter's frontmatter default is only the value the
+        # live examples use; the binding has none.
+        default = (f"`{_fmt_default(p['default'])}`"
+                   if "default" in p and not p.get("required") else "required")
         rows.append(f"| `{p['name']}` | {_cell(p.get('type', ''))} | {default} "
                     f"| {_cell(' '.join([desc] + extra))} |")
     return "## Parameters\n\n" + "\n".join(rows) + "\n"

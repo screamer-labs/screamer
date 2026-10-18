@@ -194,21 +194,47 @@ test("research: backtestReport by keeps the number 1 and the string '1' apart", 
   assert.deepEqual([...byGroup!.keys()], [1, "1"]);
 });
 
+const liqRows = (out: any, n: number) =>
+  Array.from({ length: n }, (_, i) => Array.from(dataOf(out)).slice(3 * i, 3 * i + 3));
+const f64 = (xs: number[]) => Float64Array.from(xs);
+
 test("research: LiquidationDistance hand example", () => {
-  // Long 1 from bar 1 at 100 (liq 90.5), resized to 2 at 95 on bar 3 (liq 85.975),
-  // flipped short on bar 5 at 100 (liq 109.5), flat on bar 7.
-  const f = (xs: number[]) => Float64Array.from(xs);
+  // Long 1 at 100 (liq 90.5), breached on bar 2; increased to 2 at 95 on bar 3
+  // (entry 97.5, liq 88.2375, still breached); flipped short at 100 on bar 5
+  // (liq 109.5, breach cleared); flat on bar 7.
   const out = LiquidationDistance({ leverage: 10 })(
-    f([0, 1, 1, 2, 2, -1, -1, 0]), f([100, 100, 98, 95, 90, 100, 104, 100]),
-    f([102, 102, 100, 97, 92, 102, 110, 102]), f([97, 97, 90, 92, 85, 97, 101, 97])) as any;
-  const rows = Array.from({ length: 8 }, (_, i) => Array.from(dataOf(out)).slice(3 * i, 3 * i + 3));
+    f64([0, 1, 1, 2, 2, -1, -1, 0]), f64([100, 100, 98, 95, 90, 100, 104, 100]),
+    f64([102, 102, 100, 97, 92, 102, 110, 102]), f64([97, 97, 90, 92, 85, 97, 101, 97]));
+  const rows = liqRows(out, 8);
   assert.ok(rows[0].every(Number.isNaN) && rows[7].every(Number.isNaN));
   close(rows[1], [(97 - 90.5) / 97, 90.5, 0], "long");
   close(rows[2], [(90 - 90.5) / 90, 90.5, 1], "long breach");
-  close(rows[3], [(92 - 85.975) / 92, 85.975, 0], "resize");
-  close(rows[4], [(85 - 85.975) / 85, 85.975, 1], "resize breach");
+  close(rows[3], [(92 - 88.2375) / 92, 88.2375, 1], "blended increase keeps the breach");
+  close(rows[4], [(85 - 88.2375) / 85, 88.2375, 1], "increase breach");
   close(rows[5], [(109.5 - 102) / 102, 109.5, 0], "short");
   close(rows[6], [(109.5 - 110) / 110, 109.5, 1], "short breach");
+});
+
+test("research: LiquidationDistance reduce keeps the entry", () => {
+  const out = LiquidationDistance({ leverage: 10 })(
+    f64([3, 3, 1, 2]), f64([100, 105, 110, 120]), f64([101, 106, 111, 121]), f64([99, 104, 109, 119]));
+  const rows = liqRows(out, 4);
+  close(rows.slice(0, 3).map((r) => r[1]), [90.5, 90.5, 90.5], "reduce");
+  close([rows[3][1]], [(100 + 120) / 2 * 0.905], "increase after a reduce blends from the kept entry");
+});
+
+test("research: LiquidationDistance pending fills on NaN opens", () => {
+  // Flat again before the pending fill: nothing leaks into the next entry.
+  let rows = liqRows(LiquidationDistance({ leverage: 10 })(
+    f64([0, 1, 0, 1]), f64([100, NaN, 100, 97]), f64([101, 101, 101, 98]), f64([99, 99, 99, 96])), 4);
+  assert.ok(rows.slice(0, 3).every((r) => r.every(Number.isNaN)));
+  close(rows[3], [(96 - 97 * 0.905) / 96, 97 * 0.905, 0], "fresh entry after a cancelled fill");
+  // A flip on a NaN-open bar fills at the next finite open and clears the breach.
+  rows = liqRows(LiquidationDistance({ leverage: 10 })(
+    f64([1, 1, -1, -1]), f64([100, 92, NaN, 97]), f64([101, 93, 98, 98]), f64([99, 90, 96, 96])), 4);
+  assert.equal(rows[1][2], 1);
+  assert.ok(rows[2].every(Number.isNaN));
+  close(rows[3], [(97 * 1.095 - 98) / 98, 97 * 1.095, 0], "flip on a NaN open");
 });
 
 test("research: LiquidationDistance on (T, K) columns matches Python", () => {
