@@ -11,8 +11,9 @@
 
 namespace screamer {
 
-// The most inputs an operator's column can have (the largest operator has 10).
-constexpr std::size_t kMaxColumnInputs = 16;
+// The most inputs an operator's column can have: RollingOLS with 16
+// regressors has 17 (y and the regressors); the largest fixed operator has 10.
+constexpr std::size_t kMaxColumnInputs = 17;
 
 namespace detail {
 // Columns per tile.

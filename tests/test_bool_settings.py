@@ -35,6 +35,8 @@ def _settings():
     out = []
     for entry in json.loads(FIXTURE.read_text()):
         for name in entry["accepts_bool"]:
+            if types[entry["name"]][name] == "bool":   # a yes-or-no setting takes a bool
+                continue
             out.append((entry["name"], entry["base"], name, types[entry["name"]][name]))
     return out
 
@@ -55,6 +57,9 @@ def test_every_operator_setting_refuses_a_bool(flag):
 def test_the_oracle_holds_the_messages():
     for entry in json.loads(FIXTURE.read_text()):
         for name, message in entry["bool_message"].items():
+            if entry["accepts_bool"][name]:            # a yes-or-no setting
+                assert message is None
+                continue
             assert message.startswith(f"{entry['name']}: {name} must be ")
             assert message.endswith(", got bool")
 

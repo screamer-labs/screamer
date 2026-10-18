@@ -108,6 +108,18 @@ struct FloatArg {
     }
 };
 
+// A yes-or-no setting (RollingOLS's intercept): a Python bool, a NumPy bool or
+// a 0-d NumPy bool array. Any other value, a number included, is a wrong kind.
+struct BoolArg {
+    bool value = false;
+    const char* text = nullptr;     // the type name of a refused value, or null
+    operator bool() const {
+        if (text)
+            throw nanobind::type_error((std::string("must be a bool, got ") + text).c_str());
+        return value;
+    }
+};
+
 // A setting that is a sequence of numbers (MovingAverage's taps): a bool
 // element is a wrong kind, as in a FloatArg.
 struct FloatVecArg {
@@ -200,6 +212,33 @@ struct type_caster<screamer::FloatArg> {
     static handle from_cpp(const screamer::FloatArg& v, rv_policy policy,
                            cleanup_list* cleanup) noexcept {
         return make_caster<double>::from_cpp(v.value, policy, cleanup);
+    }
+};
+
+template <>
+struct type_caster<screamer::BoolArg> {
+    NB_TYPE_CASTER(screamer::BoolArg, const_name("bool"))
+
+    bool from_python(handle src, uint32_t, cleanup_list*) noexcept {
+        PyObject* o = src.ptr();
+        if (screamer::bool_kind(o)) {
+            const int truth = PyObject_IsTrue(o);
+            if (truth < 0) {
+                PyErr_Clear();
+                return false;
+            }
+            value.value = truth != 0;
+            return true;
+        }
+        // Taken here and refused by the conversion; the Python class names
+        // the type (screamer/_functor_params.py setting_error).
+        value.text = "another type";
+        return true;
+    }
+
+    static handle from_cpp(const screamer::BoolArg& v, rv_policy policy,
+                           cleanup_list* cleanup) noexcept {
+        return make_caster<bool>::from_cpp(v.value, policy, cleanup);
     }
 };
 

@@ -64,6 +64,8 @@
 #include "screamer/rolling_alpha.h"
 #include "screamer/rolling_residual_std.h"
 #include "screamer/rolling_linear_regression.h"
+#include "screamer/rolling_ols.h"
+#include "screamer/common/var_arity_dispatch.h"
 #include "screamer/bayesian_regression.h"
 #include "screamer/bayesian_changepoint.h"
 #include "screamer/triple_barrier.h"
@@ -1435,6 +1437,19 @@ void init_bindings_fin(nb::module_& m) {
              "start_policy"_a = "strict")
         .def("__call__", &screamer::functor_call<screamer::RollingLinearRegression>)
         .def("reset", &screamer::RollingLinearRegression::reset, "Reset.");
+
+    // (1 + k) -> (3 + [1] + k) least squares of y on k regressors over a
+    // trailing window or every row so far: (pred, resid, r2, [b0], b1..bk).
+    nb::class_<screamer::RollingOLS, screamer::EvalOp>(m, "RollingOLS")
+        .def(nb::init<screamer::IntArg<int>, screamer::IntArg<int>, screamer::BoolArg>(),
+             "window_size"_a, "n_regressors"_a, "intercept"_a = true)
+        .def("__call__", &screamer::var_arity_call<screamer::RollingOLS>)
+        .def("reset", &screamer::RollingOLS::reset, "Reset.");
+
+    nb::class_<screamer::ExpandingOLS, screamer::EvalOp>(m, "ExpandingOLS")
+        .def(nb::init<screamer::IntArg<int>, screamer::BoolArg>(), "n_regressors"_a, "intercept"_a = true)
+        .def("__call__", &screamer::var_arity_call<screamer::ExpandingOLS>)
+        .def("reset", &screamer::ExpandingOLS::reset, "Reset.");
 
     // 2 -> 4 online Bayesian regression returning (pred_mean, pred_std, slope, intercept).
     // Uses exponential forgetting with a conjugate Normal-Inverse-Gamma prior.

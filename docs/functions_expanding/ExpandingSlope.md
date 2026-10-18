@@ -20,6 +20,7 @@ see_also:
 - ExpandingMean
 - RollingLinearRegression
 - Detrend
+- ExpandingOLS
 nan_policy: ignore
 ---
 

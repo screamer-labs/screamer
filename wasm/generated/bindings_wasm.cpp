@@ -163,6 +163,7 @@
 #include "screamer/rolling_median_ad.h"
 #include "screamer/rolling_min.h"
 #include "screamer/rolling_min_max.h"
+#include "screamer/rolling_ols.h"
 #include "screamer/rolling_omega.h"
 #include "screamer/rolling_ou.h"
 #include "screamer/rolling_percentile.h"
@@ -919,6 +920,8 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor<>();
     emscripten::class_<screamer::ExpandingMin, emscripten::base<screamer::EvalOp>>("ExpandingMin")
         .constructor<>();
+    emscripten::class_<screamer::ExpandingOLS, emscripten::base<screamer::EvalOp>>("ExpandingOLS")
+        .constructor<int, bool>();
     emscripten::class_<screamer::ExpandingProd, emscripten::base<screamer::EvalOp>>("ExpandingProd")
         .constructor<>();
     emscripten::class_<screamer::ExpandingSkew, emscripten::base<screamer::EvalOp>>("ExpandingSkew")
@@ -1121,6 +1124,8 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor<int>();
     emscripten::class_<screamer::RollingMinMax, emscripten::base<screamer::EvalOp>>("RollingMinMax")
         .constructor<int>();
+    emscripten::class_<screamer::RollingOLS, emscripten::base<screamer::EvalOp>>("RollingOLS")
+        .constructor<int, int, bool>();
     emscripten::class_<screamer::RollingOU, emscripten::base<screamer::EvalOp>>("RollingOU")
         .constructor(&make_RollingOU, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingOmega, emscripten::base<screamer::EvalOp>>("RollingOmega")

@@ -15,6 +15,8 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
+#include <utility>
 #include <vector>
 #include <sstream>
 #include "screamer/common/base.h"          // pure ScreamerBase
@@ -33,6 +35,23 @@ namespace screamer {
 bool is_dag_node(const nb::object& obj);
 // Build a graph node from a callable `self` and its argument objects.
 nb::object make_dag_functor_node(nb::object self, nb::object args_tuple);
+
+namespace detail {
+template <class S, class = void>
+struct has_py_owner : std::false_type {};
+template <class S>
+struct has_py_owner<S, std::void_t<decltype(std::declval<const S&>().py_owner())>>
+    : std::true_type {};
+}  // namespace detail
+
+// The Python object of an operator, to name it in an error or to hand it to a
+// stream or a graph. An operator is its own Python object; a view of one
+// (VarArityView) names the object it views.
+template <class S>
+inline nb::object py_self(const S& op) {
+    if constexpr (detail::has_py_owner<S>::value) return op.py_owner();
+    else return nb::find(op);
+}
 
 namespace detail {
 
@@ -232,7 +251,7 @@ inline nb::args coerce_args_if_unsupported(const nb::args& args, const S& op) {
         if (is_unsupported_dtype_array(a)) { any = true; break; }
     }
     if (!any) return args;
-    const std::string who = op_display_name(nb::find(op));   // looked up only here
+    const std::string who = op_display_name(py_self(op));   // looked up only here
     nb::list lst;
     for (nb::handle a : args) {
         lst.append(coerce_if_unsupported_dtype_array(nb::borrow<nb::object>(a), who));
@@ -579,15 +598,15 @@ inline nb::object normalize_input(nb::handle x, const S& op) {
     const bool bad = PyUnicode_Check(o) || PyBytes_Check(o) || PyByteArray_Check(o) ||
                      PyDict_Check(o) || PyAnySet_Check(o) ||
                      Py_TYPE(o) == &PyDictProxy_Type;    // a read-only dict
-    if (bad) throw_unsupported_input(nb::find(op), x);
+    if (bad) throw_unsupported_input(py_self(op), x);
     // A numeric memoryview is an array (np.asarray reads it); one over bytes
     // is text, as live().push reads it.
     if (PyMemoryView_Check(o)) {
         nb::object base = x.attr("obj");
-        if (is_foreign_value(base.ptr())) throw_unsupported_input(nb::find(op), base);
+        if (is_foreign_value(base.ptr())) throw_unsupported_input(py_self(op), base);
         if (PyBytes_Check(base.ptr()) || PyByteArray_Check(base.ptr()) ||
             nb::cast<std::string>(x.attr("format")) == "c")
-            throw nb::type_error((op_display_name(nb::find(op)) + ": a memoryview of bytes is "
+            throw nb::type_error((op_display_name(py_self(op)) + ": a memoryview of bytes is "
                                   "not a valid input; pass numbers").c_str());
         return nb::module_::import_("numpy").attr("asarray")(x);
     }
@@ -597,25 +616,25 @@ inline nb::object normalize_input(nb::handle x, const S& op) {
     // time scalar (a static type) or a ctypes object is never data
     // (cast_double.h is_foreign_value).
     if (!(PyType_GetFlags(Py_TYPE(o)) & Py_TPFLAGS_HEAPTYPE)) {
-        if (is_numpy_time_scalar(o) || is_exact_number(o)) throw_unsupported_input(nb::find(op), x);
+        if (is_numpy_time_scalar(o) || is_exact_number(o)) throw_unsupported_input(py_self(op), x);
         return nb::borrow(x);
     }
-    if (is_ctypes_object(o) || is_exact_number(o)) throw_unsupported_input(nb::find(op), x);
+    if (is_ctypes_object(o) || is_exact_number(o)) throw_unsupported_input(py_self(op), x);
     nb::object holder;
     const char* m = type_module_utf8(x.type(), holder);
     // A pandas object without a dtype (a Timestamp, Timedelta, NaT) is not data.
     if (is_pandas_module(m) && !nb::hasattr(x, "dtype") && !nb::hasattr(x, "dtypes"))
-        throw_unsupported_input(nb::find(op), x);
+        throw_unsupported_input(py_self(op), x);
     // Any other mapping (collections.abc.Mapping) is refused as a dict is,
     // rather than read as an iterator of its keys.
-    if (is_mapping(o)) throw_unsupported_input(nb::find(op), x);
+    if (is_mapping(o)) throw_unsupported_input(py_self(op), x);
     if (is_pandas_module(m) && nb::hasattr(x, "to_numpy")) {
         if (is_time_dtype(x))
-            throw nb::type_error((op_display_name(nb::find(op)) + ": a pandas object with a "
+            throw nb::type_error((op_display_name(py_self(op)) + ": a pandas object with a "
                 "datetime or timedelta dtype is not a valid input; pass numeric values "
                 "(convert timestamps yourself)").c_str());
         // A string is never a number: refused before to_numpy would parse "3".
-        const std::string who = op_display_name(nb::find(op));
+        const std::string who = op_display_name(py_self(op));
         if (nb::hasattr(x, "dtype")) {
             refuse_text(x, who);                                  // a Series
         } else {
@@ -798,11 +817,11 @@ struct EagerRun {
 template <class Op>
 typename Op::InputArray cast_to_array(Op& self, const nb::tuple& tuple, std::size_t event) {
     constexpr size_t N = Op::kN;
-    if (tuple.size() != N) throw_input_count(op_display_name(nb::find(self)), N, tuple.size());
+    if (tuple.size() != N) throw_input_count(op_display_name(py_self(self)), N, tuple.size());
     typename Op::InputArray array;
     for (size_t i = 0; i < N; ++i) {
         if (!read_double(tuple[i], array[i])) {
-            const std::string who = op_display_name(nb::find(self));
+            const std::string who = op_display_name(py_self(self));
             const std::string where = where_text("event", static_cast<std::ptrdiff_t>(event));
             throw_if_wrong_kind(who, tuple, where);
             throw_bad_shape(who, "item [" + std::to_string(i) + "] of " + where, tuple[i]);
@@ -824,13 +843,13 @@ nb::tuple args_to_tuple_n(Op& self, const nb::args& args) {
             // a list is copied; nb::cast<nb::tuple> would reject it
             nb::tuple inputs = nb::tuple(arg);
             if (inputs.size() == N) return inputs;
-            throw_input_count(op_display_name(nb::find(self)), N, inputs.size());
+            throw_input_count(op_display_name(py_self(self)), N, inputs.size());
         }
     }
     // Iterators take N sources or one source of events (as JavaScript says).
     bool streams = args.size() > 0;
     for (nb::handle a : args) streams = streams && is_lazy_iterable(a);
-    throw_input_count(op_display_name(nb::find(self)), N, args.size(),
+    throw_input_count(op_display_name(py_self(self)), N, args.size(),
                       streams ? ", or one stream of events holding every field" : "");
 }
 
@@ -843,7 +862,7 @@ nb::object eager_parallel(Op& self, const nb::tuple& inputs) {
         if (!is_event_list(h, false)) continue;
         std::vector<nb::object> sources;
         for (nb::handle s : inputs) sources.push_back(nb::borrow<nb::object>(s));
-        return collect_events(nb::find(self), std::move(sources));
+        return collect_events(py_self(self), std::move(sources));
     }
     std::array<nb::object, N> iters;
     for (size_t i = 0; i < N; ++i) iters[i] = nb::borrow<nb::object>(inputs[i]).attr("__iter__")();
@@ -856,7 +875,7 @@ nb::object eager_parallel(Op& self, const nb::tuple& inputs) {
             nb::object item = next_item(iters[i]);
             if (!item.is_valid()) { stop = true; break; }
             if (!read_double(item, array[i]))
-                throw_not_a_number(op_display_name(nb::find(self)), item,
+                throw_not_a_number(op_display_name(py_self(self)), item,
                                    where_text("event", event, i));
         }
         if (stop) break;
@@ -867,6 +886,14 @@ nb::object eager_parallel(Op& self, const nb::tuple& inputs) {
 
 // Every numpy handler below runs its asset columns through run_columns
 // (column_driver.h), the column loop shared with the WASM binding.
+
+// The number of output fields of an operator: Op::kM, or the instance's
+// n_out() when Op::kM is 0 (a VarArityView, whose count is a setting).
+template <class Op>
+inline std::size_t out_fields(const Op& self) {
+    if constexpr (Op::kM == 0) return self.n_out();
+    else return Op::kM;
+}
 
 // The op's eval_column, bound statically to FunctorBase<Op, N, M>.
 template <class Op>
@@ -894,7 +921,7 @@ inline void run_op_columns(Op& self, const detail::NInputs<Op::kN>& in, double* 
     const shape::Plan& p = in.plan;
     const double* base[Op::kN];
     for (size_t i = 0; i < Op::kN; ++i) base[i] = in.data[i];
-    run_columns(column_runner(self), Op::kN, Op::kM, p.T, p.columns, base, p.time_stride.data(),
+    run_columns(column_runner(self), Op::kN, out_fields(self), p.T, p.columns, base, p.time_stride.data(),
                 [&p](std::size_t i, std::size_t c) { return p.offset[i * p.columns + c]; }, out,
                 self.tight_column());
 }
@@ -969,7 +996,7 @@ nb::object handle_input_1i_Mo_numpy(Op& self, const nb::ndarray<nb::ro>& input) 
 //   - output shape = broadcast (T, *A) + (M,) (from 1->M)
 template <class Op>
 nb::object handle_input_Ni_Mo_numpy(Op& self, detail::NInputs<Op::kN>& in) {
-    constexpr size_t M = Op::kM;
+    const size_t M = out_fields(self);
     const shape::Plan& p = in.plan;
     const size_t T = p.T, cols = p.columns;
     std::vector<size_t> shape = p.shape;
@@ -998,7 +1025,7 @@ nb::object functor_1i_Mo(Op& self, nb::object input) {
     // an array. Checked after is_series_array so no supported dtype pays.
     // A 0-d one is one number, read below.
     if (detail::is_unsupported_dtype_array(input)) {
-        input = detail::coerce_to_f64(input, op_display_name(nb::find(self)));
+        input = detail::coerce_to_f64(input, op_display_name(py_self(self)));
         if (is_series_array(input))
             return handle_input_1i_Mo_numpy(self, nb::cast<nb::ndarray<nb::ro>>(input));
     }
@@ -1018,11 +1045,11 @@ nb::object functor_1i_Mo(Op& self, nb::object input) {
     if (nb::hasattr(input, "__iter__")) {
         if (is_lazy_iterable(input)) {
             std::vector<nb::object> sources{ nb::borrow<nb::object>(input) };
-            return nb::cast(LazyEvalIterator(nb::find(self), std::move(sources)));
+            return nb::cast(LazyEvalIterator(py_self(self), std::move(sources)));
         }
         reject_array_tuple(input);
         if (is_event_list(input, false))
-            return collect_events(nb::find(self), { nb::borrow<nb::object>(input) });
+            return collect_events(py_self(self), { nb::borrow<nb::object>(input) });
         // Eager path for list/tuple input.
         EagerRun<Op> run(self);
         std::vector<typename Op::ResultTuple> results;
@@ -1030,7 +1057,7 @@ nb::object functor_1i_Mo(Op& self, nb::object input) {
         for (nb::handle item : input) {
             double d;
             if (!read_double(item, d))
-                throw_not_a_number(op_display_name(nb::find(self)), item, where_text("event", event));
+                throw_not_a_number(op_display_name(py_self(self)), item, where_text("event", event));
             typename Op::InputArray input_array = { d };
             results.push_back(self.call(input_array));
             ++event;
@@ -1038,7 +1065,7 @@ nb::object functor_1i_Mo(Op& self, nb::object input) {
         return nb::cast(results);
     }
 
-    throw_unsupported_input(nb::find(self), input);
+    throw_unsupported_input(py_self(self), input);
 }
 
 // ---------------------------------------------------------
@@ -1060,7 +1087,7 @@ nb::object functor_1i_1o(Op& self, nb::object input) {
     // an array. Checked after is_series_array so no supported dtype pays.
     // A 0-d one is one number, read below.
     if (detail::is_unsupported_dtype_array(input)) {
-        input = detail::coerce_to_f64(input, op_display_name(nb::find(self)));
+        input = detail::coerce_to_f64(input, op_display_name(py_self(self)));
         if (is_series_array(input))
             return handle_input_1i_1o_numpy(self, nb::cast<nb::ndarray<nb::ro>>(input));
     }
@@ -1078,13 +1105,13 @@ nb::object functor_1i_1o(Op& self, nb::object input) {
     // other operator (lazy in, lazy out).
     if (is_lazy_iterable(input)) {
         std::vector<nb::object> sources{ input };
-        return nb::cast(LazyEvalIterator(nb::find(self), std::move(sources)));
+        return nb::cast(LazyEvalIterator(py_self(self), std::move(sources)));
     }
 
     // Case 3: Iterable. A list of asset events runs like an iterator of them.
     reject_array_tuple(input);
     if (is_event_list(input, false))
-        return collect_events(nb::find(self), { input });
+        return collect_events(py_self(self), { input });
     if (nb::hasattr(input, "__iter__")) {
         EagerRun<Op> run(self);
         std::vector<typename Op::ResultTuple> results;
@@ -1099,11 +1126,11 @@ nb::object functor_1i_1o(Op& self, nb::object input) {
             } else if (nb::isinstance<nb::tuple>(item)) {
                 nb::tuple tuple = nb::borrow<nb::tuple>(item);
                 if (tuple.size() != N)
-                    throw_bad_shape(op_display_name(nb::find(self)), where_text("event", event), item);
+                    throw_bad_shape(op_display_name(py_self(self)), where_text("event", event), item);
                 typename Op::InputArray input_array = cast_to_array<Op>(self, tuple, event);
                 results.push_back(self.call(input_array));
             } else {
-                throw_not_a_number(op_display_name(nb::find(self)), item, where_text("event", event));
+                throw_not_a_number(op_display_name(py_self(self)), item, where_text("event", event));
             }
             ++event;
         }
@@ -1112,7 +1139,7 @@ nb::object functor_1i_1o(Op& self, nb::object input) {
     }
 
     // Case no match:
-    throw_unsupported_input(nb::find(self), input);
+    throw_unsupported_input(py_self(self), input);
 }
 
 // ---------------------------------------------------------
@@ -1130,11 +1157,11 @@ nb::object functor_Ni_1o(Op& self, const nb::args& raw_args) {
         return handle_input_Ni_1o_numpy(self, *ins);
     }
 
-    if (args.size() == 1) check_event_arity(nb::find(self), args[0], N);
+    if (args.size() == 1) check_event_arity(py_self(self), args[0], N);
 
     // A list of packed asset events, or of tuples of per-field events.
     if (args.size() == 1 && is_event_list(args[0], true))
-        return collect_events(nb::find(self), { nb::borrow<nb::object>(args[0]) });
+        return collect_events(py_self(self), { nb::borrow<nb::object>(args[0]) });
 
    // Case 1: we need to get his out of the way first.
    // A single argument, list/tuple with N-tuples inside: [ (1,2,3), (4,5,6), ...]
@@ -1149,13 +1176,13 @@ nb::object functor_Ni_1o(Op& self, const nb::args& raw_args) {
             for (nb::handle item : input) {
                 // A list of events reads a list event like a tuple event.
                 if (!(nb::isinstance<nb::tuple>(item) || (is_list && nb::isinstance<nb::list>(item)))) {
-                    if (is_list && PyNumber_Check(item.ptr())) throw_event_arity(nb::find(self), event_index, 1, N);
+                    if (is_list && PyNumber_Check(item.ptr())) throw_event_arity(py_self(self), event_index, 1, N);
                     valid = false;
                     break;
                 }
                 nb::tuple tuple = nb::tuple(nb::borrow(item));
                 if (tuple.size() != N) {
-                    if (is_list) throw_event_arity(nb::find(self), event_index, tuple.size(), N);
+                    if (is_list) throw_event_arity(py_self(self), event_index, tuple.size(), N);
                     valid = false;
                     break;
                 }
@@ -1174,7 +1201,7 @@ nb::object functor_Ni_1o(Op& self, const nb::args& raw_args) {
     // LazyEvalIterator.
     if (args.size() == 1 && is_lazy_iterable(args[0])) {
         std::vector<nb::object> sources{ nb::borrow<nb::object>(args[0]) };
-        return nb::cast(LazyEvalIterator(nb::find(self), std::move(sources)));
+        return nb::cast(LazyEvalIterator(py_self(self), std::move(sources)));
     }
 
     // after this, now we handle cases where we have N arguments
@@ -1185,8 +1212,8 @@ nb::object functor_Ni_1o(Op& self, const nb::args& raw_args) {
     // (array in, array out - Rule A), not N scalars collapsing to one scalar.
     if (is_series_array(inputs[0])) {
         auto ins = detail::mixes_sequences_and_arrays(inputs)
-            ? detail::read_mixed_inputs<N>(nb::find(self), inputs)
-            : detail::read_tuple_inputs<N>(nb::find(self), inputs);
+            ? detail::read_mixed_inputs<N>(py_self(self), inputs)
+            : detail::read_tuple_inputs<N>(py_self(self), inputs);
         return handle_input_Ni_1o_numpy(self, ins);
     }
 
@@ -1203,7 +1230,7 @@ nb::object functor_Ni_1o(Op& self, const nb::args& raw_args) {
     // A list or tuple mixed with arrays, in any position, reads as an array
     // of its length, so the call returns an array (decision A8).
     if (detail::mixes_sequences_and_arrays(inputs)) {
-        auto ins = detail::read_mixed_inputs<N>(nb::find(self), inputs);
+        auto ins = detail::read_mixed_inputs<N>(py_self(self), inputs);
         return handle_input_Ni_1o_numpy(self, ins);
     }
 
@@ -1226,14 +1253,14 @@ nb::object functor_Ni_1o(Op& self, const nb::args& raw_args) {
         if (all_lazy) {
             std::vector<nb::object> sources;
             for (nb::handle input : inputs) sources.push_back(nb::borrow<nb::object>(input));
-            return nb::cast(LazyEvalIterator(nb::find(self), std::move(sources)));
+            return nb::cast(LazyEvalIterator(py_self(self), std::move(sources)));
         }
         // Eager path: iterate over each input in parallel.
         return eager_parallel(self, inputs);
     }
 
     // Case no match:
-    throw_unsupported_inputs(nb::find(self), inputs);
+    throw_unsupported_inputs(py_self(self), inputs);
 }
 
 // ---------------------------------------------------------
@@ -1251,11 +1278,11 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
         return handle_input_Ni_Mo_numpy(self, *ins);
     }
 
-    if (args.size() == 1) check_event_arity(nb::find(self), args[0], N);
+    if (args.size() == 1) check_event_arity(py_self(self), args[0], N);
 
     // A list of packed asset events, or of tuples of per-field events.
     if (args.size() == 1 && is_event_list(args[0], true))
-        return collect_events(nb::find(self), { nb::borrow<nb::object>(args[0]) });
+        return collect_events(py_self(self), { nb::borrow<nb::object>(args[0]) });
 
     // Case 1: single argument, list/tuple of N-tuples
     // [(x0, y0), (x1, y1), ...] -> list of M-tuples
@@ -1270,13 +1297,13 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
             for (nb::handle item : input) {
                 // A list of events reads a list event like a tuple event.
                 if (!(nb::isinstance<nb::tuple>(item) || (is_list && nb::isinstance<nb::list>(item)))) {
-                    if (is_list && PyNumber_Check(item.ptr())) throw_event_arity(nb::find(self), event_index, 1, N);
+                    if (is_list && PyNumber_Check(item.ptr())) throw_event_arity(py_self(self), event_index, 1, N);
                     valid = false;
                     break;
                 }
                 nb::tuple tuple = nb::tuple(nb::borrow(item));
                 if (tuple.size() != N) {
-                    if (is_list) throw_event_arity(nb::find(self), event_index, tuple.size(), N);
+                    if (is_list) throw_event_arity(py_self(self), event_index, tuple.size(), N);
                     valid = false;
                     break;
                 }
@@ -1295,7 +1322,7 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
     // LazyEvalIterator.
     if (args.size() == 1 && is_lazy_iterable(args[0])) {
         std::vector<nb::object> sources{ nb::borrow<nb::object>(args[0]) };
-        return nb::cast(LazyEvalIterator(nb::find(self), std::move(sources)));
+        return nb::cast(LazyEvalIterator(py_self(self), std::move(sources)));
     }
 
     nb::tuple inputs = args_to_tuple_n<Op>(self, args);
@@ -1303,8 +1330,8 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
     // Case 2: tuple of N numpy arrays whose asset axes broadcast.
     if (is_series_array(inputs[0])) {
         auto ins = detail::mixes_sequences_and_arrays(inputs)
-            ? detail::read_mixed_inputs<N>(nb::find(self), inputs)
-            : detail::read_tuple_inputs<N>(nb::find(self), inputs);
+            ? detail::read_mixed_inputs<N>(py_self(self), inputs)
+            : detail::read_tuple_inputs<N>(py_self(self), inputs);
         return handle_input_Ni_Mo_numpy(self, ins);
     }
 
@@ -1321,7 +1348,7 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
     // A list or tuple mixed with arrays, in any position, reads as an array
     // of its length, so the call returns an array (decision A8).
     if (detail::mixes_sequences_and_arrays(inputs)) {
-        auto ins = detail::read_mixed_inputs<N>(nb::find(self), inputs);
+        auto ins = detail::read_mixed_inputs<N>(py_self(self), inputs);
         return handle_input_Ni_Mo_numpy(self, ins);
     }
 
@@ -1342,13 +1369,13 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
         if (all_lazy) {
             std::vector<nb::object> sources;
             for (nb::handle input : inputs) sources.push_back(nb::borrow<nb::object>(input));
-            return nb::cast(LazyEvalIterator(nb::find(self), std::move(sources)));
+            return nb::cast(LazyEvalIterator(py_self(self), std::move(sources)));
         }
         // Eager path: iterate over each input in parallel.
         return eager_parallel(self, inputs);
     }
 
-    throw_unsupported_inputs(nb::find(self), inputs);
+    throw_unsupported_inputs(py_self(self), inputs);
 }
 
 // ---------------------------------------------------------
@@ -1356,21 +1383,22 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
 // ---------------------------------------------------------
 template <class Op>
 nb::object functor_route(Op& self, const nb::args& args) {
-    constexpr size_t N = Op::kN, M = Op::kM;
+    constexpr size_t N = Op::kN, M = Op::kM;   // M == 0: a count set per instance (> 1)
+    static_assert(!(N == 1 && M == 0), "a variable output count needs more than one input");
     for (nb::handle a : args) {
         if (screamer::is_dag_node(nb::borrow<nb::object>(a)))
-            return screamer::make_dag_functor_node(nb::find(self), nb::cast<nb::tuple>(args));
+            return screamer::make_dag_functor_node(py_self(self), nb::cast<nb::tuple>(args));
     }
     if constexpr (N == 1) {
         if (args.size() != 1) {
             bool streams = args.size() > 0;
             for (nb::handle a : args) streams = streams && is_lazy_iterable(a);
-            throw_input_count(op_display_name(nb::find(self)), 1, args.size(),
+            throw_input_count(op_display_name(py_self(self)), 1, args.size(),
                               streams ? ", or one stream of events holding every field" : "");
         }
     }
     // Async iterables, for every arity: N sources or one source of events.
-    if (nb::object it = route_async(nb::find(self), args, N); it.is_valid()) return it;
+    if (nb::object it = route_async(py_self(self), args, N); it.is_valid()) return it;
     if constexpr (N == 1 && M == 1) return functor_1i_1o<Op>(self, nb::borrow<nb::object>(args[0]));
     else if constexpr (N > 1 && M == 1) return functor_Ni_1o<Op>(self, args);
     else if constexpr (N == 1 && M > 1) return functor_1i_Mo<Op>(self, nb::borrow<nb::object>(args[0]));
@@ -1387,14 +1415,14 @@ nb::object functor_call(Op& self, nb::args raw) {
     try {
         return functor_route<Op>(self, args);
     } catch (const detail::DtypeError& e) {
-        throw nb::type_error((op_display_name(nb::find(self)) + ": " + e.what()).c_str());
+        throw nb::type_error((op_display_name(py_self(self)) + ": " + e.what()).c_str());
     } catch (const detail::MixedKinds&) {
         // Name the arguments as given, when normalization replaced one.
         if (args.ptr() == raw.ptr()) throw;
         nb::handle shown = raw;
         if (raw.size() == 1 && (PyTuple_Check(raw[0].ptr()) || PyList_Check(raw[0].ptr())))
             shown = raw[0];
-        throw_unsupported_inputs(nb::find(self), nb::tuple(nb::borrow(shown)));
+        throw_unsupported_inputs(py_self(self), nb::tuple(nb::borrow(shown)));
     }
 }
 
@@ -1459,7 +1487,7 @@ nb::args named_inputs(Op& self, const nb::args& args, PyObject* kwargs) {
         value[i] = n_kw ? PyDict_GetItem(kwargs, keys[i]) : nullptr;   // borrowed
         found += value[i] != nullptr;
     }
-    auto who = [&] { return op_display_name(nb::find(self)) + "()"; };
+    auto who = [&] { return op_display_name(py_self(self)) + "()"; };
     if (found != n_kw) {
         for (auto [key, unused] : nb::borrow<nb::dict>(kwargs)) {
             const std::string k = nb::cast<std::string>(nb::str(key));
@@ -1468,14 +1496,14 @@ nb::args named_inputs(Op& self, const nb::args& args, PyObject* kwargs) {
                                       detail::quoted(k.c_str())).c_str());
         }
     }
-    if (given > N) throw_input_count(op_display_name(nb::find(self)), N, given);
+    if (given > N) throw_input_count(op_display_name(py_self(self)), N, given);
     for (std::size_t i = 0; i < given; ++i)
         if (value[i])
             throw nb::type_error((who() + " got multiple values for argument " +
                                   detail::quoted(names[i])).c_str());
     if (n_kw == 0 && given == 1 && detail::holds_all_fields(args[0])) return args;
     if (n_kw == 0 && given < N)   // no keywords: the count text of every operator
-        throw_input_count(op_display_name(nb::find(self)), N, given);
+        throw_input_count(op_display_name(py_self(self)), N, given);
     if (given + n_kw < N) {
         std::string missing;
         std::size_t n_missing = 0;

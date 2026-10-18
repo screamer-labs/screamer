@@ -276,6 +276,13 @@ Measures of a window: central tendency, dispersion, quantiles, moments, z-scores
       :img-alt: ExpandingMin example plot
       :class-card: gallery-card
 
+   .. grid-item-card:: ExpandingOLS
+      :link: functions_expanding/ExpandingOLS
+      :link-type: doc
+      :img-top: _static/gallery/functions_expanding__ExpandingOLS.webp
+      :img-alt: ExpandingOLS example plot
+      :class-card: gallery-card
+
    .. grid-item-card:: ExpandingProd
       :link: functions_expanding/ExpandingProd
       :link-type: doc
@@ -540,6 +547,13 @@ Measures of a window: central tendency, dispersion, quantiles, moments, z-scores
       :link-type: doc
       :img-top: _static/gallery/functions_rolling__RollingMinMax.webp
       :img-alt: RollingMinMax example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: RollingOLS
+      :link: functions_fin/RollingOLS
+      :link-type: doc
+      :img-top: _static/gallery/functions_fin__RollingOLS.webp
+      :img-alt: RollingOLS example plot
       :class-card: gallery-card
 
    .. grid-item-card:: RollingOU
@@ -2233,6 +2247,13 @@ Training sets and labels from time-series data, online regression and filtering 
       :img-alt: CusumFilter example plot
       :class-card: gallery-card
 
+   .. grid-item-card:: ExpandingOLS
+      :link: functions_expanding/ExpandingOLS
+      :link-type: doc
+      :img-top: _static/gallery/functions_expanding__ExpandingOLS.webp
+      :img-alt: ExpandingOLS example plot
+      :class-card: gallery-card
+
    .. grid-item-card:: KalmanFilter
       :link: functions_signal/KalmanFilter
       :link-type: doc
@@ -2252,6 +2273,13 @@ Training sets and labels from time-series data, online regression and filtering 
       :link-type: doc
       :img-top: _static/gallery/functions_rolling__RollingJumpShare.webp
       :img-alt: RollingJumpShare example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: RollingOLS
+      :link: functions_fin/RollingOLS
+      :link-type: doc
+      :img-top: _static/gallery/functions_fin__RollingOLS.webp
+      :img-alt: RollingOLS example plot
       :class-card: gallery-card
 
    .. grid-item-card:: RollingPermutationEntropy

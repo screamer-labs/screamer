@@ -27,7 +27,7 @@ MANIFEST = os.path.join(HERE, "wasm_manifest.json")
 OUT = os.path.join(HERE, "..", "..", "wasm", "smoke", "null_oracle.json")
 
 # Values for settings that an op cannot be built without.
-FILL = {"n": 3, "lower": 1.0, "upper": 3.0, "threshold": 1.0}
+FILL = {"n": 3, "lower": 1.0, "upper": 3.0, "threshold": 1.0, "window_size": 20, "n_regressors": 3}
 
 
 def _builds(cls, kw):

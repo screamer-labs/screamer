@@ -74,6 +74,7 @@ TS_TYPE = {
     "std::optional<double>": "number",
     "std::string": "string",
     "std::vector<double>": "number | number[]",
+    "bool": "boolean",
 }
 
 
@@ -110,6 +111,8 @@ def _ts_default(cpp_type: str, raw: str | None) -> str | None:
     if raw is None:
         return None
     d = raw.strip()
+    if cpp_type == "bool":
+        return {"true": "true", "false": "false"}[d]
     if cpp_type == "std::string":
         inner = d[1:-1] if len(d) >= 2 and d[0] in "'\"" else d
         return '"' + inner.replace('"', '\\"') + '"'
@@ -149,6 +152,7 @@ def _build_params(op: dict):
                 "is_vec": cpp_type == "std::vector<double>",
                 "is_str": cpp_type == "std::string",
                 "is_int": cpp_type == "int",
+                "is_bool": cpp_type == "bool",
                 # Python takes None for exactly these (as "not given"); so does
                 # JavaScript with null. Every other setting refuses null.
                 "nullable": cpp_type.startswith("std::optional<"),
@@ -192,6 +196,8 @@ def _kind(p: dict) -> str:
         return "a string"
     if p["is_vec"]:
         return "a number or an array of numbers"
+    if p.get("is_bool"):
+        return "a bool"
     return "an integer" if p.get("is_int") else "a number"
 
 
@@ -268,6 +274,8 @@ def _factory_body(name: str, params: list[dict], wrapper: str = "wrapOp") -> str
             lines.append(f'  if (typeof {n} !== "number" || !Number.isInteger({n})) throw new TypeError(`{name}: {n} must be {_kind(p)}, '
                          f'got ${{typeof {n} === "number" ? {n} : _what({n})}}`);')
             lines.append(f'  if (!({n} >= -2147483648 && {n} <= 2147483647)) _intRange(M, "{name}", "{n}", {n});')
+        elif p.get("is_bool"):
+            lines.append(f'  if (typeof {n} !== "boolean") throw new TypeError(`{name}: {n} must be {_kind(p)}, got ${{_what({n})}}`);')
         elif not p["is_vec"]:
             lines.append(f'  if (typeof {n} !== "number") throw new TypeError(`{name}: {n} must be {_kind(p)}, got ${{_what({n})}}`);')
     # Copy array parameters once, now: the closure below runs again for every
@@ -278,7 +286,7 @@ def _factory_body(name: str, params: list[dict], wrapper: str = "wrapOp") -> str
     # A float setting that is not finite, or an integer setting below its
     # smallest value: the constructor's RangeError becomes the one message
     # form (finite_settings.h, int_settings.h), on the error path only.
-    floats = [p for p in params if not p["is_str"]]
+    floats = [p for p in params if not p["is_str"] and not p.get("is_bool")]
     if floats:
         lines.append("  try {")
         ind = "  "

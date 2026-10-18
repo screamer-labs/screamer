@@ -187,6 +187,12 @@ def setting_error(cls_name, args, kwargs):
     if "args" in params:              # more arguments than settings: not a kind error
         return None
     for p in entry.get("parameters", []):
+        if p.get("type") == "bool" and p["name"] in params:
+            value = params[p["name"]]
+            if not _is_bool(value):
+                kind = "None" if value is None else type(value).__name__
+                return f"{cls_name}: {p['name']} must be a bool, got {kind}"
+            continue
         if p.get("type") == "str" and p["name"] in params:
             value = params[p["name"]]
             if not isinstance(value, str) and not (value is None and p.get("default") is None):

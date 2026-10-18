@@ -1786,6 +1786,69 @@
     ],
     "doc_path": "functions_expanding/ExpandingMin"
   },
+  "ExpandingOLS": {
+    "name": "ExpandingOLS",
+    "title": "Expanding multiple regression",
+    "implementation_family": "expanding",
+    "topics": [
+      "regression",
+      "supervised"
+    ],
+    "tags": [
+      "regression",
+      "ols",
+      "least squares",
+      "multiple regression",
+      "expanding",
+      "forecast",
+      "r-squared"
+    ],
+    "short": "Least-squares fit of y on k regressors over every row so far, with the one-step-ahead prediction made before each row enters, R-squared, and the coefficients.",
+    "inputs": 4,
+    "outputs": 7,
+    "parameters": [
+      {
+        "name": "n_regressors",
+        "type": "int",
+        "default": 3,
+        "required": true,
+        "min": 1,
+        "max": 16,
+        "description": "Number of regressors k. The operator takes k + 1 inputs, y first, and returns k + 3 outputs, plus 1 with an intercept."
+      },
+      {
+        "name": "intercept",
+        "type": "bool",
+        "default": true,
+        "description": "Fit an intercept b0. Without one, the line goes through the origin and r2 is the uncentered R-squared."
+      }
+    ],
+    "nan_policy": "ignore",
+    "output_names": [
+      "pred",
+      "resid",
+      "r2",
+      "b0",
+      "b1",
+      "b2",
+      "b3"
+    ],
+    "see_also": [
+      "RollingOLS",
+      "ExpandingSlope",
+      "BayesianRegression",
+      "KalmanRegression"
+    ],
+    "details": "## Description\n\n`ExpandingOLS` fits `y = b0 + b1 x1 + ... + bk xk + e` by ordinary least squares over every row\nseen so far. It is the whole-history counterpart of [`RollingOLS`](../functions_fin/RollingOLS.md),\nwith the same inputs and outputs. It takes `y` and then the `k = n_regressors` regressors, and\nreturns per row:\n\n| Output | Meaning |\n|---|---|\n| `pred` | `b0 + b1 x1 + ... + bk xk` at this row, with the coefficients fitted on the rows before it |\n| `resid` | `y - pred` |\n| `r2` | R-squared of the fit after this row enters |\n| `b0` | the intercept after this row enters (only with `intercept=True`) |\n| `b1` ... `bk` | the coefficients after this row enters |\n\n`pred` is an out-of-sample forecast one row ahead, since the row's own `y` has not entered the\nfit yet. There are `k + 4` outputs with an intercept and `k + 3` without; the names above are those\nof the default `n_regressors=3`.\n\nThe first fit needs `p + 1` rows, with `p = k + 1` coefficients with an intercept and `p = k`\nwithout, so that one residual degree of freedom is left; `r2` and the coefficients are `NaN` before\nthat, and `pred` until the row after. The coefficients match `numpy.linalg.lstsq` on all rows so\nfar. `r2`, collinear regressors (a `NaN` fit), and the uncentered `r2` without an intercept follow\n`RollingOLS`. Each row costs `O(k^2)` to add and `O(k^3)` to solve, and memory does not grow with\nthe number of rows. With an intercept the means and centered cross-products are updated by\nWelford's method, which stays accurate when the levels are large next to their spread.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Converging coefficients",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import ExpandingOLS\n\nrng = np.random.default_rng(0)\nn = 400\nx = rng.standard_normal((n, 2))\ny = 0.5 + 1.5 * x[:, 0] - 0.8 * x[:, 1] + 0.5 * rng.standard_normal(n)\n\nout = ExpandingOLS(n_regressors=2)(y, x[:, 0], x[:, 1])\nresid, b = out[:, 1], out[:, 3:]\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.08)\nfor j, (name, true) in enumerate([(\"b0\", 0.5), (\"b1\", 1.5), (\"b2\", -0.8)]):\n    fig.add_trace(go.Scatter(y=b[:, j], name=name), row=1, col=1)\n    fig.add_hline(y=true, line=dict(color=\"gray\", dash=\"dot\", width=1), row=1, col=1)\nfig.add_trace(go.Scatter(y=resid, name=\"resid\", mode=\"markers\",\n                         marker=dict(size=3, color=\"gray\")), row=2, col=1)\nfig.update_yaxes(title_text=\"coefficient\", row=1, col=1)\nfig.update_yaxes(title_text=\"residual\", row=2, col=1)\nfig.update_layout(title=\"ExpandingOLS coefficients settle on the true values\",\n                  xaxis2_title=\"row\", margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.show()"
+      }
+    ],
+    "doc_path": "functions_expanding/ExpandingOLS"
+  },
   "ExpandingProd": {
     "name": "ExpandingProd",
     "title": "Expanding product",
@@ -1878,7 +1941,8 @@
       "RollingPoly1",
       "ExpandingMean",
       "RollingLinearRegression",
-      "Detrend"
+      "Detrend",
+      "ExpandingOLS"
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\n`ExpandingSlope` returns the ordinary-least-squares slope of the samples seen so far against the integer time axis `i = 0, 1, ..., n-1`. It is the whole-history counterpart of [`RollingPoly1`](../functions_rolling/RollingPoly1.md) with `derivative_order=1`. The output is `NaN` until two samples have been seen. Memory is `O(1)`.\n\n$$\ny[t] = \\frac{n\\sum i\\,x[i] - (\\sum i)(\\sum x[i])}{n\\sum i^2 - (\\sum i)^2}, \\quad i=0..t,\\; n=t+1\n$$\n\nThe sums are taken about an origin that follows the mean, so the slope stays accurate when the values are large next to their spread (see [Accuracy at large levels](../conventions.md#accuracy-at-large-levels)).\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
@@ -3849,7 +3913,8 @@
       "KalmanRegression",
       "EwBeta",
       "RollingLinearRegression",
-      "RollingBeta"
+      "RollingBeta",
+      "RollingOLS"
     ],
     "details": "## Description\n\n`BayesianRegression` fits the linear model `y = intercept + slope * x + noise`\nonline, with a Normal-Inverse-Gamma posterior over the intercept, the slope, and\nthe noise variance. The inputs are `(y, x)`.\n\nEach step first predicts `y_t` from `x_t` with the posterior built from the data\nbefore `t`, then updates the posterior with `(x_t, y_t)`. The prediction never\nuses `y_t`, so it can be compared with `y_t` as an out-of-sample forecast. The\nfour output columns are:\n\n| Column | Name | Value |\n|---|---|---|\n| 0 | `slope` | Posterior mean of the slope, after the update at `t` |\n| 1 | `intercept` | Posterior mean of the intercept, after the update at `t` |\n| 2 | `pred_mean` | Predictive mean of `y_t`, from the data before `t` |\n| 3 | `pred_std` | Predictive standard deviation of `y_t` (Student-t), from the data before `t` |\n\n### Posterior update\n\nThe prior has coefficient mean `0`, coefficient precision\n`Lambda0 = prior_precision * I`, and inverse-gamma shape `a0 = 2` and scale\n`b0 = prior_sigma^2 * (a0 - 1)`, so the prior mean of the noise variance is\n`prior_sigma^2`. The posterior is kept as the precision `Lambda`, the vector\n`eta = Lambda * mu` (with `mu` the coefficient mean), the sum of squares `s`, and\nthe shape `a`. With `phi = [1, x_t]` and `lambda = 1 - alpha`, each step does:\n\n1. **Forget.** Every statistic moves toward its prior value:\n   `Lambda = lambda * Lambda + (1 - lambda) * Lambda0`, and the same for `eta`,\n   `s`, and `a`.\n2. **Predict.** `pred_mean = mu' phi` and\n   `pred_std^2 = (b / a) * (1 + phi' Lambda^-1 phi) * a / (a - 1)`, with\n   `b = (s - eta' Lambda^-1 eta) / 2`. This is the variance of the Student-t\n   predictive with `2a` degrees of freedom.\n3. **Update.** `Lambda += phi phi'`, `eta += phi * y_t`, `s += y_t^2`, and\n   `a += 1/2`. The reported `slope` and `intercept` are the new\n   `mu = Lambda^-1 eta`.\n\n### Choosing the forgetting rate\n\n`com`, `span`, `halflife`, or `alpha` sets how fast old data fades. With a long\n`span` (small `alpha`) the posterior accumulates evidence slowly and the\npredictive band narrows gradually. With a short `span` it forgets old data\nquickly, so the slope and intercept track a drifting relationship.\n\n### Warmup\n\nBecause the prior is proper (`a0 = 2`, positive `prior_precision`), every\noutput is finite from the first sample. On the first step `pred_mean` is 0, the\nprior mean.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
     "examples": [
@@ -4867,7 +4932,8 @@
       "RollingAlpha",
       "RollingPoly1",
       "RollingTSF",
-      "KalmanRegression"
+      "KalmanRegression",
+      "RollingOLS"
     ],
     "details": "## Description\n\n`RollingLinearRegression` fits `y ≈ slope · x + intercept + ε` by ordinary least squares over a trailing window. It takes two inputs, `(y, x)`, and returns four columns per step:\n\n| Output | Formula |\n|---|---|\n| `slope` | $(n S_{xy} - S_x S_y) / (n S_{xx} - S_x^2)$ |\n| `intercept` | $(S_y - \\text{slope} \\cdot S_x) / n$ |\n| `r_squared` | $(n S_{xy} - S_x S_y)^2 / [(n S_{xx} - S_x^2)(n S_{yy} - S_y^2)]$ |\n| `stderr` | $\\sqrt{\\text{SSE} / (n-2)}$, the residual standard error |\n\nHere `n` is the number of samples in the window and `S` denotes window sums. `stderr` is the standard error of the *estimate*, not the standard error of the *slope coefficient*; multiply it by `1/sqrt(Σ(x - mean_x)²)` to get the latter. With the default `start_policy=\"strict\"` the first valid output is at index `window_size - 1`. All four outputs are `NaN` when `x` is constant in the window, and `r_squared` is `NaN` when `y` is constant.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
     "examples": [
@@ -4921,6 +4987,84 @@
       }
     ],
     "doc_path": "functions_fin/RollingMaxDrawdown"
+  },
+  "RollingOLS": {
+    "name": "RollingOLS",
+    "title": "Rolling multiple regression",
+    "implementation_family": "fin",
+    "topics": [
+      "regression",
+      "supervised"
+    ],
+    "tags": [
+      "regression",
+      "ols",
+      "least squares",
+      "multiple regression",
+      "har",
+      "realized volatility",
+      "factor model",
+      "hedge ratio",
+      "forecast",
+      "r-squared"
+    ],
+    "short": "Rolling least-squares fit of y on k regressors, with the one-step-ahead prediction made before each row enters, R-squared, and the coefficients.",
+    "inputs": 4,
+    "outputs": 7,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 250,
+        "required": true,
+        "min": 2,
+        "description": "Number of most recent rows in the fit. At least n_regressors + 1, plus 1 with an intercept, so the fit keeps a residual degree of freedom."
+      },
+      {
+        "name": "n_regressors",
+        "type": "int",
+        "default": 3,
+        "required": true,
+        "min": 1,
+        "max": 16,
+        "description": "Number of regressors k. The operator takes k + 1 inputs, y first, and returns k + 3 outputs, plus 1 with an intercept."
+      },
+      {
+        "name": "intercept",
+        "type": "bool",
+        "default": true,
+        "description": "Fit an intercept b0. Without one, the line goes through the origin and r2 is the uncentered R-squared."
+      }
+    ],
+    "nan_policy": "ignore",
+    "output_names": [
+      "pred",
+      "resid",
+      "r2",
+      "b0",
+      "b1",
+      "b2",
+      "b3"
+    ],
+    "see_also": [
+      "ExpandingOLS",
+      "RollingLinearRegression",
+      "RollingBeta",
+      "BayesianRegression",
+      "KalmanRegression"
+    ],
+    "references": [
+      "Corsi, F. (2009). A simple approximate long-memory model of realized volatility. *Journal of Financial Econometrics*, 7(2), 174-196."
+    ],
+    "details": "## Description\n\n`RollingOLS` fits `y = b0 + b1 x1 + ... + bk xk + e` by ordinary least squares over the last\n`window_size` rows. It takes `k + 1` inputs, `y` first and then the `k = n_regressors`\nregressors, and returns per row:\n\n| Output | Meaning |\n|---|---|\n| `pred` | `b0 + b1 x1 + ... + bk xk` at this row, with the coefficients fitted on the rows before it |\n| `resid` | `y - pred` |\n| `r2` | R-squared of the fit after this row enters the window |\n| `b0` | the intercept after this row enters (only with `intercept=True`) |\n| `b1` ... `bk` | the coefficients after this row enters |\n\n`pred` is computed before the row updates the fit, so it uses no information from the row's own\n`y`: it is an out-of-sample forecast one row ahead. The coefficients and `r2` include the row. The\nnumber of outputs depends on the settings, `k + 4` with an intercept and `k + 3` without; the\nnames above are those of the default `n_regressors=3`. A batch call returns them along the last\naxis, in this order.\n\nThe coefficients and `r2` are `NaN` until the window is full, and `pred` until the row after.\n`b1` to `bk` match `numpy.linalg.lstsq` on the same window. Without an intercept, `r2` is the\nuncentered `1 - SSE / sum(y^2)`, as statsmodels reports it for a model without a constant; with\none it is `1 - SSE / sum((y - mean(y))^2)`. A window whose regressors are collinear, for example\none that is constant in the window when the fit has an intercept, has no unique fit: `r2` and the\ncoefficients are `NaN` for that row, and so is the next `pred`. More precisely, a regressor counts\nas collinear when the others explain all but 1e-12 of its variation in the window.\n\nWith an intercept, the operator keeps the window means and the centered cross-products of the\ncolumns, so the fit stays accurate when the levels are large next to their spread. Each row\nupdates them in `O(k^2)` and the normal equations are solved by Cholesky in `O(k^3)`. The\ncross-products are recomputed exactly from the stored rows every `window_size` rows, and at once\nwhen the row leaving the window was far out of the others, so rounding does not build up. For the\nfit over the whole history so far, use [`ExpandingOLS`](../functions_expanding/ExpandingOLS.md).\n\nFor a forecast `h` rows ahead, regress `y` on the regressors lagged by `h` rows, as in the example\nbelow. The forecast made at a row is then `b0 + b1 x1 + ... + bk xk` with that row's coefficients\nand its unlagged regressors. `pred` of such a fit is not that forecast: its coefficients use rows\nup to the one before, whose targets lie less than `h` rows in the past.\n\nThe example fits the HAR model (Corsi, 2009), which predicts realized variance from its averages\nover the last day, week, and month. The target is the log of the average daily variance over the\nnext 30 days, so each row pairs the 30-day log variance up to the row with the regressors of 30\ndays earlier.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "HAR forecast of realized volatility",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import Lag, RollingMean, RollingOLS\n\n# Daily realized variance with HAR dynamics in its log.\nrng = np.random.default_rng(1)\nn = 2000\nlv = np.full(n, -10.0)\nfor t in range(30, n):\n    lv[t] = (-1.0 + 0.35 * lv[t - 1] + 0.3 * lv[t - 7:t].mean()\n             + 0.25 * lv[t - 30:t].mean() + 0.5 * rng.standard_normal())\nrv = np.exp(lv)\n\nrv1, rv7, rv30 = np.log(rv), np.log(RollingMean(7)(rv)), np.log(RollingMean(30)(rv))\nh = 30\ny = rv30                                        # log RV over the 30 days up to t\nx = [Lag(h)(v) for v in (rv1, rv7, rv30)]       # the regressors 30 days earlier\nout = RollingOLS(window_size=500, n_regressors=3)(y, *x)\nb0, b = out[:, 3], out[:, 4:]\n\n# Made at t for the 30 days after t, from today's coefficients and regressors.\nforecast = b0 + (b * np.c_[rv1, rv7, rv30]).sum(axis=1)\nforecast_due = np.r_[np.full(h, np.nan), forecast[:-h]]   # lined up with the realized value\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.08,\n                    row_heights=[0.6, 0.4])\nfig.add_trace(go.Scatter(y=y, name=\"realized log RV, 30 days\",\n                         line=dict(color=\"gray\")), row=1, col=1)\nfig.add_trace(go.Scatter(y=forecast_due, name=\"forecast made 30 days before\",\n                         line=dict(color=\"crimson\")), row=1, col=1)\nfor j, name in enumerate([\"day\", \"week\", \"month\"]):\n    fig.add_trace(go.Scatter(y=b[:, j], name=f\"b, {name}\"), row=2, col=1)\nfig.update_yaxes(title_text=\"log variance\", row=1, col=1)\nfig.update_yaxes(title_text=\"coefficient\", row=2, col=1)\nfig.update_layout(title=\"HAR forecast with RollingOLS over 500 days\", xaxis2_title=\"day\",\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1))\nfig.show()"
+      }
+    ],
+    "doc_path": "functions_fin/RollingOLS"
   },
   "RollingOmega": {
     "name": "RollingOmega",

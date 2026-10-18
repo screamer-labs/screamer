@@ -2552,6 +2552,27 @@
     "source": "bindings/bindings_expanding.cpp"
   },
   {
+    "name": "ExpandingOLS",
+    "cpp_type": "screamer::ExpandingOLS",
+    "base": "FunctorBase",
+    "ctor": [
+      "int",
+      "bool"
+    ],
+    "ctor_args": [
+      {
+        "name": "n_regressors",
+        "default": null
+      },
+      {
+        "name": "intercept",
+        "default": "true"
+      }
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
+  },
+  {
     "name": "ExpandingProd",
     "cpp_type": "screamer::ExpandingProd",
     "base": "ScreamerBase",
@@ -4163,6 +4184,32 @@
     ],
     "ctor_kind": "plain",
     "source": "bindings/bindings_rolling.cpp"
+  },
+  {
+    "name": "RollingOLS",
+    "cpp_type": "screamer::RollingOLS",
+    "base": "FunctorBase",
+    "ctor": [
+      "int",
+      "int",
+      "bool"
+    ],
+    "ctor_args": [
+      {
+        "name": "window_size",
+        "default": null
+      },
+      {
+        "name": "n_regressors",
+        "default": null
+      },
+      {
+        "name": "intercept",
+        "default": "true"
+      }
+    ],
+    "ctor_kind": "plain",
+    "source": "bindings/bindings_fin.cpp"
   },
   {
     "name": "RollingOU",

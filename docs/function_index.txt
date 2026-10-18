@@ -105,6 +105,7 @@ ExpandingKurt, Running bias-corrected excess kurtosis (Fisher) over the whole hi
 ExpandingMax, Running maximum since the start of the stream.
 ExpandingMean, Running mean over the whole history since the last reset.
 ExpandingMin, Running minimum since the start of the stream.
+ExpandingOLS, Least-squares fit of y on k regressors over every row so far, with the one-step-ahead prediction made before each row enters, R-squared, and the coefficients.
 ExpandingProd, Running product since the start of the stream.
 ExpandingSkew, Running bias-corrected sample skewness (G1) over the whole history.
 ExpandingSlope, Running OLS slope of the series against time over the whole history.
@@ -210,6 +211,7 @@ RollingMedian, Trailing-window median.
 RollingMedianAD, Rolling median absolute deviation, median(|x - median|), a robust scale estimate.
 RollingMin, Trailing-window minimum (monotonic deque).
 RollingMinMax, Trailing-window minimum and maximum, computed in one pass.
+RollingOLS, Rolling least-squares fit of y on k regressors, with the one-step-ahead prediction made before each row enters, R-squared, and the coefficients.
 RollingOU, Rolling MLE fit of a mean-reverting Ornstein-Uhlenbeck process.
 RollingOmega, Omega ratio over a window: total gains above a threshold divided by total losses below it.
 RollingOrderImbalance, Trailing-window sum of signed order flow (Chordia-Roll-Subrahmanyam imbalance).

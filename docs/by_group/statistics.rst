@@ -263,6 +263,8 @@ Relationships between series: correlation, covariance, regression, hedging, pair
      - EW std of the spread x - EwBeta(x, y) * y.
    * - :doc:`Exponentially-weighted spread </functions_ew/EwSpread>`
      - EW hedge-adjusted residual x - EwBeta(x, y) * y.
+   * - :doc:`Expanding multiple regression </functions_expanding/ExpandingOLS>`
+     - Least-squares fit of y on k regressors over every row so far, with the one-step-ahead prediction made before each row enters, R-squared, and the coefficients.
    * - :doc:`Kalman filter regression (dynamic hedge ratio) </functions_fin/KalmanRegression>`
      - Regression with a random-walk intercept and slope, estimated by a Kalman filter: the dynamic hedge ratio of a pairs trade, its spread, and the spread's predicted deviation.
    * - :doc:`Rolling augmented Dickey-Fuller statistic </functions_fin/RollingADF>`
@@ -281,6 +283,8 @@ Relationships between series: correlation, covariance, regression, hedging, pair
      - Rolling-window price-impact slope of return on signed order flow (Kyle 1985).
    * - :doc:`Rolling linear regression </functions_fin/RollingLinearRegression>`
      - Rolling OLS fit of y on x, returning slope, intercept, R-squared and the standard error of the fit.
+   * - :doc:`Rolling multiple regression </functions_fin/RollingOLS>`
+     - Rolling least-squares fit of y on k regressors, with the one-step-ahead prediction made before each row enters, R-squared, and the coefficients.
    * - :doc:`Rolling Ornstein-Uhlenbeck fit </functions_rolling/RollingOU>`
      - Rolling MLE fit of a mean-reverting Ornstein-Uhlenbeck process.
    * - :doc:`Rolling 1st-order polynomial fit </functions_rolling/RollingPoly1>`
@@ -334,6 +338,7 @@ Relationships between series: correlation, covariance, regression, hedging, pair
    /functions_expanding/ExpandingMax
    /functions_expanding/ExpandingMean
    /functions_expanding/ExpandingMin
+   /functions_expanding/ExpandingOLS
    /functions_expanding/ExpandingProd
    /functions_expanding/ExpandingSkew
    /functions_expanding/ExpandingStd
@@ -372,6 +377,7 @@ Relationships between series: correlation, covariance, regression, hedging, pair
    /functions_rolling/RollingMedianAD
    /functions_rolling/RollingMin
    /functions_rolling/RollingMinMax
+   /functions_fin/RollingOLS
    /functions_rolling/RollingOU
    /functions_rolling/RollingParkinsonVar
    /functions_rolling/RollingParkinsonVol

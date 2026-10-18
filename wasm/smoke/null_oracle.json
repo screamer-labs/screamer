@@ -3103,6 +3103,31 @@
  },
  {
   "accepts_bool": {
+   "intercept": true,
+   "n_regressors": false
+  },
+  "accepts_none": {
+   "intercept": false,
+   "n_regressors": false
+  },
+  "base": {
+   "n_regressors": 3
+  },
+  "below_min": {
+   "n_regressors": [
+    0,
+    "ExpandingOLS: n_regressors must be at least 1, got 0"
+   ]
+  },
+  "bool_message": {
+   "intercept": null,
+   "n_regressors": "ExpandingOLS: n_regressors must be an integer, got bool"
+  },
+  "name": "ExpandingOLS",
+  "non_finite": {}
+ },
+ {
+  "accepts_bool": {
    "fill": false
   },
   "accepts_none": {
@@ -4705,6 +4730,39 @@
    "window_size": "RollingMinMax: window_size must be an integer, got bool"
   },
   "name": "RollingMinMax",
+  "non_finite": {}
+ },
+ {
+  "accepts_bool": {
+   "intercept": true,
+   "n_regressors": false,
+   "window_size": false
+  },
+  "accepts_none": {
+   "intercept": false,
+   "n_regressors": false,
+   "window_size": false
+  },
+  "base": {
+   "n_regressors": 3,
+   "window_size": 20
+  },
+  "below_min": {
+   "n_regressors": [
+    0,
+    "RollingOLS: n_regressors must be at least 1, got 0"
+   ],
+   "window_size": [
+    1,
+    "RollingOLS: window_size must be at least 2, got 1"
+   ]
+  },
+  "bool_message": {
+   "intercept": null,
+   "n_regressors": "RollingOLS: n_regressors must be an integer, got bool",
+   "window_size": "RollingOLS: window_size must be an integer, got bool"
+  },
+  "name": "RollingOLS",
   "non_finite": {}
  },
  {

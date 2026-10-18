@@ -3966,6 +3966,44 @@ export function ExpandingMin(options?: ExpandingMinOptions): ScreamerOp {
   return _params(wrapOp(M, () => new M.ExpandingMin()), "ExpandingMin", [], _given);
 }
 
+/** The settings of ExpandingOLS by name, for `ExpandingOLS({ ... })`. */
+export interface ExpandingOLSOptions {
+  /** Number of regressors k. The operator takes k + 1 inputs, y first, and returns k + 3 outputs, plus 1 with an intercept. */
+  nRegressors: number;
+  /** Fit an intercept b0. Without one, the line goes through the origin and r2 is the uncentered R-squared. @defaultValue `true` */
+  intercept?: boolean;
+}
+
+/**
+ * Least-squares fit of y on k regressors over every row so far, with the one-step-ahead prediction made before each row enters, R-squared, and the coefficients.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingOLS.html for the full reference.
+ */
+export function ExpandingOLS(options: ExpandingOLSOptions): ScreamerOp;
+/**
+ * Least-squares fit of y on k regressors over every row so far, with the one-step-ahead prediction made before each row enters, R-squared, and the coefficients.
+ *
+ * @param nRegressors Number of regressors k. The operator takes k + 1 inputs, y first, and returns k + 3 outputs, plus 1 with an intercept.
+ * @param intercept Fit an intercept b0. Without one, the line goes through the origin and r2 is the uncentered R-squared.
+ * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingOLS.html for the full reference.
+ */
+export function ExpandingOLS(nRegressors: number, intercept?: boolean): ScreamerOp;
+export function ExpandingOLS(nRegressors?: any, intercept?: any): ScreamerOp {
+  if (_isOptions(nRegressors)) [nRegressors, intercept] = _options("ExpandingOLS", nRegressors, arguments.length, ["nRegressors", "intercept"], "nRegressors must be an integer");
+  else if (arguments.length > 2) _tooMany("ExpandingOLS", 2, arguments.length);
+  const _given: unknown[] = [nRegressors, intercept];
+  if (nRegressors === undefined) throw new TypeError(`ExpandingOLS: nRegressors is required`);
+  if (intercept === undefined) intercept = true;
+  const M = current();
+  if (typeof nRegressors !== "number" || !Number.isInteger(nRegressors)) throw new TypeError(`ExpandingOLS: nRegressors must be an integer, got ${typeof nRegressors === "number" ? nRegressors : _what(nRegressors)}`);
+  if (!(nRegressors >= -2147483648 && nRegressors <= 2147483647)) _intRange(M, "ExpandingOLS", "nRegressors", nRegressors);
+  if (typeof intercept !== "boolean") throw new TypeError(`ExpandingOLS: intercept must be a bool, got ${_what(intercept)}`);
+  try {
+    return _params(wrapOp(M, () => new M.ExpandingOLS(nRegressors, intercept)), "ExpandingOLS", ["n_regressors", "intercept"], _given);
+  } catch (e) { throw _finite(M, "ExpandingOLS", ["nRegressors"], [nRegressors], e); }
+}
+
 /** ExpandingProd has no settings: its options object is empty. */
 export type ExpandingProdOptions = Record<string, never>;
 
@@ -6908,6 +6946,50 @@ export function RollingMinMax(windowSize?: any): ScreamerOp {
   try {
     return _params(wrapOp(M, () => new M.RollingMinMax(windowSize)), "RollingMinMax", ["window_size"], _given);
   } catch (e) { throw _finite(M, "RollingMinMax", ["windowSize"], [windowSize], e); }
+}
+
+/** The settings of RollingOLS by name, for `RollingOLS({ ... })`. */
+export interface RollingOLSOptions {
+  /** Number of most recent rows in the fit. At least n_regressors + 1, plus 1 with an intercept, so the fit keeps a residual degree of freedom. */
+  windowSize: number;
+  /** Number of regressors k. The operator takes k + 1 inputs, y first, and returns k + 3 outputs, plus 1 with an intercept. */
+  nRegressors: number;
+  /** Fit an intercept b0. Without one, the line goes through the origin and r2 is the uncentered R-squared. @defaultValue `true` */
+  intercept?: boolean;
+}
+
+/**
+ * Rolling least-squares fit of y on k regressors, with the one-step-ahead prediction made before each row enters, R-squared, and the coefficients.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingOLS.html for the full reference.
+ */
+export function RollingOLS(options: RollingOLSOptions): ScreamerOp;
+/**
+ * Rolling least-squares fit of y on k regressors, with the one-step-ahead prediction made before each row enters, R-squared, and the coefficients.
+ *
+ * @param windowSize Number of most recent rows in the fit. At least n_regressors + 1, plus 1 with an intercept, so the fit keeps a residual degree of freedom.
+ * @param nRegressors Number of regressors k. The operator takes k + 1 inputs, y first, and returns k + 3 outputs, plus 1 with an intercept.
+ * @param intercept Fit an intercept b0. Without one, the line goes through the origin and r2 is the uncentered R-squared.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingOLS.html for the full reference.
+ */
+export function RollingOLS(windowSize: number, nRegressors: number, intercept?: boolean): ScreamerOp;
+export function RollingOLS(windowSize?: any, nRegressors?: any, intercept?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, nRegressors, intercept] = _options("RollingOLS", windowSize, arguments.length, ["windowSize", "nRegressors", "intercept"], "windowSize must be an integer");
+  else if (arguments.length > 3) _tooMany("RollingOLS", 3, arguments.length);
+  const _given: unknown[] = [windowSize, nRegressors, intercept];
+  if (windowSize === undefined) throw new TypeError(`RollingOLS: windowSize is required`);
+  if (nRegressors === undefined) throw new TypeError(`RollingOLS: nRegressors is required`);
+  if (intercept === undefined) intercept = true;
+  const M = current();
+  if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingOLS: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingOLS", "windowSize", windowSize);
+  if (typeof nRegressors !== "number" || !Number.isInteger(nRegressors)) throw new TypeError(`RollingOLS: nRegressors must be an integer, got ${typeof nRegressors === "number" ? nRegressors : _what(nRegressors)}`);
+  if (!(nRegressors >= -2147483648 && nRegressors <= 2147483647)) _intRange(M, "RollingOLS", "nRegressors", nRegressors);
+  if (typeof intercept !== "boolean") throw new TypeError(`RollingOLS: intercept must be a bool, got ${_what(intercept)}`);
+  try {
+    return _params(wrapOp(M, () => new M.RollingOLS(windowSize, nRegressors, intercept)), "RollingOLS", ["window_size", "n_regressors", "intercept"], _given);
+  } catch (e) { throw _finite(M, "RollingOLS", ["windowSize", "nRegressors"], [windowSize, nRegressors], e); }
 }
 
 /** The settings of RollingOU by name, for `RollingOU({ ... })`. */

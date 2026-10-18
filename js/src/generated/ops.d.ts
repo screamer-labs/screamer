@@ -2462,6 +2462,30 @@ export type ExpandingMinOptions = Record<string, never>;
  */
 export declare function ExpandingMin(options?: ExpandingMinOptions): ScreamerOp;
 
+/** The settings of ExpandingOLS by name, for `ExpandingOLS({ ... })`. */
+export interface ExpandingOLSOptions {
+  /** Number of regressors k. The operator takes k + 1 inputs, y first, and returns k + 3 outputs, plus 1 with an intercept. */
+  nRegressors: number;
+  /** Fit an intercept b0. Without one, the line goes through the origin and r2 is the uncentered R-squared. @defaultValue `true` */
+  intercept?: boolean;
+}
+
+/**
+ * Least-squares fit of y on k regressors over every row so far, with the one-step-ahead prediction made before each row enters, R-squared, and the coefficients.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingOLS.html for the full reference.
+ */
+export declare function ExpandingOLS(options: ExpandingOLSOptions): ScreamerOp;
+/**
+ * Least-squares fit of y on k regressors over every row so far, with the one-step-ahead prediction made before each row enters, R-squared, and the coefficients.
+ *
+ * @param nRegressors Number of regressors k. The operator takes k + 1 inputs, y first, and returns k + 3 outputs, plus 1 with an intercept.
+ * @param intercept Fit an intercept b0. Without one, the line goes through the origin and r2 is the uncentered R-squared.
+ * @see https://screamer.readthedocs.io/en/latest/functions_expanding/ExpandingOLS.html for the full reference.
+ */
+export declare function ExpandingOLS(nRegressors: number, intercept?: boolean): ScreamerOp;
+
 /** ExpandingProd has no settings: its options object is empty. */
 export type ExpandingProdOptions = Record<string, never>;
 
@@ -4348,6 +4372,33 @@ export declare function RollingMinMax(options: RollingMinMaxOptions): ScreamerOp
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingMinMax.html for the full reference.
  */
 export declare function RollingMinMax(windowSize?: number): ScreamerOp;
+
+/** The settings of RollingOLS by name, for `RollingOLS({ ... })`. */
+export interface RollingOLSOptions {
+  /** Number of most recent rows in the fit. At least n_regressors + 1, plus 1 with an intercept, so the fit keeps a residual degree of freedom. */
+  windowSize: number;
+  /** Number of regressors k. The operator takes k + 1 inputs, y first, and returns k + 3 outputs, plus 1 with an intercept. */
+  nRegressors: number;
+  /** Fit an intercept b0. Without one, the line goes through the origin and r2 is the uncentered R-squared. @defaultValue `true` */
+  intercept?: boolean;
+}
+
+/**
+ * Rolling least-squares fit of y on k regressors, with the one-step-ahead prediction made before each row enters, R-squared, and the coefficients.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingOLS.html for the full reference.
+ */
+export declare function RollingOLS(options: RollingOLSOptions): ScreamerOp;
+/**
+ * Rolling least-squares fit of y on k regressors, with the one-step-ahead prediction made before each row enters, R-squared, and the coefficients.
+ *
+ * @param windowSize Number of most recent rows in the fit. At least n_regressors + 1, plus 1 with an intercept, so the fit keeps a residual degree of freedom.
+ * @param nRegressors Number of regressors k. The operator takes k + 1 inputs, y first, and returns k + 3 outputs, plus 1 with an intercept.
+ * @param intercept Fit an intercept b0. Without one, the line goes through the origin and r2 is the uncentered R-squared.
+ * @see https://screamer.readthedocs.io/en/latest/functions_fin/RollingOLS.html for the full reference.
+ */
+export declare function RollingOLS(windowSize: number, nRegressors: number, intercept?: boolean): ScreamerOp;
 
 /** The settings of RollingOU by name, for `RollingOU({ ... })`. */
 export interface RollingOUOptions {
