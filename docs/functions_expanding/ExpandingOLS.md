@@ -70,11 +70,11 @@ of the default `n_regressors=3`.
 
 The first fit needs `p + 1` rows, with `p = k + 1` coefficients with an intercept and `p = k`
 without, so that one residual degree of freedom is left; `r2` and the coefficients are `NaN` before
-that, and `pred` until the row after. The coefficients match `numpy.linalg.lstsq` on all rows so
-far. `r2`, collinear regressors (a `NaN` fit), and the uncentered `r2` without an intercept follow
-`RollingOLS`. Each row costs `O(k^2)` to add and `O(k^3)` to solve, and memory does not grow with
-the number of rows. With an intercept the means and centered cross-products are updated by
-Welford's method, which stays accurate when the levels are large next to their spread.
+that, and `pred` until the row after. `r2`, collinear regressors (a `NaN` fit), the uncentered
+`r2` without an intercept, and the accuracy follow `RollingOLS`: with an intercept the level of the data costs no digits, and without one they keep
+about `16 - 2 log10(cond)` significant digits, `cond` being the condition number of the regressor
+matrix. Each row costs `O(k^2)` to update the means and centered cross-products (by Welford's
+method) and `O(k^3)` to solve, so `O(k^3)` in all, and memory does not grow with the number of rows.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling

@@ -21,17 +21,21 @@
 // first fit. A row with a NaN in any input is skipped: it does not enter the
 // window and its outputs are NaN.
 //
-// With an intercept the operator keeps the means of the window's columns and
-// their centered cross-products, updated in O(k^2) per row (Welford's add and
-// remove), and solves the k x k centered normal equations by Cholesky; the
-// intercept is mean_y - b . mean_x and r2 = 1 - SSE / sum (y - mean_y)^2.
-// Each column enters as z - origin, with the origin near the column's mean
-// (moved there when the mean drifts more than four standard deviations from
-// it, and at every exact recomputation), so the fit stays accurate when the
-// levels are large next to the spread.
-// Without an intercept it keeps the raw cross-products, and r2 is the
-// uncentered 1 - SSE / sum y^2 (the statsmodels convention for a model
-// without a constant). The solve costs O(k^3) per row.
+// The operator keeps the means of the window's columns and their centered
+// cross-products, updated in O(k^2) per row (Welford's add and remove). Each
+// column enters as z - origin, with the origin near the column's mean (moved
+// there when the mean drifts more than four standard deviations from it, and
+// at every exact recomputation), so the sums stay accurate when the levels
+// are large next to the spread. Each row then solves the k x k normal
+// equations by Cholesky, O(k^3), so a step costs O(k^3) in all. With an
+// intercept they are the centered ones; the intercept is mean_y - b . mean_x
+// and r2 = 1 - SSE / sum (y - mean_y)^2. Without an intercept they are the raw
+// ones, X'X = C + n m m', formed at the solve, and r2 is the uncentered
+// 1 - SSE / sum y^2 (the statsmodels convention for a model without a
+// constant). The normal equations square the condition number of the
+// regressors: without an intercept on levels far from zero (prices), the
+// coefficients keep about 16 - 2 log10(cond) digits, where cond is the
+// condition number of the window's regressor matrix.
 //
 // RollingOLS recomputes its cross-products exactly from the stored rows every
 // window_size rows, and at once when the row that left was far out of the
@@ -134,75 +138,56 @@ private:
 
     double& c(std::size_t i, std::size_t j) { return c_[i * D + j]; }
 
-    // Adds a row to the sums (upper triangle, i <= j). With an intercept the
-    // row enters as z - origin, which is exact while z is within a factor 2
-    // of the origin, and mean_ is the mean of z - origin.
+    // Adds a row to the sums (upper triangle, i <= j). The row enters as
+    // z - origin, which is exact while z is within a factor 2 of the origin;
+    // mean_ is the mean of z - origin and c_ holds the centered
+    // cross-products, with or without an intercept.
     void add(const double* z) {
-        if (icpt_ && n_ == 0)
+        if (n_ == 0)
             for (std::size_t i = 0; i < d_; ++i) origin_[i] = z[i];
         n_ += 1;
-        if (icpt_) {
-            const double nd = static_cast<double>(n_);
-            std::array<double, D> dz, e;
-            for (std::size_t i = 0; i < d_; ++i) {
-                const double v = z[i] - origin_[i];
-                dz[i] = v - mean_[i];
-                mean_[i] += dz[i] / nd;
-                e[i] = v - mean_[i];
-            }
-            for (std::size_t i = 0; i < d_; ++i)
-                for (std::size_t j = i; j < d_; ++j) {
-                    const double t = dz[i] * e[j];
-                    c(i, j) += t;
-                }
-            recenter();
-        } else {
-            for (std::size_t i = 0; i < d_; ++i)
-                for (std::size_t j = i; j < d_; ++j) {
-                    const double t = z[i] * z[j];
-                    c(i, j) += t;
-                }
+        const double nd = static_cast<double>(n_);
+        std::array<double, D> dz, e;
+        for (std::size_t i = 0; i < d_; ++i) {
+            const double v = z[i] - origin_[i];
+            dz[i] = v - mean_[i];
+            mean_[i] += dz[i] / nd;
+            e[i] = v - mean_[i];
         }
+        for (std::size_t i = 0; i < d_; ++i)
+            for (std::size_t j = i; j < d_; ++j) {
+                const double t = dz[i] * e[j];
+                c(i, j) += t;
+            }
+        recenter();
     }
 
     // Removes a row from the sums. Returns true when the row was far out of
     // the rows that remain, or not finite: its rounding may then dominate.
     bool remove(const double* z) {
         n_ -= 1;
-        bool far = false;
         if (n_ == 0) {
             mean_.fill(0.0);
             c_.fill(0.0);
             return false;
         }
-        if (icpt_) {
-            const double nd = static_cast<double>(n_);
-            std::array<double, D> dz, e;
-            for (std::size_t i = 0; i < d_; ++i) {
-                const double v = z[i] - origin_[i];
-                dz[i] = v - mean_[i];
-                mean_[i] -= dz[i] / nd;
-                e[i] = v - mean_[i];
+        const double nd = static_cast<double>(n_);
+        std::array<double, D> dz, e;
+        for (std::size_t i = 0; i < d_; ++i) {
+            const double v = z[i] - origin_[i];
+            dz[i] = v - mean_[i];
+            mean_[i] -= dz[i] / nd;
+            e[i] = v - mean_[i];
+        }
+        for (std::size_t i = 0; i < d_; ++i)
+            for (std::size_t j = i; j < d_; ++j) {
+                const double t = dz[i] * e[j];
+                c(i, j) -= t;
             }
-            for (std::size_t i = 0; i < d_; ++i)
-                for (std::size_t j = i; j < d_; ++j) {
-                    const double t = dz[i] * e[j];
-                    c(i, j) -= t;
-                }
-            for (std::size_t i = 0; i < d_; ++i) {
-                const double sq = dz[i] * e[i];
-                if (!(sq <= kFar * c(i, i))) far = true;
-            }
-        } else {
-            for (std::size_t i = 0; i < d_; ++i)
-                for (std::size_t j = i; j < d_; ++j) {
-                    const double t = z[i] * z[j];
-                    c(i, j) -= t;
-                }
-            for (std::size_t i = 0; i < d_; ++i) {
-                const double sq = z[i] * z[i];
-                if (!(sq <= kFar * c(i, i))) far = true;
-            }
+        bool far = false;
+        for (std::size_t i = 0; i < d_; ++i) {
+            const double sq = dz[i] * e[i];
+            if (!(sq <= kFar * c(i, i))) far = true;
         }
         return far;
     }
@@ -217,8 +202,10 @@ private:
         if (far || ++since_refresh_ >= w_) refresh();
     }
 
-    // Recomputes the sums from the stored rows, in two passes with an
-    // intercept (the means, then the centered cross-products).
+    // Recomputes the sums from the stored rows in two passes. The origin
+    // moves to the window mean, taken about the old origin (or a finite
+    // stored value, after an infinity), then the means of z - origin and the
+    // centered cross-products.
     void refresh() {
         since_refresh_ = 0;
         const std::size_t n = n_;
@@ -226,43 +213,29 @@ private:
         const std::size_t first = n == w_ ? 0 : (head_ + w_ - n) % w_;
         auto row = [&](std::size_t r) { return ring_.data() + ((first + r) % w_) * d_; };
         c_.fill(0.0);
-        if (icpt_) {
-            // The origin moves to the window mean, taken about the old origin
-            // (or a finite stored value, after an infinity), then the means of
-            // z - origin and the centered cross-products in a second pass.
-            const double nd = static_cast<double>(n);
-            for (std::size_t i = 0; i < d_; ++i) {
-                double base = origin_[i];
-                for (std::size_t r = 0; r < n && !std::isfinite(base); ++r)
-                    if (std::isfinite(row(r)[i])) base = row(r)[i];
-                if (!std::isfinite(base)) base = 0.0;
-                double s1 = 0.0;
-                for (std::size_t r = 0; r < n; ++r) s1 += row(r)[i] - base;
-                const double shift = s1 / nd;
-                origin_[i] = std::isfinite(shift) ? base + shift : base;
-                double s2 = 0.0;
-                for (std::size_t r = 0; r < n; ++r) s2 += row(r)[i] - origin_[i];
-                mean_[i] = s2 / nd;
-            }
-            for (std::size_t r = 0; r < n; ++r) {
-                const double* z = row(r);
-                std::array<double, D> e;
-                for (std::size_t i = 0; i < d_; ++i) e[i] = (z[i] - origin_[i]) - mean_[i];
-                for (std::size_t i = 0; i < d_; ++i)
-                    for (std::size_t j = i; j < d_; ++j) {
-                        const double t = e[i] * e[j];
-                        c(i, j) += t;
-                    }
-            }
-        } else {
-            for (std::size_t r = 0; r < n; ++r) {
-                const double* z = row(r);
-                for (std::size_t i = 0; i < d_; ++i)
-                    for (std::size_t j = i; j < d_; ++j) {
-                        const double t = z[i] * z[j];
-                        c(i, j) += t;
-                    }
-            }
+        const double nd = static_cast<double>(n);
+        for (std::size_t i = 0; i < d_; ++i) {
+            double base = origin_[i];
+            for (std::size_t r = 0; r < n && !std::isfinite(base); ++r)
+                if (std::isfinite(row(r)[i])) base = row(r)[i];
+            if (!std::isfinite(base)) base = 0.0;
+            double s1 = 0.0;
+            for (std::size_t r = 0; r < n; ++r) s1 += row(r)[i] - base;
+            const double shift = s1 / nd;
+            origin_[i] = std::isfinite(shift) ? base + shift : base;
+            double s2 = 0.0;
+            for (std::size_t r = 0; r < n; ++r) s2 += row(r)[i] - origin_[i];
+            mean_[i] = s2 / nd;
+        }
+        for (std::size_t r = 0; r < n; ++r) {
+            const double* z = row(r);
+            std::array<double, D> e;
+            for (std::size_t i = 0; i < d_; ++i) e[i] = (z[i] - origin_[i]) - mean_[i];
+            for (std::size_t i = 0; i < d_; ++i)
+                for (std::size_t j = i; j < d_; ++j) {
+                    const double t = e[i] * e[j];
+                    c(i, j) += t;
+                }
         }
     }
 
@@ -283,41 +256,58 @@ private:
         }
     }
 
-    // Solves the k x k normal equations by Cholesky: A b = r with A = c(x, x)
-    // and r = c(x, y).
+    // Solves the k x k normal equations A b = r by Cholesky. With an
+    // intercept A = c(x, x) and r = c(x, y), the centered cross-products.
+    // Without one A and r are the raw cross-products, formed here as
+    // c + n mean mean' from the centered sums, so no cancellation builds up
+    // in them; their condition number is that of the regressors squared.
     void fit() {
         fitted_ = false;
         if (n_ < n_min_) return;
         const std::size_t k = k_;
-        // l_ holds the lower factor, row-major with stride D.
+        const double nd = static_cast<double>(n_);
+        std::array<double, D> mu{};          // the column means, without an intercept
+        if (!icpt_)
+            for (std::size_t i = 0; i <= k; ++i) mu[i] = origin_[i] + mean_[i];
+        auto a = [&](std::size_t i, std::size_t j) {   // i <= j
+            double v = c(i, j);
+            if (!icpt_) {
+                const double t = nd * mu[i] * mu[j];
+                v += t;
+            }
+            return v;
+        };
+        // l_ holds the lower factor, row-major with stride D, and inv_ the
+        // reciprocals of its diagonal.
         for (std::size_t j = 0; j < k; ++j) {
-            const double ajj = c(j, j);
+            const double ajj = a(j, j);
             double s = ajj;
             for (std::size_t q = 0; q < j; ++q) {
                 const double t = l_[j * D + q] * l_[j * D + q];
                 s -= t;
             }
             if (!(s > kSingular * ajj)) return;   // collinear, constant, or NaN
-            const double ljj = std::sqrt(s);
-            l_[j * D + j] = ljj;
+            const double inv = 1.0 / std::sqrt(s);
+            inv_[j] = inv;
             for (std::size_t i = j + 1; i < k; ++i) {
-                double v = c(j, i);
+                double v = a(j, i);
                 for (std::size_t q = 0; q < j; ++q) {
                     const double t = l_[i * D + q] * l_[j * D + q];
                     v -= t;
                 }
-                l_[i * D + j] = v / ljj;
+                l_[i * D + j] = v * inv;
             }
         }
         // Forward then back substitution.
-        std::array<double, D> u;
+        std::array<double, D> r, u;
+        for (std::size_t i = 0; i < k; ++i) r[i] = a(i, k);
         for (std::size_t i = 0; i < k; ++i) {
-            double v = c(i, k);
+            double v = r[i];
             for (std::size_t q = 0; q < i; ++q) {
                 const double t = l_[i * D + q] * u[q];
                 v -= t;
             }
-            u[i] = v / l_[i * D + i];
+            u[i] = v * inv_[i];
         }
         for (std::size_t i = k; i-- > 0;) {
             double v = u[i];
@@ -325,13 +315,13 @@ private:
                 const double t = l_[q * D + i] * b_[q];
                 v -= t;
             }
-            b_[i] = v / l_[i * D + i];
+            b_[i] = v * inv_[i];
         }
-        // SSE = c(y, y) - b . c(x, y); r2 = 1 - SSE / c(y, y).
-        const double syy = c(k, k);
+        // SSE = a(y, y) - b . r; r2 = 1 - SSE / a(y, y).
+        const double syy = a(k, k);
         double explained = 0.0;
         for (std::size_t i = 0; i < k; ++i) {
-            const double t = b_[i] * c(i, k);
+            const double t = b_[i] * r[i];
             explained += t;
         }
         const double sse = std::max(syy - explained, 0.0);
@@ -360,10 +350,11 @@ private:
     const std::size_t w_, n_min_;
     std::vector<double> ring_;
     std::size_t n_ = 0, head_ = 0, since_refresh_ = 0;
-    std::array<double, D> mean_{};     // mean of z - origin (with an intercept)
+    std::array<double, D> mean_{};     // mean of z - origin
     std::array<double, D> origin_{};
     std::array<double, D * D> c_{};
     std::array<double, D * D> l_{};
+    std::array<double, D> inv_{};
     std::array<double, kMaxOLSRegressors> b_{};
     double b0_ = 0.0, r2_ = 0.0;
     bool fitted_ = false;

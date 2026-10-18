@@ -2,13 +2,12 @@
 #define SCREAMER_COMMON_VAR_ARITY_DISPATCH_H
 
 // The Python call of a VarArityOp (var_arity_op.h): an operator whose numbers
-// of inputs and outputs are settings. The N-input dispatch (dispatch.h) reads
-// the input count from the operator's type, so the call picks the view
-// VarArityView<N> for the instance's n_in() and runs the same dispatch on it:
-// every input form (numbers, arrays, broadcasting, packed arrays, lists,
-// iterators, async iterators, Pipeline nodes) behaves as for a FunctorBase
-// operator of that count. The views are instantiated once for all VarArityOp
-// operators, one per input count from 2 to kMaxColumnInputs.
+// of inputs and outputs are settings. It runs the N-input dispatch of
+// dispatch.h on a VarArityView, whose kN == 0 and kM == 0 make the dispatch
+// read the counts from the instance: every input form (numbers, arrays,
+// broadcasting, packed arrays, lists, iterators, async iterators, Pipeline
+// nodes) behaves as for a FunctorBase operator of those counts. The dispatch
+// is instantiated once for all VarArityOp operators.
 
 #include <array>
 #include <cstddef>
@@ -55,13 +54,13 @@ struct type_caster<screamer::detail::VarRow> {
 namespace screamer {
 namespace detail {
 
-// An N-input view of a VarArityOp with n_in() == N, for the dispatch of
-// dispatch.h. kM == 0 says the output count is the instance's n_out().
-template <std::size_t N>
+// A view of a VarArityOp for the dispatch of dispatch.h. kN == 0 and kM == 0
+// say that the input and output counts are the instance's n_in() and n_out();
+// an event holds at most kMaxColumnInputs inputs.
 struct VarArityView {
-    static constexpr std::size_t kN = N;
+    static constexpr std::size_t kN = 0;
     static constexpr std::size_t kM = 0;
-    using InputArray = std::array<double, N>;
+    using InputArray = std::array<double, kMaxColumnInputs>;
     using ResultTuple = VarRow;
 
     EvalOp& op;
@@ -74,6 +73,7 @@ struct VarArityView {
         return r;
     }
     void reset() { op.reset(); }
+    std::size_t n_in() const { return op.n_in(); }
     std::size_t n_out() const { return op.n_out(); }
     bool tight_column() const { return op.tight_column(); }
     void eval_column(const double* const* in, const std::ptrdiff_t* in_stride, std::size_t T,
@@ -83,22 +83,10 @@ struct VarArityView {
     nb::object py_owner() const { return nb::borrow(owner); }
 };
 
-template <std::size_t... I>
-nb::object var_arity_route(EvalOp& op, nb::handle owner, nb::args args, std::index_sequence<I...>) {
-    nb::object r;
-    const std::size_t n = op.n_in();
-    const bool done = ((n == I + 2 ? (r = [&] {
-        VarArityView<I + 2> view{op, owner};
-        return functor_call<VarArityView<I + 2>>(view, std::move(args));
-    }(), true) : false) || ...);
-    if (!done) throw std::logic_error("unsupported number of inputs.");
-    return r;
-}
-
 // The Python call of any VarArityOp, by its base.
 inline nb::object var_arity_call_impl(EvalOp& op, nb::handle owner, nb::args args) {
-    return var_arity_route(op, owner, std::move(args),
-                           std::make_index_sequence<kMaxColumnInputs - 1>{});
+    VarArityView view{op, owner};
+    return functor_call<VarArityView>(view, std::move(args));
 }
 
 }  // namespace detail

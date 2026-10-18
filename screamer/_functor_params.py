@@ -289,7 +289,11 @@ def _make_wrapper(name, base):
             if msg is None:
                 raise
             raise ValueError(msg) from None
-        self._screamer_params = bind_params(name, args, kwargs)
+        params = bind_params(name, args, kwargs)
+        for p in (_load_help().get(name) or {}).get("parameters", []):
+            if p.get("type") == "bool" and p["name"] in params:
+                params[p["name"]] = bool(params[p["name"]])   # np.True_ and array(True) too
+        self._screamer_params = params
 
     def __repr__(self):
         return format_call(name, getattr(self, "_screamer_params", {}))

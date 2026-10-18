@@ -233,3 +233,49 @@ def test_settings():
         s.ExpandingOLS(2, "yes")
     assert s.ExpandingOLS(2, np.False_)(1.0, 2.0, 3.0)[0] != 0   # NaN, a numpy bool is a bool
     assert repr(s.RollingOLS(10, 2)) == "RollingOLS(window_size=10, n_regressors=2)"
+    assert repr(s.RollingOLS(10, 2, np.True_)) == "RollingOLS(window_size=10, n_regressors=2, intercept=True)"
+    assert repr(s.ExpandingOLS(2, intercept=np.array(False))) == "ExpandingOLS(n_regressors=2, intercept=False)"
+
+
+@pytest.mark.parametrize("intercept", [True, False])
+def test_long_random_walk_at_level_1e5(intercept):
+    """Prices near 1e5 with unit moves over 2e5 rows, checked at the end.
+    With an intercept the slopes keep their digits at this level. Without one
+    the raw normal equations square the condition number of the regressors,
+    so the coefficients keep about 16 - 2 log10(cond) digits: the tolerance
+    is a small multiple of eps * cond^2."""
+    rng = np.random.default_rng(5)
+    T, k, w = 200_000, 3, 250
+    X = 1e5 + np.cumsum(rng.standard_normal((T, k)), axis=0)
+    y = 2.0 * (X[:, 0] - 1e5) - (X[:, 1] - 1e5) + 0.5 * X[:, 2] + rng.standard_normal(T)
+    off = 4 if intercept else 3
+    for out, lo in ((s.RollingOLS(w, k, intercept=intercept)(y, *X.T), T - w),
+                    (s.ExpandingOLS(k, intercept=intercept)(y, *X.T), 0)):
+        A, v = X[lo:], y[lo:]
+        if intercept:
+            ref = _centered_slopes(v, A)
+            np.testing.assert_allclose(out[-1, off:], ref, rtol=1e-11)
+        else:
+            ref = np.linalg.lstsq(A, v, rcond=None)[0]
+            cond = np.linalg.cond(A)
+            err = np.max(np.abs(out[-1, off:] - ref) / np.abs(ref))
+            assert err <= 100 * np.finfo(float).eps * cond ** 2, (err, cond)
+
+
+@pytest.mark.parametrize("intercept", [True, False])
+def test_an_infinity_leaves_the_window(intercept):
+    """An infinite input enters the window (it is not NaN): the fit is NaN while
+    it is inside, and the exact refit when it leaves restores the fit."""
+    y, X = _data(2, T=200)
+    w = 20
+    bad_x, bad_y = X.copy(), y.copy()
+    bad_x[100, 0] = np.inf
+    bad_y[150] = -np.inf
+    out = s.RollingOLS(w, 2, intercept=intercept)(bad_y, *bad_x.T)
+    ref = s.RollingOLS(w, 2, intercept=intercept)(y, *X.T)
+    assert np.isnan(out[100:100 + w, 2:]).all()
+    assert np.isnan(out[150:150 + w, 2:]).all()
+    for rows in (slice(100 + w, 150), slice(150 + w, 200)):
+        np.testing.assert_allclose(out[rows, 2:], ref[rows, 2:], rtol=1e-12, atol=1e-13)
+    np.testing.assert_allclose(out[100 + w + 1:150, :2], ref[100 + w + 1:150, :2],
+                               rtol=1e-12, atol=1e-12)

@@ -352,10 +352,13 @@ namespace detail {
 // The N input fields of a call: one contiguous double buffer per argument (one
 // buffer when a packed (T, *A, N) array holds all fields), each field's base
 // pointer, and the broadcast plan that says where every column starts.
+// N == 0: the count is set per instance (a VarArityView), at most
+// kMaxColumnInputs, and held in n.
 template <size_t N>
 struct NInputs {
     std::vector<ContigDouble> buffers;
-    std::array<double*, N> data{};
+    std::array<double*, (N ? N : kMaxColumnInputs)> data{};
+    std::size_t n = N;
     shape::Plan plan;
 };
 
@@ -377,14 +380,16 @@ inline void plan_inputs(NInputs<N>& r) {
     std::vector<shape::Shape> shapes;
     shapes.reserve(r.buffers.size());
     for (const auto& b : r.buffers) shapes.push_back(b.shape);
-    r.plan = shape::broadcast(shape::input_views(shapes, N));
-    for (size_t i = 0; i < N; ++i)
+    const std::size_t n = N ? N : r.n;
+    r.plan = shape::broadcast(shape::input_views(shapes, n));
+    for (size_t i = 0; i < n; ++i)
         r.data[i] = const_cast<double*>(r.buffers[r.buffers.size() == 1 ? 0 : i].values());
 }
 
 template <size_t N>
-inline NInputs<N> read_inputs(const std::vector<nb::handle>& arrays) {
+inline NInputs<N> read_inputs(const std::vector<nb::handle>& arrays, std::size_t n = N) {
     NInputs<N> r;
+    r.n = n;
     r.buffers.reserve(arrays.size());
     for (nb::handle h : arrays) add_array_input(r, h);
     plan_inputs(r);
@@ -395,10 +400,10 @@ inline NInputs<N> read_inputs(const std::vector<nb::handle>& arrays) {
 // It is read in place when it is float64 and C-contiguous: each field is a
 // strided view of it (split_fields), as the column driver reads it.
 template <size_t N>
-inline std::optional<NInputs<N>> maybe_read_packed(const nb::args& args) {
+inline std::optional<NInputs<N>> maybe_read_packed(const nb::args& args, std::size_t n = N) {
     if (args.size() != 1 || !is_ndarray(args[0])) return std::nullopt;
     if (nb::cast<nb::ndarray<nb::ro>>(args[0]).ndim() < 2) return std::nullopt;
-    return read_inputs<N>({ args[0] });
+    return read_inputs<N>({ args[0] }, n);
 }
 
 // One argument of an N-input array call: an array with a time axis. Any
@@ -412,8 +417,9 @@ inline void add_call_array(NInputs<N>& r, nb::handle self, const nb::tuple& inpu
 }
 
 template <size_t N>
-inline NInputs<N> read_tuple_inputs(nb::handle self, const nb::tuple& inputs) {
+inline NInputs<N> read_tuple_inputs(nb::handle self, const nb::tuple& inputs, std::size_t n = N) {
     NInputs<N> r;
+    r.n = n;
     r.buffers.reserve(inputs.size());
     for (nb::handle h : inputs) add_call_array(r, self, inputs, h);
     plan_inputs(r);
@@ -460,10 +466,10 @@ inline bool is_numpy_number_scalar_type(PyTypeObject* t) {
 // Python float or int or a NumPy number scalar, read into `v`. Any other
 // argument returns false and the call takes the full dispatch, which gives
 // the same value for these inputs (Case 3 of the N-input routes).
-template <size_t N>
-inline bool read_scalar_args(const nb::args& args, std::array<double, N>& v) {
-    if (args.size() != N) return false;
-    for (std::size_t i = 0; i < N; ++i) {
+template <size_t N, size_t C>
+inline bool read_scalar_args(const nb::args& args, std::array<double, C>& v, std::size_t n = N) {
+    if (args.size() != n) return false;
+    for (std::size_t i = 0; i < n; ++i) {
         PyObject* o = args[i].ptr();
         if (PyFloat_CheckExact(o)) {
             v[i] = PyFloat_AsDouble(o);  // cannot fail on an exact float
@@ -499,8 +505,9 @@ inline ContigDouble read_number_sequence(nb::handle self, nb::handle seq, std::s
 // The N inputs of a call that mixes arrays with lists or tuples: each list
 // reads as an array of its length, and the arrays broadcast as usual.
 template <size_t N>
-inline NInputs<N> read_mixed_inputs(nb::handle self, const nb::tuple& inputs) {
+inline NInputs<N> read_mixed_inputs(nb::handle self, const nb::tuple& inputs, std::size_t n = N) {
     NInputs<N> r;
+    r.n = n;
     r.buffers.reserve(inputs.size());
     for (std::size_t i = 0; i < inputs.size(); ++i) {
         nb::handle h = inputs[i];
@@ -813,10 +820,19 @@ struct EagerRun {
     EagerRun& operator=(const EagerRun&) = delete;
 };
 
+// The number of inputs of an operator: Op::kN, or the instance's n_in() when
+// Op::kN is 0 (a VarArityView, whose count is a setting). Constant for every
+// fixed-arity operator, so its loops keep their compile-time bounds.
+template <class Op>
+inline std::size_t in_fields(const Op& self) {
+    if constexpr (Op::kN == 0) return self.n_in();
+    else return Op::kN;
+}
+
 // The N values of one event; `event` is its position, for the error message.
 template <class Op>
 typename Op::InputArray cast_to_array(Op& self, const nb::tuple& tuple, std::size_t event) {
-    constexpr size_t N = Op::kN;
+    const size_t N = in_fields(self);
     if (tuple.size() != N) throw_input_count(op_display_name(py_self(self)), N, tuple.size());
     typename Op::InputArray array;
     for (size_t i = 0; i < N; ++i) {
@@ -835,7 +851,7 @@ typename Op::InputArray cast_to_array(Op& self, const nb::tuple& tuple, std::siz
 // RangeError.
 template <class Op>
 nb::tuple args_to_tuple_n(Op& self, const nb::args& args) {
-    constexpr size_t N = Op::kN;
+    const size_t N = in_fields(self);
     if (args.size() == N) return nb::cast<nb::tuple>(args);
     if (args.size() == 1) {   // a container of N
         nb::object arg = nb::borrow<nb::object>(args[0]);
@@ -857,14 +873,14 @@ nb::tuple args_to_tuple_n(Op& self, const nb::args& args) {
 // step, stop when any is exhausted. Returns a list of ResultTuple.
 template <class Op>
 nb::object eager_parallel(Op& self, const nb::tuple& inputs) {
-    constexpr size_t N = Op::kN;
+    const size_t N = in_fields(self);
     for (nb::handle h : inputs) {
         if (!is_event_list(h, false)) continue;
         std::vector<nb::object> sources;
         for (nb::handle s : inputs) sources.push_back(nb::borrow<nb::object>(s));
         return collect_events(py_self(self), std::move(sources));
     }
-    std::array<nb::object, N> iters;
+    std::array<nb::object, (Op::kN ? Op::kN : kMaxColumnInputs)> iters;
     for (size_t i = 0; i < N; ++i) iters[i] = nb::borrow<nb::object>(inputs[i]).attr("__iter__")();
     EagerRun<Op> run(self);
     std::vector<typename Op::ResultTuple> results;
@@ -919,9 +935,10 @@ template <class Op>
 inline void run_op_columns(Op& self, const detail::NInputs<Op::kN>& in, double* out) {
     static_assert(Op::kN <= kMaxColumnInputs, "too many inputs for the column driver");
     const shape::Plan& p = in.plan;
-    const double* base[Op::kN];
-    for (size_t i = 0; i < Op::kN; ++i) base[i] = in.data[i];
-    run_columns(column_runner(self), Op::kN, out_fields(self), p.T, p.columns, base, p.time_stride.data(),
+    const std::size_t n = in_fields(self);
+    const double* base[Op::kN ? Op::kN : kMaxColumnInputs];
+    for (size_t i = 0; i < n; ++i) base[i] = in.data[i];
+    run_columns(column_runner(self), n, out_fields(self), p.T, p.columns, base, p.time_stride.data(),
                 [&p](std::size_t i, std::size_t c) { return p.offset[i * p.columns + c]; }, out,
                 self.tight_column());
 }
@@ -1147,13 +1164,13 @@ nb::object functor_1i_1o(Op& self, nb::object input) {
 // ---------------------------------------------------------
 template <class Op>
 nb::object functor_Ni_1o(Op& self, const nb::args& raw_args) {
-    constexpr size_t N = Op::kN;
+    const size_t N = in_fields(self);
     // Coerce any nanobind-unsupported-dtype array (e.g. longdouble/float128)
     // to float64 before the array-vs-iterable routing below, so it is
     // processed as an array. No-op (returns raw_args) for supported dtypes.
     nb::args args = detail::coerce_args_if_unsupported(raw_args, self);
 
-    if (auto ins = detail::maybe_read_packed<N>(args)) {
+    if (auto ins = detail::maybe_read_packed<Op::kN>(args, N)) {
         return handle_input_Ni_1o_numpy(self, *ins);
     }
 
@@ -1212,8 +1229,8 @@ nb::object functor_Ni_1o(Op& self, const nb::args& raw_args) {
     // (array in, array out - Rule A), not N scalars collapsing to one scalar.
     if (is_series_array(inputs[0])) {
         auto ins = detail::mixes_sequences_and_arrays(inputs)
-            ? detail::read_mixed_inputs<N>(py_self(self), inputs)
-            : detail::read_tuple_inputs<N>(py_self(self), inputs);
+            ? detail::read_mixed_inputs<Op::kN>(py_self(self), inputs, N)
+            : detail::read_tuple_inputs<Op::kN>(py_self(self), inputs, N);
         return handle_input_Ni_1o_numpy(self, ins);
     }
 
@@ -1230,7 +1247,7 @@ nb::object functor_Ni_1o(Op& self, const nb::args& raw_args) {
     // A list or tuple mixed with arrays, in any position, reads as an array
     // of its length, so the call returns an array (decision A8).
     if (detail::mixes_sequences_and_arrays(inputs)) {
-        auto ins = detail::read_mixed_inputs<N>(py_self(self), inputs);
+        auto ins = detail::read_mixed_inputs<Op::kN>(py_self(self), inputs, N);
         return handle_input_Ni_1o_numpy(self, ins);
     }
 
@@ -1268,13 +1285,13 @@ nb::object functor_Ni_1o(Op& self, const nb::args& raw_args) {
 // ---------------------------------------------------------
 template <class Op>
 nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
-    constexpr size_t N = Op::kN;
+    const size_t N = in_fields(self);
     // Coerce any nanobind-unsupported-dtype array (e.g. longdouble/float128)
     // to float64 before the array-vs-iterable routing below, so it is
     // processed as an array. No-op (returns raw_args) for supported dtypes.
     nb::args args = detail::coerce_args_if_unsupported(raw_args, self);
 
-    if (auto ins = detail::maybe_read_packed<N>(args)) {
+    if (auto ins = detail::maybe_read_packed<Op::kN>(args, N)) {
         return handle_input_Ni_Mo_numpy(self, *ins);
     }
 
@@ -1330,8 +1347,8 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
     // Case 2: tuple of N numpy arrays whose asset axes broadcast.
     if (is_series_array(inputs[0])) {
         auto ins = detail::mixes_sequences_and_arrays(inputs)
-            ? detail::read_mixed_inputs<N>(py_self(self), inputs)
-            : detail::read_tuple_inputs<N>(py_self(self), inputs);
+            ? detail::read_mixed_inputs<Op::kN>(py_self(self), inputs, N)
+            : detail::read_tuple_inputs<Op::kN>(py_self(self), inputs, N);
         return handle_input_Ni_Mo_numpy(self, ins);
     }
 
@@ -1348,7 +1365,7 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
     // A list or tuple mixed with arrays, in any position, reads as an array
     // of its length, so the call returns an array (decision A8).
     if (detail::mixes_sequences_and_arrays(inputs)) {
-        auto ins = detail::read_mixed_inputs<N>(py_self(self), inputs);
+        auto ins = detail::read_mixed_inputs<Op::kN>(py_self(self), inputs, N);
         return handle_input_Ni_Mo_numpy(self, ins);
     }
 
@@ -1384,7 +1401,8 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
 template <class Op>
 nb::object functor_route(Op& self, const nb::args& args) {
     constexpr size_t N = Op::kN, M = Op::kM;   // M == 0: a count set per instance (> 1)
-    static_assert(!(N == 1 && M == 0), "a variable output count needs more than one input");
+    static_assert(!(N == 1 && M == 0) && (N != 0 || M == 0),
+                  "a variable input count needs a variable output count");
     for (nb::handle a : args) {
         if (screamer::is_dag_node(nb::borrow<nb::object>(a)))
             return screamer::make_dag_functor_node(py_self(self), nb::cast<nb::tuple>(args));
@@ -1398,7 +1416,7 @@ nb::object functor_route(Op& self, const nb::args& args) {
         }
     }
     // Async iterables, for every arity: N sources or one source of events.
-    if (nb::object it = route_async(py_self(self), args, N); it.is_valid()) return it;
+    if (nb::object it = route_async(py_self(self), args, in_fields(self)); it.is_valid()) return it;
     if constexpr (N == 1 && M == 1) return functor_1i_1o<Op>(self, nb::borrow<nb::object>(args[0]));
     else if constexpr (N > 1 && M == 1) return functor_Ni_1o<Op>(self, args);
     else if constexpr (N == 1 && M > 1) return functor_1i_Mo<Op>(self, nb::borrow<nb::object>(args[0]));
@@ -1407,9 +1425,8 @@ nb::object functor_route(Op& self, const nb::args& args) {
 
 template <class Op>
 nb::object functor_call(Op& self, nb::args raw) {
-    constexpr size_t N = Op::kN;
     // One scalar event: exact numbers skip normalization and routing (D1).
-    if (typename Op::InputArray v; detail::read_scalar_args<N>(raw, v))
+    if (typename Op::InputArray v; detail::read_scalar_args<Op::kN>(raw, v, in_fields(self)))
         return nb::cast(self.call(v));
     nb::args args = normalize_args(raw, self);
     try {

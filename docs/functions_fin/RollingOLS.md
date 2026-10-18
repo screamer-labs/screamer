@@ -84,19 +84,26 @@ names above are those of the default `n_regressors=3`. A batch call returns them
 axis, in this order.
 
 The coefficients and `r2` are `NaN` until the window is full, and `pred` until the row after.
-`b1` to `bk` match `numpy.linalg.lstsq` on the same window. Without an intercept, `r2` is the
-uncentered `1 - SSE / sum(y^2)`, as statsmodels reports it for a model without a constant; with
-one it is `1 - SSE / sum((y - mean(y))^2)`. A window whose regressors are collinear, for example
-one that is constant in the window when the fit has an intercept, has no unique fit: `r2` and the
-coefficients are `NaN` for that row, and so is the next `pred`. More precisely, a regressor counts
-as collinear when the others explain all but 1e-12 of its variation in the window.
+Without an intercept, `r2` is the uncentered `1 - SSE / sum(y^2)`, as statsmodels reports it for a
+model without a constant; with one it is `1 - SSE / sum((y - mean(y))^2)`. A window whose
+regressors are collinear, for example one that is constant in the window when the fit has an
+intercept, has no unique fit: `r2` and the coefficients are `NaN` for that row, and so is the next
+`pred`. More precisely, a regressor counts as collinear when the others explain all but 1e-12 of
+its variation in the window.
 
-With an intercept, the operator keeps the window means and the centered cross-products of the
-columns, so the fit stays accurate when the levels are large next to their spread. Each row
-updates them in `O(k^2)` and the normal equations are solved by Cholesky in `O(k^3)`. The
-cross-products are recomputed exactly from the stored rows every `window_size` rows, and at once
-when the row leaving the window was far out of the others, so rounding does not build up. For the
-fit over the whole history so far, use [`ExpandingOLS`](../functions_expanding/ExpandingOLS.md).
+The operator keeps the window means and the centered cross-products of the columns, updated in
+`O(k^2)` per row, and solves the normal equations by Cholesky in `O(k^3)`, so a row costs
+`O(k^3)` in all. The cross-products are recomputed exactly from the stored rows every
+`window_size` rows, and at once when the row leaving the window was far out of the others, so
+rounding does not build up. With an intercept the fit uses the centered normal equations, so the
+level of the data costs no digits: on well-conditioned regressors `b1` to `bk` match
+`numpy.linalg.lstsq` on the same window to about 1e-14 at any level. Without an intercept it solves the raw normal equations `X'X b = X'y`, formed from the centered sums at each
+row. Normal equations square the condition number of the regressors, so the coefficients keep about
+`16 - 2 log10(cond)` significant digits, where `cond` is the condition number of the window's
+regressor matrix. On data far from zero, such as prices near 1e5 with unit moves, `cond` is large
+and the coefficients keep only a few digits; prefer an intercept there, or regress on differences.
+For the fit over the whole history so far, use
+[`ExpandingOLS`](../functions_expanding/ExpandingOLS.md).
 
 For a forecast `h` rows ahead, regress `y` on the regressors lagged by `h` rows, as in the example
 below. The forecast made at a row is then `b0 + b1 x1 + ... + bk xk` with that row's coefficients
