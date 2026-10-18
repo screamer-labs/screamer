@@ -39,7 +39,6 @@ parameters:
 - name: huber
   type: float
   default: .inf
-  min: 0.0
   description: Outlier threshold, in standard deviations of the spread. A step whose spread
     is further out than this updates the intercept and slope with a weight that falls with
     its distance, so one bad print cannot jerk the hedge ratio. 2 to 3 is typical. inf, the
@@ -114,6 +113,16 @@ variance `obs_var / w` in place of `obs_var`, with
 This is the Huber M-estimate step of the Masreliez and Martin (1977) robust
 filter. Steps within `huber` standard deviations update exactly as without it;
 2 to 3 is a typical value.
+
+The weight applies only while the coefficients' part of the predicted
+variance, `h R h'` with `h = [1, x]`, is below `obs_var`, and never on the
+first step, which has no prediction. While the state carries less information
+than one observation, no observation can be an outlier relative to it, so the
+start-up transient from the zero prior is followed as without `huber`. The
+state noise alone adds `delta / (1 - delta) * (1 + x^2)` to `h R h'`, so with a
+`delta` that is large next to `obs_var` the weight never applies. An
+infinite observation, when the weight applies, gets the weight 0: the
+coefficients keep their values and their variance grows by the state noise.
 
 The outputs `spread` and `spread_std` are the same as without `huber`: the raw
 prediction error and its un-inflated deviation, so `spread / spread_std` still

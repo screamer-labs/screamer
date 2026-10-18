@@ -40,8 +40,11 @@
 // update uses obs_var / w, w = huber / (|e| / sqrt(Q)), in place of obs_var in
 // Q, the gain and the Joseph form (a Huber M-estimate step, Masreliez and
 // Martin 1977), so an outlier's pull on the coefficients is bounded. The
-// spread and spread_std outputs keep the raw innovation and the un-inflated
-// sqrt(Q).
+// weight applies only while h R h' < obs_var, never on the first step (which
+// has no prediction): while the state carries less information than one
+// observation, no observation can be an outlier relative to it. An infinite
+// observation gets w = 0: the coefficients stay and P = R. The spread and
+// spread_std outputs keep the raw innovation and the un-inflated sqrt(Q).
 
 #include <cmath>
 #include <limits>
@@ -93,12 +96,18 @@ public:
         const double sq = std::sqrt(q);
         const double e = y - (a_ + b_ * x);
         double v = obs_var_, qv = q;               // observation variance used by the update
-        if (robust_) {
+        if (robust_ && n_ > 0 && hrh < obs_var_) {
             // Huber weight on the standardized innovation: inflate the
             // observation variance of an outlier to obs_var / w.
             const double az = std::fabs(e) / sq;
             if (az > huber_) {
-                v /= huber_ / az;
+                const double w = huber_ / az;
+                if (!(w > 0.0)) {           // an infinite observation: no update
+                    p00_ = r00; p01_ = r01; p11_ = r11;
+                    ++n_;
+                    return {b_, a_, e, sq};
+                }
+                v /= w;
                 qv = hrh + v;
             }
         }

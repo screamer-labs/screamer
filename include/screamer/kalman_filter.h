@@ -26,7 +26,11 @@
 // observation variance observation_var / w, w = huber / |z_std|, in place of
 // observation_var (a Huber M-estimate step, Masreliez and Martin 1977). An
 // outlier's pull on the state is then bounded, however large it is; smaller
-// innovations update exactly as before.
+// innovations update exactly as before. The weight applies only while
+// P_pred < observation_var: while the state carries less information than one
+// observation, no observation can be an outlier relative to it, so the
+// start-up transient is not damped. An infinite observation gets w = 0: the
+// update is skipped (x stays, P = P_pred).
 
 #include "screamer/common/finite_settings.h"
 #include <cmath>
@@ -100,11 +104,18 @@ public:
         const double P_pred = P_ + process_var_;
         const double e = z - x_;
         double R = observation_var_;
-        if (robust_) {
+        if (robust_ && P_pred < R) {
             // Huber weight on the standardized innovation: inflate the
             // observation variance of an outlier to R / w.
             const double az = std::fabs(e) / std::sqrt(P_pred + R);
-            if (az > huber_) R /= huber_ / az;
+            if (az > huber_) {
+                const double w = huber_ / az;
+                if (!(w > 0.0)) {           // an infinite observation: no update
+                    P_ = P_pred;
+                    return x_;
+                }
+                R /= w;
+            }
         }
         // Update.
         const double K = P_pred / (P_pred + R);

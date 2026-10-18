@@ -41,7 +41,6 @@ parameters:
 - name: huber
   type: float
   default: .inf
-  min: 0.0
   description: Outlier threshold, in standard deviations of the prediction error. An
     observation further out than this updates the state with a weight that falls with its
     distance, so it cannot pull the state far. 2 to 3 is typical. inf, the default, is the
@@ -87,6 +86,10 @@ w = \frac{\text{huber}}{|e| / \sqrt{Q}} < 1,
 $$
 
 and the gain and variance update use the observation variance $\sigma^2_o / w$ in place of $\sigma^2_o$. This is the Huber M-estimate step of the Masreliez and Martin (1977) robust filter. Observations within `huber` standard deviations update exactly as without it. A value of 2 to 3 is typical.
+
+The weight applies only while $P_\text{pred} < \sigma^2_o$. While the state carries less information than one observation, no observation can be an outlier relative to it, so the start-up transient from `initial_state` is followed as without `huber`. In the steady state the condition holds when `process_var` is below half of `observation_var`; with a larger `process_var` the weight never applies. A diffuse prior, `initial_variance=inf`, sets the state to the first observation and also avoids a long transient.
+
+An infinite observation, when the weight applies, gets the weight 0: the update is skipped, so the state keeps its value and its variance grows to $P_\text{pred}$.
 
 The protection has a cost: a genuine level shift is also treated as an outlier at first, so the filter takes longer to follow it.
 
