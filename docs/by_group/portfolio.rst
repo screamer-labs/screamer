@@ -9,7 +9,7 @@ Rank assets against each other, turn scores into weights, backtest a book of man
 Cross-sectional
 ---------------
 
-Transforms across the assets of one time step: ranks, z-scores, demeaning, winsorizing, and weight normalization.
+Transforms across the assets of one time step: ranks, z-scores, demeaning, winsorizing, weight normalization, and the dispersion of a row.
 
 .. list-table::
    :header-rows: 1
@@ -23,6 +23,8 @@ Transforms across the assets of one time step: ranks, z-scores, demeaning, winso
      - Scale each row of scores to portfolio weights with a chosen gross exposure, and optionally a net exposure.
    * - :doc:`Rank of each asset within the row </functions_cross/CrossRank>`
      - Rank each asset against the others at the same step, scaled to [-1, 1] or [0, 1].
+   * - :doc:`Standard deviation across the row </functions_cross/CrossStd>`
+     - Standard deviation across the assets of each step: one dispersion value per row.
    * - :doc:`Long the top, short the bottom of each row </functions_cross/CrossTopBottom>`
      - +1 for the highest values of each row, -1 for the lowest, 0 for the rest.
    * - :doc:`Clip each row to its quantiles </functions_cross/CrossWinsorize>`
@@ -78,6 +80,7 @@ Hedge ratios, spreads, stationarity tests, and entry and exit rules for a pairs 
    /functions_cross/CrossDemean
    /functions_cross/CrossNormalize
    /functions_cross/CrossRank
+   /functions_cross/CrossStd
    /functions_cross/CrossTopBottom
    /functions_cross/CrossWinsorize
    /functions_cross/CrossZscore

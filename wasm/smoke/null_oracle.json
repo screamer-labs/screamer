@@ -1810,6 +1810,26 @@
  },
  {
   "accepts_bool": {
+   "ddof": false
+  },
+  "accepts_none": {
+   "ddof": false
+  },
+  "base": {},
+  "below_min": {
+   "ddof": [
+    -1,
+    "CrossStd: ddof must be at least 0, got -1"
+   ]
+  },
+  "bool_message": {
+   "ddof": "CrossStd: ddof must be an integer, got bool"
+  },
+  "name": "CrossStd",
+  "non_finite": {}
+ },
+ {
+  "accepts_bool": {
    "count": false
   },
   "accepts_none": {

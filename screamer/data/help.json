@@ -127,6 +127,50 @@
     ],
     "doc_path": "functions_cross/CrossRank"
   },
+  "CrossStd": {
+    "name": "CrossStd",
+    "title": "Standard deviation across the row",
+    "implementation_family": "cross",
+    "topics": [
+      "cross-sectional"
+    ],
+    "tags": [
+      "dispersion",
+      "cross-sectional dispersion",
+      "cross-sectional standard deviation",
+      "std",
+      "standard deviation",
+      "return dispersion",
+      "cross-sectional"
+    ],
+    "short": "Standard deviation across the assets of each step: one dispersion value per row.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "ddof",
+        "type": "int",
+        "default": 1,
+        "min": 0,
+        "description": "Delta degrees of freedom. The divisor is n - ddof, with n the number of non-NaN assets in the row. 1 gives the sample standard deviation (pandas), 0 the population one (numpy)."
+      }
+    ],
+    "nan_policy": "ignore",
+    "see_also": [
+      "CrossZscore",
+      "CrossDemean",
+      "RollingStd"
+    ],
+    "details": "## Description\n\n`CrossStd` returns the standard deviation of each row's values, taken over the\nassets that are not `NaN`. With `n` valid assets and row mean $\\bar{x}_t$,\n\n$$\ny[t] = \\sqrt{\\frac{1}{n - \\text{ddof}} \\sum_{i \\text{ valid}} \\left(x_{t,i} - \\bar{x}_t\\right)^2}\n$$\n\nIt matches `pandas.DataFrame.std(axis=1, ddof=ddof)` and\n`numpy.nanstd(x, axis=1, ddof=ddof)`. The default `ddof=1` is the sample\nstandard deviation, the scale [`CrossZscore`](CrossZscore.md) divides by. A\nrow with `n <= ddof` valid assets gives `NaN`.\n\nApplied to returns, `y[t]` is the cross-sectional return dispersion: how far\napart the assets moved at step `t`. Dispersion is used to condition momentum\nand other cross-sectional strategies, and to scale cross-sectional scores.\n\n`CrossStd` is a cross-sectional reduction: each event is one row of `K`\nvalues, one per asset, and the output is one value computed from that row\nalone. A `(T, K)` array gives a `(T,)` series, one row of `K` values gives a\nfloat, and an iterator of rows gives an iterator of floats. The number of\nassets is fixed by the first row after `reset()`.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` for an asset leaves that asset out of the row, and the statistic is computed across the remaining assets. A row with too few valid assets gives `NaN`. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage example",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import CrossStd, LogReturn\n\nrng = np.random.default_rng(5)\nvol = np.where(np.arange(500) < 250, 0.01, 0.025)[:, None]   # calm, then turbulent\nreturns = rng.standard_normal((500, 8)) * vol\nprices = 100 * np.exp(np.cumsum(returns, axis=0))\ndispersion = CrossStd()(LogReturn()(prices))\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.08)\nfor k in range(prices.shape[1]):\n    fig.add_trace(go.Scatter(y=prices[:, k], mode='lines', line=dict(width=1),\n                             showlegend=False), row=1, col=1)\nfig.add_trace(go.Scatter(y=dispersion, mode='lines', name='CrossStd of returns'),\n              row=2, col=1)\nfig.update_layout(title='Return dispersion across eight assets',\n                  xaxis2_title='Step', yaxis_title='Price', yaxis2_title='Dispersion',\n                  margin=dict(l=20, r=20, t=80, b=20))\nfig.show()"
+      }
+    ],
+    "doc_path": "functions_cross/CrossStd"
+  },
   "CrossTopBottom": {
     "name": "CrossTopBottom",
     "title": "Long the top, short the bottom of each row",

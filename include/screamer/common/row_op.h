@@ -22,17 +22,25 @@ namespace screamer {
 // is a row of each of the operator's (T, K) inputs laid end to end. The output
 // is asset-major, K blocks of `fields_out` values, which is one row of a
 // (T, K, fields_out) result. With one field in and out both are one row of K.
+//
+// A row reduction (`per_asset_out` false, such as CrossStd) instead returns
+// `fields_out` values for the whole row, one row of a (T,) or (T, fields_out)
+// result.
 class RowOp : public EvalOp {
 public:
-    explicit RowOp(std::size_t fields_in = 1, std::size_t fields_out = 1)
-        : fields_in_(fields_in), fields_out_(fields_out) {}
+    explicit RowOp(std::size_t fields_in = 1, std::size_t fields_out = 1,
+                   bool per_asset_out = true)
+        : fields_in_(fields_in), fields_out_(fields_out), per_asset_out_(per_asset_out) {}
 
     std::size_t fields_in() const { return fields_in_; }
     std::size_t fields_out() const { return fields_out_; }
+    bool per_asset_out() const { return per_asset_out_; }
     std::size_t width() const { return width_; }
+    // Values one event of k assets writes.
+    std::size_t out_width(std::size_t k) const { return per_asset_out_ ? fields_out_ * k : fields_out_; }
 
     std::size_t n_in() const override { return fields_in_ * width_; }
-    std::size_t n_out() const override { return fields_out_ * width_; }
+    std::size_t n_out() const override { return width_ ? out_width(width_) : 0; }
 
     void eval(const double* in, double* out) override { call_row(in, out, width_); }
 
@@ -50,7 +58,7 @@ public:
         reset_state();
     }
 
-    // One event of k assets: read fields_in * k values, write k * fields_out.
+    // One event of k assets: read fields_in * k values, write out_width(k).
     void call_row(const double* in, double* out, std::size_t k) {
         if (k == 0)
             throw std::invalid_argument("a row needs at least one asset.");
@@ -71,7 +79,7 @@ public:
     // array, F last (rule 4): each is gathered into field-major order. Both
     // layouts give the same events, so the same results bit for bit.
     void call_rows(const double* in, double* out, std::size_t rows, std::size_t k, bool packed) {
-        const std::size_t fi = fields_in_, step_in = fi * k, step_out = fields_out_ * k;
+        const std::size_t fi = fields_in_, step_in = fi * k, step_out = out_width(k);
         if (!packed || fi == 1) {
             for (std::size_t r = 0; r < rows; ++r) call_row(in + r * step_in, out + r * step_out, k);
             return;
@@ -93,6 +101,7 @@ protected:
 
 private:
     std::size_t fields_in_, fields_out_;
+    bool per_asset_out_;
     std::size_t width_ = 0;
 };
 

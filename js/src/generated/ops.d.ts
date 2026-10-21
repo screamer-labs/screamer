@@ -1315,6 +1315,27 @@ export declare function CrossRank(options: CrossRankOptions): ScreamerOp;
  */
 export declare function CrossRank(scale?: string): ScreamerOp;
 
+/** The settings of CrossStd by name, for `CrossStd({ ... })`. */
+export interface CrossStdOptions {
+  /** Delta degrees of freedom. The divisor is n - ddof, with n the number of non-NaN assets in the row. 1 gives the sample standard deviation (pandas), 0 the population one (numpy). @defaultValue `1` */
+  ddof?: number;
+}
+
+/**
+ * Standard deviation across the assets of each step: one dispersion value per row.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_cross/CrossStd.html for the full reference.
+ */
+export declare function CrossStd(options: CrossStdOptions): ScreamerOp;
+/**
+ * Standard deviation across the assets of each step: one dispersion value per row.
+ *
+ * @param ddof Delta degrees of freedom. The divisor is n - ddof, with n the number of non-NaN assets in the row. 1 gives the sample standard deviation (pandas), 0 the population one (numpy).
+ * @see https://screamer.readthedocs.io/en/latest/functions_cross/CrossStd.html for the full reference.
+ */
+export declare function CrossStd(ddof?: number): ScreamerOp;
+
 /** The settings of CrossTopBottom by name, for `CrossTopBottom({ ... })`. */
 export interface CrossTopBottomOptions {
   /** Number of assets on each side. @defaultValue `1` */

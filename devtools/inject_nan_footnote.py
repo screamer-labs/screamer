@@ -214,6 +214,13 @@ FOOTNOTE_BODY = {
         "asset at that step, and the statistic is computed across the remaining "
         "assets. " + NAN_PAGE_LINK
     ),
+    # Cross-sectional reductions (one value per row) leave a NaN asset out of
+    # the row; the output is NaN only when too few assets are left.
+    "ignore-cross-reduce": (
+        "**Policy: `ignore`.** A `NaN` for an asset leaves that asset out of the "
+        "row, and the statistic is computed across the remaining assets. A row "
+        "with too few valid assets gives `NaN`. " + NAN_PAGE_LINK
+    ),
     # Backtest engines give a NaN field its own meaning (hold the position,
     # skip the bar, leave a quote side empty), so the footnote defers to the
     # Description rather than promising a NaN output row.
@@ -235,6 +242,8 @@ FOOTNOTE_BODY = {
 
 STATELESS_FAMILIES = ("math",)
 CROSS_FAMILIES = ("cross",)
+# Cross-sectional operators that reduce a row to one value instead of one per asset.
+CROSS_REDUCTIONS = ("CrossStd",)
 KIND_RE = re.compile(r"^kind:\s*(.+?)\s*$", re.M)
 FAMILY_RE = re.compile(r"^implementation_family:\s*(.+?)\s*$", re.M)
 
@@ -264,7 +273,7 @@ def render_footnote(policy: str, family: str | None = None, name: str = "") -> s
     elif policy == "ignore" and family in STATELESS_FAMILIES:
         key = "ignore-stateless"
     elif policy == "ignore" and family in CROSS_FAMILIES:
-        key = "ignore-cross"
+        key = "ignore-cross-reduce" if name in CROSS_REDUCTIONS else "ignore-cross"
     body = FOOTNOTE_BODY[key]
     return (
         f"{START_MARKER}\n"

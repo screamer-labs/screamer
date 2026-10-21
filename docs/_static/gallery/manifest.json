@@ -6,6 +6,7 @@
  "functions_cross/CrossDemean": "a7dafdf0c3db4222",
  "functions_cross/CrossNormalize": "6930ab245eafd778",
  "functions_cross/CrossRank": "5a66123a8b478eeb",
+ "functions_cross/CrossStd": "90ad4522bb46db40",
  "functions_cross/CrossTopBottom": "dd6dee3926e53e9b",
  "functions_cross/CrossWinsorize": "4f2514f7dd45a65e",
  "functions_cross/CrossZscore": "8491ca0c4bc0e6bb",

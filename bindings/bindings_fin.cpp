@@ -434,8 +434,10 @@ nb::object portfolio_report_call(screamer::PortfolioReport& self, nb::args raw) 
 // A RowOp event is one row of K assets with fields_in values per asset. With
 // (T, K) arrays, one per input field, the call is T events and returns (T, K)
 // (one output field) or (T, K, fields_out); with 1-D rows of K values it is one
-// event and returns (K,) or (K, fields_out). A single-field operator also
-// takes an iterator of rows and returns a lazy iterator of rows.
+// event and returns (K,) or (K, fields_out). A row reduction (CrossStd)
+// drops the K axis: (T,) or (T, fields_out), and one row gives a float or
+// (fields_out,). A single-field operator also takes an iterator of rows and
+// returns a lazy iterator of rows (of floats for a one-field reduction).
 
 screamer::detail::ContigDouble row_op_input(nb::object x) {
     if (screamer::detail::is_unsupported_dtype_array(x))
@@ -448,18 +450,31 @@ screamer::detail::ContigDouble row_op_input(nb::object x) {
     return screamer::detail::read_contig_double(nb::cast<nb::ndarray<nb::ro>>(x));
 }
 
-std::vector<std::size_t> row_op_shape(std::size_t time, std::size_t k, std::size_t fo,
-                                      bool batch) {
+// (T, K) / (T, K, fo) for a batch and (K,) / (K, fo) for one row; a row
+// reduction drops the K axis.
+std::vector<std::size_t> row_op_shape(const screamer::RowOp& op, std::size_t time,
+                                      std::size_t k, bool batch) {
     std::vector<std::size_t> shape;
     if (batch) shape.push_back(time);
-    shape.push_back(k);
-    if (fo > 1) shape.push_back(fo);
+    if (op.per_asset_out()) shape.push_back(k);
+    if (op.fields_out() > 1) shape.push_back(op.fields_out());
     return shape;
+}
+
+// The result of a row-op call; one row of a one-field row reduction is a float.
+nb::object row_op_result(const screamer::RowOp& op, double* out, std::size_t time,
+                         std::size_t k, bool batch) {
+    if (!batch && !op.per_asset_out() && op.fields_out() == 1) {
+        const double v = out[0];
+        delete[] out;
+        return nb::float_(v);
+    }
+    return screamer::detail::make_owned_array(out, row_op_shape(op, time, k, batch));
 }
 
 nb::object row_op_run(screamer::RowOp& self,
                       const std::vector<screamer::detail::ContigDouble>& fields) {
-    const std::size_t fi = self.fields_in(), fo = self.fields_out();
+    const std::size_t fi = self.fields_in();
     const std::size_t nd = fields[0].ndim();
     if (nd != 1 && nd != 2)
         throw nb::value_error(
@@ -471,9 +486,9 @@ nb::object row_op_run(screamer::RowOp& self,
     const std::size_t time = batch ? fields[0].shape[0] : 1;
     const std::size_t k = fields[0].shape[nd - 1];
     if (k == 0) throw nb::value_error("a row operator needs at least one asset.");
-    const std::size_t n_out = time * k * fo;
+    const std::size_t step_out = self.out_width(k), n_out = time * step_out;
     double* out = new double[n_out ? n_out : 1];
-    std::vector<double> event(fi * k);
+    std::vector<double> event(fi > 1 ? fi * k : 0);
     if (batch) self.reset();
     try {
         for (std::size_t t = 0; t < time; ++t) {
@@ -483,7 +498,7 @@ nb::object row_op_run(screamer::RowOp& self,
                     std::copy_n(fields[f].data.data() + t * k, k, event.data() + f * k);
                 in = event.data();
             }
-            self.call_row(in, out + t * k * fo, k);
+            self.call_row(in, out + t * step_out, k);
         }
     } catch (...) {
         delete[] out;
@@ -491,7 +506,7 @@ nb::object row_op_run(screamer::RowOp& self,
         throw;
     }
     if (batch) self.reset();
-    return screamer::detail::make_owned_array(out, row_op_shape(time, k, fo, batch));
+    return row_op_result(self, out, time, k, batch);
 }
 
 // A packed (T, K, F) array, F = fields_in: T events, one call_rows over its
@@ -499,7 +514,7 @@ nb::object row_op_run(screamer::RowOp& self,
 nb::object row_op_packed(screamer::RowOp& self, nb::object x) {
     const screamer::detail::ContigDouble p =
         screamer::detail::read_double_view(nb::cast<nb::ndarray<nb::ro>>(x));
-    const std::size_t fi = self.fields_in(), fo = self.fields_out();
+    const std::size_t fi = self.fields_in();
     if (p.shape[2] != fi)
         throw nb::value_error(("a packed input of " + screamer::op_display_name(nb::find(self)) +
                                " has shape (T, K, " +
@@ -508,7 +523,7 @@ nb::object row_op_packed(screamer::RowOp& self, nb::object x) {
                                ").").c_str());
     const std::size_t time = p.shape[0], k = p.shape[1];
     if (k == 0) throw nb::value_error("a row operator needs at least one asset.");
-    const std::size_t n_out = time * k * fo;
+    const std::size_t n_out = time * self.out_width(k);
     double* out = new double[n_out ? n_out : 1];
     self.reset();
     try {
@@ -519,7 +534,7 @@ nb::object row_op_packed(screamer::RowOp& self, nb::object x) {
         throw;
     }
     self.reset();
-    return screamer::detail::make_owned_array(out, row_op_shape(time, k, fo, true));
+    return row_op_result(self, out, time, k, true);
 }
 
 // One RowOp event per step, for the sync and async iterators alike. The items
@@ -1667,6 +1682,9 @@ void init_bindings_fin(nb::module_& m) {
 
     nb::class_<screamer::CrossDemean, screamer::RowOp>(m, "CrossDemean")
         .def(nb::init<>());
+
+    nb::class_<screamer::CrossStd, screamer::RowOp>(m, "CrossStd")
+        .def(nb::init<screamer::IntArg<int>>(), "ddof"_a = 1);
 
     nb::class_<screamer::CrossWinsorize, screamer::RowOp>(m, "CrossWinsorize")
         .def(nb::init<screamer::FloatArg, screamer::FloatArg>(), "lower"_a = 0.05, "upper"_a = 0.95);

@@ -25,6 +25,9 @@ export interface RawOp {
   mapRowsInto?(inPtr: number, outPtr: number, rows: number, k: number, packed: boolean): void;
   fieldsIn?(): number;
   fieldsOut?(): number;
+  // False on a row reduction (CrossStd): an event writes fieldsOut() values
+  // for the whole row instead of k * fieldsOut().
+  perAssetOut?(): boolean;
 }
 export interface Screamer {
   allocF64(n: number): number; freeBuf(p: number): void;

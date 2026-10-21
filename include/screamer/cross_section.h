@@ -108,6 +108,34 @@ namespace screamer {
         std::vector<std::size_t> idx_;
     };
 
+    // CrossStd: the standard deviation of the row's valid values, one value
+    // per row (a row reduction): sqrt(sum (x - mean)^2 / (n - ddof)) over the
+    // n non-NaN assets, as pandas DataFrame.std(axis=1, ddof=ddof) and numpy
+    // nanstd(axis=1, ddof=ddof). A row with n <= ddof gives NaN.
+    class CrossStd : public RowOp {
+    public:
+        explicit CrossStd(int ddof = 1) : RowOp(1, 1, /*per_asset_out=*/false), ddof_(ddof) {
+            if (ddof_ < 0) throw std::invalid_argument("ddof must be non-negative.");
+        }
+
+    protected:
+        void map_row(const double* in, double* out, std::size_t k) override {
+            double s = 0.0;
+            std::size_t n = 0;
+            for (std::size_t i = 0; i < k; ++i)
+                if (!isnan2(in[i])) { s += in[i]; ++n; }
+            if (n <= static_cast<std::size_t>(ddof_)) { out[0] = detail::kNaN; return; }
+            const double mean = s / static_cast<double>(n);
+            double ss = 0.0;
+            for (std::size_t i = 0; i < k; ++i)
+                if (!isnan2(in[i])) { const double d = in[i] - mean; ss += d * d; }
+            out[0] = std::sqrt(ss / static_cast<double>(n - static_cast<std::size_t>(ddof_)));
+        }
+
+    private:
+        int ddof_;
+    };
+
     // CrossDemean: x - mean across the row.
     class CrossDemean : public RowOp {
     protected:

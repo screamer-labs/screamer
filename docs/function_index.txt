@@ -48,6 +48,7 @@ Cos, Cosine of each element (radians).
 CrossDemean, Subtract the mean across assets at each step, removing the common component.
 CrossNormalize, Scale each row of scores to portfolio weights with a chosen gross exposure, and optionally a net exposure.
 CrossRank, Rank each asset against the others at the same step, scaled to [-1, 1] or [0, 1].
+CrossStd, Standard deviation across the assets of each step: one dispersion value per row.
 CrossTopBottom, +1 for the highest values of each row, -1 for the lowest, 0 for the rest.
 CrossWinsorize, Clip each asset's value to the lower and upper quantiles of its row.
 CrossZscore, Standardize each asset against the others at the same step: (x - mean) / std across the row.

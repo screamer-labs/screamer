@@ -50,6 +50,7 @@ inline constexpr IntSettingMin kIntSettingMin[] = {
     {"ButterBandstop", "order", 1},
     {"ButterHighpass", "order", 1},
     {"CCI", "window_size", 2},
+    {"CrossStd", "ddof", 0},
     {"CrossTopBottom", "count", 1},
     {"DX", "window_size", 2},
     {"Detrend", "window_size", 1},

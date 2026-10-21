@@ -98,6 +98,7 @@ ratio estimators.
 |:-------|:------------|:-----|
 | Rank each asset against the others at each step | `CrossRank` | Scaled to [-1, 1] or [0, 1]. |
 | Standardize or center scores across assets | `CrossZscore`, `CrossDemean` | Z-score or mean removal over the assets of one step. |
+| Measure the spread of values across assets | `CrossStd` | One value per step, such as the return dispersion. |
 | Limit outliers across assets | `CrossWinsorize` | Clips each row to its lower and upper quantiles. |
 | Long the top, short the bottom | `CrossTopBottom` | +1 for the `count` highest scores, -1 for the lowest. |
 | Scale scores into portfolio weights | `CrossNormalize` | Gross exposure 1 by default, with an optional net exposure. |

@@ -152,7 +152,7 @@
       {
         "slug": "cross-sectional",
         "name": "Cross-sectional",
-        "desc": "Transforms across the assets of one time step: ranks, z-scores, demeaning, winsorizing, and weight normalization."
+        "desc": "Transforms across the assets of one time step: ranks, z-scores, demeaning, winsorizing, weight normalization, and the dispersion of a row."
       },
       {
         "slug": "portfolio",

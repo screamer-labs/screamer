@@ -125,12 +125,13 @@ function evalOne(M, op, inputs) {
 // One event of a row op: fieldsIn() rows of k assets (1, 2, ...), field-major.
 function evalRow(M, op, k) {
   const fi = op.fieldsIn(), fo = op.fieldsOut();
+  const nOut = op.perAssetOut() ? fo * k : fo;   // a row reduction writes fo values
   const inBuf = M.allocF64(fi * k);
-  const outBuf = M.allocF64(fo * k);
+  const outBuf = M.allocF64(nOut);
   try {
     M.viewF64(inBuf, fi * k).set(Array.from({ length: fi * k }, (_, i) => 1 + (i % k)));
     op.mapRowInto(inBuf, outBuf, k);
-    return Array.from(M.viewF64(outBuf, fo * k));
+    return Array.from(M.viewF64(outBuf, nOut));
   } finally {
     M.freeBuf(inBuf);
     M.freeBuf(outBuf);

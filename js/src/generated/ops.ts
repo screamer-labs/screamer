@@ -2209,6 +2209,39 @@ export function CrossRank(scale?: any): ScreamerOp {
   return _params(wrapRowOp(M, () => new M.CrossRank(scale)), "CrossRank", ["scale"], _given);
 }
 
+/** The settings of CrossStd by name, for `CrossStd({ ... })`. */
+export interface CrossStdOptions {
+  /** Delta degrees of freedom. The divisor is n - ddof, with n the number of non-NaN assets in the row. 1 gives the sample standard deviation (pandas), 0 the population one (numpy). @defaultValue `1` */
+  ddof?: number;
+}
+
+/**
+ * Standard deviation across the assets of each step: one dispersion value per row.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_cross/CrossStd.html for the full reference.
+ */
+export function CrossStd(options: CrossStdOptions): ScreamerOp;
+/**
+ * Standard deviation across the assets of each step: one dispersion value per row.
+ *
+ * @param ddof Delta degrees of freedom. The divisor is n - ddof, with n the number of non-NaN assets in the row. 1 gives the sample standard deviation (pandas), 0 the population one (numpy).
+ * @see https://screamer.readthedocs.io/en/latest/functions_cross/CrossStd.html for the full reference.
+ */
+export function CrossStd(ddof?: number): ScreamerOp;
+export function CrossStd(ddof?: any): ScreamerOp {
+  if (_isOptions(ddof)) [ddof] = _options("CrossStd", ddof, arguments.length, ["ddof"], "ddof must be an integer");
+  else if (arguments.length > 1) _tooMany("CrossStd", 1, arguments.length);
+  const _given: unknown[] = [ddof];
+  if (ddof === undefined) ddof = 1;
+  const M = current();
+  if (typeof ddof !== "number" || !Number.isInteger(ddof)) throw new TypeError(`CrossStd: ddof must be an integer, got ${typeof ddof === "number" ? ddof : _what(ddof)}`);
+  if (!(ddof >= -2147483648 && ddof <= 2147483647)) _intRange(M, "CrossStd", "ddof", ddof);
+  try {
+    return _params(wrapRowOp(M, () => new M.CrossStd(ddof)), "CrossStd", ["ddof"], _given);
+  } catch (e) { throw _finite(M, "CrossStd", ["ddof"], [ddof], e); }
+}
+
 /** The settings of CrossTopBottom by name, for `CrossTopBottom({ ... })`. */
 export interface CrossTopBottomOptions {
   /** Number of assets on each side. @defaultValue `1` */

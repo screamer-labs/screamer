@@ -1108,7 +1108,10 @@ class RowRes implements Owned {
 // per asset (one value for a cross-sectional op; target and prices for a
 // portfolio engine), and returns fieldsOut() values per asset. K is a
 // dimension of the data, fixed by the first row after reset(), so it travels
-// with every call. With one input per field:
+// with every call. A row reduction (perAssetOut() false, such as CrossStd)
+// returns fieldsOut() values for the whole row instead, so the K axis drops
+// out of every shape below and one row of a one-field reduction is a number.
+// With one input per field:
 //
 //   (T, K) NdArrays  -> (T, K) or (T, K, fieldsOut) NdArray
 //   arrays of rows   -> an array of result rows (Float64Array, or (K, fieldsOut) NdArray)
@@ -1121,6 +1124,10 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
   const make = typeof src === "function" ? (src as () => RawOp) : null;
   const raw = resolve(src);
   const fi = raw.fieldsIn!(), fo = raw.fieldsOut!();
+  const perAsset = raw.perAssetOut ? raw.perAssetOut() : true;
+  const outWidth = (k: number) => (perAsset ? fo * k : fo);   // values one event writes
+  const outShape = (T: number, k: number) =>
+    perAsset ? (fo === 1 ? [T, k] : [T, k, fo]) : (fo === 1 ? [T] : [T, fo]);
   const pool = new CopyPool(make);             // the streams' own copies (D8)
   const res = new RowRes(M, raw, pool);        // with the event buffers
   let disposed = false;
@@ -1142,15 +1149,15 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
     const view = M.viewF64(res.evIn, fi * k);
     rows.forEach((r, f) => view.set(r as number[], f * k));
     try { o.mapRowInto!(res.evIn, res.evOut, k); } catch (e) { throw normalizeError(e); }
-    return new Float64Array(M.viewF64(res.evOut, fo * k));
+    return new Float64Array(M.viewF64(res.evOut, outWidth(k)));
   };
 
   // T events from fi (T, K) blocks, each flat and row-major.
   const batch = (blocks: ArrayLike<number>[], T: number, k: number): NdArray => {
     if (k === 0) throw new RangeError("a row op needs at least one asset");
-    const shape = fo === 1 ? [T, k] : [T, k, fo];
+    const shape = outShape(T, k);
     if (T === 0) return { data: new Float64Array(0), shape };
-    const nIn = T * fi * k, nOut = T * fo * k;
+    const nIn = T * fi * k, nOut = T * outWidth(k);
     const inP = M.allocF64(nIn), outP = M.allocF64(nOut);
     try {
       const view = M.viewF64(inP, nIn);
@@ -1172,9 +1179,9 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
     if (F !== fi)
       throw new RangeError(`a packed input of ${opName(raw)} has shape [T, K, ${fi}], got [${x.shape}]`);
     if (k === 0) throw new RangeError("a row op needs at least one asset");
-    const shape = fo === 1 ? [T, k] : [T, k, fo];
+    const shape = outShape(T, k);
     if (T === 0) return { data: new Float64Array(0), shape };
-    const nIn = T * fi * k, nOut = T * fo * k;
+    const nIn = T * fi * k, nOut = T * outWidth(k);
     const inP = M.allocF64(nIn), outP = M.allocF64(nOut);
     try {
       M.viewF64(inP, nIn).set(x.data);
@@ -1202,7 +1209,8 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
 
   const eventOut = (rows: ArrayLike<number>[], o: RawOp = raw): any => {
     const out = event(rows, o);
-    if (fo !== 1) return { data: out, shape: [rows[0].length, fo] } as NdArray;
+    if (!perAsset && fo === 1) return out[0];
+    if (fo !== 1) return { data: out, shape: perAsset ? [rows[0].length, fo] : [fo] } as NdArray;
     return isTyped(rows[0]) ? out : Array.from(out);
   };
 
@@ -1278,10 +1286,11 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
     // and walkForward in validation.ts rely on the mix giving an NdArray (an
     // NdArray target with an array-of-rows market).
     if (!args.every((a) => Array.isArray(a))) return out;
-    const w = b0.k * fo;
+    if (!perAsset && fo === 1) return Array.from(out.data);
+    const w = outWidth(b0.k);
     return Array.from({ length: b0.T }, (_, t) => {
       const row = out.data.slice(t * w, (t + 1) * w);
-      return fo === 1 ? row : ({ data: row, shape: [b0.k, fo] } as NdArray);
+      return fo === 1 ? row : ({ data: row, shape: perAsset ? [b0.k, fo] : [fo] } as NdArray);
     });
   };
 
@@ -1291,7 +1300,7 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
   (op as any)[Symbol.dispose] = free;
   // Marks a row op (rows of K assets), so callers such as positionTest can
   // tell a portfolio engine from a per-column one.
-  (op as any).rowOp = { fieldsIn: fi, fieldsOut: fo };
+  (op as any).rowOp = { fieldsIn: fi, fieldsOut: fo, perAssetOut: perAsset };
   (op as any).numInputs = raw.nIn();
   (op as any).opName = opName(raw);
   (op as any).markInput = (raw as any).constructor?.markInput;

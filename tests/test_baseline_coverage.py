@@ -67,6 +67,7 @@ BASELINE_GAP: dict[str, str] = {
     "CrossDemean": _ROW_REFERENCE,
     "CrossNormalize": _ROW_REFERENCE,
     "CrossRank": _ROW_REFERENCE,
+    "CrossStd": _ROW_REFERENCE,
     "CrossTopBottom": _ROW_REFERENCE,
     "CrossWinsorize": _ROW_REFERENCE,
     "CrossZscore": _ROW_REFERENCE,

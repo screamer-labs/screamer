@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   ready, CrossRank, CrossZscore, CrossWinsorize, CrossNormalize, CrossTopBottom, CrossDemean,
+  CrossStd,
 } from "../src/index.ts";
 
 await ready();
@@ -79,4 +80,38 @@ test("A1: an array of rows returns an array of rows", () => {
   assert.deepEqual(ref.shape, [2, 3]);
   const typed = CrossRank()([Float64Array.from([1, 3, 2]), Float64Array.from([3, 1, 2])]) as any;
   assert.ok(Array.isArray(typed) && typed[1] instanceof Float64Array);
+});
+
+// CrossStd is a row reduction: one value per row, the K axis drops out.
+// Same values as Python (screamer.CrossStd(ddof)(X) on the same matrix).
+const STD: [number, number[]][] = [
+  [1, [1.707825127659933, 0.0, N, 2.3021728866442674]],
+  [0, [1.479019945774904, 0.0, N, 2.0591260281974]],
+];
+
+for (const [ddof, want] of STD) {
+  test(`cross: CrossStd(${ddof}) matches Python in every regime`, () => {
+    const batch = CrossStd(ddof)(nd);
+    assert.deepEqual(batch.shape, [4]);
+    assert.ok(same(batch.data, want), `batch: ${Array.from(batch.data)}`);
+    const rows = CrossStd(ddof)(X);
+    assert.ok(Array.isArray(rows) && rows.every((v: unknown) => typeof v === "number"));
+    assert.ok(same(rows, want), "array of rows");
+    const op = CrossStd(ddof);
+    const one = X.map((r) => op(r));
+    assert.ok(one.every((v) => typeof v === "number"));
+    assert.ok(same(one, want), "row by row");
+    assert.ok(same([...CrossStd(ddof)(X.values())], want), "stream");
+    const unit = CrossStd(ddof)({ data: nd.data, shape: [4, 5, 1] });
+    assert.deepEqual(unit.shape, [4]);
+    assert.ok(same(unit.data, want), "[T, K, 1]");
+  });
+}
+
+test("cross: CrossStd defaults, NaN rule and arguments", () => {
+  assert.ok(same(CrossStd()(nd).data, STD[0][1]));
+  assert.ok(Number.isNaN(CrossStd()([N, 2, N])));
+  assert.equal(CrossStd(0)([N, 2, N]), 0);
+  assert.deepEqual(CrossStd()({ data: new Float64Array(0), shape: [0, 3] }).shape, [0]);
+  assert.throws(() => CrossStd(-1));
 });

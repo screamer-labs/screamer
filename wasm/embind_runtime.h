@@ -99,8 +99,8 @@ inline void reducePricedBatchInto(Op& op, std::uintptr_t inPtr, std::uintptr_t p
 // ---- Row ops (cross-sectional operators, portfolio engines) ---------------
 //
 // A RowOp event is one row of k assets: fieldsIn() * k values in (field-major),
-// k * fieldsOut() values out (asset-major); k is a data dimension, so it travels
-// per call. mapRowsInto runs `rows` such events laid end to end and brackets
+// k * fieldsOut() values out (asset-major), or fieldsOut() for a row reduction;
+// k is a data dimension, so it travels per call. mapRowsInto runs `rows` such events laid end to end and brackets
 // the run with reset(), like a batch call in Python.
 
 template <class Op>
@@ -112,6 +112,9 @@ inline void mapRowInto(Op& op, std::uintptr_t inPtr, std::uintptr_t outPtr, std:
 // base-class member pointer to a derived registration.
 template <class Op> inline std::size_t fieldsIn(Op& op) { return op.fields_in(); }
 template <class Op> inline std::size_t fieldsOut(Op& op) { return op.fields_out(); }
+// False for a row reduction (CrossStd): one event writes fieldsOut() values
+// for the whole row instead of k * fieldsOut().
+template <class Op> inline bool perAssetOut(Op& op) { return op.per_asset_out(); }
 
 // `packed` reads each row as k assets of fieldsIn() values (a packed
 // (T, K, F) array) instead of fieldsIn() blocks of k values (RowOp::call_rows).

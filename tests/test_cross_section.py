@@ -200,3 +200,63 @@ def test_mixed_list_and_array_inputs_return_an_array():
     mixed = s.BacktestPortfolioTarget()(np.array(t), p)
     assert isinstance(mixed, np.ndarray)
     np.testing.assert_array_equal(mixed, ref)
+
+
+# ---- CrossStd: a row reduction, one value per row ----------------------------
+
+@pytest.mark.filterwarnings("ignore::RuntimeWarning")
+@pytest.mark.parametrize("ddof", [0, 1, 2])
+def test_cross_std_matches_numpy_and_pandas(ddof):
+    out = s.CrossStd(ddof=ddof)(X)
+    assert out.shape == (X.shape[0],)
+    np.testing.assert_allclose(out, np.nanstd(X, axis=1, ddof=ddof), rtol=1e-12, atol=1e-15)
+    np.testing.assert_allclose(out, pd.DataFrame(X).std(axis=1, ddof=ddof).to_numpy(),
+                               rtol=1e-12, atol=1e-15)
+
+
+def test_cross_std_default_is_the_sample_std():
+    np.testing.assert_array_equal(s.CrossStd()(X), s.CrossStd(ddof=1)(X))
+
+
+def test_cross_std_nan_rules():
+    out = s.CrossStd()(X)
+    assert np.isnan(out[5])                          # no assets
+    assert out[10] == 0.0                            # all equal
+    one = [np.nan, 2.0, np.nan]
+    assert np.isnan(s.CrossStd()(one))               # one asset, n <= ddof
+    assert s.CrossStd(ddof=0)(one) == 0.0
+    # A NaN asset is left out: NaN columns inserted change nothing.
+    row = X[0, :6]
+    padded = np.insert(row, [0, 3, 6], np.nan)
+    assert s.CrossStd()(padded) == s.CrossStd()(row)
+    # Every value finite except the rows with too few assets.
+    n = np.sum(~np.isnan(X), axis=1)
+    assert np.array_equal(np.isnan(out), n < 2)
+
+
+def test_cross_std_regimes_agree():
+    batch = s.CrossStd()(X)
+    op = s.CrossStd()
+    rows = [op(r) for r in X]
+    assert all(isinstance(v, float) for v in rows)
+    streamed = list(s.CrossStd()(iter(X)))
+    assert all(isinstance(v, float) for v in streamed)
+    lists = s.CrossStd()(X.tolist())
+    assert isinstance(lists, list) and len(lists) == X.shape[0]
+    packed = s.CrossStd()(X[:, :, None])             # rule 1: (T, K, 1) reads as (T, K)
+    for other in (rows, streamed, lists, packed):
+        np.testing.assert_array_equal(np.asarray(other, dtype=float), batch)
+
+
+def test_cross_std_width_and_arguments():
+    op = s.CrossStd()
+    assert op([1.0, 2.0, 4.0]) == pytest.approx(np.std([1.0, 2.0, 4.0], ddof=1))
+    with pytest.raises(ValueError):
+        op([1.0, 2.0])
+    op.reset()
+    assert op([1.0, 3.0]) == pytest.approx(np.sqrt(2.0))
+    assert s.CrossStd()(np.ones((0, 3))).shape == (0,)
+    with pytest.raises(ValueError):
+        s.CrossStd(ddof=-1)
+    with pytest.raises(TypeError):
+        s.CrossStd(ddof=1.5)

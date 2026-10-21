@@ -1770,6 +1770,13 @@ Rank assets against each other, turn scores into weights, backtest a book of man
       :img-alt: CrossRank example plot
       :class-card: gallery-card
 
+   .. grid-item-card:: CrossStd
+      :link: functions_cross/CrossStd
+      :link-type: doc
+      :img-top: _static/gallery/functions_cross__CrossStd.webp
+      :img-alt: CrossStd example plot
+      :class-card: gallery-card
+
    .. grid-item-card:: CrossTopBottom
       :link: functions_cross/CrossTopBottom
       :link-type: doc
