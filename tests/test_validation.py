@@ -117,6 +117,69 @@ def test_seeded_and_chunk_invariant(gen):
     assert not np.array_equal(full, make(0, 40, seed=6))
 
 
+def _park_miller(state):
+    while True:
+        state = state * 48271 % 2147483647
+        yield state
+
+
+def _segment_layouts():
+    """Run layouts for the recorded segment_shuffle outputs. The JS test builds
+    the same series with the same formulas."""
+    nan = np.nan
+    # all-distinct block ids, lengths 1 to 3
+    distinct = [nan, nan] + [float(k + 1) for k in range(200) for _ in range(1 + k % 3)]
+    # long, short, flat and hold (NaN) runs of random length
+    g = _park_miller(7)
+    levels = [nan] * 3
+    for _ in range(150):
+        v = (-1.0, 0.0, 1.0, nan)[next(g) % 4]
+        levels += [v] * (1 + next(g) % 5)
+    # a flat run (0.0 or -0.0) between every two trades: the flat value holds
+    # half the runs, so every other step of the order is forced
+    g = _park_miller(11)
+    dominant = []
+    for k in range(121):
+        v = (0.0 if k % 4 else -0.0) if k % 2 == 0 else (1.0, -1.0, 2.0)[next(g) % 3]
+        dominant += [v] * (1 + next(g) % 4)
+    return {"distinct": distinct, "levels": levels, "dominant": dominant,
+            "small": list(X), "one_run": [5.0, 5.0, 5.0], "all_nan": [nan, nan]}
+
+
+# sha256 (first 16 hex digits) of segment_shuffle(x, 7, seed) for each layout
+# and seed 0, 1, 42, 2**40 + 3. Recorded from the implementation before the
+# O(R log C) run order (3.7.1); js/test/validation.test.ts checks the same.
+RECORDED_SEGMENT_SHUFFLE = {
+    "distinct": ["7cc16c62b6414ae0", "2ab8463dac146e11", "cdba4f1a3ffc9b50", "ade98bab2449f7ce"],
+    "levels": ["a3d2913be72d92ad", "2280618481f0088b", "0c29120c8834517e", "2bded190d94a9915"],
+    "dominant": ["648365ffd387fa38", "92601caa664a0459", "08823d2a45c78cdf", "632ac1c176119e44"],
+    "small": ["bd66322a38288ae8", "9a59e82670f42b79", "72ba222af9460bcb", "b2677dc4a7f89e1a"],
+    "one_run": ["24316c5fd07e4fa0"] * 4,
+    "all_nan": ["86e2c39030a3c715"] * 4,
+}
+
+
+@pytest.mark.parametrize("name", sorted(RECORDED_SEGMENT_SHUFFLE))
+def test_segment_shuffle_gives_the_recorded_outputs(name):
+    import hashlib
+    x = np.array(_segment_layouts()[name])
+    for seed, want in zip((0, 1, 42, 2**40 + 3), RECORDED_SEGMENT_SHUFFLE[name]):
+        out = np.ascontiguousarray(s.segment_shuffle(x, 7, seed=seed), dtype="<f8").copy()
+        out[np.isnan(out)] = np.nan                       # one NaN bit pattern
+        assert hashlib.sha256(out.tobytes()).hexdigest()[:16] == want, (name, seed)
+
+
+@pytest.mark.perf
+def test_segment_shuffle_scales_with_the_number_of_runs():
+    # All-distinct run values were cubic in the number of runs (16 minutes for
+    # an hourly book); 20000 runs now take milliseconds.
+    import time
+    x = np.repeat(np.arange(1.0, 20001.0), 3)
+    t0 = time.perf_counter()
+    s.segment_shuffle(x, 10, seed=1)
+    assert time.perf_counter() - t0 < 0.5
+
+
 def test_shift_argument_checks():
     with pytest.raises(ValueError):
         s.circular_shift(X, 3, min_shift=0)

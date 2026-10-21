@@ -11,6 +11,7 @@
 #include <stdexcept>
 #include <string>
 #include <type_traits>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -184,71 +185,160 @@ namespace screamer { namespace validation {
 
     namespace detail {
 
-        // A random order of the runs `r` of `x` in which no two neighbouring
-        // runs have the same value, written to `o`. Two neighbours of equal
-        // value would merge into one run, which changes the trades (and their
-        // count and cost), so the order must avoid them. The runs of each value
-        // are shuffled among themselves; the sequence of values is then built
-        // one step at a time, choosing among the values that differ from the
+        // The runs grouped by value: class c holds the runs member[start[c]]
+        // .. member[start[c + 1] - 1], in increasing run index, and the
+        // classes are numbered in the order their value first appears.
+        struct RunClasses {
+            std::vector<std::size_t> start;
+            std::vector<std::size_t> member;
+        };
+
+        inline RunClasses run_classes(const double* x,
+                                      const std::vector<std::pair<std::size_t, std::size_t>>& r) {
+            const std::size_t R = r.size();
+            // One key per value under same(): all NaN alike, and -0.0 with 0.0.
+            auto key = [](double v) -> std::uint64_t {
+                if (std::isnan(v)) return 0x7FF8000000000000ULL;
+                if (v == 0.0) return 0;
+                std::uint64_t b;
+                std::memcpy(&b, &v, sizeof b);
+                return b;
+            };
+            std::unordered_map<std::uint64_t, std::size_t> id;
+            id.reserve(R);
+            std::vector<std::size_t> cls(R), count;
+            for (std::size_t i = 0; i < R; ++i) {
+                const auto it = id.emplace(key(x[r[i].first]), count.size()).first;
+                if (it->second == count.size()) count.push_back(0);
+                cls[i] = it->second;
+                ++count[it->second];
+            }
+            RunClasses g;
+            g.start.assign(count.size() + 1, 0);
+            for (std::size_t c = 0; c < count.size(); ++c) g.start[c + 1] = g.start[c] + count[c];
+            g.member.resize(R);
+            for (std::size_t i = 0; i < R; ++i) g.member[g.start[cls[i]]++] = i;
+            for (std::size_t c = count.size(); c > 0; --c) g.start[c] = g.start[c - 1];
+            g.start[0] = 0;
+            return g;
+        }
+
+        // A random order of the runs in which no two neighbouring runs have
+        // the same value, written to `o`. Two neighbours of equal value would
+        // merge into one run, which changes the trades (and their count and
+        // cost), so the order must avoid them. The runs of each value are
+        // shuffled among themselves; the sequence of values is then built one
+        // step at a time, choosing among the values that differ from the
         // previous one and leave the remaining runs arrangeable, with
         // probability proportional to the runs each has left. The original
         // order is itself valid, so a valid order always exists.
-        inline void segment_order(const double* x,
-                                  const std::vector<std::pair<std::size_t, std::size_t>>& r,
-                                  Rng& rng, std::size_t* o) {
-            const std::size_t R = r.size();
-            std::vector<double> value;                       // one entry per distinct value
-            std::vector<std::vector<std::size_t>> members;   // runs of each value
-            for (std::size_t i = 0; i < R; ++i) {
-                const double v = x[r[i].first];
-                std::size_t c = 0;
-                while (c < value.size() && !same(value[c], v)) ++c;
-                if (c == value.size()) { value.push_back(v); members.emplace_back(); }
-                members[c].push_back(i);
+        //
+        // With `rest` runs still to place after this step (rest + 1 left in
+        // all), placing value c leaves the rest arrangeable iff no other value
+        // has more than ceil(rest / 2) runs left and c itself, barred from the
+        // next slot, at most floor(rest / 2) after this one. Let M be the
+        // largest count left. If M <= ceil(rest / 2), every value passes. If
+        // not, only the one value with M runs left can pass (two such values
+        // would hold more than rest + 1 runs), and the others then have at
+        // most floor(rest / 2) left, so it passes iff M - 1 <= floor(rest / 2).
+        // A step therefore costs O(log C) for C values: a Fenwick tree over
+        // the counts picks the value, and the counts are kept in buckets by
+        // size to find M and its value.
+        class SegmentOrder {
+        public:
+            explicit SegmentOrder(const RunClasses& g)
+                : g_(g), C_(g.start.size() - 1), perm_(g.member.size()),
+                  left_(C_), tree_(C_ + 1), nxt_(C_), prv_(C_) {
+                std::size_t big = 0;
+                for (std::size_t c = 0; c < C_; ++c)
+                    big = std::max(big, g.start[c + 1] - g.start[c]);
+                head_.resize(big + 1);
+                top_ = 1;
+                while (top_ * 2 <= C_) top_ *= 2;
             }
-            const std::size_t C = value.size();
-            for (auto& m : members)
-                for (std::size_t i = m.size(); i > 1; --i)
-                    std::swap(m[i - 1], m[static_cast<std::size_t>(rng.below(i))]);
-            std::vector<std::size_t> left(C), next(C, 0);
-            for (std::size_t c = 0; c < C; ++c) left[c] = members[c].size();
-            // After placing value c with `rest` runs still to place, the rest
-            // can follow c iff no value needs more than ceil(rest / 2) slots and
-            // c itself, barred from the next slot, at most floor(rest / 2).
-            auto feasible = [&](std::size_t c, std::size_t rest) {
-                for (std::size_t u = 0; u < C; ++u) {
-                    const std::size_t n = left[u] - (u == c ? 1 : 0);
-                    if (n > (u == c ? rest / 2 : (rest + 1) / 2)) return false;
+
+            void operator()(Rng& rng, std::size_t* o) {
+                const std::size_t R = perm_.size();
+                std::copy(g_.member.begin(), g_.member.end(), perm_.begin());
+                std::fill(head_.begin(), head_.end(), none);
+                std::fill(tree_.begin(), tree_.end(), 0);
+                for (std::size_t c = 0; c < C_; ++c) {
+                    std::size_t* m = perm_.data() + g_.start[c];
+                    const std::size_t n = g_.start[c + 1] - g_.start[c];
+                    for (std::size_t i = n; i > 1; --i)
+                        std::swap(m[i - 1], m[static_cast<std::size_t>(rng.below(i))]);
+                    left_[c] = n;
+                    link(c);
+                    tree_[c + 1] += n;                         // linear Fenwick build
+                    const std::size_t up = (c + 1) + ((c + 1) & (~(c + 1) + 1));
+                    if (up <= C_) tree_[up] += tree_[c + 1];
                 }
-                return true;
-            };
-            std::size_t prev = C;
-            for (std::size_t step = 0; step < R; ++step) {
-                const std::size_t rest = R - step - 1;
-                std::uint64_t total = 0;
-                for (std::size_t c = 0; c < C; ++c)
-                    if (c != prev && left[c] > 0 && feasible(c, rest)) total += left[c];
-                if (total == 0)
-                    throw std::logic_error("segment_shuffle: no valid run order");
-                std::uint64_t k = rng.below(total);
-                std::size_t c = 0;
-                for (;; ++c) {
-                    if (c == prev || left[c] == 0 || !feasible(c, rest)) continue;
-                    if (k < left[c]) break;
-                    k -= left[c];
+                std::size_t most = head_.size() - 1;           // largest count left
+                std::size_t prev = C_;
+                for (std::size_t step = 0; step < R; ++step) {
+                    const std::size_t rest = R - step - 1;
+                    while (head_[most] == none) --most;
+                    std::size_t c;
+                    if (most <= (rest + 1) / 2) {
+                        // every value with runs left is allowed, except prev
+                        const std::size_t skip = prev < C_ ? left_[prev] : 0;
+                        if (skip == rest + 1)
+                            throw std::logic_error("segment_shuffle: no valid run order");
+                        const std::uint64_t k = rng.below(rest + 1 - skip);
+                        c = find(k);
+                        if (prev < C_ && c >= prev) c = find(k + skip);
+                    } else {
+                        c = head_[most];
+                        if (c == prev || most - 1 > rest / 2)
+                            throw std::logic_error("segment_shuffle: no valid run order");
+                        rng.below(left_[c]);       // the draw of the general step
+                    }
+                    o[step] = perm_[g_.start[c + 1] - left_[c]];
+                    unlink(c);
+                    --left_[c];
+                    link(c);
+                    for (std::size_t i = c + 1; i <= C_; i += i & (~i + 1)) --tree_[i];
+                    prev = c;
                 }
-                o[step] = members[c][next[c]++];
-                --left[c];
-                prev = c;
             }
-        }
+
+        private:
+            static constexpr std::size_t none = static_cast<std::size_t>(-1);
+
+            // The value c whose cumulative run count first exceeds k.
+            std::size_t find(std::uint64_t k) const {
+                std::size_t pos = 0;
+                for (std::size_t s = top_; s > 0; s /= 2)
+                    if (pos + s <= C_ && tree_[pos + s] <= k) { pos += s; k -= tree_[pos]; }
+                return pos;
+            }
+            void link(std::size_t c) {
+                const std::size_t h = head_[left_[c]];
+                nxt_[c] = h; prv_[c] = none;
+                if (h != none) prv_[h] = c;
+                head_[left_[c]] = c;
+            }
+            void unlink(std::size_t c) {
+                if (prv_[c] != none) nxt_[prv_[c]] = nxt_[c];
+                else head_[left_[c]] = nxt_[c];
+                if (nxt_[c] != none) prv_[nxt_[c]] = prv_[c];
+            }
+
+            const RunClasses& g_;
+            std::size_t C_, top_ = 1;
+            std::vector<std::size_t> perm_;     // members of each class, shuffled
+            std::vector<std::size_t> left_;     // runs of each class still to place
+            std::vector<std::uint64_t> tree_;   // Fenwick tree over left_
+            std::vector<std::size_t> head_;     // classes with n runs left: head_[n], nxt_, prv_
+            std::vector<std::size_t> nxt_, prv_;
+        };
 
     } // namespace detail
 
     // Segment shuffle: split the series after its NaN warmup prefix into runs
     // of equal value (each trade, and each flat or hold stretch, is one run)
     // and write the runs back in a random order in which no two neighbouring
-    // runs have the same value (detail::segment_order). The runs are kept
+    // runs have the same value (detail::SegmentOrder). The runs are kept
     // exactly: the same trades, with the same sides, sizes, and holding
     // periods, at random times, and as many position changes as the original.
     inline void segment_shuffle(const double* x, std::size_t T, std::uint64_t seed,
@@ -260,9 +350,11 @@ namespace screamer { namespace validation {
         // keeps a cursor (current position in its order, units left in that
         // run), so output rows are written contiguously.
         std::vector<std::size_t> order(ncols * R);
+        const detail::RunClasses classes = detail::run_classes(x, r);
+        detail::SegmentOrder segment_order(classes);
         for (std::size_t j = 0; j < ncols; ++j) {
             Rng rng(seed, col0 + j);
-            detail::segment_order(x, r, rng, order.data() + j * R);
+            segment_order(rng, order.data() + j * R);
         }
         for (std::size_t t = 0; t < p; ++t)
             for (std::size_t j = 0; j < ncols; ++j) out[t * ncols + j] = x[t];

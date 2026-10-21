@@ -26,6 +26,52 @@ test("validation: golden surrogates match Python", () => {
     [NaN_, NaN_, -1, -1, -1, -1, 0, 0, 2, 1, 1, 1, 0, 0, 1]);
 });
 
+// Same layouts and recorded digests as
+// tests/test_validation.py::test_segment_shuffle_gives_the_recorded_outputs.
+function* parkMiller(state: number) {
+  for (;;) { state = (state * 48271) % 2147483647; yield state; }
+}
+function segmentLayouts(): Record<string, number[]> {
+  const distinct = [NaN_, NaN_];
+  for (let k = 0; k < 200; k++) for (let i = 0; i < 1 + (k % 3); i++) distinct.push(k + 1);
+  let g = parkMiller(7);
+  const levels = [NaN_, NaN_, NaN_];
+  for (let i = 0; i < 150; i++) {
+    const v = [-1, 0, 1, NaN_][g.next().value! % 4];
+    const n = 1 + (g.next().value! % 5);
+    for (let r = 0; r < n; r++) levels.push(v);
+  }
+  g = parkMiller(11);
+  const dominant: number[] = [];
+  for (let k = 0; k < 121; k++) {
+    const v = k % 2 === 0 ? (k % 4 ? 0 : -0) : [1, -1, 2][g.next().value! % 3];
+    const n = 1 + (g.next().value! % 4);
+    for (let r = 0; r < n; r++) dominant.push(v);
+  }
+  return { distinct, levels, dominant, small: X, one_run: [5, 5, 5], all_nan: [NaN_, NaN_] };
+}
+const RECORDED_SEGMENT_SHUFFLE: Record<string, string[]> = {
+  distinct: ["7cc16c62b6414ae0", "2ab8463dac146e11", "cdba4f1a3ffc9b50", "ade98bab2449f7ce"],
+  levels: ["a3d2913be72d92ad", "2280618481f0088b", "0c29120c8834517e", "2bded190d94a9915"],
+  dominant: ["648365ffd387fa38", "92601caa664a0459", "08823d2a45c78cdf", "632ac1c176119e44"],
+  small: ["bd66322a38288ae8", "9a59e82670f42b79", "72ba222af9460bcb", "b2677dc4a7f89e1a"],
+  one_run: Array(4).fill("24316c5fd07e4fa0"),
+  all_nan: Array(4).fill("86e2c39030a3c715"),
+};
+
+test("validation: segmentShuffle gives the recorded outputs", async () => {
+  const { createHash } = await import("node:crypto");
+  const layouts = segmentLayouts();
+  for (const [name, digests] of Object.entries(RECORDED_SEGMENT_SHUFFLE)) {
+    [0, 1, 42, 2 ** 40 + 3].forEach((seed, i) => {
+      const out = Float64Array.from(segmentShuffle(layouts[name], 7, { seed }).data,
+        (v) => (Number.isNaN(v) ? NaN_ : v));     // one NaN bit pattern
+      const got = createHash("sha256").update(new Uint8Array(out.buffer)).digest("hex").slice(0, 16);
+      assert.equal(got, digests[i], `${name} seed=${seed}`);
+    });
+  }
+});
+
 test("validation: argument checks raise RangeError", () => {
   assert.throws(() => circularShift(X, 3, { minShift: 0 }), RangeError);
   assert.throws(() => circularShift(X, 3, { minShift: 7 }), RangeError);

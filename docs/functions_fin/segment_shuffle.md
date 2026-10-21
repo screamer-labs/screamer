@@ -37,7 +37,9 @@ own, like any other value.
 
 The function is batch-only and runs in C++. Each column has its own generator,
 seeded from `seed` and the column number, so the same seed gives the same
-columns on every platform. [`position_test`](position_test.md) uses it with
+columns on every platform. A copy of a series with `R` runs takes
+`O(R log R)` time, so a long book with many distinct run values is fast.
+[`position_test`](position_test.md) uses it with
 `method="segments"`.
 
 <!-- HELP_END -->
