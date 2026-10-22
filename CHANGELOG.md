@@ -2,6 +2,53 @@
 
 All notable changes to this project are documented in this file.
 
+3.8.0 - 2026-10-23
+------------------
+
+### Added
+
+* `Segment(op)`, in Python and JavaScript: runs the operator `op` on each
+  segment of rows with the same label, from a fresh state, so
+  `Segment(op)(label, *inputs)` is pandas `groupby(...).transform(...)` over
+  the runs of the label. A NaN label keeps the current segment, and rows
+  before the first label give NaN. Any operator works: multi-input and
+  multi-output operators keep their arity, and Segments nest. `Segment` holds
+  its own copy of `op`, so the instance passed in is never used or changed.
+  Pipeline JSON writes an operator setting as
+  `{"functor": ..., "params": {...}}` in both bindings.
+* `CrossStd(ddof=1)`, in Python and JavaScript: the standard deviation of
+  each row's non-NaN assets, one value per row. `(T, K)` gives `(T,)`, one row
+  gives a float, and an iterator of rows gives an iterator of floats. It
+  matches pandas `DataFrame.std(axis=1, ddof=ddof)`; a row with `ddof` or
+  fewer valid assets is NaN. It is the first row reduction, and the C++
+  `RowOp` gains a `per_asset_out` flag (default true) for it; every existing
+  row operator is unchanged.
+* `CorwinSchultzSpread` and `AbdiRanaldoSpread`, in Python and JavaScript:
+  rolling estimates of the proportional bid-ask spread from `(high, low, close)` bars, after
+  Corwin and Schultz (2012), with the paper's overnight adjustment, and
+  Abdi and Ranaldo (2017). Both cost O(1) per bar.
+* `RollingRealizedSkew` and `RollingRealizedKurt`, in Python and JavaScript:
+  the realized skewness `sqrt(N) sum r^3 / RV^1.5` and kurtosis
+  `N sum r^4 / RV^2` of a window of returns (Amaya, Christoffersen, Jacobs
+  and Vasquez 2015). They are moments about zero with no small-sample
+  correction, and the kurtosis is not in excess of 3, so they differ from
+  `RollingSkew` and `RollingKurt`.
+
+### Changed
+
+* An operator whose output count is set per instance (a `VarArityOp` in
+  C++) and which has one output now returns a float for one event and a
+  `(T,)` array for a series, the shape of every other one-output operator.
+  It returned a 1-tuple and a `(T, 1)` array. No released result changes:
+  the operators of this kind in 3.7.1 (`RollingMultiRegression`,
+  `ExpandingMultiRegression`, `EwMultiRegression`) always have at least four
+  outputs. It applies to `Segment` around a one-output operator, and to C++
+  code built on screamer that defines its own one-output `VarArityOp`.
+* `segment_shuffle` builds its run order in O(R log C) instead of
+  O(R C^2), for R runs and C distinct values. A series of 10000 distinct
+  blocks took 384 s for one copy. Every seed gives the same output as
+  before, bit for bit.
+
 3.7.0 - 2026-10-18
 ------------------
 
