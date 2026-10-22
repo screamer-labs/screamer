@@ -11490,7 +11490,8 @@
       "RollingSkew",
       "RollingVar",
       "EwKurt",
-      "ExpandingKurt"
+      "ExpandingKurt",
+      "RollingRealizedKurt"
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\n`RollingKurt` computes the excess kurtosis of the `window_size` most recent values,\nusing the bias-corrected Fisher-Pearson estimator (the same formula as\n`pandas.Series.rolling(w).kurt()`). A normal distribution has excess kurtosis zero;\npositive values indicate heavier tails. The estimator needs at least 4 samples, so the\noutput is NaN until 4 samples are in the window.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
@@ -12404,6 +12405,123 @@
     ],
     "doc_path": "functions_rolling/RollingRange"
   },
+  "RollingRealizedKurt": {
+    "name": "RollingRealizedKurt",
+    "title": "Rolling realized kurtosis",
+    "implementation_family": "rolling",
+    "topics": [
+      "statistics"
+    ],
+    "tags": [
+      "realized kurtosis",
+      "kurtosis",
+      "higher moments",
+      "realized moments",
+      "intraday returns",
+      "tail risk",
+      "amaya",
+      "christoffersen"
+    ],
+    "short": "Realized kurtosis of a window of returns, N times the sum of fourth powers of the returns over the squared realized variance.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Number of most recent returns in the window."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "strict",
+        "enum": [
+          "strict",
+          "expanding",
+          "zero"
+        ],
+        "description": "Output before the window is full: \"strict\" gives NaN, \"expanding\" uses the returns seen so far, and \"zero\" treats the window as pre-filled with zeros."
+      }
+    ],
+    "nan_policy": "ignore",
+    "see_also": [
+      "RollingRealizedSkew",
+      "RollingKurt",
+      "RollingJumpShare"
+    ],
+    "references": [
+      "Amaya, D., Christoffersen, P., Jacobs, K. and Vasquez, A. (2015). Does realized skewness predict the cross-section of equity returns? *Journal of Financial Economics* 118(1), 135-167."
+    ],
+    "details": "## Description\n\n`RollingRealizedKurt` is the realized kurtosis of a window of `N` returns\n(Amaya, Christoffersen, Jacobs and Vasquez 2015):\n\n$$\nRV = \\sum_{i=1}^{N} r_i^2, \\qquad\nRKurt = \\frac{N \\sum_{i=1}^{N} r_i^4}{RV^{2}}\n$$\n\nThe input is returns, typically intraday returns, with the window spanning the\nperiod the measure describes. `N` is `window_size` once the window is full.\n\n`RKurt` is the kurtosis, not the excess kurtosis: normal returns give about 3.\nThe moments are taken about zero and have no small-sample correction. This is\nwhere the measure differs from [`RollingKurt`](RollingKurt.md), which reports\nthe bias-corrected excess kurtosis about the window mean. The value does not\nchange when the returns are scaled.\n\nA window whose returns are all zero has `RV = 0` and gives `NaN`.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import RollingRealizedKurt\n\nrng = np.random.default_rng(6)\nr = rng.standard_normal(78 * 40) * 0.001             # 40 days of 5-minute returns\nr[[78 * 10 + 30, 78 * 25 + 5]] = [0.02, -0.025]     # two jumps\nkurt = RollingRealizedKurt(78)(r)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=kurt, name='realized kurtosis, 1-day window', line=dict(color='navy')))\nfig.add_hline(y=3, line=dict(color='gray', dash='dot'))\nfig.update_layout(title='RollingRealizedKurt: a jump in the window lifts it far above 3',\n                  xaxis_title='5-minute step', yaxis_title='kurtosis',\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ],
+    "doc_path": "functions_rolling/RollingRealizedKurt"
+  },
+  "RollingRealizedSkew": {
+    "name": "RollingRealizedSkew",
+    "title": "Rolling realized skewness",
+    "implementation_family": "rolling",
+    "topics": [
+      "statistics"
+    ],
+    "tags": [
+      "realized skewness",
+      "skewness",
+      "higher moments",
+      "realized moments",
+      "intraday returns",
+      "amaya",
+      "christoffersen"
+    ],
+    "short": "Realized skewness of a window of returns, sqrt(N) times the sum of cubed returns over the realized variance to the power 3/2.",
+    "inputs": 1,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 2,
+        "description": "Number of most recent returns in the window."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "strict",
+        "enum": [
+          "strict",
+          "expanding",
+          "zero"
+        ],
+        "description": "Output before the window is full: \"strict\" gives NaN, \"expanding\" uses the returns seen so far, and \"zero\" treats the window as pre-filled with zeros."
+      }
+    ],
+    "nan_policy": "ignore",
+    "see_also": [
+      "RollingRealizedKurt",
+      "RollingSkew",
+      "RollingBipowerVar"
+    ],
+    "references": [
+      "Amaya, D., Christoffersen, P., Jacobs, K. and Vasquez, A. (2015). Does realized skewness predict the cross-section of equity returns? *Journal of Financial Economics* 118(1), 135-167."
+    ],
+    "details": "## Description\n\n`RollingRealizedSkew` is the realized skewness of a window of `N` returns\n(Amaya, Christoffersen, Jacobs and Vasquez 2015):\n\n$$\nRV = \\sum_{i=1}^{N} r_i^2, \\qquad\nRSkew = \\frac{\\sqrt{N} \\sum_{i=1}^{N} r_i^3}{RV^{3/2}}\n$$\n\nThe input is returns, typically intraday returns, with the window spanning the\nperiod the measure describes (for example the 78 five-minute returns of a\ntrading day, or a week of them). `N` is `window_size` once the window is full.\n\nThe moments are taken about zero and have no small-sample correction. This is\nwhere the measure differs from [`RollingSkew`](RollingSkew.md), which centers\nthe window on its mean and applies the adjusted Fisher-Pearson correction. For\nhigh-frequency returns the mean is negligible next to their spread and the two\nare close; on returns with a drift they are not. The value does not change\nwhen the returns are scaled.\n\nA window whose returns are all zero has `RV = 0` and gives `NaN`.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import RollingRealizedSkew\n\nrng = np.random.default_rng(5)\nr = rng.standard_normal(78 * 40) * 0.001             # 40 days of 5-minute returns\ncrash = slice(78 * 20, 78 * 22)\nr[crash] -= np.abs(rng.standard_normal(78 * 2)) ** 3 * 0.001   # a run of large drops\nskew = RollingRealizedSkew(78)(r)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=skew, name='realized skewness, 1-day window', line=dict(color='navy')))\nfig.update_layout(title='RollingRealizedSkew: large drops turn the skewness negative',\n                  xaxis_title='5-minute step', yaxis_title='skewness',\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ],
+    "doc_path": "functions_rolling/RollingRealizedSkew"
+  },
   "RollingRms": {
     "name": "RollingRms",
     "title": "Rolling root-mean-square",
@@ -12865,7 +12983,8 @@
       "RollingKurt",
       "EwSkew",
       "ExpandingSkew",
-      "RollingStd"
+      "RollingStd",
+      "RollingRealizedSkew"
     ],
     "details": "## Description\n\n`RollingSkew` computes the rolling skewness over the `window_size` most recent values, using the Adjusted Fisher-Pearson standardized moment coefficient with the small-sample bias correction `n / ((n-1)(n-2))` (the same formula as `pandas.Series.rolling(w).skew()`).\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
     "examples": [

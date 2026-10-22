@@ -174,6 +174,7 @@
 #include "screamer/rolling_quantile.h"
 #include "screamer/rolling_range.h"
 #include "screamer/rolling_rank.h"
+#include "screamer/rolling_realized_moments.h"
 #include "screamer/rolling_residual_std.h"
 #include "screamer/rolling_rms.h"
 #include "screamer/rolling_rsi.h"
@@ -584,6 +585,16 @@ inline screamer::RollingRSI* make_RollingRSI(int a0, emscripten::val a1, emscrip
     const std::string a1s = a1.as<std::string>();
     const std::string a2s = a2.as<std::string>();
     return new screamer::RollingRSI(a0, a1s, a2s);
+}
+
+inline screamer::RollingRealizedKurt* make_RollingRealizedKurt(int a0, emscripten::val a1) {
+    const std::string a1s = a1.as<std::string>();
+    return new screamer::RollingRealizedKurt(a0, a1s);
+}
+
+inline screamer::RollingRealizedSkew* make_RollingRealizedSkew(int a0, emscripten::val a1) {
+    const std::string a1s = a1.as<std::string>();
+    return new screamer::RollingRealizedSkew(a0, a1s);
 }
 
 inline screamer::RollingResidualStd* make_RollingResidualStd(int a0, emscripten::val a1) {
@@ -1196,6 +1207,10 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor<int>();
     emscripten::class_<screamer::RollingRank, emscripten::base<screamer::EvalOp>>("RollingRank")
         .constructor<int>();
+    emscripten::class_<screamer::RollingRealizedKurt, emscripten::base<screamer::EvalOp>>("RollingRealizedKurt")
+        .constructor(&make_RollingRealizedKurt, emscripten::allow_raw_pointers());
+    emscripten::class_<screamer::RollingRealizedSkew, emscripten::base<screamer::EvalOp>>("RollingRealizedSkew")
+        .constructor(&make_RollingRealizedSkew, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingResidualStd, emscripten::base<screamer::EvalOp>>("RollingResidualStd")
         .constructor(&make_RollingResidualStd, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::RollingRms, emscripten::base<screamer::EvalOp>>("RollingRms")

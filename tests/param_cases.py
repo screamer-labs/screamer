@@ -180,6 +180,7 @@ test_definitions = [
     ( ('RollingQuantile',)       , {"window_size": [20], "quantile": [0, 0.01, 0.4, 1]} ),
     ( ('RollingPoly1',)          , {"window_size": [20], "derivative_order": [0, 1] }),
     ( ('RollingBipowerVar','RollingJumpShare'), {"window_size": [20], "start_policy": ["strict", "expanding", "zero"]}),
+    ( ('RollingRealizedSkew','RollingRealizedKurt'), {"window_size": [20], "start_policy": ["strict", "expanding", "zero"]}),
     ( ('RollingVarianceRatio',)    , {"window_size": [50], "lag": [2, 5], "output": ["ratio", "zscore"], "start_policy": ["strict", "expanding", "zero"]}),
     ( ('RollingPermutationEntropy',), {"window_size": [30], "order": [2, 3, 5], "delay": [1, 2], "start_policy": ["strict", "expanding", "zero"]}),
     ( ('RollingUpsideDeviation',) , {"window_size": [20], "mar": [0.0, 0.5], "start_policy": ["strict", "expanding", "zero"]}),

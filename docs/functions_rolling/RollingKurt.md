@@ -35,6 +35,7 @@ see_also:
 - RollingVar
 - EwKurt
 - ExpandingKurt
+- RollingRealizedKurt
 nan_policy: ignore
 ---
 

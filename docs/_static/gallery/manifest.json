@@ -223,6 +223,8 @@
  "functions_rolling/RollingQuantile": "54679cee62a2504e",
  "functions_rolling/RollingRSI": "bb8a93d84fb878ef",
  "functions_rolling/RollingRange": "371ccd5f28c94107",
+ "functions_rolling/RollingRealizedKurt": "b63dc7281d96e562",
+ "functions_rolling/RollingRealizedSkew": "f981f73b0e748646",
  "functions_rolling/RollingRms": "8553eb840cf66f1e",
  "functions_rolling/RollingRogersSatchellVar": "e4026b774e0c1406",
  "functions_rolling/RollingRogersSatchellVol": "25b10fdad70e263d",

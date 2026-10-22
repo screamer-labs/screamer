@@ -73,6 +73,10 @@ Windowed summary statistics: central tendency, dispersion, quantiles, moments, a
      - Trailing-window max minus min.
    * - :doc:`Rolling rank </functions_fin/RollingRank>`
      - Rank of the current value within the trailing window (1-based, average tie rule).
+   * - :doc:`Rolling realized kurtosis </functions_rolling/RollingRealizedKurt>`
+     - Realized kurtosis of a window of returns, N times the sum of fourth powers of the returns over the squared realized variance.
+   * - :doc:`Rolling realized skewness </functions_rolling/RollingRealizedSkew>`
+     - Realized skewness of a window of returns, sqrt(N) times the sum of cubed returns over the realized variance to the power 3/2.
    * - :doc:`Rolling root-mean-square </functions_rolling/RollingRms>`
      - Trailing-window root-mean-square.
    * - :doc:`Rolling Seasonal Mean </functions_rolling/RollingSeasonalMean>`
@@ -392,6 +396,8 @@ Relationships between series: correlation, covariance, regression, hedging, pair
    /functions_rolling/RollingQuantile
    /functions_rolling/RollingRange
    /functions_fin/RollingRank
+   /functions_rolling/RollingRealizedKurt
+   /functions_rolling/RollingRealizedSkew
    /functions_fin/RollingResidualStd
    /functions_rolling/RollingRms
    /functions_rolling/RollingRogersSatchellVar

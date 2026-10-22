@@ -52,6 +52,7 @@ Each section below maps a common signal-processing task to the operators that co
 | Yang-Zhang volatility (rolling) | `RollingYangZhangVol` | Combines overnight gap and intraday range; lowest variance among OHLC estimators. |
 | Typical value or spread of each hour of the day | `RollingSeasonalMean`, `RollingSeasonalStd`, `RollingSeasonalZscore` | The same slot of the last `window_size` cycles; the input must be on a regular clock. |
 | Variance without the jumps | `RollingBipowerVar` | Bipower variation of returns, on the scale of the realized variance. |
+| Skewness or kurtosis of intraday returns | `RollingRealizedSkew`, `RollingRealizedKurt` | Realized moments about zero (Amaya et al. 2015); `RollingSkew` and `RollingKurt` center on the window mean. |
 | Average true range, for stops and position sizing | `TrueRange`, `ATR`, `NATR` | The true range of each bar, its Wilder average, and that average as a percentage of the close. |
 
 ## Fit a local trend or slope

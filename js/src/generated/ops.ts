@@ -7722,6 +7722,82 @@ export function RollingRank(windowSize?: any): ScreamerOp {
   } catch (e) { throw _finite(M, "RollingRank", ["windowSize"], [windowSize], e); }
 }
 
+/** The settings of RollingRealizedKurt by name, for `RollingRealizedKurt({ ... })`. */
+export interface RollingRealizedKurtOptions {
+  /** Number of most recent returns in the window. @defaultValue `20` */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" uses the returns seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
+  startPolicy?: string;
+}
+
+/**
+ * Realized kurtosis of a window of returns, N times the sum of fourth powers of the returns over the squared realized variance.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingRealizedKurt.html for the full reference.
+ */
+export function RollingRealizedKurt(options: RollingRealizedKurtOptions): ScreamerOp;
+/**
+ * Realized kurtosis of a window of returns, N times the sum of fourth powers of the returns over the squared realized variance.
+ *
+ * @param windowSize Number of most recent returns in the window.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" uses the returns seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingRealizedKurt.html for the full reference.
+ */
+export function RollingRealizedKurt(windowSize?: number, startPolicy?: string): ScreamerOp;
+export function RollingRealizedKurt(windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingRealizedKurt", windowSize, arguments.length, ["windowSize", "startPolicy"], "windowSize must be an integer");
+  else if (arguments.length > 2) _tooMany("RollingRealizedKurt", 2, arguments.length);
+  const _given: unknown[] = [windowSize, startPolicy];
+  if (windowSize === undefined) windowSize = 20;
+  if (startPolicy === undefined) startPolicy = "strict";
+  const M = current();
+  if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingRealizedKurt: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingRealizedKurt", "windowSize", windowSize);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingRealizedKurt: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
+  try {
+    return _params(wrapOp(M, () => new M.RollingRealizedKurt(windowSize, startPolicy)), "RollingRealizedKurt", ["window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollingRealizedKurt", ["windowSize"], [windowSize], e); }
+}
+
+/** The settings of RollingRealizedSkew by name, for `RollingRealizedSkew({ ... })`. */
+export interface RollingRealizedSkewOptions {
+  /** Number of most recent returns in the window. @defaultValue `20` */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" uses the returns seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
+  startPolicy?: string;
+}
+
+/**
+ * Realized skewness of a window of returns, sqrt(N) times the sum of cubed returns over the realized variance to the power 3/2.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingRealizedSkew.html for the full reference.
+ */
+export function RollingRealizedSkew(options: RollingRealizedSkewOptions): ScreamerOp;
+/**
+ * Realized skewness of a window of returns, sqrt(N) times the sum of cubed returns over the realized variance to the power 3/2.
+ *
+ * @param windowSize Number of most recent returns in the window.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" uses the returns seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingRealizedSkew.html for the full reference.
+ */
+export function RollingRealizedSkew(windowSize?: number, startPolicy?: string): ScreamerOp;
+export function RollingRealizedSkew(windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("RollingRealizedSkew", windowSize, arguments.length, ["windowSize", "startPolicy"], "windowSize must be an integer");
+  else if (arguments.length > 2) _tooMany("RollingRealizedSkew", 2, arguments.length);
+  const _given: unknown[] = [windowSize, startPolicy];
+  if (windowSize === undefined) windowSize = 20;
+  if (startPolicy === undefined) startPolicy = "strict";
+  const M = current();
+  if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`RollingRealizedSkew: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "RollingRealizedSkew", "windowSize", windowSize);
+  if (typeof startPolicy !== "string") throw new TypeError(`RollingRealizedSkew: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
+  try {
+    return _params(wrapOp(M, () => new M.RollingRealizedSkew(windowSize, startPolicy)), "RollingRealizedSkew", ["window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "RollingRealizedSkew", ["windowSize"], [windowSize], e); }
+}
+
 /** The settings of RollingResidualStd by name, for `RollingResidualStd({ ... })`. */
 export interface RollingResidualStdOptions {
   /** Number of most recent (y, x) pairs used for both the hedge ratio and the standard deviation. @defaultValue `20` */

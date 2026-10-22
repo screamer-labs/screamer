@@ -626,6 +626,20 @@ Measures of a window: central tendency, dispersion, quantiles, moments, z-scores
       :img-alt: RollingRank example plot
       :class-card: gallery-card
 
+   .. grid-item-card:: RollingRealizedKurt
+      :link: functions_rolling/RollingRealizedKurt
+      :link-type: doc
+      :img-top: _static/gallery/functions_rolling__RollingRealizedKurt.webp
+      :img-alt: RollingRealizedKurt example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: RollingRealizedSkew
+      :link: functions_rolling/RollingRealizedSkew
+      :link-type: doc
+      :img-top: _static/gallery/functions_rolling__RollingRealizedSkew.webp
+      :img-alt: RollingRealizedSkew example plot
+      :class-card: gallery-card
+
    .. grid-item-card:: RollingResidualStd
       :link: functions_fin/RollingResidualStd
       :link-type: doc

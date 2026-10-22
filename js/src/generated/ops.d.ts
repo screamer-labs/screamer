@@ -4853,6 +4853,54 @@ export declare function RollingRank(options: RollingRankOptions): ScreamerOp;
  */
 export declare function RollingRank(windowSize?: number): ScreamerOp;
 
+/** The settings of RollingRealizedKurt by name, for `RollingRealizedKurt({ ... })`. */
+export interface RollingRealizedKurtOptions {
+  /** Number of most recent returns in the window. @defaultValue `20` */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" uses the returns seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
+  startPolicy?: string;
+}
+
+/**
+ * Realized kurtosis of a window of returns, N times the sum of fourth powers of the returns over the squared realized variance.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingRealizedKurt.html for the full reference.
+ */
+export declare function RollingRealizedKurt(options: RollingRealizedKurtOptions): ScreamerOp;
+/**
+ * Realized kurtosis of a window of returns, N times the sum of fourth powers of the returns over the squared realized variance.
+ *
+ * @param windowSize Number of most recent returns in the window.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" uses the returns seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingRealizedKurt.html for the full reference.
+ */
+export declare function RollingRealizedKurt(windowSize?: number, startPolicy?: string): ScreamerOp;
+
+/** The settings of RollingRealizedSkew by name, for `RollingRealizedSkew({ ... })`. */
+export interface RollingRealizedSkewOptions {
+  /** Number of most recent returns in the window. @defaultValue `20` */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" uses the returns seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
+  startPolicy?: string;
+}
+
+/**
+ * Realized skewness of a window of returns, sqrt(N) times the sum of cubed returns over the realized variance to the power 3/2.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingRealizedSkew.html for the full reference.
+ */
+export declare function RollingRealizedSkew(options: RollingRealizedSkewOptions): ScreamerOp;
+/**
+ * Realized skewness of a window of returns, sqrt(N) times the sum of cubed returns over the realized variance to the power 3/2.
+ *
+ * @param windowSize Number of most recent returns in the window.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" uses the returns seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_rolling/RollingRealizedSkew.html for the full reference.
+ */
+export declare function RollingRealizedSkew(windowSize?: number, startPolicy?: string): ScreamerOp;
+
 /** The settings of RollingResidualStd by name, for `RollingResidualStd({ ... })`. */
 export interface RollingResidualStdOptions {
   /** Number of most recent (y, x) pairs used for both the hedge ratio and the standard deviation. @defaultValue `20` */

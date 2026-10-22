@@ -5283,6 +5283,52 @@
   "below_min": {
    "window_size": [
     1,
+    "RollingRealizedKurt: window_size must be at least 2, got 1"
+   ]
+  },
+  "bool_message": {
+   "start_policy": "RollingRealizedKurt: start_policy must be a string, got bool",
+   "window_size": "RollingRealizedKurt: window_size must be an integer, got bool"
+  },
+  "name": "RollingRealizedKurt",
+  "non_finite": {}
+ },
+ {
+  "accepts_bool": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "accepts_none": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "below_min": {
+   "window_size": [
+    1,
+    "RollingRealizedSkew: window_size must be at least 2, got 1"
+   ]
+  },
+  "bool_message": {
+   "start_policy": "RollingRealizedSkew: start_policy must be a string, got bool",
+   "window_size": "RollingRealizedSkew: window_size must be an integer, got bool"
+  },
+  "name": "RollingRealizedSkew",
+  "non_finite": {}
+ },
+ {
+  "accepts_bool": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "accepts_none": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "below_min": {
+   "window_size": [
+    1,
     "RollingResidualStd: window_size must be at least 2, got 1"
    ]
   },

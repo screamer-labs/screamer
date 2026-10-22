@@ -230,6 +230,8 @@ RollingQuantile, Trailing-window quantile (e.g. 0.25 = lower quartile).
 RollingRSI, Relative Strength Index. Wilder's smoothing by default; Cutler's via method='cutler'.
 RollingRange, Trailing-window max minus min.
 RollingRank, Rank of the current value within the trailing window (1-based, average tie rule).
+RollingRealizedKurt, Realized kurtosis of a window of returns, N times the sum of fourth powers of the returns over the squared realized variance.
+RollingRealizedSkew, Realized skewness of a window of returns, sqrt(N) times the sum of cubed returns over the realized variance to the power 3/2.
 RollingResidualStd, Standard deviation of the rolling hedge-adjusted residual y - beta * x.
 RollingRms, Trailing-window root-mean-square.
 RollingRogersSatchellVar, Var form of the Rogers-Satchell drift-robust range-based estimator.

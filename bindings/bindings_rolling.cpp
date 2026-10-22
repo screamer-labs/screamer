@@ -74,6 +74,7 @@
 #include "screamer/rolling_percentile.h"
 #include "screamer/rolling_hurst.h"
 #include "screamer/rolling_bipower.h"
+#include "screamer/rolling_realized_moments.h"
 #include "screamer/rolling_variance_ratio.h"
 #include "screamer/rolling_permutation_entropy.h"
 #include "screamer/rolling_hmm.h"
@@ -638,6 +639,17 @@ void init_bindings_rolling(nb::module_& m) {
              "max_iter"_a = 50, "tol"_a = 1e-6)
         .def("__call__", &screamer::functor_call<screamer::RollingHMM>)
         .def("reset", &screamer::RollingHMM::reset, "Reset.");
+
+    nb::class_<screamer::RollingRealizedSkew, screamer::ScreamerBase>(m, "RollingRealizedSkew")
+        .def(nb::init<screamer::IntArg<int>, const std::string&>(),
+             "window_size"_a = 20, "start_policy"_a = "strict")
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
+        .def("reset", &screamer::RollingRealizedSkew::reset, "Reset.");
+    nb::class_<screamer::RollingRealizedKurt, screamer::ScreamerBase>(m, "RollingRealizedKurt")
+        .def(nb::init<screamer::IntArg<int>, const std::string&>(),
+             "window_size"_a = 20, "start_policy"_a = "strict")
+        .def("__call__", &screamer::screamer_call, "value"_a.none())
+        .def("reset", &screamer::RollingRealizedKurt::reset, "Reset.");
 
     nb::class_<screamer::RollingPoly1, screamer::ScreamerBase>(m, "RollingPoly1")
         .def(nb::init<screamer::IntArg<int>, screamer::IntArg<int>, const std::string&>(),

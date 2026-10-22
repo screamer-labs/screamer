@@ -340,3 +340,23 @@ test("research: spread estimators per event equal the batch call", () => {
     }
   }
 });
+
+test("research: realized moments hand example", () => {
+  const r = Float64Array.from([1, -2, 3]);
+  const skew = (api as any).RollingRealizedSkew(3)(r) as Float64Array;
+  const kurt = (api as any).RollingRealizedKurt({ windowSize: 3 })(r) as Float64Array;
+  assert.ok(Math.abs(skew[2] - Math.sqrt(3) * 20 / 14 ** 1.5) < 1e-14);
+  assert.ok(Math.abs(kurt[2] - 3 * 98 / 14 ** 2) < 1e-14);
+});
+
+test("research: realized-moment ops per event equal the batch call", () => {
+  const r = series("returns");
+  for (const make of [() => (api as any).RollingRealizedSkew(25), () => (api as any).RollingRealizedKurt(25)]) {
+    const batch = make()(r) as Float64Array;
+    const op = make();
+    for (let i = 0; i < r.length; i++) {
+      const v = op(r[i]) as number;
+      assert.ok(Object.is(v, batch[i]) || (Number.isNaN(v) && Number.isNaN(batch[i])), `[${i}]`);
+    }
+  }
+});
