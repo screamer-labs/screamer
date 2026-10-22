@@ -99,6 +99,29 @@
   "below_min": {
    "window_size": [
     0,
+    "AbdiRanaldoSpread: window_size must be at least 1, got 0"
+   ]
+  },
+  "bool_message": {
+   "start_policy": "AbdiRanaldoSpread: start_policy must be a string, got bool",
+   "window_size": "AbdiRanaldoSpread: window_size must be an integer, got bool"
+  },
+  "name": "AbdiRanaldoSpread",
+  "non_finite": {}
+ },
+ {
+  "accepts_bool": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "accepts_none": {
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "below_min": {
+   "window_size": [
+    0,
     "AmihudIlliquidity: window_size must be at least 1, got 0"
    ]
   },
@@ -1763,6 +1786,32 @@
     "nan": null
    }
   }
+ },
+ {
+  "accepts_bool": {
+   "adjust_overnight": true,
+   "start_policy": false,
+   "window_size": false
+  },
+  "accepts_none": {
+   "adjust_overnight": false,
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "below_min": {
+   "window_size": [
+    0,
+    "CorwinSchultzSpread: window_size must be at least 1, got 0"
+   ]
+  },
+  "bool_message": {
+   "adjust_overnight": null,
+   "start_policy": "CorwinSchultzSpread: start_policy must be a string, got bool",
+   "window_size": "CorwinSchultzSpread: window_size must be an integer, got bool"
+  },
+  "name": "CorwinSchultzSpread",
+  "non_finite": {}
  },
  {
   "accepts_bool": {

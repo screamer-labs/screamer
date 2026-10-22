@@ -17,6 +17,7 @@
 #include "screamer/effective_spread.h"
 #include "screamer/realized_spread.h"
 #include "screamer/microstructure_synonyms.h"
+#include "screamer/spread_estimators.h"
 #include <string>
 
 namespace nb = nanobind;
@@ -63,6 +64,19 @@ void init_bindings_micro(nb::module_& m) {
              "window_size"_a = 20, "start_policy"_a = "strict")
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RollSpread::reset, "Reset to the initial state.");
+
+    // High-low spread estimators, 3 -> 1 on (high, low, close).
+    nb::class_<screamer::CorwinSchultzSpread, screamer::EvalOp>(m, "CorwinSchultzSpread")
+        .def(nb::init<screamer::IntArg<int>, screamer::BoolArg, const std::string&>(),
+             "window_size"_a = 20, "adjust_overnight"_a = true, "start_policy"_a = "strict")
+        .def("__call__", &screamer::functor_call<screamer::CorwinSchultzSpread>)
+        .def("reset", &screamer::CorwinSchultzSpread::reset, "Reset to the initial state.");
+
+    nb::class_<screamer::AbdiRanaldoSpread, screamer::EvalOp>(m, "AbdiRanaldoSpread")
+        .def(nb::init<screamer::IntArg<int>, const std::string&>(),
+             "window_size"_a = 20, "start_policy"_a = "strict")
+        .def("__call__", &screamer::functor_call<screamer::AbdiRanaldoSpread>)
+        .def("reset", &screamer::AbdiRanaldoSpread::reset, "Reset to the initial state.");
 
     nb::class_<screamer::Propagator, screamer::ScreamerBase>(m, "Propagator")
         .def(nb::init<screamer::IntArg<int>, screamer::FloatArg, screamer::FloatArg>(),

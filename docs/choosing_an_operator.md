@@ -159,6 +159,7 @@ For a worked example see [notebook 19](notebooks/19-cycle-and-spectral-analysis)
 | Signed volume and order-flow imbalance | `SignedVolume`, `OFI`, `RollingOrderImbalance` | Net aggressive flow per trade, normalized, or summed over a window. |
 | Book imbalance and fair value | `QueueImbalance`, `MicroPrice`, `ContOFI` | From L1 quotes: size imbalance, an imbalance-weighted mid, and order-flow imbalance from book events. |
 | Trading cost | `EffectiveSpread`, `RealizedSpread`, `RollSpread` | Cost against the mid, its liquidity part, and a spread estimate from trade prices alone. |
+| Spread from OHLC bars | `CorwinSchultzSpread`, `AbdiRanaldoSpread` | Bid-ask spread estimated from bar high and low (Corwin-Schultz) or close, high and low (Abdi-Ranaldo). |
 | Price impact | `RollingKyleLambda`, `EwKyleLambda`, `Propagator`, `AmihudIlliquidity` | Impact slope of return on signed flow, a decaying-kernel impact model, and illiquidity per unit of notional. |
 | Flow toxicity and clustering | `VPIN`, `HawkesIntensity` | Probability of informed trading, and the intensity of self-exciting arrivals. |
 

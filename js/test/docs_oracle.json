@@ -83,7 +83,7 @@
    "BacktestOHLCTarget",
    "BacktestOHLCVTarget",
    "TripleBarrierOHLC",
-   "BacktestOHLCOrders"
+   "AbdiRanaldoSpread"
   ]
  },
  {

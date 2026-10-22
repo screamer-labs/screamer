@@ -6,6 +6,7 @@ ADOSC, Difference of fast and slow EMA of the Accumulation/Distribution line.
 ADX, Wilder's ADX with +DI and -DI (3 inputs -> 3 outputs).
 ADXR, Wilder's ADXR, the mean of ADX now and ADX one window ago.
 ATR, Wilder-smoothed average of TrueRange.
+AbdiRanaldoSpread, Abdi-Ranaldo (2017) bid-ask spread from the close and the high-low midpoints of consecutive bars, over a trailing window.
 Abs, Absolute value of each element.
 Acos, Inverse cosine of each element (radians, input in [-1, 1]).
 Add, Elementwise sum of two aligned streams (x + y).
@@ -44,6 +45,7 @@ Ceil, Round each element toward positive infinity.
 Clip, Bound each element below and/or above.
 CombineLatest, As-of latest-value join of N streams: one row per distinct index (same-index events coalesce).
 ContOFI, Cont-Kukanov-Stoikov (2014) order-flow imbalance from L1 book events.
+CorwinSchultzSpread, Corwin-Schultz (2012) bid-ask spread from the high and low of two consecutive bars, averaged over a trailing window.
 Cos, Cosine of each element (radians).
 CrossDemean, Subtract the mean across assets at each step, removing the common component.
 CrossNormalize, Scale each row of scores to portfolio weights with a chosen gross exposure, and optionally a net exposure.

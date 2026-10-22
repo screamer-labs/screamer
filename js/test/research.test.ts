@@ -313,3 +313,30 @@ test("research: EwMultiRegression setting checks", () => {
     { name: "TypeError", message: /^EwMultiRegression: intercept must be a bool, got number$/ });
   assert.equal((EwMultiRegression(2, false, null, 10)(1, 2, 3) as number[]).length, 5);
 });
+
+test("research: high-low spread estimators recover a quoted spread", () => {
+  // A constant mid of 100 with every high at the ask and every low at the bid.
+  const n = 8, ask = 100.5, bid = 99.5;
+  const high = new Float64Array(n).fill(ask), low = new Float64Array(n).fill(bid);
+  const close = Float64Array.from({ length: n }, (_v, i) => (i % 3 === 0 ? ask : bid));
+  const cs = (api as any).CorwinSchultzSpread({ windowSize: 3 })(high, low, close) as Float64Array;
+  const ar = (api as any).AbdiRanaldoSpread(3)(high, low, close) as Float64Array;
+  for (let i = 0; i < 3; i++) assert.ok(Number.isNaN(cs[i]) && Number.isNaN(ar[i]));
+  for (let i = 3; i < n; i++) {
+    assert.ok(Math.abs(cs[i] - 0.01) < 1e-14, `cs[${i}] = ${cs[i]}`);
+    assert.ok(Math.abs(ar[i] - Math.log(ask / bid)) < 1e-14, `ar[${i}] = ${ar[i]}`);
+  }
+});
+
+test("research: spread estimators per event equal the batch call", () => {
+  const [h, l, c] = ["hlc_high", "hlc_low", "hlc_close"].map(series);
+  for (const make of [() => (api as any).CorwinSchultzSpread(15),
+                      () => (api as any).AbdiRanaldoSpread({ windowSize: 15, startPolicy: "expanding" })]) {
+    const batch = make()(h, l, c) as Float64Array;
+    const op = make();
+    for (let i = 0; i < h.length; i++) {
+      const v = op(h[i], l[i], c[i]) as number;
+      assert.ok(Object.is(v, batch[i]) || (Number.isNaN(v) && Number.isNaN(batch[i])), `[${i}]`);
+    }
+  }
+});

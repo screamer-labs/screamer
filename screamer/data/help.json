@@ -7944,6 +7944,65 @@
     ],
     "doc_path": "functions_math/Where"
   },
+  "AbdiRanaldoSpread": {
+    "name": "AbdiRanaldoSpread",
+    "title": "Abdi-Ranaldo Close-High-Low Spread",
+    "implementation_family": "micro",
+    "topics": [
+      "price-impact"
+    ],
+    "tags": [
+      "abdi-ranaldo",
+      "chl spread",
+      "close-high-low",
+      "bid-ask spread",
+      "spread estimator",
+      "liquidity",
+      "microstructure",
+      "hlc"
+    ],
+    "short": "Abdi-Ranaldo (2017) bid-ask spread from the close and the high-low midpoints of consecutive bars, over a trailing window.",
+    "inputs": 3,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 1,
+        "description": "Number of most recent two-bar products averaged."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "strict",
+        "enum": [
+          "strict",
+          "expanding",
+          "zero"
+        ],
+        "description": "Output before the window is full: \"strict\" gives NaN, \"expanding\" averages the two-bar products seen so far, and \"zero\" treats the window as pre-filled with zeros."
+      }
+    ],
+    "nan_policy": "ignore",
+    "see_also": [
+      "CorwinSchultzSpread",
+      "RollSpread",
+      "EffectiveSpread"
+    ],
+    "references": [
+      "Abdi, F. and Ranaldo, A. (2017). A simple estimation of bid-ask spreads from daily close, high, and low prices. *Review of Financial Studies*, 30(12), 4437-4480. doi:10.1093/rfs/hhx084"
+    ],
+    "details": "## Description\n\n`AbdiRanaldoSpread` is the Abdi and Ranaldo (2017) estimate of the bid-ask\nspread from bar close, high and low prices. The midpoint of a bar's high and low\nis a proxy for the bar's efficient price, and a close that trades at the bid or\nthe ask sits half a spread away from it. The covariance of that distance with the\ndistance to the next bar's midpoint measures the squared spread.\n\nWith `c = ln(close)` and the log midpoint `eta = (ln(high) + ln(low)) / 2`, each\npair of consecutive bars `t-1` and `t` gives the product\n\n$$\nx_t = 4\\,(c_{t-1} - \\eta_{t-1})\\,(c_{t-1} - \\eta_t),\n$$\n\nand the output at bar `t` is\n\n$$\nS_t = \\sqrt{\\max\\!\\left(\\frac{1}{n}\\sum_{i=t-n+1}^{t} x_i,\\; 0\\right)}\n$$\n\nover the last `n = window_size` products. The products are averaged first and a\nnegative average is set to 0 before the square root, which is the paper's\nmonthly estimator. A single product can be negative, so a short window gives 0\nmore often. `S` is in log-price units, close to the spread as a fraction of the\nprice: a spread of 0.01 is about 1%.\n\nA bar with a `NaN` input is skipped and left out of the pairs: the bars on either\nside of it form a pair.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import AbdiRanaldoSpread, CorwinSchultzSpread\n\nrng = np.random.default_rng(3)\nn_bars, m = 600, 50                                       # 50 trades per bar\nspread = np.where(np.arange(n_bars) < 300, 0.002, 0.005)   # 20 bp, then 50 bp\nmid = 100 * np.exp(np.cumsum(rng.normal(0, 0.0005, n_bars * m)))\nside = rng.choice([-1.0, 1.0], n_bars * m)                # sell at bid, buy at ask\nprice = (mid * (1 + side * np.repeat(spread, m) / 2)).reshape(n_bars, m)\nhigh, low, close = price.max(axis=1), price.min(axis=1), price[:, -1]\n\nar = AbdiRanaldoSpread(50)(high, low, close)\ncs = CorwinSchultzSpread(50)(high, low, close)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=spread, name='true spread', line=dict(color='gray', dash='dash')))\nfig.add_trace(go.Scatter(y=ar, name='Abdi-Ranaldo, 50 bars', line=dict(color='crimson')))\nfig.add_trace(go.Scatter(y=cs, name='Corwin-Schultz, 50 bars', line=dict(color='navy', width=1)))\nfig.update_layout(title='AbdiRanaldoSpread: the spread from close, high and low',\n                  xaxis_title='bar', yaxis_title='spread (fraction of price)',\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ],
+    "doc_path": "functions_micro/AbdiRanaldoSpread"
+  },
   "AmihudIlliquidity": {
     "name": "AmihudIlliquidity",
     "title": "Amihud Illiquidity",
@@ -8104,6 +8163,71 @@
       }
     ],
     "doc_path": "functions_micro/ContOFI"
+  },
+  "CorwinSchultzSpread": {
+    "name": "CorwinSchultzSpread",
+    "title": "Corwin-Schultz High-Low Spread",
+    "implementation_family": "micro",
+    "topics": [
+      "price-impact"
+    ],
+    "tags": [
+      "corwin-schultz",
+      "high-low spread",
+      "bid-ask spread",
+      "spread estimator",
+      "liquidity",
+      "microstructure",
+      "hlc"
+    ],
+    "short": "Corwin-Schultz (2012) bid-ask spread from the high and low of two consecutive bars, averaged over a trailing window.",
+    "inputs": 3,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "window_size",
+        "type": "int",
+        "default": 20,
+        "min": 1,
+        "description": "Number of most recent two-bar estimates averaged."
+      },
+      {
+        "name": "adjust_overnight",
+        "type": "bool",
+        "default": true,
+        "description": "Shift a bar's high and low by its gap from the previous close before pairing the two bars (the paper's overnight adjustment)."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "strict",
+        "enum": [
+          "strict",
+          "expanding",
+          "zero"
+        ],
+        "description": "Output before the window is full: \"strict\" gives NaN, \"expanding\" averages the two-bar estimates seen so far, and \"zero\" treats the window as pre-filled with zeros."
+      }
+    ],
+    "nan_policy": "ignore",
+    "see_also": [
+      "AbdiRanaldoSpread",
+      "RollSpread",
+      "EffectiveSpread",
+      "RollingParkinsonVar"
+    ],
+    "references": [
+      "Corwin, S. A. and Schultz, P. (2012). A simple way to estimate bid-ask spreads from daily high and low prices. *Journal of Finance*, 67(2), 719-760. doi:10.1111/j.1540-6261.2012.01729.x"
+    ],
+    "details": "## Description\n\n`CorwinSchultzSpread` is the Corwin and Schultz (2012) estimate of the\nproportional bid-ask spread from bar highs and lows. A bar's high is usually a\nbuy at the ask and its low a sell at the bid, so the high-low range holds both\nthe price variance and the spread. The variance part of the range grows with\nthe length of the period and the spread part does not, so comparing the range of\none bar with the range of two bars separates them.\n\nFor the pair of consecutive bars `t-1` and `t`, with `H` the high and `L` the low,\n\n$$\n\\beta = \\ln\\!\\left(\\frac{H_{t-1}}{L_{t-1}}\\right)^2 + \\ln\\!\\left(\\frac{H_t}{L_t}\\right)^2,\n\\qquad\n\\gamma = \\ln\\!\\left(\\frac{\\max(H_{t-1}, H_t)}{\\min(L_{t-1}, L_t)}\\right)^2,\n$$\n\n$$\n\\alpha = \\frac{\\sqrt{2\\beta} - \\sqrt{\\beta}}{3 - 2\\sqrt{2}} - \\sqrt{\\frac{\\gamma}{3 - 2\\sqrt{2}}},\n\\qquad\nS = \\frac{2\\,(e^{\\alpha} - 1)}{1 + e^{\\alpha}}.\n$$\n\nA negative two-bar `S` is set to 0, and the output at bar `t` is the mean of\nthe last `window_size` two-bar estimates, the pair `(t-1, t)` included. The\npaper averages over a month of daily bars. `S` is a fraction of the price: 0.01\nis a spread of 1%.\n\nWith `adjust_overnight=True`, the gap between bars is taken out before the pair\nis formed, as in the paper: if bar `t`'s low is above the close of bar `t-1`,\nbar `t`'s high and low are both lowered by the difference, and if its high is\nbelow that close they are both raised by it. Without this, a price move between\nthe bars counts as range and raises the estimate. Where each bar opens at the\nprevious close (24-hour markets, intraday bars), the adjustment rarely applies.\n\nThe `close` input is used only by the overnight adjustment, and a `NaN` close\nstill makes the bar unusable when the adjustment is off.\n\nA bar with a `NaN` input is skipped and left out of the pairs: the bars on either\nside of it form a pair.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Usage plot",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import CorwinSchultzSpread\n\nrng = np.random.default_rng(3)\nn_bars, m = 600, 50                                       # 50 trades per bar\nspread = np.where(np.arange(n_bars) < 300, 0.002, 0.005)   # 20 bp, then 50 bp\nmid = 100 * np.exp(np.cumsum(rng.normal(0, 0.0005, n_bars * m)))\nside = rng.choice([-1.0, 1.0], n_bars * m)                # sell at bid, buy at ask\nprice = (mid * (1 + side * np.repeat(spread, m) / 2)).reshape(n_bars, m)\nhigh, low, close = price.max(axis=1), price.min(axis=1), price[:, -1]\n\ncs = CorwinSchultzSpread(50)(high, low, close)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=spread, name='true spread', line=dict(color='gray', dash='dash')))\nfig.add_trace(go.Scatter(y=cs, name='Corwin-Schultz, 50 bars', line=dict(color='navy')))\nfig.update_layout(title='CorwinSchultzSpread: the spread from bar highs and lows',\n                  xaxis_title='bar', yaxis_title='spread (fraction of price)',\n                  margin=dict(l=20, r=20, t=60, b=20),\n                  legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1))\nfig.show()"
+      }
+    ],
+    "doc_path": "functions_micro/CorwinSchultzSpread"
   },
   "EffectiveSpread": {
     "name": "EffectiveSpread",

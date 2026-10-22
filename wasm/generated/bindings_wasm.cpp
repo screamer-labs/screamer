@@ -194,6 +194,7 @@
 #include "screamer/roofing_filter.h"
 #include "screamer/schmitt_trigger.h"
 #include "screamer/segment.h"
+#include "screamer/spread_estimators.h"
 #include "screamer/stoch.h"
 #include "screamer/stoch_rsi.h"
 #include "screamer/super_smoother.h"
@@ -218,6 +219,11 @@
 
 // ---- factories: JS passes NaN for a missing optional slot; strings arrive as vals ----
 namespace {
+inline screamer::AbdiRanaldoSpread* make_AbdiRanaldoSpread(int a0, emscripten::val a1) {
+    const std::string a1s = a1.as<std::string>();
+    return new screamer::AbdiRanaldoSpread(a0, a1s);
+}
+
 inline screamer::AmihudIlliquidity* make_AmihudIlliquidity(int a0, emscripten::val a1) {
     const std::string a1s = a1.as<std::string>();
     return new screamer::AmihudIlliquidity(a0, a1s);
@@ -310,6 +316,11 @@ inline screamer::BulkVolumeClassifier* make_BulkVolumeClassifier(int a0, emscrip
 
 inline screamer::Clip* make_Clip(double a0, double a1) {
     return new screamer::Clip(screamer_wasm::opt(a0), screamer_wasm::opt(a1));
+}
+
+inline screamer::CorwinSchultzSpread* make_CorwinSchultzSpread(int a0, bool a1, emscripten::val a2) {
+    const std::string a2s = a2.as<std::string>();
+    return new screamer::CorwinSchultzSpread(a0, a1, a2s);
 }
 
 inline screamer::CrossNormalize* make_CrossNormalize(double a0, double a1) {
@@ -699,6 +710,8 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor<int>();
     emscripten::class_<screamer::ATR, emscripten::base<screamer::EvalOp>>("ATR")
         .constructor<int>();
+    emscripten::class_<screamer::AbdiRanaldoSpread, emscripten::base<screamer::EvalOp>>("AbdiRanaldoSpread")
+        .constructor(&make_AbdiRanaldoSpread, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::Transform<(double (*)(double)) std::abs>, emscripten::base<screamer::EvalOp>>("Abs")
         .constructor<>();
     emscripten::class_<screamer::Transform<(double (*)(double)) std::acos>, emscripten::base<screamer::EvalOp>>("Acos")
@@ -790,6 +803,8 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor(&make_Clip, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::ContOFI, emscripten::base<screamer::EvalOp>>("ContOFI")
         .constructor<>();
+    emscripten::class_<screamer::CorwinSchultzSpread, emscripten::base<screamer::EvalOp>>("CorwinSchultzSpread")
+        .constructor(&make_CorwinSchultzSpread, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::Transform<(double (*)(double)) std::cos>, emscripten::base<screamer::EvalOp>>("Cos")
         .constructor<>();
     emscripten::class_<screamer::CrossDemean, emscripten::base<screamer::EvalOp>>("CrossDemean")

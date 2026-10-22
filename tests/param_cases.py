@@ -365,6 +365,13 @@ multi_input_definitions = [
        'RollingRogersSatchellVar','RollingRogersSatchellVol',
        'RollingYangZhangVar','RollingYangZhangVol')
                                     , {"window_size": [20], "array_type": ["ohlc"]}),
+    # High-low spread estimators on coherent (high, low, close) bars.
+    ( ('CorwinSchultzSpread',)      , {"window_size": [20], "adjust_overnight": [True, False],
+                                       "start_policy": ["strict", "expanding", "zero"],
+                                       "array_type": ["ohlc"]}),
+    ( ('AbdiRanaldoSpread',)        , {"window_size": [20],
+                                       "start_policy": ["strict", "expanding", "zero"],
+                                       "array_type": ["ohlc"]}),
     # Online Bayesian changepoint detection: 1 -> 3, run length truncated at max_run.
     ( ('BayesianChangepoint',)     , {"expected_run": [50.0], "max_run": [100], "prior_var": [1.0], "array_length": [300]}),
     ( ('RollingHMM',)               , {"window_size": [60], "refit_every": [15], "emission": ["gaussian"],

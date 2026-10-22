@@ -49,6 +49,9 @@ costs:
   dollar traded, comparable across assets.
 - [`RollSpread`](functions_micro/RollSpread.md): the effective bid-ask spread
   implied by trade prices.
+- [`CorwinSchultzSpread`](functions_micro/CorwinSchultzSpread.md) and
+  [`AbdiRanaldoSpread`](functions_micro/AbdiRanaldoSpread.md): the bid-ask spread
+  estimated from bar high, low and close prices.
 - [`EffectiveSpread`](functions_micro/EffectiveSpread.md) and
   [`RealizedSpread`](functions_micro/RealizedSpread.md): the round-trip cost paid,
   and the part of it the liquidity provider keeps after the price moves (their

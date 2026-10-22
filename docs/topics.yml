@@ -192,7 +192,7 @@ topics:
 
   price-impact:
     name: "Price impact & liquidity"
-    desc: "How far order flow moves price and what trading costs: Kyle's lambda, Amihud, Roll spread, the propagator, and the micro-price."
+    desc: "How far order flow moves price and what trading costs: Kyle's lambda, Amihud, the Roll, Corwin-Schultz and Abdi-Ranaldo spreads, the propagator, and the micro-price."
 
   order-flow-arrivals:
     name: "Order-flow arrivals"

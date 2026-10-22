@@ -1353,6 +1353,13 @@ Order flow and liquidity from trades and quotes: trade signing, imbalance, price
    :gutter: 2
    :class-container: gallery-grid
 
+   .. grid-item-card:: AbdiRanaldoSpread
+      :link: functions_micro/AbdiRanaldoSpread
+      :link-type: doc
+      :img-top: _static/gallery/functions_micro__AbdiRanaldoSpread.webp
+      :img-alt: AbdiRanaldoSpread example plot
+      :class-card: gallery-card
+
    .. grid-item-card:: AmihudIlliquidity
       :link: functions_micro/AmihudIlliquidity
       :link-type: doc
@@ -1372,6 +1379,13 @@ Order flow and liquidity from trades and quotes: trade signing, imbalance, price
       :link-type: doc
       :img-top: _static/gallery/functions_micro__ContOFI.webp
       :img-alt: ContOFI example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: CorwinSchultzSpread
+      :link: functions_micro/CorwinSchultzSpread
+      :link-type: doc
+      :img-top: _static/gallery/functions_micro__CorwinSchultzSpread.webp
+      :img-alt: CorwinSchultzSpread example plot
       :class-card: gallery-card
 
    .. grid-item-card:: EffectiveSpread

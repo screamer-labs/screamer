@@ -101,6 +101,30 @@ export declare function ATR(options: ATROptions): ScreamerOp;
  */
 export declare function ATR(windowSize?: number): ScreamerOp;
 
+/** The settings of AbdiRanaldoSpread by name, for `AbdiRanaldoSpread({ ... })`. */
+export interface AbdiRanaldoSpreadOptions {
+  /** Number of most recent two-bar products averaged. @defaultValue `20` */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" averages the two-bar products seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
+  startPolicy?: string;
+}
+
+/**
+ * Abdi-Ranaldo (2017) bid-ask spread from the close and the high-low midpoints of consecutive bars, over a trailing window.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/AbdiRanaldoSpread.html for the full reference.
+ */
+export declare function AbdiRanaldoSpread(options: AbdiRanaldoSpreadOptions): ScreamerOp;
+/**
+ * Abdi-Ranaldo (2017) bid-ask spread from the close and the high-low midpoints of consecutive bars, over a trailing window.
+ *
+ * @param windowSize Number of most recent two-bar products averaged.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" averages the two-bar products seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/AbdiRanaldoSpread.html for the full reference.
+ */
+export declare function AbdiRanaldoSpread(windowSize?: number, startPolicy?: string): ScreamerOp;
+
 /** Abs has no settings: its options object is empty. */
 export type AbsOptions = Record<string, never>;
 
@@ -1247,6 +1271,33 @@ export type ContOFIOptions = Record<string, never>;
  * @see https://screamer.readthedocs.io/en/latest/functions_micro/ContOFI.html for the full reference.
  */
 export declare function ContOFI(options?: ContOFIOptions): ScreamerOp;
+
+/** The settings of CorwinSchultzSpread by name, for `CorwinSchultzSpread({ ... })`. */
+export interface CorwinSchultzSpreadOptions {
+  /** Number of most recent two-bar estimates averaged. @defaultValue `20` */
+  windowSize?: number;
+  /** Shift a bar's high and low by its gap from the previous close before pairing the two bars (the paper's overnight adjustment). @defaultValue `true` */
+  adjustOvernight?: boolean;
+  /** Output before the window is full: "strict" gives NaN, "expanding" averages the two-bar estimates seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
+  startPolicy?: string;
+}
+
+/**
+ * Corwin-Schultz (2012) bid-ask spread from the high and low of two consecutive bars, averaged over a trailing window.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/CorwinSchultzSpread.html for the full reference.
+ */
+export declare function CorwinSchultzSpread(options: CorwinSchultzSpreadOptions): ScreamerOp;
+/**
+ * Corwin-Schultz (2012) bid-ask spread from the high and low of two consecutive bars, averaged over a trailing window.
+ *
+ * @param windowSize Number of most recent two-bar estimates averaged.
+ * @param adjustOvernight Shift a bar's high and low by its gap from the previous close before pairing the two bars (the paper's overnight adjustment).
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" averages the two-bar estimates seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/CorwinSchultzSpread.html for the full reference.
+ */
+export declare function CorwinSchultzSpread(windowSize?: number, adjustOvernight?: boolean, startPolicy?: string): ScreamerOp;
 
 /** Cos has no settings: its options object is empty. */
 export type CosOptions = Record<string, never>;

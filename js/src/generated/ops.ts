@@ -248,6 +248,44 @@ export function ATR(windowSize?: any): ScreamerOp {
   } catch (e) { throw _finite(M, "ATR", ["windowSize"], [windowSize], e); }
 }
 
+/** The settings of AbdiRanaldoSpread by name, for `AbdiRanaldoSpread({ ... })`. */
+export interface AbdiRanaldoSpreadOptions {
+  /** Number of most recent two-bar products averaged. @defaultValue `20` */
+  windowSize?: number;
+  /** Output before the window is full: "strict" gives NaN, "expanding" averages the two-bar products seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
+  startPolicy?: string;
+}
+
+/**
+ * Abdi-Ranaldo (2017) bid-ask spread from the close and the high-low midpoints of consecutive bars, over a trailing window.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/AbdiRanaldoSpread.html for the full reference.
+ */
+export function AbdiRanaldoSpread(options: AbdiRanaldoSpreadOptions): ScreamerOp;
+/**
+ * Abdi-Ranaldo (2017) bid-ask spread from the close and the high-low midpoints of consecutive bars, over a trailing window.
+ *
+ * @param windowSize Number of most recent two-bar products averaged.
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" averages the two-bar products seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/AbdiRanaldoSpread.html for the full reference.
+ */
+export function AbdiRanaldoSpread(windowSize?: number, startPolicy?: string): ScreamerOp;
+export function AbdiRanaldoSpread(windowSize?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, startPolicy] = _options("AbdiRanaldoSpread", windowSize, arguments.length, ["windowSize", "startPolicy"], "windowSize must be an integer");
+  else if (arguments.length > 2) _tooMany("AbdiRanaldoSpread", 2, arguments.length);
+  const _given: unknown[] = [windowSize, startPolicy];
+  if (windowSize === undefined) windowSize = 20;
+  if (startPolicy === undefined) startPolicy = "strict";
+  const M = current();
+  if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`AbdiRanaldoSpread: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "AbdiRanaldoSpread", "windowSize", windowSize);
+  if (typeof startPolicy !== "string") throw new TypeError(`AbdiRanaldoSpread: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
+  try {
+    return _params(wrapOp(M, () => new M.AbdiRanaldoSpread(windowSize, startPolicy)), "AbdiRanaldoSpread", ["window_size", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "AbdiRanaldoSpread", ["windowSize"], [windowSize], e); }
+}
+
 /** Abs has no settings: its options object is empty. */
 export type AbsOptions = Record<string, never>;
 
@@ -2108,6 +2146,49 @@ export function ContOFI(options?: ContOFIOptions): ScreamerOp {
   const _given: unknown[] = [];
   const M = current();
   return _params(wrapOp(M, () => new M.ContOFI()), "ContOFI", [], _given);
+}
+
+/** The settings of CorwinSchultzSpread by name, for `CorwinSchultzSpread({ ... })`. */
+export interface CorwinSchultzSpreadOptions {
+  /** Number of most recent two-bar estimates averaged. @defaultValue `20` */
+  windowSize?: number;
+  /** Shift a bar's high and low by its gap from the previous close before pairing the two bars (the paper's overnight adjustment). @defaultValue `true` */
+  adjustOvernight?: boolean;
+  /** Output before the window is full: "strict" gives NaN, "expanding" averages the two-bar estimates seen so far, and "zero" treats the window as pre-filled with zeros. @defaultValue `"strict"` */
+  startPolicy?: string;
+}
+
+/**
+ * Corwin-Schultz (2012) bid-ask spread from the high and low of two consecutive bars, averaged over a trailing window.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/CorwinSchultzSpread.html for the full reference.
+ */
+export function CorwinSchultzSpread(options: CorwinSchultzSpreadOptions): ScreamerOp;
+/**
+ * Corwin-Schultz (2012) bid-ask spread from the high and low of two consecutive bars, averaged over a trailing window.
+ *
+ * @param windowSize Number of most recent two-bar estimates averaged.
+ * @param adjustOvernight Shift a bar's high and low by its gap from the previous close before pairing the two bars (the paper's overnight adjustment).
+ * @param startPolicy Output before the window is full: "strict" gives NaN, "expanding" averages the two-bar estimates seen so far, and "zero" treats the window as pre-filled with zeros.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/CorwinSchultzSpread.html for the full reference.
+ */
+export function CorwinSchultzSpread(windowSize?: number, adjustOvernight?: boolean, startPolicy?: string): ScreamerOp;
+export function CorwinSchultzSpread(windowSize?: any, adjustOvernight?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, adjustOvernight, startPolicy] = _options("CorwinSchultzSpread", windowSize, arguments.length, ["windowSize", "adjustOvernight", "startPolicy"], "windowSize must be an integer");
+  else if (arguments.length > 3) _tooMany("CorwinSchultzSpread", 3, arguments.length);
+  const _given: unknown[] = [windowSize, adjustOvernight, startPolicy];
+  if (windowSize === undefined) windowSize = 20;
+  if (adjustOvernight === undefined) adjustOvernight = true;
+  if (startPolicy === undefined) startPolicy = "strict";
+  const M = current();
+  if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`CorwinSchultzSpread: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "CorwinSchultzSpread", "windowSize", windowSize);
+  if (typeof adjustOvernight !== "boolean") throw new TypeError(`CorwinSchultzSpread: adjustOvernight must be a bool, got ${_what(adjustOvernight)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`CorwinSchultzSpread: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
+  try {
+    return _params(wrapOp(M, () => new M.CorwinSchultzSpread(windowSize, adjustOvernight, startPolicy)), "CorwinSchultzSpread", ["window_size", "adjust_overnight", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "CorwinSchultzSpread", ["windowSize"], [windowSize], e); }
 }
 
 /** Cos has no settings: its options object is empty. */

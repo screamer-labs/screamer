@@ -40,7 +40,7 @@ def _inputs():
     returns = rng.standard_normal(T) * scale
     returns[[100, 450]] = np.nan
     return {"events": events, "returns": returns, "labels": _labels(T), "returns2": _returns2(T),
-            **_liquidation_market(), **_ols_rows()}
+            **_liquidation_market(), **_ols_rows(), **_hlc_bars()}
 
 
 def _labels(T):
@@ -55,6 +55,20 @@ def _labels(T):
 def _returns2(T):
     """A second return series, for two-input operators."""
     return np.random.default_rng(20261023).standard_normal(T)
+
+
+def _hlc_bars(T=600):
+    """Bars of trades at the bid or ask around a random-walk mid, with gaps
+    between bars and NaN fields, for the high-low spread estimators."""
+    rng = np.random.default_rng(20261022)
+    mid = 100 * np.exp(np.cumsum(rng.normal(0, 0.01, T)))
+    close = mid * np.exp(rng.normal(0, 0.003, T))
+    high = np.maximum(close, mid) * np.exp(np.abs(rng.normal(0, 0.006, T)))
+    low = np.minimum(close, mid) * np.exp(-np.abs(rng.normal(0, 0.006, T)))
+    high[[5, 100]] = np.nan
+    low[201] = np.nan
+    close[200] = np.nan
+    return {"hlc_high": high, "hlc_low": low, "hlc_close": close}
 
 
 def _liquidation_market(T=600, K=1):
@@ -96,6 +110,7 @@ def _ols_rows(T=600, k=16, K=1, seed=20261018):
 # Each operator task adds its cases here.
 _LIQ = ["liq_position", "liq_open", "liq_high", "liq_low"]
 _OLS = ["ols_y"] + [f"ols_x{j}" for j in range(1, 17)]
+_HLC = ["hlc_high", "hlc_low", "hlc_close"]
 CASES = [
     ("Hold", {"n": 3}, "events"),
     ("Hold", {"n": 3, "cooldown": 4}, "events"),
@@ -140,6 +155,11 @@ CASES = [
     ("EwMultiRegression", {"n_regressors": 3, "alpha": 0.05}, _OLS[:4]),
     ("EwMultiRegression", {"n_regressors": 2, "intercept": False, "halflife": 20.0}, _OLS[:3]),
     ("EwMultiRegression", {"n_regressors": 16, "span": 120.0}, _OLS),
+    ("CorwinSchultzSpread", {"window_size": 20}, _HLC, 1e-12),
+    ("CorwinSchultzSpread", {"window_size": 10, "adjust_overnight": False, "start_policy": "expanding"},
+     _HLC, 1e-12),
+    ("AbdiRanaldoSpread", {"window_size": 20}, _HLC, 1e-12),
+    ("AbdiRanaldoSpread", {"window_size": 5, "start_policy": "zero"}, _HLC, 1e-12),
 ]
 
 
