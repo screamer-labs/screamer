@@ -19,8 +19,11 @@ const oracle: { inputs: Record<string, Num[]>; cases: Case[]; helpers: Record<st
 const num = (v: Num): number => (v === null ? NaN : v === "inf" ? Infinity : v === "-inf" ? -Infinity : v);
 const series = (k: string) => Float64Array.from(oracle.inputs[k], num);
 const camel = (k: string) => k.replace(/_([a-z])/g, (_m, c) => c.toUpperCase());
-const options = (s: Record<string, unknown>) =>
-  Object.fromEntries(Object.entries(s).map(([k, v]) => [camel(k), v]));
+// An operator setting, {"functor", "params"}, is built by its factory.
+const setting = (v: any): unknown => (v !== null && typeof v === "object" && "functor" in v
+  ? (api as any)[v.functor](options(v.params)) : v);
+const options = (s: Record<string, unknown>): Record<string, unknown> =>
+  Object.fromEntries(Object.entries(s).map(([k, v]) => [camel(k), setting(v)]));
 
 export const close = (got: ArrayLike<number>, want: Num[], what: string, tol = 1e-9) => {
   assert.equal(got.length, want.length, `${what}: length`);

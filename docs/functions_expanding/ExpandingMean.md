@@ -19,6 +19,7 @@ see_also:
 - EwMean
 - ExpandingSum
 - ExpandingStd
+- Segment
 nan_policy: ignore
 ---
 

@@ -75,6 +75,8 @@ TS_TYPE = {
     "std::string": "string",
     "std::vector<double>": "number | number[]",
     "bool": "boolean",
+    # An operator setting (Segment's op): a ScreamerOp built by its factory.
+    "screamer::OpArg": "ScreamerOp",
 }
 
 
@@ -153,6 +155,7 @@ def _build_params(op: dict):
                 "is_str": cpp_type == "std::string",
                 "is_int": cpp_type == "int",
                 "is_bool": cpp_type == "bool",
+                "is_op": cpp_type == "screamer::OpArg",
                 # Python takes None for exactly these (as "not given"); so does
                 # JavaScript with null. Every other setting refuses null.
                 "nullable": cpp_type.startswith("std::optional<"),
@@ -183,7 +186,7 @@ def _sig_impl(params: list[dict]) -> str:
 # parameter has one of these types takes an options object; an op whose first
 # parameter could itself be an object (an NdArray `{data, shape}`) would not,
 # decided here from the type and never from the value.
-_OPTIONS_SAFE_FIRST = {"number", "string", "number | number[]"}
+_OPTIONS_SAFE_FIRST = {"number", "string", "number | number[]", "ScreamerOp"}
 
 
 def _takes_options(params: list[dict]) -> bool:
@@ -198,6 +201,8 @@ def _kind(p: dict) -> str:
         return "a number or an array of numbers"
     if p.get("is_bool"):
         return "a bool"
+    if p.get("is_op"):
+        return "an operator from the screamer namespace"
     return "an integer" if p.get("is_int") else "a number"
 
 
@@ -226,7 +231,8 @@ def _options_type(name: str, params: list[dict], help_entry: dict | None) -> lis
 
 def _factory_body(name: str, params: list[dict], wrapper: str = "wrapOp") -> str:
     vecs = [p for p in params if p["is_vec"]]
-    call_args = [f"_v{idx}" if p["is_vec"] else p["name"] for idx, p in enumerate(params)]
+    call_args = [f"_v{idx}" if p["is_vec"] else f"{p['name']}_()" if p.get("is_op") else p["name"]
+                 for idx, p in enumerate(params)]
     lines = []
     names = [p["name"] for p in params]
     if not params:
@@ -276,6 +282,10 @@ def _factory_body(name: str, params: list[dict], wrapper: str = "wrapOp") -> str
             lines.append(f'  if (!({n} >= -2147483648 && {n} <= 2147483647)) _intRange(M, "{name}", "{n}", {n});')
         elif p.get("is_bool"):
             lines.append(f'  if (typeof {n} !== "boolean") throw new TypeError(`{name}: {n} must be {_kind(p)}, got ${{_what({n})}}`);')
+        elif p.get("is_op"):
+            # The factory of fresh raw copies of the op: the closure below makes
+            # one for every copy of this op, which owns it (embind_runtime.h op_arg).
+            lines.append(f'  const {n}_ = _opArg("{name}", "{n}", {n});')
         elif not p["is_vec"]:
             lines.append(f'  if (typeof {n} !== "number") throw new TypeError(`{name}: {n} must be {_kind(p)}, got ${{_what({n})}}`);')
     # Copy array parameters once, now: the closure below runs again for every
@@ -286,7 +296,7 @@ def _factory_body(name: str, params: list[dict], wrapper: str = "wrapOp") -> str
     # A float setting that is not finite, or an integer setting below its
     # smallest value: the constructor's RangeError becomes the one message
     # form (finite_settings.h, int_settings.h), on the error path only.
-    floats = [p for p in params if not p["is_str"] and not p.get("is_bool")]
+    floats = [p for p in params if not p["is_str"] and not p.get("is_bool") and not p.get("is_op")]
     if floats:
         lines.append("  try {")
         ind = "  "
@@ -419,6 +429,14 @@ const _finite = (M: any, op: string, names: string[], values: unknown[], e: unkn
 const _intRange = (M: any, op: string, name: string, v: number): never => {
   throw new RangeError(M.finiteSettingError(op, [name], [v], [String(v)], false));
 };
+// An operator setting: the factory of fresh raw copies of an op built by its
+// factory (the op itself is never run or changed).
+const _opArg = (op: string, name: string, x: any): (() => any) => {
+  const make = typeof x === "function" ? x[RAW_FACTORY] : undefined;
+  if (typeof make !== "function")
+    throw new TypeError(`${op}: ${name} must be an operator from the screamer namespace, got ${_what(x)}`);
+  return make;
+};
 // Records the settings the caller gave on the op, for Pipeline.toJSON: its
 // class, the Python names and the values as given (pipeline_io.ts reads them
 // into { cls, params } only when a pipeline is saved, so a construction pays
@@ -494,7 +512,7 @@ def render_ops_ts(ops: list[dict], help_map: dict) -> str:
         wrappers.append("wrapRowOp")
     out = [HEADER]
     out.append(
-        f'import {{ {", ".join(wrappers)}, SETTINGS, type ScreamerOp }} from "../runtime.js";'
+        f'import {{ {", ".join(wrappers)}, RAW_FACTORY, SETTINGS, type ScreamerOp }} from "../runtime.js";'
     )
     out.append('import { current } from "../index.js";')
     out.append("")

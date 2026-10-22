@@ -34,6 +34,7 @@ import numpy as np
 import pytest
 
 import screamer
+from screamer._functor_params import documented_value
 
 # Load help.json from the installed screamer package (importlib.resources), not
 # a source-relative path, so this suite runs against the built wheel too.
@@ -80,7 +81,7 @@ KNOWN_NO_GENERIC_REGIME: set[str] = {
 
 
 def _instantiate(entry: dict):
-    kwargs = {p["name"]: p["default"] for p in (entry.get("parameters") or [])}
+    kwargs = {p["name"]: documented_value(p) for p in (entry.get("parameters") or [])}
     return getattr(screamer, entry["name"])(**kwargs)
 
 

@@ -451,7 +451,9 @@ test("validation: C++ calls JavaScript only through wasmCallbacks", async () => 
     .map((f) => [f, fs.readFileSync(path.join(root, "wasm", f), "utf8")] as const);
   // Calls of a JS method from C++: the one in JsCallbacks::call, which only
   // receives a wasmCallbacks object, and Array.push on a result array.
-  const allowed = new Set(["validation_bindings.cpp: cb_.call<int>(name", 'shape_bindings.cpp: a.call<void>("push"']);
+  // op_arg deletes the Embind handle of an operator setting it holds.
+  const allowed = new Set(["validation_bindings.cpp: cb_.call<int>(name", 'shape_bindings.cpp: a.call<void>("push"',
+    'embind_runtime.h: v.call<void>("delete"']);
   for (const [f, src] of cpp)
     for (const m of src.matchAll(/(\w+)\.call<(\w+)>\(([^,)]*)/g))
       assert.ok(allowed.has(`${f}: ${m[1]}.call<${m[2]}>(${m[3]}`), `${f}: C++ calls JavaScript: ${m[0]}`);
@@ -460,7 +462,7 @@ test("validation: C++ calls JavaScript only through wasmCallbacks", async () => 
   // this test until it is listed. Callback takers are exported and must get
   // their object from wasmCallbacks(...).call; holders keep it inside C++.
   const takers = ["strategyTestRun", "positionTestRun", "walkForwardRun"];
-  const holders = ["JsCallbacks", "JsStrategyHost", "JsEngineHost"];
+  const holders = ["JsCallbacks", "JsStrategyHost", "JsEngineHost", "op_arg"];
   const values = ["eventPlan", "layoutPlan", "permuteBarsInto", "permuteReturnsInto", "positions",
     "read_heads", "read_layouts", "combineLatestBatch", "JoinStream", "finiteSettingError"];
   for (const [f, src] of cpp)

@@ -3,6 +3,8 @@
 #include <nanobind/stl/string.h>
 #include "screamer/common/base.h"
 #include "screamer/common/dispatch.h"
+#include "screamer/common/op_arg_caster.h"
+#include "screamer/common/var_arity_dispatch.h"
 #include "screamer/lag.h"
 #include "screamer/diff.h"
 #include "screamer/diff2.h"
@@ -14,12 +16,20 @@
 #include "screamer/first.h"
 #include "screamer/last.h"
 #include "screamer/detrend.h"
+#include "screamer/segment.h"
 #include <string>
 
 namespace nb = nanobind;
 using namespace nb::literals;
 
 void init_bindings_misc(nb::module_& m) {
+
+    // (1 + n) -> m: runs an n -> m op on each segment of rows with one label,
+    // resetting it where the label changes. Holds a fresh copy of the op.
+    nb::class_<screamer::Segment, screamer::EvalOp>(m, "Segment")
+        .def(nb::init<screamer::OpArg>(), "op"_a)
+        .def("__call__", &screamer::var_arity_call<screamer::Segment>)
+        .def("reset", &screamer::Segment::reset, "Reset to the initial state.");
 
     nb::class_<screamer::Diff, screamer::ScreamerBase>(m, "Diff")
         .def(nb::init<screamer::IntArg<int>, const std::string&>(), "window_size"_a = 1, "start_policy"_a = "strict")

@@ -92,7 +92,9 @@ def _equivalent(documented, binding: str) -> bool:
 CASES = [
     pytest.param(name, entry, id=name)
     for name, entry in sorted(HELP.items())
-    if entry.get("kind", "functor") == "functor" and entry.get("parameters")
+    if entry.get("kind", "functor") == "functor"
+    # A required parameter has no binding default to compare (Segment's op).
+    and any(not p.get("required") for p in entry.get("parameters") or [])
 ]
 
 

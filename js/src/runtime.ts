@@ -283,6 +283,9 @@ class OpRes implements Owned {
 // The key under which a generated factory records the settings the caller
 // gave ({ cls, names, given }), read by Pipeline.toJSON (pipeline_io.ts).
 export const SETTINGS = Symbol("screamer settings");
+// The key under which wrapOp keeps the factory of fresh raw copies of an op,
+// read by an operator that takes an op as a setting (Segment's op).
+export const RAW_FACTORY = Symbol("screamer raw factory");
 
 export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp, finalize = true): ScreamerOp {
   const make = copy ?? (typeof src === "function" ? (src as () => RawOp) : null);
@@ -719,6 +722,7 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp, finalize 
   // A backtest engine's mark input (walkForward's carry), a static of its class.
   (op as any).markInput = (raw as any).constructor?.markInput;
   (op as any).numOutputs = nOut;
+  if (make) (op as any)[RAW_FACTORY] = make;
   if (finalize) releaseWith(op, res);
   return op;
 }

@@ -112,6 +112,9 @@ BASELINE_GAP: dict[str, str] = {
     "RollingSortino": _TODO,
     "RollingSpread": _TODO,
     "RollingTSF": _TODO,
+    # Runs another operator, so its reference depends on that operator.
+    "Segment": "an operator wrapper; compared with pandas groupby(...).transform for "
+               "several operators in tests/test_segment.py",
     "SignedVolume": _TODO,
     "TickRuleSign": _TODO,
     "TrendMode": _TODO,

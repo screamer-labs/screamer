@@ -58,6 +58,9 @@ REQUIRED_KWARGS = {
     # Barriers on, so the labels are not all 0.
     "TripleBarrier": {"horizon": 5, "upper": 0.01, "lower": 0.01},
     "TripleBarrierOHLC": {"horizon": 5, "upper": 0.01, "lower": 0.01},
+    # The label is a random walk here, so most segments are one row long;
+    # tests/test_segment.py sweeps long segments.
+    "Segment": {"op": s.RollingStd(5)},
 }
 
 # Takes one (assets, 4) block per event; batch input is (T, assets, 4).

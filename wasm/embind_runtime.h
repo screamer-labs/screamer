@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <new>
+#include <memory>
 #include <optional>
 #include <array>
 #include <stdexcept>
@@ -18,6 +19,7 @@
 #include <vector>
 #include "screamer/common/eval_op.h"
 #include "screamer/common/functor_base.h"
+#include "screamer/common/op_arg.h"
 #include "screamer/common/row_op.h"
 
 namespace screamer_wasm {
@@ -150,6 +152,22 @@ inline double heapInUse() {
 // whose Python ctors take std::optional<double> decay parameters.
 inline std::optional<double> opt(double v) {
     return std::isnan(v) ? std::nullopt : std::optional<double>(v);
+}
+
+// An operator setting (op_arg.h) from JavaScript. `op` is a raw Embind handle
+// to a fresh copy of the operator, made by the generated factory for this
+// call; the OpArg owns it from here, so the handle is deleted with the last
+// keep (when the op that takes it is deleted, or when its constructor throws).
+inline screamer::OpArg op_arg(emscripten::val op) {
+    screamer::OpArg a;
+    a.op = op.as<screamer::EvalOp*>(emscripten::allow_raw_pointers());
+    a.keep = std::shared_ptr<void>(new emscripten::val(std::move(op)), [](void* p) {
+        auto* held = static_cast<emscripten::val*>(p);
+        emscripten::val& v = *held;
+        v.call<void>("delete");   // the Embind handle's own delete
+        delete held;
+    });
+    return a;
 }
 
 // Raw address of an op instance as an integer. The JS wrapper holds the C++

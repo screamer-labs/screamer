@@ -25,6 +25,7 @@ import sys
 import numpy as np
 
 import screamer as s
+from screamer.dag_io import _decode
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "..", "..", "wasm", "smoke", "oracle_research.json")
@@ -38,7 +39,22 @@ def _inputs():
     scale = np.where((np.arange(T) // 150) % 2 == 0, 0.5, 2.0)
     returns = rng.standard_normal(T) * scale
     returns[[100, 450]] = np.nan
-    return {"events": events, "returns": returns, **_liquidation_market(), **_ols_rows()}
+    return {"events": events, "returns": returns, "labels": _labels(T), "returns2": _returns2(T),
+            **_liquidation_market(), **_ols_rows()}
+
+
+def _labels(T):
+    """Segment labels: runs of 1 to 40 rows over 4 values (a value returns),
+    leading NaN labels and NaN labels inside segments."""
+    rng = np.random.default_rng(20261022)
+    labels = np.repeat(rng.integers(0, 4, T).astype(float), rng.integers(1, 41, T))[:T]
+    labels[[0, 1, 60, 333]] = np.nan
+    return labels
+
+
+def _returns2(T):
+    """A second return series, for two-input operators."""
+    return np.random.default_rng(20261023).standard_normal(T)
 
 
 def _liquidation_market(T=600, K=1):
@@ -105,6 +121,15 @@ CASES = [
     ("RollingHMM", {"window_size": 150, "refit_every": 40, "max_iter": 20, "tol": 0.0}, "returns", 1e-6),
     ("RollingHMM", {"window_size": 150, "refit_every": 40, "emission": "ar1", "max_iter": 20, "tol": 0.0},
      "returns", 1e-6),
+    # Segment: an operator setting, written as {"functor", "params"}.
+    ("Segment", {"op": {"functor": "CumSum", "params": {}}}, ["labels", "returns"]),
+    ("Segment", {"op": {"functor": "RollingStd", "params": {"window_size": 10}}}, ["labels", "returns"]),
+    ("Segment", {"op": {"functor": "EwMean", "params": {"span": 8.0}}}, ["labels", "returns"]),
+    ("Segment", {"op": {"functor": "RollingCorr", "params": {"window_size": 12}}},
+     ["labels", "returns", "returns2"]),
+    ("Segment", {"op": {"functor": "BollingerBands", "params": {"window_size": 5}}}, ["labels", "returns"]),
+    ("Segment", {"op": {"functor": "Segment", "params": {"op": {"functor": "CumSum", "params": {}}}}},
+     ["labels", "events", "returns"]),
     ("LiquidationDistance", {"leverage": 10.0}, _LIQ),
     ("LiquidationDistance", {"leverage": 25.0, "maintenance": 0.01}, _LIQ),
     ("RollingMultiRegression", {"window_size": 40, "n_regressors": 3}, _OLS[:4]),
@@ -238,7 +263,8 @@ def build():
     for case in CASES:
         name, settings, key = case[:3]
         args = [inputs[k] for k in key] if isinstance(key, list) else [inputs[key]]
-        out = np.asarray(getattr(s, name)(**settings)(*args), dtype=float)
+        op = getattr(s, name)(**{k: _decode(v) for k, v in settings.items()})
+        out = np.asarray(op(*args), dtype=float)
         entry = {"name": name, "settings": settings, "input": key,
                  "shape": list(out.shape), "out": _flat(out)}
         if len(case) > 3:

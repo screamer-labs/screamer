@@ -20,6 +20,7 @@ see_also:
 - ExpandingSum
 - RollingSum
 - Diff
+- Segment
 ---
 
 # `CumSum`

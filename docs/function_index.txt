@@ -253,6 +253,7 @@ RollingZscore, Latest sample standardized by the trailing-window mean and standa
 RoofingFilter, Ehlers bandpass, a highpass then a SuperSmoother.
 Round, Round each element to the nearest integer (half-to-even).
 SchmittTrigger, Hysteresis comparator. Latches 1.0 above the upper threshold, 0.0 below the lower threshold, and retains its previous value in between.
+Segment, Runs an operator on each segment of rows with the same label, resetting it where the label changes.
 Select, Pick column(s) from a wide (M, N) value stream.
 Selu, Scaled exponential linear unit (self-normalizing networks).
 Sigmoid, Logistic sigmoid: 1 / (1 + exp(-x)).

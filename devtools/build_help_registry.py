@@ -260,7 +260,8 @@ def _validate_functor(entry: dict, cls) -> None:
             raise ValueError(
                 f"{name}.{p['name']}: every parameter must have a 'default' "
                 "so the frontend can render live results without user input")
-        kwargs[p["name"]] = p["default"]
+        from screamer._functor_params import documented_value
+        kwargs[p["name"]] = documented_value(p)
 
     # Schema-vs-binding parameter-name drift check.
     binding_names = pybind_param_names(cls)

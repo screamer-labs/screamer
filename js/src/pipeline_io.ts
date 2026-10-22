@@ -32,10 +32,24 @@ function functorOf(node: Node, who: string): { cls: string; params: Dict } {
   if (!rec) throw new TypeError(`${who}: a functor without recorded settings cannot be saved; build it with its factory`);
   // The settings given (undefined, and null for an optional setting, are not
   // given), by their Python names; an array setting is copied.
+  return settingsOf(rec, who);
+}
+
+// A functor's class and settings from the record its factory made. An
+// operator setting (Segment's op) is written as {"functor", "params"}, as
+// Python writes it.
+function settingsOf(rec: any, who: string): { cls: string; params: Dict } {
   const params: Dict = {};
   (rec.names as string[]).forEach((n, i) => {
     const v = rec.given[i];
     if (v === undefined || v === null) return;
+    if (typeof v === "function") {
+      const inner = (v as any)[SETTINGS];
+      if (!inner) throw new TypeError(`${who}: a functor without recorded settings cannot be saved; build it with its factory`);
+      const f = settingsOf(inner, who);
+      params[n] = { functor: f.cls, params: f.params };
+      return;
+    }
     params[n] = Array.isArray(v) || ArrayBuffer.isView(v) ? Array.from(v as ArrayLike<unknown>) : v;
   });
   return { cls: rec.cls, params };
@@ -119,9 +133,12 @@ function makeFunctor(cls: string, params: Dict): any {
   const factory = /^[A-Z]/.test(cls) ? (ops as any)[cls] : undefined;
   if (typeof factory !== "function") throw new RangeError((current() as any).unknownFunctorMessage(cls));
   const { args, ...named } = params;
-  if (args !== undefined) return factory(...(args as unknown[]));
+  // An operator setting ({"functor", "params"}) is built by its own factory.
+  const value = (v: any) => (v !== null && typeof v === "object" && !Array.isArray(v) && "functor" in v
+    ? makeFunctor(v.functor, v.params ?? {}) : v);
+  if (args !== undefined) return factory(...(args as unknown[]).map(value));
   const options: Dict = {};
-  for (const [k, v] of Object.entries(named)) options[camel(k)] = v;
+  for (const [k, v] of Object.entries(named)) options[camel(k)] = value(v);
   return factory(options);
 }
 

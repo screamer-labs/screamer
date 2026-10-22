@@ -1017,7 +1017,9 @@ nb::object handle_input_Ni_Mo_numpy(Op& self, detail::NInputs<Op::kN>& in) {
     const shape::Plan& p = in.plan;
     const size_t T = p.T, cols = p.columns;
     std::vector<size_t> shape = p.shape;
-    shape.push_back(M);
+    // A count set per instance (Op::kM == 0) may be 1: then the result has
+    // the shape of a one-output operator's, with no field axis.
+    if (Op::kM != 0 || M != 1) shape.push_back(M);
     auto out = detail::new_output(T * cols * M);
     {
         EagerRun<Op> run(self);
@@ -1400,7 +1402,7 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
 // ---------------------------------------------------------
 template <class Op>
 nb::object functor_route(Op& self, const nb::args& args) {
-    constexpr size_t N = Op::kN, M = Op::kM;   // M == 0: a count set per instance (> 1)
+    constexpr size_t N = Op::kN, M = Op::kM;   // M == 0: a count set per instance
     static_assert(!(N == 1 && M == 0) && (N != 0 || M == 0),
                   "a variable input count needs a variable output count");
     for (nb::handle a : args) {

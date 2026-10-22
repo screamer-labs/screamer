@@ -18,7 +18,8 @@
 
 namespace screamer {
 namespace detail {
-// The outputs of one event of a VarArityOp, returned to Python as a tuple.
+// The outputs of one event of a VarArityOp, returned to Python as a tuple
+// (a float for one output).
 struct VarRow {
     std::array<double, kMaxVarArityOutputs> v;
     std::size_t n = 0;
@@ -30,11 +31,13 @@ namespace nanobind {
 namespace detail {
 template <>
 struct type_caster<screamer::detail::VarRow> {
-    NB_TYPE_CASTER(screamer::detail::VarRow, const_name("tuple[float, ...]"))
+    NB_TYPE_CASTER(screamer::detail::VarRow, const_name("float | tuple[float, ...]"))
 
     bool from_python(handle, uint8_t, cleanup_list*) noexcept { return false; }
 
+    // One output is a float, as a one-output operator returns.
     static handle from_cpp(const screamer::detail::VarRow& r, rv_policy, cleanup_list*) noexcept {
+        if (r.n == 1) return PyFloat_FromDouble(r.v[0]);
         PyObject* t = PyTuple_New(static_cast<Py_ssize_t>(r.n));
         if (!t) return handle();
         for (std::size_t i = 0; i < r.n; ++i) {

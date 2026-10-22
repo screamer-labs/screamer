@@ -759,6 +759,13 @@ Measures of a window: central tendency, dispersion, quantiles, moments, z-scores
       :img-alt: RollingZscore example plot
       :class-card: gallery-card
 
+   .. grid-item-card:: Segment
+      :link: functions_misc/Segment
+      :link-type: doc
+      :img-top: _static/gallery/functions_misc__Segment.webp
+      :img-alt: Segment example plot
+      :class-card: gallery-card
+
    .. grid-item-card:: TrueRange
       :link: functions_rolling/TrueRange
       :link-type: doc
@@ -2229,6 +2236,13 @@ Align and reshape event streams, and wire operators into a runnable pipeline.
       :link-type: doc
       :img-top: _static/gallery/functions_streams__Delay.webp
       :img-alt: Delay example plot
+      :class-card: gallery-card
+
+   .. grid-item-card:: Segment
+      :link: functions_misc/Segment
+      :link-type: doc
+      :img-top: _static/gallery/functions_misc__Segment.webp
+      :img-alt: Segment example plot
       :class-card: gallery-card
 
 Forecasting & ML

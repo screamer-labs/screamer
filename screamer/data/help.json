@@ -1831,7 +1831,8 @@
       "RollingMean",
       "EwMean",
       "ExpandingSum",
-      "ExpandingStd"
+      "ExpandingStd",
+      "Segment"
     ],
     "nan_policy": "ignore",
     "details": "## Description\n\n`ExpandingMean` returns the arithmetic mean of every sample seen since the start of the stream, or since the last `reset`. It is the whole-history counterpart of [`RollingMean`](../functions_rolling/RollingMean.md) and matches `pandas.Series.expanding().mean()`. Memory is `O(1)`.\n\n$$\ny[t] = \\frac{1}{n} \\sum_{i=0}^{t} x[i], \\quad n = t + 1\n$$\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
@@ -8940,7 +8941,8 @@
       "CumProd",
       "ExpandingSum",
       "RollingSum",
-      "Diff"
+      "Diff",
+      "Segment"
     ],
     "details": "## Description\n\nThe `CumSum` function returns the running sum of all samples seen since the start of the stream (or since the last `reset`). Memory is `O(1)` regardless of how many samples have been processed.\n\n*Equation*:\n\n$$\ny[t] = \\sum_{i=0}^{t} x[i]\n$$\n\nSkipping `NaN` inputs matches `pandas.Series.cumsum(skipna=True)`; `numpy.cumsum` would propagate the `NaN` instead.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
     "examples": [
@@ -9316,6 +9318,58 @@
       }
     ],
     "doc_path": "functions_misc/Momentum"
+  },
+  "Segment": {
+    "name": "Segment",
+    "title": "Segment-wise operator",
+    "implementation_family": "misc",
+    "topics": [
+      "cumulative",
+      "streams"
+    ],
+    "tags": [
+      "segment",
+      "groupby",
+      "group by",
+      "reset",
+      "per day",
+      "session",
+      "month to date",
+      "intraday",
+      "restart"
+    ],
+    "short": "Runs an operator on each segment of rows with the same label, resetting it where the label changes.",
+    "inputs": 2,
+    "outputs": 1,
+    "parameters": [
+      {
+        "name": "op",
+        "type": "op",
+        "default": "CumSum()",
+        "required": true,
+        "description": "The operator to run on each segment. Segment holds its own copy, so the instance passed in is never used or changed."
+      }
+    ],
+    "nan_policy": "nan-aware",
+    "see_also": [
+      "CumSum",
+      "ExpandingMean",
+      "Resample"
+    ],
+    "details": "## Description\n\n`Segment(op)` runs the operator `op` on each segment of a series from a fresh state. It takes\nthe segment label first and then the inputs of `op`, `Segment(op)(label, *inputs)`, and\nreturns the outputs of `op` at every row, in the shape `op` returns them. An operator of\n`n` inputs and `m` outputs gives a `Segment` of `1 + n` inputs and `m` outputs.\n\nA segment is a run of rows with the same label. At each row whose label differs from the\nlast non-`NaN` label, `Segment` resets its copy of `op`; then it evaluates `op` on the row.\nSo a label that returns to an earlier value starts a new segment, and the result is pandas\n`groupby(...).transform(...)` over the runs of the label: with\n`runs = (label != label.shift()).cumsum()`, `Segment(CumSum())(label, x)` is\n`x.groupby(runs).cumsum()`.\n\nA label is any number: a day number, a session id, a month index, a regime from a\nclassifier. `Segment` emits one row per input row, unlike `Resample`, which emits one row\nper bucket.\n\n`Segment` holds a copy of `op` made when it is built, and `Segment.reset()` resets that copy\nand forgets the current label. A `Segment` works wherever an operator does: on arrays, one\nevent at a time, on iterators, and in a `Pipeline`.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `nan-aware`.** A `NaN` label keeps the current segment: the row is evaluated by\n`op` and nothing is reset. Rows before the first non-`NaN` label belong to no segment and\ngive `NaN` without reaching `op`. A `NaN` in the inputs of `op` is handled by `op`'s own\npolicy. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "examples": [
+      {
+        "language": "python",
+        "caption": "Per-day rolling volatility and month-to-date sum",
+        "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom plotly.subplots import make_subplots\nfrom screamer import CumSum, RollingStd, Segment\n\nrng = np.random.default_rng(0)\ntime = np.datetime64(\"2024-01-29T00:00\") + np.arange(6 * 24 * 12) * np.timedelta64(5, \"m\")\nreturns = rng.normal(0.0, 1.0, time.size) * np.where((time.astype(\"datetime64[D]\").astype(int) % 2) == 0, 0.5, 1.5)\n\n# The label of a row is its day (or its month) as a number. RollingStd(30)\n# starts over each day, with its warmup of 29 NaN rows, and CumSum()\n# restarts at each month.\nday = time.astype(\"datetime64[D]\").astype(float)\nmonth = time.astype(\"datetime64[M]\").astype(float)\n\ndaily_vol = Segment(RollingStd(30))(day, returns)\nmonth_to_date = Segment(CumSum())(month, returns)\n\nfig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.1)\nfig.add_trace(go.Scatter(x=time, y=daily_vol, mode='lines', name='RollingStd(30), per day'),\n              row=1, col=1)\nfig.add_trace(go.Scatter(x=time, y=month_to_date, mode='lines', name='CumSum, month to date'),\n              row=2, col=1)\nfig.update_layout(\n    title=\"Segment: per-day rolling volatility and month-to-date sum\",\n    margin=dict(l=20, r=20, t=60, b=20),\n    legend=dict(orientation=\"h\", yanchor=\"bottom\", y=1.02, xanchor=\"right\", x=1)\n)\nfig.show()"
+      },
+      {
+        "language": "python",
+        "caption": "Two inputs and several outputs",
+        "code": "import numpy as np\nfrom screamer import BollingerBands, RollingCorr, Segment\n\n# op keeps its arity: RollingCorr takes two inputs, so its Segment takes\n# three, and BollingerBands returns three outputs per row.\nsession = np.repeat([1.0, 2.0, 3.0], 100)\nx, y = np.random.default_rng(1).normal(size=(2, 300))\n\ncorr = Segment(RollingCorr(20))(session, x, y)          # shape (300,)\nbands = Segment(BollingerBands(20))(session, x)         # shape (300, 3)"
+      }
+    ],
+    "doc_path": "functions_misc/Segment"
   },
   "Clip": {
     "name": "Clip",

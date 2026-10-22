@@ -23,6 +23,11 @@ EMSCRIPTEN_BINDINGS(screamer) block that opens with SCREAMER_REGISTER_EVAL_OP_RU
       emscripten::class_<CppType, emscripten::base<screamer::EvalOp>>("Name")
           .constructor(&make_Name, emscripten::allow_raw_pointers());
 
+  * an operator setting (screamer::OpArg) arrives as an emscripten::val holding
+    a raw Embind handle to a fresh copy of the operator, made by the JS factory;
+    screamer_wasm::op_arg makes the new op its owner, so deleting the new op
+    deletes the copy.
+
   * ops flagged "dynamic_reducer" in the manifest additionally get
       .function("reduceInto", &screamer_wasm::reduceInto<CppType>)
       .function("reduceBatchInto", &screamer_wasm::reduceBatchInto<CppType>)
@@ -69,6 +74,7 @@ EXCLUDED_HEADERS = {
     "screamer/common/gc.h",
     "screamer/common/int_arg.h",  # the Python int-setting caster (nanobind)
     "screamer/common/eval_op.h",  # already included by embind_runtime.h
+    "screamer/common/op_arg_caster.h",  # the Python operator-setting caster (nanobind)
 }
 
 INCLUDE_RE = re.compile(r'^\s*#include\s+"(screamer/[^"]+)"')
@@ -101,10 +107,13 @@ def factory_name(op_name: str) -> str:
 
 
 STRING_T = "std::string"
+# An operator setting (screamer/common/op_arg.h): JS passes a raw Embind handle
+# to a fresh copy, which the new op owns (screamer_wasm::op_arg).
+OP_T = "screamer::OpArg"
 
 
 def needs_factory(op: dict) -> bool:
-    return op["ctor_kind"] == "ew_optional" or STRING_T in op["ctor"]
+    return op["ctor_kind"] == "ew_optional" or STRING_T in op["ctor"] or OP_T in op["ctor"]
 
 
 def render_factory(op: dict) -> str:
@@ -117,6 +126,9 @@ def render_factory(op: dict) -> str:
         if t == OPTIONAL_T:
             params.append(f"double {pn}")
             args.append(f"screamer_wasm::opt({pn})")
+        elif t == OP_T:
+            params.append(f"emscripten::val {pn}")
+            args.append(f"screamer_wasm::op_arg({pn})")
         elif t == STRING_T:
             params.append(f"emscripten::val {pn}")
             pre.append(f"    const std::string {pn}s = {pn}.as<std::string>();\n")

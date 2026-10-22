@@ -166,6 +166,7 @@
  "functions_misc/Lag": "0aac9fac7537cc44",
  "functions_misc/Last": "176939a3bea15aba",
  "functions_misc/Momentum": "1025f9c4f9e0adad",
+ "functions_misc/Segment": "d0e0c72bdcce1163",
  "functions_preprocessing/Clip": "c1d514a153b07be3",
  "functions_preprocessing/Ffill": "1fcc2a29f5c19ff3",
  "functions_preprocessing/FillNa": "ac5af041b5d700a2",

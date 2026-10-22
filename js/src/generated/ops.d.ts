@@ -5413,6 +5413,27 @@ export declare function SchmittTrigger(options: SchmittTriggerOptions): Screamer
  */
 export declare function SchmittTrigger(lower: number, upper: number, initial?: number): ScreamerOp;
 
+/** The settings of Segment by name, for `Segment({ ... })`. */
+export interface SegmentOptions {
+  /** The operator to run on each segment. Segment holds its own copy, so the instance passed in is never used or changed. */
+  op: ScreamerOp;
+}
+
+/**
+ * Runs an operator on each segment of rows with the same label, resetting it where the label changes.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_misc/Segment.html for the full reference.
+ */
+export declare function Segment(options: SegmentOptions): ScreamerOp;
+/**
+ * Runs an operator on each segment of rows with the same label, resetting it where the label changes.
+ *
+ * @param op The operator to run on each segment. Segment holds its own copy, so the instance passed in is never used or changed.
+ * @see https://screamer.readthedocs.io/en/latest/functions_misc/Segment.html for the full reference.
+ */
+export declare function Segment(op: ScreamerOp): ScreamerOp;
+
 /** Selu has no settings: its options object is empty. */
 export type SeluOptions = Record<string, never>;
 

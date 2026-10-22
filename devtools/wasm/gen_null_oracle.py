@@ -144,7 +144,10 @@ def compute():
     out = []
     for op in manifest:
         args = op["ctor_args"]
-        if not args:
+        # An operator setting (Segment's op) is not a JSON value, so `base`
+        # cannot hold it; tests/test_segment.py and js/test/segment.test.ts
+        # check its refusals.
+        if not args or "screamer::OpArg" in op["ctor"]:
             continue
         cls = getattr(s, op["name"])
         base = _base(cls, args)

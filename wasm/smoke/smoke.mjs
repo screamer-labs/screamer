@@ -38,6 +38,8 @@ const TOL = 1e-9;
 function parseDefault(name, type, text) {
   if (text === null || text === undefined) {
     if (type === "std::optional<double>") return NaN;     // a missing optional slot
+    // An operator setting (Segment's op): a raw op the new op takes over.
+    if (type === "screamer::OpArg") return { op: "CumSum" };
     return { int: 3, double: 1.0, bool: true, "std::string": "strict", "std::vector<double>": [1.0] }[type];
   }
   const t = text.trim();
@@ -88,6 +90,7 @@ function construct(M, name, args) {
   // ctor copies the vector).
   const vecs = [];
   const materialized = args.map((a) => {
+    if (a !== null && typeof a === "object" && "op" in a) return new M[a.op]();   // owned by the new op
     if (Array.isArray(a)) {
       const v = new M.VectorDouble();
       for (const x of a) v.push_back(x);

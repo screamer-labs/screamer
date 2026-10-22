@@ -111,6 +111,29 @@ def build_docstring(cls_name):
     return "\n".join(parts) + "\n"
 
 
+def documented_value(param):
+    """The value a docs page's parameter default stands for.
+
+    A default is the value itself, except for an operator setting (``type:
+    op``, such as the op of ``Segment``), whose default is a constructor call
+    written as text (``"CumSum()"``): that gives a new instance of the
+    operator. The registry checks and the contract tests build operators with
+    their documented defaults through this function.
+    """
+    value = param.get("default")
+    if param.get("type") != "op" or not isinstance(value, str):
+        return value
+    import ast
+    import screamer
+    call = ast.parse(value, mode="eval").body
+    if not (isinstance(call, ast.Call) and isinstance(call.func, ast.Name)):
+        raise ValueError(f"an op default must be a constructor call, got {value!r}")
+    cls = getattr(screamer, call.func.id)
+    args = [ast.literal_eval(a) for a in call.args]
+    kwargs = {k.arg: ast.literal_eval(k.value) for k in call.keywords}
+    return cls(*args, **kwargs)
+
+
 def bind_params(cls_name, args, kwargs):
     """Bind positional ``args`` to parameter names and merge ``kwargs``.
 
@@ -187,6 +210,13 @@ def setting_error(cls_name, args, kwargs):
     if "args" in params:              # more arguments than settings: not a kind error
         return None
     for p in entry.get("parameters", []):
+        if p.get("type") == "op" and p["name"] in params:
+            value = params[p["name"]]
+            if not (isinstance(value, _b.EvalOp) and getattr(type(value), "_screamer_wrapped", False)):
+                kind = "None" if value is None else type(value).__name__
+                return (f"{cls_name}: {p['name']} must be an operator from the screamer "
+                        f"namespace, got {kind}")
+            continue
         if p.get("type") == "bool" and p["name"] in params:
             value = params[p["name"]]
             if not _is_bool(value):

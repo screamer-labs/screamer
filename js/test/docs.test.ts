@@ -40,6 +40,8 @@ test("docs: every functor accepts its documented options with their defaults", a
     const opts: Record<string, unknown> = {};
     for (const p of e.parameters)
       if (p.defaultText !== undefined) opts[p.name] = Function(`return (${p.defaultText})`)();
+      // An operator setting's example is a constructor call ("CumSum()").
+      else if (p.required && p.type === "op") opts[p.name] = Function("s", `return s.${p.default}`)(screamer);
       else if (p.required) opts[p.name] = p.default;   // the docs example value
     const op = lib[name](opts);
     op.dispose?.();

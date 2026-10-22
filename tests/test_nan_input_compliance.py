@@ -52,6 +52,7 @@ import numpy as np
 import pytest
 
 import screamer
+from screamer._functor_params import documented_value
 
 # Load help.json from the installed screamer package so this runs against the wheel.
 HELP_JSON = importlib.resources.files("screamer").joinpath("data/help.json")
@@ -102,7 +103,7 @@ def _is_row_op(name):
 
 def _instantiate(entry: dict):
     cls = getattr(screamer, entry["name"])
-    kwargs = {p["name"]: p["default"] for p in (entry.get("parameters") or [])}
+    kwargs = {p["name"]: documented_value(p) for p in (entry.get("parameters") or [])}
     return cls(**kwargs)
 
 

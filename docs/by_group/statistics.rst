@@ -235,6 +235,8 @@ Running aggregates from the start of the series.
      - Worst drawdown experienced so far (since reset).
    * - :doc:`On-Balance Volume (OBV) </functions_rolling/OBV>`
      - On-Balance Volume: signed cumulative volume by close-direction (Granville, 1963).
+   * - :doc:`Segment-wise operator </functions_misc/Segment>`
+     - Runs an operator on each segment of rows with the same label, resetting it where the label changes.
 
 Correlation & regression
 ------------------------
@@ -409,4 +411,5 @@ Relationships between series: correlation, covariance, regression, hedging, pair
    /functions_rolling/RollingYangZhangVar
    /functions_rolling/RollingYangZhangVol
    /functions_rolling/RollingZscore
+   /functions_misc/Segment
    /functions_rolling/TrueRange

@@ -193,6 +193,7 @@
 #include "screamer/rolling_zscore.h"
 #include "screamer/roofing_filter.h"
 #include "screamer/schmitt_trigger.h"
+#include "screamer/segment.h"
 #include "screamer/stoch.h"
 #include "screamer/stoch_rsi.h"
 #include "screamer/super_smoother.h"
@@ -653,6 +654,10 @@ inline screamer::RollingZscore* make_RollingZscore(int a0, emscripten::val a1) {
 
 inline screamer::RoofingFilter* make_RoofingFilter(double a0, double a1, double a2, double a3) {
     return new screamer::RoofingFilter(screamer_wasm::opt(a0), screamer_wasm::opt(a1), screamer_wasm::opt(a2), screamer_wasm::opt(a3));
+}
+
+inline screamer::Segment* make_Segment(emscripten::val a0) {
+    return new screamer::Segment(screamer_wasm::op_arg(a0));
 }
 
 inline screamer::SuperSmoother* make_SuperSmoother(double a0, double a1) {
@@ -1213,6 +1218,8 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor<>();
     emscripten::class_<screamer::SchmittTrigger, emscripten::base<screamer::EvalOp>>("SchmittTrigger")
         .constructor<double, double, double>();
+    emscripten::class_<screamer::Segment, emscripten::base<screamer::EvalOp>>("Segment")
+        .constructor(&make_Segment, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::Transform<(double (*)(double)) screamer::selu>, emscripten::base<screamer::EvalOp>>("Selu")
         .constructor<>();
     emscripten::class_<screamer::Transform<(double (*)(double)) screamer::sigmoid>, emscripten::base<screamer::EvalOp>>("Sigmoid")

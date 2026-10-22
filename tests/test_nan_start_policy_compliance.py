@@ -50,6 +50,7 @@ import numpy as np
 import pytest
 
 import screamer
+from screamer._functor_params import documented_value
 
 # Load help.json from the installed screamer package so this runs against the wheel.
 HELP_JSON = importlib.resources.files("screamer").joinpath("data/help.json")
@@ -103,7 +104,7 @@ def _has_start_policy(entry: dict) -> bool:
 
 def _instantiate(entry: dict, *, start_policy: str | None = None):
     cls = getattr(screamer, entry["name"])
-    kwargs = {p["name"]: p["default"] for p in (entry.get("parameters") or [])}
+    kwargs = {p["name"]: documented_value(p) for p in (entry.get("parameters") or [])}
     if start_policy is not None and "start_policy" in kwargs:
         kwargs["start_policy"] = start_policy
     return cls(**kwargs)
