@@ -8,7 +8,7 @@ A reader who wants to do one task (for example, show that a series mean-reverts)
 
 ## Goal
 
-A calm, Apple-like surface: one clear guide, read in order, made of short task pages, with links into depth for those who need it. Success: a reader can go from the home page to a runnable answer for a common task (denoise, detect trend, detect mean reversion, backtest a signal on OHLCV bars, test significance, go live) in two clicks, and the page fits on about one screen.
+A calm, Apple-like surface: one clear guide, read in order, made of short task pages, with links into depth for those who need it. Success: a reader can go from the home page to a runnable answer for a common task (denoise, detect trend, detect mean reversion, backtest a signal on OHLCV bars, test test whether a backtest beats luck, run a strategy live) in two clicks, and the page fits on about one screen.
 
 ## Structure
 
@@ -57,12 +57,13 @@ Part II, Build a strategy
 - 12. Stops and exits.
 - 13. Portfolios of many assets.
 
-Part III, Is it real?
-- 14. Significance, walk-forward, parameter grids.
-- 15. Labels and ML features.
+Part III, Test a strategy
+- 14. Check that a backtest result is not luck: significance tests, walk-forward testing, parameter grids.
+- 15. Prepare data for machine learning: labels and features.
 
-Part IV, Go live
-- 16. Streaming, pipelines, a live loop, JavaScript in the browser.
+Part IV, Run a strategy live
+- 16. Run on live data: streaming, pipelines, a live loop, JavaScript in the browser.
+Naming rule: part, chapter and task titles say the action and its object in plain words ("Check that a backtest result is not luck"), never a pronoun or a slogan ("Is it real?", "Go live").
 
 ## Task page shape
 
