@@ -36,6 +36,15 @@ parameters:
   default: null
   description: Lowpass cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to
     2 / lp_period. Give exactly one of lp_period and lp_cutoff.
+- name: start_policy
+  type: str
+  default: steady
+  enum:
+  - steady
+  - zero
+  description: 'Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the
+    steady state for a constant input x0, so the output starts at 0. "zero" starts from
+    an all-zero state, as scipy.signal.lfilter does.'
 nan_policy: ignore
 see_also:
 - SuperSmoother
@@ -62,6 +71,10 @@ measurement.
 
 Each cutoff is a cycle length in samples (`hp_period`, `lp_period`) or a fraction
 of the Nyquist frequency (`hp_cutoff`, `lp_cutoff`), related by `cutoff = 2 / period`.
+
+Both stages start in the steady state for their first input, so the output
+starts at 0 instead of swinging with the input level. `start_policy="zero"`
+starts both from zero instead.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling

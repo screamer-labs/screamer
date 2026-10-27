@@ -1606,11 +1606,13 @@
  {
   "accepts_bool": {
    "cutoff_freq": false,
-   "order": false
+   "order": false,
+   "start_policy": false
   },
   "accepts_none": {
    "cutoff_freq": false,
-   "order": false
+   "order": false,
+   "start_policy": false
   },
   "base": {},
   "below_min": {
@@ -1621,7 +1623,8 @@
   },
   "bool_message": {
    "cutoff_freq": "Butter: cutoff_freq must be a number, got bool",
-   "order": "Butter: order must be an integer, got bool"
+   "order": "Butter: order must be an integer, got bool",
+   "start_policy": "Butter: start_policy must be a string, got bool"
   },
   "name": "Butter",
   "non_finite": {
@@ -1636,12 +1639,14 @@
   "accepts_bool": {
    "high_cutoff": false,
    "low_cutoff": false,
-   "order": false
+   "order": false,
+   "start_policy": false
   },
   "accepts_none": {
    "high_cutoff": false,
    "low_cutoff": false,
-   "order": false
+   "order": false,
+   "start_policy": false
   },
   "base": {},
   "below_min": {
@@ -1653,7 +1658,8 @@
   "bool_message": {
    "high_cutoff": "ButterBandpass: high_cutoff must be a number, got bool",
    "low_cutoff": "ButterBandpass: low_cutoff must be a number, got bool",
-   "order": "ButterBandpass: order must be an integer, got bool"
+   "order": "ButterBandpass: order must be an integer, got bool",
+   "start_policy": "ButterBandpass: start_policy must be a string, got bool"
   },
   "name": "ButterBandpass",
   "non_finite": {
@@ -1673,12 +1679,14 @@
   "accepts_bool": {
    "high_cutoff": false,
    "low_cutoff": false,
-   "order": false
+   "order": false,
+   "start_policy": false
   },
   "accepts_none": {
    "high_cutoff": false,
    "low_cutoff": false,
-   "order": false
+   "order": false,
+   "start_policy": false
   },
   "base": {},
   "below_min": {
@@ -1690,7 +1698,8 @@
   "bool_message": {
    "high_cutoff": "ButterBandstop: high_cutoff must be a number, got bool",
    "low_cutoff": "ButterBandstop: low_cutoff must be a number, got bool",
-   "order": "ButterBandstop: order must be an integer, got bool"
+   "order": "ButterBandstop: order must be an integer, got bool",
+   "start_policy": "ButterBandstop: start_policy must be a string, got bool"
   },
   "name": "ButterBandstop",
   "non_finite": {
@@ -1709,11 +1718,13 @@
  {
   "accepts_bool": {
    "cutoff_freq": false,
-   "order": false
+   "order": false,
+   "start_policy": false
   },
   "accepts_none": {
    "cutoff_freq": false,
-   "order": false
+   "order": false,
+   "start_policy": false
   },
   "base": {},
   "below_min": {
@@ -1724,7 +1735,8 @@
   },
   "bool_message": {
    "cutoff_freq": "ButterHighpass: cutoff_freq must be a number, got bool",
-   "order": "ButterHighpass: order must be an integer, got bool"
+   "order": "ButterHighpass: order must be an integer, got bool",
+   "start_policy": "ButterHighpass: start_policy must be a string, got bool"
   },
   "name": "ButterHighpass",
   "non_finite": {
@@ -2027,11 +2039,13 @@
  {
   "accepts_bool": {
    "cutoff": false,
-   "period": false
+   "period": false,
+   "start_policy": false
   },
   "accepts_none": {
    "cutoff": true,
-   "period": true
+   "period": true,
+   "start_policy": false
   },
   "base": {
    "period": 10.0
@@ -2039,7 +2053,8 @@
   "below_min": {},
   "bool_message": {
    "cutoff": "Decycler: cutoff must be a number, got bool",
-   "period": "Decycler: period must be a number, got bool"
+   "period": "Decycler: period must be a number, got bool",
+   "start_policy": "Decycler: start_policy must be a string, got bool"
   },
   "name": "Decycler",
   "non_finite": {
@@ -5915,13 +5930,15 @@
    "hp_cutoff": false,
    "hp_period": false,
    "lp_cutoff": false,
-   "lp_period": false
+   "lp_period": false,
+   "start_policy": false
   },
   "accepts_none": {
    "hp_cutoff": true,
    "hp_period": true,
    "lp_cutoff": true,
-   "lp_period": true
+   "lp_period": true,
+   "start_policy": false
   },
   "base": {
    "hp_period": 48.0,
@@ -5932,7 +5949,8 @@
    "hp_cutoff": "RoofingFilter: hp_cutoff must be a number, got bool",
    "hp_period": "RoofingFilter: hp_period must be a number, got bool",
    "lp_cutoff": "RoofingFilter: lp_cutoff must be a number, got bool",
-   "lp_period": "RoofingFilter: lp_period must be a number, got bool"
+   "lp_period": "RoofingFilter: lp_period must be a number, got bool",
+   "start_policy": "RoofingFilter: start_policy must be a string, got bool"
   },
   "name": "RoofingFilter",
   "non_finite": {
@@ -6076,11 +6094,13 @@
  {
   "accepts_bool": {
    "cutoff": false,
-   "period": false
+   "period": false,
+   "start_policy": false
   },
   "accepts_none": {
    "cutoff": true,
-   "period": true
+   "period": true,
+   "start_policy": false
   },
   "base": {
    "period": 10.0
@@ -6088,7 +6108,8 @@
   "below_min": {},
   "bool_message": {
    "cutoff": "SuperSmoother: cutoff must be a number, got bool",
-   "period": "SuperSmoother: period must be a number, got bool"
+   "period": "SuperSmoother: period must be a number, got bool",
+   "start_policy": "SuperSmoother: start_policy must be a string, got bool"
   },
   "name": "SuperSmoother",
   "non_finite": {

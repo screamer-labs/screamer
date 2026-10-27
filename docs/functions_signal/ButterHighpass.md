@@ -26,6 +26,15 @@ parameters:
   max: 1.0
   description: Cutoff frequency as a fraction of the Nyquist frequency, strictly between 0
     and 1. 1 is the Nyquist frequency, the scipy.signal.butter Wn convention.
+- name: start_policy
+  type: str
+  default: steady
+  enum:
+  - steady
+  - zero
+  description: 'Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the
+    steady state for a constant input x0, so the output starts at 0. "zero" starts from
+    an all-zero state, as scipy.signal.lfilter does.'
 nan_policy: ignore
 see_also:
 - Butter
@@ -47,7 +56,7 @@ $$
 \text{ButterHighpass}(N, W_c)
 $$
 
-The output matches `scipy.signal.butter(order, cutoff_freq, btype='highpass')` followed by `scipy.signal.lfilter` to within about 1e-12.
+The filter starts in the steady state for its first input, so the output starts at 0 instead of jumping to the input level. With `start_policy="zero"` it starts from zero and matches `scipy.signal.butter(order, cutoff_freq, btype='highpass')` followed by `scipy.signal.lfilter` to within about 1e-12.
 
 
 <!-- NAN_FOOTNOTE_START -->

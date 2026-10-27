@@ -1874,6 +1874,8 @@ export interface ButterOptions {
   order?: number;
   /** Cutoff frequency as a fraction of the Nyquist frequency (half the sampling rate), strictly between 0 and 1. 1 is the Nyquist frequency, the scipy.signal.butter Wn convention. @defaultValue `0.1` */
   cutoffFreq?: number;
+  /** Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at x0. "zero" starts from an all-zero state, as scipy.signal.lfilter does. @defaultValue `"steady"` */
+  startPolicy?: string;
 }
 
 /**
@@ -1888,21 +1890,24 @@ export function Butter(options: ButterOptions): ScreamerOp;
  *
  * @param order Filter order. A higher order gives a steeper rolloff and a longer delay.
  * @param cutoffFreq Cutoff frequency as a fraction of the Nyquist frequency (half the sampling rate), strictly between 0 and 1. 1 is the Nyquist frequency, the scipy.signal.butter Wn convention.
+ * @param startPolicy Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at x0. "zero" starts from an all-zero state, as scipy.signal.lfilter does.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/Butter.html for the full reference.
  */
-export function Butter(order?: number, cutoffFreq?: number): ScreamerOp;
-export function Butter(order?: any, cutoffFreq?: any): ScreamerOp {
-  if (_isOptions(order)) [order, cutoffFreq] = _options("Butter", order, arguments.length, ["order", "cutoffFreq"], "order must be an integer");
-  else if (arguments.length > 2) _tooMany("Butter", 2, arguments.length);
-  const _given: unknown[] = [order, cutoffFreq];
+export function Butter(order?: number, cutoffFreq?: number, startPolicy?: string): ScreamerOp;
+export function Butter(order?: any, cutoffFreq?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(order)) [order, cutoffFreq, startPolicy] = _options("Butter", order, arguments.length, ["order", "cutoffFreq", "startPolicy"], "order must be an integer");
+  else if (arguments.length > 3) _tooMany("Butter", 3, arguments.length);
+  const _given: unknown[] = [order, cutoffFreq, startPolicy];
   if (order === undefined) order = 2;
   if (cutoffFreq === undefined) cutoffFreq = 0.1;
+  if (startPolicy === undefined) startPolicy = "steady";
   const M = current();
   if (typeof order !== "number" || !Number.isInteger(order)) throw new TypeError(`Butter: order must be an integer, got ${typeof order === "number" ? order : _what(order)}`);
   if (!(order >= -2147483648 && order <= 2147483647)) _intRange(M, "Butter", "order", order);
   if (typeof cutoffFreq !== "number") throw new TypeError(`Butter: cutoffFreq must be a number, got ${_what(cutoffFreq)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`Butter: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
-    return _params(wrapOp(M, () => new M.Butter(order, cutoffFreq)), "Butter", ["order", "cutoff_freq"], _given);
+    return _params(wrapOp(M, () => new M.Butter(order, cutoffFreq, startPolicy)), "Butter", ["order", "cutoff_freq", "start_policy"], _given);
   } catch (e) { throw _finite(M, "Butter", ["order", "cutoffFreq"], [order, cutoffFreq], e); }
 }
 
@@ -1914,6 +1919,8 @@ export interface ButterBandpassOptions {
   lowCutoff?: number;
   /** Upper edge of the pass band, as a fraction of the Nyquist frequency. Must satisfy 0 < low_cutoff < high_cutoff < 1. @defaultValue `0.2` */
   highCutoff?: number;
+  /** Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at 0. "zero" starts from an all-zero state, as scipy.signal.lfilter does. @defaultValue `"steady"` */
+  startPolicy?: string;
 }
 
 /**
@@ -1929,23 +1936,26 @@ export function ButterBandpass(options: ButterBandpassOptions): ScreamerOp;
  * @param order Order N of the analog prototype. The digital filter has order 2N.
  * @param lowCutoff Lower edge of the pass band, as a fraction of the Nyquist frequency. Must satisfy 0 < low_cutoff < high_cutoff < 1.
  * @param highCutoff Upper edge of the pass band, as a fraction of the Nyquist frequency. Must satisfy 0 < low_cutoff < high_cutoff < 1.
+ * @param startPolicy Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at 0. "zero" starts from an all-zero state, as scipy.signal.lfilter does.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/ButterBandpass.html for the full reference.
  */
-export function ButterBandpass(order?: number, lowCutoff?: number, highCutoff?: number): ScreamerOp;
-export function ButterBandpass(order?: any, lowCutoff?: any, highCutoff?: any): ScreamerOp {
-  if (_isOptions(order)) [order, lowCutoff, highCutoff] = _options("ButterBandpass", order, arguments.length, ["order", "lowCutoff", "highCutoff"], "order must be an integer");
-  else if (arguments.length > 3) _tooMany("ButterBandpass", 3, arguments.length);
-  const _given: unknown[] = [order, lowCutoff, highCutoff];
+export function ButterBandpass(order?: number, lowCutoff?: number, highCutoff?: number, startPolicy?: string): ScreamerOp;
+export function ButterBandpass(order?: any, lowCutoff?: any, highCutoff?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(order)) [order, lowCutoff, highCutoff, startPolicy] = _options("ButterBandpass", order, arguments.length, ["order", "lowCutoff", "highCutoff", "startPolicy"], "order must be an integer");
+  else if (arguments.length > 4) _tooMany("ButterBandpass", 4, arguments.length);
+  const _given: unknown[] = [order, lowCutoff, highCutoff, startPolicy];
   if (order === undefined) order = 2;
   if (lowCutoff === undefined) lowCutoff = 0.05;
   if (highCutoff === undefined) highCutoff = 0.2;
+  if (startPolicy === undefined) startPolicy = "steady";
   const M = current();
   if (typeof order !== "number" || !Number.isInteger(order)) throw new TypeError(`ButterBandpass: order must be an integer, got ${typeof order === "number" ? order : _what(order)}`);
   if (!(order >= -2147483648 && order <= 2147483647)) _intRange(M, "ButterBandpass", "order", order);
   if (typeof lowCutoff !== "number") throw new TypeError(`ButterBandpass: lowCutoff must be a number, got ${_what(lowCutoff)}`);
   if (typeof highCutoff !== "number") throw new TypeError(`ButterBandpass: highCutoff must be a number, got ${_what(highCutoff)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`ButterBandpass: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
-    return _params(wrapOp(M, () => new M.ButterBandpass(order, lowCutoff, highCutoff)), "ButterBandpass", ["order", "low_cutoff", "high_cutoff"], _given);
+    return _params(wrapOp(M, () => new M.ButterBandpass(order, lowCutoff, highCutoff, startPolicy)), "ButterBandpass", ["order", "low_cutoff", "high_cutoff", "start_policy"], _given);
   } catch (e) { throw _finite(M, "ButterBandpass", ["order", "lowCutoff", "highCutoff"], [order, lowCutoff, highCutoff], e); }
 }
 
@@ -1957,6 +1967,8 @@ export interface ButterBandstopOptions {
   lowCutoff?: number;
   /** Upper edge of the stop band, as a fraction of the Nyquist frequency. Must satisfy 0 < low_cutoff < high_cutoff < 1. @defaultValue `0.2` */
   highCutoff?: number;
+  /** Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at x0. "zero" starts from an all-zero state, as scipy.signal.lfilter does. @defaultValue `"steady"` */
+  startPolicy?: string;
 }
 
 /**
@@ -1972,23 +1984,26 @@ export function ButterBandstop(options: ButterBandstopOptions): ScreamerOp;
  * @param order Order N of the analog prototype. The digital filter has order 2N.
  * @param lowCutoff Lower edge of the stop band, as a fraction of the Nyquist frequency. Must satisfy 0 < low_cutoff < high_cutoff < 1.
  * @param highCutoff Upper edge of the stop band, as a fraction of the Nyquist frequency. Must satisfy 0 < low_cutoff < high_cutoff < 1.
+ * @param startPolicy Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at x0. "zero" starts from an all-zero state, as scipy.signal.lfilter does.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/ButterBandstop.html for the full reference.
  */
-export function ButterBandstop(order?: number, lowCutoff?: number, highCutoff?: number): ScreamerOp;
-export function ButterBandstop(order?: any, lowCutoff?: any, highCutoff?: any): ScreamerOp {
-  if (_isOptions(order)) [order, lowCutoff, highCutoff] = _options("ButterBandstop", order, arguments.length, ["order", "lowCutoff", "highCutoff"], "order must be an integer");
-  else if (arguments.length > 3) _tooMany("ButterBandstop", 3, arguments.length);
-  const _given: unknown[] = [order, lowCutoff, highCutoff];
+export function ButterBandstop(order?: number, lowCutoff?: number, highCutoff?: number, startPolicy?: string): ScreamerOp;
+export function ButterBandstop(order?: any, lowCutoff?: any, highCutoff?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(order)) [order, lowCutoff, highCutoff, startPolicy] = _options("ButterBandstop", order, arguments.length, ["order", "lowCutoff", "highCutoff", "startPolicy"], "order must be an integer");
+  else if (arguments.length > 4) _tooMany("ButterBandstop", 4, arguments.length);
+  const _given: unknown[] = [order, lowCutoff, highCutoff, startPolicy];
   if (order === undefined) order = 2;
   if (lowCutoff === undefined) lowCutoff = 0.05;
   if (highCutoff === undefined) highCutoff = 0.2;
+  if (startPolicy === undefined) startPolicy = "steady";
   const M = current();
   if (typeof order !== "number" || !Number.isInteger(order)) throw new TypeError(`ButterBandstop: order must be an integer, got ${typeof order === "number" ? order : _what(order)}`);
   if (!(order >= -2147483648 && order <= 2147483647)) _intRange(M, "ButterBandstop", "order", order);
   if (typeof lowCutoff !== "number") throw new TypeError(`ButterBandstop: lowCutoff must be a number, got ${_what(lowCutoff)}`);
   if (typeof highCutoff !== "number") throw new TypeError(`ButterBandstop: highCutoff must be a number, got ${_what(highCutoff)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`ButterBandstop: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
-    return _params(wrapOp(M, () => new M.ButterBandstop(order, lowCutoff, highCutoff)), "ButterBandstop", ["order", "low_cutoff", "high_cutoff"], _given);
+    return _params(wrapOp(M, () => new M.ButterBandstop(order, lowCutoff, highCutoff, startPolicy)), "ButterBandstop", ["order", "low_cutoff", "high_cutoff", "start_policy"], _given);
   } catch (e) { throw _finite(M, "ButterBandstop", ["order", "lowCutoff", "highCutoff"], [order, lowCutoff, highCutoff], e); }
 }
 
@@ -1998,6 +2013,8 @@ export interface ButterHighpassOptions {
   order?: number;
   /** Cutoff frequency as a fraction of the Nyquist frequency, strictly between 0 and 1. 1 is the Nyquist frequency, the scipy.signal.butter Wn convention. @defaultValue `0.1` */
   cutoffFreq?: number;
+  /** Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at 0. "zero" starts from an all-zero state, as scipy.signal.lfilter does. @defaultValue `"steady"` */
+  startPolicy?: string;
 }
 
 /**
@@ -2012,21 +2029,24 @@ export function ButterHighpass(options: ButterHighpassOptions): ScreamerOp;
  *
  * @param order Filter order. A higher order gives a steeper rolloff and a larger group delay.
  * @param cutoffFreq Cutoff frequency as a fraction of the Nyquist frequency, strictly between 0 and 1. 1 is the Nyquist frequency, the scipy.signal.butter Wn convention.
+ * @param startPolicy Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at 0. "zero" starts from an all-zero state, as scipy.signal.lfilter does.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/ButterHighpass.html for the full reference.
  */
-export function ButterHighpass(order?: number, cutoffFreq?: number): ScreamerOp;
-export function ButterHighpass(order?: any, cutoffFreq?: any): ScreamerOp {
-  if (_isOptions(order)) [order, cutoffFreq] = _options("ButterHighpass", order, arguments.length, ["order", "cutoffFreq"], "order must be an integer");
-  else if (arguments.length > 2) _tooMany("ButterHighpass", 2, arguments.length);
-  const _given: unknown[] = [order, cutoffFreq];
+export function ButterHighpass(order?: number, cutoffFreq?: number, startPolicy?: string): ScreamerOp;
+export function ButterHighpass(order?: any, cutoffFreq?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(order)) [order, cutoffFreq, startPolicy] = _options("ButterHighpass", order, arguments.length, ["order", "cutoffFreq", "startPolicy"], "order must be an integer");
+  else if (arguments.length > 3) _tooMany("ButterHighpass", 3, arguments.length);
+  const _given: unknown[] = [order, cutoffFreq, startPolicy];
   if (order === undefined) order = 2;
   if (cutoffFreq === undefined) cutoffFreq = 0.1;
+  if (startPolicy === undefined) startPolicy = "steady";
   const M = current();
   if (typeof order !== "number" || !Number.isInteger(order)) throw new TypeError(`ButterHighpass: order must be an integer, got ${typeof order === "number" ? order : _what(order)}`);
   if (!(order >= -2147483648 && order <= 2147483647)) _intRange(M, "ButterHighpass", "order", order);
   if (typeof cutoffFreq !== "number") throw new TypeError(`ButterHighpass: cutoffFreq must be a number, got ${_what(cutoffFreq)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`ButterHighpass: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
-    return _params(wrapOp(M, () => new M.ButterHighpass(order, cutoffFreq)), "ButterHighpass", ["order", "cutoff_freq"], _given);
+    return _params(wrapOp(M, () => new M.ButterHighpass(order, cutoffFreq, startPolicy)), "ButterHighpass", ["order", "cutoff_freq", "start_policy"], _given);
   } catch (e) { throw _finite(M, "ButterHighpass", ["order", "cutoffFreq"], [order, cutoffFreq], e); }
 }
 
@@ -2676,6 +2696,8 @@ export interface DecyclerOptions {
   period?: number | null;
   /** Cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / period. Give exactly one of period and cutoff. */
   cutoff?: number | null;
+  /** Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at x0. "zero" starts from an all-zero state, as scipy.signal.lfilter does. @defaultValue `"steady"` */
+  startPolicy?: string;
 }
 
 /**
@@ -2690,20 +2712,23 @@ export function Decycler(options: DecyclerOptions): ScreamerOp;
  *
  * @param period Cutoff as a cycle length in samples, the half-power point; cycles well below this length are removed. Give exactly one of period and cutoff. The default shown is a suggested starting value; the constructor has no default.
  * @param cutoff Cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / period. Give exactly one of period and cutoff.
+ * @param startPolicy Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at x0. "zero" starts from an all-zero state, as scipy.signal.lfilter does.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/Decycler.html for the full reference.
  */
-export function Decycler(period?: number | null, cutoff?: number | null): ScreamerOp;
-export function Decycler(period?: any, cutoff?: any): ScreamerOp {
-  if (_isOptions(period)) [period, cutoff] = _options("Decycler", period, arguments.length, ["period", "cutoff"], "period must be a number");
-  else if (arguments.length > 2) _tooMany("Decycler", 2, arguments.length);
-  const _given: unknown[] = [(Number.isNaN(period) ? undefined : period), (Number.isNaN(cutoff) ? undefined : cutoff)];
+export function Decycler(period?: number | null, cutoff?: number | null, startPolicy?: string): ScreamerOp;
+export function Decycler(period?: any, cutoff?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(period)) [period, cutoff, startPolicy] = _options("Decycler", period, arguments.length, ["period", "cutoff", "startPolicy"], "period must be a number");
+  else if (arguments.length > 3) _tooMany("Decycler", 3, arguments.length);
+  const _given: unknown[] = [(Number.isNaN(period) ? undefined : period), (Number.isNaN(cutoff) ? undefined : cutoff), startPolicy];
   period ??= NaN;
   cutoff ??= NaN;
+  if (startPolicy === undefined) startPolicy = "steady";
   const M = current();
   if (typeof period !== "number") throw new TypeError(`Decycler: period must be a number, got ${_what(period)}`);
   if (typeof cutoff !== "number") throw new TypeError(`Decycler: cutoff must be a number, got ${_what(cutoff)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`Decycler: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
-    return _params(wrapOp(M, () => new M.Decycler(period, cutoff)), "Decycler", ["period", "cutoff"], _given);
+    return _params(wrapOp(M, () => new M.Decycler(period, cutoff, startPolicy)), "Decycler", ["period", "cutoff", "start_policy"], _given);
   } catch (e) { throw _finite(M, "Decycler", ["period", "cutoff"], [(Number.isNaN(period) ? null : period), (Number.isNaN(cutoff) ? null : cutoff)], e); }
 }
 
@@ -8706,6 +8731,8 @@ export interface RoofingFilterOptions {
   hpCutoff?: number | null;
   /** Lowpass cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / lp_period. Give exactly one of lp_period and lp_cutoff. */
   lpCutoff?: number | null;
+  /** Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at 0. "zero" starts from an all-zero state, as scipy.signal.lfilter does. @defaultValue `"steady"` */
+  startPolicy?: string;
 }
 
 /**
@@ -8722,24 +8749,27 @@ export function RoofingFilter(options: RoofingFilterOptions): ScreamerOp;
  * @param lpPeriod Lowpass cutoff as a cycle length in samples; shorter cycles (noise) are removed. Give exactly one of lp_period and lp_cutoff. The default shown is a suggested starting value; the constructor has no default.
  * @param hpCutoff Highpass cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / hp_period. Give exactly one of hp_period and hp_cutoff.
  * @param lpCutoff Lowpass cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / lp_period. Give exactly one of lp_period and lp_cutoff.
+ * @param startPolicy Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at 0. "zero" starts from an all-zero state, as scipy.signal.lfilter does.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/RoofingFilter.html for the full reference.
  */
-export function RoofingFilter(hpPeriod?: number | null, lpPeriod?: number | null, hpCutoff?: number | null, lpCutoff?: number | null): ScreamerOp;
-export function RoofingFilter(hpPeriod?: any, lpPeriod?: any, hpCutoff?: any, lpCutoff?: any): ScreamerOp {
-  if (_isOptions(hpPeriod)) [hpPeriod, lpPeriod, hpCutoff, lpCutoff] = _options("RoofingFilter", hpPeriod, arguments.length, ["hpPeriod", "lpPeriod", "hpCutoff", "lpCutoff"], "hpPeriod must be a number");
-  else if (arguments.length > 4) _tooMany("RoofingFilter", 4, arguments.length);
-  const _given: unknown[] = [(Number.isNaN(hpPeriod) ? undefined : hpPeriod), (Number.isNaN(lpPeriod) ? undefined : lpPeriod), (Number.isNaN(hpCutoff) ? undefined : hpCutoff), (Number.isNaN(lpCutoff) ? undefined : lpCutoff)];
+export function RoofingFilter(hpPeriod?: number | null, lpPeriod?: number | null, hpCutoff?: number | null, lpCutoff?: number | null, startPolicy?: string): ScreamerOp;
+export function RoofingFilter(hpPeriod?: any, lpPeriod?: any, hpCutoff?: any, lpCutoff?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(hpPeriod)) [hpPeriod, lpPeriod, hpCutoff, lpCutoff, startPolicy] = _options("RoofingFilter", hpPeriod, arguments.length, ["hpPeriod", "lpPeriod", "hpCutoff", "lpCutoff", "startPolicy"], "hpPeriod must be a number");
+  else if (arguments.length > 5) _tooMany("RoofingFilter", 5, arguments.length);
+  const _given: unknown[] = [(Number.isNaN(hpPeriod) ? undefined : hpPeriod), (Number.isNaN(lpPeriod) ? undefined : lpPeriod), (Number.isNaN(hpCutoff) ? undefined : hpCutoff), (Number.isNaN(lpCutoff) ? undefined : lpCutoff), startPolicy];
   hpPeriod ??= NaN;
   lpPeriod ??= NaN;
   hpCutoff ??= NaN;
   lpCutoff ??= NaN;
+  if (startPolicy === undefined) startPolicy = "steady";
   const M = current();
   if (typeof hpPeriod !== "number") throw new TypeError(`RoofingFilter: hpPeriod must be a number, got ${_what(hpPeriod)}`);
   if (typeof lpPeriod !== "number") throw new TypeError(`RoofingFilter: lpPeriod must be a number, got ${_what(lpPeriod)}`);
   if (typeof hpCutoff !== "number") throw new TypeError(`RoofingFilter: hpCutoff must be a number, got ${_what(hpCutoff)}`);
   if (typeof lpCutoff !== "number") throw new TypeError(`RoofingFilter: lpCutoff must be a number, got ${_what(lpCutoff)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`RoofingFilter: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
-    return _params(wrapOp(M, () => new M.RoofingFilter(hpPeriod, lpPeriod, hpCutoff, lpCutoff)), "RoofingFilter", ["hp_period", "lp_period", "hp_cutoff", "lp_cutoff"], _given);
+    return _params(wrapOp(M, () => new M.RoofingFilter(hpPeriod, lpPeriod, hpCutoff, lpCutoff, startPolicy)), "RoofingFilter", ["hp_period", "lp_period", "hp_cutoff", "lp_cutoff", "start_policy"], _given);
   } catch (e) { throw _finite(M, "RoofingFilter", ["hpPeriod", "lpPeriod", "hpCutoff", "lpCutoff"], [(Number.isNaN(hpPeriod) ? null : hpPeriod), (Number.isNaN(lpPeriod) ? null : lpPeriod), (Number.isNaN(hpCutoff) ? null : hpCutoff), (Number.isNaN(lpCutoff) ? null : lpCutoff)], e); }
 }
 
@@ -9077,6 +9107,8 @@ export interface SuperSmootherOptions {
   period?: number | null;
   /** Cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / period. Give exactly one of period and cutoff. */
   cutoff?: number | null;
+  /** Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at x0. "zero" starts from an all-zero state, as scipy.signal.lfilter does. @defaultValue `"steady"` */
+  startPolicy?: string;
 }
 
 /**
@@ -9091,20 +9123,23 @@ export function SuperSmoother(options: SuperSmootherOptions): ScreamerOp;
  *
  * @param period Cutoff as a cycle length in samples; cycles shorter than this are attenuated. Give exactly one of period and cutoff. The default shown is a suggested starting value; the constructor has no default.
  * @param cutoff Cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / period. Give exactly one of period and cutoff.
+ * @param startPolicy Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at x0. "zero" starts from an all-zero state, as scipy.signal.lfilter does.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/SuperSmoother.html for the full reference.
  */
-export function SuperSmoother(period?: number | null, cutoff?: number | null): ScreamerOp;
-export function SuperSmoother(period?: any, cutoff?: any): ScreamerOp {
-  if (_isOptions(period)) [period, cutoff] = _options("SuperSmoother", period, arguments.length, ["period", "cutoff"], "period must be a number");
-  else if (arguments.length > 2) _tooMany("SuperSmoother", 2, arguments.length);
-  const _given: unknown[] = [(Number.isNaN(period) ? undefined : period), (Number.isNaN(cutoff) ? undefined : cutoff)];
+export function SuperSmoother(period?: number | null, cutoff?: number | null, startPolicy?: string): ScreamerOp;
+export function SuperSmoother(period?: any, cutoff?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(period)) [period, cutoff, startPolicy] = _options("SuperSmoother", period, arguments.length, ["period", "cutoff", "startPolicy"], "period must be a number");
+  else if (arguments.length > 3) _tooMany("SuperSmoother", 3, arguments.length);
+  const _given: unknown[] = [(Number.isNaN(period) ? undefined : period), (Number.isNaN(cutoff) ? undefined : cutoff), startPolicy];
   period ??= NaN;
   cutoff ??= NaN;
+  if (startPolicy === undefined) startPolicy = "steady";
   const M = current();
   if (typeof period !== "number") throw new TypeError(`SuperSmoother: period must be a number, got ${_what(period)}`);
   if (typeof cutoff !== "number") throw new TypeError(`SuperSmoother: cutoff must be a number, got ${_what(cutoff)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`SuperSmoother: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
   try {
-    return _params(wrapOp(M, () => new M.SuperSmoother(period, cutoff)), "SuperSmoother", ["period", "cutoff"], _given);
+    return _params(wrapOp(M, () => new M.SuperSmoother(period, cutoff, startPolicy)), "SuperSmoother", ["period", "cutoff", "start_policy"], _given);
   } catch (e) { throw _finite(M, "SuperSmoother", ["period", "cutoff"], [(Number.isNaN(period) ? null : period), (Number.isNaN(cutoff) ? null : cutoff)], e); }
 }
 

@@ -1,9 +1,11 @@
 import numpy as np
-from scipy.signal import lfilter
+
+from ._iir_start import iir_filter
 
 
 class SuperSmoother_ehlers:
-    def __init__(self, period=None, cutoff=None):
+    def __init__(self, period=None, cutoff=None, start_policy="steady"):
+        self.start_policy = start_policy
         if (period is None) == (cutoff is None):
             raise ValueError("Provide exactly one of period or cutoff.")
         p = period if period is not None else 2.0 / cutoff
@@ -15,4 +17,4 @@ class SuperSmoother_ehlers:
         self.a = [1.0, -c2, -c3]
 
     def __call__(self, array):
-        return lfilter(self.b, self.a, np.asarray(array, float))
+        return iir_filter(self.b, self.a, np.asarray(array, float), self.start_policy)

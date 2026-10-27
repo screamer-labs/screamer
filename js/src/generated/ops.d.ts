@@ -1098,6 +1098,8 @@ export interface ButterOptions {
   order?: number;
   /** Cutoff frequency as a fraction of the Nyquist frequency (half the sampling rate), strictly between 0 and 1. 1 is the Nyquist frequency, the scipy.signal.butter Wn convention. @defaultValue `0.1` */
   cutoffFreq?: number;
+  /** Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at x0. "zero" starts from an all-zero state, as scipy.signal.lfilter does. @defaultValue `"steady"` */
+  startPolicy?: string;
 }
 
 /**
@@ -1112,9 +1114,10 @@ export declare function Butter(options: ButterOptions): ScreamerOp;
  *
  * @param order Filter order. A higher order gives a steeper rolloff and a longer delay.
  * @param cutoffFreq Cutoff frequency as a fraction of the Nyquist frequency (half the sampling rate), strictly between 0 and 1. 1 is the Nyquist frequency, the scipy.signal.butter Wn convention.
+ * @param startPolicy Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at x0. "zero" starts from an all-zero state, as scipy.signal.lfilter does.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/Butter.html for the full reference.
  */
-export declare function Butter(order?: number, cutoffFreq?: number): ScreamerOp;
+export declare function Butter(order?: number, cutoffFreq?: number, startPolicy?: string): ScreamerOp;
 
 /** The settings of ButterBandpass by name, for `ButterBandpass({ ... })`. */
 export interface ButterBandpassOptions {
@@ -1124,6 +1127,8 @@ export interface ButterBandpassOptions {
   lowCutoff?: number;
   /** Upper edge of the pass band, as a fraction of the Nyquist frequency. Must satisfy 0 < low_cutoff < high_cutoff < 1. @defaultValue `0.2` */
   highCutoff?: number;
+  /** Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at 0. "zero" starts from an all-zero state, as scipy.signal.lfilter does. @defaultValue `"steady"` */
+  startPolicy?: string;
 }
 
 /**
@@ -1139,9 +1144,10 @@ export declare function ButterBandpass(options: ButterBandpassOptions): Screamer
  * @param order Order N of the analog prototype. The digital filter has order 2N.
  * @param lowCutoff Lower edge of the pass band, as a fraction of the Nyquist frequency. Must satisfy 0 < low_cutoff < high_cutoff < 1.
  * @param highCutoff Upper edge of the pass band, as a fraction of the Nyquist frequency. Must satisfy 0 < low_cutoff < high_cutoff < 1.
+ * @param startPolicy Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at 0. "zero" starts from an all-zero state, as scipy.signal.lfilter does.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/ButterBandpass.html for the full reference.
  */
-export declare function ButterBandpass(order?: number, lowCutoff?: number, highCutoff?: number): ScreamerOp;
+export declare function ButterBandpass(order?: number, lowCutoff?: number, highCutoff?: number, startPolicy?: string): ScreamerOp;
 
 /** The settings of ButterBandstop by name, for `ButterBandstop({ ... })`. */
 export interface ButterBandstopOptions {
@@ -1151,6 +1157,8 @@ export interface ButterBandstopOptions {
   lowCutoff?: number;
   /** Upper edge of the stop band, as a fraction of the Nyquist frequency. Must satisfy 0 < low_cutoff < high_cutoff < 1. @defaultValue `0.2` */
   highCutoff?: number;
+  /** Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at x0. "zero" starts from an all-zero state, as scipy.signal.lfilter does. @defaultValue `"steady"` */
+  startPolicy?: string;
 }
 
 /**
@@ -1166,9 +1174,10 @@ export declare function ButterBandstop(options: ButterBandstopOptions): Screamer
  * @param order Order N of the analog prototype. The digital filter has order 2N.
  * @param lowCutoff Lower edge of the stop band, as a fraction of the Nyquist frequency. Must satisfy 0 < low_cutoff < high_cutoff < 1.
  * @param highCutoff Upper edge of the stop band, as a fraction of the Nyquist frequency. Must satisfy 0 < low_cutoff < high_cutoff < 1.
+ * @param startPolicy Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at x0. "zero" starts from an all-zero state, as scipy.signal.lfilter does.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/ButterBandstop.html for the full reference.
  */
-export declare function ButterBandstop(order?: number, lowCutoff?: number, highCutoff?: number): ScreamerOp;
+export declare function ButterBandstop(order?: number, lowCutoff?: number, highCutoff?: number, startPolicy?: string): ScreamerOp;
 
 /** The settings of ButterHighpass by name, for `ButterHighpass({ ... })`. */
 export interface ButterHighpassOptions {
@@ -1176,6 +1185,8 @@ export interface ButterHighpassOptions {
   order?: number;
   /** Cutoff frequency as a fraction of the Nyquist frequency, strictly between 0 and 1. 1 is the Nyquist frequency, the scipy.signal.butter Wn convention. @defaultValue `0.1` */
   cutoffFreq?: number;
+  /** Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at 0. "zero" starts from an all-zero state, as scipy.signal.lfilter does. @defaultValue `"steady"` */
+  startPolicy?: string;
 }
 
 /**
@@ -1190,9 +1201,10 @@ export declare function ButterHighpass(options: ButterHighpassOptions): Screamer
  *
  * @param order Filter order. A higher order gives a steeper rolloff and a larger group delay.
  * @param cutoffFreq Cutoff frequency as a fraction of the Nyquist frequency, strictly between 0 and 1. 1 is the Nyquist frequency, the scipy.signal.butter Wn convention.
+ * @param startPolicy Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at 0. "zero" starts from an all-zero state, as scipy.signal.lfilter does.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/ButterHighpass.html for the full reference.
  */
-export declare function ButterHighpass(order?: number, cutoffFreq?: number): ScreamerOp;
+export declare function ButterHighpass(order?: number, cutoffFreq?: number, startPolicy?: string): ScreamerOp;
 
 /** The settings of CCI by name, for `CCI({ ... })`. */
 export interface CCIOptions {
@@ -1623,6 +1635,8 @@ export interface DecyclerOptions {
   period?: number | null;
   /** Cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / period. Give exactly one of period and cutoff. */
   cutoff?: number | null;
+  /** Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at x0. "zero" starts from an all-zero state, as scipy.signal.lfilter does. @defaultValue `"steady"` */
+  startPolicy?: string;
 }
 
 /**
@@ -1637,9 +1651,10 @@ export declare function Decycler(options: DecyclerOptions): ScreamerOp;
  *
  * @param period Cutoff as a cycle length in samples, the half-power point; cycles well below this length are removed. Give exactly one of period and cutoff. The default shown is a suggested starting value; the constructor has no default.
  * @param cutoff Cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / period. Give exactly one of period and cutoff.
+ * @param startPolicy Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at x0. "zero" starts from an all-zero state, as scipy.signal.lfilter does.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/Decycler.html for the full reference.
  */
-export declare function Decycler(period?: number | null, cutoff?: number | null): ScreamerOp;
+export declare function Decycler(period?: number | null, cutoff?: number | null, startPolicy?: string): ScreamerOp;
 
 /** The settings of Detrend by name, for `Detrend({ ... })`. */
 export interface DetrendOptions {
@@ -5475,6 +5490,8 @@ export interface RoofingFilterOptions {
   hpCutoff?: number | null;
   /** Lowpass cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / lp_period. Give exactly one of lp_period and lp_cutoff. */
   lpCutoff?: number | null;
+  /** Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at 0. "zero" starts from an all-zero state, as scipy.signal.lfilter does. @defaultValue `"steady"` */
+  startPolicy?: string;
 }
 
 /**
@@ -5491,9 +5508,10 @@ export declare function RoofingFilter(options: RoofingFilterOptions): ScreamerOp
  * @param lpPeriod Lowpass cutoff as a cycle length in samples; shorter cycles (noise) are removed. Give exactly one of lp_period and lp_cutoff. The default shown is a suggested starting value; the constructor has no default.
  * @param hpCutoff Highpass cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / hp_period. Give exactly one of hp_period and hp_cutoff.
  * @param lpCutoff Lowpass cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / lp_period. Give exactly one of lp_period and lp_cutoff.
+ * @param startPolicy Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at 0. "zero" starts from an all-zero state, as scipy.signal.lfilter does.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/RoofingFilter.html for the full reference.
  */
-export declare function RoofingFilter(hpPeriod?: number | null, lpPeriod?: number | null, hpCutoff?: number | null, lpCutoff?: number | null): ScreamerOp;
+export declare function RoofingFilter(hpPeriod?: number | null, lpPeriod?: number | null, hpCutoff?: number | null, lpCutoff?: number | null, startPolicy?: string): ScreamerOp;
 
 /** Round has no settings: its options object is empty. */
 export type RoundOptions = Record<string, never>;
@@ -5716,6 +5734,8 @@ export interface SuperSmootherOptions {
   period?: number | null;
   /** Cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / period. Give exactly one of period and cutoff. */
   cutoff?: number | null;
+  /** Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at x0. "zero" starts from an all-zero state, as scipy.signal.lfilter does. @defaultValue `"steady"` */
+  startPolicy?: string;
 }
 
 /**
@@ -5730,9 +5750,10 @@ export declare function SuperSmoother(options: SuperSmootherOptions): ScreamerOp
  *
  * @param period Cutoff as a cycle length in samples; cycles shorter than this are attenuated. Give exactly one of period and cutoff. The default shown is a suggested starting value; the constructor has no default.
  * @param cutoff Cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / period. Give exactly one of period and cutoff.
+ * @param startPolicy Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at x0. "zero" starts from an all-zero state, as scipy.signal.lfilter does.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/SuperSmoother.html for the full reference.
  */
-export declare function SuperSmoother(period?: number | null, cutoff?: number | null): ScreamerOp;
+export declare function SuperSmoother(period?: number | null, cutoff?: number | null, startPolicy?: string): ScreamerOp;
 
 /** The settings of TEMA by name, for `TEMA({ ... })`. */
 export interface TEMAOptions {

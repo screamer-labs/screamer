@@ -10,6 +10,7 @@
 // convention. low_cutoff must be strictly less than high_cutoff.
 
 #include <stdexcept>
+#include <string>
 #include <vector>
 #include "screamer/common/base.h"
 #include "screamer/signal/butter.h"
@@ -20,11 +21,13 @@ namespace screamer {
 
 class ButterBandpass : public ScreamerBase {
 public:
-    ButterBandpass(int order, double low_cutoff, double high_cutoff) {
+    ButterBandpass(int order, double low_cutoff, double high_cutoff,
+                   const std::string& start_policy = "steady") {
+        const IIRStart start = parse_iir_start(start_policy, "ButterBandpass");
         if (order < 1) throw std::invalid_argument("Order must be at least 1.");
         std::vector<double> b, a;
         butterworth_filter_bp(order, low_cutoff, high_cutoff, b, a);
-        iir_.init(b, a);
+        iir_.init(b, a, start);
     }
 
     void reset() override { iir_.reset(); }

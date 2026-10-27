@@ -315,6 +315,26 @@ inline screamer::BulkVolumeClassifier* make_BulkVolumeClassifier(int a0, emscrip
     return new screamer::BulkVolumeClassifier(a0, a1s);
 }
 
+inline screamer::Butter* make_Butter(int a0, double a1, emscripten::val a2) {
+    const std::string a2s = a2.as<std::string>();
+    return new screamer::Butter(a0, a1, a2s);
+}
+
+inline screamer::ButterBandpass* make_ButterBandpass(int a0, double a1, double a2, emscripten::val a3) {
+    const std::string a3s = a3.as<std::string>();
+    return new screamer::ButterBandpass(a0, a1, a2, a3s);
+}
+
+inline screamer::ButterBandstop* make_ButterBandstop(int a0, double a1, double a2, emscripten::val a3) {
+    const std::string a3s = a3.as<std::string>();
+    return new screamer::ButterBandstop(a0, a1, a2, a3s);
+}
+
+inline screamer::ButterHighpass* make_ButterHighpass(int a0, double a1, emscripten::val a2) {
+    const std::string a2s = a2.as<std::string>();
+    return new screamer::ButterHighpass(a0, a1, a2s);
+}
+
 inline screamer::Clip* make_Clip(double a0, double a1) {
     return new screamer::Clip(screamer_wasm::opt(a0), screamer_wasm::opt(a1));
 }
@@ -337,8 +357,9 @@ inline screamer::DEMA* make_DEMA(double a0, double a1, double a2, double a3) {
     return new screamer::DEMA(screamer_wasm::opt(a0), screamer_wasm::opt(a1), screamer_wasm::opt(a2), screamer_wasm::opt(a3));
 }
 
-inline screamer::Decycler* make_Decycler(double a0, double a1) {
-    return new screamer::Decycler(screamer_wasm::opt(a0), screamer_wasm::opt(a1));
+inline screamer::Decycler* make_Decycler(double a0, double a1, emscripten::val a2) {
+    const std::string a2s = a2.as<std::string>();
+    return new screamer::Decycler(screamer_wasm::opt(a0), screamer_wasm::opt(a1), a2s);
 }
 
 inline screamer::Detrend* make_Detrend(int a0, emscripten::val a1) {
@@ -674,16 +695,18 @@ inline screamer::RollingZscore* make_RollingZscore(int a0, emscripten::val a1) {
     return new screamer::RollingZscore(a0, a1s);
 }
 
-inline screamer::RoofingFilter* make_RoofingFilter(double a0, double a1, double a2, double a3) {
-    return new screamer::RoofingFilter(screamer_wasm::opt(a0), screamer_wasm::opt(a1), screamer_wasm::opt(a2), screamer_wasm::opt(a3));
+inline screamer::RoofingFilter* make_RoofingFilter(double a0, double a1, double a2, double a3, emscripten::val a4) {
+    const std::string a4s = a4.as<std::string>();
+    return new screamer::RoofingFilter(screamer_wasm::opt(a0), screamer_wasm::opt(a1), screamer_wasm::opt(a2), screamer_wasm::opt(a3), a4s);
 }
 
 inline screamer::Segment* make_Segment(emscripten::val a0) {
     return new screamer::Segment(screamer_wasm::op_arg(a0));
 }
 
-inline screamer::SuperSmoother* make_SuperSmoother(double a0, double a1) {
-    return new screamer::SuperSmoother(screamer_wasm::opt(a0), screamer_wasm::opt(a1));
+inline screamer::SuperSmoother* make_SuperSmoother(double a0, double a1, emscripten::val a2) {
+    const std::string a2s = a2.as<std::string>();
+    return new screamer::SuperSmoother(screamer_wasm::opt(a0), screamer_wasm::opt(a1), a2s);
 }
 
 inline screamer::TEMA* make_TEMA(double a0, double a1, double a2, double a3) {
@@ -797,13 +820,13 @@ EMSCRIPTEN_BINDINGS(screamer) {
     emscripten::class_<screamer::BulkVolumeClassifier, emscripten::base<screamer::EvalOp>>("BulkVolumeClassifier")
         .constructor(&make_BulkVolumeClassifier, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::Butter, emscripten::base<screamer::EvalOp>>("Butter")
-        .constructor<int, double>();
+        .constructor(&make_Butter, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::ButterBandpass, emscripten::base<screamer::EvalOp>>("ButterBandpass")
-        .constructor<int, double, double>();
+        .constructor(&make_ButterBandpass, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::ButterBandstop, emscripten::base<screamer::EvalOp>>("ButterBandstop")
-        .constructor<int, double, double>();
+        .constructor(&make_ButterBandstop, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::ButterHighpass, emscripten::base<screamer::EvalOp>>("ButterHighpass")
-        .constructor<int, double>();
+        .constructor(&make_ButterHighpass, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::CCI, emscripten::base<screamer::EvalOp>>("CCI")
         .constructor<int>();
     emscripten::class_<screamer::Cart2Polar, emscripten::base<screamer::EvalOp>>("Cart2Polar")

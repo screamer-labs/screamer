@@ -11,6 +11,7 @@
 // Nyquist in (0, 1)); period = 2 / cutoff.
 
 #include <optional>
+#include <string>
 #include <vector>
 #include "screamer/common/base.h"
 #include "screamer/signal/ehlers.h"
@@ -22,11 +23,13 @@ namespace screamer {
 class Decycler : public ScreamerBase {
 public:
     explicit Decycler(std::optional<double> period = std::nullopt,
-                      std::optional<double> cutoff = std::nullopt) {
+                      std::optional<double> cutoff = std::nullopt,
+                      const std::string& start_policy = "steady") {
+        const IIRStart start = parse_iir_start(start_policy, "Decycler");
         const double p = ehlers_resolve_period(period, cutoff);
         std::vector<double> b, a;
         decycler_coeffs(p, b, a);
-        iir_.init(b, a);
+        iir_.init(b, a, start);
     }
 
     void reset() override { iir_.reset(); }

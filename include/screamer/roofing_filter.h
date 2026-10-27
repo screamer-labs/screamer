@@ -10,6 +10,7 @@
 
 #include <optional>
 #include <cstddef>
+#include <string>
 #include <vector>
 #include "screamer/common/base.h"
 #include "screamer/signal/ehlers.h"
@@ -22,14 +23,16 @@ public:
     RoofingFilter(std::optional<double> hp_period = std::nullopt,
                   std::optional<double> lp_period = std::nullopt,
                   std::optional<double> hp_cutoff = std::nullopt,
-                  std::optional<double> lp_cutoff = std::nullopt) {
+                  std::optional<double> lp_cutoff = std::nullopt,
+                  const std::string& start_policy = "steady") {
+        const IIRStart start = parse_iir_start(start_policy, "RoofingFilter");
         const double hp = ehlers_resolve_period(hp_period, hp_cutoff);
         const double lp = ehlers_resolve_period(lp_period, lp_cutoff);
         std::vector<double> b, a;
         ehlers_highpass2_coeffs(hp, b, a);
-        hp_.init(b, a);
+        hp_.init(b, a, start);
         supersmoother_coeffs(lp, b, a);
-        lp_.init(b, a);
+        lp_.init(b, a, start);
     }
 
     void reset() override {
@@ -61,6 +64,12 @@ private:
             for (size_t m = 0; m < size; ++m, x += dx, y += dy) *y = process_scalar(*x);
             return;
         }
+        // Values up to the first one both stages have started on take the
+        // per-value path, which sets the start states.
+        for (; size > 0 && !(hp_.started() && lp_.started()); --size, x += dx, y += dy) {
+            *y = process_scalar(*x);
+        }
+        if (size == 0) return;
         IIRState<2> hp(hp_), lp(lp_);
         skip_nan_column(y, dy, x, dx, size, [&hp, &lp](double v) {
             const double h = hp.step(v);

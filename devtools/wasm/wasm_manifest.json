@@ -1270,7 +1270,8 @@
     "base": "ScreamerBase",
     "ctor": [
       "int",
-      "double"
+      "double",
+      "std::string"
     ],
     "ctor_args": [
       {
@@ -1280,6 +1281,10 @@
       {
         "name": "cutoff_freq",
         "default": "0.1"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"steady\""
       }
     ],
     "ctor_kind": "plain",
@@ -1292,7 +1297,8 @@
     "ctor": [
       "int",
       "double",
-      "double"
+      "double",
+      "std::string"
     ],
     "ctor_args": [
       {
@@ -1306,6 +1312,10 @@
       {
         "name": "high_cutoff",
         "default": "0.2"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"steady\""
       }
     ],
     "ctor_kind": "plain",
@@ -1318,7 +1328,8 @@
     "ctor": [
       "int",
       "double",
-      "double"
+      "double",
+      "std::string"
     ],
     "ctor_args": [
       {
@@ -1332,6 +1343,10 @@
       {
         "name": "high_cutoff",
         "default": "0.2"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"steady\""
       }
     ],
     "ctor_kind": "plain",
@@ -1343,7 +1358,8 @@
     "base": "ScreamerBase",
     "ctor": [
       "int",
-      "double"
+      "double",
+      "std::string"
     ],
     "ctor_args": [
       {
@@ -1353,6 +1369,10 @@
       {
         "name": "cutoff_freq",
         "default": "0.1"
+      },
+      {
+        "name": "start_policy",
+        "default": "\"steady\""
       }
     ],
     "ctor_kind": "plain",
@@ -1727,7 +1747,8 @@
     "base": "ScreamerBase",
     "ctor": [
       "std::optional<double>",
-      "std::optional<double>"
+      "std::optional<double>",
+      "std::string"
     ],
     "ctor_args": [
       {
@@ -1737,6 +1758,10 @@
       {
         "name": "cutoff",
         "default": null
+      },
+      {
+        "name": "start_policy",
+        "default": "\"steady\""
       }
     ],
     "ctor_kind": "ew_optional",
@@ -5178,7 +5203,8 @@
       "std::optional<double>",
       "std::optional<double>",
       "std::optional<double>",
-      "std::optional<double>"
+      "std::optional<double>",
+      "std::string"
     ],
     "ctor_args": [
       {
@@ -5196,6 +5222,10 @@
       {
         "name": "lp_cutoff",
         "default": null
+      },
+      {
+        "name": "start_policy",
+        "default": "\"steady\""
       }
     ],
     "ctor_kind": "ew_optional",
@@ -5396,7 +5426,8 @@
     "base": "ScreamerBase",
     "ctor": [
       "std::optional<double>",
-      "std::optional<double>"
+      "std::optional<double>",
+      "std::string"
     ],
     "ctor_args": [
       {
@@ -5406,6 +5437,10 @@
       {
         "name": "cutoff",
         "default": null
+      },
+      {
+        "name": "start_policy",
+        "default": "\"steady\""
       }
     ],
     "ctor_kind": "ew_optional",

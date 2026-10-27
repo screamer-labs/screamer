@@ -27,6 +27,7 @@ classes:
 #include <cstddef>
 #include <stdexcept>
 #include <utility>
+#include <string>
 #include "screamer/common/skip_nan_column.h"
 
 
@@ -351,6 +352,20 @@ struct IIRState {
     }
 };
 
+// How an IIRFilter starts. Steady: on the first non-NaN input x0, the state
+// is set to the steady state for a constant input x0 (scipy's
+// lfilter_zi(b, a) * x0), so a low-pass output starts at x0 and a high-pass
+// or band-pass output at 0. Zero: the all-zero state, scipy's lfilter.
+enum class IIRStart { Steady, Zero };
+
+// Parse the start_policy setting; `op` names the operator in the error.
+inline IIRStart parse_iir_start(const std::string& policy, const char* op) {
+    if (policy == "steady") return IIRStart::Steady;
+    if (policy == "zero") return IIRStart::Zero;
+    throw std::invalid_argument(std::string(op) + ": unknown start_policy \"" + policy +
+                                "\", valid values are: steady, zero");
+}
+
 class IIRFilter {
     public:
         // Default constructor
@@ -361,7 +376,9 @@ class IIRFilter {
             return std::max(b.size(), a.size());
         }
 
-        void init(std::vector<double> bCoeffs, std::vector<double> aCoeffs) {
+        // b and a have the same length n >= 2 and a[0] == 1.
+        void init(std::vector<double> bCoeffs, std::vector<double> aCoeffs,
+                  IIRStart start) {
             if (bCoeffs.empty() || aCoeffs.empty()) {
                 throw std::invalid_argument("Coefficient vectors b and a cannot be empty.");
             }
@@ -375,22 +392,41 @@ class IIRFilter {
 
             // Initialize z with zeros and size n - 1
             z.assign(n - 1, 0.0);
+
+            // The steady state for a unit constant input: the output is the
+            // DC gain g = sum(b) / sum(a), and the transposed direct form II
+            // update with x = 1, y = g gives z back from the last element.
+            steady_ = (start == IIRStart::Steady);
+            zi.clear();
+            if (steady_) {
+                zi.resize(n - 1);
+                const double g = std::accumulate(b.begin(), b.end(), 0.0) /
+                                 std::accumulate(a.begin(), a.end(), 0.0);
+                double next = 0.0;
+                for (size_t i = n - 1; i-- > 0;) {
+                    next = b[i + 1] - a[i + 1] * g + next;
+                    zi[i] = next;
+                }
+            }
+            started_ = !steady_;
         }
 
-
-        void reset() 
+        // Back to the not-yet-started state.
+        void reset()
         {
             z.assign(n - 1, 0.0);
-            //std::fill(z.begin(), z.end(), 0.0);
+            started_ = !steady_;
         }
 
         double process_scalar(double x)
         {
             // NaN policy "ignore": skip this step, leave the delay line z[]
-            // untouched. See docs/nan_policy.md.
+            // untouched. See docs/nan_policy.md. A NaN does not start the
+            // filter either.
             if (std::isnan(x)) {
                 return std::numeric_limits<double>::quiet_NaN();
             }
+            if (!started_) start(x);
             double y = b[0] * x + z[0];
             for (size_t i = 0; i < n - 2; ++i) {
                 z[i] = b[i + 1] * x + z[i + 1] - a[i + 1] * y;
@@ -398,6 +434,9 @@ class IIRFilter {
             z[n - 2] = b[n - 1] * x - a[n - 1] * y;
             return y;
         }
+
+        // True once the first non-NaN input has set the start state.
+        bool started() const { return started_; }
 
         void process_array_no_stride(
             double* y,
@@ -423,6 +462,10 @@ class IIRFilter {
         void process_array(double* y, std::ptrdiff_t dy, const double* x,
                            std::ptrdiff_t dx, size_t size)
         {
+            // Values up to the first non-NaN one go through process_scalar,
+            // which sets the start state; the loop below then runs from it.
+            for (; size > 0 && !started_; --size, x += dx, y += dy) *y = process_scalar(*x);
+            if (size == 0) return;
             switch (n) {
                 case 2: return run_fixed<1>(y, dy, x, dx, size);
                 case 3: return run_fixed<2>(y, dy, x, dx, size);
@@ -447,11 +490,23 @@ class IIRFilter {
             s.store(*this);
         }
 
+        // Set the start state for a first input x (Steady policy).
+        void start(double x)
+        {
+            for (size_t i = 0; i + 1 < n; ++i) z[i] = zi[i] * x;
+            started_ = true;
+        }
+
     public:
         std::vector<double> b; // Numerator coefficients
         std::vector<double> a; // Denominator coefficients
         std::vector<double> z; // Internal states (filter delay values)
         size_t n = 0;          // Maximum size of the coefficient vectors
+
+    private:
+        std::vector<double> zi; // Steady state for a unit constant input (Steady only)
+        bool steady_ = true;    // start_policy "steady"
+        bool started_ = false;  // a non-NaN input has set the start state
 };
 
 } // namespace

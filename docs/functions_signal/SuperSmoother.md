@@ -26,6 +26,15 @@ parameters:
   default: null
   description: Cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / period.
     Give exactly one of period and cutoff.
+- name: start_policy
+  type: str
+  default: steady
+  enum:
+  - steady
+  - zero
+  description: 'Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the
+    steady state for a constant input x0, so the output starts at x0. "zero" starts from
+    an all-zero state, as scipy.signal.lfilter does.'
 nan_policy: ignore
 see_also:
 - Butter
@@ -48,6 +57,10 @@ with less lag and less ringing than a Butterworth filter of comparable rolloff.
 The cutoff is set by a cycle length in samples (`period`) or, equivalently, a
 fraction of the Nyquist frequency (`cutoff`), related by `cutoff = 2 / period`.
 The filter coefficients follow Ehlers' critically damped design.
+
+The filter starts in the steady state for its first input, so the output starts
+at that value instead of rising from zero. `start_policy="zero"` starts from
+zero instead.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling

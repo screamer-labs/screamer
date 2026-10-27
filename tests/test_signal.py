@@ -29,7 +29,7 @@ class TestButterFamily:
     def test_lowpass_matches_scipy(self, order, cutoff):
         """Validates existing Butter (lowpass) didn't regress."""
         x = _x(500, seed=order)
-        ours = Butter(order, cutoff)(x)
+        ours = Butter(order, cutoff, start_policy="zero")(x)
         b, a = ss.butter(order, cutoff, btype='lowpass')
         ref = ss.lfilter(b, a, x)
         np.testing.assert_allclose(ours, ref, atol=1e-12)
@@ -37,7 +37,7 @@ class TestButterFamily:
     @pytest.mark.parametrize("order,cutoff", [(2, 0.1), (4, 0.2), (6, 0.4)])
     def test_highpass_matches_scipy(self, order, cutoff):
         x = _x(500, seed=order + 100)
-        ours = ButterHighpass(order, cutoff)(x)
+        ours = ButterHighpass(order, cutoff, start_policy="zero")(x)
         b, a = ss.butter(order, cutoff, btype='highpass')
         ref = ss.lfilter(b, a, x)
         np.testing.assert_allclose(ours, ref, atol=1e-12)
@@ -45,7 +45,7 @@ class TestButterFamily:
     @pytest.mark.parametrize("order,lo,hi", [(2, 0.1, 0.3), (4, 0.15, 0.35)])
     def test_bandpass_matches_scipy(self, order, lo, hi):
         x = _x(500, seed=order + 200)
-        ours = ButterBandpass(order, lo, hi)(x)
+        ours = ButterBandpass(order, lo, hi, start_policy="zero")(x)
         b, a = ss.butter(order, [lo, hi], btype='bandpass')
         ref = ss.lfilter(b, a, x)
         np.testing.assert_allclose(ours, ref, atol=1e-9)
@@ -53,7 +53,7 @@ class TestButterFamily:
     @pytest.mark.parametrize("order,lo,hi", [(2, 0.1, 0.3), (4, 0.15, 0.35)])
     def test_bandstop_matches_scipy(self, order, lo, hi):
         x = _x(500, seed=order + 300)
-        ours = ButterBandstop(order, lo, hi)(x)
+        ours = ButterBandstop(order, lo, hi, start_policy="zero")(x)
         b, a = ss.butter(order, [lo, hi], btype='bandstop')
         ref = ss.lfilter(b, a, x)
         np.testing.assert_allclose(ours, ref, atol=1e-9)

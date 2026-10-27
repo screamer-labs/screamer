@@ -14031,6 +14031,16 @@
         "min": 0.0,
         "max": 1.0,
         "description": "Cutoff frequency as a fraction of the Nyquist frequency (half the sampling rate), strictly between 0 and 1. 1 is the Nyquist frequency, the scipy.signal.butter Wn convention."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "steady",
+        "enum": [
+          "steady",
+          "zero"
+        ],
+        "description": "Initial filter state. \"steady\" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at x0. \"zero\" starts from an all-zero state, as scipy.signal.lfilter does."
       }
     ],
     "nan_policy": "ignore",
@@ -14043,7 +14053,7 @@
     "references": [
       "Butterworth, S. (1930). On the theory of filter amplifiers. *Experimental Wireless and the Wireless Engineer*, 7, 536-541."
     ],
-    "details": "## Description\n\n`Butter` is a causal IIR Butterworth low-pass filter of configurable order. The Butterworth design has a maximally flat frequency response in the passband and attenuates components above the cutoff. Higher filter orders give a steeper rolloff.\n\nThe digital filter is the bilinear transform of the analog Butterworth prototype, and matches `scipy.signal.butter(order, cutoff_freq)` followed by `scipy.signal.lfilter`.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "details": "## Description\n\n`Butter` is a causal IIR Butterworth low-pass filter of configurable order. The Butterworth design has a maximally flat frequency response in the passband and attenuates components above the cutoff. Higher filter orders give a steeper rolloff.\n\nThe digital filter is the bilinear transform of the analog Butterworth prototype. It starts in the steady state for its first input, so the output starts at that value instead of rising from zero. With `start_policy=\"zero\"` it starts from zero and matches `scipy.signal.butter(order, cutoff_freq)` followed by `scipy.signal.lfilter`.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
     "examples": [
       {
         "language": "python",
@@ -14092,6 +14102,16 @@
         "min": 0.0,
         "max": 1.0,
         "description": "Upper edge of the pass band, as a fraction of the Nyquist frequency. Must satisfy 0 < low_cutoff < high_cutoff < 1."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "steady",
+        "enum": [
+          "steady",
+          "zero"
+        ],
+        "description": "Initial filter state. \"steady\" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at 0. \"zero\" starts from an all-zero state, as scipy.signal.lfilter does."
       }
     ],
     "nan_policy": "ignore",
@@ -14104,7 +14124,7 @@
     "references": [
       "Butterworth, S. (1930). On the theory of filter amplifiers. *Experimental Wireless and the Wireless Engineer*, 7, 536-541."
     ],
-    "details": "## Description\n\nDigital band-pass Butterworth IIR filter. Produces a 2N-order filter from the order-N analog prototype via the `lp2bp` transformation.\n\n$$\n\\text{ButterBandpass}(N, W_{\\text{low}}, W_{\\text{high}})\n$$\n\nThe pass band is `[low_cutoff, high_cutoff]`, as fractions of the Nyquist frequency. The output matches `scipy.signal.butter(order, [low, high], btype='bandpass')` followed by `scipy.signal.lfilter` to within about 1e-9.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "details": "## Description\n\nDigital band-pass Butterworth IIR filter. Produces a 2N-order filter from the order-N analog prototype via the `lp2bp` transformation.\n\n$$\n\\text{ButterBandpass}(N, W_{\\text{low}}, W_{\\text{high}})\n$$\n\nThe pass band is `[low_cutoff, high_cutoff]`, as fractions of the Nyquist frequency. The filter starts in the steady state for its first input, so the output starts at 0 instead of jumping to the input level. With `start_policy=\"zero\"` it starts from zero and matches `scipy.signal.butter(order, [low, high], btype='bandpass')` followed by `scipy.signal.lfilter` to within about 1e-9.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
     "examples": [
       {
         "language": "python",
@@ -14155,6 +14175,16 @@
         "min": 0.0,
         "max": 1.0,
         "description": "Upper edge of the stop band, as a fraction of the Nyquist frequency. Must satisfy 0 < low_cutoff < high_cutoff < 1."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "steady",
+        "enum": [
+          "steady",
+          "zero"
+        ],
+        "description": "Initial filter state. \"steady\" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at x0. \"zero\" starts from an all-zero state, as scipy.signal.lfilter does."
       }
     ],
     "nan_policy": "ignore",
@@ -14166,7 +14196,7 @@
     "references": [
       "Butterworth, S. (1930). On the theory of filter amplifiers. *Experimental Wireless and the Wireless Engineer*, 7, 536-541."
     ],
-    "details": "## Description\n\nDigital band-stop (notch) Butterworth IIR filter. It suppresses frequencies in `[low_cutoff, high_cutoff]` and produces a 2N-order filter from the order-N analog prototype.\n\n$$\n\\text{ButterBandstop}(N, W_{\\text{low}}, W_{\\text{high}})\n$$\n\nThe cutoffs are fractions of the Nyquist frequency. The output matches `scipy.signal.butter(order, [low, high], btype='bandstop')` followed by `scipy.signal.lfilter` to within about 1e-9.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "details": "## Description\n\nDigital band-stop (notch) Butterworth IIR filter. It suppresses frequencies in `[low_cutoff, high_cutoff]` and produces a 2N-order filter from the order-N analog prototype.\n\n$$\n\\text{ButterBandstop}(N, W_{\\text{low}}, W_{\\text{high}})\n$$\n\nThe cutoffs are fractions of the Nyquist frequency. The filter starts in the steady state for its first input, so the output starts at that value instead of rising from zero. With `start_policy=\"zero\"` it starts from zero and matches `scipy.signal.butter(order, [low, high], btype='bandstop')` followed by `scipy.signal.lfilter` to within about 1e-9.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
     "examples": [
       {
         "language": "python",
@@ -14207,6 +14237,16 @@
         "min": 0.0,
         "max": 1.0,
         "description": "Cutoff frequency as a fraction of the Nyquist frequency, strictly between 0 and 1. 1 is the Nyquist frequency, the scipy.signal.butter Wn convention."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "steady",
+        "enum": [
+          "steady",
+          "zero"
+        ],
+        "description": "Initial filter state. \"steady\" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at 0. \"zero\" starts from an all-zero state, as scipy.signal.lfilter does."
       }
     ],
     "nan_policy": "ignore",
@@ -14219,7 +14259,7 @@
     "references": [
       "Butterworth, S. (1930). On the theory of filter amplifiers. *Experimental Wireless and the Wireless Engineer*, 7, 536-541."
     ],
-    "details": "## Description\n\nDigital high-pass Butterworth IIR filter, designed via the standard analog-prototype + `lp2hp` + bilinear pipeline.\n\n$$\n\\text{ButterHighpass}(N, W_c)\n$$\n\nThe output matches `scipy.signal.butter(order, cutoff_freq, btype='highpass')` followed by `scipy.signal.lfilter` to within about 1e-12.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "details": "## Description\n\nDigital high-pass Butterworth IIR filter, designed via the standard analog-prototype + `lp2hp` + bilinear pipeline.\n\n$$\n\\text{ButterHighpass}(N, W_c)\n$$\n\nThe filter starts in the steady state for its first input, so the output starts at 0 instead of jumping to the input level. With `start_policy=\"zero\"` it starts from zero and matches `scipy.signal.butter(order, cutoff_freq, btype='highpass')` followed by `scipy.signal.lfilter` to within about 1e-12.\n\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
     "examples": [
       {
         "language": "python",
@@ -14473,6 +14513,16 @@
         "type": "float",
         "default": null,
         "description": "Cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / period. Give exactly one of period and cutoff."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "steady",
+        "enum": [
+          "steady",
+          "zero"
+        ],
+        "description": "Initial filter state. \"steady\" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at x0. \"zero\" starts from an all-zero state, as scipy.signal.lfilter does."
       }
     ],
     "nan_policy": "ignore",
@@ -14482,7 +14532,7 @@
       "ButterHighpass",
       "Detrend"
     ],
-    "details": "## Description\n\n`Decycler` is a causal filter from John Ehlers that estimates the trend of a\nseries by removing its short cycles. It is the input minus its 1-pole highpass\ncomponent, so slow movements pass through and fast cycles are suppressed. The\ncutoff is the half-power point: a cycle of exactly `period` samples keeps\nabout 71% of its amplitude (-3 dB), and cycles well below the cutoff are\nremoved.\n\nThe cutoff is set by a cycle length in samples (`period`) or a fraction of the\nNyquist frequency (`cutoff`), related by `cutoff = 2 / period`.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "details": "## Description\n\n`Decycler` is a causal filter from John Ehlers that estimates the trend of a\nseries by removing its short cycles. It is the input minus its 1-pole highpass\ncomponent, so slow movements pass through and fast cycles are suppressed. The\ncutoff is the half-power point: a cycle of exactly `period` samples keeps\nabout 71% of its amplitude (-3 dB), and cycles well below the cutoff are\nremoved.\n\nThe cutoff is set by a cycle length in samples (`period`) or a fraction of the\nNyquist frequency (`cutoff`), related by `cutoff = 2 / period`.\n\nThe filter starts in the steady state for its first input, so the output starts\nat that value instead of rising from zero. `start_policy=\"zero\"` starts from\nzero instead.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
     "examples": [
       {
         "language": "python",
@@ -14968,6 +15018,16 @@
         "type": "float",
         "default": null,
         "description": "Lowpass cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / lp_period. Give exactly one of lp_period and lp_cutoff."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "steady",
+        "enum": [
+          "steady",
+          "zero"
+        ],
+        "description": "Initial filter state. \"steady\" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at 0. \"zero\" starts from an all-zero state, as scipy.signal.lfilter does."
       }
     ],
     "nan_policy": "ignore",
@@ -14981,7 +15041,7 @@
       "Ehlers, J. F. (2013). *Cycle Analytics for Traders: Advanced Technical Trading Concepts*. Wiley.",
       "Ehlers, J. F. (2014). Predictive and successful indicators. *Technical Analysis of Stocks & Commodities*, 32(1), 16-25, January 2014."
     ],
-    "details": "## Description\n\n`RoofingFilter` is a causal bandpass from John Ehlers. It applies a 2-pole\nhighpass at `hp_period` to remove the trend, then a `SuperSmoother` at\n`lp_period` to remove fast noise, leaving the band of cycles between the two\ncutoffs. It is the preprocessing step Ehlers applies before measuring a cycle,\nbecause a raw series carries a trend and high-frequency noise that distort the\nmeasurement.\n\nEach cutoff is a cycle length in samples (`hp_period`, `lp_period`) or a fraction\nof the Nyquist frequency (`hp_cutoff`, `lp_cutoff`), related by `cutoff = 2 / period`.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "details": "## Description\n\n`RoofingFilter` is a causal bandpass from John Ehlers. It applies a 2-pole\nhighpass at `hp_period` to remove the trend, then a `SuperSmoother` at\n`lp_period` to remove fast noise, leaving the band of cycles between the two\ncutoffs. It is the preprocessing step Ehlers applies before measuring a cycle,\nbecause a raw series carries a trend and high-frequency noise that distort the\nmeasurement.\n\nEach cutoff is a cycle length in samples (`hp_period`, `lp_period`) or a fraction\nof the Nyquist frequency (`hp_cutoff`, `lp_cutoff`), related by `cutoff = 2 / period`.\n\nBoth stages start in the steady state for their first input, so the output\nstarts at 0 instead of swinging with the input level. `start_policy=\"zero\"`\nstarts both from zero instead.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
     "examples": [
       {
         "language": "python",
@@ -15083,6 +15143,16 @@
         "type": "float",
         "default": null,
         "description": "Cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / period. Give exactly one of period and cutoff."
+      },
+      {
+        "name": "start_policy",
+        "type": "str",
+        "default": "steady",
+        "enum": [
+          "steady",
+          "zero"
+        ],
+        "description": "Initial filter state. \"steady\" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at x0. \"zero\" starts from an all-zero state, as scipy.signal.lfilter does."
       }
     ],
     "nan_policy": "ignore",
@@ -15095,7 +15165,7 @@
     "references": [
       "Ehlers, J. F. (2013). *Cycle Analytics for Traders: Advanced Technical Trading Concepts*. Wiley."
     ],
-    "details": "## Description\n\n`SuperSmoother` is a causal 2-pole IIR lowpass filter from John Ehlers. It passes\ncomponents of the input series slower than the cutoff and attenuates faster ones,\nwith less lag and less ringing than a Butterworth filter of comparable rolloff.\n\nThe cutoff is set by a cycle length in samples (`period`) or, equivalently, a\nfraction of the Nyquist frequency (`cutoff`), related by `cutoff = 2 / period`.\nThe filter coefficients follow Ehlers' critically damped design.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
+    "details": "## Description\n\n`SuperSmoother` is a causal 2-pole IIR lowpass filter from John Ehlers. It passes\ncomponents of the input series slower than the cutoff and attenuates faster ones,\nwith less lag and less ringing than a Butterworth filter of comparable rolloff.\n\nThe cutoff is set by a cycle length in samples (`period`) or, equivalently, a\nfraction of the Nyquist frequency (`cutoff`), related by `cutoff = 2 / period`.\nThe filter coefficients follow Ehlers' critically damped design.\n\nThe filter starts in the steady state for its first input, so the output starts\nat that value instead of rising from zero. `start_policy=\"zero\"` starts from\nzero instead.\n\n<!-- NAN_FOOTNOTE_START -->\n## NaN handling\n\n**Policy: `ignore`.** A `NaN` in any input gives a `NaN` output at that step. The step is skipped: it does not enter the window or update the internal state. See [NaN and warmup](../nan_and_warmup.md).\n<!-- NAN_FOOTNOTE_END -->",
     "examples": [
       {
         "language": "python",

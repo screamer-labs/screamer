@@ -9,6 +9,7 @@
 // and as scipy.signal.butter with Wn fraction-of-Nyquist convention.
 
 #include <stdexcept>
+#include <string>
 #include <vector>
 #include "screamer/common/base.h"
 #include "screamer/signal/butter.h"
@@ -19,14 +20,16 @@ namespace screamer {
 
 class ButterHighpass : public ScreamerBase {
 public:
-    ButterHighpass(int order, double cutoff_freq) {
+    ButterHighpass(int order, double cutoff_freq,
+                   const std::string& start_policy = "steady") {
+        const IIRStart start = parse_iir_start(start_policy, "ButterHighpass");
         if (order < 1) throw std::invalid_argument("Order must be at least 1.");
         if (!(cutoff_freq > 0.0 && cutoff_freq < 1.0)) {
             throw std::invalid_argument("cutoff_freq must be in (0, 1).");
         }
         std::vector<double> b, a;
         butterworth_filter_hp(order, cutoff_freq, b, a);
-        iir_.init(b, a);
+        iir_.init(b, a, start);
     }
 
     void reset() override { iir_.reset(); }

@@ -224,7 +224,10 @@ def _start_policy_params(failing_set: set, label: str):
             continue
         if not _has_start_policy(entry):
             continue
-        for sp in START_POLICIES:
+        # The values the function documents; the IIR filters take
+        # steady/zero, the windowed functions strict/expanding/zero.
+        sp_param = next(p for p in entry["parameters"] if p["name"] == "start_policy")
+        for sp in sp_param.get("enum") or START_POLICIES:
             yield pytest.param(
                 name, entry, sp,
                 id=f"{name}-{sp}",

@@ -45,8 +45,6 @@ plt.tight_layout()
 extrapolates the trend. `KAMA` changes its smoothing every step: it moves fast
 when the last 30 days went mostly in one direction and slowly when they went
 back and forth. `SuperSmoother` attenuates cycles shorter than `period` days.
-`SuperSmoother` starts from zero, so its first few dozen outputs are a start-up
-transient; the plot shows a later stretch.
 
 In the late-April rally `HullMA` reaches the price within a week, while
 `RollingMean(30)` is still about 8000 USD below it. `KAMA` hardly moves in

@@ -1,9 +1,12 @@
 import numpy as np
-from scipy.signal import lfilter
+
+from ._iir_start import iir_filter
 
 
 class RoofingFilter_ehlers:
-    def __init__(self, hp_period=None, lp_period=None, hp_cutoff=None, lp_cutoff=None):
+    def __init__(self, hp_period=None, lp_period=None, hp_cutoff=None, lp_cutoff=None,
+                 start_policy="steady"):
+        self.start_policy = start_policy
         if (hp_period is None) == (hp_cutoff is None):
             raise ValueError("Provide exactly one of hp_period or hp_cutoff.")
         if (lp_period is None) == (lp_cutoff is None):
@@ -23,5 +26,7 @@ class RoofingFilter_ehlers:
         self.a_lp = [1.0, -c2, -c3]
 
     def __call__(self, array):
+        # Each stage starts from its own steady state, as in screamer.
         x = np.asarray(array, float)
-        return lfilter(self.b_lp, self.a_lp, lfilter(self.b_hp, self.a_hp, x))
+        hp = iir_filter(self.b_hp, self.a_hp, x, self.start_policy)
+        return iir_filter(self.b_lp, self.a_lp, hp, self.start_policy)

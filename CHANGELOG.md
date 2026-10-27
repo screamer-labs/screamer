@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented in this file.
 
+Unreleased
+----------
+
+### Changed
+
+* `Butter`, `ButterHighpass`, `ButterBandpass`, `ButterBandstop`,
+  `SuperSmoother`, `Decycler` and `RoofingFilter` start from a steady state.
+  On the first non-NaN input `x0` the filter state is set to the steady state
+  for a constant input `x0` (scipy's `lfilter_zi(b, a) * x0`), so a low-pass
+  output starts at `x0` and a high-pass or band-pass output at 0, instead of
+  swinging from zero. This changes their first outputs. The new setting
+  `start_policy` (`startPolicy` in JavaScript) selects the start:
+  `"steady"` (the default) or `"zero"`, the previous behavior, which matches
+  `scipy.signal.lfilter`. `reset()` returns to the not-yet-started state.
+
 3.8.0 - 2026-10-23
 ------------------
 

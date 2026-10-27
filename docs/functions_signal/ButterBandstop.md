@@ -34,6 +34,15 @@ parameters:
   max: 1.0
   description: Upper edge of the stop band, as a fraction of the Nyquist frequency. Must satisfy
     0 < low_cutoff < high_cutoff < 1.
+- name: start_policy
+  type: str
+  default: steady
+  enum:
+  - steady
+  - zero
+  description: 'Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the
+    steady state for a constant input x0, so the output starts at x0. "zero" starts from
+    an all-zero state, as scipy.signal.lfilter does.'
 nan_policy: ignore
 see_also:
 - ButterBandpass
@@ -54,7 +63,7 @@ $$
 \text{ButterBandstop}(N, W_{\text{low}}, W_{\text{high}})
 $$
 
-The cutoffs are fractions of the Nyquist frequency. The output matches `scipy.signal.butter(order, [low, high], btype='bandstop')` followed by `scipy.signal.lfilter` to within about 1e-9.
+The cutoffs are fractions of the Nyquist frequency. The filter starts in the steady state for its first input, so the output starts at that value instead of rising from zero. With `start_policy="zero"` it starts from zero and matches `scipy.signal.butter(order, [low, high], btype='bandstop')` followed by `scipy.signal.lfilter` to within about 1e-9.
 
 
 <!-- NAN_FOOTNOTE_START -->

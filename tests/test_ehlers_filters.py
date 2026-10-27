@@ -25,7 +25,7 @@ class TestSuperSmoother:
     @pytest.mark.parametrize("period", [10.0, 20.0, 33.0])
     def test_matches_reference(self, period):
         x = _x(500, seed=int(period))
-        ours = np.asarray(SuperSmoother(period=period)(x))
+        ours = np.asarray(SuperSmoother(period=period, start_policy="zero")(x))
         b, a = _supersmoother_ba(period)
         ref = lfilter(b, a, x)
         np.testing.assert_allclose(ours, ref, atol=1e-12)
@@ -62,7 +62,7 @@ class TestDecycler:
     @pytest.mark.parametrize("period", [30.0, 60.0, 125.0])
     def test_matches_reference(self, period):
         x = _x(500, seed=int(period))
-        ours = np.asarray(Decycler(period=period)(x))
+        ours = np.asarray(Decycler(period=period, start_policy="zero")(x))
         b, a = _decycler_ba(period)
         ref = lfilter(b, a, x)
         np.testing.assert_allclose(ours, ref, atol=1e-12)
@@ -89,7 +89,7 @@ class TestRoofingFilter:
     @pytest.mark.parametrize("hp,lp", [(48.0, 10.0), (80.0, 20.0)])
     def test_matches_reference(self, hp, lp):
         x = _x(600, seed=int(hp + lp))
-        ours = np.asarray(RoofingFilter(hp_period=hp, lp_period=lp)(x))
+        ours = np.asarray(RoofingFilter(hp_period=hp, lp_period=lp, start_policy="zero")(x))
         b_hp, a_hp = _highpass2_ba(hp)
         b_ss, a_ss = _supersmoother_ba(lp)
         ref = lfilter(b_ss, a_ss, lfilter(b_hp, a_hp, x))

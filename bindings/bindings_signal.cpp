@@ -38,7 +38,8 @@ using namespace nb::literals;
 void init_bindings_signal(nb::module_& m) {
 
     nb::class_<screamer::Butter, screamer::ScreamerBase>(m, "Butter")
-        .def(nb::init<screamer::IntArg<int>,screamer::FloatArg>(),  "order"_a = 2, "cutoff_freq"_a = 0.1)
+        .def(nb::init<screamer::IntArg<int>, screamer::FloatArg, const std::string&>(),
+             "order"_a = 2, "cutoff_freq"_a = 0.1, "start_policy"_a = "steady")
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::Butter::reset, "Reset to the initial state.");
 
@@ -46,43 +47,52 @@ void init_bindings_signal(nb::module_& m) {
     // (cutoff is a fraction of Nyquist in (0, 1)) as the existing
     // low-pass `Butter`.
     nb::class_<screamer::ButterHighpass, screamer::ScreamerBase>(m, "ButterHighpass")
-        .def(nb::init<screamer::IntArg<int>, screamer::FloatArg>(), "order"_a = 2, "cutoff_freq"_a = 0.1)
+        .def(nb::init<screamer::IntArg<int>, screamer::FloatArg, const std::string&>(),
+             "order"_a = 2, "cutoff_freq"_a = 0.1, "start_policy"_a = "steady")
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::ButterHighpass::reset, "Reset.");
 
     nb::class_<screamer::ButterBandpass, screamer::ScreamerBase>(m, "ButterBandpass")
-        .def(nb::init<screamer::IntArg<int>, screamer::FloatArg, screamer::FloatArg>(),
-             "order"_a = 2, "low_cutoff"_a = 0.05, "high_cutoff"_a = 0.2)
+        .def(nb::init<screamer::IntArg<int>, screamer::FloatArg, screamer::FloatArg,
+                      const std::string&>(),
+             "order"_a = 2, "low_cutoff"_a = 0.05, "high_cutoff"_a = 0.2,
+             "start_policy"_a = "steady")
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::ButterBandpass::reset, "Reset.");
 
     nb::class_<screamer::ButterBandstop, screamer::ScreamerBase>(m, "ButterBandstop")
-        .def(nb::init<screamer::IntArg<int>, screamer::FloatArg, screamer::FloatArg>(),
-             "order"_a = 2, "low_cutoff"_a = 0.05, "high_cutoff"_a = 0.2)
+        .def(nb::init<screamer::IntArg<int>, screamer::FloatArg, screamer::FloatArg,
+                      const std::string&>(),
+             "order"_a = 2, "low_cutoff"_a = 0.05, "high_cutoff"_a = 0.2,
+             "start_policy"_a = "steady")
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::ButterBandstop::reset, "Reset.");
 
     // SuperSmoother: Ehlers 2-pole low-lag lowpass. Exactly one of
     // period (samples) or cutoff (fraction of Nyquist).
     nb::class_<screamer::SuperSmoother, screamer::ScreamerBase>(m, "SuperSmoother")
-        .def(nb::init<std::optional<screamer::FloatArg>, std::optional<screamer::FloatArg>>(),
-             "period"_a = nb::none(), "cutoff"_a = nb::none())
+        .def(nb::init<std::optional<screamer::FloatArg>, std::optional<screamer::FloatArg>,
+                      const std::string&>(),
+             "period"_a = nb::none(), "cutoff"_a = nb::none(), "start_policy"_a = "steady")
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::SuperSmoother::reset, "Reset to the initial state.");
 
     // Decycler: Ehlers trend estimate (input minus a 1-pole highpass).
     nb::class_<screamer::Decycler, screamer::ScreamerBase>(m, "Decycler")
-        .def(nb::init<std::optional<screamer::FloatArg>, std::optional<screamer::FloatArg>>(),
-             "period"_a = nb::none(), "cutoff"_a = nb::none())
+        .def(nb::init<std::optional<screamer::FloatArg>, std::optional<screamer::FloatArg>,
+                      const std::string&>(),
+             "period"_a = nb::none(), "cutoff"_a = nb::none(), "start_policy"_a = "steady")
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::Decycler::reset, "Reset to the initial state.");
 
     // RoofingFilter: Ehlers bandpass (2-pole highpass then SuperSmoother).
     nb::class_<screamer::RoofingFilter, screamer::ScreamerBase>(m, "RoofingFilter")
         .def(nb::init<std::optional<screamer::FloatArg>, std::optional<screamer::FloatArg>,
-                      std::optional<screamer::FloatArg>, std::optional<screamer::FloatArg>>(),
+                      std::optional<screamer::FloatArg>, std::optional<screamer::FloatArg>,
+                      const std::string&>(),
              "hp_period"_a = nb::none(), "lp_period"_a = nb::none(),
-             "hp_cutoff"_a = nb::none(), "lp_cutoff"_a = nb::none())
+             "hp_cutoff"_a = nb::none(), "lp_cutoff"_a = nb::none(),
+             "start_policy"_a = "steady")
         .def("__call__", &screamer::screamer_call, "value"_a.none())
         .def("reset", &screamer::RoofingFilter::reset, "Reset to the initial state.");
 

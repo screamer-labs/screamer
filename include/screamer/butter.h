@@ -9,6 +9,7 @@
 #include "screamer/signal/signal.h"
 #include "screamer/signal/butter.h"
 #include <cstddef>
+#include <string>
 #include <vector>
 
 namespace screamer {
@@ -17,14 +18,15 @@ namespace screamer {
     public:
 
 
-        Butter(int order, double cutoff_freq) :
+        Butter(int order, double cutoff_freq, const std::string& start_policy = "steady") :
             order_(order), cutoff_freq_(cutoff_freq)
         {
+            const IIRStart start = parse_iir_start(start_policy, "Butter");
             if (order < 1) throw std::invalid_argument("Order must be at least 1.");
             require_finite("cutoff_freq", cutoff_freq);
             std::vector<double> b, a;
             butterworth_filter(order, cutoff_freq, b, a);
-            irr.init(b, a);
+            irr.init(b, a, start);
         }
 
         void reset() override {

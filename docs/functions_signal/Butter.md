@@ -29,6 +29,15 @@ parameters:
   description: Cutoff frequency as a fraction of the Nyquist frequency (half the sampling
     rate), strictly between 0 and 1. 1 is the Nyquist frequency, the scipy.signal.butter Wn
     convention.
+- name: start_policy
+  type: str
+  default: steady
+  enum:
+  - steady
+  - zero
+  description: 'Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the
+    steady state for a constant input x0, so the output starts at x0. "zero" starts from
+    an all-zero state, as scipy.signal.lfilter does.'
 nan_policy: ignore
 see_also:
 - ButterHighpass
@@ -46,7 +55,7 @@ references:
 
 `Butter` is a causal IIR Butterworth low-pass filter of configurable order. The Butterworth design has a maximally flat frequency response in the passband and attenuates components above the cutoff. Higher filter orders give a steeper rolloff.
 
-The digital filter is the bilinear transform of the analog Butterworth prototype, and matches `scipy.signal.butter(order, cutoff_freq)` followed by `scipy.signal.lfilter`.
+The digital filter is the bilinear transform of the analog Butterworth prototype. It starts in the steady state for its first input, so the output starts at that value instead of rising from zero. With `start_policy="zero"` it starts from zero and matches `scipy.signal.butter(order, cutoff_freq)` followed by `scipy.signal.lfilter`.
 
 
 <!-- NAN_FOOTNOTE_START -->
