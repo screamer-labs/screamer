@@ -34,17 +34,6 @@ for name, y in [("fixed horizon", fixed), ("triple barrier", label)]:
     print(f"{name:15}", dict(zip(values.astype(int).tolist(), counts.tolist())))
 ```
 
-A label describes the price after a bar, so it looks ahead by design; screamer
-stamps it at the bar where it becomes known, `horizon` bars after the bar it
-labels, and `[horizon:]` moves it back. The fixed-horizon label is `+1` when
-daily BTC closes higher 10 days later and `-1` when it closes lower. The
-triple-barrier label is `+1` when the price first reaches one expected
-deviation above the close, `-1` when it first reaches one below, and `0` when
-it reaches neither within 10 days. The expected deviation is the 20-day
-exponential standard deviation of daily log returns, times the square root
-of 10. The output's other two columns hold the return to the exit and the
-days held.
-
 ```{code-cell} ipython3
 dates = btc.index[:len(label)]
 part = (dates >= "2024-01-01") & (dates < "2024-07-01")
@@ -58,6 +47,17 @@ ax.set_ylabel("BTC close (USD)")
 ax.legend(title="triple-barrier label", fontsize=8)
 plt.tight_layout()
 ```
+
+A label describes the price after a bar, so it looks ahead by design; screamer
+stamps it at the bar where it becomes known, `horizon` bars after the bar it
+labels, and `[horizon:]` moves it back. The fixed-horizon label is `+1` when
+daily BTC closes higher 10 days later and `-1` when it closes lower. The
+triple-barrier label is `+1` when the price first reaches one expected
+deviation above the close, `-1` when it first reaches one below, and `0` when
+it reaches neither within 10 days. The expected deviation is the 20-day
+exponential standard deviation of daily log returns, times the square root
+of 10. The output's other two columns hold the return to the exit and the
+days held.
 
 ## Go deeper
 

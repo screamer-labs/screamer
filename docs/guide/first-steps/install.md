@@ -34,9 +34,9 @@ make test
 ```
 
 The `test` extra adds pytest and the reference libraries the tests compare
-against, such as SciPy and TA-Lib.
-`make install-dev` rebuilds the C++ extension and installs it in editable mode,
-and `make test` runs that step and then the test suite.
+against, such as SciPy and TA-Lib. `make install-dev` rebuilds the C++
+extension and installs it in editable mode, and `make test` runs that step and
+then the test suite.
 
 ## Go deeper
 

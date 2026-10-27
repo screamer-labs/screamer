@@ -28,12 +28,6 @@ trades["level"] = kf(price)
 trades[["price", "level"]].tail().round(2)
 ```
 
-The ratio `process_var / observation_var` sets the trade-off: a larger ratio
-follows each trade more closely, a smaller one gives a smoother level that lags
-more. Both variances are in the units of price squared, here USD squared. The
-values here were chosen by eye, to give a smooth level that still follows the
-trades.
-
 ```{code-cell} ipython3
 part = trades.iloc[1000:1600]
 fig, ax = plt.subplots(figsize=(9, 3.5))
@@ -45,6 +39,12 @@ ax.set_ylabel("BTC perpetual price (USD)")
 ax.legend(loc="lower right", fontsize=8)
 plt.tight_layout()
 ```
+
+The ratio `process_var / observation_var` sets the trade-off: a larger ratio
+follows each trade more closely, a smaller one gives a smoother level that lags
+more. Both variances are in the units of price squared, here USD squared. The
+values here were chosen by eye, to give a smooth level that still follows the
+trades.
 
 ## Go deeper
 

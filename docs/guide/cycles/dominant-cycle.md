@@ -33,11 +33,6 @@ df["walk_period"] = cycle_length(walk)
 df.loc["2023":, ["period", "walk_period"]].describe().round(1)
 ```
 
-`RoofingFilter(hp_period=48, lp_period=10)` keeps cycles between 10 and 48
-days. Its state starts at zero, so on a price level its first months carry a
-large start-up swing; the table and the plot start in 2023. `DominantCycle`
-reports a period between 6 and 50 samples, here days.
-
 ```{code-cell} ipython3
 part = df.loc["2023":]
 fig, ax = plt.subplots(figsize=(9, 3.5))
@@ -49,6 +44,11 @@ ax.set_ylabel("dominant cycle (days)")
 ax.legend(loc="upper left", fontsize=8)
 plt.tight_layout()
 ```
+
+`RoofingFilter(hp_period=48, lp_period=10)` keeps cycles between 10 and 48
+days. Its state starts at zero, so on a price level its first months carry a
+large start-up swing; the table and the plot start in 2023. `DominantCycle`
+reports a period between 6 and 50 samples, here days.
 
 The BTC period moves between about 14 and 42 days with a median near 20. A
 random walk through the same filter reads about the same, so this measurement

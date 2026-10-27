@@ -34,12 +34,6 @@ for ts, price in zip(trades["timestamp"], trades["price"]):
 print(f"{len(rows)} trades processed, {len(alerts)} alerts")
 ```
 
-The loop replays six hours of Deribit BTC perpetual trades as if each arrived
-from a websocket; in production, the feed's callback calls `on_trade`.
-`EwMean(span=50)` tracks the price level, and `RollingZscore(200)` scores each
-trade's distance from that level against the last 200 distances. A trade more
-than three standard deviations away raises an alert.
-
 ```{code-cell} ipython3
 rows, alerts = np.array(rows), np.array(alerts)
 fig, ax = plt.subplots(figsize=(9, 3.5))
@@ -53,6 +47,12 @@ ax.set_ylabel("BTC price (USD)")
 ax.legend(loc="lower left", fontsize=8)
 plt.tight_layout()
 ```
+
+The loop replays six hours of Deribit BTC perpetual trades as if each arrived
+from a websocket; in production, the feed's callback calls `on_trade`.
+`EwMean(span=50)` tracks the price level, and `RollingZscore(200)` scores each
+trade's distance from that level against the last 200 distances. A trade more
+than three standard deviations away raises an alert.
 
 ## Go deeper
 

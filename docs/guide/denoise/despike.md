@@ -26,12 +26,6 @@ flag = Hampel(window_size=300, n_sigma=5.0, output="flag")(price)
 print("flagged trades:", np.flatnonzero(flag == 1).tolist())
 ```
 
-The robust standard deviation is 1.4826 times the median absolute deviation
-(MAD) of the window, so the spikes themselves do not widen the threshold. Trade
-prices repeat often, which makes the MAD of a short window close to zero and
-flags ordinary ticks; a window of a few hundred trades gives a stable scale.
-The output is `NaN` until the window is full.
-
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(9, 3.5))
 ax.plot(price.index, price, color="0.6", lw=0.8, label="trade price with spikes")
@@ -42,6 +36,12 @@ ax.set_ylabel("BTC perpetual price (USD)")
 ax.legend(loc="lower left", fontsize=8)
 plt.tight_layout()
 ```
+
+The robust standard deviation is 1.4826 times the median absolute deviation
+(MAD) of the window, so the spikes themselves do not widen the threshold. Trade
+prices repeat often, which makes the MAD of a short window close to zero and
+flags ordinary ticks; a window of a few hundred trades gives a stable scale.
+The output is `NaN` until the window is full.
 
 ## Go deeper
 

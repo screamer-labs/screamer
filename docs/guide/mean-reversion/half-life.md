@@ -26,14 +26,6 @@ df["half_life"] = np.log(2) / -np.log(1 - df["mrr"])
 df[["mrr", "half_life"]].dropna().iloc[::60].round(3)
 ```
 
-The series is the minute log ETH/BTC ratio from the
-[variance ratio page](variance-ratio.md). `RollingOU` fits the level, not the
-changes: each step it regresses the ratio on its previous value over the last
-120 minutes. The mean-reversion rate `mrr` is the fraction of the distance to
-the mean closed in one step, so the half-life is `ln 2 / -ln(1 - mrr)` steps,
-here minutes. It holds for `mrr` between 0 and 1; outside that range the model
-does not revert.
-
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(9, 3.5))
 ax.plot(df.index, df["half_life"], color="steelblue",
@@ -43,6 +35,14 @@ ax.legend(loc="upper left", fontsize=8)
 ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
 plt.tight_layout()
 ```
+
+The series is the minute log ETH/BTC ratio from the [variance ratio
+page](variance-ratio.md). `RollingOU` fits the level, not the changes: each
+step it regresses the ratio on its previous value over the last 120 minutes.
+The mean-reversion rate `mrr` is the fraction of the distance to the mean
+closed in one step, so the half-life is `ln 2 / -ln(1 - mrr)` steps, here
+minutes. It holds for `mrr` between 0 and 1; outside that range the model does
+not revert.
 
 Until about 04:15 a deviation halves in one to four minutes. Then the
 reversion slows, and from 05:00 the half-life is between 9 and 20 minutes.

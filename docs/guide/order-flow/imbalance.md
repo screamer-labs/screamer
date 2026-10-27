@@ -30,13 +30,6 @@ corr = bars["ofi"].corr(bars["ret"])
 print(f"{len(bars)} one-minute bars, OFI-return correlation {corr:.2f}")
 ```
 
-The trades are six hours of Deribit BTC perpetual trades, with `volume` in US
-dollars, positive for a buyer-initiated trade and negative for a
-seller-initiated one. `Resample(agg="ohlcv2")` turns them into one-minute
-bars with separate buy and sell volume; a minute without trades gives no
-bar. The return of each bar is the log change of its close from the previous
-bar's close.
-
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(6, 4))
 ax.scatter(bars["ofi"], 1e4 * bars["ret"], s=12, color="steelblue", alpha=0.6)
@@ -46,6 +39,13 @@ ax.set_xlabel("OFI of the bar")
 ax.set_ylabel("return of the bar (bp)")
 plt.tight_layout()
 ```
+
+The trades are six hours of Deribit BTC perpetual trades, with `volume` in US
+dollars, positive for a buyer-initiated trade and negative for a
+seller-initiated one. `Resample(agg="ohlcv2")` turns them into one-minute
+bars with separate buy and sell volume; a minute without trades gives no
+bar. The return of each bar is the log change of its close from the previous
+bar's close.
 
 Most minutes, 62% of them, hold only buys or only sells, so their OFI is -1
 or +1. The correlation of 0.46 says that minutes with more buying than selling

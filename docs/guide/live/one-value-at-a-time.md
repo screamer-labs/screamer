@@ -29,12 +29,6 @@ score = RollingZscore(50)
 live = np.array([score(x) for x in close])
 ```
 
-The loop stands in for a live feed: in production, `score(x)` runs in the
-callback that receives each daily close. Both runs give NaN for the first 49
-days, the warmup of the 50-day window, and identical values after that. A
-batch call on `score`, such as `score(close)`, resets its running state, so
-keep one instance for each live feed and use it for nothing else.
-
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(9, 3.5))
 ax.plot(btc.index, live, color="steelblue")
@@ -42,6 +36,12 @@ ax.axhline(0, color="k", lw=0.5)
 ax.set_ylabel("50-day z-score of BTC close")
 plt.tight_layout()
 ```
+
+The loop stands in for a live feed: in production, `score(x)` runs in the
+callback that receives each daily close. Both runs give NaN for the first 49
+days, the warmup of the 50-day window, and identical values after that. A
+batch call on `score`, such as `score(close)`, resets its running state, so
+keep one instance for each live feed and use it for nothing else.
 
 ## Go deeper
 

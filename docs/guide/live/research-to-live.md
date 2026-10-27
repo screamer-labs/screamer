@@ -36,22 +36,6 @@ live += [paper(*row)[0] for row in session.flush().result()[0]]
 print(f"{len(live)} bars, paper equity {live[-1]:.1f} USD")
 ```
 
-The pipeline turns trades into one-minute OHLC bars, compares a 5-minute and a
-30-minute `EwMean` of the close, and returns rows of `[signal, open, high, low,
-close]`, the input order of `BacktestOHLCTarget`. The engine trades each
-signal at the next minute's open, holds 1 BTC long or short, and pays a 0.05%
-taker fee on each fill, with no slippage. Called on the stored trades, the
-pipeline returns every bar at once.
-
-In the live loop, `session.push` feeds one trade and `session.result()`
-returns the bars it completed: a minute bar completes when the first trade of
-the next minute arrives, and `flush()` closes the last one. The engine
-`paper`, called with one row at a time, is the paper trader: it returns
-`[equity, pnl, position, cost]` for the bar and keeps its position between
-calls. In
-production, the loop body runs in the feed's callback, and a timer that calls
-`session.advance(now)` closes each minute on the clock when no trade arrives.
-
 ```{code-cell} ipython3
 t = pd.to_datetime(minute, unit="ms")
 fig, ax = plt.subplots(figsize=(9, 3.5))
@@ -61,9 +45,23 @@ ax.set_ylabel("equity (USD, 1 BTC position)")
 plt.tight_layout()
 ```
 
+The pipeline turns trades into one-minute OHLC bars, compares a 5-minute and a
+30-minute `EwMean` of the close, and returns rows of
+`[signal, open, high, low, close]`, the input order of `BacktestOHLCTarget`.
+The engine trades each signal at the next minute's open, holds 1 BTC long or
+short, and pays a 0.05% taker fee on each fill, with no slippage. Called on the
+stored trades, the pipeline returns every bar at once.
+
+In the live loop, `session.push` feeds one trade and `session.result()`
+returns the bars it completed: a minute bar completes when the first trade of
+the next minute arrives, and `flush()` closes the last one. The engine
+`paper`, called with one row at a time, is the paper trader: it returns
+`[equity, pnl, position, cost]` for the bar and keeps its position between
+calls.
+
 ## Go deeper
 
 - [Wire functions into a pipeline](pipeline.md): build and call a pipeline on stored data.
-- [Pipelines](../../pipelines.md): `push`, `advance`, `flush`, and `result` of a live session.
+- [Pipelines](../../pipelines.md): `push`, `advance`, `flush`, and `result` of a live session. In production, the loop body runs in the feed's callback, and a timer that calls `session.advance(now)` closes each minute on the clock when no trade arrives.
 - [`BacktestOHLCTarget`](../../functions_fin/BacktestOHLCTarget.md): fills, fees, and the output columns.
 - [`Resample`](../../functions_streams/Resample.md): time bars, empty minutes, and the clock.

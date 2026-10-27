@@ -32,13 +32,6 @@ print(f"Sharpe {test.observed:.2f}, p-value {test.p_value:.3f}, "
       f"P(true Sharpe > 0) {prob:.2f}")
 ```
 
-The rule is the one of [Backtest a signal on OHLCV bars](../backtest/ohlcv.md):
-long one BTC while the 20-day average of the close is above the 100-day one,
-short while it is below, on daily Binance BTC/USDT bars from January 2022 to
-September 2026, with a 0.1% taker fee and 0.05% slippage. Each of the 999
-copies rotates the whole signal by a random offset, so it keeps the number,
-sides, and lengths of the trades and changes only when they happen.
-
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(8, 3.5))
 ax.hist(test.null, bins=40, color="lightsteelblue", label="randomly timed copies")
@@ -48,6 +41,13 @@ ax.set_xlabel("annualized Sharpe ratio")
 ax.legend(fontsize=8)
 plt.tight_layout()
 ```
+
+The rule is the one of [Backtest a signal on OHLCV bars](../backtest/ohlcv.md):
+long one BTC while the 20-day average of the close is above the 100-day one,
+short while it is below, on daily Binance BTC/USDT bars from January 2022 to
+September 2026, with a 0.1% taker fee and 0.05% slippage. Each of the 999
+copies rotates the whole signal by a random offset, so it keeps the number,
+sides, and lengths of the trades and changes only when they happen.
 
 The rule's Sharpe ratio of 0.40 sits inside the spread of the copies: 15% of
 them do at least as well, so this sample does not separate the timing from

@@ -27,13 +27,6 @@ out["super"] = SuperSmoother(period=30)(close)  # 2-pole low-pass filter
 out.loc["2025-03"].head().round(0)
 ```
 
-`HullMA` subtracts a slow weighted average from twice a fast one, which
-extrapolates the trend. `KAMA` changes its smoothing every step: it moves fast
-when the last 30 days went mostly in one direction and slowly when they went
-back and forth. `SuperSmoother` attenuates cycles shorter than `period` days.
-`SuperSmoother` starts from zero, so its first few dozen outputs are a start-up
-transient; the plot shows a later stretch.
-
 ```{code-cell} ipython3
 part = out.loc["2025-01":"2025-06"]
 fig, ax = plt.subplots(figsize=(9, 3.5))
@@ -47,6 +40,13 @@ ax.set_ylabel("BTC price (USD)")
 ax.legend(loc="lower left", fontsize=8)
 plt.tight_layout()
 ```
+
+`HullMA` subtracts a slow weighted average from twice a fast one, which
+extrapolates the trend. `KAMA` changes its smoothing every step: it moves fast
+when the last 30 days went mostly in one direction and slowly when they went
+back and forth. `SuperSmoother` attenuates cycles shorter than `period` days.
+`SuperSmoother` starts from zero, so its first few dozen outputs are a start-up
+transient; the plot shows a later stretch.
 
 In the late-April rally `HullMA` reaches the price within a week, while
 `RollingMean(30)` is still about 8000 USD below it. `KAMA` hardly moves in

@@ -34,9 +34,6 @@ for price in btc["close"]:
 print(ma_array[-1], btc["ma50"].iloc[-1], latest)
 ```
 
-All three give the same numbers. The first 49 values are `NaN`, because the
-window holds fewer than 50 prices until then.
-
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(9, 3.5))
 ax.plot(btc.index, btc["close"], color="0.6", lw=0.8, label="BTC close")
@@ -45,6 +42,9 @@ ax.set_ylabel("price (USD)")
 ax.legend(loc="upper left", fontsize=8)
 plt.tight_layout()
 ```
+
+All three give the same numbers. The first 49 values are `NaN`, because the
+window holds fewer than 50 prices until then.
 
 ## Go deeper
 

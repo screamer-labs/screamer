@@ -33,15 +33,6 @@ out = engine(weight, o, h, l, c)
 running, summary = backtest_report(out, periods_per_year=365)
 ```
 
-`z` is the distance of the close from the middle band in rolling standard
-deviations, so it reaches +2 at the upper band and -2 at the lower one.
-`BandSignal(entry=2.0, exit=0.0)` goes short at +2, long at -2, and flat when
-`z` crosses 0, the middle band. A window of 20 days and a width of 2 standard
-deviations are Bollinger's defaults, not tuned on this data. The data is daily
-Binance BTC/USDT bars from January 2022 to September 2026; each target trades
-at the next day's open as a fraction of equity, and every fill pays a 0.1%
-taker fee and 0.05% slippage.
-
 ```{code-cell} ipython3
 part = btc.index.year == 2024
 t = btc.index[part]
@@ -57,6 +48,15 @@ ax.set_ylabel("BTC price (USD)")
 ax.legend(loc="upper left", fontsize=8)
 plt.tight_layout()
 ```
+
+`z` is the distance of the close from the middle band in rolling standard
+deviations, so it reaches +2 at the upper band and -2 at the lower one.
+`BandSignal(entry=2.0, exit=0.0)` goes short at +2, long at -2, and flat when
+`z` crosses 0, the middle band. A window of 20 days and a width of 2 standard
+deviations are Bollinger's defaults, not tuned on this data. The data is daily
+Binance BTC/USDT bars from January 2022 to September 2026; each target trades
+at the next day's open as a fraction of equity, and every fill pays a 0.1%
+taker fee and 0.05% slippage.
 
 ```{code-cell} ipython3
 dd = MaxDrawdown()(1 + out[:, 0])[-1]           # fraction of the peak

@@ -38,14 +38,6 @@ print(f"best {grid[best]}: p-value {res.p_value[best]:.3f}, "
       f"deflated Sharpe {prob:.2f}, benchmark {benchmark * np.sqrt(365):.2f}")
 ```
 
-Each of the 25 columns of `target` is one variant of a trend rule on daily
-BTC: long one BTC while a fast exponential average of the close is above a
-slow one, short while it is below, for every pair `(fast, slow)` in `grid`. The engine returns a `(T, 25, 4)` array, one
-backtest per column, with a 0.1% taker fee and 0.05% slippage. Every round of
-`position_test` shifts all 25 columns by the same random offset, and
-`family_p_value` compares the best variant with the best of the 25 shifted
-copies. `res.observed` is each variant's Sharpe ratio per day.
-
 ```{code-cell} ipython3
 sharpe = (res.observed * np.sqrt(365)).reshape(len(fast), len(slow))
 fig, ax = plt.subplots(figsize=(6, 4.5))
@@ -61,6 +53,13 @@ fig.colorbar(im, label="annualized Sharpe")
 plt.tight_layout()
 ```
 
+Each of the 25 columns of `target` is one variant of a trend rule on daily
+BTC: long one BTC while a fast exponential average of the close is above a
+slow one, short while it is below, for every pair `(fast, slow)` in `grid`.
+The engine returns a `(T, 25, 4)` array, one backtest per column, with a 0.1%
+taker fee and 0.05% slippage. `res.observed` is each variant's Sharpe ratio
+per day.
+
 Every cell has a positive Sharpe ratio, from 0.14 to 0.72, so the result does
 not rest on one setting. The best cell, 50 against 200 days, has a p-value of
 0.007 on its own and a family p-value of 0.051 after the choice among 25. Its
@@ -73,4 +72,4 @@ picking the best of 25 produces by chance.
 
 - [Choose parameters with walk-forward testing](walk-forward.md): pick a variant on past data only and trade it out of sample.
 - [Test whether a strategy's timing beats chance](timing-test.md): the test for one variant.
-- [`position_test`](../../functions_fin/position_test.md), [`deflated_sharpe`](../../functions_fin/deflated_sharpe.md): the family-wise test and the luck benchmark.
+- [`position_test`](../../functions_fin/position_test.md), [`deflated_sharpe`](../../functions_fin/deflated_sharpe.md): the family-wise test and the luck benchmark. Every round of `position_test` shifts all 25 columns by the same random offset, and `family_p_value` compares the best variant with the best of the 25 shifted copies.

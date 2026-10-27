@@ -27,21 +27,21 @@ ratio = Div()(rows[:, 1], rows[:, 0])     # ETH price in BTC
 print(f"{len(btc)} BTC trades, {len(eth)} ETH trades, {len(rows)} rows")
 ```
 
-The data is six hours of Deribit BTC and ETH perpetual trades, each with its
-own timestamps in milliseconds. `rows[:, 0]` is the last BTC price and
-`rows[:, 1]` the last ETH price at each timestamp `t` where either market
-traded. Several trades at the same millisecond, in one market or both, give
-one row with the last price of each. The rows
-start at the first ETH trade, because the default `emit="when_all"` waits
-until every stream has a value; `emit="on_any"` starts at the first trade of
-either and fills the missing stream with NaN.
-
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(9, 3.5))
 ax.plot(pd.to_datetime(t, unit="ms"), ratio, color="steelblue", lw=0.8)
 ax.set_ylabel("ETH price in BTC")
 plt.tight_layout()
 ```
+
+The data is six hours of Deribit BTC and ETH perpetual trades, each with its
+own timestamps in milliseconds. `rows[:, 0]` is the last BTC price and
+`rows[:, 1]` the last ETH price at each timestamp `t` where either market
+traded. Several trades at the same millisecond, in one market or both, give one
+row with the last price of each. The rows start at the first ETH trade, because
+the default `emit="when_all"` waits until every stream has a value;
+`emit="on_any"` starts at the first trade of either and fills the missing
+stream with NaN.
 
 ## Go deeper
 

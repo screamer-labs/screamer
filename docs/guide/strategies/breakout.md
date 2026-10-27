@@ -33,17 +33,6 @@ out = engine(weight, o, h, l, c)
 running, summary = backtest_report(out, periods_per_year=365)
 ```
 
-`DonchianChannels(20)(high, low)` returns the lowest low, the midline, and the
-highest high of the last 20 days, today included. A close can never be above
-a high that includes its own day, so `Lag(1)` compares each close with the
-channel up to the day before. On a day with no breakout the weight is NaN,
-which the engine reads as "keep the current position", so the rule stays long
-after an upside breakout until a downside one turns it short. The data is daily
-Binance BTC/USDT bars from January 2022 to September 2026; each target trades
-at the next day's open as a fraction of equity, and every fill pays a 0.1%
-taker fee and 0.05% slippage. The 20-day window is the usual default, not
-tuned on this data.
-
 ```{code-cell} ipython3
 part = btc.index.year == 2024
 t = btc.index[part]
@@ -57,6 +46,17 @@ ax.set_ylabel("BTC price (USD)")
 ax.legend(loc="upper left", fontsize=8)
 plt.tight_layout()
 ```
+
+`DonchianChannels(20)(high, low)` returns the lowest low, the midline, and the
+highest high of the last 20 days, today included. A close can never be above
+a high that includes its own day, so `Lag(1)` compares each close with the
+channel up to the day before. On a day with no breakout the weight is NaN,
+which the engine reads as "keep the current position", so the rule stays long
+after an upside breakout until a downside one turns it short. The data is daily
+Binance BTC/USDT bars from January 2022 to September 2026; each target trades
+at the next day's open as a fraction of equity, and every fill pays a 0.1%
+taker fee and 0.05% slippage. The 20-day window is the usual default, not
+tuned on this data.
 
 ```{code-cell} ipython3
 dd = MaxDrawdown()(1 + out[:, 0])[-1]           # fraction of the peak

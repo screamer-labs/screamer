@@ -30,13 +30,6 @@ drop = (df["run_length"] < 15) & (df["run_length"].shift() > 40)
 df.loc[drop, ["ret", "z", "run_length"]].round(3)
 ```
 
-`RollingZscore(365)` scales each return by the mean and standard deviation of
-the last 365 days, so the values are of order 1, the scale the detector's
-prior assumes. `expected_run=250` sets the prior chance of a change to 1 in
-250 at each step. The run length grows by one a day while the segment holds;
-the other two columns of the output are the mean and standard deviation of
-the next value.
-
 ```{code-cell} ipython3
 part = df.loc["2023":]
 fig, (ax0, ax1) = plt.subplots(2, 1, figsize=(9, 4.5), sharex=True)
@@ -50,6 +43,13 @@ ax1.set_ylabel("run length (days)")
 ax1.legend(loc="upper left", fontsize=8)
 plt.tight_layout()
 ```
+
+`RollingZscore(365)` scales each return by the mean and standard deviation of
+the last 365 days, so the values are of order 1, the scale the detector's
+prior assumes. `expected_run=250` sets the prior chance of a change to 1 in
+250 at each step. The run length grows by one a day while the segment holds;
+the other two columns of the output are the mean and standard deviation of
+the next value.
 
 The table lists the five sharp drops, marked red in the plot. Each starts at
 one large move, such as the log return of -0.076 on 17 August 2023 after a

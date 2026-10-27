@@ -28,10 +28,6 @@ events = df[df["event"] != 0]
 events.groupby([events.index.year, "event"]).size().unstack()
 ```
 
-The input is daily log returns, so `threshold=0.1` is a cumulative move of
-about 10% since the last event. After an event the sum that fired restarts
-from 0. The table counts the up (+1) and down (-1) events per year.
-
 ```{code-cell} ipython3
 part = df.loc["2024":"2025"]
 ups, downs = part[part["event"] > 0], part[part["event"] < 0]
@@ -45,6 +41,10 @@ ax.set_ylabel("BTC price (USD)")
 ax.legend(loc="upper left", fontsize=8)
 plt.tight_layout()
 ```
+
+The input is daily log returns, so `threshold=0.1` is a cumulative move of
+about 10% since the last event. After an event the sum that fired restarts
+from 0. The table counts the up (+1) and down (-1) events per year.
 
 Events come close together while the price moves fast, as in the rise of
 early 2024, and stop in quiet spells, such as December 2025. Down events

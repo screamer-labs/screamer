@@ -33,14 +33,6 @@ hold = engine(np.ones_like(weight), o, h, l, c)
 running, summary = backtest_report(out, periods_per_year=365)
 ```
 
-The data is daily Binance BTC/USDT bars from January 2022 to September 2026.
-The weight is +1 or -1 times the account's equity, decided at each close and
-traded at the next day's open. Every fill pays a 0.1% taker fee and 0.05%
-slippage. The first 100 days stay flat, because the 100-day average rests on
-few prices there. The spans are the ones of the [crossover
-page](../trend/crossover.md), not tuned on this data. `hold` buys BTC on the
-first day and keeps it, as a reference.
-
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(9, 3.5))
 ax.plot(btc.index, 1 + out[:, 0], color="steelblue", label="trend rule")
@@ -51,6 +43,14 @@ ax.legend(loc="upper left", fontsize=8)
 plt.tight_layout()
 ```
 
+The data is daily Binance BTC/USDT bars from January 2022 to September 2026.
+The weight is +1 or -1 times the account's equity, decided at each close and
+traded at the next day's open. Every fill pays a 0.1% taker fee and 0.05%
+slippage. The first 100 days stay flat, because the 100-day average rests on
+few prices there. The spans are the ones of the [crossover
+page](../trend/crossover.md), not tuned on this data. `hold` buys BTC on the
+first day and keeps it, as a reference.
+
 ```{code-cell} ipython3
 dd = MaxDrawdown()(1 + out[:, 0])[-1]           # fraction of the peak
 pd.Series({"sharpe": summary["sharpe"], "max_drawdown_pct": 100 * dd,
@@ -59,8 +59,8 @@ pd.Series({"sharpe": summary["sharpe"], "max_drawdown_pct": 100 * dd,
 
 The Sharpe ratio is annualized, `max_drawdown_pct` is the largest fall of
 equity from a peak in percent of that peak (`MaxDrawdown`), and `num_trades`
-counts the days on which the position changed. This is a template to start from; one
-run on one sample does not show that the rule has an edge.
+counts the days on which the position changed. This is a template to start
+from; one run on one sample does not show that the rule has an edge.
 
 ## Go deeper
 

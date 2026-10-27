@@ -35,14 +35,6 @@ pd.DataFrame({"marks": [peak.sum(), trough.sum()],
              index=["peak", "trough"]).round(2)
 ```
 
-`sine` is the sine of the phase of the dominant cycle, and `leadsine` is the
-same curve one eighth of a cycle ahead, so `leadsine` turns first. Both are
-`NaN` for the first 40 days. The last lines look ten days ahead to score the
-marks. They are not part of the indicator, which uses only past data. Over
-2022 to 2026 there are 54 marked peaks and 54 troughs; 48% of the peaks were
-followed by a lower price ten days later, and 52% of the troughs by a higher
-one.
-
 ```{code-cell} ipython3
 part = df.loc["2025"]
 peaks, troughs = part[part["turn"] < 0], part[part["turn"] > 0]
@@ -56,6 +48,14 @@ ax.set_ylabel("BTC price (USD)")
 ax.legend(loc="lower left", fontsize=8)
 plt.tight_layout()
 ```
+
+`sine` is the sine of the phase of the dominant cycle, and `leadsine` is the
+same curve one eighth of a cycle ahead, so `leadsine` turns first. Both are
+`NaN` for the first 40 days. The last lines look ten days ahead to score the
+marks. They are not part of the indicator, which uses only past data. Over
+2022 to 2026 there are 54 marked peaks and 54 troughs; 48% of the peaks were
+followed by a lower price ten days later, and 52% of the troughs by a higher
+one.
 
 Some marks sit at turns of the price, such as the peak on 5 October 2025, a
 day before the highest close of the year, and others fall inside moves. The

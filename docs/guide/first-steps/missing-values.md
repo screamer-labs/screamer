@@ -30,11 +30,6 @@ out["mean_early"] = RollingMean(5, start_policy="expanding")(out["ffill"])
 out.head(16).round(0)
 ```
 
-`RollingMean(5)` returns `NaN` for the first four days, while its window holds
-fewer than five values; `start_policy="expanding"` averages the values seen so
-far instead. A `NaN` input gives a `NaN` output and is left out of the window,
-so the mean recovers on the next day.
-
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(9, 3.5))
 ax.plot(out.index, out["ffill"], color="0.6", ls="--", label="Ffill")
@@ -46,6 +41,11 @@ ax.set_ylabel("price (USD)")
 ax.legend(loc="lower left", fontsize=8)
 plt.tight_layout()
 ```
+
+`RollingMean(5)` returns `NaN` for the first four days, while its window holds
+fewer than five values; `start_policy="expanding"` averages the values seen so
+far instead. A `NaN` input gives a `NaN` output and is left out of the window,
+so the mean recovers on the next day.
 
 ## Go deeper
 

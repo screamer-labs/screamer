@@ -52,7 +52,14 @@ An RSI built from `diff()` and `rolling(14).mean()` in pandas is Cutler's
 variant, `method="cutler"`. On daily BTC closes in 2025 the two differ by up to
 20 points.
 
-## From pandas
+## Go deeper
+
+- [From pandas](#from-pandas) and [From TA-Lib](#from-ta-lib), below: the screamer call for each common pandas and TA-Lib call.
+- [Conventions](../../conventions.md): where a definition differs from pandas or TA-Lib, and why.
+- [`RollingRSI`](../../functions_rolling/RollingRSI.md): the Wilder and Cutler methods.
+- [Compute indicators on an OHLCV DataFrame](ohlcv-dataframe.md): several indicators as new columns.
+
+### From pandas
 
 | pandas | screamer |
 |---|---|
@@ -73,7 +80,7 @@ variant, `method="cutler"`. On daily BTC closes in 2025 the two differ by up to
 Each call returns a NumPy array. Assign it to a column to keep the pandas index,
 or wrap it with `pd.Series(result, index=df.index)`.
 
-## From TA-Lib
+### From TA-Lib
 
 | TA-Lib | screamer |
 |---|---|
@@ -89,9 +96,3 @@ or wrap it with `pd.Series(result, index=df.index)`.
 
 TA-Lib returns a tuple for a function with several outputs; screamer returns one
 `(T, k)` array whose columns are listed above.
-
-## Go deeper
-
-- [Conventions](../../conventions.md): where a definition differs from pandas or TA-Lib, and why.
-- [`RollingRSI`](../../functions_rolling/RollingRSI.md): the Wilder and Cutler methods.
-- [Compute indicators on an OHLCV DataFrame](ohlcv-dataframe.md): several indicators as new columns.

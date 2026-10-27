@@ -25,15 +25,6 @@ df["vr_z"] = RollingVarianceRatio(120, lag=5, output="zscore")(df["change"])
 df.dropna().head().round(5)
 ```
 
-The series is the log of the ETH/BTC price ratio, one value per minute over six
-hours of Deribit perpetual trades; `devtools/build_ethbtc_ratio.py` builds it
-from the committed trade files with `Resample` and `CombineLatest`, taking the
-last trade price of each asset in each minute. The test runs on its changes:
-over the last 120 minutes, it compares the variance of 5-minute changes with 5
-times the variance of 1-minute changes. When minute changes tend to reverse,
-the 5-minute changes are smaller than that and the ratio is below 1. A z-score
-below -1.96 rejects the random walk at the 5% level.
-
 ```{code-cell} ipython3
 fig, (top, bottom) = plt.subplots(2, 1, figsize=(9, 5), sharex=True)
 top.plot(df.index, df["log_ratio"], color="0.2", lw=0.8)
@@ -46,6 +37,14 @@ bottom.legend(loc="lower right", fontsize=8)
 bottom.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
 plt.tight_layout()
 ```
+
+The series is the log of the ETH/BTC price ratio, one value per minute over six
+hours of Deribit perpetual trades, from the last trade price of each asset in
+each minute. The test runs on its changes: over the last 120 minutes, it
+compares the variance of 5-minute changes with 5 times the variance of 1-minute
+changes. When minute changes tend to reverse, the 5-minute changes are smaller
+than that and the ratio is below 1. A z-score below -1.96 rejects the random
+walk at the 5% level.
 
 From 02:00, when the first 120-minute window is full, the z-score stays below
 -1.96 until 05:45, apart from two minutes at 05:05: at a one-minute scale the
@@ -62,4 +61,5 @@ series.
 
 - [`RollingVarianceRatio`](../../functions_rolling/RollingVarianceRatio.md): the Lo-MacKinlay estimator and the robust z-statistic.
 - [Estimate the Hurst exponent](hurst.md): a second test on the same series.
+- [Combine streams that tick at different times](../live/align-streams.md): `devtools/build_ethbtc_ratio.py` builds this series from the committed trade files with `Resample` and `CombineLatest`.
 - [Pairs and mean reversion notebook](../../notebooks/18-pairs-and-mean-reversion.ipynb): hedge ratios and spreads between two assets.

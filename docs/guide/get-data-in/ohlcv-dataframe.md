@@ -25,12 +25,6 @@ df["atr"] = ATR(14)(df["high"], df["low"], df["close"])
 df[["bb_lower", "bb_mid", "bb_upper", "rsi", "atr"]].iloc[20:25].round(1)
 ```
 
-A function with one output returns one column. A function with several
-outputs, such as `BollingerBands`, returns one column per output, which fill
-several DataFrame columns in one assignment. `ATR` takes three inputs in the
-order its page lists: high, low, close. Each indicator is `NaN` until its
-window has filled.
-
 ```{code-cell} ipython3
 year = df.loc["2025"]  # one year, to make the bands visible
 fig, (ax0, ax1, ax2) = plt.subplots(3, 1, figsize=(9, 6), sharex=True,
@@ -48,6 +42,12 @@ ax2.plot(year.index, year["atr"], color="seagreen", lw=0.8)
 ax2.set_ylabel("ATR(14)")
 plt.tight_layout()
 ```
+
+A function with one output returns one column. A function with several
+outputs, such as `BollingerBands`, returns one column per output, which fill
+several DataFrame columns in one assignment. `ATR` takes three inputs in the
+order its page lists: high, low, close. Each indicator is `NaN` until its
+window has filled.
 
 ## Go deeper
 

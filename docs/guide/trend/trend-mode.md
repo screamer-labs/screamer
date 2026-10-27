@@ -24,12 +24,6 @@ out["mode"] = TrendMode()(close)
 out["mode"].loc["2025"].resample("QE").mean().round(2)
 ```
 
-`TrendMode` measures the dominant cycle of the series and reads cycle for half
-a period after each cycle turn, and while the cycle advances at its own rate.
-It reads trend when the smoothed price is at least 1.5% from the cycle's
-trendline, so use it on prices: on returns, which stay near zero, every sample
-reads trend. The table is the share of trending days per quarter of 2025.
-
 ```{code-cell} ipython3
 part = out.loc["2025"]
 fig, ax = plt.subplots(figsize=(9, 3.5))
@@ -41,6 +35,12 @@ ax.set_ylabel("BTC price (USD)")
 ax.legend(loc="upper left", fontsize=8)
 plt.tight_layout()
 ```
+
+`TrendMode` measures the dominant cycle of the series and reads cycle for half
+a period after each cycle turn, and while the cycle advances at its own rate.
+It reads trend when the smoothed price is at least 1.5% from the cycle's
+trendline, so use it on prices: on returns, which stay near zero, every sample
+reads trend. The table is the share of trending days per quarter of 2025.
 
 June has the most cycling days of 2025, while the price moved sideways
 between about 101,000 and 110,000 USD.

@@ -35,15 +35,6 @@ hold = engine(np.sign(weight), o, h, l, c)        # weight 1 from day 60
 running, summary = backtest_report(out, periods_per_year=365)
 ```
 
-The target is 40% a year, a little below BTC's average volatility of about
-50% on this sample. The weight is `0.4 / vol` times equity, capped at 2 by
-`Clip` and rounded to steps of 0.1 by `Round`, so that small changes in the
-estimate do not each cause a trade. Both runs stay flat for the first 60
-days, while the estimate warms up; after that `hold` keeps a weight of 1, as a
-reference. The data is daily Binance BTC/USDT bars from January 2022 to
-September 2026; each target trades at the next day's open, and every fill pays
-a 0.1% taker fee and 0.05% slippage.
-
 ```{code-cell} ipython3
 fig, (ax0, ax1) = plt.subplots(2, 1, figsize=(9, 5), sharex=True,
                                gridspec_kw={"height_ratios": [1, 2]})
@@ -56,6 +47,15 @@ ax1.set_ylabel("equity (starting capital 1)")
 ax1.legend(loc="upper left", fontsize=8)
 plt.tight_layout()
 ```
+
+The target is 40% a year, a little below BTC's average volatility of about
+50% on this sample. The weight is `0.4 / vol` times equity, capped at 2 by
+`Clip` and rounded to steps of 0.1 by `Round`, so that small changes in the
+estimate do not each cause a trade. Both runs stay flat for the first 60
+days, while the estimate warms up; after that `hold` keeps a weight of 1, as a
+reference. The data is daily Binance BTC/USDT bars from January 2022 to
+September 2026; each target trades at the next day's open, and every fill pays
+a 0.1% taker fee and 0.05% slippage.
 
 ```{code-cell} ipython3
 dd = MaxDrawdown()(1 + out[:, 0])[-1]           # fraction of the peak

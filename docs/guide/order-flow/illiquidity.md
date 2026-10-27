@@ -27,12 +27,6 @@ latest = pd.Series(1e10 * amihud[-1], index=close.columns).sort_values()
 latest.round(2)
 ```
 
-Each column of `close` and `value` is one of 20 coins, and the functions
-apply to every column. `AmihudIlliquidity` takes the return first and the
-traded value second, here the `quote_volume` column in USDT, a dollar
-stablecoin, and averages over the last 30 days. `latest` holds the last day,
-30 September 2026.
-
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(7, 5))
 ax.barh(latest.index, latest, color="darkorange")
@@ -40,6 +34,12 @@ ax.set_xscale("log")
 ax.set_xlabel("AmihudIlliquidity(30), bp per million USD traded")
 plt.tight_layout()
 ```
+
+Each column of `close` and `value` is one of 20 coins, and the functions
+apply to every column. `AmihudIlliquidity` takes the return first and the
+traded value second, here the `quote_volume` column in USDT, a dollar
+stablecoin, and averages over the last 30 days. `latest` holds the last day,
+30 September 2026.
 
 The ratio spans three orders of magnitude, from 0.09 for BTC to 109 for
 ATOM. It suits bars with steady volume, such as daily bars: on one-minute

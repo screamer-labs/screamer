@@ -28,14 +28,6 @@ out["cooldown"] = Hold(10, cooldown=10)(out["event"])
 out[["event", "hold", "cooldown"]].dropna().ne(0).sum().rename("days not zero")
 ```
 
-The events come from [`CusumFilter`](../regimes/cusum.md): +1 on the day
-the cumulative log return since the last event reaches 0.1, a rise of about
-10.5%, and -1 on the day it reaches -0.1, a fall of about 9.5%.
-`Hold(10)` keeps each event for 10 days, the event day included, and returns 0
-when the 10 days are over. A new event during a hold replaces the held value
-and starts the 10 days again. With `cooldown=10`, events in the 10 days after a
-hold ends are ignored, so the position stays flat for at least that long.
-
 ```{code-cell} ipython3
 part = out.loc["2024"]
 fig, (ax0, ax1) = plt.subplots(2, 1, figsize=(9, 4.5), sharex=True)
@@ -52,6 +44,14 @@ ax1.set_ylim(-1.7, 1.2)
 ax1.legend(loc="lower left", ncol=2, fontsize=8)
 plt.tight_layout()
 ```
+
+The events come from [`CusumFilter`](../regimes/cusum.md): +1 on the day
+the cumulative log return since the last event reaches 0.1, a rise of about
+10.5%, and -1 on the day it reaches -0.1, a fall of about 9.5%.
+`Hold(10)` keeps each event for 10 days, the event day included, and returns 0
+when the 10 days are over. A new event during a hold replaces the held value
+and starts the 10 days again. With `cooldown=10`, events in the 10 days after a
+hold ends are ignored, so the position stays flat for at least that long.
 
 The dots mark the up (green) and down (red) events. Over the whole sample the
 117 events give a position on 957 days with `Hold(10)` and on 672 days with

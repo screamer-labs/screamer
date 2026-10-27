@@ -27,10 +27,6 @@ out["trend"] = Sign()(out["slope"])
 out.tail().round(4)
 ```
 
-The fit runs on the log price, so the slope is a growth rate: 0.002 means the
-line rises about 0.2% per day. `RollingPoly1(50)` is `NaN` until it has 50
-values. A longer window gives a steadier trend that turns later.
-
 ```{code-cell} ipython3
 part = out.loc["2024":"2025"]
 fig, ax = plt.subplots(figsize=(9, 3.5))
@@ -42,6 +38,10 @@ ax.set_ylabel("BTC price (USD)")
 ax.legend(loc="upper left", fontsize=8)
 plt.tight_layout()
 ```
+
+The fit runs on the log price, so the slope is a growth rate: 0.002 means the
+line rises about 0.2% per day. `RollingPoly1(50)` is `NaN` until it has 50
+values. A longer window gives a steadier trend that turns later.
 
 The shaded stretches are where the 50-day line slopes up. The trend turns
 some days after the price does, since the line is fitted to the whole window.

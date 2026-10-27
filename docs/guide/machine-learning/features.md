@@ -33,13 +33,6 @@ names = ["return 10s", "return 1m", "z-score 10m", "flow"]
 print(X.shape, "rows with a NaN:", np.isnan(X).any(axis=1).sum())
 ```
 
-The trades are six hours of the Deribit BTC perpetual, with the timestamp in
-milliseconds and the volume signed by the aggressor side. `agg="ohlcv2"`
-returns each 10-second bar's open, high, low, and close, then its buy and sell
-volume in columns 4 and 5, which `OFI` turns into an imbalance from -1 to 1.
-Row `t` of `X` uses bars up to `t` only. The first 59 rows hold a NaN while
-the 60-bar z-score fills.
-
 ```{code-cell} ipython3
 hours = (ts - ts[0]) / 3.6e6
 fig, axes = plt.subplots(len(names), 1, figsize=(9, 6), sharex=True)
@@ -49,6 +42,13 @@ for ax, column, name in zip(axes, X.T, names):
 axes[-1].set_xlabel("hours")
 plt.tight_layout()
 ```
+
+The trades are six hours of the Deribit BTC perpetual, with the timestamp in
+milliseconds and the volume signed by the aggressor side. `agg="ohlcv2"`
+returns each 10-second bar's open, high, low, and close, then its buy and sell
+volume in columns 4 and 5, which `OFI` turns into an imbalance from -1 to 1.
+Row `t` of `X` uses bars up to `t` only. The first 59 rows hold a NaN while
+the 60-bar z-score fills.
 
 ## Go deeper
 

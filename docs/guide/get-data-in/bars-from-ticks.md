@@ -30,10 +30,6 @@ print(f"{len(trades):,} trades, {len(bars)} one-minute bars")
 bars.head()
 ```
 
-A bar is emitted once a later trade shows that its minute is over, and a minute
-without trades gives no bar. `count=50` instead of `freq=` makes bars of 50
-trades each.
-
 ```{code-cell} ipython3
 part = bars.iloc[:120]  # the first 120 bars
 fig, (ax0, ax1) = plt.subplots(2, 1, figsize=(9, 4.5), sharex=True,
@@ -47,6 +43,10 @@ ax1.bar(part.index, part["volume"], width=1 / 1440, color="0.4")
 ax1.set_ylabel("volume")
 plt.tight_layout()
 ```
+
+A bar is emitted once a later trade shows that its minute is over, and a minute
+without trades gives no bar. `count=50` instead of `freq=` makes bars of 50
+trades each.
 
 ## Go deeper
 

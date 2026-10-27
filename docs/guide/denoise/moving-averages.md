@@ -25,10 +25,6 @@ df["ema"] = EwMean(span=50)(df["close"])
 df[["close", "sma", "ema"]].iloc[48:53].round(0)
 ```
 
-`RollingMean(50)` is `NaN` for the first 49 days, while its window is filling.
-`EwMean` returns a value from the first day and gives the same result as pandas
-`ewm(span=50).mean()`.
-
 ```{code-cell} ipython3
 year = df.loc["2024"]
 fig, ax = plt.subplots(figsize=(9, 3.5))
@@ -39,6 +35,10 @@ ax.set_ylabel("BTC price (USD)")
 ax.legend(loc="upper left", fontsize=8)
 plt.tight_layout()
 ```
+
+`RollingMean(50)` is `NaN` for the first 49 days, while its window is filling.
+`EwMean` returns a value from the first day and gives the same result as pandas
+`ewm(span=50).mean()`.
 
 Both averages trail the price. `EwMean` weights the latest days more, so it
 turns sooner after a change in direction.

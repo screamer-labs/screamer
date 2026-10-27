@@ -38,13 +38,6 @@ _, hindsight = backtest_report(full[t0:, best], periods_per_year=365)
 print(f"hindsight span {spans[best]}: Sharpe {hindsight['sharpe']:.2f}")
 ```
 
-Each column of `X` is one variant of a trend rule on daily BTC: long while an
-exponential mean of the daily log return is positive, short while it is
-negative, with spans from 5 to 160 days. Every fold chooses the span with the
-best Sharpe ratio over the previous 365 days (`train`) and trades it for the
-next 91 days (`test`), so the first test day is 2023-01-01. Every fill pays a
-0.1% taker fee and 0.05% slippage.
-
 ```{code-cell} ipython3
 dates = btc.index[t0:]
 fig, ax = plt.subplots(figsize=(9, 3.5))
@@ -57,6 +50,13 @@ ax.set_ylabel("profit (USD, 1 BTC)")
 ax.legend(loc="upper left", fontsize=8)
 plt.tight_layout()
 ```
+
+Each column of `X` is one variant of a trend rule on daily BTC: long while an
+exponential mean of the daily log return is positive, short while it is
+negative, with spans from 5 to 160 days. Every fold chooses the span with the
+best Sharpe ratio over the previous 365 days (`train`) and trades it for the
+next 91 days (`test`), so the first test day is 2023-01-01. Every fill pays a
+0.1% taker fee and 0.05% slippage.
 
 `wf.choice` holds the column of `X` chosen in each of the 16 folds: every one
 of the six spans is chosen at least once, and the span changes 10 times. From

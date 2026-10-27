@@ -31,14 +31,6 @@ out = engine(weight, o, h, l, c)
 running, summary = backtest_report(out, periods_per_year=365)
 ```
 
-`BandSignal` reads a score centered on 0, so `(rsi - 50) / 10` maps RSI 70 to
-+2 and RSI 30 to -2. With `entry=2.0` it goes short when the score reaches +2
-and long at -2; with `exit=0.0` it closes the position when the score crosses
-0, RSI 50. The 14-day window and the 70 and 30 levels are Wilder's defaults,
-not tuned on this data. The data is daily Binance BTC/USDT bars from January
-2022 to September 2026; each target trades at the next day's open as a fraction
-of equity, and every fill pays a 0.1% taker fee and 0.05% slippage.
-
 ```{code-cell} ipython3
 fig, (ax0, ax1) = plt.subplots(2, 1, figsize=(9, 5), sharex=True,
                                gridspec_kw={"height_ratios": [1, 2]})
@@ -51,6 +43,14 @@ ax1.axhline(1, color="k", lw=0.5)
 ax1.set_ylabel("equity (starting capital 1)")
 plt.tight_layout()
 ```
+
+`BandSignal` reads a score centered on 0, so `(rsi - 50) / 10` maps RSI 70 to
++2 and RSI 30 to -2. With `entry=2.0` it goes short when the score reaches +2
+and long at -2; with `exit=0.0` it closes the position when the score crosses
+0, RSI 50. The 14-day window and the 70 and 30 levels are Wilder's defaults,
+not tuned on this data. The data is daily Binance BTC/USDT bars from January
+2022 to September 2026; each target trades at the next day's open as a fraction
+of equity, and every fill pays a 0.1% taker fee and 0.05% slippage.
 
 ```{code-cell} ipython3
 dd = MaxDrawdown()(1 + out[:, 0])[-1]           # fraction of the peak

@@ -34,17 +34,6 @@ for name, spread in [("no cost", 0.0), ("2 bp spread", 0.0002)]:
 pd.DataFrame(summary).loc[["total_pnl", "round_trips", "win_rate"]]
 ```
 
-The series is the minute log ETH/BTC ratio from the [variance ratio
-page](variance-ratio.md). Its deviations halve in 1 to 4 minutes until about
-04:15, the half-life then grows, and from 05:00 they halve in 9 to 20 minutes.
-The 30-minute z-score window spans 8 or more half-lives early in the session
-and 1.5 to 3.3 after 05:00.
-`BandSignal` goes short when the z-score reaches 2, long at -2, and flat when
-it crosses 0. `Lag(1)` trades one minute after the signal, at the next minute's
-price. The backtest holds the ratio `ETH / BTC` as one price, with a weight of
-one times the capital, so the equity is a return on capital. A real position
-holds ETH against BTC, two legs that each pay costs.
-
 ```{code-cell} ipython3
 fig, (top, bottom) = plt.subplots(2, 1, figsize=(9, 5), sharex=True)
 top.plot(df.index, df["z"], color="0.3", lw=0.8, label="RollingZscore(30)")
@@ -59,6 +48,13 @@ bottom.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
 plt.tight_layout()
 ```
 
+The series is the minute log ETH/BTC ratio from the [variance ratio
+page](variance-ratio.md). `BandSignal` goes short when the z-score reaches 2,
+long at -2, and flat when it crosses 0. `Lag(1)` trades one minute after the
+signal, at the next minute's price. The backtest holds the ratio `ETH / BTC` as
+one price, with a weight of one times the capital, so the equity is a return on
+capital. A real position holds ETH against BTC, two legs that each pay costs.
+
 Without costs the 12 round trips earn 0.24% in six hours, and 11 of 12 make
 money. The whole gain comes before 02:30; after that the trades break even.
 A spread of 2 basis points, one basis point on each fill, takes all of it:
@@ -66,6 +62,7 @@ a round trip earns about 2 basis points on average, the cost of its two fills.
 
 ## Go deeper
 
+- [Estimate how fast a series reverts](half-life.md): the deviations of this series halve in 1 to 4 minutes until about 04:15, the half-life then grows, and from 05:00 they halve in 9 to 20 minutes. The 30-minute z-score window spans 8 or more half-lives early in the session and 1.5 to 3.3 after 05:00.
 - [`BandSignal`](../../functions_signal/BandSignal.md): entry, exit and stop levels.
 - [`BacktestPriceTarget`](../../functions_fin/BacktestPriceTarget.md), [`backtest_report`](../../functions_fin/backtest_report.md): costs, sizing, and the statistics in the report.
 - [Trade a pair](../strategies/pairs.md): ETH against BTC with a hedge ratio and both legs.

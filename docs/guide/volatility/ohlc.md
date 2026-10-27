@@ -28,12 +28,6 @@ df["vol_yz"] = RollingYangZhangVol(30)(
 df[["vol_close", "vol_yz"]].tail().round(3)
 ```
 
-The inputs come in the order open, high, low, close. The Yang-Zhang estimator
-combines the variance of the gap from the previous close to the open, the
-variance of the open-to-close return, and the Rogers-Satchell estimate from the
-high and low of each bar. Its output is per bar, like `RollingStd` of daily
-returns, so it is annualized the same way.
-
 ```{code-cell} ipython3
 year = df.loc["2025"]
 fig, ax = plt.subplots(figsize=(9, 3.5))
@@ -45,6 +39,12 @@ ax.set_ylabel("BTC annualized volatility")
 ax.legend(loc="upper right", fontsize=8)
 plt.tight_layout()
 ```
+
+The inputs come in the order open, high, low, close. The Yang-Zhang estimator
+combines the variance of the gap from the previous close to the open, the
+variance of the open-to-close return, and the Rogers-Satchell estimate from the
+high and low of each bar. Its output is per bar, like `RollingStd` of daily
+returns, so it is annualized the same way.
 
 The two estimates mostly agree. They part when a bar's range is large
 compared with its close-to-close move: on 10 October 2025 BTC fell 16% from

@@ -28,10 +28,6 @@ df["vol_ew"] = EwStd(span=30)(df["ret"]) * annualize
 df[["close", "vol_30d", "vol_ew"]].tail().round(3)
 ```
 
-A volatility of 0.5 means a standard deviation of 50% of the price over a year.
-For daily stock data, which trades on about 252 days a year, use
-`np.sqrt(252)`.
-
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(9, 3.5))
 ax.plot(df.index, df["vol_30d"], color="steelblue", label="RollingStd(30)")
@@ -41,6 +37,10 @@ ax.set_ylabel("BTC annualized volatility")
 ax.legend(loc="upper right", fontsize=8)
 plt.tight_layout()
 ```
+
+A volatility of 0.5 means a standard deviation of 50% of the price over a year.
+For daily stock data, which trades on about 252 days a year, use
+`np.sqrt(252)`.
 
 `RollingStd` gives each of the last 30 days equal weight, so a large move
 raises it for exactly 30 days and then drops out at once. `EwStd` lets the

@@ -30,6 +30,13 @@ corr, t = pipe(*[(f["price"].to_numpy(), f["timestamp"].to_numpy())
 print(pipe)
 ```
 
+```{code-cell} ipython3
+fig, ax = plt.subplots(figsize=(9, 3.5))
+ax.plot(pd.to_datetime(t, unit="ms"), corr, color="steelblue")
+ax.set_ylabel("30-minute correlation,\nBTC and ETH returns")
+plt.tight_layout()
+```
+
 Applying a function to an `Input` records a step and computes nothing. Here
 each trade feed goes through `Resample`, which keeps the last price of each
 minute (`fill="carry"` repeats the previous price in a minute without trades),
@@ -38,13 +45,6 @@ returns on one row, and `RollingCorr(30)` correlates the BTC and ETH returns
 over the last 30 minutes. The call binds the stored `(prices, timestamps)` of
 each feed in the order of `inputs` and returns `(values, index)`, with one
 row per minute.
-
-```{code-cell} ipython3
-fig, ax = plt.subplots(figsize=(9, 3.5))
-ax.plot(pd.to_datetime(t, unit="ms"), corr, color="steelblue")
-ax.set_ylabel("30-minute correlation,\nBTC and ETH returns")
-plt.tight_layout()
-```
 
 ## Go deeper
 

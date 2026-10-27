@@ -34,18 +34,6 @@ Xs, ys = forecast_pairs(X, y, count=horizon, dropna=True)
 print(f"{len(Xs)} training rows of {Xs.shape[1]} features")
 ```
 
-Columns 0 to 2 are the features: the 20-day log return, the z-score of the
-close over the last 50 days, and the standard deviation of the last 20 daily returns, all
-known at the close of day `t`. Column 3 is the triple-barrier label of
-[Label each bar with its future move](labels.md), which `TripleBarrierOHLC`
-stamps 10 days after its bar and `forecast_pairs` moves back to the row of
-that bar. The last 10 rows have no label yet: they are the rows a live model
-predicts. `dropna=True` keeps the 1675 rows where every feature and the label
-are known, ready for any scikit-learn style learner. The rows stay in time
-order, so the first part can train a model and the rest test it. Leave
-`horizon` rows out between the two parts, because the labels of the last
-training rows cover days inside the test part.
-
 ```{code-cell} ipython3
 last = slice(len(y) - 40, len(y))
 fig, ax = plt.subplots(figsize=(9, 3))
@@ -58,6 +46,18 @@ ax.set_ylabel("label")
 ax.legend(fontsize=8, loc="lower left")
 plt.tight_layout()
 ```
+
+Columns 0 to 2 are the features: the 20-day log return, the z-score of the
+close over the last 50 days, and the standard deviation of the last 20 daily
+returns, all known at the close of day `t`. Column 3 is the triple-barrier
+label of [Label each bar with its future move](labels.md), which
+`TripleBarrierOHLC` stamps 10 days after its bar and `forecast_pairs` moves
+back to the row of that bar. The last 10 rows have no label yet: they are the
+rows a live model predicts. `dropna=True` keeps the 1675 rows where every
+feature and the label are known, ready for any scikit-learn style learner. The
+rows stay in time order, so the first part can train a model and the rest test
+it. Leave `horizon` rows out between the two parts, because the labels of the
+last training rows cover days inside the test part.
 
 Over the last 40 days the red points repeat the grey ones 10 days earlier, and
 end 10 days before the data does.

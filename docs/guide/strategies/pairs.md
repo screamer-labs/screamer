@@ -43,19 +43,6 @@ target[np.r_[False, position[1:] == position[:-1]]] = np.nan  # NaN holds
 out = BacktestPortfolioOHLCTarget(fee=2e-4)(target, o, h, l, c)
 ```
 
-The data is six hours of BTC and ETH perpetual trades on Deribit, turned into
-one-minute bars by `Resample` and aligned on time by `CombineLatest`.
-`KalmanRegression` regresses log ETH on log BTC with a slowly drifting
-intercept and slope: column 0 is the hedge ratio `beta` and column 2 the
-spread. `BandSignal` goes short the spread at a z-score of 2, long at -2, and
-flat at 0, with a stop at 3.5. The position is held only while the rolling ADF
-statistic is below -3.34, the 5% Engle-Granger critical value, which also
-keeps it flat while the 60-minute ADF window fills. One unit of
-spread is long ETH and short `beta` times as much BTC by value, with a gross
-weight of 1; targets are sent only when the position changes, so the legs are
-not rebalanced every minute. Each trade pays a 2 bp fee and fills at the next
-minute's open.
-
 ```{code-cell} ipython3
 t = pd.to_datetime(ts, unit="ms")
 fig, (ax0, ax1) = plt.subplots(2, 1, figsize=(9, 5), sharex=True)
@@ -67,20 +54,32 @@ ax1.set_ylabel("pnl (bp of capital)")
 plt.tight_layout()
 ```
 
+The data is six hours of BTC and ETH perpetual trades on Deribit, turned into
+one-minute bars by `Resample` and aligned on time by `CombineLatest`.
+`KalmanRegression` regresses log ETH on log BTC; its slope is the hedge ratio
+`beta`. `BandSignal` goes short the spread at a z-score of 2, long at -2, and
+flat at 0, with a stop at 3.5. The position is held only while the rolling ADF
+statistic is below -3.34, the 5% Engle-Granger critical value, which also
+keeps it flat while the 60-minute ADF window fills. One unit of
+spread is long ETH and short `beta` times as much BTC by value, with a gross
+weight of 1; targets are sent only when the position changes, so the legs are
+not rebalanced every minute. Each trade pays a 2 bp fee and fills at the next
+minute's open.
+
 ```{code-cell} ipython3
 *_, trades, _, sharpe = PortfolioReport()(out)[-1]
 dd = 100 * MaxDrawdown()(1 + out[:, :, 0].sum(axis=1))[-1]  # percent of peak
 pd.Series(dict(sharpe=sharpe, max_drawdown_pct=dd, num_trades=trades)).round(2)
 ```
 
-`PortfolioReport` is the portfolio version of `backtest_report`. Its Sharpe
-ratio is per minute and left that way, because six hours are too short to
-annualize. The fees are the whole loss: before fees the book ends close to
-flat, and each of the twelve position changes trades both legs.
+The Sharpe ratio is per minute and left that way, because six hours are too
+short to annualize. The fees are the whole loss: before fees the book ends
+close to flat, and each of the twelve position changes trades both legs.
 
 ## Go deeper
 
 - [Hedge ratios and spread estimation](../../notebooks/18-pairs-and-mean-reversion.ipynb): the estimators compared.
 - [Check that a backtest result is not luck](../not-luck/index.md): `position_test` shifts both legs' targets in time.
-- [`KalmanRegression`](../../functions_fin/KalmanRegression.md), [`RollingADF`](../../functions_fin/RollingADF.md), [`BandSignal`](../../functions_signal/BandSignal.md): the three steps of the signal.
+- [`KalmanRegression`](../../functions_fin/KalmanRegression.md), [`RollingADF`](../../functions_fin/RollingADF.md), [`BandSignal`](../../functions_signal/BandSignal.md): the three steps of the signal. `KalmanRegression` fits a slowly drifting intercept and slope: column 0 of its output is the hedge ratio `beta` and column 2 the spread.
+- [`PortfolioReport`](../../functions_fin/PortfolioReport.md): the portfolio version of `backtest_report`.
 - [Portfolios and pairs](../../portfolio_backtesting.md): sizing the legs of a book.

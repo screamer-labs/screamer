@@ -31,16 +31,6 @@ regime = volatile.map({False: "calm", True: "volatile"}).rename("regime")
 fitted.groupby(regime)["next_move"].agg(["count", "mean"]).round(4)
 ```
 
-Each state emits returns from its own normal distribution. The model is fit
-on the last 365 days, first when the window fills and then every 24 days, and
-between fits each new return updates the probability. Column 0 is that
-probability; columns 1 and 2 are the mean and standard deviation of the next
-return. The last lines look one day ahead to score the regimes and are not
-part of the model, which uses only past data. A day is volatile when its
-probability is above 0.5. After a volatile day the next absolute return
-averaged 2.0%, against 1.5% after a calm day, so the regime carries over to
-the next day.
-
 ```{code-cell} ipython3
 part = df.loc["2025"]
 fig, (ax0, ax1) = plt.subplots(2, 1, figsize=(9, 4.5), sharex=True)
@@ -51,6 +41,16 @@ ax1.axhline(0.5, color="0.5", ls="--", lw=0.8)
 ax1.set_ylabel("P(volatile)")
 plt.tight_layout()
 ```
+
+Each state emits returns from its own normal distribution. The model is fit
+on the last 365 days, first when the window fills and then every 24 days, and
+between fits each new return updates the probability. Column 0 is that
+probability; columns 1 and 2 are the mean and standard deviation of the next
+return. The last lines look one day ahead to score the regimes and are not
+part of the model, which uses only past data. A day is volatile when its
+probability is above 0.5. After a volatile day the next absolute return
+averaged 2.0%, against 1.5% after a calm day, so the regime carries over to
+the next day.
 
 The probability jumps towards 1 on a large move and falls back within a day
 or two, so on BTC daily returns the volatile state is short.

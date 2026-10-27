@@ -32,12 +32,6 @@ agree = (trades["tick_sign"] == venue_sign)[signed].mean()
 print(f"{len(trades):,} trades, tick rule agrees with the venue on {agree:.0%}")
 ```
 
-The data is six hours of Deribit BTC perpetual trades. Its `volume` column
-is the trade size in US dollars, positive when the buyer took the offer and
-negative when the seller hit the bid, so it carries the true sign to check
-against. Most public trade feeds do not. The tick rule gives `NaN` until the
-first price change; here that is the first 40 trades.
-
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(9, 3.5))
 ax.plot(trades.index, trades["volume"].cumsum() / 1e6, color="0.2", lw=1,
@@ -49,6 +43,12 @@ ax.legend(loc="upper left", fontsize=8)
 ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
 plt.tight_layout()
 ```
+
+The data is six hours of Deribit BTC perpetual trades. Its `volume` column
+is the trade size in US dollars, positive when the buyer took the offer and
+negative when the seller hit the bid, so it carries the true sign to check
+against. Most public trade feeds do not. The tick rule gives `NaN` until the
+first price change; here that is the first 40 trades.
 
 The two lines stay within about 0.3 million USD of each other for the first
 two hours. Between 02:00 and 02:30 the tick rule labels a run of large sells

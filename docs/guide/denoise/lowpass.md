@@ -25,13 +25,6 @@ out["order4"] = Butter(order=4, cutoff_freq=0.1)(close)
 out.loc["2025"].head().round(0)
 ```
 
-`cutoff_freq` is a fraction of the Nyquist frequency, half a cycle per sample.
-A cycle of `p` samples has the frequency `2 / p` in these units, so
-`cutoff_freq=0.1` keeps cycles longer than 20 days and removes shorter ones.
-A higher `order` cuts more sharply at the cutoff and delays the output more.
-The filter starts from zero, so its first few dozen outputs are a start-up
-transient; the plot shows a later year.
-
 ```{code-cell} ipython3
 year = out.loc["2025"]
 fig, ax = plt.subplots(figsize=(9, 3.5))
@@ -44,6 +37,13 @@ ax.set_ylabel("ETH price (USD)")
 ax.legend(loc="upper left", fontsize=8)
 plt.tight_layout()
 ```
+
+`cutoff_freq` is a fraction of the Nyquist frequency, half a cycle per sample.
+A cycle of `p` samples has the frequency `2 / p` in these units, so
+`cutoff_freq=0.1` keeps cycles longer than 20 days and removes shorter ones.
+A higher `order` cuts more sharply at the cutoff and delays the output more.
+The filter starts from zero, so its first few dozen outputs are a start-up
+transient; the plot shows a later year.
 
 ## Go deeper
 

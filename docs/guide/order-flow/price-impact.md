@@ -29,12 +29,6 @@ impact = 1e10 * bars["kyle"]
 impact.describe().round(1)
 ```
 
-The bars are the one-minute bars of the [imbalance page](imbalance.md), with
-buy and sell volume in US dollars. `RollingKyleLambda` takes the net flow
-first and the return second, and regresses the return on the flow over the
-last 30 minutes. It is `NaN` until the window is full. The factor `1e10`
-turns return per USD into basis points per million USD.
-
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(9, 3.5))
 ax.plot(impact.index, impact, color="steelblue", lw=1,
@@ -44,6 +38,12 @@ ax.legend(loc="upper left", fontsize=8)
 ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
 plt.tight_layout()
 ```
+
+The bars are the one-minute bars of the [imbalance page](imbalance.md), with
+buy and sell volume in US dollars. `RollingKyleLambda` takes the net flow
+first and the return second, and regresses the return on the flow over the
+last 30 minutes. It is `NaN` until the window is full. The factor `1e10`
+turns return per USD into basis points per million USD.
 
 On BTC a million USD of net buying in a minute went with a rise of about 19
 basis points, between 5 and 49 depending on the 30 minutes in the window.
