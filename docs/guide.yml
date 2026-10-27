@@ -28,14 +28,22 @@ parts:
   - slug: denoise
     title: Smooth and denoise a series
     line: Moving averages, low-lag smoothers, Kalman and Butterworth filters, despiking.
-    tasks: []
+    tasks:
+    - guide/denoise/moving-averages
+    - guide/denoise/low-lag
+    - guide/denoise/kalman
+    - guide/denoise/lowpass
+    - guide/denoise/despike
     deeper:
     - notebooks/04-signal-processing
     - notebooks/17-filtering-and-forecasting-with-uncertainty
   - slug: volatility
     title: Measure volatility
-    line: Close-to-close and OHLC estimators, ATR, and intraday seasonality.
-    tasks: []
+    line: Close-to-close and OHLC estimators, and the average true range.
+    tasks:
+    - guide/volatility/close-to-close
+    - guide/volatility/ohlc
+    - guide/volatility/atr
     deeper:
     - notebooks/02-window-statistics
   - slug: trend

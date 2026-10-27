@@ -9,7 +9,7 @@
 **Part 1: Understand a series**
 
 2. :doc:`Smooth and denoise a series <guide/denoise/index>`: Moving averages, low-lag smoothers, Kalman and Butterworth filters, despiking.
-3. :doc:`Measure volatility <guide/volatility/index>`: Close-to-close and OHLC estimators, ATR, and intraday seasonality.
+3. :doc:`Measure volatility <guide/volatility/index>`: Close-to-close and OHLC estimators, and the average true range.
 4. :doc:`Detect a trend <guide/trend/index>`: Slope and regression, DMI and ADX, trend mode, and crossovers.
 5. :doc:`Detect mean reversion <guide/mean-reversion/index>`: Variance ratio, Hurst exponent, OU half-life, and z-score bands.
 6. :doc:`Find cycles <guide/cycles/index>`: Estimate the dominant cycle of a series.
