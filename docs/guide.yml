@@ -156,7 +156,9 @@ parts:
     title: Prepare data for machine learning
     line: Labels and features for supervised models.
     tasks:
-    - recipes/ml-features
+    - guide/machine-learning/features
+    - guide/machine-learning/labels
+    - guide/machine-learning/training-set
     deeper:
     - notebooks/16-supervised-forecasting
     - notebooks/23-classifying-direction

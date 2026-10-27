@@ -1,17 +1,21 @@
 # Prepare data for machine learning
 
-A supervised model needs features known at each step and a target from the
-steps after it. These pages build both with screamer functions and pair them
-into a training set without look-ahead.
+A supervised model learns to predict a label, the price move after a bar,
+from features known at that bar. These pages build the features and the
+labels with screamer functions and pair them into training rows.
 
 <!-- tasks:start -->
 
-1. [A feature matrix for machine learning](../../recipes/ml-features.md)
+1. [Build a feature matrix for a model](features.md)
+2. [Label each bar with its future move](labels.md)
+3. [Pair features with labels without look-ahead](training-set.md)
 
 ```{toctree}
 :hidden:
 
-/recipes/ml-features
+/guide/machine-learning/features
+/guide/machine-learning/labels
+/guide/machine-learning/training-set
 /notebooks/16-supervised-forecasting
 /notebooks/23-classifying-direction
 /notebooks/24-triple-barrier-labels
@@ -24,6 +28,6 @@ into a training set without look-ahead.
 
 | Intent | Function |
 |:-------|:---------|
-| Scale-free features | `RollingZscore`, `EwMean`, `LogReturn` |
-| Pair features with a target over a horizon | `forecast_pairs` |
-| Label which of two price levels is reached first | `TripleBarrier`, `TripleBarrierOHLC` |
+| Compute features, one column each | `Resample`, `LogReturn`, `RollingZscore`, `RollingStd`, `EwMean`, `OFI` |
+| Label each bar with its future move | `Sign`, `TripleBarrierOHLC` |
+| Pair features with a label over a horizon | `forecast_pairs` |
