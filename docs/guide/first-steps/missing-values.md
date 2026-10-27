@@ -7,52 +7,48 @@ kernelspec:
 
 # Handle missing values and warmup
 
-Fill gaps with `FillNa` (a constant) or `Ffill` (the last value) before a
-rolling function, and choose with `start_policy` what the function returns
-before its window is full.
+Fill a gap with `Ffill` (the last value) or `FillNa` (a constant), and choose
+with `start_policy` what a rolling function returns before its window is full.
 
 ```{code-cell} ipython3
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from screamer import Resample, FillNa, RollingMean
+from screamer import Ffill, FillNa, RollingMean
 
-trades = pd.read_csv("../../notebooks/data/deribit_btc_perp_6h.csv")
-# Traded volume per 10 seconds; a 10-second bucket without trades is NaN.
-volume, ts = Resample(freq=10_000, agg="sum", fill="nan")(
-    trades["volume"].abs().to_numpy(), trades["timestamp"].to_numpy())
+df = pd.read_csv("../../notebooks/data/binance_daily_20.csv",
+                 parse_dates=["date"])
+close = df[df["symbol"] == "BTC"].set_index("date")["close"].iloc[:30].copy()
+close.iloc[[6, 7, 14]] = np.nan                  # three missing days
 
-df = pd.DataFrame({"volume": volume}, index=pd.to_datetime(ts, unit="ms"))
-df["mean_raw"] = RollingMean(6)(df["volume"])       # NaN at each gap
-df["filled"] = FillNa(0.0)(df["volume"])            # no trades, zero volume
-df["mean_filled"] = RollingMean(6)(df["filled"])    # NaN in the first 5 rows
-df["mean_early"] = RollingMean(6, start_policy="expanding")(df["filled"])
-df.head(10).round(0)
+out = pd.DataFrame({"close": close})
+out["ffill"] = Ffill()(close)                    # carry the last price forward
+out["fillna"] = FillNa(-1.0)(close)              # mark the gap with a constant
+out["mean"] = RollingMean(5)(close)              # NaN in warmup and at each gap
+out["mean_ffill"] = RollingMean(5)(out["ffill"])
+out["mean_early"] = RollingMean(5, start_policy="expanding")(out["ffill"])
+out.head(16).round(0)
 ```
 
-`RollingMean` skips a `NaN` input: it returns `NaN` at that step and its window
-keeps the last six finite values, which on the raw series can span several
-minutes. After `FillNa`, the window always covers one minute. Warmup is the
-first five rows, where the window holds fewer than six values: the default
-`start_policy="strict"` returns `NaN` there, and `"expanding"` averages the
-values seen so far.
+`RollingMean(5)` returns `NaN` for the first four days, while its window holds
+fewer than five values; `start_policy="expanding"` averages the values seen so
+far instead. A `NaN` input gives a `NaN` output and is left out of the window,
+so the mean recovers on the next day.
 
 ```{code-cell} ipython3
-part = df.iloc[60:240]  # minutes 10 to 40
 fig, ax = plt.subplots(figsize=(9, 3.5))
-ax.plot(part.index, part["mean_filled"], color="steelblue",
-        label="RollingMean(6) after FillNa(0)")
-ax.plot(part.index, part["mean_raw"], ".", color="darkorange", ms=4,
-        label="RollingMean(6) on the raw series")
-ax.set_ylabel("mean volume per 10 s")
-ax.legend(loc="upper right", fontsize=8)
+ax.plot(out.index, out["ffill"], color="0.6", ls="--", label="Ffill")
+ax.plot(out.index, out["close"], "o-", color="0.2", ms=3,
+        label="close with gaps")
+ax.plot(out.index, out["mean_early"], color="steelblue",
+        label='RollingMean(5, start_policy="expanding") after Ffill')
+ax.set_ylabel("price (USD)")
+ax.legend(loc="lower left", fontsize=8)
 plt.tight_layout()
 ```
-
-The raw mean averages only buckets that had trades, so it sits above the filled
-mean and has no value at an empty bucket.
 
 ## Go deeper
 
 - [NaN and warmup](../../nan_and_warmup.md): the NaN policy of each function and every `start_policy`.
 - [NaN handling notebook](../../notebooks/05-nan-handling.ipynb): the three NaN policies on worked examples.
-- [`FillNa`](../../functions_preprocessing/FillNa.md) and [`Ffill`](../../functions_preprocessing/Ffill.md): fill with a constant or carry the last value.
+- [`Ffill`](../../functions_preprocessing/Ffill.md) and [`FillNa`](../../functions_preprocessing/FillNa.md): carry the last value or fill with a constant.

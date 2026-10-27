@@ -27,10 +27,7 @@ tape.
 
 | Intent | Function |
 |:-------|:---------|
+| Add indicators to OHLCV columns | `BollingerBands`, `RollingRSI`, `ATR` |
+| Replace pandas `rolling` and `ewm` | `RollingMean`, `RollingStd`, `EwMean` |
 | Build time bars or bars of a fixed number of events from ticks | `Resample` |
-| Convert between pandas and a `(values, index)` pair | `from_pandas`, `to_pandas` |
-| Combine streams, carrying the last value of a stream that has not ticked | `CombineLatest` |
-| Interleave several index-sorted streams into one timeline | `Merge` |
-| Drop rows that contain NaN from any input | `Dropna` |
-| Keep only rows that satisfy a boolean condition | `Filter` |
-| Pick a subset of columns from a multi-column stream | `Select` |
+| Convert a `(values, index)` pair to pandas | `to_pandas` |

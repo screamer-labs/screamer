@@ -26,9 +26,6 @@ a missing input and before its window is full.
 
 | Intent | Function |
 |:-------|:---------|
+| A trailing-window mean | `RollingMean` |
 | Fill missing values | `Ffill`, `FillNa` |
-| Drop missing events from a stream | `Dropna` |
 | Mark missing or infinite values | `IsNan`, `IsFinite` |
-| Make a series stationary but keep its memory | `FracDiff` |
-| Standardise or rank | `RollingZscore`, `EwZscore`, `RollingRank` |
-| Shift a series in time | `Lag`, `Delay` |
