@@ -42,7 +42,9 @@ stamps 10 days after its bar and `forecast_pairs` moves back to the row of
 that bar. The last 10 rows have no label yet: they are the rows a live model
 predicts. `dropna=True` keeps the 1675 rows where every feature and the label
 are known, ready for any scikit-learn style learner. The rows stay in time
-order, so the first part can train a model and the rest test it.
+order, so the first part can train a model and the rest test it. Leave
+`horizon` rows out between the two parts, because the labels of the last
+training rows cover days inside the test part.
 
 ```{code-cell} ipython3
 last = slice(len(y) - 40, len(y))
