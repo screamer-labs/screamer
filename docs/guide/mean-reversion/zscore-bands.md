@@ -60,8 +60,8 @@ capital. A real position holds ETH against BTC, two legs that each pay costs.
 
 Without costs the 12 round trips earn 0.24% in six hours, and 11 of 12 make
 money. The whole gain comes before 02:30; after that the trades break even.
-A spread of 2 bp, 1 bp on each fill, takes all of it: a round trip earns
-about 2 bp on average, the cost of its two fills.
+A spread of 2 basis points (bp), 1 bp on each fill, takes all of it: a round
+trip earns about 2 bp on average, the cost of its two fills.
 
 ## Go deeper
 

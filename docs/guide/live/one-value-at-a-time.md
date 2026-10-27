@@ -31,9 +31,11 @@ live = np.array([score(x) for x in close])
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(9, 3.5))
-ax.plot(btc.index, live, color="steelblue")
+ax.plot(btc.index, batch, color="0.7", lw=3, label="batch")
+ax.plot(btc.index, live, color="steelblue", lw=1, label="live")
 ax.axhline(0, color="k", lw=0.5)
 ax.set_ylabel("50-day z-score of BTC close")
+ax.legend(loc="upper left", fontsize=8)
 plt.tight_layout()
 ```
 
@@ -47,4 +49,4 @@ keep one instance for each live feed and use it for nothing else.
 
 - [Streaming live events](../../notebooks/06-streaming-live-events.ipynb): a live signal event by event, and streams with no end.
 - [Streams in depth](../../streaming.md): the running series, lazy iterators, several sources, and errors.
-- [Run a strategy in a live loop](live-loop.md): a handler that keeps its state in the functions.
+- [Run functions in a live event loop](live-loop.md): a handler that keeps its state in the functions.

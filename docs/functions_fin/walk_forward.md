@@ -135,7 +135,7 @@ lengths are parameters of the procedure too: trying several and keeping the
 best brings back the selection bias that walk-forward removes. Pick them from
 the strategy's horizon, before looking at the result.
 
-## Example
+## Examples
 
 A trend rule on daily BTC with six lookback spans, a rolling one-year training
 window, and a three-month test window. The

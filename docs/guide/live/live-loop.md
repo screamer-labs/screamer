@@ -5,7 +5,7 @@ kernelspec:
   display_name: Python 3
 ---
 
-# Run a strategy in a live loop
+# Run functions in a live event loop
 
 Construct the functions once, outside the loop, and call them in the handler
 that receives each event: `EwMean` and `RollingZscore` keep their own state, so

@@ -7,4 +7,4 @@ myst:
 
 # A live event loop
 
-This page moved to [Run a strategy in a live loop](../guide/live/live-loop.md).
+This page moved to [Run functions in a live event loop](../guide/live/live-loop.md).

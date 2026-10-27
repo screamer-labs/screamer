@@ -33,7 +33,7 @@ for t, p in zip(ts, px):
     session.push("price", int(t), float(p))
     live += [paper(*row)[0] for row in session.result()[0]]   # completed bars
 live += [paper(*row)[0] for row in session.flush().result()[0]]
-print(f"{len(live)} bars, paper equity {live[-1]:.1f} USD")
+print(f"{len(rows)} bars, paper equity {live[-1]:.1f} USD")
 ```
 
 ```{code-cell} ipython3
@@ -60,6 +60,10 @@ with one row at a time, is the paper trader: it returns
 calls. In production, the loop body runs in the feed's callback, and a timer
 that calls `session.advance(now)` closes each minute on the clock when no trade
 arrives.
+
+The 5/30-minute crossover, paying 5 bp per fill, loses about 550 USD over the
+six hours. The page shows the wiring from research to a live loop, not an
+edge.
 
 ## Go deeper
 

@@ -26,7 +26,7 @@ once, and call each function with one value per event, as in Python.
 </script>
 ```
 
-This is the handler of [Run a strategy in a live loop](live-loop.md) on the
+This is the handler of [Run functions in a live event loop](live-loop.md) on the
 Binance BTC/USDT trade feed. A JavaScript constructor takes its parameters by
 name in one options object, `EwMean({ span: 50 })`, or by position,
 `RollingZscore(200)`. The module needs Chrome 95, Firefox 100, Safari 15.2 or

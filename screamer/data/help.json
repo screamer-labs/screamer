@@ -526,11 +526,6 @@
     "examples": [
       {
         "language": "python",
-        "caption": "Identity check",
-        "code": "from screamer import EwCorr, EwCov, EwVar\ndenom = np.sqrt(EwVar(alpha=0.1)(x) * EwVar(alpha=0.1)(y))\nnp.testing.assert_allclose(\n    EwCorr(alpha=0.1)(x, y),\n    EwCov(alpha=0.1)(x, y) / denom,\n    equal_nan=True, atol=1e-12,\n)"
-      },
-      {
-        "language": "python",
         "caption": "Usage example",
         "code": "import numpy as np\nimport plotly.graph_objects as go\nfrom screamer import EwCorr\n\nrng = np.random.default_rng(0)\nn = 400\n# Two series whose correlation regime changes mid-sample.\nx = rng.standard_normal(n)\ny = np.empty(n)\ny[:n//2] =  0.8 * x[:n//2] + 0.2 * rng.standard_normal(n//2)   # high corr\ny[n//2:] = -0.4 * x[n//2:] + 0.6 * rng.standard_normal(n//2)   # negative corr\n\nrho = EwCorr(span=30)(x, y)\n\nfig = go.Figure()\nfig.add_trace(go.Scatter(y=rho, mode='lines',\n                         name='EwCorr(span=30)',\n                         line=dict(color='steelblue')))\nfig.add_hline(y=0, line=dict(color='gray', dash='dot'))\nfig.update_layout(\n    title=\"EwCorr: Tracking a Regime Shift in Correlation\",\n    xaxis_title=\"Index\",\n    yaxis_title=\"Correlation\",\n    margin=dict(l=20, r=20, t=60, b=20),\n)\nfig.show()"
       }

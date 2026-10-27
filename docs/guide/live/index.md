@@ -1,16 +1,17 @@
 # Run on live data
 
 The functions that run on a whole array also run one event at a time on a
-live feed. These pages call a function value by
-value, align feeds that tick at different times, wire functions into a
-pipeline, and run a strategy in a live loop, in Python and in the browser.
+live feed. These pages call a function value by value, align feeds that tick
+at different times, wire functions into a pipeline, run them in a live event
+loop, and move a strategy from research to a live loop, in Python and in the
+browser.
 
 <!-- tasks:start -->
 
 1. [Process values one at a time](one-value-at-a-time.md)
 2. [Combine streams that tick at different times](align-streams.md)
 3. [Wire functions into a pipeline](pipeline.md)
-4. [Run a strategy in a live loop](live-loop.md)
+4. [Run functions in a live event loop](live-loop.md)
 5. [Move a strategy from research to a live loop](research-to-live.md)
 6. [Run screamer in the browser](browser.md)
 

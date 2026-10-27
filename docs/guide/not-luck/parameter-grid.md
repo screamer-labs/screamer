@@ -66,9 +66,9 @@ Every cell has a positive Sharpe ratio, from 0.14 to 0.72, so the result does
 not rest on one setting. The best cell, 50 against 200 days, has a p-value of
 0.007 on its own and a family p-value of 0.051 after the choice among 25. Its
 deflated Sharpe ratio of 0.82 is the probability that its true Sharpe ratio is
-above the 0.30 per year that the best of 25 variants with no skill would reach.
-The grid leans positive, but the best cell is not clearly better than what
-picking the best of 25 produces by chance.
+above 0.30, the annualized Sharpe ratio the best of 25 variants with no skill
+would reach. The grid leans positive, but the best cell is not clearly better
+than what picking the best of 25 produces by chance.
 
 ## Go deeper
 

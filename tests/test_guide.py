@@ -98,13 +98,17 @@ def test_check_reports_unlisted_notebook(capsys):
     assert dropped in capsys.readouterr().out
 
 
-# Pages that moved in Phase 1. Each old URL must keep working through a stub.
+# Pages that moved in Phases 1 and 2. Each old URL must keep working through a
+# stub.
 MOVED = [
     "installation", "capabilities",
     "recipes/pandas-ohlcv-indicators", "recipes/migrating", "recipes/ticks-to-backtest",
     "recipes/volatility-sizing", "recipes/first-strategy",
     "recipes/pairs-trade", "recipes/cross-sectional-momentum", "recipes/funding-carry",
     "recipes/stops-and-exits", "recipes/multi-asset", "choosing_an_operator",
+    # Phase 2
+    "recipes/significance-test", "recipes/walk-forward", "recipes/parameter-grid",
+    "recipes/ml-features", "recipes/live-loop", "recipes/strategy-to-live",
 ]
 
 _REFRESH = re.compile(r'"http-equiv=refresh":\s*"\d+;\s*url=([^"]+)"')

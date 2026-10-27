@@ -67,18 +67,6 @@ This equals `EwCov(x, y) / sqrt(EwVar(x) * EwVar(y))`: the bias-correction facto
 
 ## Examples
 
-### Identity check
-
-```python
-from screamer import EwCorr, EwCov, EwVar
-denom = np.sqrt(EwVar(alpha=0.1)(x) * EwVar(alpha=0.1)(y))
-np.testing.assert_allclose(
-    EwCorr(alpha=0.1)(x, y),
-    EwCov(alpha=0.1)(x, y) / denom,
-    equal_nan=True, atol=1e-12,
-)
-```
-
 ### Usage example
 
 ```{eval-rst}

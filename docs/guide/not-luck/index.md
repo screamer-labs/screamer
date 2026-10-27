@@ -2,8 +2,8 @@
 
 A good backtest can come from luck: from the timing of a few trades, or from
 trying many settings and keeping the best. These pages compare a rule with
-randomly timed copies of its own trades, check the best of a parameter grid
-against the best that luck would give, and choose parameters out of sample.
+randomly timed copies of its own trades, choose parameters out of sample, and
+check the best of a parameter grid against the best that luck would give.
 
 <!-- tasks:start -->
 
