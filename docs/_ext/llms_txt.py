@@ -1,11 +1,11 @@
 """Write llms.txt and llms-full.txt at the root of the HTML build.
 
 ``llms.txt`` (https://llmstxt.org) is an index of the site for language models:
-the agent guide, the guides, every function grouped by topic, and the worked
-examples, each linked to its page source as plain text. ``llms-full.txt``
+the agent guide, the guides, every function grouped by topic, and the task
+pages of the Guide, each linked to its page source as plain text. ``llms-full.txt``
 holds the agent guide and the full documentation of every function in one
 file. Both come from the installed screamer's built-in documentation
-(``screamer.docs``) and from docs/examples.yml, so they always match the
+(``screamer.docs``) and from docs/guide.yml, so they always match the
 pages built next to them.
 """
 import os
@@ -46,7 +46,7 @@ def _source_url(base: str, srcdir: Path, doc: str) -> str:
 
 
 def _title(srcdir: Path, doc: str) -> str:
-    """A recipe's or notebook's first '# ' heading."""
+    """A page's or notebook's first '# ' heading."""
     import json
     import re
     md, nb = srcdir / f"{doc}.md", srcdir / f"{doc}.ipynb"
@@ -96,12 +96,13 @@ def build_llms_txt(srcdir: Path, base: str) -> str:
                 lines.append(f"- [{name}]({url}): {entry.get('short', '')}")
         lines.append("")
 
-    spec = yaml.safe_load((srcdir / "examples.yml").read_text())
+    spec = yaml.safe_load((srcdir / "guide.yml").read_text())
     lines += ["## Examples", ""]
-    for area in spec["areas"]:
-        for ex in area["examples"]:
-            lines.append(f"- [{area['title']}: {_title(srcdir, ex['doc'])}]"
-                         f"({_source_url(base, srcdir, ex['doc'])}): {ex['text']}")
+    for part in spec["parts"]:
+        for chapter in part["chapters"]:
+            for doc in chapter.get("tasks", []):
+                lines.append(f"- [{chapter['title']}: {_title(srcdir, doc)}]"
+                             f"({_source_url(base, srcdir, doc)})")
     lines.append("")
     return "\n".join(lines)
 

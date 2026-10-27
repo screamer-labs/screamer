@@ -257,8 +257,8 @@ The precise reset rules are in the [Polymorphic API reference](polymorphic_api.m
 
 - **A first strategy**: [your first strategy](recipes/first-strategy.md) goes
   from prices to a costed backtest and a p-value.
-- **Examples**: [What you can build](capabilities.md) groups the recipes and
-  notebooks by task.
+- **Guide**: the [Guide](guide/index.md) answers common tasks with short,
+  runnable examples.
 - **Guides**: [backtesting best practices](backtesting_best_practices.md),
   [portfolios and pairs](portfolio_backtesting.md), and
   [labels and training sets](labels.md).

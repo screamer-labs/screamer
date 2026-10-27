@@ -2,10 +2,9 @@
 orphan: true
 myst:
   html_meta:
-    "http-equiv=refresh": "0; url=../capabilities.html"
+    "http-equiv=refresh": "0; url=../guide/index.html"
 ---
 
 # Recipes
 
-This page moved to [What you can build](../capabilities.md), which groups the recipes and
-notebooks by task.
+This page moved to the [Guide](../guide/index.md), which groups the examples by task.

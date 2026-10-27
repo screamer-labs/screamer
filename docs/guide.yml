@@ -6,7 +6,8 @@ parts:
   - slug: first-steps
     title: First steps
     line: Install screamer, apply a function, and handle missing values.
-    tasks: []
+    tasks:
+    - installation
     deeper:
     - notebooks/01-quickstart-polymorphic-api
     - notebooks/05-nan-handling

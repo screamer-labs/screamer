@@ -134,7 +134,6 @@ html_theme_options = {
 # be an empty box. Drop the primary sidebar on those pages (full-width prose plus
 # the right-hand on-this-page TOC).
 html_sidebars = {
-    "usage": [],
     "changelog": [],
 }
 
