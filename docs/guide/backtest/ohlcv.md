@@ -69,7 +69,7 @@ its round trips made money. Holding one BTC over the same period made about
 ## Go deeper
 
 - [See how fees and slippage change a result](costs.md): the same kind of rule at three cost levels.
-- [Check that a backtest result is not luck](../not-luck/index.md): compare the rule with randomly timed copies of its own trades.
+- [Test whether a strategy's timing beats chance](../not-luck/timing-test.md): compare the rule with randomly timed copies of its own trades.
 - [Size a position by volatility](../signal-to-position/volatility-sizing.md): trade a fraction of equity with `size="weight"`.
 - [`BacktestOHLCTarget`](../../functions_fin/BacktestOHLCTarget.md), [`backtest_report`](../../functions_fin/backtest_report.md): fill prices, delays, sizing, stops, and every statistic in the report.
 - [Choosing a backtest engine](../../functions_fin/choosing_a_backtest_engine.md): engines for prices, trades, and quotes, and for limit orders.

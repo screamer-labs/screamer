@@ -145,9 +145,9 @@ parts:
     title: Check that a backtest result is not luck
     line: Significance tests, walk-forward testing, and parameter grids.
     tasks:
-    - recipes/significance-test
-    - recipes/walk-forward
-    - recipes/parameter-grid
+    - guide/not-luck/timing-test
+    - guide/not-luck/walk-forward
+    - guide/not-luck/parameter-grid
     deeper:
     - notebooks/20-is-the-timing-real
     - notebooks/21-is-the-tuned-result-real

@@ -72,5 +72,5 @@ parameter grid accounts for.
 ## Go deeper
 
 - [`BacktestOHLCTarget`](../../functions_fin/BacktestOHLCTarget.md): every exit parameter, fill prices and delays.
-- [A parameter grid and its robustness](../../recipes/parameter-grid.md): account for picking the best of several exit levels.
+- [Check that a result holds across nearby parameters](../not-luck/parameter-grid.md): account for picking the best of several exit levels.
 - [Choosing a backtest engine](../../functions_fin/choosing_a_backtest_engine.md): engines with limit and stop orders.

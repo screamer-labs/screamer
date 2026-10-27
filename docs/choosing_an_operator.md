@@ -252,8 +252,8 @@ To evaluate a trading strategy on historical data, use one of screamer's backtes
 | Choose parameters out of sample | `walk_forward` | Picks the best variant on each training window and trades it on the next test window. |
 | Select between variants with funding, or between portfolio weightings | `walk_forward(carry=)`, `walk_forward` with a portfolio engine | Every run is scored after `BacktestCarry`; a (T, K, C) target is scored on the book. |
 
-See the [significance recipe](recipes/significance-test.md), the
-[walk-forward recipe](recipes/walk-forward.md), and
+See [Test whether a strategy's timing beats chance](guide/not-luck/timing-test.md),
+[Choose parameters with walk-forward testing](guide/not-luck/walk-forward.md), and
 [backtesting best practices](backtesting_best_practices.md).
 
 <!-- HELP_END -->

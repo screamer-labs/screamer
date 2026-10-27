@@ -173,19 +173,19 @@ A p-value covers one statistic. Both randomization tests also return every
 stands out on drawdown, win rate, or turnover as well (see the scatter plots in
 [`position_test`](functions_fin/position_test.md#distributions-of-every-statistic)).
 
-The recipe [Is my backtest significant?](recipes/significance-test.md) runs
-`position_test` on a real tape and on a market with built-in momentum, and
-computes `probabilistic_sharpe` for the result.
+[Test whether a strategy's timing beats chance](guide/not-luck/timing-test.md)
+runs `position_test` on a daily trend rule and computes `probabilistic_sharpe`
+for the result.
 
 Which test answers which question:
 
 | Question | Test | Randomizes | Reruns the strategy | Example |
 |---|---|---|---|---|
 | Does the timing beat random timing with the same trades? | `position_test` | when the trades happen | no | [Is my strategy's timing real?](notebooks/20-is-the-timing-real.ipynb) |
-| Does the best of several variants survive the choice? | `position_test` with a `(T, K)` target, `family_p_value` | all variants' timing together | no | [Is my backtest significant?](recipes/significance-test.md) |
+| Does the best of several variants survive the choice? | `position_test` with a `(T, K)` target, `family_p_value` | all variants' timing together | no | [Check that a result holds across nearby parameters](guide/not-luck/parameter-grid.md) |
 | Does a tuned or fitted strategy beat the same procedure on random markets? | `strategy_test`, `method="bars"` or `"returns"` | the market's bars or returns | yes | [I tuned my parameters. Is the result real?](notebooks/21-is-the-tuned-result-real.ipynb) |
 | Does a feature carry information? | `strategy_test`, `method="shift"` | the features' alignment with the market | yes | [Does my feature carry information?](notebooks/22-does-the-feature-carry-information.ipynb) |
-| Is the Sharpe ratio above zero, or above the best of the variants tried? | `probabilistic_sharpe`, `deflated_sharpe` | nothing (analytic) | no | [Is my backtest significant?](recipes/significance-test.md) |
+| Is the Sharpe ratio above zero, or above the best of the variants tried? | `probabilistic_sharpe`, `deflated_sharpe` | nothing (analytic) | no | [Test whether a strategy's timing beats chance](guide/not-luck/timing-test.md), [Check that a result holds across nearby parameters](guide/not-luck/parameter-grid.md) |
 
 `position_test` keeps the strategy's exposure in every randomized run, so a
 long-biased strategy in a rising market is tested on its timing only, not on
@@ -211,7 +211,9 @@ and correct for it:
   uses the data the choice was made on. With a portfolio engine the
   candidates are whole books, `(T, K, C)`.
 
-Both appear in the [significance recipe](recipes/significance-test.md#several-variants).
+[Check that a result holds across nearby parameters](guide/not-luck/parameter-grid.md)
+uses the first two, and [Choose parameters with walk-forward
+testing](guide/not-luck/walk-forward.md) the third.
 Reserve a final stretch of data that no variant was tuned on, and confirm the
 chosen variant on it once.
 

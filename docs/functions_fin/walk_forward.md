@@ -139,8 +139,8 @@ the strategy's horizon, before looking at the result.
 
 A trend rule on daily BTC with six lookback spans, a rolling one-year training
 window, and a three-month test window. The
-[walk-forward recipe](../recipes/walk-forward.md) plots the result and
-compares it with the span that looks best in hindsight.
+page [Choose parameters with walk-forward testing](../guide/not-luck/walk-forward.md)
+plots the result and compares it with the span that looks best in hindsight.
 
 ```{eval-rst}
 .. exec_code::
