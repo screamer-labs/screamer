@@ -15,7 +15,7 @@ Each chapter answers a few tasks with a short, runnable example. Read in order, 
 5. [Detect mean reversion](mean-reversion/index.md): Variance ratio, Hurst exponent, OU half-life, and z-score bands.
 6. [Find cycles](cycles/index.md): Measure the dominant cycle length and mark its turning points.
 7. [Detect regimes and change points](regimes/index.md): Hidden Markov models, Bayesian changepoints, and CUSUM events.
-8. [Read order flow and liquidity](order-flow/index.md): Trade signing, order-flow imbalance, and price impact.
+8. [Read order flow and liquidity](order-flow/index.md): Trade signing, order-flow imbalance, price impact, and illiquidity.
 
 ## Part 2: Build a strategy
 

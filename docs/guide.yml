@@ -84,11 +84,12 @@ parts:
     deeper: []
   - slug: order-flow
     title: Read order flow and liquidity
-    line: Trade signing, order-flow imbalance, and price impact.
+    line: Trade signing, order-flow imbalance, price impact, and illiquidity.
     tasks:
     - guide/order-flow/sign-trades
     - guide/order-flow/imbalance
     - guide/order-flow/price-impact
+    - guide/order-flow/illiquidity
     deeper:
     - notebooks/11-microstructure-order-flow
     - notebooks/12-microstructure-price-impact

@@ -14,7 +14,7 @@
 5. :doc:`Detect mean reversion <guide/mean-reversion/index>`: Variance ratio, Hurst exponent, OU half-life, and z-score bands.
 6. :doc:`Find cycles <guide/cycles/index>`: Measure the dominant cycle length and mark its turning points.
 7. :doc:`Detect regimes and change points <guide/regimes/index>`: Hidden Markov models, Bayesian changepoints, and CUSUM events.
-8. :doc:`Read order flow and liquidity <guide/order-flow/index>`: Trade signing, order-flow imbalance, and price impact.
+8. :doc:`Read order flow and liquidity <guide/order-flow/index>`: Trade signing, order-flow imbalance, price impact, and illiquidity.
 
 **Part 2: Build a strategy**
 
