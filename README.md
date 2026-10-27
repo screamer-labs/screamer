@@ -46,8 +46,8 @@ pip install screamer
 ```
 
 The wheel is self-contained (a single abi3 wheel per platform, no build step and no
-runtime dependencies). For development setup and the example notebooks see the
-[Installation](https://screamer.readthedocs.io/en/latest/installation.html) page.
+runtime dependencies). To build from source, see the
+[Install screamer](https://screamer.readthedocs.io/en/latest/guide/first-steps/install.html) page.
 
 Fit a quadratic to each sliding window of 50 values, take its slope at the latest
 value, then the sign of the slope to get the trend direction:
@@ -103,9 +103,9 @@ p(data);                                    // bind data at call time; p.live() 
 
 ## Documentation
 
-- **Start here:** [Your first strategy](https://screamer.readthedocs.io/en/latest/recipes/first-strategy.html)
-  goes from price data to a costed backtest and a p-value in one page.
-- **Python:** guides, recipes, runnable notebooks, and the full reference grouped
+- **Start here:** the [Guide](https://screamer.readthedocs.io/en/latest/guide/index.html)
+  goes from installing screamer to a costed backtest in short task pages.
+- **Python:** the Guide, runnable notebooks, and the full reference grouped
   by topic live at [screamer.readthedocs.io](https://screamer.readthedocs.io/en/latest/).
 - **JavaScript:** see [`js/README.md`](js/README.md) for install and the API. JavaScript
   API reference and guide: [screamer-labs.github.io/screamer](https://screamer-labs.github.io/screamer/).

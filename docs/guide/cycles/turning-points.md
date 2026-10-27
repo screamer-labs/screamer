@@ -30,7 +30,8 @@ df["turn"] = Diff()(Sign()(df["leadsine"] - df["sine"]))
 ahead = np.log(df["close"]).shift(-10) - np.log(df["close"])
 peak, trough = df["turn"] < 0, df["turn"] > 0
 pd.DataFrame({"marks": [peak.sum(), trough.sum()],
-              "moved as marked": [(ahead[peak] < 0).mean(), (ahead[trough] > 0).mean()]},
+              "moved as marked": [(ahead[peak] < 0).mean(),
+                                  (ahead[trough] > 0).mean()]},
              index=["peak", "trough"]).round(2)
 ```
 
@@ -38,9 +39,9 @@ pd.DataFrame({"marks": [peak.sum(), trough.sum()],
 same curve one eighth of a cycle ahead, so `leadsine` turns first. Both are
 `NaN` for the first 40 days. The last lines look ten days ahead to score the
 marks. They are not part of the indicator, which uses only past data. Over
-2022 to 2026 there are 54 marked
-peaks and 54 troughs; 48% of the peaks were followed by a lower price ten
-days later, and 52% of the troughs by a higher one.
+2022 to 2026 there are 54 marked peaks and 54 troughs; 48% of the peaks were
+followed by a lower price ten days later, and 52% of the troughs by a higher
+one.
 
 ```{code-cell} ipython3
 part = df.loc["2025"]

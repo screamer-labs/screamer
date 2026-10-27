@@ -20,7 +20,7 @@ df = pd.read_csv("../../notebooks/data/binance_daily_20.csv",
 close = df[df["symbol"] == "BTC"].set_index("date")["close"]
 
 out = pd.DataFrame({"close": close})
-# +1 after a 10% cumulative rise, -1 after a 10% fall, 0 on other days
+# +1 after a cumulative log return of +0.1, -1 after -0.1, 0 on other days
 out["event"] = CusumFilter(threshold=0.1)(LogReturn()(close))
 out["hold"] = Hold(10)(out["event"])
 out["cooldown"] = Hold(10, cooldown=10)(out["event"])
@@ -29,7 +29,8 @@ out[["event", "hold", "cooldown"]].dropna().ne(0).sum().rename("days not zero")
 ```
 
 The events come from [`CusumFilter`](../regimes/cusum.md): +1 on the day
-the price has risen 10% since the last event, -1 on the day it has fallen 10%.
+the cumulative log return since the last event reaches 0.1, a rise of about
+10.5%, and -1 on the day it reaches -0.1, a fall of about 9.5%.
 `Hold(10)` keeps each event for 10 days, the event day included, and returns 0
 when the 10 days are over. A new event during a hold replaces the held value
 and starts the 10 days again. With `cooldown=10`, events in the 10 days after a

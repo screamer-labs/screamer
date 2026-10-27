@@ -36,8 +36,8 @@ summary = pd.DataFrame({name: backtest_report(res, periods_per_year=365)[1]
 
 The rule is the moving-average trend rule of [Follow a trend with a
 moving-average crossover](../strategies/trend-following.md), long or short one
-times equity on daily BTC bars, with a 0.1% taker fee and 0.05% slippage on
-every fill. The stop-loss compares the price with the average entry fill. The
+times equity on daily BTC bars. Each target fills at the next day's open, with
+a 0.1% taker fee and 0.05% slippage on every fill. The stop-loss compares the price with the average entry fill. The
 trailing stop compares it with the highest high since entry for a long, and
 the lowest low for a short. When a bar opens beyond the exit level the
 position closes at that open; otherwise it closes at the level, on the bar

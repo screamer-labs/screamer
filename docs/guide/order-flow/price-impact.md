@@ -19,8 +19,8 @@ from screamer import LogReturn, Resample, RollingKyleLambda
 trades = pd.read_csv("../../notebooks/data/deribit_btc_perp_6h.csv")
 values, index = Resample(freq=60_000, agg="ohlcv2")(
     trades[["price", "volume"]].to_numpy(), trades["timestamp"].to_numpy())
-bars = pd.DataFrame(values, columns=["open", "high", "low", "close", "buy", "sell"],
-                    index=pd.to_datetime(index, unit="ms"))
+bars = pd.DataFrame(values, index=pd.to_datetime(index, unit="ms"),
+                    columns=["open", "high", "low", "close", "buy", "sell"])
 
 bars["ret"] = LogReturn()(bars["close"])
 bars["kyle"] = RollingKyleLambda(30)(bars["buy"] - bars["sell"], bars["ret"])

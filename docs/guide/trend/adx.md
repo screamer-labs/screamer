@@ -27,8 +27,8 @@ df[["plus_di", "plus_di_alone", "minus_di", "adx"]].tail().round(1)
 ```
 
 The inputs come in the order high, low, close, and the three output columns
-are `+DI`, `-DI` and `ADX`. `PlusDI` and `MinusDI` compute one of the
-directional indicators alone and give the same values. `+DI` and `-DI` are
+are `+DI`, `-DI` and `ADX`. `PlusDI` computes `+DI` alone and gives the same
+values, as the table shows; `MinusDI` does the same for `-DI`. `+DI` and `-DI` are
 `NaN` for the first 14 bars and `ADX` for the first 27, and all three match
 TA-Lib.
 
@@ -44,8 +44,8 @@ ax.legend(loc="upper left", fontsize=8)
 plt.tight_layout()
 ```
 
-A common reading takes `ADX` above 25 (the dashed line) as a trending market
-and below 20 as a market without a trend.
+A rule of thumb that goes back to Wilder (1978) reads `ADX` above 25 (the
+dashed line) as a trending market and below 20 as a market without a trend.
 
 ## Go deeper
 

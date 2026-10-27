@@ -1,8 +1,8 @@
 # Smooth and denoise a series
 
 A smoother keeps the slow movement of a series and removes the fast, noisy
-part. The smoother its output, the more it lags the series, and the pages below
-trade the two off in different ways. A spike, a single bad value, pulls every
+part. A smoother output lags the series more, and the pages below trade
+smoothness against lag in different ways. A spike, a single bad value, pulls every
 average, so remove it with a despiker before smoothing.
 
 <!-- tasks:start -->

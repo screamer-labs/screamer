@@ -7,7 +7,7 @@ a missing input and before its window is full.
 <!-- tasks:start -->
 
 1. [Install screamer](install.md)
-2. [Apply a function to an array, a column and a live stream](first-function.md)
+2. [Apply a function to an array, a column and one value at a time](first-function.md)
 3. [Handle missing values and warmup](missing-values.md)
 
 ```{toctree}
@@ -28,4 +28,4 @@ a missing input and before its window is full.
 |:-------|:---------|
 | A trailing-window mean | `RollingMean` |
 | Fill missing values | `Ffill`, `FillNa` |
-| Mark missing or infinite values | `IsNan`, `IsFinite` |
+| Drop missing values from a stream | `Dropna` |

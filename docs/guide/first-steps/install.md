@@ -40,5 +40,5 @@ and `make test` runs that step and then the test suite.
 
 ## Go deeper
 
-- [Apply a function to an array, a column and a live stream](first-function.md): the first example.
+- [Apply a function to an array, a column and one value at a time](first-function.md): the first example.
 - [Performance](../../performance.md): how fast the functions run.

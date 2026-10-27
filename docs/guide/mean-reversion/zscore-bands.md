@@ -36,8 +36,9 @@ pd.DataFrame(summary).loc[["total_pnl", "round_trips", "win_rate"]]
 
 The series is the minute log ETH/BTC ratio from the [variance ratio
 page](variance-ratio.md). Its deviations halve in 1 to 4 minutes until about
-04:15 and in 9 to 20 minutes after 05:00, so the 30-minute z-score window spans
-8 or more half-lives early in the session and 1.5 to 3 after 05:00.
+04:15, the half-life then grows, and from 05:00 they halve in 9 to 20 minutes.
+The 30-minute z-score window spans 8 or more half-lives early in the session
+and 1.5 to 3.3 after 05:00.
 `BandSignal` goes short when the z-score reaches 2, long at -2, and flat when
 it crosses 0. `Lag(1)` trades one minute after the signal, at the next minute's
 price. The backtest holds the ratio `ETH / BTC` as one price, with a weight of

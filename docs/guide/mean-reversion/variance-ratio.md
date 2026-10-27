@@ -50,10 +50,13 @@ plt.tight_layout()
 From 02:00, when the first 120-minute window is full, the z-score stays below
 -1.96 until 05:45, apart from two minutes at 05:05: at a one-minute scale the
 ratio reverts. The z-score rises over the session as the reversion weakens.
-On the daily closes of 2022 to 2026 in
-`binance_daily_20.csv` the same test gives a variance ratio of 1.02 and a
-z-score of 0.22, so across days the ratio behaves like a random walk. The
-other pages of this chapter use the minute series.
+Six hours is one session, and part of the reversion at one minute is bid-ask
+bounce: the last trade price jumps between the bid and the ask, and those
+jumps reverse. On the daily ETH/BTC closes of 2022 to 2026 in
+`binance_daily_20.csv`, one window over all 1733 daily changes with `lag=5`
+gives a variance ratio of 1.02 and a z-score of 0.22, so across days the ratio
+behaves like a random walk. The other pages of this chapter use the minute
+series.
 
 ## Go deeper
 

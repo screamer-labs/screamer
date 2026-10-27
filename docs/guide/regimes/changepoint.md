@@ -43,13 +43,18 @@ fig, (ax0, ax1) = plt.subplots(2, 1, figsize=(9, 4.5), sharex=True)
 ax0.plot(part.index, part["z"], color="0.5", lw=0.6)
 ax0.set_ylabel("standardized return")
 ax1.plot(part.index, part["run_length"], color="steelblue", lw=1)
+marks = part[drop.loc["2023":]]
+ax1.plot(marks.index, marks["run_length"], "o", color="crimson", ms=4,
+         label="sharp drop")
 ax1.set_ylabel("run length (days)")
+ax1.legend(loc="upper left", fontsize=8)
 plt.tight_layout()
 ```
 
-The table lists the five sharp drops. Each starts at one large move, such as the log return of -0.076 on 17 August 2023 after a
-quiet summer, and the log return of -0.151 on 5 February 2026, a
-standardized return of -6.5. The mean of daily returns hardly changes, so the
+The table lists the five sharp drops, marked red in the plot. Each starts at
+one large move, such as the log return of -0.076 on 17 August 2023 after a
+quiet summer, and the log return of -0.151 on 5 February 2026, a standardized
+return of -6.5. The mean of daily returns hardly changes, so the
 changes found on this series are changes in spread. A slow fall of the run
 length, as in mid-2025, means the evidence for a change builds up over weeks.
 

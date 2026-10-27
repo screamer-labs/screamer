@@ -41,13 +41,15 @@ out[:, 1] = BacktestCarry()(*out[:, 1].T, o[:, 1], rate)
 
 The funding file holds the BTCUSDT perpetual's payments on Binance, one row
 every eight hours, as a fraction of the position's value; a positive rate means
-longs pay shorts. Over this sample it averaged 6.6% a year. `Resample` sums each day's payments into a daily rate, using
-one-day buckets shifted by one hour (`origin`) so that a day's sum covers the
-three payments made while a position bought at that day's open is held.
-`BacktestCarry` charges the short leg's position with that rate, which pays
-the short when the rate is positive.
+longs pay shorts. Over this sample it averaged 6.6% a year. `Resample` sums
+the payments into a daily rate with one-day buckets shifted by one hour
+(`origin`), so the rate on day t holds the three payments from 08:00 on day
+t-1 to 00:00 on day t. `BacktestCarry` charges that rate on day t to the
+position held through day t-1, the position that earned those payments, and
+pays the short when the rate is positive.
 
-The book puts half the capital in each leg on the first day and holds it. Both
+The book sets a target of half the capital in each leg on the first day, which
+fills at the second day's open, and holds it. Both
 legs are priced with the daily spot bars, so their price gains and losses
 cancel exactly; a real perpetual trades at a small, moving difference to spot
 (the basis), and its short needs margin. Each leg pays a 0.1% fee and 0.05%
@@ -72,9 +74,10 @@ pd.Series({"sharpe": sharpe * np.sqrt(365), "max_drawdown_pct": 100 * dd,
 
 `PortfolioReport` is the portfolio version of `backtest_report`: its Sharpe
 ratio is per day, and `np.sqrt(365)` annualizes it. The book gains whenever the
-funding rate is positive and gives some back when it is negative. Its Sharpe
-ratio is far above that of a directional strategy because the backtest has no
-basis risk; take it as an upper bound.
+funding rate is positive and gives some back when it is negative, and ends at
+1.20 times its capital, about 3.8% a year. Its Sharpe ratio is not comparable
+with that of a directional strategy: the backtest has no basis risk and no
+margin cost, so take it as an upper bound.
 
 ## Go deeper
 

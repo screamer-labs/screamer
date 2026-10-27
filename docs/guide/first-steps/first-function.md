@@ -5,7 +5,7 @@ kernelspec:
   display_name: Python 3
 ---
 
-# Apply a function to an array, a column and a live stream
+# Apply a function to an array, a column and one value at a time
 
 Construct a function with its settings, such as `RollingMean(50)` for a 50-step
 moving average, then call it on a NumPy array, a pandas column, or one value at

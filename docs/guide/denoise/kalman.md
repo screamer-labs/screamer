@@ -30,7 +30,9 @@ trades[["price", "level"]].tail().round(2)
 
 The ratio `process_var / observation_var` sets the trade-off: a larger ratio
 follows each trade more closely, a smaller one gives a smoother level that lags
-more. Both variances are in the units of price squared, here USD squared.
+more. Both variances are in the units of price squared, here USD squared. The
+values here were chosen by eye, to give a smooth level that still follows the
+trades.
 
 ```{code-cell} ipython3
 part = trades.iloc[1000:1600]

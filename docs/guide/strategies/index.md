@@ -3,8 +3,11 @@
 A strategy template is a complete rule, from data to backtest, that you can
 copy and change. Each page trades committed crypto data with fees, and ends
 with the same three numbers: the Sharpe ratio, the maximum drawdown in percent
-of the peak, and the number of trades. The templates use standard settings, not tuned on the data,
-and most of them lose money on this sample.
+of the peak, and the number of trades. The templates use standard settings,
+not tuned on the data, and most of them lose money on this sample. Crypto
+trades around the clock, so on daily bars the next day's open equals the
+previous close: a fill at the next open trades at the price the signal saw,
+with no time to act, which makes the results slightly optimistic.
 
 <!-- tasks:start -->
 

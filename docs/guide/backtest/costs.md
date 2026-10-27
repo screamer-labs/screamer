@@ -57,7 +57,9 @@ plt.tight_layout()
 The rule loses 72 USD before costs. With BTC near 29,000 USD, a 0.05% fee is
 about 15 USD a contract, and the 17 trades, most of them reversals of two
 contracts, pay 480 USD in fees. That is more than three times the price range
-of the whole six hours, about 140 USD.
+of the whole six hours, about 140 USD. On the daily bars of the previous page
+the costs took 3,500 USD of a 56,000 USD profit: the slower the rule, the
+smaller the share of its moves that the costs take.
 
 ## Go deeper
 

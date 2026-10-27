@@ -37,7 +37,9 @@ pd.Series(summary)[["total_pnl", "total_cost", "max_drawdown", "sharpe",
 The data is daily Binance BTC/USDT bars from January 2022 to September 2026.
 The signal on each day uses that day's close. The engine holds it and trades
 it at the next day's open, so the signal goes in as it is, without a lag. A
-target is a position in units, here BTC, so +1 is long one BTC.
+target is a position in units, here BTC, so +1 is long one BTC. `EwMean`
+gives a value from the first day, so the first trades rest on averages of
+only a few prices.
 
 `out` has one row per bar and four columns: `equity` (the cumulative profit,
 in USD), `pnl` (the profit of the bar), `position` (BTC held at the close),

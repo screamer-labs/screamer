@@ -24,12 +24,11 @@ out["mode"] = TrendMode()(close)
 out["mode"].loc["2025"].resample("QE").mean().round(2)
 ```
 
-`TrendMode` measures the dominant cycle of the series. A sample reads cycle
-for half a cycle after each turn of that cycle and while its phase advances
-at the cycle's own rate. It reads trend whenever the smoothed price is at
-least 1.5% away from the cycle's trendline. The 1.5% rule makes it a tool for
-prices; on returns, which stay near zero, every sample reads trend. The table
-above is the share of trending days per quarter of 2025.
+`TrendMode` measures the dominant cycle of the series and reads cycle for half
+a period after each cycle turn, and while the cycle advances at its own rate.
+It reads trend when the smoothed price is at least 1.5% from the cycle's
+trendline, so use it on prices: on returns, which stay near zero, every sample
+reads trend. The table is the share of trending days per quarter of 2025.
 
 ```{code-cell} ipython3
 part = out.loc["2025"]

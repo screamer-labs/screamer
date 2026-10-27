@@ -30,7 +30,7 @@ out.loc["2025-03"].head().round(0)
 `HullMA` subtracts a slow weighted average from twice a fast one, which
 extrapolates the trend. `KAMA` changes its smoothing every step: it moves fast
 when the last 30 days went mostly in one direction and slowly when they went
-back and forth. `SuperSmoother` removes cycles shorter than `period` days.
+back and forth. `SuperSmoother` attenuates cycles shorter than `period` days.
 `SuperSmoother` starts from zero, so its first few dozen outputs are a start-up
 transient; the plot shows a later stretch.
 
@@ -51,8 +51,9 @@ plt.tight_layout()
 In the late-April rally `HullMA` reaches the price within a week, while
 `RollingMean(30)` is still about 8000 USD below it. `KAMA` hardly moves in
 the first three weeks of April, while the price swings. The cost of less lag
-is overshoot: `HullMA` runs past the price after a sharp move, as in early
-February.
+is overshoot: after a sharp move `HullMA` runs past the price, as in
+mid-February, when it keeps falling below the price after the drop at the start
+of the month.
 
 ## Go deeper
 

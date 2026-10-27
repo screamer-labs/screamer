@@ -69,15 +69,14 @@ plt.tight_layout()
 
 ```{code-cell} ipython3
 *_, trades, _, sharpe = PortfolioReport()(out)[-1]
-dd = MaxDrawdown()(1 + out[:, :, 0].sum(axis=1))[-1]   # fraction of the peak
-pd.Series(dict(sharpe=sharpe, max_drawdown_pct=100 * dd, num_trades=trades))
+dd = 100 * MaxDrawdown()(1 + out[:, :, 0].sum(axis=1))[-1]  # percent of peak
+pd.Series(dict(sharpe=sharpe, max_drawdown_pct=dd, num_trades=trades)).round(2)
 ```
 
 `PortfolioReport` is the portfolio version of `backtest_report`. Its Sharpe
 ratio is per minute and left that way, because six hours are too short to
-annualize. The fees are the
-whole loss: before fees the book ends close to flat, and each of the twelve
-position changes trades both legs.
+annualize. The fees are the whole loss: before fees the book ends close to
+flat, and each of the twelve position changes trades both legs.
 
 ## Go deeper
 

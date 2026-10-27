@@ -33,6 +33,7 @@ trading on the crossover.
 
 ```{code-cell} ipython3
 part = out.loc["2024":"2025"]
+print("state changes:", int((part["trend"].diff().abs() > 0).sum()))
 fig, ax = plt.subplots(figsize=(9, 3.5))
 ax.plot(part.index, part["close"], color="0.6", lw=0.8, label="close")
 ax.plot(part.index, part["fast"], color="crimson", label="EwMean(span=20)")

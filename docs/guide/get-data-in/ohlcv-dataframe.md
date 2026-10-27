@@ -25,8 +25,9 @@ df["atr"] = ATR(14)(df["high"], df["low"], df["close"])
 df.iloc[20:25, 7:].round(1)
 ```
 
-A function with one output returns one column. A function with several outputs
-returns a `(T, k)` array that fills `k` columns in one assignment. `ATR` takes
+A function with one output returns one column. A function with several outputs,
+such as `BollingerBands`, returns one column per output, which fill several
+DataFrame columns in one assignment. `ATR` takes
 three inputs in the order its page lists: high, low, close. Each indicator is
 `NaN` until its window has filled.
 
