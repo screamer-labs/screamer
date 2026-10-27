@@ -72,14 +72,17 @@ def test_task_page_shape():
     mod = _module()
     for doc in _task_pages(mod):
         text = (DOCS / f"{doc}.md").read_text()
+        m = re.search(r"^## Go deeper\n(.*)", text, re.M | re.S)
+        assert m and re.search(r"\]\([^)]+\)", m.group(1)), f"{doc}: no Go deeper links"
+        front = re.match(r"---\n(.*?)\n---\n", text, re.S)
+        if front and re.search(r"^exempt_shape:\s*true\s*$", front.group(1), re.M):
+            continue  # a prose page, such as installation, has no example to run
         assert "file_format: mystnb" in text, doc
         cells = re.findall(r"```\{code-cell\}[^\n]*\n(.*?)```", text, re.S)
         assert cells, f"{doc}: no code-cell"
         lines = sum(len([l for l in c.splitlines() if l.strip() and not l.startswith(":")])
                     for c in cells)
         assert lines <= 35, f"{doc}: {lines} code lines"
-        m = re.search(r"^## Go deeper\n(.*)", text, re.M | re.S)
-        assert m and re.search(r"\]\([^)]+\)", m.group(1)), f"{doc}: no Go deeper links"
 
 
 def test_check_reports_unlisted_notebook():

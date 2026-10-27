@@ -1,17 +1,34 @@
 # First steps
 
-Install screamer, apply a function, and handle missing values. This chapter is being written.
+Install screamer, then apply one function to a NumPy array, a pandas column,
+and a stream of single values. The last page covers what a function returns for
+a missing input and before its window is full.
 
 <!-- tasks:start -->
 
-1. [Installation](../../installation.md)
+1. [Install screamer](install.md)
+2. [Apply a function to an array, a column and a live stream](first-function.md)
+3. [Handle missing values and warmup](missing-values.md)
 
 ```{toctree}
 :hidden:
 
-/installation
+/guide/first-steps/install
+/guide/first-steps/first-function
+/guide/first-steps/missing-values
 /notebooks/01-quickstart-polymorphic-api
 /notebooks/05-nan-handling
 ```
 
 <!-- tasks:end -->
+
+## All functions for this chapter
+
+| Intent | Function |
+|:-------|:---------|
+| Fill missing values | `Ffill`, `FillNa` |
+| Drop missing events from a stream | `Dropna` |
+| Mark missing or infinite values | `IsNan`, `IsFinite` |
+| Make a series stationary but keep its memory | `FracDiff` |
+| Standardise or rank | `RollingZscore`, `EwZscore`, `RollingRank` |
+| Shift a series in time | `Lag`, `Delay` |

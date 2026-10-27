@@ -1,54 +1,10 @@
+---
+orphan: true
+myst:
+  html_meta:
+    "http-equiv=refresh": "0; url=guide/first-steps/install.html"
+---
+
 # Installation
 
-This page covers the prerequisites and installation options for screamer.
-
-## Prerequisites
-
-Python 3.12 or newer is required (`requires-python = ">=3.12"`). One wheel per
-platform installs on 3.12 and every later 3.x.
-
-## Installing screamer
-
-```console
-pip install screamer
-```
-
-The wheel includes the compiled C++ extension and has no runtime dependencies.
-`nanobind` is used only to build the extension, not at import time.
-
-## Running the example notebooks
-
-The example notebooks additionally require numpy, and some also use matplotlib
-and pandas. Install them all at once with the `docs` extra:
-
-```console
-pip install "screamer[docs]"
-```
-
-Or install only what you need directly:
-
-```console
-pip install numpy matplotlib pandas
-```
-
-## From source / development
-
-Clone the repository and do an editable install:
-
-```console
-git clone https://github.com/screamer-labs/screamer.git
-cd screamer
-pip install -e .
-```
-
-To run the test suite, add the `test` extra (pytest, numpy>=2.0, scipy,
-pandas, PyYAML):
-
-```console
-pip install -e ".[test]"
-make test
-```
-
-The project ships `make` targets for the full build cycle. `make install-dev`
-rebuilds the C++ extension and installs it in editable mode; `make test` runs
-that step then runs the suite.
+This page moved to [Install screamer](guide/first-steps/install.md).

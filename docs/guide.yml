@@ -7,7 +7,9 @@ parts:
     title: First steps
     line: Install screamer, apply a function, and handle missing values.
     tasks:
-    - installation
+    - guide/first-steps/install
+    - guide/first-steps/first-function
+    - guide/first-steps/missing-values
     deeper:
     - notebooks/01-quickstart-polymorphic-api
     - notebooks/05-nan-handling
@@ -15,9 +17,9 @@ parts:
     title: Get your data in
     line: Load OHLCV data, migrate from pandas and TA-Lib, and build bars from ticks.
     tasks:
-    - recipes/pandas-ohlcv-indicators
-    - recipes/migrating
-    - recipes/ticks-to-backtest
+    - guide/get-data-in/ohlcv-dataframe
+    - guide/get-data-in/from-pandas-talib
+    - guide/get-data-in/bars-from-ticks
     deeper:
     - notebooks/09-bars-from-ticks
     - notebooks/10-custom-and-multi-column-bars
