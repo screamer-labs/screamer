@@ -9,6 +9,8 @@ This extension renders it on the HTML page, so the frontmatter is the one copy:
   "z-score" finds the function;
 - the one-line summary and the Python and JavaScript signatures, under the
   page title;
+- the Examples section moved to directly after the header, so the reader
+  sees the example before the Description;
 - a parameter table and the outputs, after the Description section;
 - See also and References lists at the end of the page.
 
@@ -32,6 +34,7 @@ H1_RE = re.compile(r"^# .*\n", re.M)
 H2_RE = re.compile(r"^## (.+)$", re.M)
 JS_SIG_RE = re.compile(r"^export function (\w+)\((.*)\): ScreamerOp \{$", re.M)
 JS_PARAM_RE = re.compile(r"(\w+): [^=,]+?(?: = ((?:\[[^\]]*\])|[^,]+))?(?:,|$)")
+START_MARKER_RE = re.compile(r"<!-- [A-Z_]+_START -->\n\Z")
 
 
 def _js_signatures():
@@ -133,6 +136,34 @@ def _link(docname, target, help_map):
     return f"[`{target}`]({rel}.md){': ' + short if short else ''}"
 
 
+def _section_start(text, heading):
+    """Start of a section, including a ``<!-- X_START -->`` marker above it."""
+    marker = START_MARKER_RE.search(text[:heading.start()])
+    return marker.start() if marker else heading.start()
+
+
+def _examples_first(text):
+    """Move the ``## Examples`` section in front of the first section.
+
+    ``text`` holds the page's sections, from the first ``## `` heading on. The
+    Examples section runs up to the next ``## `` heading. Text without an
+    Examples section, or with Examples already first, is returned unchanged.
+    """
+    headings = list(H2_RE.finditer(text))
+    for i, h in enumerate(headings):
+        if h.group(1).strip() == "Examples":
+            break
+    else:
+        return text
+    if i == 0:
+        return text
+    start = h.start()
+    end = _section_start(text, headings[i + 1]) if i + 1 < len(headings) else len(text)
+    first = _section_start(text, headings[0])
+    chunk = text[start:end].rstrip("\n") + "\n\n"
+    return text[:first] + chunk + text[first:start] + text[end:]
+
+
 class _State:
     help_map = None
     js_sigs = None
@@ -196,6 +227,11 @@ def _source_read(app, docname, source):
             if marker:
                 at = marker.start()
             body = body[:at] + block + "\n" + body[at:]
+
+    first = H2_RE.search(body, h1.end())
+    if first:
+        at = _section_start(body, first)
+        body = body[:at] + _examples_first(body[at:])
 
     existing = {h.group(1).strip().lower() for h in H2_RE.finditer(body)}
     tail = []
