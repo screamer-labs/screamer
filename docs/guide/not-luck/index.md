@@ -1,0 +1,22 @@
+# Check that a backtest result is not luck
+
+Significance tests, walk-forward testing, and parameter grids. This chapter is being written.
+
+<!-- tasks:start -->
+
+1. [Is my backtest significant?](../../recipes/significance-test.md)
+2. [Walk-forward parameter selection](../../recipes/walk-forward.md)
+3. [A parameter grid and its robustness](../../recipes/parameter-grid.md)
+
+```{toctree}
+:hidden:
+
+/recipes/significance-test
+/recipes/walk-forward
+/recipes/parameter-grid
+/notebooks/20-is-the-timing-real
+/notebooks/21-is-the-tuned-result-real
+/notebooks/22-does-the-feature-carry-information
+```
+
+<!-- tasks:end -->

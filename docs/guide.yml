@@ -1,0 +1,139 @@
+# Registry of the Guide: parts, chapters, and the pages each chapter lists.
+# Run devtools/build_guide.py after editing; it writes the landing pages and the home contents.
+parts:
+- title: Basics
+  chapters:
+  - slug: first-steps
+    title: First steps
+    line: Install screamer, apply a function, and handle missing values.
+    tasks: []
+    deeper:
+    - notebooks/01-quickstart-polymorphic-api
+    - notebooks/05-nan-handling
+  - slug: get-data-in
+    title: Get your data in
+    line: Load OHLCV data, migrate from pandas and TA-Lib, and build bars from ticks.
+    tasks:
+    - recipes/pandas-ohlcv-indicators
+    - recipes/migrating
+    - recipes/ticks-to-backtest
+    deeper:
+    - notebooks/09-bars-from-ticks
+    - notebooks/10-custom-and-multi-column-bars
+- title: Understand a series
+  chapters:
+  - slug: denoise
+    title: Smooth and denoise a series
+    line: Moving averages, low-lag smoothers, Kalman and Butterworth filters, despiking.
+    tasks: []
+    deeper:
+    - notebooks/04-signal-processing
+    - notebooks/17-filtering-and-forecasting-with-uncertainty
+  - slug: volatility
+    title: Measure volatility
+    line: Close-to-close and OHLC estimators, ATR, and intraday seasonality.
+    tasks: []
+    deeper:
+    - notebooks/02-window-statistics
+  - slug: trend
+    title: Detect a trend
+    line: Slope and regression, DMI and ADX, trend mode, and crossovers.
+    tasks: []
+    deeper:
+    - notebooks/03-financial-indicators
+  - slug: mean-reversion
+    title: Detect mean reversion
+    line: Variance ratio, Hurst exponent, OU half-life, and z-score bands.
+    tasks: []
+    deeper:
+    - notebooks/18-pairs-and-mean-reversion
+  - slug: cycles
+    title: Find cycles
+    line: Estimate the dominant cycle of a series.
+    tasks: []
+    deeper:
+    - notebooks/19-cycle-and-spectral-analysis
+  - slug: regimes
+    title: Detect regimes and change points
+    line: Hidden Markov models, Bayesian changepoints, and CUSUM events.
+    tasks: []
+    deeper: []
+  - slug: order-flow
+    title: Read order flow and liquidity
+    line: Trade signing, imbalance, price impact, and toxicity.
+    tasks: []
+    deeper:
+    - notebooks/11-microstructure-order-flow
+    - notebooks/12-microstructure-price-impact
+    - notebooks/13-microstructure-toxicity-and-book
+- title: Build a strategy
+  chapters:
+  - slug: signal-to-position
+    title: Turn a signal into a position
+    line: Sign, bands and hysteresis, holding, and volatility sizing.
+    tasks:
+    - recipes/volatility-sizing
+    deeper: []
+  - slug: backtest
+    title: Backtest a signal on OHLCV bars
+    line: Costs, the report, the equity curve, and event-driven backtests.
+    tasks:
+    - recipes/first-strategy
+    deeper:
+    - notebooks/14-backtesting-a-signal
+    - notebooks/15-event-driven-backtests
+  - slug: strategies
+    title: Strategy templates
+    line: Trend following, breakouts, reversion, pairs, momentum, and carry.
+    tasks:
+    - recipes/pairs-trade
+    - recipes/cross-sectional-momentum
+    - recipes/funding-carry
+    deeper: []
+  - slug: stops
+    title: Stops and exits
+    line: Stop-loss, trailing stops, and take-profit exits.
+    tasks:
+    - recipes/stops-and-exits
+    deeper: []
+  - slug: portfolios
+    title: Portfolios of many assets
+    line: Backtest and size positions across many assets at once.
+    tasks:
+    - recipes/multi-asset
+    deeper: []
+- title: Test a strategy
+  chapters:
+  - slug: not-luck
+    title: Check that a backtest result is not luck
+    line: Significance tests, walk-forward testing, and parameter grids.
+    tasks:
+    - recipes/significance-test
+    - recipes/walk-forward
+    - recipes/parameter-grid
+    deeper:
+    - notebooks/20-is-the-timing-real
+    - notebooks/21-is-the-tuned-result-real
+    - notebooks/22-does-the-feature-carry-information
+  - slug: machine-learning
+    title: Prepare data for machine learning
+    line: Labels and features for supervised models.
+    tasks:
+    - recipes/ml-features
+    deeper:
+    - notebooks/16-supervised-forecasting
+    - notebooks/23-classifying-direction
+    - notebooks/24-triple-barrier-labels
+    - notebooks/25-meta-labeling
+- title: Run a strategy live
+  chapters:
+  - slug: live
+    title: Run on live data
+    line: Streaming, pipelines, a live loop, and JavaScript in the browser.
+    tasks:
+    - recipes/live-loop
+    - recipes/strategy-to-live
+    deeper:
+    - notebooks/06-streaming-live-events
+    - notebooks/07-multi-stream-operators
+    - notebooks/08-pipelines
