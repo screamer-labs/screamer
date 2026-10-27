@@ -1,6 +1,9 @@
 # Check that a backtest result is not luck
 
-Significance tests, walk-forward testing, and parameter grids. This chapter is being written.
+A good backtest can come from luck, from the timing of a few trades or from
+trying many settings and keeping the best. These pages test a result against
+randomly timed copies of its own trades, correct the Sharpe ratio for the
+number of variants tried, and choose parameters out of sample.
 
 <!-- tasks:start -->
 
@@ -20,3 +23,12 @@ Significance tests, walk-forward testing, and parameter grids. This chapter is b
 ```
 
 <!-- tasks:end -->
+
+## All functions for this chapter
+
+| Intent | Function |
+|:-------|:---------|
+| Compare a result with randomly timed copies of its trades | `position_test` |
+| Correct the Sharpe ratio for the number of variants tried | `probabilistic_sharpe`, `deflated_sharpe` |
+| Choose parameters out of sample | `walk_forward` |
+| Backtest each variant | `BacktestOHLCTarget` |

@@ -8,7 +8,7 @@ kernelspec:
 # Add stops and exits
 
 `BacktestOHLCTarget` closes a position on its own when the price moves too
-far: `stop_loss` against the entry, `take_profit` in favour of it, and
+far: `stop_loss` against the entry, `take_profit` in favor of it, and
 `trailing_stop` back from the best price since entry, each a fraction of the
 price (0.10 is 10%).
 
@@ -37,14 +37,14 @@ summary = pd.DataFrame({name: backtest_report(res, periods_per_year=365)[1]
 The rule is the moving-average trend rule of [Follow a trend with a
 moving-average crossover](../strategies/trend-following.md), long or short one
 times equity on daily BTC bars. Each target fills at the next day's open, with
-a 0.1% taker fee and 0.05% slippage on every fill. The stop-loss compares the price with the average entry fill. The
-trailing stop compares it with the highest high since entry for a long, and
-the lowest low for a short. When a bar opens beyond the exit level the
-position closes at that open; otherwise it closes at the level, on the bar
-whose low or high reaches it. An exit is a market order and pays the same fee
-and slippage as any other trade. After an exit the engine ignores further
-targets on the same side, so the position stays flat until the signal turns
-flat or reverses.
+a 0.1% taker fee and 0.05% slippage on every fill. The stop-loss compares the
+price with the average entry fill. The trailing stop compares it with the
+highest high since entry for a long, and the lowest low for a short. When a
+bar opens beyond the exit level the position closes at that open; otherwise it
+closes at the level, on the bar whose low or high reaches it. An exit is a
+market order and pays the same fee and slippage as any other trade. After an
+exit the engine ignores further targets on the same side, so the position
+stays flat until the signal turns flat or reverses.
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(9, 3.5))
@@ -63,11 +63,11 @@ summary.loc[["sharpe", "max_drawdown_pct", "num_trades", "exposure"]].round(2)
 ```
 
 `exposure` is the share of days with a position. On this sample both exits
-reduce the largest drawdown, from 53% of the peak to 43% with the stop-loss and
-38% with the trailing stop, which holds a position on fewer than half the days.
-The two levels were picked as round numbers and compared on the same data;
-choosing among variants this way is a form of selection, which a parameter grid
-accounts for.
+reduce the largest drawdown, from 53% of the peak to 43% with the stop-loss
+and 38% with the trailing stop, which holds a position on fewer than half the
+days. The two levels were picked as round numbers and compared on the same
+data; choosing among variants this way is a form of selection, which a
+parameter grid accounts for.
 
 ## Go deeper
 

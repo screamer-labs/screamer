@@ -60,5 +60,5 @@ the cooldown.
 ## Go deeper
 
 - [`Hold`](../../functions_signal/Hold.md): how a new event restarts a hold, the `release` value, and the cooldown rules.
-- [Mark events at cumulative moves](../regimes/cusum.md): the events used here.
+- [Sample events at large cumulative moves](../regimes/cusum.md): the events used here.
 - [Stops and exits](../stops/index.md): close a position on a price level instead of a count of bars.

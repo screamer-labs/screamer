@@ -1,6 +1,8 @@
 # Run on live data
 
-Streaming, pipelines, a live loop, and JavaScript in the browser. This chapter is being written.
+The functions that run on a whole array also run one event at a time on a
+live feed and give the same numbers. These pages run a loop on single events
+and turn a research pipeline into a live one.
 
 <!-- tasks:start -->
 
@@ -18,3 +20,12 @@ Streaming, pipelines, a live loop, and JavaScript in the browser. This chapter i
 ```
 
 <!-- tasks:end -->
+
+## All functions for this chapter
+
+| Intent | Function |
+|:-------|:---------|
+| Define a computation once and bind data at call time | `Input`, `Pipeline` |
+| Bars from a live trade feed | `Resample` |
+| Combine feeds that tick at different times | `CombineLatest` |
+| Pick columns from a multi-column stream | `Select` |

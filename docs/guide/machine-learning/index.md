@@ -1,6 +1,8 @@
 # Prepare data for machine learning
 
-Labels and features for supervised models. This chapter is being written.
+A supervised model needs features known at each step and a target from the
+steps after it. These pages build both with screamer functions and pair them
+into a training set without look-ahead.
 
 <!-- tasks:start -->
 
@@ -17,3 +19,11 @@ Labels and features for supervised models. This chapter is being written.
 ```
 
 <!-- tasks:end -->
+
+## All functions for this chapter
+
+| Intent | Function |
+|:-------|:---------|
+| Scale-free features | `RollingZscore`, `EwMean`, `LogReturn` |
+| Pair features with a target over a horizon | `forecast_pairs` |
+| Label which of two price levels is reached first | `TripleBarrier`, `TripleBarrierOHLC` |

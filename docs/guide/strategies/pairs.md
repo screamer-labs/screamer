@@ -53,7 +53,7 @@ statistic is below -3.34, the 5% Engle-Granger critical value, which also
 keeps it flat while the 60-minute ADF window fills. One unit of
 spread is long ETH and short `beta` times as much BTC by value, with a gross
 weight of 1; targets are sent only when the position changes, so the legs are
-not rebalanced every minute. Each trade pays a 2 bps fee and fills at the next
+not rebalanced every minute. Each trade pays a 2 bp fee and fills at the next
 minute's open.
 
 ```{code-cell} ipython3
@@ -63,7 +63,7 @@ ax0.plot(t, z, color="0.5", lw=0.8)
 ax0.step(t, 2 * position, color="crimson", lw=1.0, where="post")
 ax0.set_ylabel("z-score, position")
 ax1.plot(t, out[:, :, 0].sum(axis=1) * 1e4, color="seagreen")
-ax1.set_ylabel("pnl (bps of capital)")
+ax1.set_ylabel("pnl (bp of capital)")
 plt.tight_layout()
 ```
 

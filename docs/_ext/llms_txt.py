@@ -97,7 +97,7 @@ def build_llms_txt(srcdir: Path, base: str) -> str:
         lines.append("")
 
     spec = yaml.safe_load((srcdir / "guide.yml").read_text())
-    lines += ["## Examples", ""]
+    lines += ["## Guide", ""]
     for part in spec["parts"]:
         for chapter in part["chapters"]:
             for doc in chapter.get("tasks", []):

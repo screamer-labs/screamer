@@ -23,6 +23,7 @@ btc = df[df["symbol"] == "BTC"].set_index("date")
 o, h, l, c = (btc[k] for k in ["open", "high", "low", "close"])
 
 direction = Sign()(EwMean(span=20)(c) - EwMean(span=100)(c))
+direction[:100] = 0.0                       # slow average still warming up
 vol = EwStd(span=60)(LogReturn()(c)) * np.sqrt(365)        # annual volatility
 leverage = Round()(FillNa(0.0)(Clip(upper=2.0)(0.40 / vol)) * 10) / 10
 weights = {"fixed, weight ±1": direction,
@@ -39,8 +40,8 @@ for name, w in weights.items():
 pd.DataFrame(stats).loc[["sharpe", "num_trades", "total_cost"]].round(2)
 ```
 
-The direction is the moving-average trend rule of [Backtest a signal on OHLCV
-bars](../backtest/ohlcv.md). The weight is `0.4 / vol`, capped at 2 (twice the
+The direction is the moving-average trend rule of [Follow a trend with a
+moving-average crossover](../strategies/trend-following.md). The weight is `0.4 / vol`, capped at 2 (twice the
 equity) by `Clip` and rounded to steps of 0.1 by `Round`, so that small changes
 in the estimate do not each cause a trade. With `size="weight"` the engine
 reads each target as a fraction of equity, `initial_capital` plus the
@@ -58,10 +59,11 @@ ax.legend(loc="upper right", fontsize=8)
 plt.tight_layout()
 ```
 
-The fixed run's realized volatility follows BTC's own, from about 15% to 69% a
-year; the targeted run stays between about 30% and 53%. To stay there it
-trades 320 times instead of 34, and on this sample its Sharpe ratio is lower,
-0.17 against 0.25.
+The rule stays flat for the first 100 days, while the slow average warms up.
+After that the fixed run's realized volatility follows BTC's own, from about
+15% to 66% a year; the targeted run stays between about 30% and 53%. To stay
+there it trades 292 times instead of 26, and on this sample its Sharpe ratio is
+lower, 0.24 against 0.41.
 
 ## Go deeper
 

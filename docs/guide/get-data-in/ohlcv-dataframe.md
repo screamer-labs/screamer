@@ -22,14 +22,14 @@ df = df[df["symbol"] == "BTC"].set_index("date")
 df[["bb_lower", "bb_mid", "bb_upper"]] = BollingerBands(20, 2.0)(df["close"])
 df["rsi"] = RollingRSI(14)(df["close"])
 df["atr"] = ATR(14)(df["high"], df["low"], df["close"])
-df.iloc[20:25, 7:].round(1)
+df[["bb_lower", "bb_mid", "bb_upper", "rsi", "atr"]].iloc[20:25].round(1)
 ```
 
-A function with one output returns one column. A function with several outputs,
-such as `BollingerBands`, returns one column per output, which fill several
-DataFrame columns in one assignment. `ATR` takes
-three inputs in the order its page lists: high, low, close. Each indicator is
-`NaN` until its window has filled.
+A function with one output returns one column. A function with several
+outputs, such as `BollingerBands`, returns one column per output, which fill
+several DataFrame columns in one assignment. `ATR` takes three inputs in the
+order its page lists: high, low, close. Each indicator is `NaN` until its
+window has filled.
 
 ```{code-cell} ipython3
 year = df.loc["2025"]  # one year, to make the bands visible

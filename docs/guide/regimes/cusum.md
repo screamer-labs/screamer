@@ -9,7 +9,7 @@ kernelspec:
 
 `CusumFilter` returns +1 when the cumulative rise since the last event passes
 a threshold, -1 when the cumulative fall does, and 0 otherwise. The events
-pick out the steps worth labelling or trading, more of them while the market
+pick out the steps worth labeling or trading, more of them while the market
 moves and fewer while it is quiet.
 
 ```{code-cell} ipython3

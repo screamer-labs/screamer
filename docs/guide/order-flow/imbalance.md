@@ -21,13 +21,13 @@ trades = pd.read_csv("../../notebooks/data/deribit_btc_perp_6h.csv")
 # ohlcv2 splits the signed volume of each minute into buy and sell volume.
 values, index = Resample(freq=60_000, agg="ohlcv2")(
     trades[["price", "volume"]].to_numpy(), trades["timestamp"].to_numpy())
-bars = pd.DataFrame(values, columns=["open", "high", "low", "close", "buy", "sell"],
-                    index=pd.to_datetime(index, unit="ms"))
+bars = pd.DataFrame(values, index=pd.to_datetime(index, unit="ms"),
+                    columns=["open", "high", "low", "close", "buy", "sell"])
 
 bars["ofi"] = OFI()(bars["buy"], bars["sell"])
 bars["ret"] = LogReturn()(bars["close"])
-print(f"{len(bars)} one-minute bars, "
-      f"correlation of OFI with the bar's return: {bars['ofi'].corr(bars['ret']):.2f}")
+corr = bars["ofi"].corr(bars["ret"])
+print(f"{len(bars)} one-minute bars, OFI-return correlation {corr:.2f}")
 ```
 
 The trades are six hours of Deribit BTC perpetual trades, with `volume` in US
@@ -48,10 +48,9 @@ plt.tight_layout()
 ```
 
 Most minutes, 62% of them, hold only buys or only sells, so their OFI is -1
-or +1. The
-correlation of 0.46 says that minutes with more buying than selling tend to
-end higher. Both values describe the same minute, so here OFI explains the
-move rather than forecasting it.
+or +1. The correlation of 0.46 says that minutes with more buying than selling
+tend to end higher. Both values describe the same minute, so here OFI explains
+the move rather than forecasting it.
 
 ## Go deeper
 

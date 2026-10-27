@@ -20,9 +20,9 @@ Each chapter answers a few tasks with a short, runnable example. Read in order, 
 ## Part 2: Build a strategy
 
 9. [Turn a signal into a position](signal-to-position/index.md): Sign, bands and hysteresis, holding, and volatility sizing.
-10. [Backtest a signal on OHLCV bars](backtest/index.md): Costs, the report, the equity curve, and event-driven backtests.
+10. [Backtest a signal on OHLCV bars](backtest/index.md): Backtest a signal, read the report, and see how much costs take.
 11. [Strategy templates](strategies/index.md): Trend following, breakouts, reversion, pairs, momentum, carry, and volatility targeting.
-12. [Stops and exits](stops/index.md): Stop-loss, trailing stops, and take-profit exits.
+12. [Stops and exits](stops/index.md): Stop-loss and trailing-stop exits on a backtest.
 13. [Portfolios of many assets](portfolios/index.md): Backtest and size positions across many assets at once.
 
 ## Part 3: Test a strategy

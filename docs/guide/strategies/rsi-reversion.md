@@ -31,7 +31,7 @@ out = engine(weight, o, h, l, c)
 running, summary = backtest_report(out, periods_per_year=365)
 ```
 
-`BandSignal` reads a score centred on 0, so `(rsi - 50) / 10` maps RSI 70 to
+`BandSignal` reads a score centered on 0, so `(rsi - 50) / 10` maps RSI 70 to
 +2 and RSI 30 to -2. With `entry=2.0` it goes short when the score reaches +2
 and long at -2; with `exit=0.0` it closes the position when the score crosses
 0, RSI 50. The 14-day window and the 70 and 30 levels are Wilder's defaults,
@@ -63,7 +63,7 @@ little, and its short positions lost about three times as much.
 
 ## Go deeper
 
-- [`RollingRSI`](../../functions_rolling/RollingRSI.md): Wilder's and Cutler's smoothing, and the warm-up.
+- [`RollingRSI`](../../functions_rolling/RollingRSI.md): Wilder's and Cutler's smoothing, and the warmup.
 - [`BandSignal`](../../functions_signal/BandSignal.md): entry, exit and stop levels.
 - [Fade moves outside the Bollinger Bands](bollinger-reversion.md): the same kind of rule on a z-score of the price.
 - [Detect mean reversion](../mean-reversion/index.md): test whether a series reverts before trading the reversion.

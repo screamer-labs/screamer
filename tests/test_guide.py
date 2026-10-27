@@ -85,7 +85,7 @@ def test_task_page_shape():
         assert lines <= 35, f"{doc}: {lines} code lines"
 
 
-def test_check_reports_unlisted_notebook():
+def test_check_reports_unlisted_notebook(capsys):
     mod = _module()
     spec = copy.deepcopy(mod.load())
     dropped = "notebooks/01-quickstart-polymorphic-api"
@@ -93,6 +93,9 @@ def test_check_reports_unlisted_notebook():
         c["deeper"] = [d for d in c.get("deeper", []) if d != dropped]
     problems = mod.problems(spec)
     assert problems and any(dropped in p for p in problems)
+    mod.load = lambda: spec  # main() reads the registry through load()
+    assert mod.main(["--check"]) == 1
+    assert dropped in capsys.readouterr().out
 
 
 # Pages that moved in Phase 1. Each old URL must keep working through a stub.

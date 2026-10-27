@@ -42,7 +42,6 @@ TOC = DOCS / "guide_toc.inc"
 START, END = "<!-- tasks:start -->", "<!-- tasks:end -->"
 TITLE_RE = re.compile(r"^# (.+)$", re.M)
 BLOCK_RE = re.compile(re.escape(START) + r".*?" + re.escape(END), re.S)
-INTRO = "This chapter is being written."
 
 
 def load() -> dict:
@@ -92,7 +91,12 @@ def problems(spec: dict | None = None) -> list[str]:
         listed += docs
         for d in docs:
             if not (DOCS / f"{d}.md").exists() and not (DOCS / f"{d}.ipynb").exists():
-                out.append(f"{c['slug']}: listed page {d} does not exist")
+                out.append(f"listed page {d} does not exist")
+            elif d in c.get("tasks", []):
+                try:
+                    page_title(d)
+                except ValueError as e:
+                    out.append(str(e))
         landing = GUIDE / c["slug"] / "index"
         if landing.with_suffix(".md").exists():
             try:
@@ -107,7 +111,7 @@ def problems(spec: dict | None = None) -> list[str]:
     for d in sorted(set(listed)):
         if listed.count(d) > 1 and d not in expected_pages():
             out.append(f"{d} is listed {listed.count(d)} times in guide.yml")
-    return out
+    return list(dict.fromkeys(out))  # each problem once, in order
 
 
 def block(c: dict, folder: Path) -> str:
@@ -131,7 +135,7 @@ def chapter_page(c: dict) -> str:
         if BLOCK_RE.search(text):
             return BLOCK_RE.sub(lambda _: new, text, count=1)
         return text.rstrip("\n") + "\n\n" + new + "\n"
-    return f"# {c['title']}\n\n{c['line']} {INTRO}\n\n{new}\n"
+    return f"# {c['title']}\n\n{c['line']}\n\n{new}\n"
 
 
 def guide_index(spec: dict) -> str:
@@ -180,8 +184,14 @@ def main(argv=None) -> int:
     bad = problems()
     for p in bad:
         print(f"problem: {p}")
+    try:
+        files = build()
+    except (ValueError, FileNotFoundError) as e:
+        if not bad:
+            print(f"problem: {e}")
+        return 1
     stale = []
-    for path, text in build().items():
+    for path, text in files.items():
         if path.exists() and path.read_text() == text:
             continue
         stale.append(path)

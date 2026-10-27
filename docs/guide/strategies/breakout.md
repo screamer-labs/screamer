@@ -70,7 +70,7 @@ ratio shows.
 
 ## Go deeper
 
-- [`DonchianChannels`](../../functions_rolling/DonchianChannels.md): the channel and its warm-up.
+- [`DonchianChannels`](../../functions_rolling/DonchianChannels.md): the channel and its warmup.
 - [Follow a trend with a moving-average crossover](trend-following.md): the same summary for a slower trend rule.
 - [Add stops and exits](../stops/stops-and-exits.md): close a position before the opposite breakout.
 - [Backtest a signal on OHLCV bars](../backtest/ohlcv.md): what a NaN target and the four output columns mean.

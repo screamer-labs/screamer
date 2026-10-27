@@ -107,7 +107,7 @@ parts:
     deeper: []
   - slug: backtest
     title: Backtest a signal on OHLCV bars
-    line: Costs, the report, the equity curve, and event-driven backtests.
+    line: Backtest a signal, read the report, and see how much costs take.
     tasks:
     - guide/backtest/ohlcv
     - guide/backtest/costs
@@ -129,7 +129,7 @@ parts:
     deeper: []
   - slug: stops
     title: Stops and exits
-    line: Stop-loss, trailing stops, and take-profit exits.
+    line: Stop-loss and trailing-stop exits on a backtest.
     tasks:
     - guide/stops/stops-and-exits
     deeper: []
