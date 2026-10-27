@@ -207,8 +207,8 @@ console.log("p-value", test.pValue);                                // p-value 0
 
 The engine output columns are `[equity, pnl, position, cost]`, and the
 `BacktestReport` columns are `[drawdown, cum_cost, turnover, trades,
-max_drawdown, sharpe]`, so the last row of each holds the summary. The numbers
-match the [first strategy recipe](recipes/first-strategy.md), which runs the
+max_drawdown, sharpe]`, so the last row of each holds the summary. The pnl and
+Sharpe ratio match [Backtest a signal on OHLCV bars](guide/backtest/ohlcv.md), which runs the
 same backtest in Python. `MARKET` (`Infinity`) is the market-order price of the
 order engines, as `screamer.MARKET` is in Python, and `backtestReport`'s
 `index` must hold one value per row.

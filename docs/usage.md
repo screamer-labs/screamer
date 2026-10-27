@@ -4,7 +4,7 @@ This page explains how a screamer function is built and called: construction
 and state, inputs of different types, several series at once, warmup, chaining,
 several inputs and outputs, missing data, and pipelines. Each section links to
 a runnable notebook and a reference page for deeper treatment. To see a whole
-strategy first, start with [your first strategy](recipes/first-strategy.md).
+strategy first, start with [Backtest a signal on OHLCV bars](guide/backtest/ohlcv.md).
 
 ## Constructing and calling a function
 
@@ -255,8 +255,8 @@ The precise reset rules are in the [Polymorphic API reference](polymorphic_api.m
 
 ## Where to go next
 
-- **A first strategy**: [your first strategy](recipes/first-strategy.md) goes
-  from prices to a costed backtest and a p-value.
+- **A first strategy**: [Backtest a signal on OHLCV bars](guide/backtest/ohlcv.md)
+  goes from prices to a costed backtest and its report.
 - **Guide**: the [Guide](guide/index.md) answers common tasks with short,
   runnable examples.
 - **Guides**: [backtesting best practices](backtesting_best_practices.md),

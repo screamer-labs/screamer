@@ -116,7 +116,7 @@ the [portfolios and pairs guide](portfolio_backtesting.md) show the whole path.
 | Enter and exit at different levels | `BandSignal`, `SchmittTrigger` | Hysteresis stops a score near a threshold from switching the position on and off. |
 | Hold a signal for a fixed number of bars | `Hold` | Latches a nonzero input and keeps it for `n` bars. |
 | Hold a signal, then ignore new ones for a while | `Hold(cooldown=)` | After a hold expires, triggers in the next cooldown steps are ignored. |
-| Size by volatility | `RollingStd`, `EwStd`, `ATR` | Divide a risk budget by the volatility; see the [volatility sizing recipe](recipes/volatility-sizing.md). |
+| Size by volatility | `RollingStd`, `EwStd`, `ATR` | Divide a risk budget by the volatility; see [Size a position by volatility](guide/signal-to-position/volatility-sizing.md). |
 
 ## Mean reversion and forecasting
 

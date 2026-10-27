@@ -16,7 +16,7 @@ compares the results.
 
 ## The rule and three engines
 
-The signal is the trend rule of [Your first strategy](first-strategy.md): long
+The signal is the trend rule of [Backtest a signal on OHLCV bars](../guide/backtest/ohlcv.md): long
 one BTC when the 20-day exponential average of the close is above the 100-day
 one, short when it is below.
 

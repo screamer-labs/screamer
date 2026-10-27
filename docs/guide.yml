@@ -100,13 +100,17 @@ parts:
     title: Turn a signal into a position
     line: Sign, bands and hysteresis, holding, and volatility sizing.
     tasks:
-    - recipes/volatility-sizing
+    - guide/signal-to-position/sign
+    - guide/signal-to-position/bands
+    - guide/signal-to-position/hold
+    - guide/signal-to-position/volatility-sizing
     deeper: []
   - slug: backtest
     title: Backtest a signal on OHLCV bars
     line: Costs, the report, the equity curve, and event-driven backtests.
     tasks:
-    - recipes/first-strategy
+    - guide/backtest/ohlcv
+    - guide/backtest/costs
     deeper:
     - notebooks/14-backtesting-a-signal
     - notebooks/15-event-driven-backtests
