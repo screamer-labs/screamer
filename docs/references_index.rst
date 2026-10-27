@@ -70,12 +70,6 @@ longer guides to backtesting, labels, agents, and JavaScript.
 
       How a function is built and called, chained, and run on arrays, frames, and streams.
 
-   .. grid-item-card:: Choosing an operator
-      :link: choosing_an_operator
-      :link-type: doc
-
-      Which function to use for each job, grouped by task.
-
    .. grid-item-card:: Using screamer with AI agents
       :link: agents
       :link-type: doc
@@ -118,7 +112,6 @@ longer guides to backtesting, labels, agents, and JavaScript.
    performance
    conventions
    usage
-   choosing_an_operator
    agents
    backtesting_best_practices
    portfolio_backtesting

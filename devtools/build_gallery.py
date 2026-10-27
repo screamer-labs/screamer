@@ -4,12 +4,7 @@
 Every function page under ``docs/functions_*/`` that has a ``.. plotly::``
 example gets a small static thumbnail. The script runs the page's first plotly
 block, captures the figure it shows, redraws its traces with matplotlib, and
-saves a 320 x 200 WebP image under ``docs/_static/gallery/``. The recipe pages
-under ``docs/recipes/`` and the notebooks under ``docs/notebooks/`` draw with
-matplotlib; their thumbnail is the last figure their code cells draw, with the
-text removed. These thumbnails illustrate the examples page and the home page
-tiles. It then
-writes
+saves a 320 x 200 WebP image under ``docs/_static/gallery/``. It then writes
 ``docs/gallery.rst``, a card grid grouped by the function groups in
 ``docs/topics.yml``, where each thumbnail links to its page.
 
@@ -107,83 +102,6 @@ def function_pages() -> list[dict]:
             "name": fm.get("name") or md.stem,
             "topics": fm.get("topics") or [],
             "code": code,
-        })
-    return pages
-
-
-def recipe_pages() -> list[dict]:
-    """Recipe pages (MyST notebooks); the thumbnail is their last matplotlib figure.
-
-    These thumbnails illustrate the recipe index and the capability tiles; they
-    are not part of the function gallery grid.
-    """
-    pages = []
-    for md in sorted((DOCS / "recipes").glob("*.md")):
-        text = md.read_text()
-        cells = CODE_CELL_RE.findall(text)
-        if not cells:
-            continue
-        title = TITLE_RE.search(text)
-        pages.append({
-            "path": md,
-            "doc": f"recipes/{md.stem}",
-            "name": title.group(1).strip() if title else md.stem,
-            "topics": [],
-            "code": "\n".join(cells),
-            "kind": "matplotlib",
-        })
-    return pages
-
-
-def notebook_pages() -> list[dict]:
-    """Example notebooks; the thumbnail is the last matplotlib figure they draw.
-
-    A code cell tagged ``thumbnail`` picks the figure instead: the code runs up
-    to and including that cell, and its last figure is used. IPython magics are
-    dropped, since the code runs as a plain script.
-    """
-    pages = []
-    for nb_path in sorted((DOCS / "notebooks").glob("*.ipynb")):
-        nb = json.loads(nb_path.read_text())
-        cells, title = [], None
-        for cell in nb["cells"]:
-            src = "".join(cell["source"])
-            if cell["cell_type"] == "markdown" and title is None:
-                m = TITLE_RE.search(src)
-                title = m.group(1).strip() if m else None
-            if cell["cell_type"] != "code":
-                continue
-            cells.append("\n".join(l for l in src.splitlines()
-                                   if not l.lstrip().startswith(("%", "!"))))
-            if "thumbnail" in cell.get("metadata", {}).get("tags", []):
-                break
-        pages.append({
-            "path": nb_path,
-            "doc": f"notebooks/{nb_path.stem}",
-            "name": title or nb_path.stem,
-            "topics": [],
-            "code": "\n".join(cells),
-            "kind": "matplotlib",
-        })
-    return pages
-
-
-def snippet_pages() -> list[dict]:
-    """Extra capability thumbnails drawn by devtools/gallery_snippets/*.py.
-
-    Used where no recipe or function page has a fitting plot. Each snippet runs
-    with docs/notebooks as its working directory, so it reads the committed data
-    slice as ``data/...``.
-    """
-    pages = []
-    for py in sorted((ROOT / "devtools" / "gallery_snippets").glob("*.py")):
-        pages.append({
-            "path": DOCS / "notebooks" / py.name,  # parent = working directory
-            "doc": f"capability/{py.stem}",
-            "name": py.stem,
-            "topics": [],
-            "code": py.read_text(),
-            "kind": "matplotlib",
         })
     return pages
 
@@ -556,7 +474,7 @@ def main(argv=None) -> int:
 
     manifest = json.loads(MANIFEST.read_text()) if MANIFEST.exists() else {}
     fn_pages = function_pages()
-    all_pages = fn_pages + recipe_pages() + notebook_pages() + snippet_pages()
+    all_pages = fn_pages
     new_manifest, have_thumb, failed = {}, set(), []
     redrawn = 0
     for p in all_pages:

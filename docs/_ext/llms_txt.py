@@ -22,7 +22,6 @@ GUIDES = [
     ("streaming", "Streams in depth", "live, one value at a time, iterators, and state"),
     ("multistream", "Streams, values, and alignment", "aligning streams that tick at different times"),
     ("pipelines", "Pipelines", "reusable graphs of functions"),
-    ("choosing_an_operator", "Choosing an operator", "which function for which job"),
     ("backtesting_best_practices", "Backtesting best practices", "costs, fills, and testing for luck"),
     ("portfolio_backtesting", "Portfolios and pairs", "many assets from one account"),
     ("labels", "Labels and training sets", "targets for supervised learning, paired with forecast_pairs"),
@@ -74,7 +73,7 @@ def build_llms_txt(srcdir: Path, base: str) -> str:
         "`pip install \"screamer[mcp]\"` adds an MCP server, `screamer-mcp`, with the "
         "same information. Function pages below link to their markdown source.",
         "",
-        "## Guides", "",
+        "## How screamer works", "",
         f"- [Agent guide]({base}llms-full.txt): how to use screamer, followed by the "
         "full documentation of every function, in one file",
     ]
@@ -100,6 +99,9 @@ def build_llms_txt(srcdir: Path, base: str) -> str:
     lines += ["## Guide", ""]
     for part in spec["parts"]:
         for chapter in part["chapters"]:
+            landing = f"guide/{chapter['slug']}/index"
+            if (srcdir / f"{landing}.md").exists():
+                lines.append(f"- [{chapter['title']}]({_source_url(base, srcdir, landing)})")
             for doc in chapter.get("tasks", []):
                 lines.append(f"- [{chapter['title']}: {_title(srcdir, doc)}]"
                              f"({_source_url(base, srcdir, doc)})")

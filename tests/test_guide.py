@@ -104,7 +104,7 @@ MOVED = [
     "recipes/pandas-ohlcv-indicators", "recipes/migrating", "recipes/ticks-to-backtest",
     "recipes/volatility-sizing", "recipes/first-strategy",
     "recipes/pairs-trade", "recipes/cross-sectional-momentum", "recipes/funding-carry",
-    "recipes/stops-and-exits", "recipes/multi-asset",
+    "recipes/stops-and-exits", "recipes/multi-asset", "choosing_an_operator",
 ]
 
 _REFRESH = re.compile(r'"http-equiv=refresh":\s*"\d+;\s*url=([^"]+)"')
