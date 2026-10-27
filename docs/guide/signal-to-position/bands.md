@@ -52,15 +52,20 @@ plt.tight_layout()
 The score is the 30-day log return from [the previous page](sign.md).
 `SchmittTrigger` outputs 1 once the score rises above `upper` and 0 once it
 falls below `lower`, and holds its last value while the score is between the
-two, so `2 * trigger - 1` is a long-short position. The levels of plus and
-minus 5% are a choice: a wider band switches less often and later.
+two, so `2 * trigger - 1` is a long-short position. `initial=np.nan` leaves it
+undefined until the first crossing. The levels of plus and minus 5% are a
+choice: a wider band switches less often and later.
 
 The band cuts the switches from 159 to 47 over the whole sample. The cost is a
 later turn: the position waits until the score is 5% past zero.
 
+`BandSignal(entry, exit)` reads a z-score the other way, for a reverting
+series: it goes short when the score reaches `entry`, long at `-entry`, and
+flat when it comes back to `exit`. [Trade the reversion with z-score
+bands](../mean-reversion/zscore-bands.md) runs it.
+
 ## Go deeper
 
-- [`SchmittTrigger`](../../functions_signal/SchmittTrigger.md): the thresholds and the `initial` state; `initial=np.nan` leaves the output undefined until the first crossing.
-- [`BandSignal`](../../functions_signal/BandSignal.md): entry, exit and stop levels, and the lockout after a stop. `BandSignal(entry, exit)` reads a z-score the other way, for a reverting series: it goes short when the score reaches `entry`, long at `-entry`, and flat when it comes back to `exit`.
-- [Trade the reversion with z-score bands](../mean-reversion/zscore-bands.md): `BandSignal` on a reverting series.
+- [`SchmittTrigger`](../../functions_signal/SchmittTrigger.md): the thresholds and the `initial` state.
+- [`BandSignal`](../../functions_signal/BandSignal.md): entry, exit and stop levels, and the lockout after a stop.
 - [Hold a position for a fixed number of bars](hold.md): a time limit instead of a level.

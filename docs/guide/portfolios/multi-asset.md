@@ -51,19 +51,24 @@ plt.tight_layout()
 ```
 
 The data is daily bars of 20 Binance spot pairs quoted in USDT, from January
-2022 to September 2026; pivoting on `symbol` gives the `(T, K)` arrays, and
-`vol` holds a running volatility for each asset. The equal-weight book puts
-1/20 of equity in each asset; the inverse-volatility book weights each asset by
-`1 / vol`, scaled by `CrossNormalize` so the weights sum to 1, which gives
-calmer assets more capital. Both rebalance on the first day of each month and
-hold in between, because a NaN target keeps the current position. Targets trade
-at the next day's open, and every trade pays a 0.1% fee and 0.05% slippage.
+2022 to September 2026; pivoting on `symbol` gives the `(T, K)` arrays. A
+single-input function such as `LogReturn` or `EwStd` treats each column of a
+`(T, K)` array as its own series, so `vol` holds a running volatility for each
+asset. The equal-weight book puts 1/20 of equity in each asset; the
+inverse-volatility book weights each asset by `1 / vol`, scaled by
+`CrossNormalize` so the weights sum to 1, which gives calmer assets more
+capital. Both rebalance on the first day of each month and hold in between,
+because a NaN target keeps the current position. Targets trade at the next
+day's open, and every trade pays a 0.1% fee and 0.05% slippage.
 
 ```{code-cell} ipython3
 pd.DataFrame(stats).round(2)
 ```
 
-The 20 coins were chosen in 2026 from coins that are still large, so the sample
+`PortfolioReport` is the portfolio version of `backtest_report`: it sums
+equity, pnl and cost over the assets, its Sharpe ratio is per day (annualized
+here with `np.sqrt(365)`), and `num_trades` counts asset position changes. The
+20 coins were chosen in 2026 from coins that are still large, so the sample
 leaves out coins that collapsed during the period. Both books lost more than
 half their capital in 2022; over the whole sample the inverse-volatility book
 did slightly better.
@@ -72,6 +77,6 @@ did slightly better.
 
 - [Rank assets by momentum](../strategies/cross-sectional-momentum.md): a long-short book from ranked scores.
 - [`BacktestPortfolioOHLCTarget`](../../functions_fin/BacktestPortfolioOHLCTarget.md): sizing, `rebalance_band`, and gross and net caps.
-- [`PortfolioReport`](../../functions_fin/PortfolioReport.md): the report columns, and turnover in money with a price array. It is the portfolio version of `backtest_report`: it sums equity, pnl and cost over the assets, its Sharpe ratio is per day (annualized here with `np.sqrt(365)`), and `num_trades` counts asset position changes.
-- [Polymorphic input/output behavior](../../polymorphic_api.md): the shape rules for `(T, K)` inputs to every function. A single-input function such as `LogReturn` or `EwStd` treats each column of a `(T, K)` array as its own series.
+- [`PortfolioReport`](../../functions_fin/PortfolioReport.md): the report columns, and turnover in money with a price array.
+- [Polymorphic input/output behavior](../../polymorphic_api.md): the shape rules for `(T, K)` inputs to every function.
 - [Portfolios and pairs](../../portfolio_backtesting.md): the portfolio engines in depth.

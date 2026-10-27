@@ -53,11 +53,11 @@ plt.tight_layout()
 The direction is the moving-average trend rule of [Follow a trend with a
 moving-average crossover](../strategies/trend-following.md). The weight is
 `0.4 / vol`, capped at 2 (twice the equity) by `Clip` and rounded to steps of
-0.1 by `Round`, so that small changes in the estimate do not each cause a trade. With
-`size="weight"` the engine reads each target as a fraction of equity,
-`initial_capital` plus the cumulative pnl, and trades when the target changes,
-paying a 0.1% taker fee and 0.05% slippage on each trade. `realized` is the
-annualized volatility of the account's daily returns over 90 days.
+0.1 by `Round`, so that small changes in the estimate do not each cause a
+trade. With `size="weight"` the engine reads each target as a fraction of
+equity, `initial_capital` plus the cumulative pnl, and trades when the target
+changes, paying a 0.1% taker fee and 0.05% slippage on each trade. `realized`
+is the annualized volatility of the account's daily returns over 90 days.
 
 The rule stays flat for the first 100 days, while the slow average warms up.
 After that the fixed run's realized volatility follows BTC's own, from about

@@ -47,10 +47,14 @@ plt.tight_layout()
 The rule is the moving-average trend rule of [Follow a trend with a
 moving-average crossover](../strategies/trend-following.md), long or short one
 times equity on daily BTC bars. Each target fills at the next day's open, with
-a 0.1% taker fee and 0.05% slippage on every fill; an exit pays the same fee
-and slippage as any other trade. After an exit the engine ignores further
-targets on the same side, so the position stays flat until the signal turns
-flat or reverses.
+a 0.1% taker fee and 0.05% slippage on every fill. The stop-loss compares the
+price with the average entry fill. The trailing stop compares it with the
+highest high since entry for a long, and the lowest low for a short. When a
+bar opens beyond the exit level the position closes at that open; otherwise it
+closes at the level, on the bar whose low or high reaches it. An exit is a
+market order and pays the same fee and slippage as any other trade. After an
+exit the engine ignores further targets on the same side, so the position
+stays flat until the signal turns flat or reverses.
 
 ```{code-cell} ipython3
 summary.loc["max_drawdown_pct"] = [100 * MaxDrawdown()(1 + res[:, 0])[-1]
@@ -67,6 +71,6 @@ parameter grid accounts for.
 
 ## Go deeper
 
-- [`BacktestOHLCTarget`](../../functions_fin/BacktestOHLCTarget.md): every exit parameter, fill prices and delays. The stop-loss compares the price with the average entry fill. The trailing stop compares it with the highest high since entry for a long, and the lowest low for a short. When a bar opens beyond the exit level the position closes at that open; otherwise it closes at the level, on the bar whose low or high reaches it, with a market order.
+- [`BacktestOHLCTarget`](../../functions_fin/BacktestOHLCTarget.md): every exit parameter, fill prices and delays.
 - [Check that a result holds across nearby parameters](../not-luck/parameter-grid.md): account for picking the best of several exit levels.
 - [Choosing a backtest engine](../../functions_fin/choosing_a_backtest_engine.md): engines with limit and stop orders.

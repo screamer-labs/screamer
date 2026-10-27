@@ -42,13 +42,16 @@ plt.tight_layout()
 ```
 
 The data is daily bars of 20 Binance spot pairs quoted in USDT, from January
-2022 to September 2026. The score is the log return from 30 days ago to 3 days
-ago: `LogReturn(27)` is the 27-day log return and `Lag(3)` moves it 3 days
-back, leaving out the most recent days, which tend to partly reverse. The book
-is long the upper half of the ranks and short the lower half. On every day but
-Sunday the target is NaN, which keeps the current positions. A target decided
-at Sunday's close trades at Monday's open, and every trade pays a 0.1% fee and
-0.05% slippage.
+2022 to September 2026. Pivoting on `symbol` gives one `(T, K)` array per
+field, time down the rows and one asset per column. The score is the log return
+from 30 days ago to 3 days ago: `LogReturn(27)` is the 27-day log return and
+`Lag(3)` moves it 3 days back, leaving out the most recent days, which tend to
+partly reverse. `CrossRank` replaces each day's scores by their ranks across
+the 20 assets, and `CrossNormalize(gross=1.0, net=0.0)` scales the ranks to
+weights whose absolute values sum to 1 and whose sum is 0: long the upper half,
+short the lower half. On every day but Sunday the target is NaN, which keeps
+the current positions. A target decided at Sunday's close trades at Monday's
+open, and every trade pays a 0.1% fee and 0.05% slippage.
 
 ```{code-cell} ipython3
 *_, trades, _, sharpe = PortfolioReport()(out)[-1]
@@ -57,18 +60,19 @@ pd.Series({"sharpe": sharpe * np.sqrt(365), "max_drawdown_pct": 100 * dd,
            "num_trades": trades}).round(2)
 ```
 
-`num_trades` counts asset position changes. The book gains until the end of
-2023, then gives the gain back and ends below its starting capital. The 20
-assets were chosen in 2026 from coins that are still large, so coins that
-collapsed during the period (LUNA and FTT in 2022) are missing; those are the
-ones a momentum book would have been short. A live version would also hold its
-shorts in perpetual futures or on margin and pay funding or borrowing costs,
-which this backtest leaves out.
+`PortfolioReport` is the portfolio version of `backtest_report`: its Sharpe
+ratio is per day, and `np.sqrt(365)` annualizes it; `num_trades` counts asset
+position changes. The book gains until the end of 2023, then gives the gain
+back and ends below its starting capital. The 20 assets were chosen in 2026
+from coins that are still large, so coins that collapsed during the period
+(LUNA and FTT in 2022) are missing; those are the ones a momentum book would
+have been short. A live version would also hold its shorts in perpetual futures
+or on margin and pay funding or borrowing costs, which this backtest leaves
+out.
 
 ## Go deeper
 
-- [`CrossRank`](../../functions_cross/CrossRank.md), [`CrossNormalize`](../../functions_cross/CrossNormalize.md), [`CrossTopBottom`](../../functions_cross/CrossTopBottom.md): scores to weights. `CrossRank` replaces each day's scores by their ranks across the 20 assets, and `CrossNormalize(gross=1.0, net=0.0)` scales the ranks to weights whose absolute values sum to 1 and whose sum is 0.
-- [Backtest a portfolio of many assets](../portfolios/multi-asset.md): the `(T, K)` inputs and `(T, K, 4)` output. Pivoting on `symbol` gives one `(T, K)` array per field, time down the rows and one asset per column.
-- [`PortfolioReport`](../../functions_fin/PortfolioReport.md): the portfolio version of `backtest_report`. Its Sharpe ratio is per day, and `np.sqrt(365)` annualizes it.
+- [`CrossRank`](../../functions_cross/CrossRank.md), [`CrossNormalize`](../../functions_cross/CrossNormalize.md), [`CrossTopBottom`](../../functions_cross/CrossTopBottom.md): scores to weights.
+- [Backtest a portfolio of many assets](../portfolios/multi-asset.md): the `(T, K)` inputs and `(T, K, 4)` output.
 - [Check that a backtest result is not luck](../not-luck/index.md): compare the book with randomly timed copies of itself.
 - [Portfolios and pairs](../../portfolio_backtesting.md): sizing, rebalancing and reporting a book.

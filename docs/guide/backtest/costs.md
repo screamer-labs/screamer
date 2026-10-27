@@ -50,7 +50,9 @@ The bars are one-minute bars built from six hours of Deribit BTC-perpetual
 trades, as on [Build bars from trades](../get-data-in/bars-from-ticks.md), and
 the signal is the moving-average rule of [the previous page](ohlcv.md) with
 spans of 5 and 30 minutes. Each run holds the same positions and fills at the
-next bar's open, so the gap between two curves is the cost alone.
+next bar's open, so the gap between two curves is the cost alone. `slippage`
+is a fraction of the price by default; `slippage_unit="ticks"` with
+`tick_size` sets it in ticks of the price grid instead.
 
 The rule loses 72 USD before costs. With BTC near 29,000 USD, a 0.05% fee is
 about 15 USD a contract, and the 17 trades, most of them reversals of two
@@ -63,5 +65,5 @@ smaller the share of its moves that the costs take.
 
 - [Backtesting a signal notebook](../../notebooks/14-backtesting-a-signal.ipynb): the cost of each trade, running statistics, and a test of the timing on the same tape.
 - [Choosing a backtest engine](../../functions_fin/choosing_a_backtest_engine.md): how each engine sets the fill price, slippage, and costs.
-- [`BacktestOHLCTarget`](../../functions_fin/BacktestOHLCTarget.md): `fill_at`, `delay`, `tick_size`, `slippage_unit`, and `fee_per_contract`. `slippage` is a fraction of the price by default; `slippage_unit="ticks"` with `tick_size` sets it in ticks of the price grid instead.
+- [`BacktestOHLCTarget`](../../functions_fin/BacktestOHLCTarget.md): `fill_at`, `delay`, `tick_size`, `slippage_unit`, and `fee_per_contract`.
 - [Event-driven backtests notebook](../../notebooks/15-event-driven-backtests.ipynb): limit orders that fill on the trade tape or against quotes.
