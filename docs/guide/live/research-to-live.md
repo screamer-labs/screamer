@@ -41,8 +41,7 @@ The pipeline turns trades into one-minute OHLC bars, compares a 5-minute and a
 close]`, the input order of `BacktestOHLCTarget`. The engine trades each
 signal at the next minute's open, holds 1 BTC long or short, and pays a 0.05%
 taker fee on each fill, with no slippage. Called on the stored trades, the
-pipeline returns every bar at once, and `BacktestOHLCTarget` on those rows
-gives the equity of the live loop below.
+pipeline returns every bar at once.
 
 In the live loop, `session.push` feeds one trade and `session.result()`
 returns the bars it completed: a minute bar completes when the first trade of

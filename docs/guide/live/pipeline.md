@@ -8,8 +8,7 @@ kernelspec:
 # Wire functions into a pipeline
 
 `Input` names a source and `Pipeline` compiles the functions applied to it into
-one callable, which runs on stored arrays or on a live feed with the same
-result.
+one callable, which runs on stored arrays or on a live feed.
 
 ```{code-cell} ipython3
 import pandas as pd

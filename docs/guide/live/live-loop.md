@@ -56,7 +56,7 @@ plt.tight_layout()
 
 ## Go deeper
 
-- [Process values one at a time](one-value-at-a-time.md): one call per value gives the batch result.
+- [Process values one at a time](one-value-at-a-time.md): call a function once per event.
 - [Move a strategy from research to a live loop](research-to-live.md): run a whole pipeline and a paper trader on the same loop.
 - [Streaming live events](../../notebooks/06-streaming-live-events.ipynb): event-by-event calls and lazy generators.
 - [Run screamer in the browser](browser.md): the same handler in JavaScript on a live exchange feed.
