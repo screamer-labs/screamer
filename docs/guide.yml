@@ -170,8 +170,12 @@ parts:
     title: Run on live data
     line: Streaming, pipelines, a live loop, and JavaScript in the browser.
     tasks:
-    - recipes/live-loop
-    - recipes/strategy-to-live
+    - guide/live/one-value-at-a-time
+    - guide/live/align-streams
+    - guide/live/pipeline
+    - guide/live/live-loop
+    - guide/live/research-to-live
+    - guide/live/browser
     deeper:
     - notebooks/06-streaming-live-events
     - notebooks/07-multi-stream-operators

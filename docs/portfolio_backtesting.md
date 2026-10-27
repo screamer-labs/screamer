@@ -289,5 +289,5 @@ for t in range(T):                               # one row of K assets per day
 print(f"equity on {dates[-1].date()}: {1.0 + row[:, 0].sum():.3f}")
 ```
 
-The [strategy-to-live recipe](recipes/strategy-to-live.md) connects a loop
-like this to a data feed.
+[Move a strategy from research to a live loop](guide/live/research-to-live.md)
+connects a loop like this to a data feed.
