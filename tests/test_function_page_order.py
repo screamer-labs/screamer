@@ -114,8 +114,10 @@ def _code_block_source(text):
     return lines
 
 
-def test_plot_comes_first_then_its_full_source():
-    examples = "## Examples\n\n### Usage plot\n\n" + _fence(_plotly("True"))
+@pytest.mark.parametrize("include_source", ["True", None])
+def test_plot_comes_first_then_its_full_source(include_source):
+    # A plot with no :include-source: option is treated like True.
+    examples = "## Examples\n\n### Usage plot\n\n" + _fence(_plotly(include_source))
     out = _render(FRONTMATTER + DESCRIPTION + examples)
     section = out[out.index("## Examples"):out.index("## Description")]
     assert ":include-source: True" not in section
@@ -140,7 +142,6 @@ def test_every_plot_in_examples_is_split_and_prose_stays_in_place():
     "## Description\n\n" + _fence(_plotly("True")) + EXAMPLES,
     # A plot in Examples that already hides its source stays as it is.
     DESCRIPTION + "## Examples\n\n" + _fence(_plotly("False")),
-    DESCRIPTION + "## Examples\n\n" + _fence(_plotly(None)),
 ])
 def test_other_plotly_blocks_are_untouched(tail):
     out = _render(FRONTMATTER + tail)
@@ -148,3 +149,11 @@ def test_other_plotly_blocks_are_untouched(tail):
     assert out.count(".. plotly::") == 1
     for opt in (":include-source: True", ":include-source: False"):
         assert out.count(opt) == tail.count(opt)
+
+
+def test_heading_inside_a_code_fence_is_not_a_section():
+    fenced = "```text\n## Examples\nnot a heading\n```\n\n"
+    out = _render(FRONTMATTER + DESCRIPTION + fenced + EXAMPLES)
+    # The real Examples section moves first; the fenced copy stays in Description.
+    assert out.index("## Examples\n\n### Usage example") < out.index("## Description")
+    assert out.index("## Description") < out.index("```text\n## Examples")

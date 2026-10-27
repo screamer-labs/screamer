@@ -1,7 +1,7 @@
 # Run on live data
 
 The functions that run on a whole array also run one event at a time on a
-live feed and give the same numbers. These pages call a function value by
+live feed. These pages call a function value by
 value, align feeds that tick at different times, wire functions into a
 pipeline, and run a strategy in a live loop, in Python and in the browser.
 
@@ -34,9 +34,12 @@ pipeline, and run a strategy in a live loop, in Python and in the browser.
 
 | Intent | Function |
 |:-------|:---------|
-| Process one value per event | every function, such as `RollingZscore` or `EwMean` |
+| Process one value per event | `RollingZscore`, `EwMean` |
 | Combine feeds that tick at different times | `CombineLatest` |
+| Arithmetic on aligned rows | `Div`, `Sub` |
 | Define a computation once and bind data at call time | `Input`, `Pipeline` |
 | Bars from a live trade feed | `Resample` |
+| Returns and rolling correlation inside a pipeline | `LogReturn`, `RollingCorr` |
 | Pick columns from a multi-column stream | `Select` |
+| Turn a spread into a position | `FillNa`, `Sign` |
 | Backtest bars as they complete | `BacktestOHLCTarget` |

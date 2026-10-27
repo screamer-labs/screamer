@@ -29,7 +29,9 @@ engine = BacktestOHLCTarget(taker_fee=1e-3, slippage=5e-4)
 
 wf = walk_forward(engine, X, o, h, l, c, train=365, test=91, periods_per_year=365)
 print(f"walk-forward Sharpe {wf.stats['sharpe']:.2f}, column per fold", wf.choice)
+```
 
+```{code-cell} ipython3
 # Scoring only, looks ahead: the span that is best over the whole history
 full, t0 = engine(X, o, h, l, c), wf.fold_start[0]
 sharpes = [backtest_report(full[:, k])[1]["sharpe"] for k in range(len(spans))]
@@ -62,8 +64,9 @@ next 91 days (`test`), so the first test day is 2023-01-01. Every fill pays a
 of the six spans is chosen at least once, and the span changes 10 times. From
 the first test day on, the walk-forward run has an annualized Sharpe ratio of
 0.04. Span 40, the best over the whole history, has 0.50 over the same days,
-but choosing it used the years it is scored on. The walk-forward number is the
-estimate of what "trade the span that did best last year" delivers.
+but choosing it used the years it is scored on. The walk-forward number
+measures what "trade the span that did best last year" delivers, because each
+choice uses only the days before it.
 
 ## Go deeper
 

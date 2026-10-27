@@ -214,6 +214,7 @@ and correct for it:
 [Check that a result holds across nearby parameters](guide/not-luck/parameter-grid.md)
 uses the first two, and [Choose parameters with walk-forward
 testing](guide/not-luck/walk-forward.md) the third.
+
 Reserve a final stretch of data that no variant was tuned on, and confirm the
 chosen variant on it once.
 

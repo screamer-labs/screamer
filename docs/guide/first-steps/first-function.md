@@ -31,7 +31,8 @@ live = RollingMean(50)
 for price in btc["close"]:
     latest = live(price)
 
-print(ma_array[-1], btc["ma50"].iloc[-1], latest)
+print(btc["ma50"].tail(3))
+print("latest value from the loop:", latest)
 ```
 
 ```{code-cell} ipython3
@@ -43,8 +44,9 @@ ax.legend(loc="upper left", fontsize=8)
 plt.tight_layout()
 ```
 
-All three give the same numbers. The first 49 values are `NaN`, because the
-window holds fewer than 50 prices until then.
+The array call returns a NumPy array, the column call a pandas Series with the
+dates as its index, and the loop the latest average after each price. The first
+49 values are `NaN`, because the window holds fewer than 50 prices until then.
 
 ## Go deeper
 

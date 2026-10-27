@@ -56,8 +56,6 @@ PLOTLY_RE = re.compile(
     r"^```\{eval-rst\}\n\.\. plotly::[^\n]*\n((?:[ \t]+:[^\n]*\n)*)\s*\n(.*?)^```",
     re.S | re.M,
 )
-TITLE_RE = re.compile(r"^# (.+)$", re.M)
-CODE_CELL_RE = re.compile(r"^```\{code-cell\}[^\n]*\n(.*?)^```", re.S | re.M)
 
 # Plotly's default colorway, used when a trace sets no color.
 COLORWAY = ["#636efa", "#EF553B", "#00cc96", "#ab63fa", "#FFA15A",
@@ -137,54 +135,6 @@ def capture_figure(code: str, cwd: Path):
         os.chdir(old_cwd)
         go.Figure.show, pio.show = orig_fig_show, orig_pio_show
     return shown[-1] if shown else None
-
-
-def render_matplotlib_thumbnail(code: str, cwd: Path, out_path: Path) -> None:
-    """Run notebook-style code and save its last matplotlib figure as a thumbnail.
-
-    Text (titles, labels, tick labels, legends) is removed, since it is not
-    legible at thumbnail size, and the figure is padded to the thumbnail shape.
-    """
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    from PIL import Image, ImageOps
-
-    plt.close("all")
-    old_cwd = os.getcwd()
-    try:
-        os.chdir(cwd)
-        with warnings.catch_warnings(), contextlib.redirect_stdout(io.StringIO()):
-            warnings.simplefilter("ignore")
-            exec(compile(code, "<recipe>", "exec"),
-                 {"__name__": "__gallery__", "display": lambda *a, **k: None})
-    finally:
-        os.chdir(old_cwd)
-    nums = plt.get_fignums()
-    if not nums:
-        raise RuntimeError("the code draws no matplotlib figure")
-    fig = plt.figure(nums[-1])
-    for ax in fig.axes:
-        ax.set_title("")
-        ax.set_xlabel("")
-        ax.set_ylabel("")
-        ax.tick_params(labelleft=False, labelbottom=False, left=False, bottom=False)
-        if ax.get_legend() is not None:
-            ax.get_legend().remove()
-        for txt in list(ax.texts):
-            txt.remove()
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")  # snippets with hand-placed axes
-        fig.tight_layout(pad=0.4)
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=100, facecolor="white")
-    plt.close("all")
-    buf.seek(0)
-    img = Image.open(buf).convert("RGB")
-    img = ImageOps.pad(img, (THUMB_W * 3, THUMB_H * 3), color="white")
-    img = img.resize((THUMB_W, THUMB_H), Image.LANCZOS)
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    img.save(out_path, format="WEBP", quality=80, method=6)
 
 
 # --------------------------------------------------------------------------
@@ -474,10 +424,9 @@ def main(argv=None) -> int:
 
     manifest = json.loads(MANIFEST.read_text()) if MANIFEST.exists() else {}
     fn_pages = function_pages()
-    all_pages = fn_pages
     new_manifest, have_thumb, failed = {}, set(), []
     redrawn = 0
-    for p in all_pages:
+    for p in fn_pages:
         h = code_hash(p["code"])
         out = OUT_DIR / thumb_name(p["doc"])
         fresh = manifest.get(p["doc"]) == h and out.exists()
@@ -486,13 +435,10 @@ def main(argv=None) -> int:
             wanted = bool(re.search(args.only, str(p["path"])))
         if wanted:
             try:
-                if p.get("kind") == "matplotlib":
-                    render_matplotlib_thumbnail(p["code"], p["path"].parent, out)
-                else:
-                    fig = capture_figure(p["code"], p["path"].parent)
-                    if fig is None:
-                        raise RuntimeError("the code shows no figure")
-                    render_thumbnail(fig, out)
+                fig = capture_figure(p["code"], p["path"].parent)
+                if fig is None:
+                    raise RuntimeError("the code shows no figure")
+                render_thumbnail(fig, out)
                 redrawn += 1
             except Exception as exc:  # report and keep going
                 failed.append((p["doc"], f"{type(exc).__name__}: {exc}"))

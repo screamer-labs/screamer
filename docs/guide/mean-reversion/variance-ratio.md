@@ -62,4 +62,5 @@ series.
 
 - [`RollingVarianceRatio`](../../functions_rolling/RollingVarianceRatio.md): the Lo-MacKinlay estimator and the robust z-statistic.
 - [Estimate the Hurst exponent](hurst.md): a second test on the same series.
+- [Combine streams that tick at different times](../live/align-streams.md): build a ratio like ETH/BTC from two trade feeds.
 - [Pairs and mean reversion notebook](../../notebooks/18-pairs-and-mean-reversion.ipynb): hedge ratios and spreads between two assets.

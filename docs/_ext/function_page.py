@@ -33,6 +33,7 @@ OPS_TS = DOCS.parent / "js" / "src" / "generated" / "ops.ts"
 FRONTMATTER_RE = re.compile(r"\A---\n(.*?)\n---\n", re.DOTALL)
 H1_RE = re.compile(r"^# .*\n", re.M)
 H2_RE = re.compile(r"^## (.+)$", re.M)
+FENCE_RE = re.compile(r"^(`{3,}|~{3,})", re.M)
 JS_SIG_RE = re.compile(r"^export function (\w+)\((.*)\): ScreamerOp \{$", re.M)
 JS_PARAM_RE = re.compile(r"(\w+): [^=,]+?(?: = ((?:\[[^\]]*\])|[^,]+))?(?:,|$)")
 START_MARKER_RE = re.compile(r"<!-- [A-Z_]+_START -->\n\Z")
@@ -145,13 +146,33 @@ def _section_start(text, heading):
     return marker.start() if marker else heading.start()
 
 
+def _headings(text, pos=0):
+    """``## `` headings in ``text`` from ``pos`` on, skipping fenced code."""
+    fenced, fence = [], None
+    for m in FENCE_RE.finditer(text):
+        line_end = text.find("\n", m.start())
+        rest = text[m.end():line_end if line_end >= 0 else len(text)]
+        if fence is None:
+            fence = (m.group(1), m.start())
+        elif m.group(1)[0] == fence[0][0] and len(m.group(1)) >= len(fence[0]) \
+                and not rest.strip():
+            fenced.append((fence[1], m.end()))
+            fence = None
+    if fence is not None:
+        fenced.append((fence[1], len(text)))
+    return [h for h in H2_RE.finditer(text, pos)
+            if not any(a <= h.start() < b for a, b in fenced)]
+
+
 def _plot_then_source(text):
     """Show each example plot first and its full source directly below it.
 
-    Every ``.. plotly::`` directive with ``:include-source: True`` in ``text``
-    gets ``:include-source: False``, followed by a ``.. code-block:: python``
-    at the same indent holding the directive's source lines unchanged. Other
-    directives and the text between them are left as they are.
+    Every ``.. plotly::`` directive in ``text`` with ``:include-source: True``
+    or with no ``:include-source:`` option gets ``:include-source: False``,
+    followed by a ``.. code-block:: python`` at the same indent holding the
+    directive's source lines unchanged. A directive that sets
+    ``:include-source: False`` and the text between directives are left as
+    they are.
     """
     lines = text.split("\n")
     out = []
@@ -172,12 +193,17 @@ def _plot_then_source(text):
         block = lines[i:j]
         opts = [k for k, line in enumerate(block)
                 if INCLUDE_SOURCE_RE.match(line) and k < _first_blank(block)]
-        if not opts or INCLUDE_SOURCE_RE.match(block[opts[0]]).group(2) != "True":
+        if opts and INCLUDE_SOURCE_RE.match(block[opts[0]]).group(2) != "True":
             out.extend(block)
             i = j
             continue
-        k = opts[0]
-        block[k] = INCLUDE_SOURCE_RE.match(block[k]).group(1) + "False"
+        if opts:
+            k = opts[0]
+            block[k] = INCLUDE_SOURCE_RE.match(block[k]).group(1) + "False"
+        else:
+            body = next((line for line in block[1:] if line.strip()), "")
+            pad = body[:len(body) - len(body.lstrip())] or " " * (indent + 4)
+            block.insert(1, pad + ":include-source: False")
         source = block[_first_blank(block):]
         out.extend(block)
         out.extend(["", " " * indent + ".. code-block:: python"] + source)
@@ -201,7 +227,7 @@ def _examples_first(text):
     through ``_plot_then_source``. Text without an Examples section is returned
     unchanged.
     """
-    headings = list(H2_RE.finditer(text))
+    headings = _headings(text)
     for i, h in enumerate(headings):
         if h.group(1).strip() == "Examples":
             break
@@ -265,7 +291,7 @@ def _source_read(app, docname, source):
         if io:
             block += ("\n" if block else "") + io + "\n"
         if block:
-            headings = list(H2_RE.finditer(body))
+            headings = _headings(body)
             at = None
             for i, h in enumerate(headings):
                 if h.group(1).strip() == "Description":
@@ -278,12 +304,12 @@ def _source_read(app, docname, source):
                 at = marker.start()
             body = body[:at] + block + "\n" + body[at:]
 
-    first = H2_RE.search(body, h1.end())
+    first = next(iter(_headings(body, h1.end())), None)
     if first:
         at = _section_start(body, first)
         body = body[:at] + _examples_first(body[at:])
 
-    existing = {h.group(1).strip().lower() for h in H2_RE.finditer(body)}
+    existing = {h.group(1).strip().lower() for h in _headings(body)}
     tail = []
     see_also = fm.get("see_also") or []
     if see_also and "see also" not in existing:

@@ -50,8 +50,9 @@ plt.tight_layout()
 
 A label describes the price after a bar, so it looks ahead by design; screamer
 stamps it at the bar where it becomes known, `horizon` bars after the bar it
-labels, and `[horizon:]` moves it back. The fixed-horizon label is `+1` when
-daily BTC closes higher 10 days later and `-1` when it closes lower. The
+labels. Dropping the first `horizon` rows with `[horizon:]` puts each label
+on the row of its own bar. The fixed-horizon label is `+1` when daily BTC
+closes higher 10 days later and `-1` when it closes lower. The
 triple-barrier label is `+1` when the price first reaches one expected
 deviation above the close, `-1` when it first reaches one below, and `0` when
 it reaches neither within 10 days. The expected deviation is the 20-day
