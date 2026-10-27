@@ -10,7 +10,8 @@ This extension renders it on the HTML page, so the frontmatter is the one copy:
 - the one-line summary and the Python and JavaScript signatures, under the
   page title;
 - the Examples section moved to directly after the header, so the reader
-  sees the example before the Description;
+  sees the example before the Description, with each plot shown above its
+  full source;
 - a parameter table and the outputs, after the Description section;
 - See also and References lists at the end of the page.
 
@@ -35,6 +36,8 @@ H2_RE = re.compile(r"^## (.+)$", re.M)
 JS_SIG_RE = re.compile(r"^export function (\w+)\((.*)\): ScreamerOp \{$", re.M)
 JS_PARAM_RE = re.compile(r"(\w+): [^=,]+?(?: = ((?:\[[^\]]*\])|[^,]+))?(?:,|$)")
 START_MARKER_RE = re.compile(r"<!-- [A-Z_]+_START -->\n\Z")
+PLOTLY_RE = re.compile(r"^( *)\.\. plotly::\s*$")
+INCLUDE_SOURCE_RE = re.compile(r"^( *:include-source:\s*)(\S+)\s*$")
 
 
 def _js_signatures():
@@ -142,12 +145,61 @@ def _section_start(text, heading):
     return marker.start() if marker else heading.start()
 
 
+def _plot_then_source(text):
+    """Show each example plot first and its full source directly below it.
+
+    Every ``.. plotly::`` directive with ``:include-source: True`` in ``text``
+    gets ``:include-source: False``, followed by a ``.. code-block:: python``
+    at the same indent holding the directive's source lines unchanged. Other
+    directives and the text between them are left as they are.
+    """
+    lines = text.split("\n")
+    out = []
+    i = 0
+    while i < len(lines):
+        m = PLOTLY_RE.match(lines[i])
+        if not m:
+            out.append(lines[i])
+            i += 1
+            continue
+        indent = len(m.group(1))
+        j = i + 1
+        while j < len(lines) and (not lines[j].strip()
+                                  or len(lines[j]) - len(lines[j].lstrip()) > indent):
+            j += 1
+        while j > i + 1 and not lines[j - 1].strip():
+            j -= 1
+        block = lines[i:j]
+        opts = [k for k, line in enumerate(block)
+                if INCLUDE_SOURCE_RE.match(line) and k < _first_blank(block)]
+        if not opts or INCLUDE_SOURCE_RE.match(block[opts[0]]).group(2) != "True":
+            out.extend(block)
+            i = j
+            continue
+        k = opts[0]
+        block[k] = INCLUDE_SOURCE_RE.match(block[k]).group(1) + "False"
+        source = block[_first_blank(block):]
+        out.extend(block)
+        out.extend(["", " " * indent + ".. code-block:: python"] + source)
+        i = j
+    return "\n".join(out)
+
+
+def _first_blank(block):
+    """Index of the blank line that ends a directive's options."""
+    for k, line in enumerate(block):
+        if not line.strip():
+            return k
+    return len(block)
+
+
 def _examples_first(text):
     """Move the ``## Examples`` section in front of the first section.
 
     ``text`` holds the page's sections, from the first ``## `` heading on. The
-    Examples section runs up to the next ``## `` heading. Text without an
-    Examples section, or with Examples already first, is returned unchanged.
+    Examples section runs up to the next ``## `` heading; its plots are passed
+    through ``_plot_then_source``. Text without an Examples section is returned
+    unchanged.
     """
     headings = list(H2_RE.finditer(text))
     for i, h in enumerate(headings):
@@ -155,12 +207,10 @@ def _examples_first(text):
             break
     else:
         return text
-    if i == 0:
-        return text
     start = h.start()
     end = _section_start(text, headings[i + 1]) if i + 1 < len(headings) else len(text)
-    first = _section_start(text, headings[0])
-    chunk = text[start:end].rstrip("\n") + "\n\n"
+    first = _section_start(text, headings[0]) if i else start
+    chunk = _plot_then_source(text[start:end].rstrip("\n")) + "\n\n"
     return text[:first] + chunk + text[first:start] + text[end:]
 
 

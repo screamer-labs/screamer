@@ -85,3 +85,66 @@ def test_page_without_examples_is_unchanged():
     order = [_pos(out, s) for s in (
         "Does foo to a series.", "## Description", "## Parameters", "## NaN handling")]
     assert order == sorted(order)
+
+
+SOURCE = ["import numpy as np", "from screamer import Foo", "",
+          "y = Foo(5)(np.arange(10.0))", "fig.show()"]
+
+
+def _plotly(include_source):
+    opt = f"    :include-source: {include_source}\n" if include_source else ""
+    code = "".join(f"    {line}\n" if line else "\n" for line in SOURCE)
+    return ".. plotly::\n" + opt + "\n" + code
+
+
+def _fence(*parts):
+    return "```{eval-rst}\n" + "\n".join(parts) + "```\n\n"
+
+
+def _code_block_source(text):
+    """Source lines of the first ``.. code-block:: python`` in ``text``."""
+    after = text.split(".. code-block:: python\n\n", 1)[1]
+    lines = []
+    for line in after.split("\n"):
+        if line and not line.startswith("    "):
+            break
+        lines.append(line[4:])
+    while lines and not lines[-1]:
+        lines.pop()
+    return lines
+
+
+def test_plot_comes_first_then_its_full_source():
+    examples = "## Examples\n\n### Usage plot\n\n" + _fence(_plotly("True"))
+    out = _render(FRONTMATTER + DESCRIPTION + examples)
+    section = out[out.index("## Examples"):out.index("## Description")]
+    assert ":include-source: True" not in section
+    assert _pos(section, ":include-source: False") < _pos(section, ".. code-block:: python")
+    assert _code_block_source(section) == SOURCE
+    # Both stay inside the one eval-rst fence, which still closes once.
+    assert section.count("```{eval-rst}") == 1 and section.count("```\n") == 1
+
+
+def test_every_plot_in_examples_is_split_and_prose_stays_in_place():
+    examples = "## Examples\n\n" + _fence(_plotly("True"), "Some prose.\n", _plotly("True"))
+    out = _render(FRONTMATTER + DESCRIPTION + examples)
+    section = out[out.index("## Examples"):out.index("## Description")]
+    assert section.count(":include-source: False") == 2
+    assert section.count(".. code-block:: python") == 2
+    first, second = section.split("Some prose.")
+    assert _code_block_source(first) == SOURCE == _code_block_source(second)
+
+
+@pytest.mark.parametrize("tail", [
+    # A plot outside Examples keeps its inline source.
+    "## Description\n\n" + _fence(_plotly("True")) + EXAMPLES,
+    # A plot in Examples that already hides its source stays as it is.
+    DESCRIPTION + "## Examples\n\n" + _fence(_plotly("False")),
+    DESCRIPTION + "## Examples\n\n" + _fence(_plotly(None)),
+])
+def test_other_plotly_blocks_are_untouched(tail):
+    out = _render(FRONTMATTER + tail)
+    assert ".. code-block:: python" not in out
+    assert out.count(".. plotly::") == 1
+    for opt in (":include-source: True", ":include-source: False"):
+        assert out.count(opt) == tail.count(opt)
