@@ -68,19 +68,27 @@ parts:
     - notebooks/18-pairs-and-mean-reversion
   - slug: cycles
     title: Find cycles
-    line: Estimate the dominant cycle of a series.
-    tasks: []
+    line: Measure the dominant cycle length and mark its turning points.
+    tasks:
+    - guide/cycles/dominant-cycle
+    - guide/cycles/turning-points
     deeper:
     - notebooks/19-cycle-and-spectral-analysis
   - slug: regimes
     title: Detect regimes and change points
     line: Hidden Markov models, Bayesian changepoints, and CUSUM events.
-    tasks: []
+    tasks:
+    - guide/regimes/hmm
+    - guide/regimes/changepoint
+    - guide/regimes/cusum
     deeper: []
   - slug: order-flow
     title: Read order flow and liquidity
-    line: Trade signing, imbalance, price impact, and toxicity.
-    tasks: []
+    line: Trade signing, order-flow imbalance, and price impact.
+    tasks:
+    - guide/order-flow/sign-trades
+    - guide/order-flow/imbalance
+    - guide/order-flow/price-impact
     deeper:
     - notebooks/11-microstructure-order-flow
     - notebooks/12-microstructure-price-impact
