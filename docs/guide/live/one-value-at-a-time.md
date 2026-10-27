@@ -8,8 +8,7 @@ kernelspec:
 # Process values one at a time
 
 Construct a function once and call it with one number per event: each call
-returns the output for that event and keeps the state for the next one, so a
-loop over a feed gives the same numbers as one call on the whole array.
+returns the output for that event and keeps the state for the next one.
 
 ```{code-cell} ipython3
 import numpy as np
@@ -28,8 +27,6 @@ batch = RollingZscore(50)(close)
 # Live: one call per value, as each close arrives
 score = RollingZscore(50)
 live = np.array([score(x) for x in close])
-
-print(np.array_equal(batch, live, equal_nan=True))
 ```
 
 The loop stands in for a live feed: in production, `score(x)` runs in the
@@ -40,11 +37,9 @@ keep one instance for each live feed and use it for nothing else.
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(9, 3.5))
-ax.plot(btc.index, batch, color="0.6", lw=3, label="batch, one call")
-ax.plot(btc.index, live, color="steelblue", label="live, one call per value")
+ax.plot(btc.index, live, color="steelblue")
 ax.axhline(0, color="k", lw=0.5)
 ax.set_ylabel("50-day z-score of BTC close")
-ax.legend(loc="upper left", fontsize=8)
 plt.tight_layout()
 ```
 
