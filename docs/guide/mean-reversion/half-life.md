@@ -16,20 +16,12 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-from screamer import Resample, CombineLatest, RollingOU
+from screamer import RollingOU
 
-def closes(path):  # last trade price of each minute
-    trades = pd.read_csv(path)
-    return Resample(freq=60_000, agg="last", fill="carry")(
-        trades["price"].to_numpy(), trades["timestamp"].to_numpy())
+df = pd.read_csv("../../notebooks/data/deribit_ethbtc_ratio_1m.csv")
+df.index = pd.to_datetime(df.pop("timestamp"), unit="ms")
 
-data = "../../notebooks/data/"
-prices, ts = CombineLatest()(closes(data + "deribit_btc_perp_6h.csv"),
-                             closes(data + "deribit_eth_perp_6h.csv"))
-df = pd.DataFrame({"ratio": np.log(prices[:, 1] / prices[:, 0])},
-                  index=pd.to_datetime(ts, unit="ms"))
-
-df["mrr"] = RollingOU(120)(df["ratio"])
+df["mrr"] = RollingOU(120)(df["log_ratio"])
 df["half_life"] = np.log(2) / -np.log(1 - df["mrr"])
 df[["mrr", "half_life"]].dropna().iloc[::60].round(3)
 ```

@@ -12,24 +12,15 @@ when they are uncorrelated, above 0.5 when moves tend to continue, and below
 0.5 when they tend to reverse.
 
 ```{code-cell} ipython3
-import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-from screamer import Resample, CombineLatest, Diff, RollingHurst
+from screamer import Diff, RollingHurst
 
-def closes(path):  # last trade price of each minute
-    trades = pd.read_csv(path)
-    return Resample(freq=60_000, agg="last", fill="carry")(
-        trades["price"].to_numpy(), trades["timestamp"].to_numpy())
+df = pd.read_csv("../../notebooks/data/deribit_ethbtc_ratio_1m.csv")
+df.index = pd.to_datetime(df.pop("timestamp"), unit="ms")
 
-data = "../../notebooks/data/"
-prices, ts = CombineLatest()(closes(data + "deribit_btc_perp_6h.csv"),
-                             closes(data + "deribit_eth_perp_6h.csv"))
-df = pd.DataFrame({"ratio": np.log(prices[:, 1] / prices[:, 0])},
-                  index=pd.to_datetime(ts, unit="ms"))
-
-df["change"] = Diff()(df["ratio"])
+df["change"] = Diff()(df["log_ratio"])
 df["hurst"] = RollingHurst(120)(df["change"])
 df["hurst"].describe().round(2)
 ```

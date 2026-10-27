@@ -12,38 +12,31 @@ random walk: a variance ratio below 1 means the series reverts, above 1 that
 it trends, and the z-score says whether the difference from 1 is significant.
 
 ```{code-cell} ipython3
-import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-from screamer import Resample, CombineLatest, Diff, RollingVarianceRatio
+from screamer import Diff, RollingVarianceRatio
 
-def closes(path):  # last trade price of each minute
-    trades = pd.read_csv(path)
-    return Resample(freq=60_000, agg="last", fill="carry")(
-        trades["price"].to_numpy(), trades["timestamp"].to_numpy())
+df = pd.read_csv("../../notebooks/data/deribit_ethbtc_ratio_1m.csv")
+df.index = pd.to_datetime(df.pop("timestamp"), unit="ms")
 
-data = "../../notebooks/data/"
-prices, ts = CombineLatest()(closes(data + "deribit_btc_perp_6h.csv"),
-                             closes(data + "deribit_eth_perp_6h.csv"))
-df = pd.DataFrame({"ratio": np.log(prices[:, 1] / prices[:, 0])},
-                  index=pd.to_datetime(ts, unit="ms"))
-
-df["change"] = Diff()(df["ratio"])
+df["change"] = Diff()(df["log_ratio"])
 df["vr_z"] = RollingVarianceRatio(120, lag=5, output="zscore")(df["change"])
 df.dropna().head().round(5)
 ```
 
-The series is the log of the ETH/BTC price ratio, one value per minute over
-six hours of Deribit perpetual trades. The test runs on its changes: over the
-last 120 minutes, it compares the variance of 5-minute changes with 5 times
-the variance of 1-minute changes. When minute changes tend to reverse, the
-5-minute changes are smaller than that and the ratio is below 1. A z-score
+The series is the log of the ETH/BTC price ratio, one value per minute over six
+hours of Deribit perpetual trades; `devtools/build_ethbtc_ratio.py` builds it
+from the committed trade files with `Resample` and `CombineLatest`, taking the
+last trade price of each asset in each minute. The test runs on its changes:
+over the last 120 minutes, it compares the variance of 5-minute changes with 5
+times the variance of 1-minute changes. When minute changes tend to reverse,
+the 5-minute changes are smaller than that and the ratio is below 1. A z-score
 below -1.96 rejects the random walk at the 5% level.
 
 ```{code-cell} ipython3
 fig, (top, bottom) = plt.subplots(2, 1, figsize=(9, 5), sharex=True)
-top.plot(df.index, df["ratio"], color="0.2", lw=0.8)
+top.plot(df.index, df["log_ratio"], color="0.2", lw=0.8)
 top.set_ylabel("log(ETH / BTC)")
 bottom.plot(df.index, df["vr_z"], color="steelblue",
             label="RollingVarianceRatio(120, lag=5), z-score")
