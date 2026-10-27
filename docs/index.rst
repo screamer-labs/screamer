@@ -12,12 +12,11 @@ same functions on arrays, on live streams and in JavaScript.
 :doc:`Start the Guide <guide/index>`
 
 
-One example
------------
+Detect a trend in four lines
+----------------------------
 
-The example fits a quadratic to each sliding window of 50 values, takes its slope
-at the latest value, and keeps the sign of the slope: +1 when the trend is up, -1
-when it is down.
+The example fits a straight line to the last 100 values and keeps the sign of
+its slope: +1 while the series is rising, -1 while it is falling.
 
 .. tab-set::
 
@@ -26,29 +25,30 @@ when it is down.
       .. code-block:: python
          :emphasize-lines: 6
 
-         from screamer import RollingPoly2, Sign
+         from screamer import RollingPoly1, Sign
 
-         slope = RollingPoly2(window_size=50, derivative_order=1)
+         slope = RollingPoly1(window_size=100, derivative_order=1)
          sign = Sign()
 
-         result = sign(slope(data))
+         trend = sign(slope(close))
 
    .. tab-item:: JavaScript
 
       .. code-block:: javascript
          :emphasize-lines: 8
 
-         import { ready, RollingPoly2, Sign } from "@screamer-labs/screamer";
+         import { ready, RollingPoly1, Sign } from "@screamer-labs/screamer";
 
          await ready();
 
-         const slope = RollingPoly2(50, 1);   // windowSize, derivativeOrder
+         const slope = RollingPoly1(100, 1);   // windowSize, derivativeOrder
          const sign = Sign();
 
-         const result = sign(slope(data));    // data: Float64Array
+         const trend = sign(slope(close));     // close: Float64Array
 
-The plot applies it to one-minute closes of the BTC perpetual, built from six
-hours of Deribit trades: green where the trend is up, red where it is down.
+The plot applies it to daily BTC closes from 2022 to 2026: green where the trend
+is up, red where it is down. The trend uses only past prices, so it turns a few
+weeks after the market does.
 
 .. plotly::
    :include-source: False
@@ -56,30 +56,24 @@ hours of Deribit trades: green where the trend is up, red where it is down.
     import numpy as np
     import pandas as pd
     import plotly.graph_objects as go
-    from screamer import Resample, RollingPoly2, Sign
+    from screamer import RollingPoly1, Sign
 
-    # One-minute closes from the committed Deribit BTC-perpetual trade slice
-    trades = pd.read_csv("notebooks/data/deribit_btc_perp_6h.csv")
-    close, ts = Resample(freq=60_000, agg="last")(
-        trades["price"].to_numpy(), trades["timestamp"].to_numpy())
-    t = pd.to_datetime(ts, unit="ms")
+    bars = pd.read_csv("notebooks/data/binance_daily_20.csv", parse_dates=["date"])
+    btc = bars[bars["symbol"] == "BTC"]
+    t, close = btc["date"].to_numpy(), btc["close"].to_numpy()
 
-    trend = Sign()(RollingPoly2(window_size=50, derivative_order=1)(close))
-
-    # Each segment takes the color of the trend at its right end.
-    up = trend > 0
-    down = trend < 0
-    y_up = np.where(up | np.r_[up[1:], False], close, np.nan)
-    y_down = np.where(down | np.r_[down[1:], False], close, np.nan)
+    trend = Sign()(RollingPoly1(window_size=100, derivative_order=1)(close))
 
     fig = go.Figure()
+    # One shaded band per run of equal trend, from its first day to the next run.
+    runs = np.flatnonzero(np.r_[True, trend[1:] != trend[:-1]])
+    for i, j in zip(runs, np.r_[runs[1:], len(trend) - 1]):
+        if trend[i] in (1.0, -1.0):
+            fig.add_vrect(x0=t[i], x1=t[j], line_width=0, opacity=0.18,
+                          fillcolor="#2ca02c" if trend[i] > 0 else "#d62728")
     fig.add_trace(go.Scatter(x=t, y=close, mode="lines", name="BTC close",
-                             line=dict(color="lightgray")))
-    fig.add_trace(go.Scatter(x=t, y=y_up, mode="lines", name="trend up",
-                             line=dict(color="#2ca02c")))
-    fig.add_trace(go.Scatter(x=t, y=y_down, mode="lines", name="trend down",
-                             line=dict(color="#d62728")))
-    fig.update_layout(yaxis=dict(title="Price (USD)"),
+                             line=dict(color="#333333", width=1.5)))
+    fig.update_layout(yaxis=dict(title="Price (USD)"), showlegend=False,
                       margin=dict(l=20, r=20, t=20, b=20))
     fig.show()
 
