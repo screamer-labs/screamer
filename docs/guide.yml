@@ -116,23 +116,28 @@ parts:
     - notebooks/15-event-driven-backtests
   - slug: strategies
     title: Strategy templates
-    line: Trend following, breakouts, reversion, pairs, momentum, and carry.
+    line: Trend following, breakouts, reversion, pairs, momentum, carry, and volatility targeting.
     tasks:
-    - recipes/pairs-trade
-    - recipes/cross-sectional-momentum
-    - recipes/funding-carry
+    - guide/strategies/trend-following
+    - guide/strategies/breakout
+    - guide/strategies/rsi-reversion
+    - guide/strategies/bollinger-reversion
+    - guide/strategies/pairs
+    - guide/strategies/cross-sectional-momentum
+    - guide/strategies/carry
+    - guide/strategies/volatility-targeting
     deeper: []
   - slug: stops
     title: Stops and exits
     line: Stop-loss, trailing stops, and take-profit exits.
     tasks:
-    - recipes/stops-and-exits
+    - guide/stops/stops-and-exits
     deeper: []
   - slug: portfolios
     title: Portfolios of many assets
     line: Backtest and size positions across many assets at once.
     tasks:
-    - recipes/multi-asset
+    - guide/portfolios/multi-asset
     deeper: []
 - title: Test a strategy
   chapters:

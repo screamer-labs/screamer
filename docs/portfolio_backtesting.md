@@ -83,8 +83,8 @@ weights = {
 pd.DataFrame({k: w[-1] for k, w in weights.items()}, index=symbols).round(3).T
 ```
 
-The [cross-sectional momentum recipe](recipes/cross-sectional-momentum.md)
-backtests and tests the rank-weighted book.
+The [cross-sectional momentum page](guide/strategies/cross-sectional-momentum.md)
+backtests the rank-weighted book.
 
 ## The portfolio engines
 
@@ -264,7 +264,7 @@ common movement, the hedge ratio, and trades the spread that remains: a
 hedge-ratio estimator (`KalmanRegression`, `RollingTLSBeta`, `RollingBeta`), a
 check that the spread still mean-reverts (`RollingADF`, `RollingOU`), and
 entry and exit bands (`BandSignal`). The two legs then go to a portfolio engine
-as weights. The [pairs trade recipe](recipes/pairs-trade.md) builds one on
+as weights. The [pairs trade page](guide/strategies/pairs.md) builds one on
 real BTC and ETH prices.
 
 ## Live

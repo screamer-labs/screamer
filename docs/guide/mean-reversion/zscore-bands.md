@@ -67,4 +67,4 @@ a round trip earns about 2 basis points on average, the cost of its two fills.
 
 - [`BandSignal`](../../functions_signal/BandSignal.md): entry, exit and stop levels.
 - [`BacktestPriceTarget`](../../functions_fin/BacktestPriceTarget.md), [`backtest_report`](../../functions_fin/backtest_report.md): costs, sizing, and the statistics in the report.
-- [A pairs trade](../../recipes/pairs-trade.md): ETH against BTC with a hedge ratio, both legs, and a test against luck.
+- [Trade a pair](../strategies/pairs.md): ETH against BTC with a hedge ratio and both legs.

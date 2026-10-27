@@ -20,7 +20,7 @@
 
 9. :doc:`Turn a signal into a position <guide/signal-to-position/index>`: Sign, bands and hysteresis, holding, and volatility sizing.
 10. :doc:`Backtest a signal on OHLCV bars <guide/backtest/index>`: Costs, the report, the equity curve, and event-driven backtests.
-11. :doc:`Strategy templates <guide/strategies/index>`: Trend following, breakouts, reversion, pairs, momentum, and carry.
+11. :doc:`Strategy templates <guide/strategies/index>`: Trend following, breakouts, reversion, pairs, momentum, carry, and volatility targeting.
 12. :doc:`Stops and exits <guide/stops/index>`: Stop-loss, trailing stops, and take-profit exits.
 13. :doc:`Portfolios of many assets <guide/portfolios/index>`: Backtest and size positions across many assets at once.
 

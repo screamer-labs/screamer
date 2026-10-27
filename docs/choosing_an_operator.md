@@ -89,7 +89,7 @@ Each section below maps a common signal-processing task to the operators that co
 | Enter and exit on bands | `BandSignal` | Short above `+entry`, long below `-entry`, flat inside `exit`, with an optional stop. |
 | Backtest both legs from one account | `BacktestPortfolioOHLCTarget`, `BacktestPortfolioTarget` | Weights of equity per leg, with per-asset costs. |
 
-The [pairs trade recipe](recipes/pairs-trade.md) puts these together on BTC and
+The [pairs trade page](guide/strategies/pairs.md) puts these together on BTC and
 ETH, and [notebook 18](notebooks/18-pairs-and-mean-reversion) compares the hedge
 ratio estimators.
 
@@ -105,7 +105,7 @@ ratio estimators.
 | Scale scores into portfolio weights | `CrossNormalize` | Gross exposure 1 by default, with an optional net exposure. |
 | Backtest the book | `BacktestPortfolioOHLCTarget`, `PortfolioReport` | One shared account, rebalancing rules, exposure limits, and book statistics. |
 
-The [cross-sectional momentum recipe](recipes/cross-sectional-momentum.md) and
+The [cross-sectional momentum page](guide/strategies/cross-sectional-momentum.md) and
 the [portfolios and pairs guide](portfolio_backtesting.md) show the whole path.
 
 ## Turn a signal into a position
@@ -238,7 +238,7 @@ To evaluate a trading strategy on historical data, use one of screamer's backtes
 |:-------|:------------|:-----|
 | One asset, target position, bar data | `BacktestOHLCTarget`, `BacktestPriceTarget` | Fills at the next open, or at the price you pass. |
 | Many assets from one account | `BacktestPortfolioOHLCTarget`, `BacktestPortfolioTarget` | Weights, units, or notional per asset, with rebalancing rules. |
-| Funding, borrow, or financing | `BacktestCarry` | Charges carry on the position of any engine's output; see the [funding recipe](recipes/funding-carry.md). |
+| Funding, borrow, or financing | `BacktestCarry` | Charges carry on the position of any engine's output; see the [funding carry page](guide/strategies/carry.md). |
 | A list of the trades, or results per month | `backtest_trades`, `backtest_report(by=)` | One row per round trip; per-group totals, Sharpe, and drawdown. |
 | Summary statistics | `backtest_report`, `BacktestStats`, `PortfolioReport` | `backtest_report` gives a running table and a summary in one call; `BacktestStats` adds round-trip trade statistics as a node; `PortfolioReport` reports a portfolio book. |
 
