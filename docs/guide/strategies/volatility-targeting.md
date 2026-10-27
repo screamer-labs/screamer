@@ -17,7 +17,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from screamer import (EwStd, LogReturn, Clip, FillNa, Round,
-                      BacktestOHLCTarget, backtest_report)
+                      BacktestOHLCTarget, backtest_report, MaxDrawdown)
 
 df = pd.read_csv("../../notebooks/data/binance_daily_20.csv",
                  parse_dates=["date"])
@@ -58,13 +58,14 @@ plt.tight_layout()
 ```
 
 ```{code-cell} ipython3
-pd.Series(summary)[["sharpe", "max_drawdown", "num_trades"]].round(2)
+dd = MaxDrawdown()(1 + out[:, 0])[-1]           # fraction of the peak
+pd.Series({"sharpe": summary["sharpe"], "max_drawdown_pct": 100 * dd,
+           "num_trades": summary["num_trades"]}).round(2)
 ```
 
 On this sample the targeted position has the same Sharpe ratio as holding one
-times equity, 0.28, and a deeper drawdown. Volatility was low in September
-2025, so the weight was 1.3 when BTC peaked in early October and began to
-fall.
+times equity, 0.28, and a shallower worst drawdown: 59% of its peak equity,
+against 67% for holding.
 
 ## Go deeper
 

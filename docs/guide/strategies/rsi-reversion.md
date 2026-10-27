@@ -14,7 +14,8 @@ below 30 (oversold), and flat again when the RSI crosses 50.
 ```{code-cell} ipython3
 import pandas as pd
 import matplotlib.pyplot as plt
-from screamer import RollingRSI, BandSignal, BacktestOHLCTarget, backtest_report
+from screamer import (RollingRSI, BandSignal, BacktestOHLCTarget,
+                      backtest_report, MaxDrawdown)
 
 df = pd.read_csv("../../notebooks/data/binance_daily_20.csv",
                  parse_dates=["date"])
@@ -52,7 +53,9 @@ plt.tight_layout()
 ```
 
 ```{code-cell} ipython3
-pd.Series(summary)[["sharpe", "max_drawdown", "num_trades"]].round(2)
+dd = MaxDrawdown()(1 + out[:, 0])[-1]           # fraction of the peak
+pd.Series({"sharpe": summary["sharpe"], "max_drawdown_pct": 100 * dd,
+           "num_trades": summary["num_trades"]}).round(2)
 ```
 
 On daily BTC the rule loses money over the sample. Its long positions made a

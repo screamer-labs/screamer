@@ -15,7 +15,8 @@ close is above a slow one and a short position while it is below;
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from screamer import EwMean, Sign, BacktestOHLCTarget, backtest_report
+from screamer import (EwMean, Sign, BacktestOHLCTarget,
+                      backtest_report, MaxDrawdown)
 
 df = pd.read_csv("../../notebooks/data/binance_daily_20.csv",
                  parse_dates=["date"])
@@ -51,12 +52,14 @@ plt.tight_layout()
 ```
 
 ```{code-cell} ipython3
-pd.Series(summary)[["sharpe", "max_drawdown", "num_trades"]].round(2)
+dd = MaxDrawdown()(1 + out[:, 0])[-1]           # fraction of the peak
+pd.Series({"sharpe": summary["sharpe"], "max_drawdown_pct": 100 * dd,
+           "num_trades": summary["num_trades"]}).round(2)
 ```
 
-The Sharpe ratio is annualized, the maximum drawdown is the largest fall of
-equity from a peak in units of the starting capital, and `num_trades` counts
-the days on which the position changed. This is a template to start from; one
+The Sharpe ratio is annualized, `max_drawdown_pct` is the largest fall of
+equity from a peak in percent of that peak (`MaxDrawdown`), and `num_trades`
+counts the days on which the position changed. This is a template to start from; one
 run on one sample does not show that the rule has an edge.
 
 ## Go deeper

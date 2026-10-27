@@ -17,7 +17,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from screamer import (LogReturn, EwStd, CrossNormalize,
-                      BacktestPortfolioOHLCTarget, PortfolioReport)
+                      BacktestPortfolioOHLCTarget, PortfolioReport, MaxDrawdown)
 
 df = pd.read_csv("../../notebooks/data/binance_daily_20.csv",
                  parse_dates=["date"])
@@ -34,9 +34,10 @@ for name, weights in books.items():
     weights[:60] = np.nan                             # estimate warming up
     weights[dates.day != 1] = np.nan                  # rebalance monthly
     out[name] = engine(weights, o, h, l, c)           # (T, K, 4)
-    *_, trades, max_drawdown, sharpe = PortfolioReport()(out[name])[-1]
+    *_, trades, _, sharpe = PortfolioReport()(out[name])[-1]
+    dd = MaxDrawdown()(1 + out[name][:, :, 0].sum(axis=1))[-1]
     stats[name] = {"sharpe": sharpe * np.sqrt(365),
-                   "max_drawdown": max_drawdown, "num_trades": trades}
+                   "max_drawdown_pct": 100 * dd, "num_trades": trades}
 ```
 
 The data is daily bars of 20 Binance spot pairs quoted in USDT, from January

@@ -17,7 +17,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from screamer import (Resample, BacktestPortfolioOHLCTarget, BacktestCarry,
-                      PortfolioReport)
+                      PortfolioReport, MaxDrawdown)
 
 bars = pd.read_csv("../../notebooks/data/binance_daily_20.csv",
                    parse_dates=["date"])
@@ -64,9 +64,10 @@ plt.tight_layout()
 ```
 
 ```{code-cell} ipython3
-*_, trades, max_drawdown, sharpe = PortfolioReport()(out)[-1]
-pd.Series({"sharpe": sharpe * np.sqrt(365), "max_drawdown": max_drawdown,
-           "num_trades": trades}).round(3)
+*_, trades, _, sharpe = PortfolioReport()(out)[-1]
+dd = MaxDrawdown()(1 + out[:, :, 0].sum(axis=1))[-1]   # fraction of the peak
+pd.Series({"sharpe": sharpe * np.sqrt(365), "max_drawdown_pct": 100 * dd,
+           "num_trades": trades}).round(2)
 ```
 
 `PortfolioReport` is the portfolio version of `backtest_report`: its Sharpe

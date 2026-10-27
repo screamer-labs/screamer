@@ -2,8 +2,8 @@
 
 A strategy template is a complete rule, from data to backtest, that you can
 copy and change. Each page trades committed crypto data with fees, and ends
-with the same three numbers: the Sharpe ratio, the maximum drawdown, and the
-number of trades. The templates use standard settings, not tuned on the data,
+with the same three numbers: the Sharpe ratio, the maximum drawdown in percent
+of the peak, and the number of trades. The templates use standard settings, not tuned on the data,
 and most of them lose money on this sample.
 
 <!-- tasks:start -->

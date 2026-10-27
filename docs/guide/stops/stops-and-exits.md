@@ -15,7 +15,8 @@ price (0.10 is 10%).
 ```{code-cell} ipython3
 import pandas as pd
 import matplotlib.pyplot as plt
-from screamer import EwMean, Sign, BacktestOHLCTarget, backtest_report
+from screamer import (EwMean, Sign, BacktestOHLCTarget, backtest_report,
+                      MaxDrawdown)
 
 df = pd.read_csv("../../notebooks/data/binance_daily_20.csv",
                  parse_dates=["date"])
@@ -56,14 +57,17 @@ plt.tight_layout()
 ```
 
 ```{code-cell} ipython3
-summary.loc[["sharpe", "max_drawdown", "num_trades", "exposure"]].round(2)
+summary.loc["max_drawdown_pct"] = [100 * MaxDrawdown()(1 + res[:, 0])[-1]
+                                   for res in out.values()]   # % of the peak
+summary.loc[["sharpe", "max_drawdown_pct", "num_trades", "exposure"]].round(2)
 ```
 
 `exposure` is the share of days with a position. On this sample both exits
-reduce the largest drawdown, and the trailing stop does so while holding a
-position on fewer than half the days. The two levels were picked as round
-numbers and compared on the same data; choosing among variants this way is a
-form of selection, which a parameter grid accounts for.
+reduce the largest drawdown, from 53% of the peak to 43% with the stop-loss and
+38% with the trailing stop, which holds a position on fewer than half the days.
+The two levels were picked as round numbers and compared on the same data;
+choosing among variants this way is a form of selection, which a parameter grid
+accounts for.
 
 ## Go deeper
 

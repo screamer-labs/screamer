@@ -19,7 +19,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from screamer import (Resample, CombineLatest, Ffill, KalmanRegression,
                       RollingZscore, RollingADF, BandSignal,
-                      BacktestPortfolioOHLCTarget, PortfolioReport)
+                      BacktestPortfolioOHLCTarget, PortfolioReport, MaxDrawdown)
 
 def bars(path):
     trades = pd.read_csv(path)
@@ -38,7 +38,6 @@ kf = KalmanRegression(delta=1e-10, obs_var=1e-6)(log_eth, log_btc)
 beta, z = kf[:, 0], RollingZscore(30)(kf[:, 2])
 position = BandSignal(entry=2.0, exit=0.0, stop=3.5)(z)
 position[~(RollingADF(window_size=60, lags=1)(kf[:, 2]) < -3.34)] = 0.0
-position[:60] = 0.0                                          # warm-up
 target = np.column_stack([-position * beta, position]) / (1 + beta)[:, None]
 target[np.r_[False, position[1:] == position[:-1]]] = np.nan  # NaN holds
 out = BacktestPortfolioOHLCTarget(fee=2e-4)(target, o, h, l, c)
@@ -50,7 +49,8 @@ one-minute bars by `Resample` and aligned on time by `CombineLatest`.
 intercept and slope: column 0 is the hedge ratio `beta` and column 2 the
 spread. `BandSignal` goes short the spread at a z-score of 2, long at -2, and
 flat at 0, with a stop at 3.5. The position is held only while the rolling ADF
-statistic is below -3.34, the 5% Engle-Granger critical value. One unit of
+statistic is below -3.34, the 5% Engle-Granger critical value, which also
+keeps it flat while the 60-minute ADF window fills. One unit of
 spread is long ETH and short `beta` times as much BTC by value, with a gross
 weight of 1; targets are sent only when the position changes, so the legs are
 not rebalanced every minute. Each trade pays a 2 bps fee and fills at the next
@@ -68,13 +68,14 @@ plt.tight_layout()
 ```
 
 ```{code-cell} ipython3
-*_, trades, max_drawdown, sharpe = PortfolioReport()(out)[-1]
-pd.Series(dict(sharpe=sharpe, max_drawdown=max_drawdown, num_trades=trades))
+*_, trades, _, sharpe = PortfolioReport()(out)[-1]
+dd = MaxDrawdown()(1 + out[:, :, 0].sum(axis=1))[-1]   # fraction of the peak
+pd.Series(dict(sharpe=sharpe, max_drawdown_pct=100 * dd, num_trades=trades))
 ```
 
 `PortfolioReport` is the portfolio version of `backtest_report`. Its Sharpe
 ratio is per minute and left that way, because six hours are too short to
-annualize; the drawdown is a fraction of the starting capital. The fees are the
+annualize. The fees are the
 whole loss: before fees the book ends close to flat, and each of the twelve
 position changes trades both legs.
 
