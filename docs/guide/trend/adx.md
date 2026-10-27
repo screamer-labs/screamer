@@ -40,8 +40,8 @@ plt.tight_layout()
 
 The inputs come in the order high, low, close, and the three output columns
 are `+DI`, `-DI` and `ADX`. `PlusDI` computes `+DI` alone and gives the same
-values, as the table shows; `MinusDI` does the same for `-DI`. `+DI` and `-DI` are
-`NaN` for the first 14 bars and `ADX` for the first 27, and all three match
+values, as the table shows; `MinusDI` does the same for `-DI`. `+DI` and `-DI`
+are `NaN` for the first 14 bars and `ADX` for the first 27, and all three match
 TA-Lib.
 
 A rule of thumb that goes back to Wilder (1978) reads `ADX` above 25 (the

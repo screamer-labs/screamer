@@ -22,7 +22,7 @@ close = daily.pivot(index="date", columns="symbol", values="close")
 value = daily.pivot(index="date", columns="symbol", values="quote_volume")
 
 amihud = AmihudIlliquidity(30)(LogReturn()(close), value)
-# The last day, in basis points of return per million USD traded.
+# The last day, in bp of return per million USD traded.
 latest = pd.Series(1e10 * amihud[-1], index=close.columns).sort_values()
 latest.round(2)
 ```

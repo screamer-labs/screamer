@@ -24,7 +24,7 @@ bars = pd.DataFrame(values, index=pd.to_datetime(index, unit="ms"),
 
 bars["ret"] = LogReturn()(bars["close"])
 bars["kyle"] = RollingKyleLambda(30)(bars["buy"] - bars["sell"], bars["ret"])
-# In basis points of return per million USD of net flow.
+# In bp of return per million USD of net flow.
 impact = 1e10 * bars["kyle"]
 impact.describe().round(1)
 ```
@@ -43,10 +43,10 @@ The bars are the one-minute bars of the [imbalance page](imbalance.md), with
 buy and sell volume in US dollars. `RollingKyleLambda` takes the net flow
 first and the return second, and regresses the return on the flow over the
 last 30 minutes. It is `NaN` until the window is full. The factor `1e10`
-turns return per USD into basis points per million USD.
+turns return per USD into bp per million USD.
 
-On BTC a million USD of net buying in a minute went with a rise of about 19
-basis points, between 5 and 49 depending on the 30 minutes in the window.
+On BTC a million USD of net buying in a minute went with a rise of about 19 bp,
+between 5 and 49 depending on the 30 minutes in the window.
 
 ## Go deeper
 
