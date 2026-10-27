@@ -93,3 +93,39 @@ def test_check_reports_unlisted_notebook():
         c["deeper"] = [d for d in c.get("deeper", []) if d != dropped]
     problems = mod.problems(spec)
     assert problems and any(dropped in p for p in problems)
+
+
+# Pages that moved in Phase 1. Each old URL must keep working through a stub.
+MOVED = [
+    "installation", "capabilities",
+    "recipes/pandas-ohlcv-indicators", "recipes/migrating", "recipes/ticks-to-backtest",
+    "recipes/volatility-sizing", "recipes/first-strategy",
+    "recipes/pairs-trade", "recipes/cross-sectional-momentum", "recipes/funding-carry",
+    "recipes/stops-and-exits", "recipes/multi-asset",
+]
+
+_REFRESH = re.compile(r'"http-equiv=refresh":\s*"\d+;\s*url=([^"]+)"')
+
+
+def _stubs():
+    for path in DOCS.rglob("*.md"):
+        if "_build" in path.parts or "superpowers" in path.parts:
+            continue
+        text = path.read_text()
+        front = re.match(r"---\n(.*?)\n---\n", text, re.S)
+        if front and re.search(r"^orphan:\s*true\s*$", front.group(1), re.M):
+            m = _REFRESH.search(front.group(1))
+            if m:
+                yield path, m.group(1)
+
+
+def test_moved_pages_redirect():
+    stubs = dict(_stubs())
+    for doc in MOVED:
+        assert DOCS / f"{doc}.md" in stubs, f"{doc}.md is not a redirect stub"
+    for path, url in stubs.items():
+        target = (path.parent / url.split("#")[0]).resolve()
+        assert target.suffix == ".html", f"{path}: {url}"
+        sources = [target.with_suffix(s) for s in (".md", ".ipynb", ".rst")]
+        assert any(s.exists() for s in sources), f"{path.relative_to(DOCS)} -> {url}: no source page"
+        assert target.with_suffix(".md") not in stubs, f"{path.relative_to(DOCS)}: redirect chain"
