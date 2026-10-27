@@ -48,14 +48,22 @@ parts:
     - notebooks/02-window-statistics
   - slug: trend
     title: Detect a trend
-    line: Slope and regression, DMI and ADX, trend mode, and crossovers.
-    tasks: []
+    line: Rolling slope, moving-average crossover, ADX, and trend mode.
+    tasks:
+    - guide/trend/slope
+    - guide/trend/crossover
+    - guide/trend/adx
+    - guide/trend/trend-mode
     deeper:
     - notebooks/03-financial-indicators
   - slug: mean-reversion
     title: Detect mean reversion
     line: Variance ratio, Hurst exponent, OU half-life, and z-score bands.
-    tasks: []
+    tasks:
+    - guide/mean-reversion/variance-ratio
+    - guide/mean-reversion/hurst
+    - guide/mean-reversion/half-life
+    - guide/mean-reversion/zscore-bands
     deeper:
     - notebooks/18-pairs-and-mean-reversion
   - slug: cycles

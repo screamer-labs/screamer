@@ -11,7 +11,7 @@ Each chapter answers a few tasks with a short, runnable example. Read in order, 
 
 2. [Smooth and denoise a series](denoise/index.md): Moving averages, low-lag smoothers, Kalman and Butterworth filters, despiking.
 3. [Measure volatility](volatility/index.md): Close-to-close and OHLC estimators, and the average true range.
-4. [Detect a trend](trend/index.md): Slope and regression, DMI and ADX, trend mode, and crossovers.
+4. [Detect a trend](trend/index.md): Rolling slope, moving-average crossover, ADX, and trend mode.
 5. [Detect mean reversion](mean-reversion/index.md): Variance ratio, Hurst exponent, OU half-life, and z-score bands.
 6. [Find cycles](cycles/index.md): Estimate the dominant cycle of a series.
 7. [Detect regimes and change points](regimes/index.md): Hidden Markov models, Bayesian changepoints, and CUSUM events.
