@@ -40,11 +40,14 @@ namespace screamer { namespace validation {
         const char* test_size;
         const char* max_train_size;
         const char* label_length;
+        const char* drop_unlabeled;   // the call that drops rows without a label
     };
     inline constexpr TimeSplitsNames kTimeSplitsPython{
-        "time_splits", "n_splits", "test_size", "max_train_size", "label_length"};
+        "time_splits", "n_splits", "test_size", "max_train_size", "label_length",
+        "forecast_pairs(..., dropna=True)"};
     inline constexpr TimeSplitsNames kTimeSplitsJs{
-        "timeSplits", "nSplits", "testSize", "maxTrainSize", "labelLength"};
+        "timeSplits", "nSplits", "testSize", "maxTrainSize", "labelLength",
+        "forecastPairs(..., { dropna: true })"};
 
     namespace detail {
         // An integer count of at least `least`; one above the size_t range
@@ -82,7 +85,9 @@ namespace screamer { namespace validation {
                                             " values, expected n = " + num(n));
             for (std::size_t t = 0; t < n; ++t) {
                 if (std::isnan(label[t]))
-                    throw std::invalid_argument(who + ll + "[" + num(t) + "] is NaN");
+                    throw std::invalid_argument(who + ll + "[" + num(t) +
+                                                "] is NaN; drop the rows without a label first, for example with " +
+                                                names.drop_unlabeled);
                 if (label[t] < 0.0)
                     throw std::invalid_argument(who + ll + "[" + num(t) + "] must not be negative");
             }

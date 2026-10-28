@@ -114,7 +114,9 @@ def test_empty_training_set_raises():
 def test_nan_label_length_raises():
     label = np.zeros(20)
     label[17] = np.nan
-    with pytest.raises(ValueError, match=r"^time_splits: label_length\[17\] is NaN"):
+    with pytest.raises(ValueError, match=r"^time_splits: label_length\[17\] is NaN; drop the rows "
+                       r"without a label first, for example with "
+                       r"forecast_pairs\(\.\.\., dropna=True\)$"):
         s.time_splits(20, 2, label_length=label)
     with pytest.raises(ValueError, match="^time_splits: label_length is NaN"):
         s.time_splits(20, 2, label_length=float("nan"))

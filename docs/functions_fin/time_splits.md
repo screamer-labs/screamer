@@ -40,7 +40,8 @@ every row or one value per row. A training row `t` is left out when
 block. A constant `label_length` equals the `gap` of `TimeSeriesSplit`.
 
 A NaN or negative `label_length`, and a fold left with no training rows,
-raise `ValueError`.
+raise `ValueError`. A NaN usually marks a row whose label is not known yet;
+drop those rows first, for example with `forecast_pairs(..., dropna=True)`.
 
 <!-- HELP_END -->
 
@@ -54,7 +55,8 @@ max_train_size=None)`
 - `test_size`: the rows in each test block. The default is
   `n // (n_splits + 1)`.
 - `label_length`: the rows after row `t` that its label covers, a number or an
-  array of `n` values. The default 0 leaves no row out.
+  array of `n` values. The default 0 leaves no row out. A fractional value
+  works: row `t` is left out when `t + label_length[t] >= s` holds for it.
 - `max_train_size`: keep at most this many training rows per fold, the most
   recent ones that remain after leaving rows out. The default keeps all.
 

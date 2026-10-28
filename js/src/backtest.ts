@@ -185,7 +185,7 @@ export function backtestReport(
       assetPtr = M.allocF64(K * summaryNames.length);
       wasmCall(() => M.backtestBookInto(inPtr, T, K, ppy, outPtr, sumPtr, assetPtr));
     } else {
-      wasmCall(() => M.backtestReportInto(inPtr, T, ndim, ncols, ppy, outPtr, sumPtr));
+      wasmCall(() => M.backtestReportInto(inPtr, T, ppy, outPtr, sumPtr));
     }
     const running: Record<string, Float64Array> = {};
     // One asset's engine columns come from the input; C++ writes the others.
@@ -223,7 +223,7 @@ export function backtestReport(
         wasmCall(() => M.backtestBookGroupsInto(inPtr, T, K, codesPtr, codes.length,
                                                 labels.length, ppy, groupPtr));
       else
-        wasmCall(() => M.backtestGroupsInto(inPtr, T, ndim, ncols, codesPtr, codes.length,
+        wasmCall(() => M.backtestGroupsInto(inPtr, T, codesPtr, codes.length,
                                             labels.length, ppy, groupPtr));
       const g = M.viewF64(groupPtr, labels.length * groups.length);
       byGroup = new Map(labels.map((label, k) =>

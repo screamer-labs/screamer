@@ -1,7 +1,7 @@
 """start_policy on the IIR filters: "steady" (default) and "zero".
 
 "zero" starts from an all-zero state and equals scipy.signal.lfilter.
-"steady" sets the state, on the first finite input x0, to the steady state
+"steady" sets the state, on the first non-NaN input x0, to the steady state
 for a constant input x0, which is lfilter(b, a, x, zi=lfilter_zi(b, a) * x0).
 """
 import numpy as np
@@ -66,7 +66,7 @@ def _series(n=300, seed=0, level=100.0):
 
 
 def _steady_ref(b, a, x):
-    """lfilter from the steady state at the first finite value, NaN skipped."""
+    """lfilter from the steady state at the first non-NaN value, NaN skipped."""
     x = np.asarray(x, float)
     out = np.full_like(x, np.nan)
     ok = ~np.isnan(x)
@@ -144,6 +144,22 @@ class TestStartPolicy:
     def test_unknown_policy_raises(self, name, make, ba, kind):
         with pytest.raises(ValueError, match=name):
             make(start_policy="bogus")
+
+
+@pytest.mark.parametrize("make, ba", [
+    # Order 9: ten coefficients, the general (non-unrolled) path.
+    (lambda: Butter(9, 0.1), butter(9, 0.1, btype="low")),
+    # Order 4 band-pass: nine coefficients, the largest unrolled path.
+    (lambda: ButterBandpass(4, 0.1, 0.3), butter(4, [0.1, 0.3], btype="band")),
+], ids=["Butter9", "ButterBandpass4"])
+def test_steady_high_order(make, ba):
+    x = _series(seed=13)
+    x[:2] = np.nan
+    b, a = ba
+    # A high-order transfer function is badly conditioned, so the tolerance
+    # is looser than for the low-order cases.
+    np.testing.assert_allclose(np.asarray(make()(x)), _steady_ref(b, a, x),
+                               rtol=1e-7, atol=1e-7, equal_nan=True)
 
 
 def test_two_dimensional_columns_start_independently():

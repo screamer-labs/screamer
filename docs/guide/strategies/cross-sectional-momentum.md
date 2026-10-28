@@ -62,8 +62,8 @@ pd.Series({"sharpe": summary["sharpe"], "max_drawdown_pct": 100 * dd,
 
 `backtest_report` sums the `(T, K, 4)` output over the assets into one book;
 `periods_per_year=365` annualizes the Sharpe ratio of the daily pnl, and
-`num_trades` counts asset position changes. The book gains until the end of 2023, then gives the gain
-back and ends below its starting capital. The 20 assets were chosen in 2026
+`num_trades` counts asset position changes. The book gains until the end of
+2023, then gives the gain back and ends below its starting capital. The 20 assets were chosen in 2026
 from coins that are still large, so coins that collapsed during the period
 (LUNA and FTT in 2022) are missing; those are the ones a momentum book would
 have been short. A live version would also hold its shorts in perpetual futures

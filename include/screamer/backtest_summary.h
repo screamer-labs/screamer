@@ -290,6 +290,20 @@ namespace screamer {
     inline constexpr std::array<const char*, 3> kBookColumns{{"equity", "pnl", "cost"}};
 
     namespace detail {
+        // summary_from reads the book's columns where it reads an engine's:
+        // every engine column kStats reads must be the engine's equity (field
+        // 0), which is also the book's column 0.
+        constexpr bool engine_stats_read_equity() {
+            for (const StatSpec& s : kStats)
+                if (s.source == StatSource::Engine && s.column != 0) return false;
+            return true;
+        }
+    } // namespace detail
+    static_assert(detail::engine_stats_read_equity(),
+                  "backtest_book_report passes the book to summary_from as engine rows; "
+                  "a kStats engine column other than equity needs a book column");
+
+    namespace detail {
 
         // One book row: the sums over the assets, and whether any asset had a
         // finite row.

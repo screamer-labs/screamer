@@ -52,7 +52,7 @@ test("timeSplits: bad arguments throw naming the function", async () => {
   const negLabel = new Float64Array(20);
   negLabel[4] = -1;
   const cases: [() => unknown, RegExp, new (...a: any[]) => Error][] = [
-    [() => S.timeSplits(20, 2, { labelLength: nanLabel }), /^timeSplits: labelLength\[17\] is NaN/, RangeError],
+    [() => S.timeSplits(20, 2, { labelLength: nanLabel }), /^timeSplits: labelLength\[17\] is NaN; drop the rows without a label first, for example with forecastPairs\(\.\.\., \{ dropna: true \}\)$/, RangeError],
     [() => S.timeSplits(20, 2, { labelLength: NaN }), /^timeSplits: labelLength is NaN/, RangeError],
     [() => S.timeSplits(20, 2, { labelLength: negLabel }), /^timeSplits: labelLength\[4\] must not be negative/, RangeError],
     [() => S.timeSplits(20, 2, { labelLength: -1 }), /^timeSplits: labelLength must not be negative/, RangeError],

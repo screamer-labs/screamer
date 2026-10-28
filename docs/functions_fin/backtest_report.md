@@ -58,7 +58,11 @@ the book, the account the `K` assets share:
 An asset whose row has a `NaN` field is skipped on that row: it adds no pnl,
 cost, or trade, and its equity holds at its last value (0 before its first
 row). An asset that starts late joins the book when its data starts. A book
-row is `NaN` only when every asset is skipped.
+row is `NaN` only when every asset is skipped. This differs from
+`PortfolioReport`, which skips the whole row when any value in it is `NaN`.
+With `K = 1` a skipped row is a `NaN` book row, so `running["equity"]` is
+`NaN` there even when the asset's equity field is finite; the `(T, 4)` form
+passes the engine's equity column through unchanged.
 
 The report and the summary are computed in C++, which runs the `BacktestReport`
 and `BacktestStats` nodes and reads the last finite value of each column. This

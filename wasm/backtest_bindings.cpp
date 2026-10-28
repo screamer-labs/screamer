@@ -36,14 +36,14 @@ double* toColumns(const double* rows, std::size_t T, std::size_t width, double* 
     return o;
 }
 
-// The engine output `eng` (T rows of `ncols` values, row-major) as the
+// The engine output `eng` (T rows of 4 values, row-major) as the
 // computed running columns, column-major in `out` (6 + 9 columns of T values,
 // in the order of backtestReportNames), and the summary in `summary`
 // (kNumStats values). The engine columns stay in the caller's input. The
-// shape and periods_per_year are checked first.
-void backtestReportInto(std::uintptr_t eng, std::size_t T, std::size_t ndim, std::size_t ncols,
-                        double periods_per_year, std::uintptr_t out, std::uintptr_t summary) {
-    screamer::check_engine_rows(ndim, ncols);
+// caller has checked the shape with checkReportRows; periods_per_year is
+// checked first.
+void backtestReportInto(std::uintptr_t eng, std::size_t T, double periods_per_year,
+                        std::uintptr_t out, std::uintptr_t summary) {
     screamer::BacktestReport rep(periods_per_year);
     screamer::BacktestStats st(periods_per_year);
     std::vector<double> report(T * kReport), stats(T * kStatsCols);
@@ -58,11 +58,10 @@ void backtestReportInto(std::uintptr_t eng, std::size_t T, std::size_t ndim, std
 // the book's running columns, column-major in `out` (3 + 6 + 9 columns of T
 // values: kBookColumns, then the order of backtestReportNames), the book's
 // summary in `summary` (kNumStats values), and each asset's summary in
-// `per_asset` (K x kNumStats, row-major). The shape and periods_per_year are
-// checked first.
+// `per_asset` (K x kNumStats, row-major). The caller has checked the shape
+// with checkReportRows; periods_per_year is checked first.
 void backtestBookInto(std::uintptr_t eng, std::size_t T, std::size_t K, double periods_per_year,
                       std::uintptr_t out, std::uintptr_t summary, std::uintptr_t per_asset) {
-    screamer::check_report_rows(kWho, 3, K, kEngine);
     screamer::check_periods_per_year(periods_per_year);
     constexpr std::size_t kBook = screamer::kBookColumns.size();
     std::vector<double> book(T * kBook), report(T * kReport), stats(T * kStatsCols);
@@ -78,20 +77,19 @@ void backtestBookInto(std::uintptr_t eng, std::size_t T, std::size_t K, double p
 }
 
 // backtest_report(by=): the statistics of `groups` groups of the engine
-// output `eng` (T rows of `ncols` values, row-major) for the `n_codes` group
+// output `eng` (T rows of 4 values, row-major) for the `n_codes` group
 // codes at `codes` (doubles holding integers in [0, groups)), written row by
-// row to `out` (groups x kGroupStats). The shape and the code count are
-// checked first.
-void backtestGroupsInto(std::uintptr_t eng, std::size_t T, std::size_t ndim, std::size_t ncols,
-                        std::uintptr_t codes, std::size_t n_codes, std::size_t groups,
-                        double periods_per_year, std::uintptr_t out) {
-    screamer::check_engine_rows(ndim, ncols);
+// row to `out` (groups x kGroupStats). The caller has checked the shape with
+// checkReportRows; the code count is checked first.
+void backtestGroupsInto(std::uintptr_t eng, std::size_t T, std::uintptr_t codes,
+                        std::size_t n_codes, std::size_t groups, double periods_per_year,
+                        std::uintptr_t out) {
     screamer::check_group_codes(n_codes, T);
     const double* c = reinterpret_cast<const double*>(codes);
     std::vector<std::int64_t> ic(T);
     for (std::size_t t = 0; t < T; ++t) ic[t] = static_cast<std::int64_t>(c[t]);
     screamer::backtest_groups(reinterpret_cast<const double*>(eng), T,
-                              static_cast<std::ptrdiff_t>(ncols), 1, ic.data(), groups,
+                              static_cast<std::ptrdiff_t>(kEngine), 1, ic.data(), groups,
                               periods_per_year, reinterpret_cast<double*>(out));
 }
 
@@ -100,7 +98,6 @@ void backtestGroupsInto(std::uintptr_t eng, std::size_t T, std::size_t ndim, std
 void backtestBookGroupsInto(std::uintptr_t eng, std::size_t T, std::size_t K, std::uintptr_t codes,
                             std::size_t n_codes, std::size_t groups, double periods_per_year,
                             std::uintptr_t out) {
-    screamer::check_report_rows(kWho, 3, K, kEngine);
     screamer::check_group_codes(n_codes, T);
     const double* c = reinterpret_cast<const double*>(codes);
     std::vector<std::int64_t> ic(T);
