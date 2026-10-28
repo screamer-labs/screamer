@@ -117,7 +117,7 @@ Drawdowns and performance ratios.
 Significance & overfitting
 --------------------------
 
-Is a backtest more than luck? Randomization tests with p-values, permutations, the probabilistic and deflated Sharpe ratio, and walk-forward evaluation.
+Is a backtest more than luck? Randomization tests with p-values, permutations, the probabilistic and deflated Sharpe ratio, walk-forward evaluation, and time-ordered train and test folds.
 
 .. list-table::
    :header-rows: 1
@@ -141,6 +141,8 @@ Is a backtest more than luck? Randomization tests with p-values, permutations, t
      - Copies of a series with its runs of equal value in random order, for randomization tests.
    * - :doc:`strategy_test </functions_fin/strategy_test>`
      - Test a whole strategy, model included, against the same strategy run on permuted market data or shifted features.
+   * - :doc:`time_splits </functions_fin/time_splits>`
+     - Train and test rows of time-ordered folds, leaving out the training rows whose labels reach into the test block.
    * - :doc:`walk_forward </functions_fin/walk_forward>`
      - Pick the best of several strategy variants on each training window and trade it on the next test window, out of sample.
 
@@ -184,4 +186,5 @@ Is a backtest more than luck? Randomization tests with p-values, permutations, t
    /functions_fin/RollingSortino
    /functions_fin/segment_shuffle
    /functions_fin/strategy_test
+   /functions_fin/time_splits
    /functions_fin/walk_forward

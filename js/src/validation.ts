@@ -1051,3 +1051,63 @@ export function walkForward(
     bufs.forEach((p) => M.freeBuf(p));
   }
 }
+
+// ---- time-series folds (Python: time_splits) -----------------------------
+
+export interface TimeSplitsOptions {
+  /** Rows in each test block (default `Math.floor(n / (nSplits + 1))`). */
+  testSize?: number;
+  /**
+   * The rows after row t that its label covers: one number for every row
+   * (default 0), or n values, such as `TripleBarrier`'s `holding` output.
+   */
+  labelLength?: number | ArrayLike<number> | NdArray;
+  /** Keep at most this many training rows per fold, the most recent ones. */
+  maxTrainSize?: number;
+}
+
+/**
+ * Train and test rows of time-ordered folds, with the training rows whose
+ * labels reach into the test block left out.
+ *
+ * Returns `nSplits` pairs `[train, test]` of row indices. The folds are those
+ * of scikit-learn's `TimeSeriesSplit`: the `nSplits` test blocks of `testSize`
+ * rows end at row `n`, and each fold trains on the rows before its test
+ * block, the most recent `maxTrainSize` of them when it is given. A training
+ * row t is left out when `t + labelLength[t]` reaches the first test row,
+ * because its label would use test data. A NaN or negative length raises, and
+ * so does a fold left with no training rows. Mirrors Python's
+ * `screamer.time_splits`.
+ */
+export function timeSplits(n: number, nSplits = 5, opts: TimeSplitsOptions = {}): [Int32Array, Int32Array][] {
+  const who = "timeSplits";
+  const ll = opts.labelLength ?? 0;
+  noBools(who, { n: [n, true], nSplits: [nSplits, true], testSize: [opts.testSize, true],
+                 maxTrainSize: [opts.maxTrainSize, true], labelLength: [ll, false] });
+  if (typeof ll === "string") throw new TypeError(`${who}: labelLength must be a number or an array, got string`);
+  let label: ArrayLike<number> | null = null;
+  if (typeof ll !== "number") {
+    const nd = asNd(ll);
+    if (nd !== null && nd.shape.length !== 1)
+      throw new RangeError(`${who}: labelLength must be a number or a 1-D array of n values`);
+    label = nd !== null ? nd.data : Float64Array.from(ll as ArrayLike<number>);
+  }
+  const M = current();
+  let p = 0;
+  try {
+    if (label !== null) {
+      p = M.allocF64(Math.max(1, label.length));
+      M.viewF64(p, label.length).set(label as number[]);
+    }
+    const r = wasmCall(() => M.timeSplits(num(n), num(nSplits), opts.testSize != null, num(opts.testSize),
+      opts.maxTrainSize != null, num(opts.maxTrainSize), p, label?.length ?? 0,
+      typeof ll === "number" ? ll : 0)) as { offsets: Int32Array; index: Int32Array };
+    const folds: [Int32Array, Int32Array][] = [];
+    for (let f = 0; f + 2 < r.offsets.length; f += 2)
+      folds.push([r.index.subarray(r.offsets[f], r.offsets[f + 1]),
+                  r.index.subarray(r.offsets[f + 1], r.offsets[f + 2])]);
+    return folds;
+  } finally {
+    M.freeBuf(p);
+  }
+}

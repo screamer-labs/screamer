@@ -118,6 +118,7 @@
    "strategyTest",
    "circularShift",
    "segmentShuffle",
+   "timeSplits",
    "probabilisticSharpe",
    "walkForward",
    "deflatedSharpe",

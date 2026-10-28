@@ -6258,6 +6258,34 @@
     "examples": [],
     "doc_path": "functions_fin/strategy_test"
   },
+  "time_splits": {
+    "name": "time_splits",
+    "title": "time_splits",
+    "kind": "function",
+    "short": "Train and test rows of time-ordered folds, leaving out the training rows whose labels reach into the test block.",
+    "tags": [
+      "cross-validation",
+      "time series split",
+      "purging",
+      "train test split",
+      "out-of-sample"
+    ],
+    "see_also": [
+      "walk_forward",
+      "forecast_pairs",
+      "TripleBarrier",
+      "TripleBarrierOHLC"
+    ],
+    "references": [
+      "Lopez de Prado, M. (2018). *Advances in Financial Machine Learning*, chapter 7. Wiley."
+    ],
+    "topics": [
+      "significance"
+    ],
+    "details": "Splits `n` time-ordered rows into folds for fitting and scoring a model. Each\nfold has a block of test rows and trains only on rows before that block. The\nresult is a list of `(train, test)` pairs of row indices, which scikit-learn\naccepts as `cv=`.\n\nThe folds are those of scikit-learn's `TimeSeriesSplit`. The `n_splits` test\nblocks of `test_size` rows end at row `n`, so fold `f` tests on the rows\n`[s, s + test_size)` with `s = n - (n_splits - f) * test_size`. Its training\nrows are the rows before `s`, or the most recent `max_train_size` of them.\n\nA label often covers several rows after its own row: the label of row `t`\nfrom [`TripleBarrierOHLC`](TripleBarrierOHLC.md) uses the prices up to row\n`t + holding[t]`. `label_length` gives that number of rows, one number for\nevery row or one value per row. A training row `t` is left out when\n`t + label_length[t] >= s`, because its label uses prices from the test\nblock. A constant `label_length` equals the `gap` of `TimeSeriesSplit`.\n\nA NaN or negative `label_length`, and a fold left with no training rows,\nraise `ValueError`.",
+    "examples": [],
+    "doc_path": "functions_fin/time_splits"
+  },
   "walk_forward": {
     "name": "walk_forward",
     "title": "walk_forward",

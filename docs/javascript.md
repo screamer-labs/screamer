@@ -261,8 +261,8 @@ const test = positionTest(engine, weights, [open, high, low, close], { n: 999 })
 console.log("p-value", test.pValue);                            // p-value 0.174
 ```
 
-`strategyTest`, `probabilisticSharpe`, and `deflatedSharpe` are available under
-the same camelCase names.
+`strategyTest`, `probabilisticSharpe`, `deflatedSharpe`, and `timeSplits` are
+available under the same camelCase names.
 
 ## Live trades demo
 

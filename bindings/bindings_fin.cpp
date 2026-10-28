@@ -47,6 +47,7 @@
 #include "screamer/validation/sharpe.h"
 #include "screamer/validation/position_test.h"
 #include "screamer/validation/strategy_test.h"
+#include "screamer/validation/time_splits.h"
 #include "screamer/portfolio_report.h"
 #include "screamer/common/row_op.h"
 #include "screamer/cross_section.h"
@@ -1217,6 +1218,27 @@ nb::tuple backtest_trades_py(EngineRows v) {
                           int64_array(closed));
 }
 
+// time_splits (screamer/validation.py): a list of (train, test) int64 arrays.
+// All folds share one buffer, which each array views and keeps alive.
+nb::list time_splits_py(double n, double n_splits, std::optional<double> test_size,
+                        std::optional<double> max_train_size,
+                        std::optional<SurrogateIn> label, double label_scalar) {
+    auto r = sv::time_splits<std::int64_t>(
+        n, n_splits, test_size, max_train_size, label ? label->data() : nullptr,
+        label ? label->shape(0) : 0, label_scalar, sv::kTimeSplitsPython);
+    auto* buf = new std::vector<std::int64_t>(std::move(r.index));
+    nb::capsule owner(buf, [](void* p) noexcept { delete static_cast<std::vector<std::int64_t>*>(p); });
+    const auto view = [&](std::size_t lo, std::size_t hi) {
+        const size_t shape[1] = {hi - lo};
+        return nb::cast(nb::ndarray<nb::numpy, std::int64_t>(buf->data() + lo, 1, shape, owner));
+    };
+    nb::list out;
+    for (std::size_t f = 0; f + 2 < r.offsets.size(); f += 2)
+        out.append(nb::make_tuple(view(r.offsets[f], r.offsets[f + 1]),
+                                  view(r.offsets[f + 1], r.offsets[f + 2])));
+    return out;
+}
+
 // (target, choice, fold_start, train_scores, output, stats).
 nb::tuple walk_forward_py(nb::callable run, nb::callable reset, nb::object metric,
                           nb::object original, BlockIn targets, nb::list prices, double train, double test,
@@ -1309,6 +1331,9 @@ void init_bindings_fin(nb::module_& m) {
           "test"_a, "metric_name"_a, "custom"_a, "larger_is_better"_a.none(), "anchored"_a,
           "periods_per_year"_a, "portfolio"_a, "candidates"_a, "carry"_a.none(), "carry_multiplier"_a, "mark_input"_a.none(),
           "engine"_a);
+    m.def("_time_splits", &time_splits_py, "n"_a, "n_splits"_a, "test_size"_a.none(),
+          "max_train_size"_a.none(),
+          "label"_a.none(), "label_scalar"_a);
     m.def("_default_min_shift", [](SurrogateIn x) {
         return screamer::validation::default_min_shift(x.data(), x.shape(0));
     }, "x"_a);

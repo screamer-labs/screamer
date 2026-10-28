@@ -135,8 +135,10 @@ const st = strategyTest(strategy, [open, high, low, close], { n: 200, seed: 1 })
 st.pValue; // 0.004975..., 1 / 201
 ```
 
-`probabilisticSharpe` and `deflatedSharpe` give an analytic check with no resampling, and
-`walkForward` selects among candidate targets on rolling training windows.
+`probabilisticSharpe` and `deflatedSharpe` give an analytic check with no resampling,
+`walkForward` selects among candidate targets on rolling training windows, and
+`timeSplits(n, nSplits, { labelLength })` gives the train and test rows of time-ordered
+folds for a model, leaving out the training rows whose labels reach into the test block.
 
 ## The randomizers
 

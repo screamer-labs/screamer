@@ -19,6 +19,7 @@
 #include "screamer/validation/position_test.h"
 #include "screamer/validation/sharpe.h"
 #include "screamer/validation/strategy_test.h"
+#include "screamer/validation/time_splits.h"
 
 namespace {
 
@@ -109,6 +110,29 @@ void deflatedSharpeInto(std::uintptr_t pnl, std::size_t n, std::uintptr_t trials
         in_ptr(pnl), n, in_ptr(trials), n_trials, benchmark);
     out_ptr(out)[0] = p;
     out_ptr(out)[1] = benchmark;
+}
+
+// timeSplits: {offsets, index}, two Int32Array copies; fold f trains on
+// index[offsets[2f], offsets[2f+1]) and tests on index[offsets[2f+1],
+// offsets[2f+2]). `label` is n values, or 0 for the constant `scalar`.
+// test_size and max_train_size count only with their has_ flag.
+emscripten::val timeSplits(double n, double n_splits, bool has_test_size, double test_size,
+                           bool has_max_train_size, double max_train_size,
+                           std::uintptr_t label, std::size_t n_label, double scalar) {
+    // A row index fits an int32: the index arrays of n rows fill the heap first.
+    if (n > 2147483647.0) throw std::invalid_argument("timeSplits: n must be below 2^31");
+    const auto r = screamer::validation::time_splits<std::int32_t>(
+        n, n_splits, has_test_size ? std::optional<double>(test_size) : std::nullopt,
+        has_max_train_size ? std::optional<double>(max_train_size) : std::nullopt,
+        label ? in_ptr(label) : nullptr, n_label, scalar,
+        screamer::validation::kTimeSplitsJs);
+    const std::vector<std::int32_t> offsets(r.offsets.begin(), r.offsets.end());
+    emscripten::val out = emscripten::val::object();
+    out.set("offsets", emscripten::val(emscripten::typed_memory_view(offsets.size(), offsets.data()))
+                           .call<emscripten::val>("slice"));
+    out.set("index", emscripten::val(emscripten::typed_memory_view(r.index.size(), r.index.data()))
+                         .call<emscripten::val>("slice"));
+    return out;
 }
 
 // The randomization tests call JavaScript back: the strategy of strategyTest,
@@ -457,6 +481,7 @@ EMSCRIPTEN_BINDINGS(screamer_validation) {
     emscripten::function("strategyTestRun", &strategyTestRun);
     emscripten::function("positionTestRun", &positionTestRun);
     emscripten::function("walkForwardRun", &walkForwardRun);
+    emscripten::function("timeSplits", &timeSplits);
     emscripten::function("strategyStats", &strategyStats);
     emscripten::function("strategyTestMaxRuns", &strategyTestMaxRuns);
 }

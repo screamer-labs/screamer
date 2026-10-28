@@ -302,6 +302,7 @@ segment_shuffle, Copies of a series with its runs of equal value in random order
 split, Partition a merged tagged stream back into per-source streams.
 strategy_test, Test a whole strategy, model included, against the same strategy run on permuted market data or shifted features.
 stream-tuple-convention, The (values, index) tuple at every operator boundary.
+time_splits, Train and test rows of time-ordered folds, leaving out the training rows whose labels reach into the test block.
 to_pandas, Convert a (values, index) tuple to a pandas Series or DataFrame.
 walk_forward, Pick the best of several strategy variants on each training window and trade it on the next test window, out of sample.
 

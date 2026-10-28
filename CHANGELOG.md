@@ -18,6 +18,15 @@ Unreleased
   its equity, so an asset that starts late joins the book when its data
   starts. `by=` groups the book's rows. A wrong shape now raises an error that
   names the function and both accepted shapes.
+* `time_splits(n, n_splits=5, *, test_size=None, label_length=0,
+  max_train_size=None)` (`timeSplits(n, nSplits, {testSize, labelLength,
+  maxTrainSize})` in JavaScript): the `(train, test)` row indices of
+  scikit-learn `TimeSeriesSplit` folds, usable as `cv=`. Each fold trains only
+  on rows before its test block, and leaves out a training row `t` when
+  `t + label_length[t]` reaches the first test row. `label_length` is one
+  number or one value per row, such as the `holding` output of
+  `TripleBarrier`; a constant one equals `TimeSeriesSplit`'s `gap`. A NaN or
+  negative length, or a fold with no training rows, raises.
 
 ### Changed
 

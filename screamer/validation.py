@@ -20,7 +20,9 @@ the result.
 
 ``walk_forward`` is the out-of-sample counterpart: it picks the best of
 several strategy variants on each training window and trades the pick on the
-window that follows.
+window that follows. ``time_splits`` gives the train and test rows of such
+folds for a model, with the training rows whose labels reach into the test
+block left out (``include/screamer/validation/time_splits.h``).
 """
 import operator
 from typing import Callable, NamedTuple, Optional, Union
@@ -39,12 +41,13 @@ from .screamer_bindings import (
     _probabilistic_sharpe,
     _segment_shuffle,
     _strategy_test,
+    _time_splits,
     _walk_forward,
 )
 
 __all__ = ["position_test", "strategy_test", "circular_shift", "segment_shuffle",
            "permute_bars", "permute_returns", "probabilistic_sharpe", "deflated_sharpe",
-           "walk_forward"]
+           "walk_forward", "time_splits"]
 
 _INT64 = (-2**63, 2**63 - 1)
 
@@ -626,3 +629,39 @@ def walk_forward(
         carry, _float(carry_multiplier, "walk_forward: carry_multiplier"),
         None if carry is None else getattr(engine, "mark_input", None), type(engine).__name__)
     return WalkForwardResult(target, choice, fold_start, scores, output, stats, name)
+
+
+def time_splits(n, n_splits=5, *, test_size=None, label_length=0, max_train_size=None):
+    """Train and test rows of time-ordered folds, with the training rows whose
+    labels reach into the test block left out.
+
+    Returns a list of ``n_splits`` pairs ``(train, test)`` of int64 row
+    arrays, which scikit-learn accepts as ``cv=``. The folds are those of
+    scikit-learn's ``TimeSeriesSplit``: the ``n_splits`` test blocks of
+    ``test_size`` rows (default ``n // (n_splits + 1)``) end at row ``n``,
+    and each fold trains on the rows before its test block, the most recent
+    ``max_train_size`` of them when it is given.
+
+    ``label_length`` is the number of rows after row ``t`` that its label
+    covers: one number for every row, or ``n`` values, such as the
+    ``holding`` output of ``TripleBarrier``. A training row ``t`` is left out
+    when ``t + label_length[t]`` reaches the first test row, because its
+    label would use test data. A constant ``label_length`` is
+    ``TimeSeriesSplit``'s ``gap``. A NaN or negative length raises, and so
+    does a fold left with no training rows.
+    """
+    who = "time_splits"
+    label, scalar = None, 0.0
+    if isinstance(label_length, (str, bytes)):
+        raise TypeError(f"{who}: label_length must be a number or an array, got {type(label_length).__name__}")
+    if isinstance(label_length, (bool, np.bool_)) or np.ndim(label_length) == 0:
+        scalar = _float(label_length, f"{who}: label_length")
+    else:
+        label = _as_float64(label_length, contiguous=True, who=who)
+        if label.ndim != 1:
+            raise ValueError(f"{who}: label_length must be a number or a 1-D array of n values")
+    return _time_splits(
+        _number(n, f"{who}: n"), _number(n_splits, f"{who}: n_splits"),
+        None if test_size is None else _number(test_size, f"{who}: test_size"),
+        None if max_train_size is None else _number(max_train_size, f"{who}: max_train_size"),
+        label, scalar)

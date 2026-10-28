@@ -56,7 +56,7 @@ export type { ForecastPairsOptions, ForecastValues, ForecastStream } from "./sup
 export {
   circularShift, segmentShuffle, positionTest,
   permuteBars, permuteReturns, strategyTest,
-  probabilisticSharpe, deflatedSharpe, walkForward,
+  probabilisticSharpe, deflatedSharpe, walkForward, timeSplits,
 } from "./validation.js";
 export type {
   PositionTestMetric,
@@ -76,4 +76,5 @@ export type {
   StrategyTestResult,
   WalkForwardOptions,
   WalkForwardResult,
+  TimeSplitsOptions,
 } from "./validation.js";

@@ -144,7 +144,7 @@ topics:
 
   significance:
     name: "Significance & overfitting"
-    desc: "Is a backtest more than luck? Randomization tests with p-values, permutations, the probabilistic and deflated Sharpe ratio, and walk-forward evaluation."
+    desc: "Is a backtest more than luck? Randomization tests with p-values, permutations, the probabilistic and deflated Sharpe ratio, walk-forward evaluation, and time-ordered train and test folds."
 
   bars:
     name: "Bars & resampling"

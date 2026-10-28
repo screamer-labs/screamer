@@ -212,6 +212,7 @@
 #include "screamer/validation/sharpe.h"
 #include "screamer/validation/strategy_test.h"
 #include "screamer/validation/surrogates.h"
+#include "screamer/validation/time_splits.h"
 #include "screamer/vpin.h"
 #include "screamer/vwap.h"
 #include "screamer/williams_r.h"
