@@ -50,9 +50,9 @@ def _title(srcdir: Path, doc: str) -> str:
     import re
     md, nb = srcdir / f"{doc}.md", srcdir / f"{doc}.ipynb"
     if md.exists():
-        text = md.read_text()
+        text = md.read_text(encoding="utf-8")
     else:
-        text = "\n".join("".join(c["source"]) for c in json.loads(nb.read_text())["cells"]
+        text = "\n".join("".join(c["source"]) for c in json.loads(nb.read_text(encoding="utf-8"))["cells"]
                          if c["cell_type"] == "markdown")
     m = re.search(r"^# (.+)$", text, re.M)
     return m.group(1).strip() if m else doc
@@ -95,7 +95,7 @@ def build_llms_txt(srcdir: Path, base: str) -> str:
                 lines.append(f"- [{name}]({url}): {entry.get('short', '')}")
         lines.append("")
 
-    spec = yaml.safe_load((srcdir / "guide.yml").read_text())
+    spec = yaml.safe_load((srcdir / "guide.yml").read_text(encoding="utf-8"))
     lines += ["## Guide", ""]
     for part in spec["parts"]:
         for chapter in part["chapters"]:

@@ -45,7 +45,7 @@ def _js_signatures():
     if not OPS_TS.exists():
         return {}
     sigs = {}
-    for name, params in JS_SIG_RE.findall(OPS_TS.read_text()):
+    for name, params in JS_SIG_RE.findall(OPS_TS.read_text(encoding="utf-8")):
         parts = []
         for pname, default in JS_PARAM_RE.findall(params):
             parts.append(f"{pname} = {default.strip()}" if default else pname)
@@ -256,7 +256,7 @@ def _source_read(app, docname, source):
     if "name" not in fm:
         return
     if _State.help_map is None:
-        _State.help_map = json.loads(HELP_JSON.read_text()) if HELP_JSON.exists() else {}
+        _State.help_map = json.loads(HELP_JSON.read_text(encoding="utf-8")) if HELP_JSON.exists() else {}
         _State.js_sigs = _js_signatures()
 
     name = fm["name"]

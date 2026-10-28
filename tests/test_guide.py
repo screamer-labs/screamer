@@ -53,7 +53,7 @@ def test_every_notebook_and_recipe_is_in_one_chapter():
     listed = [d for c in _chapters(mod) for d in c.get("tasks", []) + c.get("deeper", [])]
     expected = {f"notebooks/{p.stem}" for p in (DOCS / "notebooks").glob("*.ipynb")}
     for p in (DOCS / "recipes").glob("*.md"):
-        if "orphan: true" not in p.read_text():
+        if "orphan: true" not in p.read_text(encoding="utf-8"):
             expected.add(f"recipes/{p.stem}")
     for doc in expected:
         assert listed.count(doc) == 1, f"{doc} appears {listed.count(doc)} times in guide.yml"
@@ -71,7 +71,7 @@ def test_task_titles_match_pages():
 def test_task_page_shape():
     mod = _module()
     for doc in _task_pages(mod):
-        text = (DOCS / f"{doc}.md").read_text()
+        text = (DOCS / f"{doc}.md").read_text(encoding="utf-8")
         m = re.search(r"^## Go deeper\n(.*)", text, re.M | re.S)
         assert m and re.search(r"\]\([^)]+\)", m.group(1)), f"{doc}: no Go deeper links"
         front = re.match(r"---\n(.*?)\n---\n", text, re.S)
@@ -118,7 +118,7 @@ def _stubs():
     for path in DOCS.rglob("*.md"):
         if "_build" in path.parts or "superpowers" in path.parts:
             continue
-        text = path.read_text()
+        text = path.read_text(encoding="utf-8")
         front = re.match(r"---\n(.*?)\n---\n", text, re.S)
         if front and re.search(r"^orphan:\s*true\s*$", front.group(1), re.M):
             m = _REFRESH.search(front.group(1))

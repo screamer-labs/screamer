@@ -45,7 +45,7 @@ BLOCK_RE = re.compile(re.escape(START) + r".*?" + re.escape(END), re.S)
 
 
 def load() -> dict:
-    return yaml.safe_load(SPEC.read_text())
+    return yaml.safe_load(SPEC.read_text(encoding="utf-8"))
 
 
 def chapters(spec: dict) -> list[dict]:
@@ -56,9 +56,9 @@ def page_title(doc: str) -> str:
     """First ``# `` heading of a page given as a doc path without suffix."""
     md = DOCS / f"{doc}.md"
     if md.exists():
-        text = md.read_text()
+        text = md.read_text(encoding="utf-8")
     elif (DOCS / f"{doc}.ipynb").exists():
-        nb = json.loads((DOCS / f"{doc}.ipynb").read_text())
+        nb = json.loads((DOCS / f"{doc}.ipynb").read_text(encoding="utf-8"))
         text = "\n".join("".join(c["source"]) for c in nb["cells"]
                          if c["cell_type"] == "markdown")
     else:
@@ -73,7 +73,7 @@ def expected_pages() -> set[str]:
     """Every notebook and non-stub recipe: each must be in one chapter."""
     pages = {f"notebooks/{p.stem}" for p in (DOCS / "notebooks").glob("*.ipynb")}
     for p in (DOCS / "recipes").glob("*.md"):
-        if "orphan: true" not in p.read_text():
+        if "orphan: true" not in p.read_text(encoding="utf-8"):
             pages.add(f"recipes/{p.stem}")
     return pages
 
@@ -131,7 +131,7 @@ def chapter_page(c: dict) -> str:
     path = GUIDE / c["slug"] / "index.md"
     new = block(c, path.parent)
     if path.exists():
-        text = path.read_text()
+        text = path.read_text(encoding="utf-8")
         if BLOCK_RE.search(text):
             return BLOCK_RE.sub(lambda _: new, text, count=1)
         return text.rstrip("\n") + "\n\n" + new + "\n"
@@ -192,12 +192,12 @@ def main(argv=None) -> int:
         return 1
     stale = []
     for path, text in files.items():
-        if path.exists() and path.read_text() == text:
+        if path.exists() and path.read_text(encoding="utf-8") == text:
             continue
         stale.append(path)
         if not args.check:
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(text)
+            path.write_text(text, encoding="utf-8")
     for path in stale:
         print(f"{'stale' if args.check else 'wrote'}: {path.relative_to(ROOT)}")
     return 1 if bad or (args.check and stale) else 0
