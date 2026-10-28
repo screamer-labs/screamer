@@ -561,7 +561,8 @@ The same algorithm produces the same numbers across every input shape
 
 [NaN and warmup](nan_and_warmup.md) documents warmup, the leading region where a
 function has not yet seen enough samples, and the `start_policy` argument
-(`"strict"`, `"expanding"`, `"zero"`) that controls it.
+(`"strict"`, `"expanding"`, `"zero"`, and `"steady"` for the IIR filters)
+that controls it.
 
 
 ## Design notes

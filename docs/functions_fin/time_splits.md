@@ -56,7 +56,7 @@ max_train_size=None)`
   `n // (n_splits + 1)`.
 - `label_length`: the rows after row `t` that its label covers, a number or an
   array of `n` values. The default 0 leaves no row out. A fractional value
-  works: row `t` is left out when `t + label_length[t] >= s` holds for it.
+  works the same way.
 - `max_train_size`: keep at most this many training rows per fold, the most
   recent ones that remain after leaving rows out. The default keeps all.
 

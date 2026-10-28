@@ -179,8 +179,8 @@ rather than repeating it.
 
 ### The three policies
 
-`start_policy` accepts one of three values. The default everywhere is
-`"strict"`.
+`start_policy` accepts one of three values. The default is `"strict"`,
+except for the IIR filters described below.
 
 - **`"strict"`** (default): return `NaN` for every step until the full window
   has been seen (`window_size` samples for a rolling function). Nothing is
@@ -194,6 +194,13 @@ rather than repeating it.
 - **`"zero"`**: behave as if the stream were pre-filled with `window_size`
   zeros before the real data, so the window is "full" from the first real
   sample. Early outputs are defined but biased toward zero by the padding.
+
+The IIR filters `Butter`, `ButterHighpass`, `ButterBandpass`,
+`ButterBandstop`, `SuperSmoother`, `Decycler`, and `RoofingFilter` take
+`start_policy="steady"` (their default) or `"zero"`. With `"zero"` the stream
+behaves as if it had been 0 before the first value, as for the windowed
+functions. With `"steady"` it behaves as if it had always been at its first
+value. These filters emit no `NaN` warmup.
 
 Warmup is measured in *finite* samples. Under the `ignore` NaN policy, a `NaN`
 input is skipped and does not advance warmup, so a stream with gaps reaches the

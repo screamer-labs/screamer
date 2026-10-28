@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstddef>
 #include <limits>
+#include <new>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -103,9 +104,23 @@ namespace screamer { namespace validation {
         const std::size_t first = n - splits * test_size;
 
         TimeSplits<Index> out;
+        // The folds' total row count, checked against what a vector can hold
+        // (splits * test_size < n, so only the training rows can overflow).
+        const auto too_large = [&] {
+            return std::invalid_argument(who + "n = " + num(n) + " is too large");
+        };
+        const std::size_t max_size = out.index.max_size();
         std::size_t size = splits * test_size;
-        for (std::size_t f = 0; f < splits; ++f) size += std::min(first + f * test_size, cap);
-        out.index.reserve(size);
+        for (std::size_t f = 0; f < splits; ++f) {
+            const std::size_t train = std::min(first + f * test_size, cap);
+            if (size > max_size || train > max_size - size) throw too_large();
+            size += train;
+        }
+        try {
+            out.index.reserve(size);
+        } catch (const std::bad_alloc&) {
+            throw too_large();
+        }
         out.offsets.reserve(2 * splits + 1);
         out.offsets.push_back(0);
         for (std::size_t f = 0; f < splits; ++f) {

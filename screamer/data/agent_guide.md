@@ -58,7 +58,10 @@ Every function is causal: the output at step `t` uses only inputs up to `t`.
 Do not shift the data to avoid look-ahead, and do not use backward fills or
 centered windows. Until a window is full a function outputs NaN; the
 `start_policy` parameter (`"strict"`, `"expanding"`, `"zero"`) chooses another
-behavior where it exists. Each function's NaN policy (`ignore`, `propagate`, or
+behavior where it exists. The IIR filters (`Butter` and its variants,
+`SuperSmoother`, `Decycler`, `RoofingFilter`) have no NaN warmup; their
+`start_policy` is `"steady"` (default, as if the input had always been at its
+first value) or `"zero"`. Each function's NaN policy (`ignore`, `propagate`, or
 `nan-aware`) is listed by `show`.
 
 ## Streams and pipelines

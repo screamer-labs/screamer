@@ -92,6 +92,9 @@ mean over a window of 20 has nothing to report until 20 samples have arrived.
 During this warmup they emit `NaN`. The `start_policy` argument controls the
 behaviour: the default `"strict"` waits for a full window, while `"expanding"`
 produces a value from the first sample using whatever data is available so far.
+The IIR filters such as `Butter` have no warmup: their default `"steady"`
+starts as if the input had always been at its first value, and `"zero"` as if
+it had been 0.
 
 ```{eval-rst}
 .. exec_code::

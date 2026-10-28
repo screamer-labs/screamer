@@ -64,6 +64,7 @@ test("timeSplits: bad arguments throw naming the function", async () => {
     [() => S.timeSplits(5, 5), /^timeSplits: nSplits = 5 needs at least 6 rows, got n = 5/, RangeError],
     [() => S.timeSplits(20, 4, { testSize: 5 }),
       /^timeSplits: nSplits = 4 test blocks of 5 rows need more than n = 20 rows/, RangeError],
+    [() => S.timeSplits(2 ** 31 - 1, 5), /^timeSplits: n = 2147483647 is too large$/, RangeError],
     [() => S.timeSplits(10, 1), /^timeSplits: nSplits must be an integer of at least 2/, RangeError],
     [() => S.timeSplits(10.5), /^timeSplits: n must be an integer of at least 1/, RangeError],
     [() => S.timeSplits(10, 2, { testSize: 0 }), /^timeSplits: testSize must be an integer of at least 1/, RangeError],

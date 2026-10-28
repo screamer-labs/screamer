@@ -69,8 +69,8 @@ minute's open.
 
 ```{code-cell} ipython3
 running, summary = backtest_report(out)
-dd = 100 * MaxDrawdown()(1 + running["equity"])[-1]         # percent of peak
-pd.Series(dict(sharpe=summary["sharpe"], max_drawdown_pct=dd)).round(2)
+summary["max_drawdown_pct"] = 100 * MaxDrawdown()(1 + running["equity"])[-1]
+pd.Series({k: summary[k] for k in ("sharpe", "max_drawdown_pct", "num_trades")}).round(2)
 ```
 
 `backtest_report` sums the two legs into one book. Its Sharpe ratio is per

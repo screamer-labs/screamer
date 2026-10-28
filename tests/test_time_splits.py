@@ -111,6 +111,11 @@ def test_empty_training_set_raises():
         s.time_splits(20, 2, test_size=5, label_length=label)
 
 
+def test_too_large_n_raises():
+    with pytest.raises(ValueError, match=r"^time_splits: n = 1000000000000000000 is too large$"):
+        s.time_splits(10**18, 5)
+
+
 def test_nan_label_length_raises():
     label = np.zeros(20)
     label[17] = np.nan

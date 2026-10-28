@@ -9,8 +9,8 @@ That means:
 - **Same results.** Every function's output matches the Python package's output on the same
   input to 1e-9, verified by cross-language fixture tests.
 - **Same causal semantics.** No function looks ahead, in either language.
-- **Same warmup behavior.** `startPolicy` options (`"strict"`, `"expanding"`, `"zero"`, where an
-  op exposes them), NaN warmup periods, and window-fill rules match exactly.
+- **Same warmup behavior.** `startPolicy` options (`"strict"`, `"expanding"`, `"zero"`, and
+  `"steady"` for the IIR filters, where an op exposes them), NaN warmup periods, and window-fill rules match exactly.
 - **Same saved pipelines.** A `Pipeline` saved as JSON in one language loads in the other.
 
 The two packages differ in their surface. Op factories have the same names in both
