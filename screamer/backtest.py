@@ -22,8 +22,9 @@ MARKET = math.inf
 __all__ = ["backtest_report", "backtest_trades", "MARKET"]
 
 # Names from C++: the engine columns, the BacktestReport and BacktestStats
-# columns, and the summary.
-_ENGINE_COLUMNS, _REPORT_COLUMNS, _STATS_COLUMNS, _SUMMARY, _GROUP_STATS = _backtest_report_names()
+# columns, the summary, the group statistics, and the book columns.
+(_ENGINE_COLUMNS, _REPORT_COLUMNS, _STATS_COLUMNS, _SUMMARY, _GROUP_STATS,
+ _BOOK_COLUMNS) = _backtest_report_names()
 
 
 def _group_codes(by):
@@ -52,7 +53,8 @@ def backtest_report(values, index=None, periods_per_year=1.0, by=None):
     """Running report columns and a summary for a backtest engine's output.
 
     ``values`` is the ``(T, 4)`` array a backtest engine emits, with columns
-    ``[equity, pnl, position, cost]``. Returns ``(running, summary)``:
+    ``[equity, pnl, position, cost]``, or the ``(T, K, 4)`` array a portfolio
+    engine emits for ``K`` assets. Returns ``(running, summary)``:
 
     - ``running``: a dict of numpy arrays, the four engine columns plus the
       ``BacktestReport`` node's ``drawdown`` (dollar), ``cum_cost``, ``turnover``
@@ -65,6 +67,17 @@ def backtest_report(values, index=None, periods_per_year=1.0, by=None):
       ``total_cost``, ``turnover``, ``num_trades``, ``sharpe``, and the nine
       ``BacktestStats`` values.
 
+    For a ``(T, K, 4)`` input, ``running`` and ``summary`` describe the book,
+    the account the assets share. Its equity, pnl, and cost are summed over the
+    assets; ``running`` holds these three book columns (a book has no single
+    position) and the report and statistics columns of the book. Sharpe,
+    drawdown, sortino, and calmar come from the summed book; turnover, trades,
+    exposure, and the round-trip statistics count over all assets. An asset
+    whose row has a NaN field adds nothing on that row and holds its equity,
+    so an asset that starts late joins the book when its data starts.
+    ``summary["per_asset"]`` is a list of ``K`` summaries, the ``k``-th equal
+    to ``backtest_report(values[:, k, :])[1]``.
+
     ``periods_per_year`` annualizes ``sharpe``, ``sortino``, and ``calmar``
     (for example 252 for daily bars). The default 1 gives per-step ratios.
 
@@ -73,16 +86,23 @@ def backtest_report(values, index=None, periods_per_year=1.0, by=None):
     gains ``by_group``: a dict from label, in order of first appearance, to
     ``total_pnl``, ``total_cost``, ``turnover``, ``sharpe`` (annualized with
     ``periods_per_year``), ``max_drawdown`` (of the cumulative pnl over the
-    group's rows), and ``steps`` (its rows without NaN). Trade statistics are
-    not grouped, because a trade can span groups; group the rows of
-    ``backtest_trades`` by their entry instead.
+    group's rows), and ``steps`` (its rows without NaN). For a ``(T, K, 4)``
+    input the groups are of the book's rows. Trade statistics are not grouped,
+    because a trade can span groups; group the rows of ``backtest_trades`` by
+    their entry instead.
 
     The report and the summary come from C++; this wrapper only labels them.
     No pandas dependency.
     """
     values = _as_float64(values)
-    report, stats, summary = _backtest_report(values, periods_per_year)
-    running = {name: values[:, i] for i, name in enumerate(_ENGINE_COLUMNS)}
+    result = _backtest_report(values, periods_per_year)
+    if len(result) == 5:
+        book, report, stats, summary, per_asset = result
+        running = {name: book[:, i] for i, name in enumerate(_BOOK_COLUMNS)}
+    else:
+        report, stats, summary = result
+        per_asset = None
+        running = {name: values[:, i] for i, name in enumerate(_ENGINE_COLUMNS)}
     for i, name in enumerate(_REPORT_COLUMNS):
         running[name] = report[:, i]
     for i, name in enumerate(_STATS_COLUMNS):
@@ -94,6 +114,8 @@ def backtest_report(values, index=None, periods_per_year=1.0, by=None):
                            index.shape[0] if index.ndim else 1)
         running["index"] = index
     summary = dict(zip(_SUMMARY, summary))
+    if per_asset is not None:
+        summary["per_asset"] = [dict(zip(_SUMMARY, row)) for row in per_asset.tolist()]
     if by is not None:
         codes, labels = _group_codes(by)
         table = _backtest_groups(values, codes, len(labels), periods_per_year)

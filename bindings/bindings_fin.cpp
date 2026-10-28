@@ -792,53 +792,84 @@ nb::object permute_returns_batch(BlockIn x, const std::string& mode, std::int64_
 }
 
 // backtest_report (screamer/backtest.py): an engine's (T, 4) output, any
-// strides, as (report (T, 6), stats (T, 9), summary tuple). The shape and
+// strides, as (report (T, 6), stats (T, 9), summary tuple); a portfolio
+// engine's (T, K, 4) output as (book (T, 3), report (T, 6), stats (T, 9),
+// summary tuple, per-asset summaries (K, kNumStats)). The shape and
 // periods_per_year are checked first, so a bad call allocates nothing.
 using EngineRows = nb::ndarray<const double, nb::device::cpu>;
 
+void check_report_values(const EngineRows& v) {
+    screamer::check_report_rows("backtest_report", v.ndim(), v.ndim() > 1 ? v.shape(1) : 0,
+                                v.ndim() > 2 ? v.shape(2) : 0);
+}
+
 nb::object backtest_report_py(EngineRows v, nb::handle ppy) {
-    screamer::check_engine_rows(v.ndim(), v.ndim() == 2 ? v.shape(1) : 0);
+    check_report_values(v);
     double periods_per_year;
     if (screamer::bool_kind(ppy.ptr()))
         throw nb::type_error("backtest_report: periods_per_year must be a number, got bool");
     if (!nb::try_cast<double>(ppy, periods_per_year))
         screamer::throw_wrong_kind("backtest_report", "periods_per_year", ppy);
-    screamer::BacktestReport rep(periods_per_year);
-    screamer::BacktestStats st(periods_per_year);
     const std::size_t T = v.shape(0);
     constexpr std::size_t nr = screamer::BacktestReport::column_names.size();
     constexpr std::size_t ns = screamer::BacktestStats::column_names.size();
+    using screamer::detail::make_owned_array;
+    const auto stride = [&v](std::size_t d) { return static_cast<std::ptrdiff_t>(v.stride(d)); };
+    double summary[screamer::kNumStats];
+    const auto summary_tuple = [&summary]() {
+        nb::list sum;
+        for (double x : summary) sum.append(x);
+        return nb::tuple(sum);
+    };
+    if (v.ndim() == 3) {
+        const std::size_t K = v.shape(1);
+        constexpr std::size_t nb_ = screamer::kBookColumns.size();
+        screamer::check_periods_per_year(periods_per_year);   // before allocating
+        auto book = screamer::detail::new_output(T * nb_);
+        auto report = screamer::detail::new_output(T * nr);
+        auto stats = screamer::detail::new_output(T * ns);
+        auto per_asset = screamer::detail::new_output(K * screamer::kNumStats);
+        screamer::backtest_book_report(v.data(), T, K, stride(0), stride(1), stride(2),
+                                       periods_per_year, book.get(), report.get(), stats.get(),
+                                       summary, per_asset.get());
+        return nb::make_tuple(make_owned_array(std::move(book), {T, nb_}),
+                              make_owned_array(std::move(report), {T, nr}),
+                              make_owned_array(std::move(stats), {T, ns}), summary_tuple(),
+                              make_owned_array(std::move(per_asset), {K, screamer::kNumStats}));
+    }
+    screamer::BacktestReport rep(periods_per_year);
+    screamer::BacktestStats st(periods_per_year);
     auto report = screamer::detail::new_output(T * nr);
     auto stats = screamer::detail::new_output(T * ns);
-    double summary[screamer::kNumStats];
-    screamer::backtest_report(rep, st, v.data(), T, static_cast<std::ptrdiff_t>(v.stride(0)),
-                              static_cast<std::ptrdiff_t>(v.stride(1)), report.get(), stats.get(),
-                              summary);
-    nb::list sum;
-    for (double x : summary) sum.append(x);
-    using screamer::detail::make_owned_array;
+    screamer::backtest_report(rep, st, v.data(), T, stride(0), stride(1), report.get(),
+                              stats.get(), summary);
     return nb::make_tuple(make_owned_array(std::move(report), {T, nr}),
-                          make_owned_array(std::move(stats), {T, ns}), nb::tuple(sum));
+                          make_owned_array(std::move(stats), {T, ns}), summary_tuple());
 }
 
 // backtest_report(by=): the per-group statistics of an engine's (T, 4)
-// output for int64 group codes in [0, groups), as a (groups, 6) array.
+// output, or of the book of a (T, K, 4) output, for int64 group codes in
+// [0, groups), as a (groups, 6) array.
 using GroupCodes = nb::ndarray<const std::int64_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 
 nb::object backtest_groups_py(EngineRows v, GroupCodes codes, std::size_t groups, double periods_per_year) {
-    screamer::check_engine_rows(v.ndim(), v.ndim() == 2 ? v.shape(1) : 0);
+    check_report_values(v);
     const std::size_t T = v.shape(0);
     screamer::check_group_codes(codes.shape(0), T);
     constexpr std::size_t ng = screamer::kGroupStats.size();
     auto out = screamer::detail::new_output(groups * ng);
-    screamer::backtest_groups(v.data(), T, static_cast<std::ptrdiff_t>(v.stride(0)),
-                              static_cast<std::ptrdiff_t>(v.stride(1)), codes.data(), groups,
-                              periods_per_year, out.get());
+    const auto stride = [&v](std::size_t d) { return static_cast<std::ptrdiff_t>(v.stride(d)); };
+    if (v.ndim() == 3)
+        screamer::backtest_book_groups(v.data(), T, v.shape(1), stride(0), stride(1), stride(2),
+                                       codes.data(), groups, periods_per_year, out.get());
+    else
+        screamer::backtest_groups(v.data(), T, stride(0), stride(1), codes.data(), groups,
+                                  periods_per_year, out.get());
     return screamer::detail::make_owned_array(std::move(out), {groups, ng});
 }
 
 // The names of backtest_report: (engine columns, BacktestReport columns,
-// BacktestStats columns, summary, group statistics).
+// BacktestStats columns, summary, group statistics, book columns).
 nb::object backtest_report_names() {
     const auto names = [](const auto& a) {
         nb::list out;
@@ -850,7 +881,7 @@ nb::object backtest_report_names() {
     return nb::make_tuple(names(screamer::kEngineColumns),
                           names(screamer::BacktestReport::column_names),
                           names(screamer::BacktestStats::column_names), nb::tuple(summary),
-                          names(screamer::kGroupStats));
+                          names(screamer::kGroupStats), names(screamer::kBookColumns));
 }
 
 namespace sv = screamer::validation;

@@ -133,8 +133,9 @@ def test_backtest_report_labels_the_cpp_report():
 
 
 def test_backtest_report_errors():
-    msg = r"values must be a \(T, 4\) array of \[equity, pnl, position, cost\]"
-    for bad in (np.zeros((3, 3)), np.zeros(4), np.zeros((1, 3, 4)), 5.0, []):
+    msg = (r"backtest_report: values must be a \(T, 4\) or \(T, K, 4\) array of "
+           r"\[equity, pnl, position, cost\]")
+    for bad in (np.zeros((3, 3)), np.zeros(4), np.zeros((1, 3, 3)), 5.0, []):
         with pytest.raises(ValueError, match=msg):
             backtest_report(bad)
     for ppy in (0, -1, np.nan, np.inf):

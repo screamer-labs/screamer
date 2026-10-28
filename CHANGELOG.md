@@ -5,6 +5,20 @@ All notable changes to this project are documented in this file.
 Unreleased
 ----------
 
+### Added
+
+* `backtest_report` (`backtestReport` in JavaScript) also takes the
+  `(T, K, 4)` output of a portfolio engine and reports the book, the account
+  the assets share. Equity, pnl and cost are summed over the assets; Sharpe,
+  drawdown, sortino and calmar come from the summed book; turnover, trades,
+  exposure and the round-trip statistics count over all assets. `running`
+  holds the book's `equity`, `pnl` and `cost` and its report columns, and
+  `summary["per_asset"]` (`perAsset` in JavaScript) the summary of each asset
+  alone. An asset whose row has a NaN field adds nothing on that row and holds
+  its equity, so an asset that starts late joins the book when its data
+  starts. `by=` groups the book's rows. A wrong shape now raises an error that
+  names the function and both accepted shapes.
+
 ### Changed
 
 * `Butter`, `ButterHighpass`, `ButterBandpass`, `ButterBandstop`,

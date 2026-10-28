@@ -19,7 +19,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from screamer import (Resample, CombineLatest, Ffill, KalmanRegression,
                       RollingZscore, RollingADF, BandSignal,
-                      BacktestPortfolioOHLCTarget, PortfolioReport, MaxDrawdown)
+                      BacktestPortfolioOHLCTarget, backtest_report, MaxDrawdown)
 
 def bars(path):
     trades = pd.read_csv(path)
@@ -68,15 +68,16 @@ not rebalanced every minute. Each trade pays a 2 bp fee and fills at the next
 minute's open.
 
 ```{code-cell} ipython3
-*_, trades, _, sharpe = PortfolioReport()(out)[-1]
-dd = 100 * MaxDrawdown()(1 + out[:, :, 0].sum(axis=1))[-1]  # percent of peak
-pd.Series(dict(sharpe=sharpe, max_drawdown_pct=dd, num_trades=trades)).round(2)
+running, summary = backtest_report(out)
+dd = 100 * MaxDrawdown()(1 + running["equity"])[-1]         # percent of peak
+pd.Series(dict(sharpe=summary["sharpe"], max_drawdown_pct=dd)).round(2)
 ```
 
-`PortfolioReport` is the portfolio version of `backtest_report`. Its Sharpe
-ratio is per minute and left that way, because six hours are too short to
-annualize. The fees are the whole loss: before fees the book ends close to
-flat, and each of the twelve position changes trades both legs.
+`backtest_report` sums the two legs into one book. Its Sharpe ratio is per
+minute (the default `periods_per_year=1`) and left that way, because six hours
+are too short to annualize. The fees are the whole loss: before fees the book
+ends close to flat, and each of the twelve position changes trades both legs,
+so `summary["num_trades"]` is 24.
 
 ## Go deeper
 

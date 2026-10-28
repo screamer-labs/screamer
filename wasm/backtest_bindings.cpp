@@ -18,10 +18,22 @@ constexpr std::size_t kEngine = screamer::kEngineColumns.size();
 constexpr std::size_t kReport = screamer::BacktestReport::column_names.size();
 constexpr std::size_t kStatsCols = screamer::BacktestStats::column_names.size();
 
-// The shape rule of an engine's output, checked first, so a bad call raises
-// the same error class as in Python whatever else is wrong with it.
-void checkEngineRows(std::size_t ndim, std::size_t ncols) {
-    screamer::check_engine_rows(ndim, ncols);
+constexpr const char* kWho = "backtestReport";
+
+// The shape rule of backtestReport's input ((T, 4), or (T, K, 4) with
+// K >= 1; `d1` and `d2` are the second and third sizes, 0 where absent),
+// checked first, so a bad call raises the same error class as in Python
+// whatever else is wrong with it.
+void checkReportRows(std::size_t ndim, std::size_t d1, std::size_t d2) {
+    screamer::check_report_rows(kWho, ndim, d1, d2);
+}
+
+// Copies T row-major rows of `width` values to `o` as columns of T values;
+// returns the end of the written columns.
+double* toColumns(const double* rows, std::size_t T, std::size_t width, double* o) {
+    for (std::size_t c = 0; c < width; ++c, o += T)
+        for (std::size_t t = 0; t < T; ++t) o[t] = rows[t * width + c];
+    return o;
 }
 
 // The engine output `eng` (T rows of `ncols` values, row-major) as the
@@ -38,13 +50,31 @@ void backtestReportInto(std::uintptr_t eng, std::size_t T, std::size_t ndim, std
     screamer::backtest_report(rep, st, reinterpret_cast<const double*>(eng), T,
                               static_cast<std::ptrdiff_t>(kEngine), 1, report.data(),
                               stats.data(), reinterpret_cast<double*>(summary));
-    double* o = reinterpret_cast<double*>(out);
-    const auto columns = [&](const double* rows, std::size_t width) {
-        for (std::size_t c = 0; c < width; ++c, o += T)
-            for (std::size_t t = 0; t < T; ++t) o[t] = rows[t * width + c];
-    };
-    columns(report.data(), kReport);
-    columns(stats.data(), kStatsCols);
+    double* o = toColumns(report.data(), T, kReport, reinterpret_cast<double*>(out));
+    toColumns(stats.data(), T, kStatsCols, o);
+}
+
+// A portfolio engine's output `eng` (T x K rows of 4 values, row-major) as
+// the book's running columns, column-major in `out` (3 + 6 + 9 columns of T
+// values: kBookColumns, then the order of backtestReportNames), the book's
+// summary in `summary` (kNumStats values), and each asset's summary in
+// `per_asset` (K x kNumStats, row-major). The shape and periods_per_year are
+// checked first.
+void backtestBookInto(std::uintptr_t eng, std::size_t T, std::size_t K, double periods_per_year,
+                      std::uintptr_t out, std::uintptr_t summary, std::uintptr_t per_asset) {
+    screamer::check_report_rows(kWho, 3, K, kEngine);
+    screamer::check_periods_per_year(periods_per_year);
+    constexpr std::size_t kBook = screamer::kBookColumns.size();
+    std::vector<double> book(T * kBook), report(T * kReport), stats(T * kStatsCols);
+    screamer::backtest_book_report(reinterpret_cast<const double*>(eng), T, K,
+                                   static_cast<std::ptrdiff_t>(K * kEngine),
+                                   static_cast<std::ptrdiff_t>(kEngine), 1, periods_per_year,
+                                   book.data(), report.data(), stats.data(),
+                                   reinterpret_cast<double*>(summary),
+                                   reinterpret_cast<double*>(per_asset));
+    double* o = toColumns(book.data(), T, kBook, reinterpret_cast<double*>(out));
+    o = toColumns(report.data(), T, kReport, o);
+    toColumns(stats.data(), T, kStatsCols, o);
 }
 
 // backtest_report(by=): the statistics of `groups` groups of the engine
@@ -65,8 +95,24 @@ void backtestGroupsInto(std::uintptr_t eng, std::size_t T, std::size_t ndim, std
                               periods_per_year, reinterpret_cast<double*>(out));
 }
 
+// backtestGroupsInto for the book of a portfolio engine's output `eng` (T x K
+// rows of 4 values, row-major).
+void backtestBookGroupsInto(std::uintptr_t eng, std::size_t T, std::size_t K, std::uintptr_t codes,
+                            std::size_t n_codes, std::size_t groups, double periods_per_year,
+                            std::uintptr_t out) {
+    screamer::check_report_rows(kWho, 3, K, kEngine);
+    screamer::check_group_codes(n_codes, T);
+    const double* c = reinterpret_cast<const double*>(codes);
+    std::vector<std::int64_t> ic(T);
+    for (std::size_t t = 0; t < T; ++t) ic[t] = static_cast<std::int64_t>(c[t]);
+    screamer::backtest_book_groups(reinterpret_cast<const double*>(eng), T, K,
+                                   static_cast<std::ptrdiff_t>(K * kEngine),
+                                   static_cast<std::ptrdiff_t>(kEngine), 1, ic.data(), groups,
+                                   periods_per_year, reinterpret_cast<double*>(out));
+}
+
 // [engine columns, BacktestReport columns, BacktestStats columns, summary,
-// group statistics].
+// group statistics, book columns].
 emscripten::val backtestReportNames() {
     const auto names = [](const auto& a) {
         emscripten::val out = emscripten::val::array();
@@ -82,6 +128,7 @@ emscripten::val backtestReportNames() {
     all.set(2, names(screamer::BacktestStats::column_names));
     all.set(3, summary);
     all.set(4, names(screamer::kGroupStats));
+    all.set(5, names(screamer::kBookColumns));
     return all;
 }
 
@@ -111,9 +158,11 @@ emscripten::val backtestTrades(std::uintptr_t eng, std::size_t T, std::size_t nd
 }  // namespace
 
 EMSCRIPTEN_BINDINGS(screamer_backtest) {
-    emscripten::function("checkEngineRows", &checkEngineRows);
+    emscripten::function("checkReportRows", &checkReportRows);
     emscripten::function("backtestReportInto", &backtestReportInto);
+    emscripten::function("backtestBookInto", &backtestBookInto);
     emscripten::function("backtestGroupsInto", &backtestGroupsInto);
+    emscripten::function("backtestBookGroupsInto", &backtestBookGroupsInto);
     emscripten::function("backtestReportNames", &backtestReportNames);
     emscripten::function("backtestTrades", &backtestTrades);
 }

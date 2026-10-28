@@ -17,7 +17,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from screamer import (Resample, BacktestPortfolioOHLCTarget, BacktestCarry,
-                      PortfolioReport, MaxDrawdown)
+                      backtest_report, MaxDrawdown)
 
 bars = pd.read_csv("../../notebooks/data/binance_daily_20.csv",
                    parse_dates=["date"])
@@ -66,14 +66,14 @@ short needs margin. Each leg pays a 0.1% fee and 0.05% slippage on its one
 trade.
 
 ```{code-cell} ipython3
-*_, trades, _, sharpe = PortfolioReport()(out)[-1]
-dd = MaxDrawdown()(1 + out[:, :, 0].sum(axis=1))[-1]   # fraction of the peak
-pd.Series({"sharpe": sharpe * np.sqrt(365), "max_drawdown_pct": 100 * dd,
-           "num_trades": trades}).round(2)
+running, summary = backtest_report(out, periods_per_year=365)
+dd = MaxDrawdown()(1 + running["equity"])[-1]          # fraction of the peak
+pd.Series({"sharpe": summary["sharpe"], "max_drawdown_pct": 100 * dd,
+           "num_trades": summary["num_trades"]}).round(2)
 ```
 
-`PortfolioReport` is the portfolio version of `backtest_report`: its Sharpe
-ratio is per day, and `np.sqrt(365)` annualizes it. The book gains whenever the
+`backtest_report` sums the two legs into one book, and `periods_per_year=365`
+annualizes the Sharpe ratio of its daily pnl. The book gains whenever the
 funding rate is positive and gives some back when it is negative, and ends at
 1.20 times its capital, about 3.8% a year. Its Sharpe ratio is not comparable
 with that of a directional strategy: the backtest has no basis risk and no

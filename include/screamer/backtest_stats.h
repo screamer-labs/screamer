@@ -12,6 +12,64 @@
 
 namespace screamer {
 
+    namespace detail {
+
+        // The running trade and downside statistics of finite rows, shared by
+        // BacktestStats and the book report of a portfolio
+        // (backtest_summary.h). A row adds its equity and pnl (step), each
+        // asset adds whether it holds a position (exposure), and each closed
+        // round trip adds itself (trade). For one asset, exposure is counted
+        // over the same rows as the pnl; a book counts it over its assets'
+        // finite rows.
+        struct StatsState {
+            long long steps = 0, held_n = 0, exposed = 0, trades = 0, wins = 0, held_total = 0;
+            double gross_win = 0.0, gross_loss = 0.0;
+            double pnl_sum = 0.0, down_sq = 0.0;
+            double equity_peak = -std::numeric_limits<double>::infinity();
+            double worst_dd = 0.0;
+
+            void step(double equity, double pnl) {
+                ++steps;
+                pnl_sum += pnl;
+                if (pnl < 0.0) down_sq += pnl * pnl;
+                if (equity > equity_peak) equity_peak = equity;
+                if (equity - equity_peak < worst_dd) worst_dd = equity - equity_peak;
+            }
+
+            void exposure(double position) {
+                ++held_n;
+                if (position != 0.0) ++exposed;
+            }
+
+            void trade(const RoundTrip& t) {
+                ++trades;
+                if (t.pnl > 0.0) { ++wins; gross_win += t.pnl; }
+                else gross_loss += -t.pnl;
+                held_total += t.held;
+            }
+
+            // The nine BacktestStats columns, after at least one step.
+            void values(double ppy, double* out) const {
+                const double nan = std::numeric_limits<double>::quiet_NaN();
+                const double n = static_cast<double>(steps);
+                const double mean = pnl_sum / n;
+                const double rt = static_cast<double>(trades);
+                const long long losses = trades - wins;
+                const double dd = std::sqrt(down_sq / n);
+                out[0] = static_cast<double>(exposed) / static_cast<double>(held_n);
+                out[1] = rt;
+                out[2] = trades ? static_cast<double>(wins) / rt : nan;
+                out[3] = gross_loss > 0.0 ? gross_win / gross_loss : nan;
+                out[4] = wins ? gross_win / static_cast<double>(wins) : nan;
+                out[5] = losses ? -gross_loss / static_cast<double>(losses) : nan;
+                out[6] = trades ? static_cast<double>(held_total) / rt : nan;
+                out[7] = dd > 0.0 ? mean / dd * std::sqrt(ppy) : nan;
+                out[8] = worst_dd < 0.0 ? mean * ppy / -worst_dd : nan;
+            }
+        };
+
+    } // namespace detail
+
     // BacktestStats: 4 -> 9. Trade-level and downside statistics for a backtest
     // engine's per-step [equity, pnl, position, cost]. A sibling of
     // BacktestReport: every column is a causal running value, so a full-sample
@@ -53,62 +111,33 @@ namespace screamer {
         }
 
         void reset() override {
-            steps_ = 0; exposed_ = 0;
-            trades_ = 0; wins_ = 0;
-            gross_win_ = 0.0; gross_loss_ = 0.0;
-            held_total_ = 0;
+            state_ = detail::StatsState{};
             tracker_.reset();
-            pnl_sum_ = 0.0; down_sq_ = 0.0;
-            equity_peak_ = -std::numeric_limits<double>::infinity(); worst_dd_ = 0.0;
         }
 
         ResultTuple call(const InputArray& in) override {
             const double equity = in[0], pnl = in[1], position = in[2], cost = in[3];
-            const double nan = std::numeric_limits<double>::quiet_NaN();
-            if (isnan2(equity) || isnan2(pnl) || isnan2(position) || isnan2(cost))
+            if (isnan2(equity) || isnan2(pnl) || isnan2(position) || isnan2(cost)) {
+                const double nan = std::numeric_limits<double>::quiet_NaN();
                 return std::make_tuple(nan, nan, nan, nan, nan, nan, nan, nan, nan);
+            }
 
-            ++steps_;
-            if (position != 0.0) ++exposed_;
-            pnl_sum_ += pnl;
-            if (pnl < 0.0) down_sq_ += pnl * pnl;
-            if (equity > equity_peak_) equity_peak_ = equity;
-            if (equity - equity_peak_ < worst_dd_) worst_dd_ = equity - equity_peak_;
-
+            state_.step(equity, pnl);
+            state_.exposure(position);
             // Trade bookkeeping (detail::RoundTripTracker, which
             // backtest_trades shares).
-            tracker_.step(0, pnl, cost, position, [this](const detail::RoundTrip& t) {
-                ++trades_;
-                if (t.pnl > 0.0) { ++wins_; gross_win_ += t.pnl; }
-                else gross_loss_ += -t.pnl;
-                held_total_ += t.held;
-            });
+            tracker_.step(0, pnl, cost, position,
+                          [this](const detail::RoundTrip& t) { state_.trade(t); });
 
-            const double n = static_cast<double>(steps_);
-            const double mean = pnl_sum_ / n;
-            const double exposure = static_cast<double>(exposed_) / n;
-            const double rt = static_cast<double>(trades_);
-            const double win_rate = trades_ ? static_cast<double>(wins_) / rt : nan;
-            const double pf = gross_loss_ > 0.0 ? gross_win_ / gross_loss_ : nan;
-            const double avg_win = wins_ ? gross_win_ / static_cast<double>(wins_) : nan;
-            const long long losses = trades_ - wins_;
-            const double avg_loss = losses ? -gross_loss_ / static_cast<double>(losses) : nan;
-            const double avg_hold = trades_ ? static_cast<double>(held_total_) / rt : nan;
-            const double dd = std::sqrt(down_sq_ / n);
-            const double sortino = dd > 0.0 ? mean / dd * std::sqrt(ppy_) : nan;
-            const double calmar = worst_dd_ < 0.0 ? mean * ppy_ / -worst_dd_ : nan;
-            return std::make_tuple(exposure, rt, win_rate, pf, avg_win, avg_loss,
-                                   avg_hold, sortino, calmar);
+            double o[9];
+            state_.values(ppy_, o);
+            return std::make_tuple(o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], o[8]);
         }
 
     private:
         double ppy_;
-        long long steps_ = 0, exposed_ = 0, trades_ = 0, wins_ = 0, held_total_ = 0;
-        double gross_win_ = 0.0, gross_loss_ = 0.0;
+        detail::StatsState state_;
         detail::RoundTripTracker tracker_;
-        double pnl_sum_ = 0.0, down_sq_ = 0.0;
-        double equity_peak_ = -std::numeric_limits<double>::infinity();
-        double worst_dd_ = 0.0;
     };
 
 } // namespace screamer

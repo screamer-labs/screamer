@@ -135,12 +135,13 @@ test("backtestReport: an engine's output reads directly", async () => {
 
 test("backtestReport: errors match Python's", async () => {
   await ready();
-  const msg = "values must be a (T, 4) array of [equity, pnl, position, cost]";
+  const msg = "backtestReport: values must be a (T, 4) or (T, K, 4) array of " +
+    "[equity, pnl, position, cost]";
   const bad = (v: unknown) =>
     assert.throws(() => backtestReport(v as any),
       (e: any) => e instanceof RangeError && e.message === msg);
   bad({ data: new Float64Array(6), shape: [2, 3] });
-  bad({ data: new Float64Array(8), shape: [1, 2, 4] });
+  bad({ data: new Float64Array(6), shape: [1, 2, 3] });
   bad({ data: new Float64Array(4), shape: [4] });
   bad(new Float64Array(4));
   bad([1, 2, 3, 4]);

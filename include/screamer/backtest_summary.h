@@ -1,6 +1,7 @@
 #ifndef SCREAMER_BACKTEST_SUMMARY_H
 #define SCREAMER_BACKTEST_SUMMARY_H
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -12,6 +13,8 @@
 
 #include "screamer/backtest_report.h"
 #include "screamer/backtest_stats.h"
+#include "screamer/common/float_info.h"
+#include "screamer/detail/round_trips.h"
 
 namespace screamer {
 
@@ -35,6 +38,27 @@ namespace screamer {
         if (ndim != 2 || ncols != kEngineColumns.size())
             throw std::invalid_argument(
                 "values must be a (T, 4) array of [equity, pnl, position, cost]");
+    }
+
+    // backtest_report's input: one asset's (T, 4) output, or a portfolio
+    // engine's (T, K, 4) with at least one asset. `d1` and `d2` are the sizes
+    // of the second and third dimensions (0 where the array has none); `who`
+    // names the function in the message.
+    inline void check_report_rows(const std::string& who, std::size_t ndim, std::size_t d1,
+                                  std::size_t d2) {
+        const std::size_t nc = kEngineColumns.size();
+        if ((ndim == 2 && d1 == nc) || (ndim == 3 && d1 > 0 && d2 == nc)) return;
+        if (ndim == 3 && d2 == nc)
+            throw std::invalid_argument(who + ": a (T, K, 4) portfolio output needs at least "
+                                              "one asset");
+        throw std::invalid_argument(who + ": values must be a (T, 4) or (T, K, 4) array of "
+                                          "[equity, pnl, position, cost]");
+    }
+
+    // periods_per_year, as the BacktestReport and BacktestStats nodes check it.
+    inline void check_periods_per_year(double periods_per_year) {
+        if (!(periods_per_year > 0.0) || !std::isfinite(periods_per_year))
+            throw std::invalid_argument("periods_per_year must be finite and positive.");
     }
 
     // Where a summary value comes from: an engine column, a BacktestReport
@@ -151,6 +175,61 @@ namespace screamer {
                                         " rows, " + std::to_string(n_codes) + " labels");
     }
 
+    namespace detail {
+
+        // The statistics of G groups of T rows, row t in group codes[t].
+        // `row(t, equity, pnl, cost, traded)` reads row t and returns false for
+        // a skipped row; see backtest_groups.
+        template <class Row>
+        void groups_of(std::size_t T, Row&& row, const std::int64_t* codes, std::size_t G,
+                       double periods_per_year, double* out) {
+            check_periods_per_year(periods_per_year);
+            for (std::size_t t = 0; t < T; ++t)
+                if (codes[t] < 0 || static_cast<std::size_t>(codes[t]) >= G)
+                    throw std::invalid_argument("group codes must lie in [0, groups)");
+            struct Acc {
+                double pnl = 0.0, cost = 0.0, turnover = 0.0, mean = 0.0, m2 = 0.0, cum = 0.0;
+                double peak = -std::numeric_limits<double>::infinity(), worst = 0.0;
+                long long n = 0;
+            };
+            std::vector<Acc> acc(G);
+            double prev_equity = 0.0;
+            for (std::size_t t = 0; t < T; ++t) {
+                double equity, pnl, cost, traded;
+                if (!row(t, equity, pnl, cost, traded)) continue;
+                Acc& g = acc[static_cast<std::size_t>(codes[t])];
+                g.pnl += equity - prev_equity;
+                prev_equity = equity;
+                g.cost += cost;
+                g.turnover += traded;
+                g.n += 1;
+                const double delta = pnl - g.mean;
+                g.mean += delta / static_cast<double>(g.n);
+                g.m2 += delta * (pnl - g.mean);
+                g.cum += pnl;
+                if (g.cum > g.peak) g.peak = g.cum;
+                if (g.cum - g.peak < g.worst) g.worst = g.cum - g.peak;
+            }
+            const double sqrt_ppy = std::sqrt(periods_per_year);
+            for (std::size_t k = 0; k < G; ++k) {
+                const Acc& g = acc[k];
+                double sharpe = std::numeric_limits<double>::quiet_NaN();
+                if (g.n > 1) {
+                    const double sd = std::sqrt(g.m2 / static_cast<double>(g.n - 1));
+                    if (sd > 0.0) sharpe = g.mean / sd * sqrt_ppy;
+                }
+                double* o = out + k * kGroupStats.size();
+                o[0] = g.pnl;
+                o[1] = g.cost;
+                o[2] = g.turnover;
+                o[3] = sharpe;
+                o[4] = g.worst;
+                o[5] = static_cast<double>(g.n);
+            }
+        }
+
+    } // namespace detail
+
     // The statistics of G groups of T engine rows (`row_stride` and
     // `col_stride` apart), row t in group codes[t], written to out[g * 6 + j]
     // in kGroupStats order. Rows with a NaN field are skipped, as
@@ -166,55 +245,177 @@ namespace screamer {
     inline void backtest_groups(const double* eng, std::size_t T, std::ptrdiff_t row_stride,
                                 std::ptrdiff_t col_stride, const std::int64_t* codes,
                                 std::size_t G, double periods_per_year, double* out) {
-        if (!(periods_per_year > 0.0) || !std::isfinite(periods_per_year))
-            throw std::invalid_argument("periods_per_year must be finite and positive.");
-        for (std::size_t t = 0; t < T; ++t)
-            if (codes[t] < 0 || static_cast<std::size_t>(codes[t]) >= G)
-                throw std::invalid_argument("group codes must lie in [0, groups)");
-        struct Acc {
-            double pnl = 0.0, cost = 0.0, turnover = 0.0, mean = 0.0, m2 = 0.0, cum = 0.0;
-            double peak = -std::numeric_limits<double>::infinity(), worst = 0.0;
-            long long n = 0;
-        };
-        std::vector<Acc> acc(G);
         bool has_prev = false;
-        double prev_pos = 0.0, prev_equity = 0.0;
-        for (std::size_t t = 0; t < T; ++t) {
-            const double* r = eng + static_cast<std::ptrdiff_t>(t) * row_stride;
-            const double equity = r[0], pnl = r[col_stride], pos = r[2 * col_stride],
-                         cost = r[3 * col_stride];
-            if (std::isnan(equity) || std::isnan(pnl) || std::isnan(pos) || std::isnan(cost)) continue;
-            Acc& g = acc[static_cast<std::size_t>(codes[t])];
-            g.pnl += equity - prev_equity;
-            prev_equity = equity;
-            g.cost += cost;
-            g.turnover += std::abs(has_prev ? pos - prev_pos : pos);
-            prev_pos = pos;
-            has_prev = true;
-            g.n += 1;
-            const double delta = pnl - g.mean;
-            g.mean += delta / static_cast<double>(g.n);
-            g.m2 += delta * (pnl - g.mean);
-            g.cum += pnl;
-            if (g.cum > g.peak) g.peak = g.cum;
-            if (g.cum - g.peak < g.worst) g.worst = g.cum - g.peak;
+        double prev_pos = 0.0;
+        detail::groups_of(
+            T,
+            [&](std::size_t t, double& equity, double& pnl, double& cost, double& traded) {
+                const double* r = eng + static_cast<std::ptrdiff_t>(t) * row_stride;
+                equity = r[0];
+                pnl = r[col_stride];
+                cost = r[3 * col_stride];
+                const double pos = r[2 * col_stride];
+                if (std::isnan(equity) || std::isnan(pnl) || std::isnan(pos) || std::isnan(cost))
+                    return false;
+                traded = std::abs(has_prev ? pos - prev_pos : pos);
+                prev_pos = pos;
+                has_prev = true;
+                return true;
+            },
+            codes, G, periods_per_year, out);
+    }
+
+    // ---- The book of a portfolio engine's (T, K, 4) output ----
+    //
+    // The book is the account the K assets share. Its row t sums the assets:
+    // equity, pnl, and cost are summed over the assets, the units traded are
+    // the sum of each asset's |position change|, and the position changes are
+    // counted per asset, as PortfolioReport counts them. An asset whose row
+    // has a NaN field is skipped on that row, as the single-asset report skips
+    // it: it adds no pnl, cost, or trade, and its equity and position hold at
+    // their last values (0 before its first finite row), so an asset that
+    // starts late joins the book when its data starts. A book row is skipped
+    // (all NaN) only when every asset is skipped.
+    //
+    // The book's report columns come from its rows, as for one asset: the
+    // drawdown, cum_cost, max_drawdown, and sharpe of the summed equity, pnl,
+    // and cost, and turnover and trades from the units traded and the
+    // position changes. Its statistics count over all assets: exposure is the
+    // share of the assets' finite rows that hold a position, and the round
+    // trips of every asset make the trade statistics (round_trips, win_rate,
+    // profit_factor, avg_win, avg_loss, avg_holding); sortino and calmar come
+    // from the book's pnl and equity.
+
+    // The book's own columns; its report and stats columns follow them.
+    inline constexpr std::array<const char*, 3> kBookColumns{{"equity", "pnl", "cost"}};
+
+    namespace detail {
+
+        // One book row: the sums over the assets, and whether any asset had a
+        // finite row.
+        struct BookRow {
+            double equity = 0.0, pnl = 0.0, cost = 0.0, traded = 0.0, changes = 0.0;
+            bool valid = false;
+        };
+
+        // Reads the book rows of a (T, K, 4) output, holding each asset's last
+        // position and equity.
+        class BookReader {
+        public:
+            explicit BookReader(std::size_t K) : prev_pos_(K, 0.0), last_equity_(K, 0.0) {}
+
+            // Row `r` (assets `asset_stride` apart, fields `col_stride` apart);
+            // on_asset(k, pnl, cost, position) for each asset with a finite row.
+            template <class OnAsset>
+            BookRow read(const double* r, std::ptrdiff_t asset_stride, std::ptrdiff_t col_stride,
+                         OnAsset&& on_asset) {
+                BookRow b;
+                for (std::size_t k = 0; k < prev_pos_.size(); ++k) {
+                    const double* a = r + static_cast<std::ptrdiff_t>(k) * asset_stride;
+                    const double equity = a[0], pnl = a[col_stride], pos = a[2 * col_stride],
+                                 cost = a[3 * col_stride];
+                    if (isnan2(equity) || isnan2(pnl) || isnan2(pos) || isnan2(cost)) {
+                        b.equity += last_equity_[k];        // skipped: the asset holds
+                        continue;
+                    }
+                    b.valid = true;
+                    b.equity += equity;
+                    b.pnl += pnl;
+                    b.cost += cost;
+                    const double traded = std::abs(pos - prev_pos_[k]);
+                    b.traded += traded;
+                    if (traded > 0.0) b.changes += 1.0;
+                    prev_pos_[k] = pos;
+                    last_equity_[k] = equity;
+                    on_asset(k, pnl, cost, pos);
+                }
+                return b;
+            }
+
+        private:
+            std::vector<double> prev_pos_, last_equity_;
+        };
+
+    } // namespace detail
+
+    // The report of a (T, K, 4) output (rows `row_stride`, assets
+    // `asset_stride`, fields `col_stride` apart): the book's columns (T x 3,
+    // kBookColumns), report (T x 6), and stats (T x 9), row-major; the book's
+    // summary (kNumStats values); and each asset's summary, as
+    // backtest_report gives it for that asset alone (K x kNumStats).
+    inline void backtest_book_report(const double* eng, std::size_t T, std::size_t K,
+                                     std::ptrdiff_t row_stride, std::ptrdiff_t asset_stride,
+                                     std::ptrdiff_t col_stride, double periods_per_year,
+                                     double* book, double* report, double* stats,
+                                     double* summary, double* asset_summary) {
+        constexpr std::size_t nb = kBookColumns.size();
+        constexpr std::size_t nr = BacktestReport::column_names.size();
+        constexpr std::size_t ns = BacktestStats::column_names.size();
+        BacktestReport rep(periods_per_year);     // checks periods_per_year
+        BacktestStats st(periods_per_year);
+        {
+            // One asset at a time, through the single-asset report; the
+            // running columns go to scratch, reused across the assets.
+            std::vector<double> rs(T * nr), ss(T * ns);
+            for (std::size_t k = 0; k < K; ++k)
+                backtest_report(rep, st, eng + static_cast<std::ptrdiff_t>(k) * asset_stride, T,
+                                row_stride, col_stride, rs.data(), ss.data(),
+                                asset_summary + k * kNumStats);
         }
         const double sqrt_ppy = std::sqrt(periods_per_year);
-        for (std::size_t k = 0; k < G; ++k) {
-            const Acc& g = acc[k];
-            double sharpe = std::numeric_limits<double>::quiet_NaN();
-            if (g.n > 1) {
-                const double sd = std::sqrt(g.m2 / static_cast<double>(g.n - 1));
-                if (sd > 0.0) sharpe = g.mean / sd * sqrt_ppy;
+        const double nan = std::numeric_limits<double>::quiet_NaN();
+        detail::BookReader reader(K);
+        detail::ReportState rstate;
+        detail::StatsState sstate;
+        std::vector<detail::RoundTripTracker> trackers(K);
+        const auto on_trade = [&sstate](const detail::RoundTrip& tr) { sstate.trade(tr); };
+        for (std::size_t t = 0; t < T; ++t) {
+            const detail::BookRow b = reader.read(
+                eng + static_cast<std::ptrdiff_t>(t) * row_stride, asset_stride, col_stride,
+                [&](std::size_t k, double pnl, double cost, double pos) {
+                    sstate.exposure(pos);
+                    trackers[k].step(t, pnl, cost, pos, on_trade);
+                });
+            double* bo = book + t * nb;
+            double* ro = report + t * nr;
+            double* so = stats + t * ns;
+            if (!b.valid) {
+                std::fill(bo, bo + nb, nan);
+                std::fill(ro, ro + nr, nan);
+                std::fill(so, so + ns, nan);
+                continue;
             }
-            double* o = out + k * kGroupStats.size();
-            o[0] = g.pnl;
-            o[1] = g.cost;
-            o[2] = g.turnover;
-            o[3] = sharpe;
-            o[4] = g.worst;
-            o[5] = static_cast<double>(g.n);
+            bo[0] = b.equity;
+            bo[1] = b.pnl;
+            bo[2] = b.cost;
+            rstate.step(b.equity, b.pnl, b.cost, b.traded, b.changes, sqrt_ppy, ro);
+            sstate.step(b.equity, b.pnl);
+            sstate.values(periods_per_year, so);
         }
+        summary_from(book, static_cast<std::ptrdiff_t>(nb), 1, report, stats, T, summary);
+    }
+
+    // backtest_groups for the book of a (T, K, 4) output: the book's rows, as
+    // backtest_book_report reads them, grouped.
+    inline void backtest_book_groups(const double* eng, std::size_t T, std::size_t K,
+                                     std::ptrdiff_t row_stride, std::ptrdiff_t asset_stride,
+                                     std::ptrdiff_t col_stride, const std::int64_t* codes,
+                                     std::size_t G, double periods_per_year, double* out) {
+        detail::BookReader reader(K);
+        const auto none = [](std::size_t, double, double, double) {};
+        detail::groups_of(
+            T,
+            [&](std::size_t t, double& equity, double& pnl, double& cost, double& traded) {
+                const detail::BookRow b = reader.read(
+                    eng + static_cast<std::ptrdiff_t>(t) * row_stride, asset_stride, col_stride,
+                    none);
+                equity = b.equity;
+                pnl = b.pnl;
+                cost = b.cost;
+                traded = b.traded;
+                return b.valid;
+            },
+            codes, G, periods_per_year, out);
     }
 
 } // namespace screamer

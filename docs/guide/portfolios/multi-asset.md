@@ -9,7 +9,7 @@ kernelspec:
 
 `BacktestPortfolioOHLCTarget` trades `K` assets from one account: it takes one
 `(T, K)` array per input, time down the rows and one asset per column, and
-returns a `(T, K, 4)` array that `PortfolioReport` sums into portfolio
+returns a `(T, K, 4)` array that `backtest_report` sums into portfolio
 statistics.
 
 ```{code-cell} ipython3
@@ -17,7 +17,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from screamer import (LogReturn, EwStd, CrossNormalize,
-                      BacktestPortfolioOHLCTarget, PortfolioReport, MaxDrawdown)
+                      BacktestPortfolioOHLCTarget, backtest_report, MaxDrawdown)
 
 df = pd.read_csv("../../notebooks/data/binance_daily_20.csv",
                  parse_dates=["date"])
@@ -34,10 +34,10 @@ for name, weights in books.items():
     weights[:60] = np.nan                             # estimate warming up
     weights[dates.day != 1] = np.nan                  # rebalance monthly
     out[name] = engine(weights, o, h, l, c)           # (T, K, 4)
-    *_, trades, _, sharpe = PortfolioReport()(out[name])[-1]
-    dd = MaxDrawdown()(1 + out[name][:, :, 0].sum(axis=1))[-1]
-    stats[name] = {"sharpe": sharpe * np.sqrt(365),
-                   "max_drawdown_pct": 100 * dd, "num_trades": trades}
+    running, summary = backtest_report(out[name], periods_per_year=365)
+    dd = MaxDrawdown()(1 + running["equity"])[-1]
+    stats[name] = {"sharpe": summary["sharpe"],
+                   "max_drawdown_pct": 100 * dd, "num_trades": summary["num_trades"]}
 ```
 
 ```{code-cell} ipython3
@@ -65,9 +65,10 @@ day's open, and every trade pays a 0.1% fee and 0.05% slippage.
 pd.DataFrame(stats).round(2)
 ```
 
-`PortfolioReport` is the portfolio version of `backtest_report`: it sums
-equity, pnl and cost over the assets, its Sharpe ratio is per day (annualized
-here with `np.sqrt(365)`), and `num_trades` counts asset position changes. The
+`backtest_report` reads the `(T, K, 4)` output as one book: it sums equity,
+pnl and cost over the assets, `periods_per_year=365` annualizes the Sharpe
+ratio of the daily pnl, and `num_trades` counts asset position changes. Its
+`summary["per_asset"]` holds the same statistics for each asset alone. The
 20 coins were chosen in 2026 from coins that are still large, so the sample
 leaves out coins that collapsed during the period. Both books lost more than
 half their capital in 2022; over the whole sample the inverse-volatility book
@@ -77,6 +78,7 @@ did slightly better.
 
 - [Rank assets by momentum](../strategies/cross-sectional-momentum.md): a long-short book from ranked scores.
 - [`BacktestPortfolioOHLCTarget`](../../functions_fin/BacktestPortfolioOHLCTarget.md): sizing, `rebalance_band`, and gross and net caps.
-- [`PortfolioReport`](../../functions_fin/PortfolioReport.md): the report columns, and turnover in money with a price array.
+- [`backtest_report`](../../functions_fin/backtest_report.md): the book and per-asset statistics.
+- [`PortfolioReport`](../../functions_fin/PortfolioReport.md): the running report as a node, and turnover in money with a price array.
 - [Polymorphic input/output behavior](../../polymorphic_api.md): the shape rules for `(T, K)` inputs to every function.
 - [Portfolios and pairs](../../portfolio_backtesting.md): the portfolio engines in depth.

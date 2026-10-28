@@ -11,6 +11,51 @@
 
 namespace screamer {
 
+    namespace detail {
+
+        // The running report of finite rows, shared by BacktestReport and the
+        // book report of a portfolio (backtest_summary.h): one row's equity,
+        // pnl, cost, the units it traded, and the number of position changes
+        // give the six BacktestReport columns.
+        struct ReportState {
+            double peak_equity = -std::numeric_limits<double>::infinity();
+            double worst_dd = 0.0;
+            double cum_cost = 0.0, cum_turnover = 0.0, trade_count = 0.0;
+            long long pnl_n = 0;
+            double pnl_mean = 0.0, pnl_m2 = 0.0;
+
+            // One finite row; writes the six columns to out.
+            void step(double equity, double pnl, double cost, double traded, double changes,
+                      double sqrt_ppy, double* out) {
+                if (equity > peak_equity) peak_equity = equity;
+                const double drawdown = equity - peak_equity;              // dollar, <= 0
+                if (drawdown < worst_dd) worst_dd = drawdown;
+
+                cum_cost += cost;
+                cum_turnover += traded;
+                trade_count += changes;
+
+                // Running Sharpe over finite pnl (Welford; sample std, ddof = 1).
+                pnl_n += 1;
+                const double delta = pnl - pnl_mean;
+                pnl_mean += delta / static_cast<double>(pnl_n);
+                pnl_m2 += delta * (pnl - pnl_mean);
+                double sharpe = std::numeric_limits<double>::quiet_NaN();
+                if (pnl_n > 1) {
+                    const double sd = std::sqrt(pnl_m2 / static_cast<double>(pnl_n - 1));
+                    if (sd > 0.0) sharpe = pnl_mean / sd * sqrt_ppy;
+                }
+                out[0] = drawdown;
+                out[1] = cum_cost;
+                out[2] = cum_turnover;
+                out[3] = trade_count;
+                out[4] = worst_dd;
+                out[5] = sharpe;
+            }
+        };
+
+    } // namespace detail
+
     // BacktestReport: 4 -> 6. Turns a backtest engine's per-step
     // [equity, pnl, position, cost] into the running report columns
     // [drawdown, cum_cost, turnover, trades, max_drawdown, sharpe]. Every column is
@@ -47,16 +92,9 @@ namespace screamer {
         }
 
         void reset() override {
-            peak_equity_ = -std::numeric_limits<double>::infinity();
-            worst_dd_ = 0.0;
-            cum_cost_ = 0.0;
-            cum_turnover_ = 0.0;
-            trade_count_ = 0.0;
+            state_ = detail::ReportState{};
             has_prev_pos_ = false;
             prev_pos_ = 0.0;
-            pnl_n_ = 0;
-            pnl_mean_ = 0.0;
-            pnl_m2_ = 0.0;
         }
 
         ResultTuple call(const InputArray& inputs) override {
@@ -69,43 +107,21 @@ namespace screamer {
                 return std::make_tuple(nan, nan, nan, nan, nan, nan);   // skipped bar; state holds
             }
 
-            if (equity > peak_equity_) peak_equity_ = equity;
-            const double drawdown = equity - peak_equity_;              // dollar, <= 0
-            if (drawdown < worst_dd_) worst_dd_ = drawdown;
-
-            cum_cost_ += cost;
-
             const double dpos = has_prev_pos_ ? (position - prev_pos_) : position;
             const double traded = std::abs(dpos);
-            cum_turnover_ += traded;
-            if (traded > 0.0) trade_count_ += 1.0;
             prev_pos_ = position;
             has_prev_pos_ = true;
 
-            // Running Sharpe over finite pnl (Welford; sample std, ddof = 1).
-            pnl_n_ += 1;
-            const double delta = pnl - pnl_mean_;
-            pnl_mean_ += delta / static_cast<double>(pnl_n_);
-            pnl_m2_ += delta * (pnl - pnl_mean_);
-            double sharpe = std::numeric_limits<double>::quiet_NaN();
-            if (pnl_n_ > 1) {
-                const double sd = std::sqrt(pnl_m2_ / static_cast<double>(pnl_n_ - 1));
-                if (sd > 0.0) sharpe = pnl_mean_ / sd * sqrt_ppy_;
-            }
-
-            return std::make_tuple(drawdown, cum_cost_, cum_turnover_,
-                                   trade_count_, worst_dd_, sharpe);
+            double o[6];
+            state_.step(equity, pnl, cost, traded, traded > 0.0 ? 1.0 : 0.0, sqrt_ppy_, o);
+            return std::make_tuple(o[0], o[1], o[2], o[3], o[4], o[5]);
         }
 
     private:
-        double peak_equity_ = -std::numeric_limits<double>::infinity();
-        double worst_dd_ = 0.0;
-        double cum_cost_ = 0.0, cum_turnover_ = 0.0, trade_count_ = 0.0;
+        detail::ReportState state_;
         bool has_prev_pos_ = false;
         double prev_pos_ = 0.0;
         double sqrt_ppy_ = 1.0;
-        long long pnl_n_ = 0;
-        double pnl_mean_ = 0.0, pnl_m2_ = 0.0;
     };
 
 } // namespace screamer

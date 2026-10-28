@@ -17,7 +17,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from screamer import (LogReturn, Lag, CrossRank, CrossNormalize,
-                      BacktestPortfolioOHLCTarget, PortfolioReport, MaxDrawdown)
+                      BacktestPortfolioOHLCTarget, backtest_report, MaxDrawdown)
 
 df = pd.read_csv("../../notebooks/data/binance_daily_20.csv",
                  parse_dates=["date"])
@@ -54,15 +54,15 @@ the current positions. A target decided at Sunday's close trades at Monday's
 open, and every trade pays a 0.1% fee and 0.05% slippage.
 
 ```{code-cell} ipython3
-*_, trades, _, sharpe = PortfolioReport()(out)[-1]
-dd = MaxDrawdown()(1 + out[:, :, 0].sum(axis=1))[-1]   # fraction of the peak
-pd.Series({"sharpe": sharpe * np.sqrt(365), "max_drawdown_pct": 100 * dd,
-           "num_trades": trades}).round(2)
+running, summary = backtest_report(out, periods_per_year=365)
+dd = MaxDrawdown()(1 + running["equity"])[-1]          # fraction of the peak
+pd.Series({"sharpe": summary["sharpe"], "max_drawdown_pct": 100 * dd,
+           "num_trades": summary["num_trades"]}).round(2)
 ```
 
-`PortfolioReport` is the portfolio version of `backtest_report`: its Sharpe
-ratio is per day, and `np.sqrt(365)` annualizes it; `num_trades` counts asset
-position changes. The book gains until the end of 2023, then gives the gain
+`backtest_report` sums the `(T, K, 4)` output over the assets into one book;
+`periods_per_year=365` annualizes the Sharpe ratio of the daily pnl, and
+`num_trades` counts asset position changes. The book gains until the end of 2023, then gives the gain
 back and ends below its starting capital. The 20 assets were chosen in 2026
 from coins that are still large, so coins that collapsed during the period
 (LUNA and FTT in 2022) are missing; those are the ones a momentum book would
