@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.18)
-project(screamer VERSION 3.9.0 LANGUAGES CXX)
+project(screamer VERSION 3.9.1 LANGUAGES CXX)
 
 # Set the default build type to Release for optimizations
 if(NOT CMAKE_BUILD_TYPE)
