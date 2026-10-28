@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented in this file.
 
+3.9.1 - 2026-10-28
+------------------
+
+### Fixed
+
+* The wheel tests on Windows read and write the Guide files as UTF-8.
+  They used the platform default encoding, which failed on Windows and
+  stopped the 3.9.0 upload to PyPI. 3.9.0 is on npm only; 3.9.1 has the same
+  library code as 3.9.0 and is on both.
+
 3.9.0 - 2026-10-28
 ------------------
 
