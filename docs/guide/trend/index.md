@@ -18,7 +18,6 @@ ADX, and whether a price trends or moves in cycles with `TrendMode`.
 /guide/trend/crossover
 /guide/trend/adx
 /guide/trend/trend-mode
-/notebooks/03-financial-indicators
 ```
 
 <!-- tasks:end -->

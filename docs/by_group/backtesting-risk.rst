@@ -130,7 +130,7 @@ Is a backtest more than luck? Randomization tests with p-values, permutations, t
    * - :doc:`deflated_sharpe </functions_fin/deflated_sharpe>`
      - Probabilistic Sharpe ratio against the Sharpe ratio the best of your tried variants would reach by luck.
    * - :doc:`permute_bars </functions_fin/permute_bars>`
-     - Bar-permuted copies of an OHLC series that keep its distributions of gaps and intrabar shapes, its first bar and its last close, but no serial structure.
+     - Bar-permuted copies of an OHLC series with no serial structure; in "log" and "diff" mode they keep the distributions of gaps and intrabar shapes, the first bar and the last close.
    * - :doc:`permute_returns </functions_fin/permute_returns>`
      - Copies of a price series with its returns in random order.
    * - :doc:`position_test </functions_fin/position_test>`

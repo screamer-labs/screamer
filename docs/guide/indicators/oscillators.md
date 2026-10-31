@@ -5,7 +5,7 @@ kernelspec:
   display_name: Python 3
 ---
 
-# Momentum oscillators: Stochastic RSI, Williams %R, CCI, TRIX, Ultimate Oscillator
+# Compute momentum oscillators (Stochastic RSI, Williams %R, CCI, TRIX, Ultimate Oscillator)
 
 `StochRSI`, `WilliamsR`, `CCI`, `TRIX` and `UltimateOscillator` each turn
 recent prices into one momentum reading, and each takes the inputs and
@@ -30,6 +30,8 @@ cols = ["stoch_rsi", "williams_r", "cci", "trix", "ultimate"]
 print("CCI within +-100:", f"{(df['cci'].abs() <= 100).mean():.0%}",
       "| TRIX sign changes in 2025:",
       int((df["trix"] > 0).astype(int).diff().abs().loc["2025"].sum()))
+print("correlation of williams_r with cci, ultimate:",
+      df[cols].corr().loc["williams_r", ["cci", "ultimate"]].round(2).tolist())
 df[cols].describe().loc[["min", "max"]].round(2)
 ```
 
@@ -66,11 +68,11 @@ The dashed lines are the usual overbought and oversold levels, and zero for
   between 23 and 78 on these data.
 
 `WilliamsR`, `CCI` and `UltimateOscillator` move together: over 2022 to 2026
-the correlation of `WilliamsR` with each of the other two is near 0.8 or
-above, so using several of them adds little.
+the correlation of `WilliamsR` is 0.87 with `CCI` and 0.78 with
+`UltimateOscillator`, so using several of them adds little.
 
 ## Go deeper
 
 - [`StochRSI`](../../functions_rolling/StochRSI.md), [`WilliamsR`](../../functions_rolling/WilliamsR.md), [`CCI`](../../functions_rolling/CCI.md), [`TRIX`](../../functions_rolling/TRIX.md), [`UltimateOscillator`](../../functions_rolling/UltimateOscillator.md): formulas, warmup, and TA-Lib equivalents.
-- [`Stoch`](../../functions_rolling/Stoch.md): the stochastic oscillator on price.
-- [Trade RSI reversion](../strategies/rsi-reversion.md): an oscillator turned into a strategy.
+- [Compute MACD and the stochastic oscillator (MACD, Stoch, ROC)](macd-stoch.md): the stochastic oscillator on price, MACD and rate of change.
+- [Buy oversold and sell overbought with RSI](../strategies/rsi-reversion.md): an oscillator turned into a strategy.

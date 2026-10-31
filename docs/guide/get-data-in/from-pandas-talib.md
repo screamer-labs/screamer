@@ -95,3 +95,4 @@ TA-Lib returns a tuple for a function with several outputs; screamer returns one
 - [Conventions](../../conventions.md): where a definition differs from pandas or TA-Lib, and why.
 - [`RollingRSI`](../../functions_rolling/RollingRSI.md): the Wilder and Cutler methods.
 - [Compute indicators on an OHLCV DataFrame](ohlcv-dataframe.md): several indicators as new columns.
+- [Compute classic technical indicators](../indicators/index.md): oscillators, volume indicators and channels with their TA-Lib settings.

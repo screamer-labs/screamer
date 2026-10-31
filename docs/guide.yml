@@ -42,7 +42,7 @@ parts:
     - notebooks/17-filtering-and-forecasting-with-uncertainty
   - slug: volatility
     title: Measure volatility
-    line: Close-to-close and OHLC estimators (Yang-Zhang), average true range (ATR), jumps (bipower variation), and weekday or hour-of-day seasonality (seasonal z-score).
+    line: Close-to-close and OHLC estimators (Yang-Zhang), average true range (ATR), jumps (bipower variation), and weekday seasonality (seasonal z-score, also for hours of the day).
     tasks:
     - guide/volatility/close-to-close
     - guide/volatility/ohlc
@@ -59,16 +59,17 @@ parts:
     - guide/trend/crossover
     - guide/trend/adx
     - guide/trend/trend-mode
-    deeper:
-    - notebooks/03-financial-indicators
+    deeper: []
   - slug: indicators
     title: Compute classic technical indicators
-    line: Momentum oscillators (Stochastic RSI, Williams %R, CCI, TRIX, Ultimate Oscillator), volume indicators (OBV, MFI, accumulation/distribution, VWAP), and Keltner Channels next to Bollinger Bands.
+    line: Momentum oscillators (Stochastic RSI, Williams %R, CCI, TRIX, Ultimate Oscillator), MACD, the stochastic oscillator and rate of change (ROC), volume indicators (OBV, MFI, accumulation/distribution, VWAP), and Keltner Channels next to Bollinger Bands (squeeze).
     tasks:
     - guide/indicators/oscillators
+    - guide/indicators/macd-stoch
     - guide/indicators/volume
     - guide/indicators/keltner
-    deeper: []
+    deeper:
+    - notebooks/03-financial-indicators
   - slug: mean-reversion
     title: Detect mean reversion
     line: Variance ratio test, Hurst exponent, Ornstein-Uhlenbeck (OU) half-life, and z-score bands.

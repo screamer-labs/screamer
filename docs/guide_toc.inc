@@ -9,9 +9,9 @@
 **Part 1: Understand a series**
 
 2. :doc:`Smooth and denoise a series <guide/denoise/index>`: Moving averages, low-lag and adaptive smoothers (Hull, KAMA, MAMA), Kalman and Butterworth filters, Hampel despiking, and robust outlier detection (median absolute deviation, sigma clipping).
-3. :doc:`Measure volatility <guide/volatility/index>`: Close-to-close and OHLC estimators (Yang-Zhang), average true range (ATR), jumps (bipower variation), and weekday or hour-of-day seasonality (seasonal z-score).
+3. :doc:`Measure volatility <guide/volatility/index>`: Close-to-close and OHLC estimators (Yang-Zhang), average true range (ATR), jumps (bipower variation), and weekday seasonality (seasonal z-score, also for hours of the day).
 4. :doc:`Detect a trend <guide/trend/index>`: Rolling slope (linear regression), moving-average crossover, ADX and directional movement (DMI), and trend mode.
-5. :doc:`Compute classic technical indicators <guide/indicators/index>`: Momentum oscillators (Stochastic RSI, Williams %R, CCI, TRIX, Ultimate Oscillator), volume indicators (OBV, MFI, accumulation/distribution, VWAP), and Keltner Channels next to Bollinger Bands.
+5. :doc:`Compute classic technical indicators <guide/indicators/index>`: Momentum oscillators (Stochastic RSI, Williams %R, CCI, TRIX, Ultimate Oscillator), MACD, the stochastic oscillator and rate of change (ROC), volume indicators (OBV, MFI, accumulation/distribution, VWAP), and Keltner Channels next to Bollinger Bands (squeeze).
 6. :doc:`Detect mean reversion <guide/mean-reversion/index>`: Variance ratio test, Hurst exponent, Ornstein-Uhlenbeck (OU) half-life, and z-score bands.
 7. :doc:`Find cycles <guide/cycles/index>`: Dominant cycle period (Ehlers, Hilbert transform, roofing filter) and cycle turning points (sinewave indicator).
 8. :doc:`Detect regimes and change points <guide/regimes/index>`: Hidden Markov models (HMM), Bayesian online changepoint detection, CUSUM filter events, and permutation entropy.

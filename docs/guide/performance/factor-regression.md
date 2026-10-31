@@ -58,8 +58,8 @@ once. The exponential fit gives a row 60 days old half the weight of today's,
 and the expanding fit uses the whole history, so it barely moves by the end.
 All three are NaN until they have enough rows.
 
-BTC and ETH returns are strongly correlated, about 0.84 over the sample, so the
-regression has trouble telling their effects apart: the two coefficients swing
+BTC and ETH returns are strongly correlated, so the regression has trouble
+telling their effects apart: the two coefficients swing
 in opposite directions in the moving fits while their sum moves less. At the
 end of the sample the three fits explain 61% to 75% of the variance of SOL's
 daily returns (`r2`).

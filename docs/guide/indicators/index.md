@@ -7,16 +7,19 @@ These pages compute the classic ones and show how to read them.
 
 <!-- tasks:start -->
 
-1. [Momentum oscillators: Stochastic RSI, Williams %R, CCI, TRIX, Ultimate Oscillator](oscillators.md)
-2. [Volume indicators: OBV, MFI, accumulation/distribution and VWAP](volume.md)
-3. [Keltner Channels next to Bollinger Bands](keltner.md)
+1. [Compute momentum oscillators (Stochastic RSI, Williams %R, CCI, TRIX, Ultimate Oscillator)](oscillators.md)
+2. [Compute MACD and the stochastic oscillator (MACD, Stoch, ROC)](macd-stoch.md)
+3. [Compute volume indicators (OBV, MFI, accumulation/distribution, VWAP)](volume.md)
+4. [Compare Keltner Channels with Bollinger Bands (squeeze)](keltner.md)
 
 ```{toctree}
 :hidden:
 
 /guide/indicators/oscillators
+/guide/indicators/macd-stoch
 /guide/indicators/volume
 /guide/indicators/keltner
+/notebooks/03-financial-indicators
 ```
 
 <!-- tasks:end -->
@@ -26,5 +29,6 @@ These pages compute the classic ones and show how to read them.
 | Intent | Function |
 |:-------|:---------|
 | Momentum oscillators | `StochRSI`, `WilliamsR`, `CCI`, `TRIX`, `UltimateOscillator` |
+| MACD, stochastic oscillator and rate of change | `MACD`, `Stoch`, `ROC`, `ROCP`, `ROCR` |
 | Volume indicators | `OBV`, `AD`, `MFI`, `RollingVWAP` |
 | Channels around an average | `KeltnerChannels`, `BollingerBands` |

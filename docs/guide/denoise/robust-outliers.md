@@ -70,4 +70,4 @@ returns `NaN` for those returns, 23 days here; the default
 
 - [`RollingMedianAD`](../../functions_rolling/RollingMedianAD.md), [`RollingMad`](../../functions_rolling/RollingMad.md), [`RollingSigmaClip`](../../functions_rolling/RollingSigmaClip.md): definitions, warmup and the truncation correction.
 - [Remove spikes from a series](despike.md): `Hampel` replaces outliers with the window median.
-- [Separate jumps from normal volatility](../volatility/jumps.md): bipower variation, a scale that ignores isolated jumps.
+- [Separate jumps from normal volatility (bipower variation)](../volatility/jumps.md): a scale that ignores isolated jumps.

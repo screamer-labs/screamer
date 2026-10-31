@@ -42,7 +42,7 @@ for the search that found it.
 |:-------|:---------|
 | Compare a strategy with randomly timed copies of its trades | `position_test` |
 | Make shuffled or rotated copies of a series | `segment_shuffle`, `circular_shift` |
-| Make price paths with the same returns and no serial structure | `permute_bars`, `permute_returns` |
+| Make price paths from shuffled bars or returns, with no serial structure | `permute_bars`, `permute_returns` |
 | Test a whole strategy on permuted markets | `strategy_test` |
 | Correct for the number of variants tried | `deflated_sharpe`, `probabilistic_sharpe` |
 | Choose parameters out of sample | `walk_forward` |

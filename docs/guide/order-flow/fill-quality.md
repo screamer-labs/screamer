@@ -75,5 +75,5 @@ spread. The price impact, effective minus realized, peaks at about 11 USD after
 
 - [`EffectiveSpread`](../../functions_micro/EffectiveSpread.md), [`RealizedSpread`](../../functions_micro/RealizedSpread.md): the formulas and the warmup.
 - [Measure price impact](price-impact.md): impact per unit of net order flow.
-- [Estimate the bid-ask spread from OHLC bars](spread-from-bars.md): the spread when there are no quotes.
+- [Estimate the bid-ask spread from OHLC bars (Corwin-Schultz, Abdi-Ranaldo, Roll)](spread-from-bars.md): the spread when there are no quotes.
 - [Toxicity and book notebook](../../notebooks/13-microstructure-toxicity-and-book.ipynb): effective, realized and impact on a simulated book.

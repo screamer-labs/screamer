@@ -52,6 +52,7 @@ window has filled.
 ## Go deeper
 
 - [Build bars from trades](bars-from-ticks.md): make the OHLCV DataFrame from a trade tape.
+- [Compute momentum oscillators (Stochastic RSI, Williams %R, CCI, TRIX, Ultimate Oscillator)](../indicators/oscillators.md): more indicators on the same columns.
 - [Financial indicators notebook](../../notebooks/03-financial-indicators.ipynb): more indicators on the same kind of data.
 - [`BollingerBands`](../../functions_rolling/BollingerBands.md), [`RollingRSI`](../../functions_rolling/RollingRSI.md), [`ATR`](../../functions_rolling/ATR.md): parameters and column order.
 - [NaN and warmup](../../nan_and_warmup.md): what each indicator returns before its window is full.

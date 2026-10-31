@@ -171,7 +171,7 @@ NOT_YET_IN_GUIDE = {
     "ExpandingSlope", "ExpandingStd", "ExpandingSum", "ExpandingVar",
     # functions_fin
     "BacktestL1TradesOrders", "BacktestPortfolioTarget", "BacktestReport",
-    "BacktestStats", "BayesianRegression", "PortfolioReport", "ROC", "ROCP", "ROCR",
+    "BacktestStats", "BayesianRegression", "PortfolioReport",
     "RollingCov", "RollingHitRate", "RollingLinearRegression", "RollingPercentile",
     "RollingRank", "RollingResidualStd", "RollingSpread", "RollingTSF",
     "RollingUpsideDeviation", "backtest_trades",
@@ -181,7 +181,7 @@ NOT_YET_IN_GUIDE = {
     # functions_misc
     "CumMax", "CumMin", "CumProd", "Detrend", "Diff2", "Last", "Momentum",
     # functions_rolling
-    "ADOSC", "ADXR", "BOP", "DEMA", "DX", "ImpulseClip", "MACD", "MinusDI",
+    "ADOSC", "ADXR", "BOP", "DEMA", "DX", "ImpulseClip", "MinusDI",
     "MinusDM", "NATR", "PlusDM", "RollingArgmax", "RollingArgmin",
     "RollingGarmanKlassVar", "RollingGarmanKlassVol", "RollingIqr", "RollingKurt",
     "RollingMax", "RollingMin", "RollingMinMax", "RollingParkinsonVar",
@@ -189,7 +189,7 @@ NOT_YET_IN_GUIDE = {
     "RollingRealizedKurt", "RollingRealizedSkew", "RollingRms",
     "RollingRogersSatchellVar", "RollingRogersSatchellVol", "RollingSeasonalMean",
     "RollingSeasonalStd", "RollingSkew", "RollingVar", "RollingYangZhangVar",
-    "Stoch", "TEMA", "TRIMA", "TrueRange", "WMA",
+    "TEMA", "TRIMA", "TrueRange", "WMA",
     # functions_signal
     "ButterBandpass", "ButterBandstop", "ButterHighpass", "CycleAmplitude",
     "CycleFrequency", "CyclePhase", "Decycler", "HilbertPhasor", "MovingAverage",

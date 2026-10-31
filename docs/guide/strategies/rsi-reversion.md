@@ -65,5 +65,6 @@ little, and its short positions lost about three times as much.
 
 - [`RollingRSI`](../../functions_rolling/RollingRSI.md): Wilder's and Cutler's smoothing, and the warmup.
 - [`BandSignal`](../../functions_signal/BandSignal.md): entry, exit and stop levels.
+- [Compute momentum oscillators (Stochastic RSI, Williams %R, CCI, TRIX, Ultimate Oscillator)](../indicators/oscillators.md): StochRSI and other oscillators read the same way.
 - [Fade moves outside the Bollinger Bands](bollinger-reversion.md): the same kind of rule on a z-score of the price.
 - [Detect mean reversion](../mean-reversion/index.md): test whether a series reverts before trading the reversion.

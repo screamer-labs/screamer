@@ -5,7 +5,7 @@ kernelspec:
   display_name: Python 3
 ---
 
-# Keltner Channels next to Bollinger Bands
+# Compare Keltner Channels with Bollinger Bands (squeeze)
 
 `KeltnerChannels` sets its bands a multiple of the average true range from an
 exponential average, while `BollingerBands` sets them a multiple of the

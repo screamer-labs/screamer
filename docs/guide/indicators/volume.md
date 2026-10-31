@@ -5,7 +5,7 @@ kernelspec:
   display_name: Python 3
 ---
 
-# Volume indicators: OBV, MFI, accumulation/distribution and VWAP
+# Compute volume indicators (OBV, MFI, accumulation/distribution, VWAP)
 
 `OBV` and `AD` add up volume signed by the price move, `MFI` is an RSI-like
 ratio of up and down money flow, and `RollingVWAP` averages the price weighted

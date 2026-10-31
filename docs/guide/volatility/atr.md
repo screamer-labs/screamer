@@ -44,4 +44,5 @@ close, as in `atr_pct`, gives a measure that compares across price levels;
 ## Go deeper
 
 - [`ATR`](../../functions_rolling/ATR.md), [`TrueRange`](../../functions_rolling/TrueRange.md), [`NATR`](../../functions_rolling/NATR.md): the true range, its Wilder average, and the average as a percentage of the close.
+- [Compare Keltner Channels with Bollinger Bands (squeeze)](../indicators/keltner.md): bands set a multiple of ATR from an average.
 - [Size a position by volatility](../signal-to-position/volatility-sizing.md): use ATR or the standard deviation of returns to set position sizes.

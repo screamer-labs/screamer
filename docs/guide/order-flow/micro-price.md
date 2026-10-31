@@ -60,7 +60,7 @@ The data files hold trades, not order book sizes, so this page uses a small
 synthetic book. Each step, the size at the best bid and at the best ask changes
 by a random amount and drifts back toward 4 BTC; when a queue empties, the
 price moves one tick of 0.5 USD toward it. A real best bid or ask also moves
-when its queue is traded or cancelled away, which is why the imbalance carries
+when its queue is traded or canceled away, which is why the imbalance carries
 information about the next move.
 
 `QueueImbalance()(bid_size, ask_size)` is

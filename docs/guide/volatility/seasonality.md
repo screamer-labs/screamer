@@ -51,7 +51,7 @@ plt.tight_layout()
 
 The committed data are daily, so this page uses the weekly cycle of seven daily
 slots. The daily range, high over low, is a one-day volatility estimate, and
-BTC moves less at weekends: the median Saturday range is about half that of a
+BTC moves less at weekends: the median Saturday range is well below that of a
 weekday. An ordinary z-score of the log range over the last 84 days
 is below 0 on 89% of Saturdays and below -1 on 60%, with a mean of -1.17. The
 seasonal z-score compares a Saturday with the last 12 Saturdays, so its mean

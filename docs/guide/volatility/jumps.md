@@ -64,4 +64,4 @@ returns at any regular interval.
 
 - [`RollingBipowerVar`](../../functions_rolling/RollingBipowerVar.md), [`RollingJumpShare`](../../functions_rolling/RollingJumpShare.md): the formulas and the small-sample scaling.
 - [Measure volatility from closing prices](close-to-close.md): the standard deviation of returns.
-- [Detect outliers robustly](../denoise/robust-outliers.md): flag the single days that cause the jumps.
+- [Detect outliers robustly (median absolute deviation, sigma clipping)](../denoise/robust-outliers.md): flag the single days that cause the jumps.

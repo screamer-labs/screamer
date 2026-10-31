@@ -23,8 +23,11 @@ df = df[df["symbol"] == "BTC"].set_index("date")
 entropy = RollingPermutationEntropy(window_size=100, order=3)
 
 df["entropy"] = entropy(LogReturn()(df["close"]))
-# The same returns in 200 random orders: the values that chance alone gives.
-# The shuffles use the whole sample, so the band is a reference level only.
+```
+
+```{code-cell} ipython3
+# Scoring only, looks ahead: the same returns in 200 random orders, shuffled
+# over the whole sample, give the values that chance alone gives.
 shuffled = permute_returns(df["close"].to_numpy(), n=200, seed=1)
 noise = entropy(LogReturn()(shuffled))
 df["noise_5%"], df["noise_95%"] = np.percentile(noise, [5, 95], axis=1)

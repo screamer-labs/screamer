@@ -55,5 +55,5 @@ the 60-bar z-score fills.
 
 - [Pair features with labels without look-ahead](training-set.md): turn `X` and a target into training rows.
 - [Supervised forecasting](../../notebooks/16-supervised-forecasting.ipynb): fit a model on these features, use time-based horizons, and backtest the prediction.
-- [Build bars from ticks](../get-data-in/bars-from-ticks.md): the `Resample` bar types.
+- [Build bars from trades](../get-data-in/bars-from-ticks.md): the `Resample` bar types.
 - [`OFI`](../../functions_micro/OFI.md), [`RollingZscore`](../../functions_rolling/RollingZscore.md), [`Resample`](../../functions_streams/Resample.md): the functions used here.

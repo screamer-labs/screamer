@@ -26,8 +26,8 @@ restarts any calculation where a label such as the day changes.
 
 | Intent | Function |
 |:-------|:---------|
-| Many assets from one account | `BacktestPortfolioOHLCTarget`, `BacktestPortfolioTarget` |
-| Weights from scores | `CrossRank`, `CrossNormalize`, `CrossTopBottom` |
-| Statistics of the book | `PortfolioReport` |
+| Many assets from one account | `BacktestPortfolioOHLCTarget` |
+| Weights from scores | `CrossNormalize` |
+| Statistics of the book | `backtest_report` |
 | Compare assets within each day | `CrossDemean`, `CrossZscore`, `CrossWinsorize`, `CrossStd` |
 | Restart per day, contract or group | `Segment` |
