@@ -135,3 +135,32 @@ def test_resting_fill_cost_is_its_fee(make, x, row):
     out = make()(np.asarray(x, float))
     assert out[row, 2] == 1.0
     assert out[row, 3] == pytest.approx(0.099, abs=1e-12)    # 1 bought at 99, 0.1% fee
+
+
+# Portfolio engines: two assets with their own multiplier and per-contract fee.
+PORTFOLIO = dict(fee=0.002, multiplier=[2.0, 3.0], fee_per_contract=[0.3, 0.5],
+                 size="units", slippage=0.01, slippage_unit="price",
+                 initial_capital=1000.0)
+_TARGET = np.array([[1.0, -2.0], [1.0, -2.0], [3.0, 1.0]])
+_OPEN = np.array([[100.0, 50.0], [101.0, 49.0], [102.0, 51.0]])
+
+
+@pytest.mark.parametrize("make, args, ref, last", [
+    (lambda: s.BacktestPortfolioTarget(**PORTFOLIO), (_TARGET, _OPEN), _OPEN,
+     [(1.8238799999999693, 0.5439199999999795), (-10.168059999999969, -14.508179999999982)]),
+    # fill_at="open", delay=1: a target fills at the next bar's open.
+    (lambda: s.BacktestPortfolioOHLCTarget(**PORTFOLIO),
+     (_TARGET, _OPEN, _OPEN + 2, _OPEN - 2, _OPEN + 1), np.vstack([[nan, nan], _OPEN[1:]]),
+     [(3.2759599999999898, 2.0), (-19.647879999999986, -12.0)]),
+], ids=["portfolio-target", "portfolio-ohlc-target"])
+def test_portfolio_cost_is_fill_versus_reference_plus_fees(make, args, ref, last):
+    out = np.asarray(make()(*args))
+    mult, fpc = np.array(PORTFOLIO["multiplier"]), np.array(PORTFOLIO["fee_per_contract"])
+    dpos = np.diff(out[:, :, 2], axis=0, prepend=0.0)
+    traded = dpos != 0
+    assert traded.sum() >= 2
+    fill = ref + np.sign(dpos) * 0.01
+    want = dpos * (fill - ref) * mult + np.abs(dpos) * (fpc + fill * mult * 0.002)
+    np.testing.assert_allclose(out[:, :, 3][traded], want[traded], atol=1e-12)
+    # equity and pnl of the last row are those of the 3.9.1 release
+    np.testing.assert_allclose(out[-1, :, :2], last, atol=1e-12)

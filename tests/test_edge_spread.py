@@ -138,6 +138,33 @@ def test_long_stream_does_not_drift():
     assert got == pytest.approx(ref, rel=1e-10)
 
 
+def test_one_pair_with_x_has_zero_variance():
+    # Only the first pair has all of o, h, l, h1, l1, c1, so x1 and x2 have
+    # one value each and their variances are 0, as in the authors' code;
+    # rounding left in the expanded sums must not set the weights of e1 and
+    # e2. The value is the authors' edge() on these four bars.
+    o = [100.0, 101.0, np.nan, np.nan]
+    h = [102.0, 103.0, 104.0, 102.5]
+    l = [99.0, 100.0, 101.0, 100.5]
+    c = [101.0, 102.0, 103.0, 101.0]
+    want = 0.0057568346747761505
+    assert np.asarray(EdgeSpread(4)(o, h, l, c))[-1] == pytest.approx(want, rel=1e-12)
+    assert np.asarray(EdgeSpread(4, sign=True)(o, h, l, c))[-1] == pytest.approx(-want, rel=1e-12)
+
+
+@pytest.mark.parametrize("field", [0, 3])
+def test_outlier_leaving_the_window_leaves_no_rounding(field):
+    # One bar's open or close 10000 times the rest: once it has left the
+    # window, the estimate matches a fresh computation, without waiting for
+    # the periodic recompute.
+    bars = _bars(60, nan=False)
+    bars[field][8] *= 1e4
+    bars[1][8] = max(bars[1][8], bars[field][8])
+    got = np.asarray(EdgeSpread(5, sign=True)(*bars))
+    ref = EdgeSpread_numpy(5, sign=True)(*bars)
+    np.testing.assert_allclose(got, ref, rtol=1e-11, equal_nan=True)
+
+
 def test_constructor_validation():
     with pytest.raises(ValueError, match="window_size must be at least 3"):
         EdgeSpread(2)

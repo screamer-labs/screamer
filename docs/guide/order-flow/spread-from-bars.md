@@ -14,6 +14,7 @@ no quotes.
 
 ```{code-cell} ipython3
 import pandas as pd
+import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
 from screamer import (AbdiRanaldoSpread, CorwinSchultzSpread, EdgeSpread,
                       Resample, RollSpread)
@@ -37,13 +38,12 @@ pd.DataFrame({"EDGE": bars["edge"].describe(),
 
 ```{code-cell} ipython3
 fig, ax = plt.subplots(figsize=(9, 3.5))
-ax.plot(bars.index, bars["corwin_schultz"], color="steelblue",
-        label="CorwinSchultzSpread(60), minute bars")
-ax.plot(bars.index, bars["abdi_ranaldo"], color="seagreen",
-        label="AbdiRanaldoSpread(60), minute bars")
-ax.plot(roll.index, roll, color="crimson", lw=1, label="RollSpread(1000), trades")
+ax.plot(bars.index, bars["corwin_schultz"], label="CorwinSchultzSpread(60), bars")
+ax.plot(bars.index, bars["abdi_ranaldo"], label="AbdiRanaldoSpread(60), bars")
+ax.plot(roll.index, roll, lw=1, label="RollSpread(1000), trades")
 ax.axhline(0.5, color="k", ls="--", lw=0.8, label="one tick (0.5 USD)")
-ax.set_ylabel("spread (USD)")
+ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M"))
+ax.set(xlabel="time (UTC), 4 August 2023", ylabel="spread (USD)")
 ax.legend(loc="upper left", fontsize=8)
 ```
 

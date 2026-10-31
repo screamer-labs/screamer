@@ -38,7 +38,8 @@
 // A step adds the newest pair and subtracts the pair that leaves, computed
 // again from the ring of the last window_size bars' log prices; the sums are
 // recomputed from the ring once every window_size steps, so rounding does not
-// build up. O(1) amortized per bar.
+// build up, and at once when a pair far larger than the rest of the window
+// (an outlier bar) leaves it. O(1) amortized per bar.
 
 #include <array>
 #include <cmath>
@@ -78,9 +79,10 @@ public:
             // log(x) is finite exactly for a positive finite x.
             bar[k] = std::isfinite(v) ? v : std::numeric_limits<double>::quiet_NaN();
         }
+        double left = 0.0;
         if (bars_ == cap_) {
             const std::size_t next = (pos_ + 1 == cap_) ? 0 : pos_ + 1;
-            accumulate(&ring_[4 * pos_], &ring_[4 * next], -1);
+            left = accumulate(&ring_[4 * pos_], &ring_[4 * next], -1);
         }
         if (bars_ > 0) {
             const std::size_t prev = (pos_ == 0) ? cap_ - 1 : pos_ - 1;
@@ -90,7 +92,13 @@ public:
         for (int k = 0; k < 4; ++k) slot[k] = bar[k];
         if (++pos_ == cap_) pos_ = 0;
         if (bars_ < cap_) ++bars_;
-        if (++since_ >= cap_) resum();
+        // A pair that leaves with fourth-order terms far above those of the
+        // pairs that stay (an outlier bar) leaves rounding of its own size in
+        // the sums; recompute them at once instead of at the next resum.
+        if (++since_ >= cap_ ||
+            left > kOutlier * (sum_[UU] + sum_[WW] + sum_[PP] + sum_[ZZ])) {
+            resum();
+        }
         if (bars_ < cap_ && !expanding_) {
             return std::numeric_limits<double>::quiet_NaN();
         }
@@ -111,6 +119,11 @@ private:
     };
     enum Count { NTAU, NPO, NPC1, NPC2, NR1, NR5, NV, kCounts };
 
+    // A leaving pair larger than kOutlier times the fourth-order sums that
+    // remain triggers a recompute. Below that, the rounding it leaves (about
+    // 2.2e-16 of its size) is under 2.2e-13 of what remains.
+    static constexpr double kOutlier = 1e3;
+
     static bool parse_policy(const std::string& policy) {
         if (policy == "strict") return false;
         if (policy == "expanding") return true;
@@ -120,14 +133,16 @@ private:
 
     static std::size_t checked_window(int window_size) {
         if (window_size < 3) {
-            throw std::invalid_argument("Window size must be 3 or more.");
+            throw std::invalid_argument("Window size must be at least 3.");
         }
         return static_cast<std::size_t>(window_size);
     }
 
     // Add (dir = +1) or subtract (dir = -1) the pair of bars a (earlier) and
-    // b, each the log prices {o, h, l, c}.
-    void accumulate(const double* a, const double* b, int dir) {
+    // b, each the log prices {o, h, l, c}. Returns the pair's u^2 + w^2 +
+    // p^2 + z^2 (0 when it has no x1, x2), the size of what it moved in the
+    // fourth-order sums.
+    double accumulate(const double* a, const double* b, int dir) {
         const double h1 = a[1], l1 = a[2], c1 = a[3];
         const double o = b[0], h = b[1], l = b[2];
         const bool ho = !isnan2(o), hh = !isnan2(h), hl = !isnan2(l);
@@ -175,26 +190,29 @@ private:
             sum_[P] += s * p;
             sum_[PT] += s * pt;
             sum_[Z] += s * z;
-            sum_[UU] += s * (u * u);
+            const double uu = u * u, ww = w * w, pp = p * p, zz = z * z;
+            sum_[UU] += s * uu;
             sum_[UUT] += s * (u * ut);
             sum_[UTUT] += s * (ut * ut);
-            sum_[WW] += s * (w * w);
+            sum_[WW] += s * ww;
             sum_[WWT] += s * (w * wt);
             sum_[WTWT] += s * (wt * wt);
             sum_[UW] += s * (u * w);
             sum_[UWT] += s * (u * wt);
             sum_[UTW] += s * (ut * w);
             sum_[UTWT] += s * (ut * wt);
-            sum_[PP] += s * (p * p);
+            sum_[PP] += s * pp;
             sum_[PPT] += s * (p * pt);
             sum_[PTPT] += s * (pt * pt);
-            sum_[ZZ] += s * (z * z);
+            sum_[ZZ] += s * zz;
             sum_[ZWT] += s * (z * wt);
             sum_[PZ] += s * (p * z);
             sum_[PWT] += s * (p * wt);
             sum_[PTZ] += s * (pt * z);
             sum_[PTWT] += s * (pt * wt);
+            return uu + ww + pp + zz;
         }
+        return 0.0;
     }
 
     // The exact sums from the ring, oldest pair first. Out of line: it runs

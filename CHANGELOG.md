@@ -37,9 +37,7 @@ Unreleased
     re-priced to 102 against a market of 100 / 101 filled as a maker at 102
     and now fills at 101 as a taker. A new bid equal to the ask, which did not
     fill in `fill="breach"` mode and filled a maker partial in `fill="touch"`
-    mode, is now a taker in both. A side that rested at a finite price and
-    switched to `+inf` or `-inf` filled at an infinite price (NaN equity) and
-    now fills as a market order.
+    mode, is now a taker in both.
   - `BacktestL1Orders` with `fill="touch"`: a lock still gives a maker
     partial. If that fill covers the whole remaining order, the order is
     gone, so the same quote on the next event, with the lock still in place,
@@ -48,6 +46,10 @@ Unreleased
 
   Resting, unchanged orders keep the maker behaviour. Target engines are
   unchanged.
+* **Backtest order re-priced to a market order:** in `BacktestL1Orders` and
+  `BacktestL1TradesOrders`, a side that rested at a finite price and switched
+  to `+inf` or `-inf` filled as a maker at an infinite price, which made
+  equity NaN or infinite. It now fills as a market order at the touch.
 
 ### Added
 
@@ -55,14 +57,15 @@ Unreleased
   start_policy="strict")` (`EdgeSpread` in JavaScript) estimates the bid-ask
   spread from the open, high, low and close of the bars in a trailing window
   with the EDGE estimator of Ardia, Guidotti and Kroencke (2024, *Journal of
-  Financial Economics*). It is unbiased where the spread is small next to the
-  price moves within a bar, the regime in which `CorwinSchultzSpread` and
-  `AbdiRanaldoSpread` are biased: on simulated bars with a 0.2% spread and 2%
-  volatility per bar, EDGE averages about 0.18% and floored Corwin-Schultz
-  about 0.8%. The output matches the authors' reference code on their test
-  data, including its handling of missing prices (`nan_policy: nan-aware`).
-  `sign=True` returns a negative value when the estimated squared spread is
-  negative. O(1) per bar on average.
+  Financial Economics*). Its estimate of the squared spread is unbiased where
+  the spread is small next to the price moves within a bar, the regime in
+  which `CorwinSchultzSpread` and `AbdiRanaldoSpread` are biased: on simulated
+  bars with a 0.2% spread and 2% volatility per bar, EDGE over windows of 1000
+  bars averages about 0.18% and floored Corwin-Schultz about 0.8%. The output
+  matches the authors' reference code on their test data, including its
+  handling of missing prices (`nan_policy: nan-aware`). `sign=True` returns
+  a negative value when the estimated squared spread is negative. O(1) per bar
+  on average.
 
 ### Documentation
 

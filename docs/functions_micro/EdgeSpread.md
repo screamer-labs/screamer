@@ -59,9 +59,10 @@ of the bars in a trailing window. The open, high, low and close are each
 assumed to be a trade at the bid or the ask, and the estimator combines the
 returns between them in pairs of consecutive bars into two unbiased estimates of
 the squared spread, weighted by their variances to minimize the estimation
-error. Under the paper's model the estimate is unbiased whatever the ratio of
-spread to volatility, so on average it stays at the spread where the spread is
-small next to the price moves within a bar, the regime in which [`CorwinSchultzSpread`](CorwinSchultzSpread.md) and
+error. Under the paper's model its estimate of the squared spread is unbiased
+whatever the ratio of spread to volatility, so on average it stays near the
+spread where it is small next to the price moves within a bar, the regime in
+which [`CorwinSchultzSpread`](CorwinSchultzSpread.md) and
 [`AbdiRanaldoSpread`](AbdiRanaldoSpread.md) are biased.
 
 For two consecutive bars, with `o`, `h`, `l`, `c` the log prices of the
@@ -100,7 +101,8 @@ is a spread of 1%.
 The output at bar `t` is the authors' reference estimator applied to bars
 `t - window_size + 1` to `t`, with `window_size - 1` pairs. The paper estimates
 monthly from daily bars. Each step adds one pair to the window sums and removes
-one, and the sums are recomputed once per window, O(1) per bar on average.
+one. The sums are recomputed once per window, and at once when an outlier bar
+leaves the window, so no rounding builds up; O(1) per bar on average.
 
 Missing values follow the authors' reference code. A price that is `NaN`, or
 not positive and finite, is missing. Each indicator and return leaves out the
@@ -112,8 +114,8 @@ the estimate from the window.
 
 ## Limitations
 
-EDGE is unbiased, but its variance is large when the spread is small next to
-the volatility of a bar: the estimate of `S^2` then scatters around a small
+The estimate of `S^2` is unbiased, but its variance is large when the spread
+is small next to the volatility of a bar: the estimate then scatters around a small
 value and is often negative, and the default `sign=False` reports
 `sqrt(|S^2|)` for those windows too. Use `sign=True` where the spread may be
 small, and a long window (the paper uses a month of daily bars). The estimator
