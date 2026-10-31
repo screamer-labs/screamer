@@ -312,7 +312,7 @@ def main():
     if args.stdout:
         sys.stdout.write(text)
     else:
-        with open(OUT, "w") as f:
+        with open(OUT, "w", encoding="utf-8") as f:
             f.write(text)
 
 

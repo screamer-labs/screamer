@@ -246,7 +246,7 @@ def _shapes():
     import json as _json
     # Load help.json from the installed screamer package so this runs against the wheel.
     help_json = _resources.files("screamer").joinpath("data/help.json")
-    entries = _json.loads(help_json.read_text())
+    entries = _json.loads(help_json.read_text(encoding="utf-8"))
     return {
         name: (int(e.get("inputs", 1)), int(e.get("outputs", 1)))
         for name, e in entries.items()
