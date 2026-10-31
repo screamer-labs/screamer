@@ -53,12 +53,12 @@ Annualized like the realized variance, it is a volatility without the jumps.
 `RollingJumpShare` is `1 - BV / RV`, from 0 to 1.
 
 The highest share in these data, 0.54, comes on 23 October 2023, when BTC rose
-10% in one day in a quiet market, with an annualized volatility near 33%.
-Large moves on consecutive days count as volatility, not as jumps: after the
-FTX collapse in November 2022, with returns of -10%, -14% and +10% in a row,
-the share is 0 for the next two months, until early January 2023. The estimator is usually
-applied to the intraday returns of each day; it works the same on returns at
-any regular interval.
+10% in one day in a quiet market, with an annualized volatility near 33%. Large
+moves on consecutive days count as volatility, not as jumps: after the FTX
+collapse in November 2022, with returns of -10%, -14% and +10% in a row, the
+share is 0 for the next two months, until early January 2023. The estimator is
+usually applied to the intraday returns of each day; it works the same on
+returns at any regular interval.
 
 ## Go deeper
 
