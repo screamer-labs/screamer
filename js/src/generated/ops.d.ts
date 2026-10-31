@@ -1779,6 +1779,33 @@ export type DrawdownOptions = Record<string, never>;
  */
 export declare function Drawdown(options?: DrawdownOptions): ScreamerOp;
 
+/** The settings of EdgeSpread by name, for `EdgeSpread({ ... })`. */
+export interface EdgeSpreadOptions {
+  /** Number of most recent bars in the estimate. @defaultValue `20` */
+  windowSize?: number;
+  /** Return a negative value when the estimated squared spread is negative. With false the output is the square root of its absolute value. @defaultValue `false` */
+  sign?: boolean;
+  /** Output before the window is full: "strict" gives NaN and "expanding" estimates from the bars seen so far. @defaultValue `"strict"` */
+  startPolicy?: string;
+}
+
+/**
+ * EDGE bid-ask spread of Ardia, Guidotti and Kroencke (2024) from the open, high, low and close of the bars in a trailing window.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/EdgeSpread.html for the full reference.
+ */
+export declare function EdgeSpread(options: EdgeSpreadOptions): ScreamerOp;
+/**
+ * EDGE bid-ask spread of Ardia, Guidotti and Kroencke (2024) from the open, high, low and close of the bars in a trailing window.
+ *
+ * @param windowSize Number of most recent bars in the estimate.
+ * @param sign Return a negative value when the estimated squared spread is negative. With false the output is the square root of its absolute value.
+ * @param startPolicy Output before the window is full: "strict" gives NaN and "expanding" estimates from the bars seen so far.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/EdgeSpread.html for the full reference.
+ */
+export declare function EdgeSpread(windowSize?: number, sign?: boolean, startPolicy?: string): ScreamerOp;
+
 /** EffectiveSpread has no settings: its options object is empty. */
 export type EffectiveSpreadOptions = Record<string, never>;
 

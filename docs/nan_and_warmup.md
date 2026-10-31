@@ -91,9 +91,9 @@ One input `NaN` → two output `NaN`s (the input's own index, and one more while
 
 ### `nan-aware`
 
-Used by functions whose **purpose** is to handle `NaN`: [`FillNa`](functions_preprocessing/FillNa.md), [`Ffill`](functions_preprocessing/Ffill.md), and any future `Bfill`-style additions. The backtest engines whose order or target input gives `NaN` a defined meaning use it too (see the list below).
+Used by functions whose **purpose** is to handle `NaN`: [`FillNa`](functions_preprocessing/FillNa.md), [`Ffill`](functions_preprocessing/Ffill.md), and any future `Bfill`-style additions. The backtest engines whose order or target input gives `NaN` a defined meaning use it too, and so does [`EdgeSpread`](functions_micro/EdgeSpread.md), whose reference estimator defines how a missing price enters it (see the list below).
 
-**Rule.** The function's own documentation defines what happens - `NaN` input is the input it was designed to process, and the output is by design *not* `NaN`. These functions, and the backtest engines listed below, are the only place in the library where input `NaN` can become a finite output.
+**Rule.** The function's own documentation defines what happens - `NaN` input is the input it was designed to process, and the output is by design *not* `NaN`. These functions, and the backtest engines and `EdgeSpread` listed below, are the only place in the library where input `NaN` can become a finite output.
 
 ## Which functions use which policy
 
@@ -110,6 +110,8 @@ All `Rolling*` functions, all `Ew*` functions, all `Cum*` functions, all moving-
 ### `nan-aware`
 
 [`FillNa`](functions_preprocessing/FillNa.md), [`Ffill`](functions_preprocessing/Ffill.md), and the backtest engines whose order or target input gives `NaN` a defined meaning: [`BacktestOHLCTarget`](functions_fin/BacktestOHLCTarget.md), [`BacktestOHLCVTarget`](functions_fin/BacktestOHLCVTarget.md), [`BacktestTradesTarget`](functions_fin/BacktestTradesTarget.md), [`BacktestL1Target`](functions_fin/BacktestL1Target.md) (a `NaN` target keeps the last target), [`BacktestOHLCOrders`](functions_fin/BacktestOHLCOrders.md), [`BacktestTradesOrders`](functions_fin/BacktestTradesOrders.md), [`BacktestL1Orders`](functions_fin/BacktestL1Orders.md), [`BacktestL1TradesOrders`](functions_fin/BacktestL1TradesOrders.md) (a `NaN` own quote is a market order or an unquoted side), and [`BacktestPortfolioTarget`](functions_fin/BacktestPortfolioTarget.md), [`BacktestPortfolioOHLCTarget`](functions_fin/BacktestPortfolioOHLCTarget.md) (a `NaN` target keeps the position). On these engines a `NaN` in a market field (price, bar, quote, or the trade of the tape engines) is still skipped: the row is all-`NaN` and the state is untouched. Two exceptions: the portfolio engines repeat the asset's equity on that step, and `BacktestL1TradesOrders` treats a `NaN` trade as a quote-only update (a finite row, no fill).
+
+[`EdgeSpread`](functions_micro/EdgeSpread.md) follows the authors' reference code: a missing price leaves out only the returns and indicators that use it, and the bar keeps its place in the window, so the output at a bar with a `NaN` input is the estimate from the window.
 
 ## Edge cases
 

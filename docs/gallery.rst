@@ -1402,6 +1402,13 @@ Order flow and liquidity from trades and quotes: trade signing, imbalance, price
       :img-alt: CorwinSchultzSpread example plot
       :class-card: gallery-card
 
+   .. grid-item-card:: EdgeSpread
+      :link: functions_micro/EdgeSpread
+      :link-type: doc
+      :img-top: _static/gallery/functions_micro__EdgeSpread.webp
+      :img-alt: EdgeSpread example plot
+      :class-card: gallery-card
+
    .. grid-item-card:: EffectiveSpread
       :link: functions_micro/EffectiveSpread
       :link-type: doc

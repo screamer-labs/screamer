@@ -58,6 +58,7 @@ inline constexpr IntSettingMin kIntSettingMin[] = {
     {"Detrend", "window_size", 1},
     {"Diff", "window_size", 1},
     {"DonchianChannels", "window_size", 1},
+    {"EdgeSpread", "window_size", 3},
     {"EwMultiRegression", "n_regressors", 1},
     {"ExpandingMultiRegression", "n_regressors", 1},
     {"FracDiff", "window_size", 1},

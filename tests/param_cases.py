@@ -373,6 +373,10 @@ multi_input_definitions = [
     ( ('AbdiRanaldoSpread',)        , {"window_size": [20],
                                        "start_policy": ["strict", "expanding", "zero"],
                                        "array_type": ["ohlc"]}),
+    # EDGE spread estimator on coherent (open, high, low, close) bars.
+    ( ('EdgeSpread',)               , {"window_size": [20], "sign": [False, True],
+                                       "start_policy": ["strict", "expanding"],
+                                       "array_type": ["ohlc"]}),
     # Online Bayesian changepoint detection: 1 -> 3, run length truncated at max_run.
     ( ('BayesianChangepoint',)     , {"expected_run": [50.0], "max_run": [100], "prior_var": [1.0], "array_length": [300]}),
     ( ('RollingHMM',)               , {"window_size": [60], "refit_every": [15], "emission": ["gaussian"],

@@ -51,7 +51,7 @@ Net buying pressure and its toxicity: trade-flow imbalance, book imbalance, and 
 Price impact & liquidity
 ------------------------
 
-How far order flow moves price and what trading costs: Kyle's lambda, Amihud, the Roll, Corwin-Schultz and Abdi-Ranaldo spreads, the propagator, and the micro-price.
+How far order flow moves price and what trading costs: Kyle's lambda, Amihud, the Roll, Corwin-Schultz, Abdi-Ranaldo and EDGE spreads, the propagator, and the micro-price.
 
 .. list-table::
    :header-rows: 1
@@ -65,6 +65,8 @@ How far order flow moves price and what trading costs: Kyle's lambda, Amihud, th
      - Rolling mean of \|return\| / notional (Amihud 2002 illiquidity ratio).
    * - :doc:`Corwin-Schultz High-Low Spread </functions_micro/CorwinSchultzSpread>`
      - Corwin-Schultz (2012) bid-ask spread from the high and low of two consecutive bars, averaged over a trailing window.
+   * - :doc:`EDGE Bid-Ask Spread </functions_micro/EdgeSpread>`
+     - EDGE bid-ask spread of Ardia, Guidotti and Kroencke (2024) from the open, high, low and close of the bars in a trailing window.
    * - :doc:`Effective Spread </functions_micro/EffectiveSpread>`
      - Effective spread, 2*\|price - mid\|: the round-trip cost paid relative to the mid.
    * - :doc:`Kyle's Lambda (exponentially weighted) </functions_micro/EwKyleLambda>`
@@ -101,6 +103,7 @@ The timing and clustering of trades: self-exciting arrival intensity.
    /functions_micro/BulkVolumeClassifier
    /functions_micro/ContOFI
    /functions_micro/CorwinSchultzSpread
+   /functions_micro/EdgeSpread
    /functions_micro/EffectiveSpread
    /functions_micro/HawkesIntensity
    /functions_micro/LeeReadySign

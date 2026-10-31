@@ -2919,6 +2919,49 @@ export function Drawdown(options?: DrawdownOptions): ScreamerOp {
   return _params(wrapOp(M, () => new M.Drawdown()), "Drawdown", [], _given);
 }
 
+/** The settings of EdgeSpread by name, for `EdgeSpread({ ... })`. */
+export interface EdgeSpreadOptions {
+  /** Number of most recent bars in the estimate. @defaultValue `20` */
+  windowSize?: number;
+  /** Return a negative value when the estimated squared spread is negative. With false the output is the square root of its absolute value. @defaultValue `false` */
+  sign?: boolean;
+  /** Output before the window is full: "strict" gives NaN and "expanding" estimates from the bars seen so far. @defaultValue `"strict"` */
+  startPolicy?: string;
+}
+
+/**
+ * EDGE bid-ask spread of Ardia, Guidotti and Kroencke (2024) from the open, high, low and close of the bars in a trailing window.
+ *
+ * @param options The settings by name, each one optional where the positional form's is.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/EdgeSpread.html for the full reference.
+ */
+export function EdgeSpread(options: EdgeSpreadOptions): ScreamerOp;
+/**
+ * EDGE bid-ask spread of Ardia, Guidotti and Kroencke (2024) from the open, high, low and close of the bars in a trailing window.
+ *
+ * @param windowSize Number of most recent bars in the estimate.
+ * @param sign Return a negative value when the estimated squared spread is negative. With false the output is the square root of its absolute value.
+ * @param startPolicy Output before the window is full: "strict" gives NaN and "expanding" estimates from the bars seen so far.
+ * @see https://screamer.readthedocs.io/en/latest/functions_micro/EdgeSpread.html for the full reference.
+ */
+export function EdgeSpread(windowSize?: number, sign?: boolean, startPolicy?: string): ScreamerOp;
+export function EdgeSpread(windowSize?: any, sign?: any, startPolicy?: any): ScreamerOp {
+  if (_isOptions(windowSize)) [windowSize, sign, startPolicy] = _options("EdgeSpread", windowSize, arguments.length, ["windowSize", "sign", "startPolicy"], "windowSize must be an integer");
+  else if (arguments.length > 3) _tooMany("EdgeSpread", 3, arguments.length);
+  const _given: unknown[] = [windowSize, sign, startPolicy];
+  if (windowSize === undefined) windowSize = 20;
+  if (sign === undefined) sign = false;
+  if (startPolicy === undefined) startPolicy = "strict";
+  const M = current();
+  if (typeof windowSize !== "number" || !Number.isInteger(windowSize)) throw new TypeError(`EdgeSpread: windowSize must be an integer, got ${typeof windowSize === "number" ? windowSize : _what(windowSize)}`);
+  if (!(windowSize >= -2147483648 && windowSize <= 2147483647)) _intRange(M, "EdgeSpread", "windowSize", windowSize);
+  if (typeof sign !== "boolean") throw new TypeError(`EdgeSpread: sign must be a bool, got ${_what(sign)}`);
+  if (typeof startPolicy !== "string") throw new TypeError(`EdgeSpread: startPolicy must be a string, got ${startPolicy instanceof String ? "a String object" : _what(startPolicy)}`);
+  try {
+    return _params(wrapOp(M, () => new M.EdgeSpread(windowSize, sign, startPolicy)), "EdgeSpread", ["window_size", "sign", "start_policy"], _given);
+  } catch (e) { throw _finite(M, "EdgeSpread", ["windowSize"], [windowSize], e); }
+}
+
 /** EffectiveSpread has no settings: its options object is empty. */
 export type EffectiveSpreadOptions = Record<string, never>;
 

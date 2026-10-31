@@ -49,6 +49,28 @@ Unreleased
   Resting, unchanged orders keep the maker behaviour. Target engines are
   unchanged.
 
+### Added
+
+* **EDGE spread estimator:** `EdgeSpread(window_size=20, sign=False,
+  start_policy="strict")` (`EdgeSpread` in JavaScript) estimates the bid-ask
+  spread from the open, high, low and close of the bars in a trailing window
+  with the EDGE estimator of Ardia, Guidotti and Kroencke (2024, *Journal of
+  Financial Economics*). It is unbiased where the spread is small next to the
+  price moves within a bar, the regime in which `CorwinSchultzSpread` and
+  `AbdiRanaldoSpread` are biased: on simulated bars with a 0.2% spread and 2%
+  volatility per bar, EDGE averages about 0.18% and floored Corwin-Schultz
+  about 0.8%. The output matches the authors' reference code on their test
+  data, including its handling of missing prices (`nan_policy: nan-aware`).
+  `sign=True` returns a negative value when the estimated squared spread is
+  negative. O(1) per bar on average.
+
+### Documentation
+
+* `CorwinSchultzSpread`, `AbdiRanaldoSpread` and `RollSpread` have a
+  Limitations section: the bias of each where the spread is small next to the
+  volatility of a bar, and what to use instead. The Guide page on spreads from
+  bars adds `EdgeSpread`, on minute bars and on daily bars of 20 coins.
+
 3.9.1 - 2026-10-28
 ------------------
 

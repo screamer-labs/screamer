@@ -99,7 +99,7 @@ parts:
     deeper: []
   - slug: order-flow
     title: Read order flow and liquidity
-    line: Trade signing (tick rule), order-flow imbalance (OFI), price impact (Kyle's lambda), Amihud illiquidity, bid-ask spread from bars (Corwin-Schultz, Abdi-Ranaldo, Roll), effective and realized spread, VPIN toxicity, micro-price and queue imbalance, and Hawkes trade arrivals.
+    line: Trade signing (tick rule), order-flow imbalance (OFI), price impact (Kyle's lambda), Amihud illiquidity, bid-ask spread from bars (EDGE, Corwin-Schultz, Abdi-Ranaldo, Roll), effective and realized spread, VPIN toxicity, micro-price and queue imbalance, and Hawkes trade arrivals.
     tasks:
     - guide/order-flow/sign-trades
     - guide/order-flow/imbalance

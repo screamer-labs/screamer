@@ -16,7 +16,7 @@ Each chapter answers a few tasks with a short, runnable example. Read in order, 
 6. [Detect mean reversion](mean-reversion/index.md): Variance ratio test, Hurst exponent, Ornstein-Uhlenbeck (OU) half-life, and z-score bands.
 7. [Find cycles](cycles/index.md): Dominant cycle period (Ehlers, Hilbert transform, roofing filter) and cycle turning points (sinewave indicator).
 8. [Detect regimes and change points](regimes/index.md): Hidden Markov models (HMM), Bayesian online changepoint detection, CUSUM filter events, and permutation entropy.
-9. [Read order flow and liquidity](order-flow/index.md): Trade signing (tick rule), order-flow imbalance (OFI), price impact (Kyle's lambda), Amihud illiquidity, bid-ask spread from bars (Corwin-Schultz, Abdi-Ranaldo, Roll), effective and realized spread, VPIN toxicity, micro-price and queue imbalance, and Hawkes trade arrivals.
+9. [Read order flow and liquidity](order-flow/index.md): Trade signing (tick rule), order-flow imbalance (OFI), price impact (Kyle's lambda), Amihud illiquidity, bid-ask spread from bars (EDGE, Corwin-Schultz, Abdi-Ranaldo, Roll), effective and realized spread, VPIN toxicity, micro-price and queue imbalance, and Hawkes trade arrivals.
 
 ## Part 2: Build a strategy
 

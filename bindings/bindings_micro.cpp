@@ -18,6 +18,7 @@
 #include "screamer/realized_spread.h"
 #include "screamer/microstructure_synonyms.h"
 #include "screamer/spread_estimators.h"
+#include "screamer/edge_spread.h"
 #include <string>
 
 namespace nb = nanobind;
@@ -77,6 +78,13 @@ void init_bindings_micro(nb::module_& m) {
              "window_size"_a = 20, "start_policy"_a = "strict")
         .def("__call__", &screamer::functor_call<screamer::AbdiRanaldoSpread>)
         .def("reset", &screamer::AbdiRanaldoSpread::reset, "Reset to the initial state.");
+
+    // EDGE spread estimator, 4 -> 1 on (open, high, low, close).
+    nb::class_<screamer::EdgeSpread, screamer::EvalOp>(m, "EdgeSpread")
+        .def(nb::init<screamer::IntArg<int>, screamer::BoolArg, const std::string&>(),
+             "window_size"_a = 20, "sign"_a = false, "start_policy"_a = "strict")
+        .def("__call__", &screamer::functor_call<screamer::EdgeSpread>)
+        .def("reset", &screamer::EdgeSpread::reset, "Reset to the initial state.");
 
     nb::class_<screamer::Propagator, screamer::ScreamerBase>(m, "Propagator")
         .def(nb::init<screamer::IntArg<int>, screamer::FloatArg, screamer::FloatArg>(),

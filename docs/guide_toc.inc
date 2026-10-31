@@ -15,7 +15,7 @@
 6. :doc:`Detect mean reversion <guide/mean-reversion/index>`: Variance ratio test, Hurst exponent, Ornstein-Uhlenbeck (OU) half-life, and z-score bands.
 7. :doc:`Find cycles <guide/cycles/index>`: Dominant cycle period (Ehlers, Hilbert transform, roofing filter) and cycle turning points (sinewave indicator).
 8. :doc:`Detect regimes and change points <guide/regimes/index>`: Hidden Markov models (HMM), Bayesian online changepoint detection, CUSUM filter events, and permutation entropy.
-9. :doc:`Read order flow and liquidity <guide/order-flow/index>`: Trade signing (tick rule), order-flow imbalance (OFI), price impact (Kyle's lambda), Amihud illiquidity, bid-ask spread from bars (Corwin-Schultz, Abdi-Ranaldo, Roll), effective and realized spread, VPIN toxicity, micro-price and queue imbalance, and Hawkes trade arrivals.
+9. :doc:`Read order flow and liquidity <guide/order-flow/index>`: Trade signing (tick rule), order-flow imbalance (OFI), price impact (Kyle's lambda), Amihud illiquidity, bid-ask spread from bars (EDGE, Corwin-Schultz, Abdi-Ranaldo, Roll), effective and realized spread, VPIN toxicity, micro-price and queue imbalance, and Hawkes trade arrivals.
 
 **Part 2: Build a strategy**
 

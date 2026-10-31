@@ -13,7 +13,7 @@ illiquidity, and a small synthetic order book for the micro-price.
 2. [Measure order-flow imbalance](imbalance.md)
 3. [Measure price impact](price-impact.md)
 4. [Measure illiquidity from daily bars](illiquidity.md)
-5. [Estimate the bid-ask spread from OHLC bars (Corwin-Schultz, Abdi-Ranaldo, Roll)](spread-from-bars.md)
+5. [Estimate the bid-ask spread from OHLC bars (EDGE, Corwin-Schultz, Abdi-Ranaldo, Roll)](spread-from-bars.md)
 6. [Measure the effective and realized spread of your fills](fill-quality.md)
 7. [Measure order-flow toxicity (VPIN)](vpin.md)
 8. [Compute the micro-price and queue imbalance from quotes](micro-price.md)
@@ -47,7 +47,7 @@ illiquidity, and a small synthetic order book for the micro-price.
 | Signed volume per trade | `SignedVolume` |
 | Order-flow imbalance | `OFI`, `RollingOrderImbalance` |
 | Price impact | `RollingKyleLambda`, `EwKyleLambda`, `AmihudIlliquidity` |
-| Bid-ask spread from bars or prices | `CorwinSchultzSpread`, `AbdiRanaldoSpread`, `RollSpread` |
+| Bid-ask spread from bars or prices | `EdgeSpread`, `CorwinSchultzSpread`, `AbdiRanaldoSpread`, `RollSpread` |
 | Cost of fills against the mid | `EffectiveSpread`, `RealizedSpread` |
 | Order-flow toxicity | `VPIN` |
 | Book pressure and fair value | `QueueImbalance`, `MicroPrice` |

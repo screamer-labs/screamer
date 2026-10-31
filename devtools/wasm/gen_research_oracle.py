@@ -59,7 +59,7 @@ def _returns2(T):
 
 def _hlc_bars(T=600):
     """Bars of trades at the bid or ask around a random-walk mid, with gaps
-    between bars and NaN fields, for the high-low spread estimators."""
+    between bars and NaN fields, for the bar spread estimators."""
     rng = np.random.default_rng(20261022)
     mid = 100 * np.exp(np.cumsum(rng.normal(0, 0.01, T)))
     close = mid * np.exp(rng.normal(0, 0.003, T))
@@ -68,7 +68,10 @@ def _hlc_bars(T=600):
     high[[5, 100]] = np.nan
     low[201] = np.nan
     close[200] = np.nan
-    return {"hlc_high": high, "hlc_low": low, "hlc_close": close}
+    # The open, drawn after the other fields so they keep their values.
+    open_ = np.clip(mid * np.exp(rng.normal(0, 0.003, T)), low, high)
+    open_[[7, 201, 350]] = np.nan
+    return {"hlc_open": open_, "hlc_high": high, "hlc_low": low, "hlc_close": close}
 
 
 def _liquidation_market(T=600, K=1):
@@ -111,6 +114,7 @@ def _ols_rows(T=600, k=16, K=1, seed=20261018):
 _LIQ = ["liq_position", "liq_open", "liq_high", "liq_low"]
 _OLS = ["ols_y"] + [f"ols_x{j}" for j in range(1, 17)]
 _HLC = ["hlc_high", "hlc_low", "hlc_close"]
+_OHLC = ["hlc_open"] + _HLC
 CASES = [
     ("Hold", {"n": 3}, "events"),
     ("Hold", {"n": 3, "cooldown": 4}, "events"),
@@ -164,6 +168,8 @@ CASES = [
      _HLC, 1e-12),
     ("AbdiRanaldoSpread", {"window_size": 20}, _HLC, 1e-12),
     ("AbdiRanaldoSpread", {"window_size": 5, "start_policy": "zero"}, _HLC, 1e-12),
+    ("EdgeSpread", {"window_size": 20}, _OHLC, 1e-12),
+    ("EdgeSpread", {"window_size": 5, "sign": True, "start_policy": "expanding"}, _OHLC, 1e-12),
 ]
 
 

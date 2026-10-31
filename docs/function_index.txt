@@ -76,6 +76,7 @@ DominantCycle, Dominant cycle period via Ehlers' homodyne discriminator.
 DonchianChannels, Trend-following envelope: rolling max(high), rolling min(low), and midline.
 Drawdown, Running drawdown from the cumulative peak.
 Dropna, Drop events whose value is NaN.
+EdgeSpread, EDGE bid-ask spread of Ardia, Guidotti and Kroencke (2024) from the open, high, low and close of the bars in a trailing window.
 EffectiveSpread, Effective spread, 2*|price - mid|: the round-trip cost paid relative to the mid.
 Elu, Exponential linear unit.
 Equal, Returns 1.0 if a == b, else 0.0. NaN in either input yields NaN.

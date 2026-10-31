@@ -341,6 +341,35 @@ test("research: spread estimators per event equal the batch call", () => {
   }
 });
 
+test("research: EdgeSpread per event equals the batch call and reproduces the authors' value", () => {
+  const [o, h, l, c] = ["hlc_open", "hlc_high", "hlc_low", "hlc_close"].map(series);
+  for (const make of [() => (api as any).EdgeSpread(21),
+                      () => (api as any).EdgeSpread({ windowSize: 5, sign: true, startPolicy: "expanding" })]) {
+    const batch = make()(o, h, l, c) as Float64Array;
+    const op = make();
+    for (let i = 0; i < o.length; i++) {
+      const v = op(o[i], h[i], l[i], c[i]) as number;
+      assert.ok(Object.is(v, batch[i]) || (Number.isNaN(v) && Number.isNaN(batch[i])), `[${i}]`);
+    }
+  }
+  // The first 10 bars of the authors' test data (github.com/eguidotti/bidask,
+  // pseudocode/ohlc.csv, MIT License) and their signed estimate.
+  const bars = [
+    [1.00240075994025, 0.9297430963955428, 0.943911414384193, 0.977605378856722, 0.961535370407048,
+     0.982409003083975, 1.03435413274433, 1.0201424300403, 1.03650094499406, 1.05368509087896],
+    [1.00935878365403, 0.9297747377230688, 0.968140794511406, 0.977605378856722, 0.99982474278851,
+     0.992213437101346, 1.03435413274433, 1.04025465277235, 1.03650094499406, 1.05368509087896],
+    [0.976061138469904, 0.928919694164385, 0.943911414384193, 0.977605378856722, 0.961535370407048,
+     0.982409003083975, 1.03435413274433, 1.0201424300403, 1.03650094499406, 1.02605242183949],
+    [0.976061138469904, 0.9297747377230688, 0.968140794511406, 0.977605378856722, 0.986215329667607,
+     0.992213437101346, 1.03435413274433, 1.03219266262805, 1.03650094499406, 1.02798086837104],
+  ].map((v) => Float64Array.from(v));
+  const out = (api as any).EdgeSpread(10, true)(...bars) as Float64Array;
+  assert.ok(Math.abs(out[9] - -0.016889917516422) < 1e-14, `edge = ${out[9]}`);
+  assert.throws(() => (api as any).EdgeSpread(2),
+    { name: "RangeError", message: /^EdgeSpread: windowSize must be at least 3, got 2$/ });
+});
+
 test("research: realized moments hand example", () => {
   const r = Float64Array.from([1, -2, 3]);
   const skew = (api as any).RollingRealizedSkew(3)(r) as Float64Array;

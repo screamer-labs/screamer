@@ -62,6 +62,7 @@
 #include "screamer/donchian_channels.h"
 #include "screamer/drawdown.h"
 #include "screamer/dx.h"
+#include "screamer/edge_spread.h"
 #include "screamer/effective_spread.h"
 #include "screamer/ew_alpha.h"
 #include "screamer/ew_beta.h"
@@ -376,6 +377,11 @@ inline screamer::Diff* make_Diff(int a0, emscripten::val a1) {
 inline screamer::Diff2* make_Diff2(emscripten::val a0) {
     const std::string a0s = a0.as<std::string>();
     return new screamer::Diff2(a0s);
+}
+
+inline screamer::EdgeSpread* make_EdgeSpread(int a0, bool a1, emscripten::val a2) {
+    const std::string a2s = a2.as<std::string>();
+    return new screamer::EdgeSpread(a0, a1, a2s);
 }
 
 inline screamer::EwAlpha* make_EwAlpha(double a0, double a1, double a2, double a3) {
@@ -931,6 +937,8 @@ EMSCRIPTEN_BINDINGS(screamer) {
         .constructor<int>();
     emscripten::class_<screamer::Drawdown, emscripten::base<screamer::EvalOp>>("Drawdown")
         .constructor<>();
+    emscripten::class_<screamer::EdgeSpread, emscripten::base<screamer::EvalOp>>("EdgeSpread")
+        .constructor(&make_EdgeSpread, emscripten::allow_raw_pointers());
     emscripten::class_<screamer::EffectiveSpread, emscripten::base<screamer::EvalOp>>("EffectiveSpread")
         .constructor<>();
     emscripten::class_<screamer::Transform<(double (*)(double)) screamer::elu>, emscripten::base<screamer::EvalOp>>("Elu")

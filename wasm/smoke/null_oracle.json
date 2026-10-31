@@ -2153,6 +2153,32 @@
  },
  {
   "accepts_bool": {
+   "sign": true,
+   "start_policy": false,
+   "window_size": false
+  },
+  "accepts_none": {
+   "sign": false,
+   "start_policy": false,
+   "window_size": false
+  },
+  "base": {},
+  "below_min": {
+   "window_size": [
+    2,
+    "EdgeSpread: window_size must be at least 3, got 2"
+   ]
+  },
+  "bool_message": {
+   "sign": null,
+   "start_policy": "EdgeSpread: start_policy must be a string, got bool",
+   "window_size": "EdgeSpread: window_size must be an integer, got bool"
+  },
+  "name": "EdgeSpread",
+  "non_finite": {}
+ },
+ {
+  "accepts_bool": {
    "alpha": false,
    "com": false,
    "halflife": false,

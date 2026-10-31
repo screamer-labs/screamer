@@ -40,6 +40,7 @@ parameters:
     the two-bar estimates seen so far, and "zero" treats the window as pre-filled with zeros.'
 nan_policy: ignore
 see_also:
+- EdgeSpread
 - AbdiRanaldoSpread
 - RollSpread
 - EffectiveSpread
@@ -47,6 +48,9 @@ see_also:
 references:
 - 'Corwin, S. A. and Schultz, P. (2012). A simple way to estimate bid-ask spreads from daily
   high and low prices. *Journal of Finance*, 67(2), 719-760. doi:10.1111/j.1540-6261.2012.01729.x'
+- 'Ardia, D., Guidotti, E. and Kroencke, T. A. (2024). Efficient estimation of bid-ask spreads
+  from open, high, low, and close prices. *Journal of Financial Economics*, 161, 103916.
+  doi:10.1016/j.jfineco.2024.103916'
 ---
 
 # `CorwinSchultzSpread`
@@ -91,6 +95,20 @@ still makes the bar unusable when the adjustment is off.
 
 A bar with a `NaN` input is skipped and left out of the pairs: the bars on either
 side of it form a pair.
+
+## Limitations
+
+The estimate is biased upward when the spread is small next to the price moves
+within a bar. The two-bar estimate is then negative in a large share of the
+pairs, and setting those to 0 before averaging leaves the average well above the
+spread: on simulated bars with a 0.2% spread and 2% volatility per bar, about
+40% of the pairs are negative and the average is about 0.8%. Ardia, Guidotti
+and Kroencke (2024) discuss this bias. The estimator suits
+daily bars of less liquid assets, where the spread is a visible share of the
+daily range, and comparisons of liquidity across assets or over time more than
+an absolute level. [`EdgeSpread`](EdgeSpread.md) is unbiased in this regime,
+with a larger variance. Where quotes are available, [`EffectiveSpread`](EffectiveSpread.md) and
+[`RealizedSpread`](RealizedSpread.md) measure the spread directly.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling

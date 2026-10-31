@@ -35,6 +35,7 @@ parameters:
     from the samples seen so far, and "zero" treats the window as pre-filled with zeros.'
 nan_policy: ignore
 see_also:
+- EdgeSpread
 - EffectiveSpread
 - RealizedSpread
 - AmihudIlliquidity
@@ -42,6 +43,9 @@ see_also:
 references:
 - Roll, R. (1984). A simple implicit measure of the effective bid-ask spread in an efficient
   market. *Journal of Finance*, 39(4), 1127-1139.
+- 'Ardia, D., Guidotti, E. and Kroencke, T. A. (2024). Efficient estimation of bid-ask spreads
+  from open, high, low, and close prices. *Journal of Financial Economics*, 161, 103916.
+  doi:10.1016/j.jfineco.2024.103916'
 ---
 
 # `RollSpread`
@@ -63,6 +67,20 @@ window of `window_size` pairs.
 step. When the serial covariance is zero or positive (no bid-ask bounce, for
 example in a trending period), the estimate is undefined and the output is
 `NaN`.
+
+## Limitations
+
+When the spread is small next to the price changes, the sample covariance is
+positive in many windows, which give `NaN`, and the windows that remain are
+those whose covariance happens to be most negative, so their values are biased
+upward: on the closes of simulated bars with a 0.2% spread and 2% volatility
+per bar, a window of 20 gives `NaN` in about half the windows and about 1.6%
+on average in the others. Trade prices, where each change holds less price
+movement, suit it better: in the same simulation a window of 1,000 trades gives
+0.2%. Ardia, Guidotti and Kroencke (2024) compare the Roll estimator with the
+high-low estimators and [`EdgeSpread`](EdgeSpread.md). Where quotes are
+available, [`EffectiveSpread`](EffectiveSpread.md) and
+[`RealizedSpread`](RealizedSpread.md) measure the spread directly.
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling

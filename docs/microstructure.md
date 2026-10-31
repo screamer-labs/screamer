@@ -52,6 +52,9 @@ costs:
 - [`CorwinSchultzSpread`](functions_micro/CorwinSchultzSpread.md) and
   [`AbdiRanaldoSpread`](functions_micro/AbdiRanaldoSpread.md): the bid-ask spread
   estimated from bar high, low and close prices.
+- [`EdgeSpread`](functions_micro/EdgeSpread.md): the bid-ask spread estimated
+  from bar open, high, low and close prices, unbiased where the spread is small
+  next to the price moves within a bar.
 - [`EffectiveSpread`](functions_micro/EffectiveSpread.md) and
   [`RealizedSpread`](functions_micro/RealizedSpread.md): the round-trip cost paid,
   and the part of it the liquidity provider keeps after the price moves (their
