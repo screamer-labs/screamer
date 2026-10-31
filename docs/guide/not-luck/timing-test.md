@@ -58,6 +58,7 @@ copies.
 
 ## Go deeper
 
+- [Shuffle trades in blocks to test a strategy's timing (block randomization test)](block-shuffle.md): shuffle the order of the trades instead of rotating them.
 - [Check that a result holds across nearby parameters](parameter-grid.md): a p-value for the best of many variants.
 - [Is my strategy's timing real?](../../notebooks/20-is-the-timing-real.ipynb): every report statistic of the copies, and shifting versus shuffling segments.
 - [I tuned my parameters. Is the result real?](../../notebooks/21-is-the-tuned-result-real.ipynb): rerun a whole parameter search on permuted markets with `strategy_test`.

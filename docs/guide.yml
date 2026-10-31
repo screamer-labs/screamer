@@ -153,11 +153,16 @@ parts:
   chapters:
   - slug: not-luck
     title: Check that a backtest result is not luck
-    line: Randomization and permutation tests, block shuffles, synthetic price paths, walk-forward testing, parameter grids, and deflated Sharpe.
+    line: Randomization and Monte Carlo permutation tests, block shuffles, time-shifted signals, synthetic price paths, walk-forward testing, parameter grids, and the deflated Sharpe ratio.
     tasks:
     - guide/not-luck/timing-test
+    - guide/not-luck/block-shuffle
+    - guide/not-luck/shifted-copies
+    - guide/not-luck/synthetic-paths
+    - guide/not-luck/permutation-test
     - guide/not-luck/walk-forward
     - guide/not-luck/parameter-grid
+    - guide/not-luck/deflated-sharpe
     deeper:
     - notebooks/20-is-the-timing-real
     - notebooks/21-is-the-tuned-result-real
@@ -167,8 +172,10 @@ parts:
     line: Features, labels (triple barrier), training sets, purged time series cross-validation, and fractional differencing.
     tasks:
     - guide/machine-learning/features
+    - guide/machine-learning/fractional-differencing
     - guide/machine-learning/labels
     - guide/machine-learning/training-set
+    - guide/machine-learning/time-series-cv
     deeper:
     - notebooks/16-supervised-forecasting
     - notebooks/23-classifying-direction

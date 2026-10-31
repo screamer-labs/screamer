@@ -29,7 +29,7 @@ Each chapter answers a few tasks with a short, runnable example. Read in order, 
 
 ## Part 3: Test a strategy
 
-16. [Check that a backtest result is not luck](not-luck/index.md): Randomization and permutation tests, block shuffles, synthetic price paths, walk-forward testing, parameter grids, and deflated Sharpe.
+16. [Check that a backtest result is not luck](not-luck/index.md): Randomization and Monte Carlo permutation tests, block shuffles, time-shifted signals, synthetic price paths, walk-forward testing, parameter grids, and the deflated Sharpe ratio.
 17. [Prepare data for machine learning](machine-learning/index.md): Features, labels (triple barrier), training sets, purged time series cross-validation, and fractional differencing.
 
 ## Part 4: Run a strategy live

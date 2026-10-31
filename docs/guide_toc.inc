@@ -28,7 +28,7 @@
 
 **Part 3: Test a strategy**
 
-16. :doc:`Check that a backtest result is not luck <guide/not-luck/index>`: Randomization and permutation tests, block shuffles, synthetic price paths, walk-forward testing, parameter grids, and deflated Sharpe.
+16. :doc:`Check that a backtest result is not luck <guide/not-luck/index>`: Randomization and Monte Carlo permutation tests, block shuffles, time-shifted signals, synthetic price paths, walk-forward testing, parameter grids, and the deflated Sharpe ratio.
 17. :doc:`Prepare data for machine learning <guide/machine-learning/index>`: Features, labels (triple barrier), training sets, purged time series cross-validation, and fractional differencing.
 
 **Part 4: Run a strategy live**
