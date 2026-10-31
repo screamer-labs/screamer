@@ -10,6 +10,9 @@ tags:
 - selection bias
 - sharpe ratio
 - dsr
+- deflated sharpe ratio
+- data snooping
+- backtest overfitting
 see_also:
 - probabilistic_sharpe
 - RollingSharpe

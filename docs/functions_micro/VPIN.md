@@ -15,6 +15,7 @@ tags:
 - volume clock
 - volume bars
 - microstructure
+- volume-synchronized probability of informed trading
 short: 'Volume-synchronized probability of informed trading (Easley-López de Prado-O''Hara
   2012): order-flow toxicity.'
 inputs: 2

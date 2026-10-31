@@ -2,8 +2,8 @@
 
 devtools/build_guide.py builds the Guide landing pages and the home table of
 contents from docs/guide.yml. These tests fail when a notebook or recipe is not
-reachable from the Guide, a generated file is stale, or a task page has the
-wrong shape.
+reachable from the Guide, a generated file is stale, a task page has the wrong
+shape, or a function is used on no Guide task page.
 """
 import copy
 import importlib.util
@@ -18,6 +18,7 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parent.parent
 SCRIPT = REPO_ROOT / "devtools" / "build_guide.py"
 DOCS = REPO_ROOT / "docs"
 SPEC = DOCS / "guide.yml"
+FUNCTION_PAGE = DOCS / "_ext" / "function_page.py"
 
 # The release wheel-test CI job runs the suite against the installed wheel; skip
 # there if the docs sources are absent.
@@ -136,3 +137,48 @@ def test_moved_pages_redirect():
         sources = [target.with_suffix(s) for s in (".md", ".ipynb", ".rst")]
         assert any(s.exists() for s in sources), f"{path.relative_to(DOCS)} -> {url}: no source page"
         assert target.with_suffix(".md") not in stubs, f"{path.relative_to(DOCS)}: redirect chain"
+
+
+# Functions that no Guide task page needs to use: elementwise math and logic
+# helpers, which any page can use but no task is about.
+NOT_IN_GUIDE = {
+    "Abs", "Acos", "Add", "And", "Asin", "Atan", "Atan2", "Cart2Polar", "Ceil",
+    "Cos", "Cube", "Elu", "Equal", "Erf", "Erfc", "Exp", "Floor", "GreaterEqual",
+    "GreaterThan", "Hypot", "Identity", "IsFinite", "IsNan", "LessEqual",
+    "LessThan", "Linear", "Linear2", "Log", "Mul", "NegPart", "Not", "NotEqual",
+    "Or", "Polar2Cart", "PosPart", "Power", "Relu", "Selu", "Sigmoid", "Sin",
+    "Softsign", "Sqrt", "Square", "Tanh", "Where",
+}
+
+
+def _function_pages():
+    """Name of every function page; pages of kind ``guide`` are prose."""
+    import yaml
+    names = set()
+    for path in DOCS.glob("functions_*/*.md"):
+        m = re.match(r"---\n(.*?)\n---\n", path.read_text(encoding="utf-8"), re.S)
+        fm = yaml.safe_load(m.group(1)) if m else None
+        if fm and "name" in fm and fm.get("kind") != "guide":
+            names.add(fm["name"])
+    return names
+
+
+def _guide_usage():
+    spec = importlib.util.spec_from_file_location("function_page", FUNCTION_PAGE)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod.guide_usage(DOCS)
+
+
+def test_not_in_guide_names_are_functions():
+    stale = sorted(NOT_IN_GUIDE - _function_pages())
+    assert not stale, f"NOT_IN_GUIDE lists names without a function page: {stale}"
+
+
+# Phase 3 Tasks 2-5 add the pages that close the gap; Task 6 removes the xfail.
+@pytest.mark.xfail(strict=False, reason="Guide coverage is incomplete until Phase 3 lands")
+def test_guide_covers_functions():
+    gap = sorted(_function_pages() - NOT_IN_GUIDE - set(_guide_usage()))
+    assert not gap, (
+        f"{len(gap)} functions are used on no Guide task page. Use each in a task "
+        f"page's code cell, or add it to NOT_IN_GUIDE with a reason:\n" + "\n".join(gap))

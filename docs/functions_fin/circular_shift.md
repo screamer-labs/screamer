@@ -8,6 +8,9 @@ tags:
 - rotation
 - randomization test
 - monte carlo
+- time shift
+- monte carlo permutation test
+- data snooping
 see_also:
 - position_test
 - segment_shuffle

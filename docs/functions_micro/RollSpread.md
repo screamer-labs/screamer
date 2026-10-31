@@ -12,6 +12,8 @@ tags:
 - bid-ask bounce
 - liquidity
 - microstructure
+- bid-ask spread estimator
+- effective spread from prices
 short: 'Roll (1984) effective spread from trade prices alone: 2*sqrt(-cov(dP_t, dP_{t-1}))
   over a trailing window.'
 inputs: 1

@@ -13,6 +13,8 @@ tags:
 - fractional differencing
 - fractional difference
 - memory
+- fractional differentiation
+- stationarity with memory
 short: Fractional differencing filter. Removes the trend while keeping more of the series'
   memory than an integer difference.
 inputs: 1

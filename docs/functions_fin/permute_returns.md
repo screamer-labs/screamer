@@ -9,6 +9,10 @@ tags:
 - monte carlo
 - synthetic data
 - returns
+- monte carlo permutation test
+- synthetic price paths
+- shuffled returns
+- data snooping
 see_also:
 - permute_bars
 - strategy_test

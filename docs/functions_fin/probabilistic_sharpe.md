@@ -10,6 +10,9 @@ tags:
 - significance test
 - skewness
 - kurtosis
+- probabilistic sharpe ratio
+- multiple testing
+- selection bias
 see_also:
 - deflated_sharpe
 - RollingSharpe

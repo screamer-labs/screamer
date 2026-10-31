@@ -6054,7 +6054,10 @@
       "circular shift",
       "rotation",
       "randomization test",
-      "monte carlo"
+      "monte carlo",
+      "time shift",
+      "monte carlo permutation test",
+      "data snooping"
     ],
     "see_also": [
       "position_test",
@@ -6078,7 +6081,10 @@
       "multiple testing",
       "selection bias",
       "sharpe ratio",
-      "dsr"
+      "dsr",
+      "deflated sharpe ratio",
+      "data snooping",
+      "backtest overfitting"
     ],
     "see_also": [
       "probabilistic_sharpe",
@@ -6105,7 +6111,10 @@
       "shuffle",
       "monte carlo",
       "synthetic data",
-      "ohlc"
+      "ohlc",
+      "monte carlo permutation test",
+      "synthetic price paths",
+      "data snooping"
     ],
     "see_also": [
       "permute_returns",
@@ -6133,7 +6142,11 @@
       "shuffle",
       "monte carlo",
       "synthetic data",
-      "returns"
+      "returns",
+      "monte carlo permutation test",
+      "synthetic price paths",
+      "shuffled returns",
+      "data snooping"
     ],
     "see_also": [
       "permute_bars",
@@ -6158,7 +6171,11 @@
       "permutation test",
       "monte carlo",
       "significance test",
-      "data snooping"
+      "data snooping",
+      "monte carlo permutation test",
+      "block randomization",
+      "block shuffle",
+      "white's reality check"
     ],
     "see_also": [
       "strategy_test",
@@ -6189,7 +6206,10 @@
       "sharpe ratio",
       "significance test",
       "skewness",
-      "kurtosis"
+      "kurtosis",
+      "probabilistic sharpe ratio",
+      "multiple testing",
+      "selection bias"
     ],
     "see_also": [
       "deflated_sharpe",
@@ -6215,7 +6235,11 @@
       "shuffle",
       "runs",
       "randomization test",
-      "monte carlo"
+      "monte carlo",
+      "block randomization",
+      "block shuffle",
+      "block bootstrap",
+      "monte carlo permutation test"
     ],
     "see_also": [
       "position_test",
@@ -6239,7 +6263,11 @@
       "permutation test",
       "randomization test",
       "monte carlo",
-      "significance test"
+      "significance test",
+      "monte carlo permutation test",
+      "white's reality check",
+      "data snooping",
+      "synthetic price paths"
     ],
     "see_also": [
       "position_test",
@@ -6268,7 +6296,11 @@
       "time series split",
       "purging",
       "train test split",
-      "out-of-sample"
+      "out-of-sample",
+      "purged cross-validation",
+      "purged k-fold",
+      "embargo",
+      "timeseriessplit"
     ],
     "see_also": [
       "walk_forward",
@@ -7984,7 +8016,9 @@
       "spread estimator",
       "liquidity",
       "microstructure",
-      "hlc"
+      "hlc",
+      "bid-ask spread estimator",
+      "effective spread from ohlc"
     ],
     "short": "Abdi-Ranaldo (2017) bid-ask spread from the close and the high-low midpoints of consecutive bars, over a trailing window.",
     "inputs": 3,
@@ -8203,7 +8237,9 @@
       "spread estimator",
       "liquidity",
       "microstructure",
-      "hlc"
+      "hlc",
+      "bid-ask spread estimator",
+      "effective spread from ohlc"
     ],
     "short": "Corwin-Schultz (2012) bid-ask spread from the high and low of two consecutive bars, averaged over a trailing window.",
     "inputs": 3,
@@ -8373,7 +8409,9 @@
       "arrival rate",
       "order flow",
       "clustering",
-      "microstructure"
+      "microstructure",
+      "self-exciting point process",
+      "trade clustering"
     ],
     "short": "Conditional intensity of an exponential-kernel Hawkes process: lambda_t = mu + kappa_t.",
     "inputs": 1,
@@ -8711,7 +8749,9 @@
       "effective spread",
       "bid-ask bounce",
       "liquidity",
-      "microstructure"
+      "microstructure",
+      "bid-ask spread estimator",
+      "effective spread from prices"
     ],
     "short": "Roll (1984) effective spread from trade prices alone: 2*sqrt(-cov(dP_t, dP_{t-1})) over a trailing window.",
     "inputs": 1,
@@ -8967,7 +9007,8 @@
       "order flow",
       "volume clock",
       "volume bars",
-      "microstructure"
+      "microstructure",
+      "volume-synchronized probability of informed trading"
     ],
     "short": "Volume-synchronized probability of informed trading (Easley-López de Prado-O'Hara 2012): order-flow toxicity.",
     "inputs": 2,
@@ -14626,7 +14667,9 @@
       "fir",
       "fractional differencing",
       "fractional difference",
-      "memory"
+      "memory",
+      "fractional differentiation",
+      "stationarity with memory"
     ],
     "short": "Fractional differencing filter. Removes the trend while keeping more of the series' memory than an integer difference.",
     "inputs": 1,

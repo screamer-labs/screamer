@@ -5,7 +5,7 @@ parts:
   chapters:
   - slug: first-steps
     title: First steps
-    line: Install screamer, apply a function, and handle missing values.
+    line: Install screamer, apply a function to arrays and DataFrames, and handle NaN values and warmup.
     tasks:
     - guide/first-steps/install
     - guide/first-steps/first-function
@@ -15,7 +15,7 @@ parts:
     - notebooks/05-nan-handling
   - slug: get-data-in
     title: Get your data in
-    line: Load OHLCV data, migrate from pandas and TA-Lib, and build bars from ticks.
+    line: Load OHLCV data, build bars from ticks, and replace pandas, TA-Lib and mlfinlab code.
     tasks:
     - guide/get-data-in/ohlcv-dataframe
     - guide/get-data-in/from-pandas-talib
@@ -27,7 +27,7 @@ parts:
   chapters:
   - slug: denoise
     title: Smooth and denoise a series
-    line: Moving averages, low-lag smoothers, Kalman and Butterworth filters, despiking.
+    line: Moving averages, low-lag and adaptive smoothers (Hull, KAMA, MAMA), Kalman and Butterworth filters, Hampel despiking, and robust outlier detection (MAD).
     tasks:
     - guide/denoise/moving-averages
     - guide/denoise/low-lag
@@ -39,7 +39,7 @@ parts:
     - notebooks/17-filtering-and-forecasting-with-uncertainty
   - slug: volatility
     title: Measure volatility
-    line: Close-to-close and OHLC estimators, and the average true range.
+    line: Close-to-close and OHLC estimators (Yang-Zhang), average true range (ATR), jumps (bipower variation), and seasonal z-scores.
     tasks:
     - guide/volatility/close-to-close
     - guide/volatility/ohlc
@@ -48,7 +48,7 @@ parts:
     - notebooks/02-window-statistics
   - slug: trend
     title: Detect a trend
-    line: Rolling slope, moving-average crossover, ADX, and trend mode.
+    line: Rolling slope (linear regression), moving-average crossover, ADX and directional movement (DMI), and trend mode.
     tasks:
     - guide/trend/slope
     - guide/trend/crossover
@@ -56,9 +56,14 @@ parts:
     - guide/trend/trend-mode
     deeper:
     - notebooks/03-financial-indicators
+  - slug: indicators
+    title: Compute classic technical indicators
+    line: Momentum oscillators (Stochastic RSI, Williams %R, CCI, TRIX), volume indicators (OBV, MFI, VWAP), and Keltner Channels.
+    tasks: []
+    deeper: []
   - slug: mean-reversion
     title: Detect mean reversion
-    line: Variance ratio, Hurst exponent, OU half-life, and z-score bands.
+    line: Variance ratio test, Hurst exponent, Ornstein-Uhlenbeck (OU) half-life, and z-score bands.
     tasks:
     - guide/mean-reversion/variance-ratio
     - guide/mean-reversion/hurst
@@ -68,7 +73,7 @@ parts:
     - notebooks/18-pairs-and-mean-reversion
   - slug: cycles
     title: Find cycles
-    line: Measure the dominant cycle length and mark its turning points.
+    line: Dominant cycle period (Ehlers, Hilbert transform, roofing filter) and cycle turning points (sinewave indicator).
     tasks:
     - guide/cycles/dominant-cycle
     - guide/cycles/turning-points
@@ -76,7 +81,7 @@ parts:
     - notebooks/19-cycle-and-spectral-analysis
   - slug: regimes
     title: Detect regimes and change points
-    line: Hidden Markov models, Bayesian changepoints, and CUSUM events.
+    line: Hidden Markov models (HMM), Bayesian online changepoint detection, CUSUM filter events, and permutation entropy.
     tasks:
     - guide/regimes/hmm
     - guide/regimes/changepoint
@@ -84,7 +89,7 @@ parts:
     deeper: []
   - slug: order-flow
     title: Read order flow and liquidity
-    line: Trade signing, order-flow imbalance, price impact, and illiquidity.
+    line: Trade signing (tick rule), order-flow imbalance (OFI), price impact (Kyle's lambda), Amihud illiquidity, bid-ask spread estimators, VPIN toxicity, micro-price, and Hawkes trade arrivals.
     tasks:
     - guide/order-flow/sign-trades
     - guide/order-flow/imbalance
@@ -98,7 +103,7 @@ parts:
   chapters:
   - slug: signal-to-position
     title: Turn a signal into a position
-    line: Sign, bands and hysteresis, holding, and volatility sizing.
+    line: Sign of a signal, entry and exit bands (hysteresis, Schmitt trigger), holding periods, and volatility position sizing.
     tasks:
     - guide/signal-to-position/sign
     - guide/signal-to-position/bands
@@ -107,16 +112,21 @@ parts:
     deeper: []
   - slug: backtest
     title: Backtest a signal on OHLCV bars
-    line: Backtest a signal, read the report, and see how much costs take.
+    line: Signal backtests on bars, the backtest report, fees and slippage, limit and stop orders, tick trades, L1 quotes, volume caps, and liquidation distance.
     tasks:
     - guide/backtest/ohlcv
     - guide/backtest/costs
     deeper:
     - notebooks/14-backtesting-a-signal
     - notebooks/15-event-driven-backtests
+  - slug: performance
+    title: Measure performance and risk
+    line: Rolling Sharpe, Sortino and Calmar ratios, CVaR and downside deviation, beta and alpha against a benchmark, and factor regressions.
+    tasks: []
+    deeper: []
   - slug: strategies
     title: Strategy templates
-    line: Trend following, breakouts, reversion, pairs, momentum, carry, and volatility targeting.
+    line: Trend following, breakouts, RSI and Bollinger Band reversion, pairs trading, cross-sectional momentum, funding carry, and volatility targeting.
     tasks:
     - guide/strategies/trend-following
     - guide/strategies/breakout
@@ -129,13 +139,13 @@ parts:
     deeper: []
   - slug: stops
     title: Stops and exits
-    line: Stop-loss and trailing-stop exits on a backtest.
+    line: Stop-loss, take-profit and trailing-stop exits on a backtest.
     tasks:
     - guide/stops/stops-and-exits
     deeper: []
   - slug: portfolios
     title: Portfolios of many assets
-    line: Backtest and size positions across many assets at once.
+    line: Multi-asset backtests and sizing, cross-sectional z-scores and winsorizing, and calculations that restart per day, contract or group.
     tasks:
     - guide/portfolios/multi-asset
     deeper: []
@@ -143,7 +153,7 @@ parts:
   chapters:
   - slug: not-luck
     title: Check that a backtest result is not luck
-    line: Significance tests, walk-forward testing, and parameter grids.
+    line: Randomization and permutation tests, block shuffles, synthetic price paths, walk-forward testing, parameter grids, and deflated Sharpe.
     tasks:
     - guide/not-luck/timing-test
     - guide/not-luck/walk-forward
@@ -154,7 +164,7 @@ parts:
     - notebooks/22-does-the-feature-carry-information
   - slug: machine-learning
     title: Prepare data for machine learning
-    line: Labels and features for supervised models.
+    line: Features, labels (triple barrier), training sets, purged time series cross-validation, and fractional differencing.
     tasks:
     - guide/machine-learning/features
     - guide/machine-learning/labels
@@ -168,7 +178,7 @@ parts:
   chapters:
   - slug: live
     title: Run on live data
-    line: Streaming, pipelines, a live loop, and JavaScript in the browser.
+    line: Streaming one value at a time, aligning streams, pipelines, a live trading loop, and JavaScript in the browser.
     tasks:
     - guide/live/one-value-at-a-time
     - guide/live/align-streams

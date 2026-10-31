@@ -14,6 +14,8 @@ tags:
 - order flow
 - clustering
 - microstructure
+- self-exciting point process
+- trade clustering
 short: 'Conditional intensity of an exponential-kernel Hawkes process: lambda_t = mu + kappa_t.'
 inputs: 1
 outputs: 1

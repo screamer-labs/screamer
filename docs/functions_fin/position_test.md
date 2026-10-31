@@ -11,6 +11,10 @@ tags:
 - monte carlo
 - significance test
 - data snooping
+- monte carlo permutation test
+- block randomization
+- block shuffle
+- white's reality check
 see_also:
 - strategy_test
 - circular_shift

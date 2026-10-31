@@ -13,6 +13,8 @@ tags:
 - liquidity
 - microstructure
 - hlc
+- bid-ask spread estimator
+- effective spread from ohlc
 short: 'Abdi-Ranaldo (2017) bid-ask spread from the close and the high-low midpoints of
   consecutive bars, over a trailing window.'
 inputs: 3

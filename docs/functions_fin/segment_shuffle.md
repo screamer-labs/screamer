@@ -9,6 +9,10 @@ tags:
 - runs
 - randomization test
 - monte carlo
+- block randomization
+- block shuffle
+- block bootstrap
+- monte carlo permutation test
 see_also:
 - position_test
 - circular_shift

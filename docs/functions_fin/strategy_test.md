@@ -10,6 +10,10 @@ tags:
 - randomization test
 - monte carlo
 - significance test
+- monte carlo permutation test
+- white's reality check
+- data snooping
+- synthetic price paths
 see_also:
 - position_test
 - permute_bars

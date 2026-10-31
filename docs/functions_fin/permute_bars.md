@@ -10,6 +10,9 @@ tags:
 - monte carlo
 - synthetic data
 - ohlc
+- monte carlo permutation test
+- synthetic price paths
+- data snooping
 see_also:
 - permute_returns
 - strategy_test

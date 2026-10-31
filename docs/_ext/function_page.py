@@ -13,11 +13,14 @@ This extension renders it on the HTML page, so the frontmatter is the one copy:
   sees the example before the Description, with each plot shown above its
   full source;
 - a parameter table and the outputs, after the Description section;
+- a "Used in the Guide" list of the Guide task pages whose code cells use
+  the function, in the order of ``docs/guide.yml``;
 - See also and References lists at the end of the page.
 
 The text is inserted while Sphinx reads the source; the files on disk are
 unchanged.
 """
+import functools
 import json
 import math
 import os
@@ -39,6 +42,11 @@ JS_PARAM_RE = re.compile(r"(\w+): [^=,]+?(?: = ((?:\[[^\]]*\])|[^,]+))?(?:,|$)")
 START_MARKER_RE = re.compile(r"<!-- [A-Z_]+_START -->\n\Z")
 PLOTLY_RE = re.compile(r"^( *)\.\. plotly::\s*$")
 INCLUDE_SOURCE_RE = re.compile(r"^( *:include-source:\s*)(\S+)\s*$")
+CODE_CELL_RE = re.compile(r"^```\{code-cell\}[^\n]*\n(.*?)^```", re.M | re.S)
+FROM_IMPORT_RE = re.compile(
+    r"^\s*from\s+screamer(?:\.\w+)*\s+import\s+(\([^)]*\)|[^\n]*)", re.M)
+MODULE_IMPORT_RE = re.compile(r"^\s*import\s+screamer(?:\s+as\s+(\w+))?\s*$", re.M)
+COMMENT_RE = re.compile(r"#[^\n]*")
 
 
 def _js_signatures():
@@ -240,9 +248,71 @@ def _examples_first(text):
     return text[:first] + chunk + text[first:start] + text[end:]
 
 
+def screamer_names(code):
+    """Names a code cell takes from screamer.
+
+    A name counts when the cell imports it (``from screamer import Name``) or
+    reads it from the module (``import screamer as sc`` then ``sc.Name``).
+    Comments, strings and longer names that contain it do not count.
+    """
+    code = COMMENT_RE.sub("", code)
+    names = set()
+    for m in FROM_IMPORT_RE.finditer(code):
+        for part in m.group(1).strip("()").split(","):
+            word = part.split(" as ")[0].strip()
+            if word.isidentifier():
+                names.add(word)
+    for m in MODULE_IMPORT_RE.finditer(code):
+        alias = m.group(1) or "screamer"
+        names.update(re.findall(rf"(?<![\w.]){alias}\.(\w+)", code))
+    return names
+
+
+def guide_usage(docs):
+    """Map each screamer name to the Guide task pages that use it.
+
+    Reads the task pages listed in ``docs/guide.yml`` under ``docs`` and
+    returns ``{name: [docname, ...]}`` with the pages in registry order.
+    """
+    spec = yaml.safe_load((docs / "guide.yml").read_text(encoding="utf-8")) or {}
+    usage = {}
+    for part in spec.get("parts") or []:
+        for chapter in part.get("chapters") or []:
+            for doc in chapter.get("tasks") or []:
+                path = docs / f"{doc}.md"
+                if not doc.startswith("guide/") or not path.exists():
+                    continue
+                text = path.read_text(encoding="utf-8")
+                names = set()
+                for cell in CODE_CELL_RE.findall(text):
+                    names |= screamer_names(cell)
+                for name in names:
+                    usage.setdefault(name, []).append(doc)
+    return usage
+
+
+@functools.lru_cache(maxsize=None)
+def _page_title(path):
+    m = H1_RE.search(path.read_text(encoding="utf-8"))
+    return m.group(0)[2:].strip() if m else path.stem
+
+
+def _used_in(docname, name, usage):
+    """The "Used in the Guide" section of a function page, or ``""``."""
+    docs = usage.get(name)
+    if not docs:
+        return ""
+    lines = []
+    for doc in docs:
+        rel = os.path.relpath(doc, os.path.dirname(docname))
+        lines.append(f"- [{_page_title(DOCS / f'{doc}.md')}]({rel}.md)")
+    return "## Used in the Guide\n\n" + "\n".join(lines) + "\n"
+
+
 class _State:
     help_map = None
     js_sigs = None
+    usage = None
 
 
 def _source_read(app, docname, source):
@@ -309,8 +379,13 @@ def _source_read(app, docname, source):
         at = _section_start(body, first)
         body = body[:at] + _examples_first(body[at:])
 
+    if _State.usage is None:
+        _State.usage = guide_usage(DOCS)
     existing = {h.group(1).strip().lower() for h in _headings(body)}
     tail = []
+    used_in = _used_in(docname, name, _State.usage)
+    if used_in and "used in the guide" not in existing:
+        tail.append(used_in)
     see_also = fm.get("see_also") or []
     if see_also and "see also" not in existing:
         tail.append("## See also\n\n" + "\n".join(
@@ -324,6 +399,27 @@ def _source_read(app, docname, source):
     source[0] = text[:m.end()] + body
 
 
+def _guide_outdated(app, env, added, changed, removed):
+    """Function pages whose "Used in the Guide" list changed since the last build.
+
+    The list depends on the Guide task pages, not on the function page, so
+    Sphinx would not reread the page when a task page starts or stops using the
+    function, or changes its title.
+    """
+    _page_title.cache_clear()
+    _State.usage = guide_usage(DOCS)
+    links = {name: [(doc, _page_title(DOCS / f"{doc}.md")) for doc in docs]
+             for name, docs in _State.usage.items()}
+    old = getattr(env, "screamer_guide_links", None)
+    env.screamer_guide_links = links
+    pages = [d for d in env.found_docs if d.startswith("functions_")]
+    if old is None:  # an environment from before this list existed
+        return pages
+    names = {n for n in set(old) | set(links) if old.get(n) != links.get(n)}
+    return [d for d in pages if d.rsplit("/", 1)[-1] in names]
+
+
 def setup(app):
     app.connect("source-read", _source_read)
+    app.connect("env-get-outdated", _guide_outdated)
     return {"parallel_read_safe": True, "parallel_write_safe": True}

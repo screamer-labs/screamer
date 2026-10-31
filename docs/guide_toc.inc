@@ -3,32 +3,34 @@
 
 **Part 0: Basics**
 
-0. :doc:`First steps <guide/first-steps/index>`: Install screamer, apply a function, and handle missing values.
-1. :doc:`Get your data in <guide/get-data-in/index>`: Load OHLCV data, migrate from pandas and TA-Lib, and build bars from ticks.
+0. :doc:`First steps <guide/first-steps/index>`: Install screamer, apply a function to arrays and DataFrames, and handle NaN values and warmup.
+1. :doc:`Get your data in <guide/get-data-in/index>`: Load OHLCV data, build bars from ticks, and replace pandas, TA-Lib and mlfinlab code.
 
 **Part 1: Understand a series**
 
-2. :doc:`Smooth and denoise a series <guide/denoise/index>`: Moving averages, low-lag smoothers, Kalman and Butterworth filters, despiking.
-3. :doc:`Measure volatility <guide/volatility/index>`: Close-to-close and OHLC estimators, and the average true range.
-4. :doc:`Detect a trend <guide/trend/index>`: Rolling slope, moving-average crossover, ADX, and trend mode.
-5. :doc:`Detect mean reversion <guide/mean-reversion/index>`: Variance ratio, Hurst exponent, OU half-life, and z-score bands.
-6. :doc:`Find cycles <guide/cycles/index>`: Measure the dominant cycle length and mark its turning points.
-7. :doc:`Detect regimes and change points <guide/regimes/index>`: Hidden Markov models, Bayesian changepoints, and CUSUM events.
-8. :doc:`Read order flow and liquidity <guide/order-flow/index>`: Trade signing, order-flow imbalance, price impact, and illiquidity.
+2. :doc:`Smooth and denoise a series <guide/denoise/index>`: Moving averages, low-lag and adaptive smoothers (Hull, KAMA, MAMA), Kalman and Butterworth filters, Hampel despiking, and robust outlier detection (MAD).
+3. :doc:`Measure volatility <guide/volatility/index>`: Close-to-close and OHLC estimators (Yang-Zhang), average true range (ATR), jumps (bipower variation), and seasonal z-scores.
+4. :doc:`Detect a trend <guide/trend/index>`: Rolling slope (linear regression), moving-average crossover, ADX and directional movement (DMI), and trend mode.
+5. :doc:`Compute classic technical indicators <guide/indicators/index>`: Momentum oscillators (Stochastic RSI, Williams %R, CCI, TRIX), volume indicators (OBV, MFI, VWAP), and Keltner Channels.
+6. :doc:`Detect mean reversion <guide/mean-reversion/index>`: Variance ratio test, Hurst exponent, Ornstein-Uhlenbeck (OU) half-life, and z-score bands.
+7. :doc:`Find cycles <guide/cycles/index>`: Dominant cycle period (Ehlers, Hilbert transform, roofing filter) and cycle turning points (sinewave indicator).
+8. :doc:`Detect regimes and change points <guide/regimes/index>`: Hidden Markov models (HMM), Bayesian online changepoint detection, CUSUM filter events, and permutation entropy.
+9. :doc:`Read order flow and liquidity <guide/order-flow/index>`: Trade signing (tick rule), order-flow imbalance (OFI), price impact (Kyle's lambda), Amihud illiquidity, bid-ask spread estimators, VPIN toxicity, micro-price, and Hawkes trade arrivals.
 
 **Part 2: Build a strategy**
 
-9. :doc:`Turn a signal into a position <guide/signal-to-position/index>`: Sign, bands and hysteresis, holding, and volatility sizing.
-10. :doc:`Backtest a signal on OHLCV bars <guide/backtest/index>`: Backtest a signal, read the report, and see how much costs take.
-11. :doc:`Strategy templates <guide/strategies/index>`: Trend following, breakouts, reversion, pairs, momentum, carry, and volatility targeting.
-12. :doc:`Stops and exits <guide/stops/index>`: Stop-loss and trailing-stop exits on a backtest.
-13. :doc:`Portfolios of many assets <guide/portfolios/index>`: Backtest and size positions across many assets at once.
+10. :doc:`Turn a signal into a position <guide/signal-to-position/index>`: Sign of a signal, entry and exit bands (hysteresis, Schmitt trigger), holding periods, and volatility position sizing.
+11. :doc:`Backtest a signal on OHLCV bars <guide/backtest/index>`: Signal backtests on bars, the backtest report, fees and slippage, limit and stop orders, tick trades, L1 quotes, volume caps, and liquidation distance.
+12. :doc:`Measure performance and risk <guide/performance/index>`: Rolling Sharpe, Sortino and Calmar ratios, CVaR and downside deviation, beta and alpha against a benchmark, and factor regressions.
+13. :doc:`Strategy templates <guide/strategies/index>`: Trend following, breakouts, RSI and Bollinger Band reversion, pairs trading, cross-sectional momentum, funding carry, and volatility targeting.
+14. :doc:`Stops and exits <guide/stops/index>`: Stop-loss, take-profit and trailing-stop exits on a backtest.
+15. :doc:`Portfolios of many assets <guide/portfolios/index>`: Multi-asset backtests and sizing, cross-sectional z-scores and winsorizing, and calculations that restart per day, contract or group.
 
 **Part 3: Test a strategy**
 
-14. :doc:`Check that a backtest result is not luck <guide/not-luck/index>`: Significance tests, walk-forward testing, and parameter grids.
-15. :doc:`Prepare data for machine learning <guide/machine-learning/index>`: Labels and features for supervised models.
+16. :doc:`Check that a backtest result is not luck <guide/not-luck/index>`: Randomization and permutation tests, block shuffles, synthetic price paths, walk-forward testing, parameter grids, and deflated Sharpe.
+17. :doc:`Prepare data for machine learning <guide/machine-learning/index>`: Features, labels (triple barrier), training sets, purged time series cross-validation, and fractional differencing.
 
 **Part 4: Run a strategy live**
 
-16. :doc:`Run on live data <guide/live/index>`: Streaming, pipelines, a live loop, and JavaScript in the browser.
+18. :doc:`Run on live data <guide/live/index>`: Streaming one value at a time, aligning streams, pipelines, a live trading loop, and JavaScript in the browser.

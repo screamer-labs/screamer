@@ -9,6 +9,10 @@ tags:
 - purging
 - train test split
 - out-of-sample
+- purged cross-validation
+- purged k-fold
+- embargo
+- timeseriessplit
 see_also:
 - walk_forward
 - forecast_pairs

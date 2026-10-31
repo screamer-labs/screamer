@@ -12,6 +12,8 @@ tags:
 - liquidity
 - microstructure
 - hlc
+- bid-ask spread estimator
+- effective spread from ohlc
 short: 'Corwin-Schultz (2012) bid-ask spread from the high and low of two consecutive bars,
   averaged over a trailing window.'
 inputs: 3
