@@ -20,14 +20,15 @@ namespace screamer { namespace detail {
     // participation * trade_size, room) at the bid, paying maker_fee; a
     // through-print sweeps the full resting size. A bid arrives when it was not
     // quoted on the previous event, its price changed, or its previous order was
-    // fully filled (a size change alone is not an arrival); an arriving bid above the print is marketable and fills
-    // its full size as a taker at the print moved by the slippage model, capped
-    // at the bid. A NaN/inf bid price is a market order (+inf limit) that always
-    // fills that way. The sell side is symmetric. Fills are capped so the position stays in
-    // [min_pos, max_pos]. Marks to the last trade. A resting fill's cost
-    // reference is its limit (cost = fee); a market fill's is the print. A NaN trade_price or
-    // trade_size emits all-NaN (ignore policy). The caller builds the quote;
-    // this struct executes and accounts for it.
+    // fully filled; a side with no room counts as not quoted, and a size change
+    // alone is not an arrival. An arriving bid above the print is marketable and
+    // fills its full size as a taker at the print moved by the slippage model,
+    // capped at the bid. A NaN/inf bid price is a market order (+inf limit) that
+    // always fills that way. The sell side is symmetric. Fills are capped so the
+    // position stays in [min_pos, max_pos]. Marks to the last trade. A resting
+    // fill's cost reference is its limit (cost = fee); a taker fill's is the
+    // print. A NaN trade_price or trade_size emits all-NaN (ignore policy). The
+    // caller builds the quote; this struct executes and accounts for it.
     struct TradesFill {
         TradesFill(double maker_fee, double taker_fee, bool breach,
                    double participation, const Slippage& slippage,
@@ -82,16 +83,16 @@ namespace screamer { namespace detail {
             // Buy side: resting bid filled by a sell-print crossing it.
             const double room_buy = std::max(max_pos_ - account_.position(), 0.0);
             if (!isnan2(bid_size) && bid_size > 0.0 && room_buy > 0.0) {
-                const double room = room_buy;
                 const double limit = market_limit(bid_price, /*buy=*/true);
                 const bool arrival = !(limit == bid_prev_);
                 bid_prev_ = limit;
                 const bool through = trade_price < limit;
                 const bool at = !breach_ && (trade_price == limit);
                 double dpos = 0.0;
-                if (through) dpos = std::min(bid_size, room);
-                else if (at) dpos = std::min(std::min(bid_size, participation_ * trade_size), room);
-                if (dpos >= std::min(bid_size, room))   // fully filled: the order is gone
+                if (through) dpos = std::min(bid_size, room_buy);
+                else if (at) dpos = std::min(std::min(bid_size, participation_ * trade_size),
+                                             room_buy);
+                if (dpos >= std::min(bid_size, room_buy))   // fully filled: the order is gone
                     bid_prev_ = std::numeric_limits<double>::quiet_NaN();
                 if (dpos > 0.0) {
                     const bool taker = through && (arrival || std::isinf(limit));
@@ -112,16 +113,16 @@ namespace screamer { namespace detail {
             // Sell side: resting ask filled by a buy-print crossing it.
             const double room_sell = std::max(account_.position() - min_pos_, 0.0);
             if (!isnan2(ask_size) && ask_size > 0.0 && room_sell > 0.0) {
-                const double room = room_sell;
                 const double limit = market_limit(ask_price, /*buy=*/false);
                 const bool arrival = !(limit == ask_prev_);
                 ask_prev_ = limit;
                 const bool through = trade_price > limit;
                 const bool at = !breach_ && (trade_price == limit);
                 double dpos = 0.0;
-                if (through) dpos = -std::min(ask_size, room);
-                else if (at) dpos = -std::min(std::min(ask_size, participation_ * trade_size), room);
-                if (-dpos >= std::min(ask_size, room))  // fully filled: the order is gone
+                if (through) dpos = -std::min(ask_size, room_sell);
+                else if (at) dpos = -std::min(std::min(ask_size, participation_ * trade_size),
+                                             room_sell);
+                if (-dpos >= std::min(ask_size, room_sell))  // fully filled: the order is gone
                     ask_prev_ = std::numeric_limits<double>::quiet_NaN();
                 if (dpos != 0.0) {
                     const bool taker = through && (arrival || std::isinf(limit));

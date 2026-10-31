@@ -112,10 +112,15 @@ fills. A sell-print through `bid_price` fills the full remaining, a sell-print a
 `bid_price` fills `min(remaining, participation_ratio * trade_size)`, both maker
 fills at `bid_price` paying `maker_fee`. A market quote that crosses your resting
 price with no explaining trade is the run-over fallback (a full maker fill).
+When the quote crosses a resting order but the event's print does not reach
+it, the order gets no fill and is treated as gone, so the same quote on the
+next event is a new order.
 A bid arrives when its side was not quoted on the previous event, its price
 changed, or its previous order was fully filled, for example by a print. A
-side with no room under its position limit counts as not quoted, and a size
-change alone is not an arrival. An arriving bid at or above the market ask is
+side with no room under its position limit counts as not quoted: an order the
+account cannot hold is not at the exchange, so when room returns, the same
+quote is a new order. A size change alone is not an arrival.
+An arriving bid at or above the market ask is
 a taker in both fill modes, before any print is considered: it fills at the
 ask, walking one `tick_size` for the overflow, capped at `bid_price`, and pays
 `taker_fee`. The sell side is symmetric.

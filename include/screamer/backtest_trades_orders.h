@@ -10,9 +10,11 @@
 namespace screamer {
 
     // BacktestTradesOrders: 6 -> 4. Post a two-sided quote on the trade tape;
-    // a resting bid fills when a sell-print crosses it (touch/breach), a
-    // marketable bid (market_limit returns +inf) fills at the print price as a
-    // taker. The sell side is symmetric. Inventory is capped to
+    // a resting bid fills as a maker at its price when a sell-print crosses it
+    // (touch/breach). An arriving bid (not quoted on the previous event,
+    // re-priced, or its previous order fully filled) above the print, and a
+    // market bid (market_limit returns +inf), fill as a taker at the print,
+    // capped at the bid. The sell side is symmetric. Inventory is capped to
     // [min_position, max_position]. Outputs [equity, pnl, position, cost].
     class BacktestTradesOrders : public FunctorBase<BacktestTradesOrders, 6, 4> {
     public:

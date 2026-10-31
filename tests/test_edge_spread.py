@@ -142,7 +142,8 @@ def test_one_pair_with_x_has_zero_variance():
     # Only the first pair has all of o, h, l, h1, l1, c1, so x1 and x2 have
     # one value each and their variances are 0, as in the authors' code;
     # rounding left in the expanded sums must not set the weights of e1 and
-    # e2. The value is the authors' edge() on these four bars.
+    # e2. The value is the authors' reference edge() (github.com/eguidotti/bidask,
+    # python/bidask/edge.py) on these four bars.
     o = [100.0, 101.0, np.nan, np.nan]
     h = [102.0, 103.0, 104.0, 102.5]
     l = [99.0, 100.0, 101.0, 100.5]

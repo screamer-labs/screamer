@@ -20,6 +20,9 @@ namespace screamer {
     // A side arrives when it was not quoted on the previous event, its price
     // changed, or its previous order was fully filled; an arriving bid at or above the
     // market ask is a taker from the touch, before any print is considered.
+    // When the quote crosses a resting order but the event's print does not
+    // reach it, the order gets no fill and is treated as gone, so the same quote
+    // on the next event is a new order.
     // Inputs (bid_price, bid_size, ask_price, ask_size, market_bid, market_ask,
     // market_bid_size, market_ask_size, trade_price, trade_size). Trades are NOT
     // forward-filled: a NaN trade is a quote-only update (mark, no fill), which is

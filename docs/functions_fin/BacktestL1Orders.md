@@ -123,8 +123,10 @@ same quote while the lock persists is a new order and fills as a taker. The
 These maker fills apply to a resting order: one quoted at the same price on the
 previous event. A bid arrives when its side was not quoted on the previous
 event, its price changed, or its previous order was fully filled. A side with
-no room under its position limit counts as not quoted, and a size change alone
-is not an arrival. An arriving bid at or above the market ask
+no room under its position limit counts as not quoted: an order the account
+cannot hold is not at the exchange, so when room returns, the same quote is a
+new order. A size change alone is not an arrival.
+An arriving bid at or above the market ask
 (`bid_price >= market_ask`) is a taker in both fill modes: it fills its full
 size at the ask, walking one `tick_size` for the part beyond the displayed
 size, and pays `taker_fee`. Neither the walk nor the slippage moves the fill

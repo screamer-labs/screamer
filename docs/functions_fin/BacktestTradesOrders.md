@@ -112,8 +112,10 @@ Fill logic per event:
   With `fill="breach"` the at-price case is skipped; only a strict breach fills.
 - **Crossing on arrival.** A bid arrives when its side was not quoted on the
   previous event, its price changed, or its previous order was fully filled. A
-  side with no room under its position limit counts as not quoted, and a size
-  change alone is not an arrival. So a bid that a print sweeps fully, quoted
+  side with no room under its position limit counts as not quoted: an order the
+  account cannot hold is not at the exchange, so when room returns, the same
+  quote is a new order. A size change alone is not an arrival. So a bid that a
+  print sweeps fully, quoted
   again at the same price while prints stay below it, fills as a taker. An
   arriving bid above the print is marketable: it fills `min(bid_size, room)`
   as a taker at the print plus the `slippage` offset, capped at `bid_price`,

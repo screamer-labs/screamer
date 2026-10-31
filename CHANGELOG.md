@@ -11,7 +11,7 @@ Unreleased
   `BacktestL1Orders` and `BacktestL1TradesOrders`, the `cost` of a resting
   (maker) fill also counted the distance from its limit price to the mark (the
   print or the mid). It now holds the fee alone, as in `BacktestOHLCOrders`.
-  For example, a resting bid at 100 filled by a print at 99 with
+  For example, a resting bid at 100 for size 1 filled by a print at 99 with
   `maker_fee=0.001` reported a cost of 1.1 and now reports 0.1. Taker fills
   are unchanged: an L1 taker fill is still measured against the mid. Equity,
   pnl and position are unchanged; `cum_cost` and `total_cost` in
@@ -20,19 +20,20 @@ Unreleased
   when it arrives now fills at once as a taker at the best market price,
   capped at its limit, and pays `taker_fee`. An order arrives when its side
   was not quoted on the previous event, its price changed, or its previous
-  order was fully filled; a side with no room under its position limit counts
-  as not quoted, and a size change alone is not an arrival. Before, such an
-  order filled as a maker at its own limit, which could lie outside the
-  market.
+  order was fully filled. A side with no room under its position limit counts
+  as not quoted: an order the account cannot hold is not at the exchange, so
+  when room returns, the same quote is a new order. A size change alone is not
+  an arrival. Before, such an order filled as a maker at its own limit, which
+  could lie outside the market.
   - `BacktestOHLCOrders`: each bar's quote is placed at the open, so a bid
     above the open (an ask below it) fills at the open. A bid at 110 on a bar
     with open 100, high 105 and low 95 filled at 110 and now fills at 100. A
     bid at 100 on a bar that gaps down to open 95 (high 97, low 93) filled at
     100 and now fills at 95. Every fill before slippage lies within the bar.
   - `BacktestTradesOrders`: a new or re-priced bid at 102 with a print at 100
-    filled at 102 and now fills at 100. A bid at 100 hit by prints at 99, 97
-    and 95 filled three times at 100; the first print still fills it as a
-    maker at 100, and the next two fill the re-quoted order at 97 and 95.
+    filled at 102 and now fills at 100. A resting bid at 100 hit by prints at
+    99, 97 and 95 filled three times as a maker at 100; it now fills as a
+    maker at 100, then as a taker at 97 and 95.
   - `BacktestL1Orders` and `BacktestL1TradesOrders`: a resting bid at 99
     re-priced to 102 against a market of 100 / 101 filled as a maker at 102
     and now fills at 101 as a taker. A new bid equal to the ask, which did not

@@ -90,8 +90,10 @@ Ardia, Guidotti and Kroencke (2024) discuss the bias of high-low estimators
 in this regime. The estimator suits daily bars of less liquid assets, where the
 spread is a visible share of the daily range, and comparisons of liquidity
 across assets or over time more than an absolute level.
-[`EdgeSpread`](EdgeSpread.md) has no such bias: its estimate of the squared
-spread is unbiased in this regime, with a larger variance. Where quotes are available, [`EffectiveSpread`](EffectiveSpread.md) and
+[`EdgeSpread`](EdgeSpread.md) estimates the squared spread without bias in this
+regime, but with noise; its default output, the square root of the absolute
+estimate, is biased upward there, so use `sign=True` to see the signed
+estimate. Where quotes are available, [`EffectiveSpread`](EffectiveSpread.md) and
 [`RealizedSpread`](RealizedSpread.md) measure the spread directly.
 
 <!-- NAN_FOOTNOTE_START -->

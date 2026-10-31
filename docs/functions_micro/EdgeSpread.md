@@ -60,10 +60,12 @@ assumed to be a trade at the bid or the ask, and the estimator combines the
 returns between them in pairs of consecutive bars into two unbiased estimates of
 the squared spread, weighted by their variances to minimize the estimation
 error. Under the paper's model its estimate of the squared spread is unbiased
-whatever the ratio of spread to volatility, so on average it stays near the
-spread where it is small next to the price moves within a bar, the regime in
-which [`CorwinSchultzSpread`](CorwinSchultzSpread.md) and
-[`AbdiRanaldoSpread`](AbdiRanaldoSpread.md) are biased.
+whatever the ratio of spread to volatility, including where the spread is small
+next to the price moves within a bar, the regime in which
+[`CorwinSchultzSpread`](CorwinSchultzSpread.md) and
+[`AbdiRanaldoSpread`](AbdiRanaldoSpread.md) are biased. In that regime the
+estimate is noisy, and the default output `sqrt(|S^2|)` is biased upward; use
+`sign=True` to see the signed estimate.
 
 For two consecutive bars, with `o`, `h`, `l`, `c` the log prices of the
 second bar, `h1`, `l1`, `c1` those of the first, and `m = (h + l) / 2`,

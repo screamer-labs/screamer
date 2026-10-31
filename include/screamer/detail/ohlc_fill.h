@@ -25,8 +25,9 @@ namespace screamer { namespace detail {
     // bar price) moved by the slippage model, paying taker_fee.
     // The sell side is symmetric on the high. Fills are capped so the position
     // stays in [min_pos, max_pos]. Cost is booked against the fill's reference:
-    // `market_ref` for a market fill and the limit price for a resting fill, so
-    // the move from there to the close is pnl, not cost.
+    // `market_ref` for a market fill, the open for a crossing fill and the limit
+    // price for a resting fill, so the move from there to the close is pnl, not
+    // cost.
     // The caller builds the quote; this struct executes and accounts for it.
     struct OHLCFill {
         OHLCFill(double maker_fee, double taker_fee, bool breach,

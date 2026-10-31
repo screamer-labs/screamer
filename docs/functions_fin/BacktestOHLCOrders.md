@@ -104,8 +104,10 @@ bar the strategy posts a resting bid `(bid_price, bid_size)` and a resting ask
 no deferral), so the position is whatever the bar's range allows.
 
 **Crossing fills.** Each bar's quote is placed at the open, so every quote
-arrives at the open of its bar. A bid above the open is marketable: it fills at
-the open plus the `slippage` offset, capped at the bid, and pays `taker_fee`.
+arrives at the open of its bar. A bid above the open is marketable: it fills
+`min(bid_size, participation_ratio * bid_size, room)`, as a passive fill does,
+at the open plus the `slippage` offset, capped at the bid, and pays
+`taker_fee`.
 This includes a resting bid that the bar gaps down through. The sell side
 mirrors for an ask below the open. Every fill before slippage lies
 within the bar's range.

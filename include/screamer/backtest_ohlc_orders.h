@@ -9,9 +9,12 @@
 
 namespace screamer {
 
-    // BacktestOHLCOrders: 8 -> 4. Post a two-sided quote on bars; each side
-    // fills when the bar's low/high reaches it (touch/breach), a marketable order
-    // fills at the open moved by the slippage model. Inventory is capped to [min_position, max_position].
+    // BacktestOHLCOrders: 8 -> 4. Post a two-sided quote on bars, placed at
+    // each bar's open. A bid above the open (an ask below it) or a market order
+    // fills as a taker at the open moved by the slippage model, capped at the
+    // limit; otherwise a side fills as a maker at its price when the bar's
+    // low/high reaches it (touch/breach). Inventory is capped to
+    // [min_position, max_position].
     // Outputs [equity, pnl, position, cost].
     class BacktestOHLCOrders : public FunctorBase<BacktestOHLCOrders, 8, 4> {
     public:

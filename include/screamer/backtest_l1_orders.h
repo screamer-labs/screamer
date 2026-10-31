@@ -12,8 +12,11 @@ namespace screamer {
     // BacktestL1Orders: 8 -> 4. Post a two-sided quote against an L1 book.
     // Inputs (bid_price, bid_size, ask_price, ask_size,
     //         market_bid, market_ask, market_bid_size, market_ask_size).
-    // A resting bid fills when the market ask trades through it (breach) or
-    // locks it in touch mode; a quote submitted already crossing is a taker.
+    // A resting bid (quoted at the same price on the previous event) fills as a
+    // maker when the market ask trades through it (breach) or locks it in touch
+    // mode. A bid arrives when its side was not quoted on the previous event,
+    // its price changed, or its previous order was fully filled; an arriving bid
+    // at or above the market ask is a taker from the touch, capped at its limit.
     // The sell side is symmetric. Inventory capped to [min_position,
     // max_position]. Outputs [equity, pnl, position, cost].
     // nan_policy: ignore on the market quote; a NaN own-quote price means

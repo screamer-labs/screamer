@@ -76,8 +76,10 @@ that side.
 
 An order arrives on an event when its side was not quoted on the previous event,
 its price changed, or its previous order was fully filled. A side with no room
-under its position limit counts as not quoted, and a size change alone is not an
-arrival. An arriving order that crosses the market is marketable: it fills
+under its position limit counts as not quoted: an order the account cannot hold
+is not at the exchange, so when room returns, the same quote is a new order. A
+size change alone is not an arrival. An arriving order that crosses the market
+is marketable: it fills
 immediately as a taker at the best market price, capped at its limit, and pays
 `taker_fee`. The market price is the
 opposite touch for L1 (`bid_price >= market_ask` or `ask_price <= market_bid`),
