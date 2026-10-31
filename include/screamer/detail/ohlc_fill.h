@@ -139,7 +139,7 @@ namespace screamer { namespace detail {
             }
 
             if (!did) {
-                auto [e, p, pos, c] = account_.step(close, 0.0, close, 0.0);  // mark only
+                auto [e, p, pos, c] = account_.step(close, 0.0, close, 0.0, 0.0, close);  // mark only
                 eq = e; pnl = p; position = pos; cost = c;
             }
             return std::make_tuple(eq, pnl, position, cost);

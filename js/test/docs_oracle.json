@@ -119,11 +119,11 @@
    "circularShift",
    "segmentShuffle",
    "timeSplits",
+   "permuteBars",
+   "permuteReturns",
    "probabilisticSharpe",
    "walkForward",
-   "deflatedSharpe",
-   "permuteBars",
-   "permuteReturns"
+   "deflatedSharpe"
   ]
  },
  {

@@ -126,6 +126,9 @@ of the bar fields (open/high/low/close) skips the bar and returns an all-NaN row
 a NaN or zero `bid_size` / `ask_size` suppresses that side entirely.
 [`backtest_report`](backtest_report.md) summarizes the resulting equity curve.
 
+The `cost` of a resting fill is its fee alone; a market order's cost is its
+slippage from the open plus the taker fee.
+
 ## Limitations
 
 OHLC bars carry no intra-bar path, so the engine cannot distinguish whether the

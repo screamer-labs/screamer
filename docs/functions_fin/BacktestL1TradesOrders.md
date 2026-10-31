@@ -130,6 +130,9 @@ event), `2 = position`, and `3 = cost` (per event). A `NaN` in the market quote
 skips the event; a `NaN` own-quote price means that side is not quoted.
 [`backtest_report`](backtest_report.md) summarizes the resulting equity curve.
 
+The `cost` of a resting fill is its fee alone; a marketable order's cost is its
+distance from the mid (half the spread, the walk, and slippage) plus the taker fee.
+
 ## Limitations
 
 Queue position is not tracked from order identity (that needs an L3 / market-by-order

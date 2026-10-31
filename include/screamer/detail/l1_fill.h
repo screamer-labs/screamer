@@ -21,7 +21,8 @@ namespace screamer { namespace detail {
     // and the slippage model then moves that average price against the trader.
     // The sell side is symmetric. Fills are capped so the position stays in
     // [min_pos, max_pos]. Positions mark to the (market_bid + market_ask) / 2
-    // mid. A NaN in any market field emits all-NaN (ignore policy).
+    // mid. A resting fill's cost reference is its own price (cost = fee); a
+    // taker fill's is the mid. A NaN in any market field emits all-NaN (ignore policy).
     struct L1Fill {
         L1Fill(double maker_fee, double taker_fee, bool breach,
                double participation, const Slippage& slippage,
@@ -87,7 +88,8 @@ namespace screamer { namespace detail {
                 auto [e, p, pos, c] = account_.step(mid, b.dpos, b.fill_price,
                                                     b.is_taker ? taker_fee_ : maker_fee_,
                                                     b.is_taker ? taker_fee_per_contract_
-                                                               : maker_fee_per_contract_);
+                                                               : maker_fee_per_contract_,
+                                                    b.is_taker ? mid : b.fill_price);
                 eq = e; pnl += p; position = pos; cost += c; did = true;
             }
 
@@ -101,12 +103,13 @@ namespace screamer { namespace detail {
                 auto [e, p, pos, c] = account_.step(mid, s.dpos, s.fill_price,
                                                     s.is_taker ? taker_fee_ : maker_fee_,
                                                     s.is_taker ? taker_fee_per_contract_
-                                                               : maker_fee_per_contract_);
+                                                               : maker_fee_per_contract_,
+                                                    s.is_taker ? mid : s.fill_price);
                 eq = e; pnl += p; position = pos; cost += c; did = true;
             }
 
             if (!did) {
-                auto [e, p, pos, c] = account_.step(mid, 0.0, mid, 0.0);  // mark only
+                auto [e, p, pos, c] = account_.step(mid, 0.0, mid, 0.0, 0.0, mid);  // mark only
                 eq = e; pnl = p; position = pos; cost = c;
             }
             return std::make_tuple(eq, pnl, position, cost);

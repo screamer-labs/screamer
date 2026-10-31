@@ -128,6 +128,9 @@ the row is all-NaN and the state is unchanged, so only real prints drive fills. 
 Outputs are `(equity, pnl, position, cost)`, the four standard backtest columns
 accepted by [`backtest_report`](backtest_report.md).
 
+The `cost` of a resting fill is its fee alone; a market order's cost is its
+slippage from the print plus the taker fee.
+
 ## Limitations
 
 Queue priority is not tracked per order; at-price fills use `participation_ratio`

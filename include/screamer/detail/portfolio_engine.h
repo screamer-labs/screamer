@@ -115,7 +115,7 @@ namespace screamer { namespace detail {
             accts_.clear();
             slips_.clear();
             for (std::size_t i = 0; i < k; ++i) {
-                accts_.emplace_back(pick(mult_, i), pick(fpc_, i));
+                accts_.emplace_back(pick(mult_, i));
                 slips_.emplace_back(pick(slip_amt_, i), slip_unit_, pick(tick_, i));
             }
             working_.assign(k, nan());

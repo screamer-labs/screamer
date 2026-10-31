@@ -146,6 +146,9 @@ It emits four positional columns: `0 = equity` (cumulative dollar PnL), `1 = pnl
 never changes a past row. A `NaN` signal or price skips the bar (an all-`NaN` row,
 the position held across the gap).
 
+The `cost` of a fill is half the `spread` plus the slippage from the price, plus
+the fees.
+
 The equity curve feeds the risk operators directly (dollar drawdown is
 `equity - CumMax(equity)`), and [`backtest_report`](backtest_report.md) bundles
 the common statistics (drawdown, cost, turnover, trades, Sharpe) in one call.

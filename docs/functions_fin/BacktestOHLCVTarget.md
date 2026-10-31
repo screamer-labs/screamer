@@ -159,6 +159,8 @@ Inputs are `(target, open, high, low, close, volume)`. Outputs are
 `[equity, pnl, position, cost]`. A `NaN` in a bar field or a `NaN` or negative
 volume skips the bar.
 
+The `cost` of a fill is its slippage from the `fill_at` price plus the fee.
+
 
 <!-- NAN_FOOTNOTE_START -->
 ## NaN handling

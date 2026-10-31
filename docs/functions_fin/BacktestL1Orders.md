@@ -129,6 +129,9 @@ the event; a `NaN` own-quote price means that side is not
 quoted. [`backtest_report`](backtest_report.md) summarizes the resulting equity
 curve.
 
+The `cost` of a resting fill is its fee alone; a marketable order's cost is its
+distance from the mid (half the spread, the walk, and slippage) plus the taker fee.
+
 For a target-position variant that takes the book immediately instead of posting
 a resting order, see [`BacktestL1Target`](BacktestL1Target.md). When a trade feed
 is available, [`BacktestL1TradesOrders`](BacktestL1TradesOrders.md) uses real prints to drive

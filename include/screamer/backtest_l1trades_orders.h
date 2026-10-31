@@ -21,7 +21,8 @@ namespace screamer {
     // market_bid_size, market_ask_size, trade_price, trade_size). Trades are NOT
     // forward-filled: a NaN trade is a quote-only update (mark, no fill), which is
     // nan_policy: ignore, so each real trade fills at most once. Positions mark to
-    // the mid. Outputs [equity, pnl, position, cost].
+    // the mid. Outputs [equity, pnl, position, cost]; a resting fill's cost is its
+    // fee (reference = its own price), a taker fill's is measured against the mid.
     class BacktestL1TradesOrders : public FunctorBase<BacktestL1TradesOrders, 10, 4> {
     public:
         BacktestL1TradesOrders(double maker_fee = 0.0, double taker_fee = 0.0,
@@ -85,7 +86,8 @@ namespace screamer {
                 auto [e, p, pos, c] = account_.step(mid, b_dpos, b_price,
                                                     b_taker ? taker_fee_ : maker_fee_,
                                                     b_taker ? taker_fee_per_contract_
-                                                            : maker_fee_per_contract_);
+                                                            : maker_fee_per_contract_,
+                                                    b_taker ? mid : b_price);
                 eq = e; pnl += p; position = pos; cost += c; did = true;
             }
 
@@ -99,12 +101,13 @@ namespace screamer {
                 auto [e, p, pos, c] = account_.step(mid, s_dpos, s_price,
                                                     s_taker ? taker_fee_ : maker_fee_,
                                                     s_taker ? taker_fee_per_contract_
-                                                            : maker_fee_per_contract_);
+                                                            : maker_fee_per_contract_,
+                                                    s_taker ? mid : s_price);
                 eq = e; pnl += p; position = pos; cost += c; did = true;
             }
 
             if (!did) {
-                auto [e, p, pos, c] = account_.step(mid, 0.0, mid, 0.0);
+                auto [e, p, pos, c] = account_.step(mid, 0.0, mid, 0.0, 0.0, mid);   // mark only
                 eq = e; pnl = p; position = pos; cost = c;
             }
             return std::make_tuple(eq, pnl, position, cost);

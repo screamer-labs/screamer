@@ -443,7 +443,7 @@ def test_trades_fill_and_adverse_selection():
                                np.array([np.nan, np.nan]), np.array([0., 0.]),
                                np.array([99., 101]), np.array([2., 5]))
     np.testing.assert_allclose(t[:, 2], [1, 1])          # position filled then held
-    np.testing.assert_allclose(t[0], [-1, -1, 1, 1])     # bought at 100 vs 99 mark -> cost 1
+    np.testing.assert_allclose(t[0], [-1, -1, 1, 0])     # bought at 100, marked at 99; a resting fill costs its fee (0)
     np.testing.assert_allclose(t[1, 0], 1.0)             # mark 99 -> 101 recovers to +1
 
 

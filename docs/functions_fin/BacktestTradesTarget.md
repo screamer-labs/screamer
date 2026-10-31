@@ -140,6 +140,8 @@ event), `2 = position`, and `3 = cost` (per event). A `NaN` `trade_price` or
 `trade_size` skips the event and returns an all-NaN row.
 [`backtest_report`](backtest_report.md) summarizes the resulting equity curve.
 
+The `cost` of a fill is its slippage from the print plus the fee.
+
 `min_position` and `max_position` bound the position in units. They apply after
 the sizing conversion, so a weight target of 2 with `max_position=0.5` holds 0.5
 units, and the engine never carries a position outside that range.

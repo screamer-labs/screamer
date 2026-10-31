@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented in this file.
 
+Unreleased
+----------
+
+### Fixed
+
+* **Backtest cost of resting fills:** in `BacktestTradesOrders`,
+  `BacktestL1Orders` and `BacktestL1TradesOrders`, the `cost` of a resting
+  (maker) fill also counted the distance from its limit price to the mark (the
+  print or the mid). It now holds the fee alone, as in `BacktestOHLCOrders`.
+  For example, a resting bid at 100 filled by a print at 99 with
+  `maker_fee=0.001` reported a cost of 1.1 and now reports 0.1. Taker fills
+  are unchanged: an L1 taker fill is still measured against the mid. Equity,
+  pnl and position are unchanged; `cum_cost` and `total_cost` in
+  `backtest_report` change.
+
 3.9.1 - 2026-10-28
 ------------------
 

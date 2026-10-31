@@ -22,7 +22,8 @@ namespace screamer { namespace detail {
     // market order (+inf limit) that sweeps on any print at the print price
     // moved by the slippage model, paying taker_fee. The
     // sell side is symmetric. Fills are capped so the position stays in
-    // [min_pos, max_pos]. Marks to the last trade. A NaN trade_price or
+    // [min_pos, max_pos]. Marks to the last trade. A resting fill's cost
+    // reference is its limit (cost = fee); a market fill's is the print. A NaN trade_price or
     // trade_size emits all-NaN (ignore policy). The caller builds the quote;
     // this struct executes and accounts for it.
     struct TradesFill {
@@ -89,7 +90,8 @@ namespace screamer { namespace detail {
                                                    : maker_fee_per_contract_;
                     last_fill_ = fp;
                     auto [e, p, pos, c] = account_.step(
-                        trade_price, dpos, fp, fee, fixed_fee);
+                        trade_price, dpos, fp, fee, fixed_fee,
+                        taker ? trade_price : limit);   // maker: cost is the fee
                     eq = e; pnl += p; position = pos; cost += c; did = true;
                 }
             }
@@ -111,13 +113,15 @@ namespace screamer { namespace detail {
                                                    : maker_fee_per_contract_;
                     last_fill_ = fp;
                     auto [e, p, pos, c] = account_.step(
-                        trade_price, dpos, fp, fee, fixed_fee);
+                        trade_price, dpos, fp, fee, fixed_fee,
+                        taker ? trade_price : limit);   // maker: cost is the fee
                     eq = e; pnl += p; position = pos; cost += c; did = true;
                 }
             }
 
             if (!did) {
-                auto [e, p, pos, c] = account_.step(trade_price, 0.0, trade_price, 0.0);
+                auto [e, p, pos, c] = account_.step(trade_price, 0.0, trade_price, 0.0, 0.0,
+                                                  trade_price);   // mark only
                 eq = e; pnl = p; position = pos; cost = c;
             }
             return std::make_tuple(eq, pnl, position, cost);

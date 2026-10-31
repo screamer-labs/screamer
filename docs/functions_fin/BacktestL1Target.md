@@ -140,6 +140,9 @@ row. A `NaN` target keeps the last target: the position holds once it has
 reached it. [`backtest_report`](backtest_report.md) summarizes the resulting equity
 curve.
 
+The `cost` of a fill is its distance from the mid (half the spread, the walk,
+and slippage) plus the fee.
+
 `min_position` and `max_position` bound the position in units. They apply after
 the sizing conversion, so a weight target of 2 with `max_position=0.5` holds 0.5
 units, and the engine never carries a position outside that range.

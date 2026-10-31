@@ -64,13 +64,15 @@ namespace screamer {
                             const std::string& size = "units",
                             double initial_capital = 0.0,
                             double rebalance_band = 0.0)
-            : spread_(spread), fee_(fee),
+            : spread_(spread), fee_(fee), fee_per_contract_(fee_per_contract),
               min_position_(min_position), max_position_(max_position),
               slippage_(slippage, slippage_unit, tick_size),
               exits_(stop_loss, take_profit, trailing_stop),
               sizer_(size, initial_capital, rebalance_band, multiplier),
-              account_(multiplier, fee_per_contract)
+              account_(multiplier)
         {
+            if (!std::isfinite(fee_per_contract_))
+                throw std::invalid_argument("fee_per_contract must be finite.");
             require_finite("spread", spread_);
             require_finite("fee", fee_);
             require_finite("min_position", min_position_, kTakesNegInf);
@@ -104,7 +106,7 @@ namespace screamer {
             const double fill_price = side == 0.0 ? price
                                     : slippage_.fill(half_spread, side > 0.0);
             auto [equity, pnl, position, cost] =
-                account_.step(price, dpos, fill_price, fee_);
+                account_.step(price, dpos, fill_price, fee_, fee_per_contract_, price);
             if (exits_.active()) {
                 if (dpos != 0.0) exits_.on_fill(before, position, fill_price);
                 exits_.update_best(position, price, price);
@@ -115,6 +117,7 @@ namespace screamer {
     private:
         double spread_;
         double fee_;
+        double fee_per_contract_;
         double min_position_;
         double max_position_;
         detail::Slippage slippage_;
