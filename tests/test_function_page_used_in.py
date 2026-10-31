@@ -141,3 +141,17 @@ def test_used_in_shows_five_pages_then_a_count(monkeypatch):
     assert items[5:] == ["- and 3 more"]
     exact = mod._used_in("functions_math/Sign", "Sign", {"Sign": docs[:5]})
     assert len(exact.splitlines()) == 7 and "more" not in exact
+
+
+def test_links_use_forward_slashes_on_windows(docs, monkeypatch):
+    # Sphinx document names always use "/", so links must not depend on the
+    # operating system's path rules (os.path is ntpath on Windows).
+    import ntpath
+    mod = _module()
+    mod.DOCS = docs
+    monkeypatch.setattr(mod.os, "path", ntpath)
+    source = ["---\nname: Sign\ntitle: Sign\nkind: functor\n---\n\n# `Sign`\n\n"
+              "## Description\n\nThe sign.\n"]
+    mod._source_read(None, "functions_math/Sign", source)
+    assert "](../guide/flow/direction.md)" in source[0]
+    assert "\\" not in source[0]

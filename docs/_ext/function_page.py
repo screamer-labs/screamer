@@ -26,6 +26,7 @@ import functools
 import json
 import math
 import os
+import posixpath
 import re
 from pathlib import Path
 
@@ -147,7 +148,7 @@ def _link(docname, target, help_map):
     entry = help_map.get(target)
     if not entry or not entry.get("doc_path"):
         return f"`{target}`"
-    rel = os.path.relpath(entry["doc_path"], os.path.dirname(docname))
+    rel = posixpath.relpath(entry["doc_path"], posixpath.dirname(docname))
     short = _cell(entry.get("short", "")).rstrip(".")
     return f"[`{target}`]({rel}.md){': ' + short if short else ''}"
 
@@ -330,7 +331,7 @@ def _used_in(docname, name, usage):
         return ""
     lines = []
     for doc in docs[:USED_IN_MAX]:
-        rel = os.path.relpath(doc, os.path.dirname(docname))
+        rel = posixpath.relpath(doc, posixpath.dirname(docname))
         lines.append(f"- [{_page_title(DOCS / f'{doc}.md')}]({rel}.md)")
     if len(docs) > USED_IN_MAX:
         lines.append(f"- and {len(docs) - USED_IN_MAX} more")
