@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented in this file.
 
+3.10.1 - 2026-11-01
+-------------------
+
+### Fixed
+
+* The function pages' Guide links use forward slashes on every platform. The
+  docs extension built them with the platform's path rules, which failed the
+  Windows wheel tests and stopped the 3.10.0 upload to PyPI. 3.10.0 is on npm
+  only; 3.10.1 has the same library code as 3.10.0 and is on both.
+
 3.10.0 - 2026-11-01
 -------------------
 
