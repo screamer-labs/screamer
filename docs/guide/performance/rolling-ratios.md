@@ -50,8 +50,9 @@ The returns are the daily returns of the 20/100-day trend rule of [Backtest
 a signal on OHLCV bars](../backtest/ohlcv.md), long or short one times equity
 on BTC, after a 0.1% fee and 0.05% slippage; `Return` turns the equity
 `1 + out[:, 0]` into simple returns. Each ratio uses the last 365 daily
-returns, and `periods_per_year=365` annualizes it for a market that trades
-every day. The first value comes after a full window.
+returns. `periods_per_year=365` annualizes the Sharpe, Sortino, Calmar and
+information ratios for a market that trades every day; the Omega ratio takes
+no `periods_per_year` and is not annualized. The first value comes after a full window.
 
 The Sharpe ratio divides the mean return by its standard deviation. The
 Sortino ratio divides it by the downside deviation, the spread of the returns
@@ -72,5 +73,5 @@ rule. A single Sharpe ratio over the whole sample hides this.
 
 - [`RollingSharpe`](../../functions_fin/RollingSharpe.md), [`RollingSortino`](../../functions_fin/RollingSortino.md), [`RollingCalmar`](../../functions_fin/RollingCalmar.md): the formulas and the warmup.
 - [`RollingOmega`](../../functions_fin/RollingOmega.md), [`RollingInfoRatio`](../../functions_fin/RollingInfoRatio.md): a threshold for Omega, and active returns.
-- [Measure tail risk with rolling CVaR and downside deviation](tail-risk.md): the losses behind the ratios.
+- [Measure tail risk with rolling CVaR and downside deviation (expected shortfall)](tail-risk.md): the losses behind the ratios.
 - [Correct a Sharpe ratio for the number of strategies tried (deflated Sharpe ratio)](../not-luck/deflated-sharpe.md): when the best of many is not luck.

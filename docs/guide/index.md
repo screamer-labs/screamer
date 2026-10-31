@@ -21,7 +21,7 @@ Each chapter answers a few tasks with a short, runnable example. Read in order, 
 ## Part 2: Build a strategy
 
 10. [Turn a signal into a position](signal-to-position/index.md): Sign of a signal, entry and exit bands (hysteresis, Schmitt trigger), holding periods, and volatility position sizing.
-11. [Backtest a strategy](backtest/index.md): Backtests on bars, tick trades and bid-ask quotes (L1), the backtest report, fees and slippage, limit and stop orders, volume caps (participation), portfolio reports, drawdown, and liquidation distance.
+11. [Backtest a strategy](backtest/index.md): Backtests on bars, tick trades and bid-ask quotes (L1), the backtest report, fees and slippage, limit and market orders, volume caps (participation), portfolio reports, drawdown, and liquidation distance.
 12. [Measure performance and risk](performance/index.md): Rolling Sharpe, Sortino, Calmar and Omega ratios, the information ratio, CVaR (expected shortfall) and downside deviation, beta and alpha against a benchmark, and multi-factor regressions.
 13. [Strategy templates](strategies/index.md): Trend following, breakouts, RSI and Bollinger Band reversion, pairs trading, cross-sectional momentum, funding carry, and volatility targeting.
 14. [Stops and exits](stops/index.md): Stop-loss, take-profit and trailing-stop exits on a backtest.

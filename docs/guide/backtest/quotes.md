@@ -77,8 +77,8 @@ A bid that already crosses the market when it arrives (`bid_price >=
 market_ask`) is a market order: it fills at the ask and pays `taker_fee`. The
 ask side is the mirror image.
 
-Resting at the touch avoids most of the fees and the half spread, but its
-fills come when the price has moved through the order. A quote built from
+Resting at the touch avoids the taker fee, but its fills come when the price
+has already moved through the order, so each one starts at a loss to the mid. A quote built from
 trades only changes when someone trades, so these fills are a rough guide;
 with real quotes, prefer the quotes together with the trades, as in the
 notebook below.

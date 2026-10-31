@@ -112,7 +112,7 @@ parts:
     deeper: []
   - slug: backtest
     title: Backtest a strategy
-    line: Backtests on bars, tick trades and bid-ask quotes (L1), the backtest report, fees and slippage, limit and stop orders, volume caps (participation), portfolio reports, drawdown, and liquidation distance.
+    line: Backtests on bars, tick trades and bid-ask quotes (L1), the backtest report, fees and slippage, limit and market orders, volume caps (participation), portfolio reports, drawdown, and liquidation distance.
     tasks:
     - guide/backtest/ohlcv
     - guide/backtest/costs

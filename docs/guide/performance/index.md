@@ -7,9 +7,9 @@ against a benchmark, and regress returns on several factors at once.
 <!-- tasks:start -->
 
 1. [Compute a rolling Sharpe, Sortino and Calmar ratio](rolling-ratios.md)
-2. [Measure tail risk with rolling CVaR and downside deviation](tail-risk.md)
+2. [Measure tail risk with rolling CVaR and downside deviation (expected shortfall)](tail-risk.md)
 3. [Estimate beta and alpha against a benchmark](beta-alpha.md)
-4. [Regress returns on several factors in a moving window](factor-regression.md)
+4. [Regress returns on several factors in a moving window (rolling multi-factor regression)](factor-regression.md)
 
 ```{toctree}
 :hidden:

@@ -5,7 +5,7 @@ kernelspec:
   display_name: Python 3
 ---
 
-# Measure tail risk with rolling CVaR and downside deviation
+# Measure tail risk with rolling CVaR and downside deviation (expected shortfall)
 
 `RollingCVaR` gives the average loss on the worst days of a trailing window
 (expected shortfall), `RollingDownsideDeviation` the spread of the returns

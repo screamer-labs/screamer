@@ -5,7 +5,7 @@ kernelspec:
   display_name: Python 3
 ---
 
-# Regress returns on several factors in a moving window
+# Regress returns on several factors in a moving window (rolling multi-factor regression)
 
 `RollingMultiRegression` fits an asset's returns on several factor returns by
 least squares over a trailing window and gives, on every row, the

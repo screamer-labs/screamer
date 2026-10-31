@@ -76,5 +76,5 @@ before the margin runs out.
 
 - [`LiquidationDistance`](../../functions_fin/LiquidationDistance.md): the accounting of entries, increases, and reductions.
 - [`Drawdown`](../../functions_fin/Drawdown.md), [`MaxDrawdown`](../../functions_fin/MaxDrawdown.md), [`RollingMaxDrawdown`](../../functions_fin/RollingMaxDrawdown.md): the drawdown now, the worst so far, and the worst in a window.
-- [Measure tail risk with rolling CVaR and downside deviation](../performance/tail-risk.md): risk measured on returns.
+- [Measure tail risk with rolling CVaR and downside deviation (expected shortfall)](../performance/tail-risk.md): risk measured on returns.
 - [Run functions in a live event loop](../live/live-loop.md): update a strategy one bar at a time.

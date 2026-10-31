@@ -5,7 +5,7 @@ kernelspec:
   display_name: Python 3
 ---
 
-# Backtest with limit and stop orders
+# Backtest with limit and market orders
 
 `BacktestOHLCOrders` takes a bid and an ask for each bar, each a price and a
 size, and fills them as resting limit orders when the bar's range reaches

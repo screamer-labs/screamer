@@ -72,5 +72,5 @@ average return, so a large alpha in one window says little about the next.
 - [`RollingBeta`](../../functions_fin/RollingBeta.md), [`RollingAlpha`](../../functions_fin/RollingAlpha.md): the formulas and the order of the inputs.
 - [`EwBeta`](../../functions_ew/EwBeta.md): `span`, `halflife`, and when the estimate is NaN.
 - [`RollingTLSBeta`](../../functions_fin/RollingTLSBeta.md): total least squares for hedge ratios.
-- [Regress returns on several factors in a moving window](factor-regression.md): more than one benchmark at once.
+- [Regress returns on several factors in a moving window (rolling multi-factor regression)](factor-regression.md): more than one benchmark at once.
 - [Trade a pair](../strategies/pairs.md): a hedge ratio in use.

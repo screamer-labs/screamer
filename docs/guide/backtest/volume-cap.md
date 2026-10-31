@@ -5,7 +5,7 @@ kernelspec:
   display_name: Python 3
 ---
 
-# Cap trades at a share of each bar's volume
+# Cap trades at a share of each bar's volume (participation limit)
 
 `BacktestOHLCVTarget` fills at most `max_participation` times a bar's volume
 on that bar and carries the rest of the order to the next bars, so a large

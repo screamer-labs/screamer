@@ -10,8 +10,8 @@ portfolio as one book, and watch the drawdown and the distance to liquidation.
 
 1. [Backtest a signal on OHLCV bars](ohlcv.md)
 2. [See how fees and slippage change a result](costs.md)
-3. [Backtest with limit and stop orders](limit-stop-orders.md)
-4. [Cap trades at a share of each bar's volume](volume-cap.md)
+3. [Backtest with limit and market orders](limit-stop-orders.md)
+4. [Cap trades at a share of each bar's volume (participation limit)](volume-cap.md)
 5. [Backtest on tick trades instead of bars](tick-trades.md)
 6. [Backtest against bid and ask quotes (L1)](quotes.md)
 7. [Report a portfolio backtest as one book](portfolio-report.md)

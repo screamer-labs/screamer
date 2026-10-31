@@ -20,7 +20,7 @@
 **Part 2: Build a strategy**
 
 10. :doc:`Turn a signal into a position <guide/signal-to-position/index>`: Sign of a signal, entry and exit bands (hysteresis, Schmitt trigger), holding periods, and volatility position sizing.
-11. :doc:`Backtest a strategy <guide/backtest/index>`: Backtests on bars, tick trades and bid-ask quotes (L1), the backtest report, fees and slippage, limit and stop orders, volume caps (participation), portfolio reports, drawdown, and liquidation distance.
+11. :doc:`Backtest a strategy <guide/backtest/index>`: Backtests on bars, tick trades and bid-ask quotes (L1), the backtest report, fees and slippage, limit and market orders, volume caps (participation), portfolio reports, drawdown, and liquidation distance.
 12. :doc:`Measure performance and risk <guide/performance/index>`: Rolling Sharpe, Sortino, Calmar and Omega ratios, the information ratio, CVaR (expected shortfall) and downside deviation, beta and alpha against a benchmark, and multi-factor regressions.
 13. :doc:`Strategy templates <guide/strategies/index>`: Trend following, breakouts, RSI and Bollinger Band reversion, pairs trading, cross-sectional momentum, funding carry, and volatility targeting.
 14. :doc:`Stops and exits <guide/stops/index>`: Stop-loss, take-profit and trailing-stop exits on a backtest.
