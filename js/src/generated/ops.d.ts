@@ -264,7 +264,7 @@ export interface BacktestL1OrdersOptions {
   makerFee?: number;
   /** Fractional fee on a taker fill (an order that crosses the spread on arrival). @defaultValue `0.0` */
   takerFee?: number;
-  /** Fill rule. "breach" (conservative) fills only when the market trades through your quote; "touch" (optimistic) also fills a participation partial once per lock episode. @defaultValue `"breach"` */
+  /** Fill rule. "breach" (conservative) fills only when the market trades through your quote; "touch" (optimistic) also fills a participation partial when the market locks your resting quote. @defaultValue `"breach"` */
   fill?: string;
   /** Fraction of the locked ask/bid size captured on a touch fill (front-of-queue at 1.0). @defaultValue `1.0` */
   participationRatio?: number;
@@ -298,7 +298,7 @@ export declare function BacktestL1Orders(options: BacktestL1OrdersOptions): Scre
  *
  * @param makerFee Fractional fee on a maker fill; negative for a rebate.
  * @param takerFee Fractional fee on a taker fill (an order that crosses the spread on arrival).
- * @param fill Fill rule. "breach" (conservative) fills only when the market trades through your quote; "touch" (optimistic) also fills a participation partial once per lock episode.
+ * @param fill Fill rule. "breach" (conservative) fills only when the market trades through your quote; "touch" (optimistic) also fills a participation partial when the market locks your resting quote.
  * @param participationRatio Fraction of the locked ask/bid size captured on a touch fill (front-of-queue at 1.0).
  * @param tickSize Instrument price grid (0 = continuous). A marketable order walks one tick past the displayed quote for the size beyond it; slippage offsets round up to whole ticks.
  * @param minPosition Inventory floor; sell fills are capped so the position never falls below it. The default, -inf, is no bound.

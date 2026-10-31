@@ -82,10 +82,10 @@ immediately as a taker at the best market price, capped at its limit, and pays
 `taker_fee`. The market price is the
 opposite touch for L1 (`bid_price >= market_ask` or `ask_price <= market_bid`),
 the print for trades (`bid_price > trade_price`), and the open for OHLC bars
-(`bid_price > open`). An order that rests unchanged fills as a maker at its own
-price when the market reaches it. On OHLC bars every quote is placed at the open,
-so a limit that the bar gaps through also fills at the open as a taker, and every
-fill before slippage lies within the bar's range.
+(`bid_price > open`). An order that rests unchanged fills as a maker at its
+own price when the market reaches it. On OHLC bars every quote is placed at the
+open, so a limit that the bar gaps through also fills at the open as a taker,
+and every fill before slippage lies within the bar's range.
 
 Input arities by engine:
 
@@ -123,8 +123,8 @@ For `BacktestOHLCTarget`, the target decided on bar t executes as a market order
 on bar t+1 at the open by default (causal deferral; no manual lag is needed).
 `fill_at` and `delay` change the price and the bar, as described below. For
 `BacktestOHLCOrders`, a NaN bid or ask price is a market order that fills at the
-bar's open; a finite bid above the open (ask below it) also fills at the open, as
-a taker, and any other finite price rests and waits for the bar's range.
+bar's open; a finite bid above the open (ask below it) also fills at the open,
+as a taker, and any other finite price rests and waits for the bar's range.
 
 ## Execution price, slippage, and cost
 
@@ -151,9 +151,9 @@ for L1 the touch-and-walk average. One number is read in one unit, chosen with
 
 `tick_size` is the instrument's price grid (0 means continuous prices). When it is
 set, the offset rounds up to whole ticks. A resting limit order never slips: it
-fills at its own limit price. A marketable limit order slips, and neither the walk
-nor the slippage moves its fill beyond its limit. The examples at the end of this page show both
-styles of call.
+fills at its own limit price. A marketable limit order slips, and neither the
+walk nor the slippage moves its fill beyond its limit. The examples at the end
+of this page show both styles of call.
 
 The `cost` column is the friction of each fill:
 `dpos * (fill - reference) * multiplier` plus fees, where a resting limit fill's

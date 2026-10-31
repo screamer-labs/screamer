@@ -114,10 +114,10 @@ Fill logic per event:
   previous event, its price changed, or its previous order was fully filled. A
   side with no room under its position limit counts as not quoted, and a size
   change alone is not an arrival. So a bid that a print sweeps fully, quoted
-  again at the same price while prints stay below it, fills as a taker. An arriving
-  bid above the print is marketable: it fills `min(bid_size, room)` as a taker at
-  the print plus the `slippage` offset, capped at `bid_price`, and pays
-  `taker_fee`. An arriving bid exactly at the print rests.
+  again at the same price while prints stay below it, fills as a taker. An
+  arriving bid above the print is marketable: it fills `min(bid_size, room)`
+  as a taker at the print plus the `slippage` offset, capped at `bid_price`,
+  and pays `taker_fee`. An arriving bid exactly at the print rests.
 - **Sell side.** Symmetric for a resting ask against buy-prints.
 - **Market orders.** A `NaN` bid price is treated as a market order (+inf limit),
   which sweeps on any print; that fill uses `taker_fee`. Pass `MARKET` (which

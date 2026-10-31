@@ -21,8 +21,9 @@ Unreleased
   capped at its limit, and pays `taker_fee`. An order arrives when its side
   was not quoted on the previous event, its price changed, or its previous
   order was fully filled; a side with no room under its position limit counts
-  as not quoted, and a size change alone is not an arrival. Before, such an order filled as a maker at its own limit,
-  which could lie outside the market.
+  as not quoted, and a size change alone is not an arrival. Before, such an
+  order filled as a maker at its own limit, which could lie outside the
+  market.
   - `BacktestOHLCOrders`: each bar's quote is placed at the open, so a bid
     above the open (an ask below it) fills at the open. A bid at 110 on a bar
     with open 100, high 105 and low 95 filled at 110 and now fills at 100. A
@@ -39,6 +40,11 @@ Unreleased
     mode, is now a taker in both. A side that rested at a finite price and
     switched to `+inf` or `-inf` filled at an infinite price (NaN equity) and
     now fills as a market order.
+  - `BacktestL1Orders` with `fill="touch"`: a lock still gives a maker
+    partial. If that fill covers the whole remaining order, the order is
+    gone, so the same quote on the next event, with the lock still in place,
+    is a new order and fills as a taker; before, it filled only once per
+    lock. A partial that leaves size keeps resting.
 
   Resting, unchanged orders keep the maker behaviour. Target engines are
   unchanged.

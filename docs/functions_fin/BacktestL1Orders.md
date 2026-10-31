@@ -35,7 +35,8 @@ parameters:
   type: str
   default: breach
   description: Fill rule. "breach" (conservative) fills only when the market trades through
-    your quote; "touch" (optimistic) also fills a participation partial once per lock episode.
+    your quote; "touch" (optimistic) also fills a participation partial when the market locks
+    your resting quote.
 - name: participation_ratio
   type: float
   default: 1.0
@@ -110,21 +111,26 @@ fills.
 Fills follow where the market moves relative to your quote. When the market
 `ask` trades through `bid_price` (`market_ask < bid_price`), the resting buy is
 run over and fills its full remaining size at `bid_price`, a maker fill paying
-`maker_fee`. In `"touch"` mode a lock (`market_ask == bid_price`) also fills
-once on entry, for `min(remaining, participation_ratio * market_ask_size)` at
-`bid_price`; further size changes at the same locked price are ignored (a static
-quote cannot be told from a cancel, so it does not re-fill). The `"breach"` default
-keeps only the through case. These maker fills apply to a resting order: one
-quoted at the same price on the previous event. A bid arrives when its side was
-not quoted on the previous event, its price changed, or its previous order was
-fully filled. A side with no room under its position limit counts as not quoted,
-and a size change alone is not an arrival. An arriving bid at or above the market ask
-(`bid_price >= market_ask`) is a taker in both fill modes: it fills its full size
-at the ask, walking one `tick_size` for the part beyond the displayed size, and
-pays `taker_fee`. Neither the walk nor the slippage moves the fill beyond
-`bid_price`. The sell side is symmetric. Fills are capped so the position stays
-within `[min_position, max_position]` (unbounded by default). Positions mark to the
-mid.
+`maker_fee`. In `"touch"` mode a lock (`market_ask == bid_price`) gives a maker
+partial on the event the lock starts, for
+`min(remaining, participation_ratio * market_ask_size)` at `bid_price`. A
+partial that leaves size keeps resting, and size changes at the same locked
+price do not fill it again (a static quote cannot be told from a cancel). If
+the fill covers the whole remaining order, the order is gone: repeating the
+same quote while the lock persists is a new order and fills as a taker. The
+`"breach"` default keeps only the through case.
+
+These maker fills apply to a resting order: one quoted at the same price on the
+previous event. A bid arrives when its side was not quoted on the previous
+event, its price changed, or its previous order was fully filled. A side with
+no room under its position limit counts as not quoted, and a size change alone
+is not an arrival. An arriving bid at or above the market ask
+(`bid_price >= market_ask`) is a taker in both fill modes: it fills its full
+size at the ask, walking one `tick_size` for the part beyond the displayed
+size, and pays `taker_fee`. Neither the walk nor the slippage moves the fill
+beyond `bid_price`. The sell side is symmetric. Fills are capped so the
+position stays within `[min_position, max_position]` (unbounded by default).
+Positions mark to the mid.
 
 Inputs are `(bid_price, bid_size, ask_price, ask_size, market_bid, market_ask,
 market_bid_size, market_ask_size)`. It emits the four positional columns shared by
@@ -147,7 +153,7 @@ fills rather than quote-level heuristics.
 Quotes-only fills are a heuristic: a size change at a static price is fill,
 cancel, and re-quote all at once, and cannot be told apart. The `"breach"` default
 fills only when the market trades through your quote, so it can under-fill.
-`"touch"` adds a participation partial once per lock episode and can over-fill
+`"touch"` adds a participation partial when a lock starts and can over-fill
 when a lock's size came from cancels rather than trades. Prefer
 [`BacktestL1TradesOrders`](BacktestL1TradesOrders.md) when a trade feed is available: real
 trades drive the fills and remove this ambiguity. Orders are counterfactual (zero
