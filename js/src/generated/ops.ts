@@ -488,7 +488,7 @@ export function BacktestCarry(multiplier?: any): ScreamerOp {
 export interface BacktestL1OrdersOptions {
   /** Fractional fee on a maker fill; negative for a rebate. @defaultValue `0.0` */
   makerFee?: number;
-  /** Fractional fee on a taker fill (a quote submitted already crossing the spread). @defaultValue `0.0` */
+  /** Fractional fee on a taker fill (an order that crosses the spread on arrival). @defaultValue `0.0` */
   takerFee?: number;
   /** Fill rule. "breach" (conservative) fills only when the market trades through your quote; "touch" (optimistic) also fills a participation partial once per lock episode. @defaultValue `"breach"` */
   fill?: string;
@@ -523,7 +523,7 @@ export function BacktestL1Orders(options: BacktestL1OrdersOptions): ScreamerOp;
  * Backtest a two-sided market maker against a top-of-book (L1) quote stream.
  *
  * @param makerFee Fractional fee on a maker fill; negative for a rebate.
- * @param takerFee Fractional fee on a taker fill (a quote submitted already crossing the spread).
+ * @param takerFee Fractional fee on a taker fill (an order that crosses the spread on arrival).
  * @param fill Fill rule. "breach" (conservative) fills only when the market trades through your quote; "touch" (optimistic) also fills a participation partial once per lock episode.
  * @param participationRatio Fraction of the locked ask/bid size captured on a touch fill (front-of-queue at 1.0).
  * @param tickSize Instrument price grid (0 = continuous). A marketable order walks one tick past the displayed quote for the size beyond it; slippage offsets round up to whole ticks.
@@ -672,7 +672,7 @@ export function BacktestL1Target(takerFee?: any, tickSize?: any, minPosition?: a
 export interface BacktestL1TradesOrdersOptions {
   /** Fractional fee on a maker fill; negative for a rebate. @defaultValue `0.0` */
   makerFee?: number;
-  /** Fractional fee on a taker fill (a quote submitted already crossing the spread). @defaultValue `0.0` */
+  /** Fractional fee on a taker fill (an order that crosses the spread on arrival). @defaultValue `0.0` */
   takerFee?: number;
   /** Fill rule for a trade at your price. "touch" fills a participation partial; "breach" fills only on a trade through. @defaultValue `"touch"` */
   fill?: string;
@@ -707,7 +707,7 @@ export function BacktestL1TradesOrders(options: BacktestL1TradesOrdersOptions): 
  * Backtest a two-sided market maker against top-of-book quotes with a trade tape driving the fills, into a costed equity curve.
  *
  * @param makerFee Fractional fee on a maker fill; negative for a rebate.
- * @param takerFee Fractional fee on a taker fill (a quote submitted already crossing the spread).
+ * @param takerFee Fractional fee on a taker fill (an order that crosses the spread on arrival).
  * @param fill Fill rule for a trade at your price. "touch" fills a participation partial; "breach" fills only on a trade through.
  * @param participationRatio Fraction of an at-price trade's size captured (front-of-queue at 1.0).
  * @param tickSize Instrument price grid (0 = continuous). A marketable order walks one tick past the displayed quote for the size beyond it; slippage offsets round up to whole ticks.
@@ -1460,7 +1460,7 @@ export function BacktestStats(periodsPerYear?: any): ScreamerOp {
 export interface BacktestTradesOrdersOptions {
   /** Fractional fee on a maker fill; negative for a rebate. @defaultValue `0.0` */
   makerFee?: number;
-  /** Fractional fee on a taker fill (a market order that sweeps any print). @defaultValue `0.0` */
+  /** Fractional fee on a taker fill (a market order, or a bid above the print or an ask below it on arrival). @defaultValue `0.0` */
   takerFee?: number;
   /** Fill rule for a trade at your price. "touch" fills a participation partial; "breach" fills only on a trade through. @defaultValue `"touch"` */
   fill?: string;
@@ -1495,7 +1495,7 @@ export function BacktestTradesOrders(options: BacktestTradesOrdersOptions): Scre
  * Backtest a two-sided order poster against the trade tape, filling resting quotes when prints cross them, into a costed equity curve.
  *
  * @param makerFee Fractional fee on a maker fill; negative for a rebate.
- * @param takerFee Fractional fee on a taker fill (a market order that sweeps any print).
+ * @param takerFee Fractional fee on a taker fill (a market order, or a bid above the print or an ask below it on arrival).
  * @param fill Fill rule for a trade at your price. "touch" fills a participation partial; "breach" fills only on a trade through.
  * @param participationRatio Fraction of an at-price trade's size captured (front-of-queue at 1.0).
  * @param tickSize Instrument price grid (0 = continuous). Slippage offsets round up to whole ticks; the "ticks" slippage unit counts in this step.

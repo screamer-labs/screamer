@@ -103,7 +103,14 @@ bar the strategy posts a resting bid `(bid_price, bid_size)` and a resting ask
 `(ask_price, ask_size)`. Both sides execute on the same bar (same-bar fill model,
 no deferral), so the position is whatever the bar's range allows.
 
-**Passive fills.** A resting buy fills when the bar's low reaches the bid price.
+**Crossing fills.** Each bar's quote is placed at the open. A bid above the open
+is marketable: it fills at the open plus the `slippage` offset, capped at the bid,
+and pays `taker_fee`. This includes a resting bid that the bar gaps down through.
+The sell side mirrors for an ask below the open. Every fill before slippage lies
+within the bar's range.
+
+**Passive fills.** A bid at or below the open rests and fills when the bar's low
+reaches the bid price.
 In `"touch"` mode (default) the fill triggers when `low <= bid_price`; in
 `"breach"` mode only when `low < bid_price` (the bar must trade strictly through).
 The fill quantity is `min(bid_size, participation_ratio * bid_size, room)`, where
@@ -126,8 +133,8 @@ of the bar fields (open/high/low/close) skips the bar and returns an all-NaN row
 a NaN or zero `bid_size` / `ask_size` suppresses that side entirely.
 [`backtest_report`](backtest_report.md) summarizes the resulting equity curve.
 
-The `cost` of a resting fill is its fee alone; a market order's cost is its
-slippage from the open plus the taker fee.
+The `cost` of a resting fill is its fee alone; a market or crossing order's cost
+is its slippage from the open plus the taker fee.
 
 ## Limitations
 

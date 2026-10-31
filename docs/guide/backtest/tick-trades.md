@@ -61,8 +61,15 @@ an ask when it is short, at the price of the previous print, with size 0.2 BTC
 and the position held between -0.1 and 0.1. With the default `fill="touch"`, a
 print at the bid price fills `participation_ratio` times the print's size, up
 to the bid's size and the room left; a print below the bid fills the bid's
-whole size, up to the room left. Both fill at the bid price, and the ask is
-the mirror image. These are maker fills, which pay `maker_fee`, here 0.
+whole size, up to the room left. Both fill at the bid price, as maker fills
+that pay `maker_fee`, here 0, and the ask is the mirror image.
+
+These maker fills apply to a bid that rests at the same price as on the print
+before. A bid arrives when it is new or its price changed, and an arriving bid
+above the print is marketable: it fills its whole size at the print, as a
+taker that pays `taker_fee`, here 0. The bid here follows the previous print,
+so it re-prices whenever the price moves, and 8 of the 77 fills are of this
+kind.
 
 The market orders lose more, mostly to their fees: 0.05% of 0.1 BTC is about
 1.5 USD, and a reversal trades 0.2 BTC. The resting orders pay no fee, but

@@ -16,6 +16,29 @@ Unreleased
   are unchanged: an L1 taker fill is still measured against the mid. Equity,
   pnl and position are unchanged; `cum_cost` and `total_cost` in
   `backtest_report` change.
+* **Backtest orders that cross the market:** an order that crosses the market
+  when it arrives now fills at once as a taker at the best market price,
+  capped at its limit, and pays `taker_fee`. A side arrives when it was not
+  quoted on the previous event or its price changed; a size change alone is
+  not an arrival. Before, such an order filled as a maker at its own limit,
+  which could lie outside the market.
+  - `BacktestOHLCOrders`: each bar's quote is placed at the open, so a bid
+    above the open (an ask below it) fills at the open. A bid at 110 on a bar
+    with open 100, high 105 and low 95 filled at 110 and now fills at 100. A
+    bid at 100 on a bar that gaps down to open 95 (high 97, low 93) filled at
+    100 and now fills at 95. Every fill before slippage lies within the bar.
+  - `BacktestTradesOrders`: a new or re-priced bid at 102 with a print at 100
+    filled at 102 and now fills at 100.
+  - `BacktestL1Orders` and `BacktestL1TradesOrders`: a resting bid at 99
+    re-priced to 102 against a market of 100 / 101 filled as a maker at 102
+    and now fills at 101 as a taker. A new bid equal to the ask, which did not
+    fill in `fill="breach"` mode and filled a maker partial in `fill="touch"`
+    mode, is now a taker in both. A side that rested at a finite price and
+    switched to `+inf` or `-inf` filled at an infinite price (NaN equity) and
+    now fills as a market order.
+
+  Resting, unchanged orders keep the maker behaviour. Target engines are
+  unchanged.
 
 3.9.1 - 2026-10-28
 ------------------

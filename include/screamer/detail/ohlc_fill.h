@@ -15,11 +15,14 @@
 namespace screamer { namespace detail {
 
     // OHLCFill: shared fill core for OHLC-bar backtest engines. Posts a two-sided
-    // quote each bar: a resting bid fills when the bar's low reaches it (touch:
+    // quote at each bar's open: a bid above the open is marketable and fills at
+    // the open moved by the slippage model, capped at the bid, paying taker_fee;
+    // otherwise it rests and fills when the bar's low reaches it (touch:
     // low <= bid, breach: low < bid) for min(bid_size, participation * bid_size,
-    // room) at the bid, paying maker_fee; a marketable bid (market_limit returns
-    // +inf) fills at the caller's `market_ref` price (the open, unless the caller
-    // chooses another bar price) moved by the slippage model, paying taker_fee.
+    // room) at the bid, paying maker_fee. So every fill before slippage lies
+    // within [low, high]. A market bid (market_limit returns +inf) fills at the
+    // caller's `market_ref` price (the open, unless the caller chooses another
+    // bar price) moved by the slippage model, paying taker_fee.
     // The sell side is symmetric on the high. Fills are capped so the position
     // stays in [min_pos, max_pos]. Cost is booked against the fill's reference:
     // `market_ref` for a market fill and the limit price for a resting fill, so
@@ -93,6 +96,11 @@ namespace screamer { namespace detail {
                     dpos = std::min(std::min(bid_size, participation_ * bid_size), room);
                     reference = market_ref;
                     fill_price = slippage_.buy(market_ref); fee = taker_fee_; taker = true;
+                } else if (open < limit) {                     // crossing at the open: taker
+                    dpos = std::min(std::min(bid_size, participation_ * bid_size), room);
+                    reference = open;
+                    fill_price = std::min(slippage_.buy(open), limit);
+                    fee = taker_fee_; taker = true;
                 } else {                                       // resting limit buy
                     const bool hit = breach_ ? (low < limit) : (low <= limit);
                     if (hit) {
@@ -121,6 +129,11 @@ namespace screamer { namespace detail {
                     dpos = -std::min(std::min(ask_size, participation_ * ask_size), room);
                     reference = market_ref;
                     fill_price = slippage_.sell(market_ref); fee = taker_fee_; taker = true;
+                } else if (open > limit) {                     // crossing at the open: taker
+                    dpos = -std::min(std::min(ask_size, participation_ * ask_size), room);
+                    reference = open;
+                    fill_price = std::max(slippage_.sell(open), limit);
+                    fee = taker_fee_; taker = true;
                 } else {                                       // resting limit sell
                     const bool hit = breach_ ? (high > limit) : (high >= limit);
                     if (hit) {

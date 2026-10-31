@@ -17,6 +17,9 @@ namespace screamer {
     // BacktestL1TradesOrders: 10 -> 4. The preferred market-making engine: quotes mark the
     // position and seed context, TRADES drive passive fills (unambiguous execution
     // events), and a quote cross with no explaining trade is the run-over fallback.
+    // A side arrives when it was not quoted on the previous event (or its last
+    // order was consumed) or its price changed; an arriving bid at or above the
+    // market ask is a taker from the touch, before any print is considered.
     // Inputs (bid_price, bid_size, ask_price, ask_size, market_bid, market_ask,
     // market_bid_size, market_ask_size, trade_price, trade_size). Trades are NOT
     // forward-filled: a NaN trade is a quote-only update (mark, no fill), which is
@@ -54,7 +57,11 @@ namespace screamer {
             reset();
         }
 
-        void reset() override { account_.reset(); bid_passive_ = false; ask_passive_ = false; }
+        void reset() override {
+            account_.reset();
+            bid_prev_ = std::numeric_limits<double>::quiet_NaN();
+            ask_prev_ = std::numeric_limits<double>::quiet_NaN();
+        }
 
         ResultTuple call(const InputArray& inputs) override {
             // Own quote (strategy's resting orders).
@@ -80,7 +87,7 @@ namespace screamer {
             const double room_buy = std::max(max_position_ - account_.position(), 0.0);
             double b_dpos = 0.0, b_price = my_bid; bool b_taker = false;
             resolve_side(true, my_bid, my_bid_size, market_ask, market_ask_size, room_buy,
-                         has_trade, trade_price, trade_size, bid_passive_,
+                         has_trade, trade_price, trade_size, bid_prev_,
                          b_dpos, b_price, b_taker);
             if (b_dpos != 0.0) {
                 auto [e, p, pos, c] = account_.step(mid, b_dpos, b_price,
@@ -95,7 +102,7 @@ namespace screamer {
             const double room_sell = std::max(account_.position() - min_position_, 0.0);
             double s_dpos = 0.0, s_price = my_ask; bool s_taker = false;
             resolve_side(false, my_ask, my_ask_size, market_bid, market_bid_size, room_sell,
-                         has_trade, trade_price, trade_size, ask_passive_,
+                         has_trade, trade_price, trade_size, ask_prev_,
                          s_dpos, s_price, s_taker);
             if (s_dpos != 0.0) {
                 auto [e, p, pos, c] = account_.step(mid, s_dpos, s_price,
@@ -114,31 +121,39 @@ namespace screamer {
         }
 
     private:
-        // Passive fills come from the trade tape; a quote cross with no explaining
-        // trade is the run-over fallback (maker at my_price).
+        // An arriving marketable order is a taker from the touch. Otherwise passive
+        // fills come from the trade tape, and a quote cross with no explaining trade
+        // is the run-over fallback (maker at my_price). prev_price is the price of
+        // the order still resting from the previous event, NaN if there is none.
         void resolve_side(bool buy, double my_price, double my_size,
                           double opp_price, double opp_size, double room,
                           bool has_trade, double trade_price, double trade_size,
-                          bool& passive_prev,
+                          double& prev_price,
                           double& dpos, double& fill_price, bool& is_taker) {
+            const double nan = std::numeric_limits<double>::quiet_NaN();
             if (isnan2(my_price) || isnan2(my_size) || my_size <= 0.0 || room <= 0.0) {
-                passive_prev = false; return;
+                prev_price = nan; return;
             }
             const double remaining = std::min(my_size, room);
+            const bool arrival = !(my_price == prev_price);   // new, re-priced or re-entered
             const bool quote_through = buy ? (opp_price < my_price) : (opp_price > my_price);
 
-            // Submitted already crossing (marketable on first appearance): taker,
+            // Marketable on arrival (crossing or locking the opposite touch): taker,
             // takes the displayed size at the touch, walks one tick_size for the
-            // rest, then the slippage model moves the average, regardless of any print.
-            if (quote_through && !passive_prev) {
+            // rest, then the slippage model moves the average, never beyond the
+            // limit, regardless of any print.
+            if (arrival && (quote_through || opp_price == my_price)) {
                 const double disp = std::min(remaining, opp_size);
                 const double over = remaining - disp;
                 const double tick = slippage_.tick_size();
-                const double step = buy ? tick : -tick;
-                const double vwap = (disp * opp_price + over * (opp_price + step)) / remaining;
+                const double walk = buy ? std::min(opp_price + tick, my_price)
+                                        : std::max(opp_price - tick, my_price);
+                const double vwap = (disp * opp_price + over * walk) / remaining;
+                const double fill = slippage_.fill(vwap, buy);
                 dpos = buy ? remaining : -remaining;
-                fill_price = slippage_.fill(vwap, buy); is_taker = true;
-                passive_prev = false;
+                fill_price = buy ? std::min(fill, my_price) : std::max(fill, my_price);
+                is_taker = true;
+                prev_price = nan;                              // order consumed
                 return;
             }
 
@@ -151,17 +166,17 @@ namespace screamer {
                 if (filled > 0.0) {
                     dpos = buy ? filled : -filled; fill_price = my_price; is_taker = false;
                 }
-                passive_prev = !quote_through;                 // still resting unless the quote also crossed
+                prev_price = quote_through ? nan : my_price;   // still resting unless the quote also crossed
                 return;
             }
 
             // No trade this event: a quote cross of a resting order is the run-over
-            // fallback (maker at my_price); otherwise stay passive.
-            if (quote_through) {                               // passive_prev is true here
+            // fallback (maker at my_price); otherwise stay resting.
+            if (quote_through) {
                 dpos = buy ? remaining : -remaining; fill_price = my_price; is_taker = false;
-                passive_prev = false;
+                prev_price = nan;
             } else {
-                passive_prev = true;                           // not crossed: resting
+                prev_price = my_price;
             }
         }
 
@@ -182,7 +197,8 @@ namespace screamer {
         double participation_;
         detail::Slippage slippage_;
         double max_position_, min_position_;
-        bool bid_passive_ = false, ask_passive_ = false;
+        double bid_prev_ = std::numeric_limits<double>::quiet_NaN();   // resting bid price, NaN if none
+        double ask_prev_ = std::numeric_limits<double>::quiet_NaN();
         detail::PnLAccount account_;
     };
 

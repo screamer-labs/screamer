@@ -72,8 +72,18 @@ direction internally.
 **Orders** engines receive `(bid_price, bid_size, ask_price, ask_size, <market cols>)`.
 The strategy posts a two-sided resting quote each event. Either or both sides can
 fill on the same event. Setting a side's size to zero or its price to NaN disables
-that side. A quote submitted already crossing the spread (`bid_price >= market_ask`
-or `ask_price <= market_bid`) is treated as a taker and fills immediately.
+that side.
+
+A side arrives on an event when it was not quoted on the previous event or its
+price changed. A size change alone is not an arrival. An arriving order that
+crosses the market is marketable: it fills immediately as a taker at the best
+market price, capped at its limit, and pays `taker_fee`. The market price is the
+opposite touch for L1 (`bid_price >= market_ask` or `ask_price <= market_bid`),
+the print for trades (`bid_price > trade_price`), and the open for OHLC bars
+(`bid_price > open`). An order that rests unchanged fills as a maker at its own
+price when the market reaches it. On OHLC bars every quote is placed at the open,
+so a limit that the bar gaps through also fills at the open as a taker, and every
+fill before slippage lies within the bar's range.
 
 Input arities by engine:
 
@@ -99,7 +109,7 @@ a marketable order.
 
 | Price value                | Meaning                                                     |
 |:---------------------------|:------------------------------------------------------------|
-| Finite number              | Resting limit order at that price (maker fill, `maker_fee`) |
+| Finite number              | Limit order at that price: a maker fill (`maker_fee`) while it rests; marketable on arrival = taker (`taker_fee`) |
 | `+inf` / `screamer.MARKET` | Market buy (taker); never-fill sell                         |
 | `-inf`                     | Never-fill buy; market sell (taker)                         |
 | `NaN`                      | Side-agnostic market order (taker, regardless of direction) |
@@ -111,7 +121,8 @@ For `BacktestOHLCTarget`, the target decided on bar t executes as a market order
 on bar t+1 at the open by default (causal deferral; no manual lag is needed).
 `fill_at` and `delay` change the price and the bar, as described below. For
 `BacktestOHLCOrders`, a NaN bid or ask price is a market order that fills at the
-bar's open; a finite price rests and waits for the bar's range.
+bar's open; a finite bid above the open (ask below it) also fills at the open, as
+a taker, and any other finite price rests and waits for the bar's range.
 
 ## Execution price, slippage, and cost
 
@@ -121,22 +132,25 @@ at execution, before any friction.
 | Engine family | Reference price of a taker fill |
 |:--------------|:--------------------------------|
 | Price         | `price`, then half of `spread` |
-| OHLC          | The execution bar's `fill_at` price: `"open"` (default), `"close"`, `"typical"`, or `"ohlc4"` |
+| OHLC          | The execution bar's `fill_at` price: `"open"` (default), `"close"`, `"typical"`, or `"ohlc4"`; the open for `BacktestOHLCOrders` |
 | Trades        | The print price |
 | L1            | The mid; the fill takes the opposite touch and walks one `tick_size` beyond the displayed size |
 
 `slippage` then moves the fill against the trader: a buy fills higher and a sell
-lower. One number is read in one unit, chosen with `slippage_unit`:
+lower. The offset applies to the price the order takes: the reference price, or
+for L1 the touch-and-walk average. One number is read in one unit, chosen with
+`slippage_unit`:
 
 | `slippage_unit` | Offset | Example |
 |:----------------|:-------|:--------|
-| `"fraction"` (default) | `reference * slippage` | `slippage=5e-4` is 5 bps |
+| `"fraction"` (default) | `price * slippage` | `slippage=5e-4` is 5 bps |
 | `"ticks"` | `slippage * tick_size` | `slippage=2, tick_size=0.01` is 0.02 |
 | `"price"` | `slippage` | `slippage=0.05` is 0.05 |
 
 `tick_size` is the instrument's price grid (0 means continuous prices). When it is
 set, the offset rounds up to whole ticks. A resting limit order never slips: it
-fills at its own limit price. The examples at the end of this page show both
+fills at its own limit price. A marketable limit order slips, and neither the walk
+nor the slippage moves its fill beyond its limit. The examples at the end of this page show both
 styles of call.
 
 The `cost` column is the friction of each fill:

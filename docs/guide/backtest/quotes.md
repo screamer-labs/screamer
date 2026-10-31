@@ -73,12 +73,16 @@ signal is long, or an ask at the previous best ask when it is short, with size
 (`market_ask < bid_price`), for its whole size up to the room left, at the bid
 price and with `maker_fee`, here 0. `fill="touch"` also fills once when the ask
 reaches the bid price, for `participation_ratio` times the size shown there.
-A bid that already crosses the market when it arrives (`bid_price >=
-market_ask`) is a market order: it fills at the ask and pays `taker_fee`. The
-ask side is the mirror image.
+These fills apply to a bid that rests at the same price as on the event
+before. A bid arrives when it is new or its price changed, and an arriving bid
+that crosses the market (`bid_price >= market_ask`) is marketable: it fills at
+the ask, as a taker, and pays `taker_fee`. The ask side is the mirror image.
 
-Resting at the touch avoids the taker fee, but its fills come when the price
-has already moved through the order, so each one starts at a loss to the mid.
+Here the bid follows the previous best bid, so its price changes whenever the
+market moves. When the market falls a tick, the new bid meets the ask and
+fills there as a taker; 13 of the 22 fills are of this kind. The other 9 rest
+and fill at the bid without the fee, but they come when the price has already
+moved through the order, so each one starts at a loss to the mid.
 A quote built from trades only changes when someone trades, so these fills
 are a rough guide; with real quotes, prefer the quotes together with the
 trades, as in the notebook below.

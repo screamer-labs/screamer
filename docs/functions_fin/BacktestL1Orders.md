@@ -30,7 +30,7 @@ parameters:
 - name: taker_fee
   type: float
   default: 0.0
-  description: Fractional fee on a taker fill (a quote submitted already crossing the spread).
+  description: Fractional fee on a taker fill (an order that crosses the spread on arrival).
 - name: fill
   type: str
   default: breach
@@ -114,10 +114,14 @@ run over and fills its full remaining size at `bid_price`, a maker fill paying
 once on entry, for `min(remaining, participation_ratio * market_ask_size)` at
 `bid_price`; further size changes at the same locked price are ignored (a static
 quote cannot be told from a cancel, so it does not re-fill). The `"breach"` default
-keeps only the through case. A quote that appears already crossing the spread
-(`bid_price >= market_ask` on submission) is a taker: it fills its full size at the
-market, walking `tick_size` for the part beyond the displayed quote, and pays
-`taker_fee`. The sell side is symmetric. Fills are capped so the position stays
+keeps only the through case. These maker fills apply to a resting order: one
+quoted at the same price on the previous event. A bid arrives when it was not
+quoted on the previous event, its last order was filled, or its price changed; a
+size change alone is not an arrival. An arriving bid at or above the market ask
+(`bid_price >= market_ask`) is a taker in both fill modes: it fills its full size
+at the ask, walking one `tick_size` for the part beyond the displayed size, and
+pays `taker_fee`. Neither the walk nor the slippage moves the fill beyond
+`bid_price`. The sell side is symmetric. Fills are capped so the position stays
 within `[min_position, max_position]` (unbounded by default). Positions mark to the
 mid.
 

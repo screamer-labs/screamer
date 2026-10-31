@@ -18,10 +18,12 @@ namespace screamer { namespace detail {
     // two-sided quote each event: a resting bid fills when a sell-print crosses
     // it (touch: trade_price <= bid, breach: <) for min(bid_size,
     // participation * trade_size, room) at the bid, paying maker_fee; a
-    // through-print sweeps the full resting size. A NaN/inf bid price is a
-    // market order (+inf limit) that sweeps on any print at the print price
-    // moved by the slippage model, paying taker_fee. The
-    // sell side is symmetric. Fills are capped so the position stays in
+    // through-print sweeps the full resting size. A bid arrives when it was not
+    // quoted on the previous event or its price changed (a size change alone is
+    // not an arrival); an arriving bid above the print is marketable and fills
+    // its full size as a taker at the print moved by the slippage model, capped
+    // at the bid. A NaN/inf bid price is a market order (+inf limit) that always
+    // fills that way. The sell side is symmetric. Fills are capped so the position stays in
     // [min_pos, max_pos]. Marks to the last trade. A resting fill's cost
     // reference is its limit (cost = fee); a market fill's is the print. A NaN trade_price or
     // trade_size emits all-NaN (ignore policy). The caller builds the quote;
@@ -53,7 +55,11 @@ namespace screamer { namespace detail {
             reset();
         }
 
-        void reset() { account_.reset(); }
+        void reset() {
+            account_.reset();
+            bid_prev_ = std::numeric_limits<double>::quiet_NaN();
+            ask_prev_ = std::numeric_limits<double>::quiet_NaN();
+        }
         double position() const { return account_.position(); }
         double equity() const { return account_.equity(); }
         double equity_at(double price) const { return account_.equity_at(price); }
@@ -74,17 +80,20 @@ namespace screamer { namespace detail {
             last_fill_ = std::numeric_limits<double>::quiet_NaN();
 
             // Buy side: resting bid filled by a sell-print crossing it.
-            if (!isnan2(bid_size) && bid_size > 0.0) {
-                const double room = std::max(max_pos_ - account_.position(), 0.0);
+            const double room_buy = std::max(max_pos_ - account_.position(), 0.0);
+            if (!isnan2(bid_size) && bid_size > 0.0 && room_buy > 0.0) {
+                const double room = room_buy;
                 const double limit = market_limit(bid_price, /*buy=*/true);
+                const bool arrival = !(limit == bid_prev_);
+                bid_prev_ = limit;
                 const bool through = trade_price < limit;
                 const bool at = !breach_ && (trade_price == limit);
                 double dpos = 0.0;
                 if (through) dpos = std::min(bid_size, room);
                 else if (at) dpos = std::min(std::min(bid_size, participation_ * trade_size), room);
                 if (dpos > 0.0) {
-                    const bool taker = std::isinf(limit);
-                    const double fp = taker ? slippage_.buy(trade_price) : limit;
+                    const bool taker = through && (arrival || std::isinf(limit));
+                    const double fp = taker ? std::min(slippage_.buy(trade_price), limit) : limit;
                     const double fee = taker ? taker_fee_ : maker_fee_;
                     const double fixed_fee = taker ? taker_fee_per_contract_
                                                    : maker_fee_per_contract_;
@@ -94,20 +103,25 @@ namespace screamer { namespace detail {
                         taker ? trade_price : limit);   // maker: cost is the fee
                     eq = e; pnl += p; position = pos; cost += c; did = true;
                 }
+            } else {
+                bid_prev_ = std::numeric_limits<double>::quiet_NaN();   // not working this event
             }
 
             // Sell side: resting ask filled by a buy-print crossing it.
-            if (!isnan2(ask_size) && ask_size > 0.0) {
-                const double room = std::max(account_.position() - min_pos_, 0.0);
+            const double room_sell = std::max(account_.position() - min_pos_, 0.0);
+            if (!isnan2(ask_size) && ask_size > 0.0 && room_sell > 0.0) {
+                const double room = room_sell;
                 const double limit = market_limit(ask_price, /*buy=*/false);
+                const bool arrival = !(limit == ask_prev_);
+                ask_prev_ = limit;
                 const bool through = trade_price > limit;
                 const bool at = !breach_ && (trade_price == limit);
                 double dpos = 0.0;
                 if (through) dpos = -std::min(ask_size, room);
                 else if (at) dpos = -std::min(std::min(ask_size, participation_ * trade_size), room);
                 if (dpos != 0.0) {
-                    const bool taker = std::isinf(limit);
-                    const double fp = taker ? slippage_.sell(trade_price) : limit;
+                    const bool taker = through && (arrival || std::isinf(limit));
+                    const double fp = taker ? std::max(slippage_.sell(trade_price), limit) : limit;
                     const double fee = taker ? taker_fee_ : maker_fee_;
                     const double fixed_fee = taker ? taker_fee_per_contract_
                                                    : maker_fee_per_contract_;
@@ -117,6 +131,8 @@ namespace screamer { namespace detail {
                         taker ? trade_price : limit);   // maker: cost is the fee
                     eq = e; pnl += p; position = pos; cost += c; did = true;
                 }
+            } else {
+                ask_prev_ = std::numeric_limits<double>::quiet_NaN();   // not working this event
             }
 
             if (!did) {
@@ -134,6 +150,8 @@ namespace screamer { namespace detail {
         double participation_;
         Slippage slippage_;
         double min_pos_, max_pos_;
+        double bid_prev_ = std::numeric_limits<double>::quiet_NaN();   // last quoted bid limit, NaN if none
+        double ask_prev_ = std::numeric_limits<double>::quiet_NaN();
         detail::PnLAccount account_;
         double last_fill_ = std::numeric_limits<double>::quiet_NaN();
     };

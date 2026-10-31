@@ -30,7 +30,7 @@ parameters:
 - name: taker_fee
   type: float
   default: 0.0
-  description: Fractional fee on a taker fill (a market order that sweeps any print).
+  description: Fractional fee on a taker fill (a market order, or a bid above the print or an ask below it on arrival).
 - name: fill
   type: str
   default: touch
@@ -110,6 +110,11 @@ Fill logic per event:
   (maker fill, paying `maker_fee`). A print strictly below `bid_price`
   sweeps the full remaining `min(bid_size, room)` without a participation cap.
   With `fill="breach"` the at-price case is skipped; only a strict breach fills.
+- **Crossing on arrival.** A bid arrives when it was not quoted on the previous
+  event or its price changed; a size change alone is not an arrival. An arriving
+  bid above the print is marketable: it fills `min(bid_size, room)` as a taker at
+  the print plus the `slippage` offset, capped at `bid_price`, and pays
+  `taker_fee`. An arriving bid exactly at the print rests.
 - **Sell side.** Symmetric for a resting ask against buy-prints.
 - **Market orders.** A `NaN` bid price is treated as a market order (+inf limit),
   which sweeps on any print; that fill uses `taker_fee`. Pass `MARKET` (which
@@ -128,8 +133,8 @@ the row is all-NaN and the state is unchanged, so only real prints drive fills. 
 Outputs are `(equity, pnl, position, cost)`, the four standard backtest columns
 accepted by [`backtest_report`](backtest_report.md).
 
-The `cost` of a resting fill is its fee alone; a market order's cost is its
-slippage from the print plus the taker fee.
+The `cost` of a resting fill is its fee alone; a market or crossing order's cost
+is its slippage from the print plus the taker fee.
 
 ## Limitations
 

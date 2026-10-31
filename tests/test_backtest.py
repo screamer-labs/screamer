@@ -437,14 +437,23 @@ def test_ohlc_target_position_cap_clamps_target():
 
 def test_trades_fill_and_adverse_selection():
     from screamer import BacktestTradesOrders
-    # resting buy 1 @ 100; a print at 99 (<=100) size 2 fills 1 @ 100, marks at 99 (down 1);
-    # then a print at 101 with the order still resting (101 > 100, no fill) marks the position up
-    t = BacktestTradesOrders()(np.array([100., 100]), np.array([1., 1]),
-                               np.array([np.nan, np.nan]), np.array([0., 0.]),
-                               np.array([99., 101]), np.array([2., 5]))
-    np.testing.assert_allclose(t[:, 2], [1, 1])          # position filled then held
-    np.testing.assert_allclose(t[0], [-1, -1, 1, 0])     # bought at 100, marked at 99; a resting fill costs its fee (0)
-    np.testing.assert_allclose(t[1, 0], 1.0)             # mark 99 -> 101 recovers to +1
+    # buy 1 @ 100 rests above a print at 101; a print at 99 (<=100) size 2 fills 1 @ 100,
+    # marks at 99 (down 1); then a print at 101 marks the position up
+    t = BacktestTradesOrders()(np.array([100., 100, 100]), np.array([1., 1, 1]),
+                               np.array([np.nan] * 3), np.array([0., 0, 0]),
+                               np.array([101., 99, 101]), np.array([5., 2, 5]))
+    np.testing.assert_allclose(t[:, 2], [0, 1, 1])       # resting, filled, held
+    np.testing.assert_allclose(t[1], [-1, -1, 1, 0])     # bought at 100, marked at 99; a resting fill costs its fee (0)
+    np.testing.assert_allclose(t[2, 0], 1.0)             # mark 99 -> 101 recovers to +1
+
+
+def test_trades_arriving_bid_above_print_takes_at_print():
+    from screamer import BacktestTradesOrders
+    # a new buy @ 100 with a print at 99 is marketable: it takes at the print as a taker
+    t = BacktestTradesOrders(taker_fee=0.01)(np.array([100.]), np.array([1.]),
+                                             np.array([np.nan]), np.array([0.]),
+                                             np.array([99.]), np.array([2.]))
+    np.testing.assert_allclose(t[0], [-0.99, -0.99, 1, 0.99])
 
 
 def test_trades_partial_up_to_print_size():
@@ -550,13 +559,14 @@ def test_l1_default_is_breach_full_fill_on_cross():
 
 def test_l1_breach_no_fill_on_lock():
     from screamer import BacktestL1Orders
-    # breach: market_ask == my_bid (locked) must NOT fill
+    # breach: my_bid 100 rests, then market_ask locks at 100: a resting lock must NOT fill
+    # (a bid that arrives at the ask is marketable instead; see test_backtest_crossing.py)
     out = BacktestL1Orders(fill="breach")(
-        np.array([100.]), np.array([10.]),
-        np.array([np.nan]), np.array([np.nan]),
-        np.array([100.]), np.array([100.]),
-        np.array([5.]), np.array([5.]))
-    assert out[0, 2] == 0.0
+        np.array([100., 100.]), np.array([10., 10.]),
+        np.array([np.nan, np.nan]), np.array([np.nan, np.nan]),
+        np.array([99., 100.]), np.array([101., 100.]),
+        np.array([5., 5.]), np.array([5., 5.]))
+    assert out[1, 2] == 0.0
 
 
 def test_l1_touch_lock_fills_participation_once():

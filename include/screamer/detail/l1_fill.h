@@ -14,12 +14,15 @@
 namespace screamer { namespace detail {
 
     // L1Fill: shared fill core for L1 quote-based backtest engines. Posts a
-    // two-sided resting quote each event: the strategy's bid fills when the
-    // market ask trades through it (breach) or locks it in touch mode; a
-    // quote that appears already crossing the spread is a marketable taker: it
-    // takes the displayed size at the touch and walks one tick_size for the rest,
-    // and the slippage model then moves that average price against the trader.
-    // The sell side is symmetric. Fills are capped so the position stays in
+    // two-sided quote each event. A side arrives when it was not quoted on the
+    // previous event (or its last order was consumed) or its price changed; a
+    // size change alone is not an arrival. An arriving bid at or above the
+    // market ask is a marketable taker: it takes the displayed size at the
+    // touch and walks one tick_size for the rest, and the slippage model then
+    // moves that average price against the trader, never beyond the limit. A
+    // resting bid fills as a maker at its price when the market ask trades
+    // through it, or for a participation share when the ask locks it in touch
+    // mode. The sell side is symmetric. Fills are capped so the position stays in
     // [min_pos, max_pos]. Positions mark to the (market_bid + market_ask) / 2
     // mid. A resting fill's cost reference is its own price (cost = fee); a
     // taker fill's is the mid. A NaN in any market field emits all-NaN (ignore policy).
@@ -52,7 +55,8 @@ namespace screamer { namespace detail {
 
         void reset() {
             account_.reset();
-            bid_passive_ = false; ask_passive_ = false;
+            bid_prev_ = std::numeric_limits<double>::quiet_NaN();
+            ask_prev_ = std::numeric_limits<double>::quiet_NaN();
             bid_locked_ = false; ask_locked_ = false;
         }
 
@@ -82,7 +86,7 @@ namespace screamer { namespace detail {
             const double room_buy = std::max(max_pos_ - account_.position(), 0.0);
             SideFill b = compute_side(/*buy=*/true, bid_price, bid_size,
                                       market_ask, market_ask_size,
-                                      room_buy, bid_passive_, bid_locked_);
+                                      room_buy, bid_prev_, bid_locked_);
             if (b.dpos != 0.0) {
                 last_fill_ = b.fill_price;
                 auto [e, p, pos, c] = account_.step(mid, b.dpos, b.fill_price,
@@ -97,7 +101,7 @@ namespace screamer { namespace detail {
             const double room_sell = std::max(account_.position() - min_pos_, 0.0);
             SideFill s = compute_side(/*buy=*/false, ask_price, ask_size,
                                       market_bid, market_bid_size,
-                                      room_sell, ask_passive_, ask_locked_);
+                                      room_sell, ask_prev_, ask_locked_);
             if (s.dpos != 0.0) {
                 last_fill_ = s.fill_price;
                 auto [e, p, pos, c] = account_.step(mid, s.dpos, s.fill_price,
@@ -118,35 +122,41 @@ namespace screamer { namespace detail {
     private:
         struct SideFill { double dpos; double fill_price; bool is_taker; };
 
-        // Compute one side's fill and update that side's lock/passive state.
-        // buy: resting buy at my_price hit by opp (=market_ask);
-        // sell: resting sell at my_price hit by opp (=market_bid).
+        // Compute one side's fill and update that side's resting state.
+        // buy: bid at my_price against opp (= market_ask); sell: ask at my_price
+        // against opp (= market_bid). prev_price is the price of the order still
+        // resting from the previous event, NaN if there is none.
         SideFill compute_side(bool buy, double my_price, double my_size,
                               double opp_price, double opp_size, double room,
-                              bool& passive_prev, bool& locked) {
+                              double& prev_price, bool& locked) {
             SideFill r{0.0, my_price, false};
             if (isnan2(my_price) || isnan2(my_size) || my_size <= 0.0 || room <= 0.0) {
-                passive_prev = false; locked = false; return r;   // no quote this event
+                prev_price = std::numeric_limits<double>::quiet_NaN();   // no quote this event
+                locked = false; return r;
             }
+            const bool arrival = !(my_price == prev_price);   // new, re-priced or re-entered
             const bool through = buy ? (opp_price < my_price) : (opp_price > my_price);
             const bool lock    = (opp_price == my_price);
             const double remaining = std::min(my_size, room);
 
-            if (through) {
-                if (passive_prev) {                       // run over while resting: maker at my_price
-                    r.dpos = buy ? remaining : -remaining;
-                    r.fill_price = my_price; r.is_taker = false;
-                } else {                                  // submitted already crossing: taker + slippage
-                    const double disp = std::min(remaining, opp_size);
-                    const double over = remaining - disp;
-                    const double tick = slippage_.tick_size();
-                    const double step = buy ? tick : -tick;
-                    const double vwap = (disp * opp_price + over * (opp_price + step))
-                                        / remaining;
-                    r.dpos = buy ? remaining : -remaining;
-                    r.fill_price = slippage_.fill(vwap, buy); r.is_taker = true;
-                }
-                passive_prev = false; locked = false;     // order consumed
+            if (arrival && (through || lock)) {          // marketable: taker from the touch
+                const double disp = std::min(remaining, opp_size);
+                const double over = remaining - disp;
+                const double tick = slippage_.tick_size();
+                const double walk = buy ? std::min(opp_price + tick, my_price)
+                                        : std::max(opp_price - tick, my_price);
+                const double vwap = (disp * opp_price + over * walk) / remaining;
+                const double fill = slippage_.fill(vwap, buy);
+                r.dpos = buy ? remaining : -remaining;
+                r.fill_price = buy ? std::min(fill, my_price) : std::max(fill, my_price);
+                r.is_taker = true;
+                prev_price = std::numeric_limits<double>::quiet_NaN();   // order consumed
+                locked = false;
+            } else if (through) {                         // run over while resting: maker at my_price
+                r.dpos = buy ? remaining : -remaining;
+                r.fill_price = my_price; r.is_taker = false;
+                prev_price = std::numeric_limits<double>::quiet_NaN();   // order consumed
+                locked = false;
             } else if (lock) {
                 if (!breach_ && !locked) {                // touch mode, first event of this lock
                     const double filled = std::min(remaining, participation_ * opp_size);
@@ -155,9 +165,9 @@ namespace screamer { namespace detail {
                         r.fill_price = my_price; r.is_taker = false;
                     }
                 }
-                locked = true; passive_prev = true;       // a lock is still resting
-            } else {                                       // opp on the far side: purely passive
-                passive_prev = true; locked = false;
+                locked = true; prev_price = my_price;     // a lock is still resting
+            } else {                                       // opp on the far side: resting
+                prev_price = my_price; locked = false;
             }
             return r;
         }
@@ -168,7 +178,9 @@ namespace screamer { namespace detail {
         double participation_;
         Slippage slippage_;
         double min_pos_, max_pos_;
-        bool bid_passive_ = false, ask_passive_ = false, bid_locked_ = false, ask_locked_ = false;
+        double bid_prev_ = std::numeric_limits<double>::quiet_NaN();   // resting bid price, NaN if none
+        double ask_prev_ = std::numeric_limits<double>::quiet_NaN();
+        bool bid_locked_ = false, ask_locked_ = false;
         detail::PnLAccount account_;
         double last_fill_ = std::numeric_limits<double>::quiet_NaN();
     };

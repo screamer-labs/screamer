@@ -61,7 +61,10 @@ the default `fill="touch"`, a resting bid fills when the bar's low reaches its
 price (`low <= bid_price`) and a resting ask when the high reaches its price;
 `fill="breach"` needs the bar to trade through it. A limit order fills at its
 own price and pays `maker_fee`. A NaN price is a market order: it fills at the
-open, moved against the trade by `slippage`, and pays `taker_fee`. Fees are
+open, moved against the trade by `slippage`, and pays `taker_fee`. The engine
+places each day's order at the open, so a bid above the open (an ask below it)
+also fills there as a taker, at no worse than its limit; this is how a bar that
+gaps through a limit fills. Fees are
 0.1% for both, and slippage is 0.05%. A limit order that the range does not
 reach is posted again the next day, so the book keeps the old position until
 the price comes to it.
@@ -74,8 +77,8 @@ waiting pays.
 
 A stop order waits until the price moves past a level, up for a buy stop and
 down for a sell stop, and then trades at the market. `BacktestOHLCOrders` does
-not model it: a bid above the market is not a buy stop, because the bar's low
-is below it, so it fills at once at its own price. For a stop-loss or a
+not model it: a bid above the market is not a buy stop. It is marketable, so
+it fills at once at the open as a taker. For a stop-loss or a
 trailing stop on a position, use the `stop_loss` and `trailing_stop`
 parameters of the target engines, as on [Add stops and
 exits](../stops/stops-and-exits.md).

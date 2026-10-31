@@ -32,7 +32,7 @@ parameters:
 - name: taker_fee
   type: float
   default: 0.0
-  description: Fractional fee on a taker fill (a quote submitted already crossing the spread).
+  description: Fractional fee on a taker fill (an order that crosses the spread on arrival).
 - name: fill
   type: str
   default: touch
@@ -111,9 +111,12 @@ Quotes mark the position (to the mid) and seed context; trades drive the
 fills. A sell-print through `bid_price` fills the full remaining, a sell-print at
 `bid_price` fills `min(remaining, participation_ratio * trade_size)`, both maker
 fills at `bid_price` paying `maker_fee`. A market quote that crosses your resting
-price with no explaining trade is the run-over fallback (a full maker fill), and a
-quote submitted already crossing the spread is a taker (fills at the market, walking
-`tick_size` for the overflow, paying `taker_fee`). The sell side is symmetric.
+price with no explaining trade is the run-over fallback (a full maker fill). A bid
+arrives when it was not quoted on the previous event, its last order was filled,
+or its price changed; a size change alone is not an arrival. An arriving bid at or
+above the market ask is a taker in both fill modes, before any print is
+considered: it fills at the ask, walking one `tick_size` for the overflow, capped
+at `bid_price`, and pays `taker_fee`. The sell side is symmetric.
 Fills are capped to `[min_position, max_position]`.
 
 Input contract: quotes are as-of state (forward-fill them upstream); trades are
