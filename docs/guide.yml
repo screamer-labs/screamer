@@ -15,10 +15,11 @@ parts:
     - notebooks/05-nan-handling
   - slug: get-data-in
     title: Get your data in
-    line: Load OHLCV data, build bars from ticks, and replace pandas, TA-Lib and mlfinlab code.
+    line: Load OHLCV data, build bars from ticks, and replace pandas, TA-Lib and mlfinlab (AFML) code.
     tasks:
     - guide/get-data-in/ohlcv-dataframe
     - guide/get-data-in/from-pandas-talib
+    - guide/get-data-in/from-mlfinlab
     - guide/get-data-in/bars-from-ticks
     deeper:
     - notebooks/09-bars-from-ticks
@@ -27,23 +28,27 @@ parts:
   chapters:
   - slug: denoise
     title: Smooth and denoise a series
-    line: Moving averages, low-lag and adaptive smoothers (Hull, KAMA, MAMA), Kalman and Butterworth filters, Hampel despiking, and robust outlier detection (MAD).
+    line: Moving averages, low-lag and adaptive smoothers (Hull, KAMA, MAMA), Kalman and Butterworth filters, Hampel despiking, and robust outlier detection (median absolute deviation, sigma clipping).
     tasks:
     - guide/denoise/moving-averages
     - guide/denoise/low-lag
+    - guide/denoise/adaptive-trend
     - guide/denoise/kalman
     - guide/denoise/lowpass
     - guide/denoise/despike
+    - guide/denoise/robust-outliers
     deeper:
     - notebooks/04-signal-processing
     - notebooks/17-filtering-and-forecasting-with-uncertainty
   - slug: volatility
     title: Measure volatility
-    line: Close-to-close and OHLC estimators (Yang-Zhang), average true range (ATR), jumps (bipower variation), and seasonal z-scores.
+    line: Close-to-close and OHLC estimators (Yang-Zhang), average true range (ATR), jumps (bipower variation), and weekday or hour-of-day seasonality (seasonal z-score).
     tasks:
     - guide/volatility/close-to-close
     - guide/volatility/ohlc
     - guide/volatility/atr
+    - guide/volatility/jumps
+    - guide/volatility/seasonality
     deeper:
     - notebooks/02-window-statistics
   - slug: trend
@@ -58,8 +63,11 @@ parts:
     - notebooks/03-financial-indicators
   - slug: indicators
     title: Compute classic technical indicators
-    line: Momentum oscillators (Stochastic RSI, Williams %R, CCI, TRIX), volume indicators (OBV, MFI, VWAP), and Keltner Channels.
-    tasks: []
+    line: Momentum oscillators (Stochastic RSI, Williams %R, CCI, TRIX, Ultimate Oscillator), volume indicators (OBV, MFI, accumulation/distribution, VWAP), and Keltner Channels next to Bollinger Bands.
+    tasks:
+    - guide/indicators/oscillators
+    - guide/indicators/volume
+    - guide/indicators/keltner
     deeper: []
   - slug: mean-reversion
     title: Detect mean reversion
@@ -86,6 +94,7 @@ parts:
     - guide/regimes/hmm
     - guide/regimes/changepoint
     - guide/regimes/cusum
+    - guide/regimes/permutation-entropy
     deeper: []
   - slug: order-flow
     title: Read order flow and liquidity

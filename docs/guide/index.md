@@ -5,14 +5,14 @@ Each chapter answers a few tasks with a short, runnable example. Read in order, 
 ## Part 0: Basics
 
 0. [First steps](first-steps/index.md): Install screamer, apply a function to arrays and DataFrames, and handle NaN values and warmup.
-1. [Get your data in](get-data-in/index.md): Load OHLCV data, build bars from ticks, and replace pandas, TA-Lib and mlfinlab code.
+1. [Get your data in](get-data-in/index.md): Load OHLCV data, build bars from ticks, and replace pandas, TA-Lib and mlfinlab (AFML) code.
 
 ## Part 1: Understand a series
 
-2. [Smooth and denoise a series](denoise/index.md): Moving averages, low-lag and adaptive smoothers (Hull, KAMA, MAMA), Kalman and Butterworth filters, Hampel despiking, and robust outlier detection (MAD).
-3. [Measure volatility](volatility/index.md): Close-to-close and OHLC estimators (Yang-Zhang), average true range (ATR), jumps (bipower variation), and seasonal z-scores.
+2. [Smooth and denoise a series](denoise/index.md): Moving averages, low-lag and adaptive smoothers (Hull, KAMA, MAMA), Kalman and Butterworth filters, Hampel despiking, and robust outlier detection (median absolute deviation, sigma clipping).
+3. [Measure volatility](volatility/index.md): Close-to-close and OHLC estimators (Yang-Zhang), average true range (ATR), jumps (bipower variation), and weekday or hour-of-day seasonality (seasonal z-score).
 4. [Detect a trend](trend/index.md): Rolling slope (linear regression), moving-average crossover, ADX and directional movement (DMI), and trend mode.
-5. [Compute classic technical indicators](indicators/index.md): Momentum oscillators (Stochastic RSI, Williams %R, CCI, TRIX), volume indicators (OBV, MFI, VWAP), and Keltner Channels.
+5. [Compute classic technical indicators](indicators/index.md): Momentum oscillators (Stochastic RSI, Williams %R, CCI, TRIX, Ultimate Oscillator), volume indicators (OBV, MFI, accumulation/distribution, VWAP), and Keltner Channels next to Bollinger Bands.
 6. [Detect mean reversion](mean-reversion/index.md): Variance ratio test, Hurst exponent, Ornstein-Uhlenbeck (OU) half-life, and z-score bands.
 7. [Find cycles](cycles/index.md): Dominant cycle period (Ehlers, Hilbert transform, roofing filter) and cycle turning points (sinewave indicator).
 8. [Detect regimes and change points](regimes/index.md): Hidden Markov models (HMM), Bayesian online changepoint detection, CUSUM filter events, and permutation entropy.
