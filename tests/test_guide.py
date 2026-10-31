@@ -148,8 +148,8 @@ def test_moved_pages_redirect():
 # them. Cart2Polar and Polar2Cart are elementwise coordinate conversions and
 # Identity passes its input through, so they belong here too.
 MATH_HELPERS = {
-    "Acos", "Add", "And", "Asin", "Atan", "Atan2", "Cart2Polar", "Ceil", "Cos",
-    "Cube", "Elu", "Equal", "Erf", "Erfc", "Exp", "Floor", "GreaterEqual",
+    "Acos", "Add", "And", "Asin", "Atan", "Atan2", "Cart2Polar", "Cos",
+    "Cube", "Elu", "Equal", "Erf", "Erfc", "Exp", "GreaterEqual",
     "GreaterThan", "Hypot", "Identity", "IsFinite", "IsNan", "LessEqual",
     "LessThan", "Linear", "Linear2", "Mul", "Not", "NotEqual", "Or", "Polar2Cart",
     "Power", "Relu", "Selu", "Sigmoid", "Sin", "Softsign", "Sqrt", "Square", "Tanh",
