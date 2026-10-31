@@ -5,12 +5,12 @@ kernelspec:
   display_name: Python 3
 ---
 
-# Generate synthetic price paths with the same return distribution
+# Generate synthetic price paths with the same return distribution (permuted bars, surrogate data)
 
 `permute_bars` returns copies of an OHLC series with its daily gaps and bar
-shapes in random order, and `permute_returns` does the same for a single price
-series: every copy has the same return distribution as the real market but none
-of its serial structure.
+shapes in random order, and `permute_returns` copies of a single price series
+with its returns in random order: the copies keep the distribution of those
+pieces and the total return, but none of the market's serial structure.
 
 ```{code-cell} ipython3
 import numpy as np
@@ -30,7 +30,7 @@ for name, x in [("real", c), ("bars", pc), ("returns", paths)]:
     vol = RollingStd(30)(LogReturn()(x))
     print(f"{name:8} daily std {np.nanstd(LogReturn()(x)):.4f}, "
           f"spread of 30-day vol {np.nanmean(np.nanstd(vol, axis=0)):.4f}, "
-          f"median max drawdown {np.median(MaxDrawdown()(x)[-1]):.0%}")
+          f"median max drawdown {-np.median(MaxDrawdown()(x)[-1]):.0%}")
 ```
 
 ```{code-cell} ipython3
@@ -52,8 +52,10 @@ from the first bar. Every copy starts at the first close and ends at the last
 one, and every bar is valid. `permute_returns` shuffles the daily log returns of
 the close alone.
 
-The daily standard deviation is the same in every copy, because the copies hold
-the same returns. What changes is their order. The standard deviation over time
+The daily standard deviation is the same as that of BTC, because the copies
+hold the same returns (`permute_returns`) or the same gaps and shapes
+(`permute_bars`, whose close-to-close returns are new combinations of them).
+What changes is their order. The standard deviation over time
 of the 30-day volatility falls from 0.0085 to 0.0059, because calm and volatile
 days no longer cluster, and the median copy has a maximum drawdown of 62%
 against 67% for BTC. A strategy that profits from momentum, mean reversion, or

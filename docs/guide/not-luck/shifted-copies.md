@@ -5,7 +5,7 @@ kernelspec:
   display_name: Python 3
 ---
 
-# Test a signal against time-shifted copies of itself
+# Test a signal against time-shifted copies of itself (circular shift test)
 
 `circular_shift` returns copies of a signal rotated by random offsets, which
 keep everything about the signal except its alignment with the market; a signal

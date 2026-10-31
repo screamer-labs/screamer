@@ -11,8 +11,8 @@ for the search that found it.
 
 1. [Test whether a strategy's timing beats chance](timing-test.md)
 2. [Shuffle trades in blocks to test a strategy's timing (block randomization test)](block-shuffle.md)
-3. [Test a signal against time-shifted copies of itself](shifted-copies.md)
-4. [Generate synthetic price paths with the same return distribution](synthetic-paths.md)
+3. [Test a signal against time-shifted copies of itself (circular shift test)](shifted-copies.md)
+4. [Generate synthetic price paths with the same return distribution (permuted bars, surrogate data)](synthetic-paths.md)
 5. [Run a Monte Carlo permutation test on a whole strategy](permutation-test.md)
 6. [Choose parameters with walk-forward testing](walk-forward.md)
 7. [Check that a result holds across nearby parameters](parameter-grid.md)

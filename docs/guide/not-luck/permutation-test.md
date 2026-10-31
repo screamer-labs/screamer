@@ -54,7 +54,7 @@ with the best Sharpe ratio. Every fill is at the next open and pays a 0.1%
 taker fee and 0.05% slippage. With the default `method="bars"`, every permuted
 market keeps the first bar, the last close, and the distribution of daily gaps
 and bar shapes, in a random order (see
-[Generate synthetic price paths with the same return distribution](synthetic-paths.md)).
+[Generate synthetic price paths with the same return distribution (permuted bars, surrogate data)](synthetic-paths.md)).
 The strategy repeats its search on each one, so the null distribution is that
 of the best of six spans on a market with no serial structure.
 
@@ -68,7 +68,7 @@ also accounts for everything the strategy fits or selects.
 ## Go deeper
 
 - [Choose parameters with walk-forward testing](walk-forward.md): the same six spans, chosen out of sample.
-- [Test a signal against time-shifted copies of itself](shifted-copies.md): keep the market and rotate a feature instead.
+- [Test a signal against time-shifted copies of itself (circular shift test)](shifted-copies.md): keep the market and rotate a feature instead.
 - [I tuned my parameters. Is the result real?](../../notebooks/21-is-the-tuned-result-real.ipynb): a larger search, and its in-sample and permuted results side by side.
 - [Does my feature carry information?](../../notebooks/22-does-the-feature-carry-information.ipynb): `method="shift"` for a model's features.
 - [`strategy_test`](../../functions_fin/strategy_test.md): `method="returns"` and `"shift"`, volume, panels, and portfolio engines.
