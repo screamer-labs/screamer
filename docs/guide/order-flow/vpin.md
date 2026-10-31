@@ -48,8 +48,8 @@ trade that crosses a bucket boundary is split between the two buckets. Each
 closed bucket contributes `|buy - sell|`, and `VPIN` is the mean of that over
 the last 10 buckets divided by the bucket volume. It is `NaN` until 10 buckets
 have closed, and changes only when a bucket closes, so a quiet hour moves it
-less often than a busy one. Here it ranges from 0.20 to 0.74 and is highest in
-the last hour, when steady buying lifted the price by about 100 USD.
+less often than a busy one. Here it ranges from 0.20 to 0.74 and peaks at 0.74
+at 05:50, after buyers lifted the price about 100 USD from its low at 04:26.
 
 Pick the bucket volume from the instrument's typical volume: here the six hours
 hold 61 buckets, so 10 buckets span about an hour of trading. With trades

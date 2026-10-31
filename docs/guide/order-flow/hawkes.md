@@ -55,8 +55,8 @@ keeps the fraction `decay` of itself from one second to the next. It is
 computed before the second's own event enters, so each value is a forecast for
 that second from the seconds before. The three parameters are set by hand
 here, not fitted: a rate of 0.025 events per second when nothing has happened,
-a bump of 0.05 per event, and 90% kept per second, a half-life of about 7
-seconds.
+0.05 added per event and then 90% kept per second, so the next second sees a
+bump of 0.045, which halves about every 7 seconds.
 
 The table groups the seconds into fifths by intensity. In the top fifth, 11.7%
 of the seconds held a trade, close to its mean intensity of 0.10, against 3.3

@@ -69,8 +69,9 @@ information about the next move.
 `I = bid_size / (bid_size + ask_size)`, so a heavy bid pulls it toward the ask,
 and a balanced book gives the mid. It is the first-order,
 weighted-mid form of Stoikov's micro-price. The scoring cell looks ahead to the
-next move of the mid: when the imbalance is above 0.6, the next move was up
-73% of the time, and when it is below -0.6, down 64% of the time.
+next move of the mid: in this simulation, when the imbalance is above 0.6, the
+next move was up 73% of the time, and when it is below -0.6, down 64% of the
+time.
 
 ## Go deeper
 

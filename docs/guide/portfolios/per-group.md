@@ -5,7 +5,7 @@ kernelspec:
   display_name: Python 3
 ---
 
-# Restart a calculation each day, contract or group
+# Restart a calculation each day, contract or group (Segment, groupby)
 
 `Segment(op)` runs any function from a fresh start on each run of rows with the
 same label, such as a day, a futures contract or a regime, so a session VWAP or

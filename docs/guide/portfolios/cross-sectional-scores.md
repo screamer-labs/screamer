@@ -5,7 +5,7 @@ kernelspec:
   display_name: Python 3
 ---
 
-# Z-score, demean and winsorize across assets each day
+# Z-score, demean and winsorize across assets each day (cross-sectional normalization)
 
 `CrossDemean`, `CrossZscore` and `CrossWinsorize` compare each asset with the
 others on the same day: they subtract the day's mean, divide by the day's

@@ -49,8 +49,7 @@ plt.tight_layout()
 ```
 
 The data is six hours of Deribit BTC perpetual trades, where the quoted spread
-is usually one tick of 0.5 USD, so the estimates can be checked against a
-known value. `Resample(agg="ohlc")` turns the trades into one-minute bars.
+is usually one tick of 0.5 USD, a known value to hold the estimates against. `Resample(agg="ohlc")` turns the trades into one-minute bars.
 `CorwinSchultzSpread` compares the high-low range of one bar with the range of
 two bars together: price variance grows with the length of the period and the
 spread does not, which separates the two. `AbdiRanaldoSpread` measures how far
@@ -60,14 +59,21 @@ between bid and ask in consecutive price changes, here over the last 1,000
 trades, and gives `NaN` when that covariance is not negative.
 
 Corwin-Schultz gives a median of 0.28 USD, about half a tick, and Roll a
-median of 0.72 USD, with `NaN` in about a third of its windows. Abdi-Ranaldo
+median of 0.72 USD, with `NaN` in about a third of its windows. Roll estimates
+the effective spread, what trades paid against the mid, which includes orders
+that walk through the book and is about 2 USD here (see [Measure the effective
+and realized spread of your fills](fill-quality.md)), so 0.72 USD lies between
+the quoted and the effective spread. Abdi-Ranaldo
 gives 0 in most windows, because the average of its two-bar products is
 negative there: at one minute the spread is small next to the price moves, and
 the estimator cannot separate the two. All three were built for stocks, where
 the spread is a larger share of a bar's range. On the daily BTC bars of
 `binance_daily_20.csv`, `CorwinSchultzSpread(30)` gives about 0.9% of the price,
 while one tick here is under 0.002%: on a market this liquid, daily bars hold
-too little of the spread for these estimators to measure it.
+too little of the spread for these estimators to measure it. They are meant
+for daily bars of assets whose spread is a visible share of the daily range,
+such as small-cap stocks and thinly traded coins, and serve best to compare
+liquidity across assets or over time rather than to read an absolute level.
 
 ## Go deeper
 

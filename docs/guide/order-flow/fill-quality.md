@@ -15,13 +15,15 @@ once the mid had moved; the gap between them is the price impact of the trade.
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from screamer import EffectiveSpread, Lag, RealizedSpread
+from screamer import EffectiveSpread, First, Lag, RealizedSpread, Segment
 
 trades = pd.read_csv("../../notebooks/data/deribit_btc_perp_6h.csv")
 price, tick = trades["price"].to_numpy(), 0.5
 # Quote from each trade: a buy fills at the ask, a sell at the bid.
 bid = price - tick * (trades["volume"].to_numpy() > 0)
-mid = Lag(1)(bid + tick / 2)               # the mid before each trade
+# The mid in force when the order arrived: before the first trade of its
+# millisecond, kept for every later piece of the same order.
+mid = Segment(First())(trades["timestamp"].to_numpy(), Lag(1)(bid + tick / 2))
 
 effective = EffectiveSpread()(price, mid)
 lags = [1, 3, 10, 30, 100, 300]
@@ -46,24 +48,27 @@ plt.tight_layout()
 The data file holds Deribit BTC perpetual trades, not quotes, so the page
 builds the quote from each trade as [Backtest against bid and ask quotes
 (L1)](../backtest/quotes.md) does: a buy fills at the ask, a sell at the bid,
-and the spread is one tick of 0.5 USD. `Lag(1)` gives each trade the mid built
-from the trade before it. Every trade on the tape counts as a fill here; to
+and the spread is one tick of 0.5 USD. Trades that share a millisecond are the
+pieces of one order that walks through the book, and they make up 47% of the
+rows, so each trade is measured against the mid in force when its order
+arrived: `Lag(1)` gives the mid built from the trade before, and
+`Segment(First())` keeps the first such value of each millisecond. Every trade on the tape counts as a fill here; to
 measure your own fills, run both functions on the tape and read the rows where
 your orders filled.
 
 `EffectiveSpread()(price, mid)` is `2 * |price - mid|`: a fill at the bid or
-ask of a one-tick quote gives 0.5 USD, and a fill away from the last quote, as
-when an order walks through the book, gives more, which lifts the mean to
-1.47 USD. `RealizedSpread(lag)(price, mid)`
+ask of a one-tick quote gives 0.5 USD, and each further tick an order walks
+through the book adds 1 USD, which lifts the mean to 2.08 USD. `RealizedSpread(lag)(price, mid)`
 is `2 * D * (price - mid)` with the mid taken `lag` trades later and `D = +1`
 for a fill above the mid and -1 below it. Its value at a row belongs to the
-trade `lag` rows earlier, so it never uses a future price.
+trade `lag` rows earlier, so it never uses a future price. The lag counts
+trades, so the later pieces of the same order count as later trades.
 
-One trade later the realized spread is still positive, 0.42 USD, but after 10
+One trade later the realized spread is still positive, 1.28 USD, but after 10
 trades it is -4.43 USD: the mid kept moving in the direction of the trades, so a
 liquidity provider on the other side lost money on them despite earning the
-spread. The price impact, effective minus realized, peaks at about 10 USD after
-30 to 100 trades.
+spread. The price impact, effective minus realized, peaks at about 11 USD after
+30 trades; after 300 trades the realized spread is back above zero, at 1.09 USD.
 
 ## Go deeper
 

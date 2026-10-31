@@ -9,8 +9,8 @@ restarts any calculation where a label such as the day changes.
 <!-- tasks:start -->
 
 1. [Backtest a portfolio of many assets](multi-asset.md)
-2. [Z-score, demean and winsorize across assets each day](cross-sectional-scores.md)
-3. [Restart a calculation each day, contract or group](per-group.md)
+2. [Z-score, demean and winsorize across assets each day (cross-sectional normalization)](cross-sectional-scores.md)
+3. [Restart a calculation each day, contract or group (Segment, groupby)](per-group.md)
 
 ```{toctree}
 :hidden:
