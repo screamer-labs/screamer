@@ -8,9 +8,10 @@ kernelspec:
 # Replace mlfinlab and AFML functions
 
 screamer has causal versions of the main tools of *Advances in Financial
-Machine Learning* (López de Prado 2018, AFML) and its library mlfinlab:
-`CusumFilter` samples events, `TripleBarrier` labels them, `FracDiff` makes a
-stationary feature, and `time_splits` and `deflated_sharpe` test the result.
+Machine Learning* (López de Prado 2018, AFML) and mlfinlab, the library that
+implements it: `CusumFilter` samples events, `TripleBarrier` labels them,
+`FracDiff` makes a stationary feature, and `time_splits` and `deflated_sharpe`
+test the result.
 
 ```{code-cell} ipython3
 import pandas as pd
@@ -62,7 +63,7 @@ stamps each label `horizon` rows late, when its outcome is known;
 |---|---|---|
 | `get_tick_bars` (ch. 2) | [`Resample`](../../functions_streams/Resample.md)`(count=N, agg="ohlc")(price, time)` | [Build bars from trades](bars-from-ticks.md) |
 | `get_volume_bars`, `get_dollar_bars` (ch. 2) | [`Resample`](../../functions_streams/Resample.md)`((price, time), driver, threshold=T, agg="ohlc")`, with volume or price times volume as the driver | [Build bars from trades](bars-from-ticks.md) |
-| `cusum_filter` (ch. 2) | [`CusumFilter`](../../functions_signal/CusumFilter.md)`(threshold)(returns)`: +1, -1 or 0 on every row instead of a list of timestamps | [Sample events at large cumulative moves](../regimes/cusum.md) |
+| `cusum_filter` (ch. 2) | [`CusumFilter`](../../functions_signal/CusumFilter.md)`(threshold)(returns)`: mlfinlab takes prices (log returns inside), screamer takes the returns; +1, -1 or 0 on every row instead of a list of timestamps | [Sample events at large cumulative moves](../regimes/cusum.md) |
 | `get_daily_vol` (ch. 3) | [`EwStd`](../../functions_ew/EwStd.md)`(span=100)(Return()(close))` on daily bars | [Measure volatility from closing prices](../volatility/close-to-close.md) |
 | `add_vertical_barrier`, `get_events`, `get_bins` (ch. 3) | [`TripleBarrier`](../../functions_fin/TripleBarrier.md)`(horizon, upper, lower)(close)`, or [`TripleBarrierOHLC`](../../functions_fin/TripleBarrierOHLC.md) on bars: label, return and holding period; label 0 at the vertical barrier; `barrier_unit="vol"` scales the barriers by the volatility over the horizon | [Label each bar with its future move](../machine-learning/labels.md) |
 | meta-labeling, `get_events(side=...)` (ch. 3) | `TripleBarrier` with symmetric barriers: the trade worked when `label == side` | [Label each bar with its future move](../machine-learning/labels.md) |
@@ -79,8 +80,9 @@ stamps each label `horizon` rows late, when its outcome is known;
 | `get_vpin` (ch. 19) | [`VPIN`](../../functions_micro/VPIN.md)`(bucket_volume, n_buckets)(buy, sell)`, on buckets of equal volume | [Measure order-flow toxicity (VPIN)](../order-flow/vpin.md) |
 
 The chapters in brackets are those of AFML. screamer has no sample weights,
-sequential bootstrap, bet sizing, structural break tests or feature
-importance.
+sequential bootstrap, bet sizing or feature importance, and no CUSUM or SADF
+structural break tests (AFML ch. 17); for change points see [Detect a change in
+mean or spread](../regimes/changepoint.md).
 
 ## Go deeper
 

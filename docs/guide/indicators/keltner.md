@@ -30,6 +30,7 @@ df["squeeze"] = ((df["bb_lower"] > df["kc_lower"])
 width = pd.DataFrame({
     "Keltner": (df["kc_upper"] - df["kc_lower"]) / kc[:, 1],
     "Bollinger": (df["bb_upper"] - df["bb_lower"]) / bb[:, 1]})
+print(f"squeeze days: {df['squeeze'][df['kc_lower'].notna()].mean():.0%}")
 width.describe().loc[["min", "50%", "max"]].round(3)
 ```
 

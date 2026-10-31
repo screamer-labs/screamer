@@ -23,13 +23,15 @@ df = df[df["symbol"] == "BTC"].set_index("date")
 entropy = RollingPermutationEntropy(window_size=100, order=3)
 
 df["entropy"] = entropy(LogReturn()(df["close"]))
-# The same returns in 200 random orders: the values that chance alone gives
+# The same returns in 200 random orders: the values that chance alone gives.
+# The shuffles use the whole sample, so the band is a reference level only.
 shuffled = permute_returns(df["close"].to_numpy(), n=200, seed=1)
 noise = entropy(LogReturn()(shuffled))
 df["noise_5%"], df["noise_95%"] = np.percentile(noise, [5, 95], axis=1)
 
 below = (df["entropy"] < df["noise_5%"])[df["entropy"].notna()]
 print(f"days below the 5% noise level: {below.mean():.0%}")
+below.groupby(below.index.to_period("Q")).mean().loc[lambda q: q > 0.3].round(2)
 ```
 
 ```{code-cell} ipython3
@@ -47,10 +49,10 @@ With `order=3`, each pattern is the ranking of three consecutive daily returns,
 one of six. Over a 100-day window even random returns give a value a little
 below 1, so the shaded band shows the range of the same returns shuffled into
 random orders. BTC's entropy lies below that band on 14% of the days, more than
-the 5% chance gives, in stretches such as early 2024, late 2025 and mid-2026,
-when some orderings of returns were more common than others. A low value says
-that the order of moves has a pattern a model could use; it says nothing about
-the direction.
+the 5% chance gives, in stretches such as the quarters printed above (mid-2023,
+early 2024, late 2025 and mid-2026), when some orderings of returns were more
+common than others. A low value says that the order of moves has a pattern a
+model could use; it says nothing about the direction.
 
 `order` sets the pattern length, from 2 to 7, and `delay` the steps between
 its values. Use returns, not prices: on a random walk, three rising or three

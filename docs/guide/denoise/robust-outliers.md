@@ -51,14 +51,14 @@ ax.legend(loc="lower left", fontsize=8)
 plt.tight_layout()
 ```
 
-Each scale is multiplied to estimate the standard deviation of normal data:
-by the square root of pi/2 for `RollingMad`, the mean absolute deviation, and
-by 1.4826 for `RollingMedianAD`. On 9 November 2022, the day of the FTX
-collapse, BTC had a log return of -0.15. The ordinary z-score includes that day
-in its own standard deviation, so it reports only -4.5. The mean absolute
-deviation grows on that day and the median absolute deviation does not, so the
-robust z-score is -8.5. Over 2022 to 2026 the ordinary z-score passes 5 once
-and the robust one 24 times.
+Each scale is multiplied to estimate the standard deviation of normal data: by
+the square root of pi/2 for `RollingMad`, the mean absolute deviation, shown
+for comparison, and by 1.4826 for `RollingMedianAD`. On 9 November 2022, the
+day of the FTX collapse, BTC had a log return of -0.15. The ordinary z-score
+includes that day in its own standard deviation, so it reports only -4.5. The
+mean absolute deviation grows on that day and the median absolute deviation
+does not, so the robust z-score is -8.5. Over 2022 to 2026 the ordinary z-score
+passes 5 once and the robust one 24 times.
 
 `RollingSigmaClip` compares each return with the mean and standard deviation
 of the window, leaves any return beyond 4 standard deviations out of the

@@ -26,6 +26,8 @@ n = 60                                        # days per window
 df["vol_all"] = np.sqrt(RollingSum(n)(r**2) * 365 / n)   # realized variance
 df["vol_no_jumps"] = np.sqrt(RollingBipowerVar(n)(r) * 365 / n)
 df["jump_share"] = RollingJumpShare(n)(r)
+zero = df.loc["2022-11-10":"2023-01-31", "jump_share"] == 0
+print("jump share 0 from 2022-11-10, first nonzero:", zero.idxmin().date())
 df.loc["2023-10-20":"2023-10-25", ["close", "vol_all", "vol_no_jumps", "jump_share"]].round(3)
 ```
 
@@ -54,7 +56,7 @@ The highest share in these data, 0.54, comes on 23 October 2023, when BTC rose
 10% in one day in a quiet market, with an annualized volatility near 33%.
 Large moves on consecutive days count as volatility, not as jumps: after the
 FTX collapse in November 2022, with returns of -10%, -14% and +10% in a row,
-the share is 0 on most days until February 2023. The estimator is usually
+the share is 0 for the next two months, until early January 2023. The estimator is usually
 applied to the intraday returns of each day; it works the same on returns at
 any regular interval.
 

@@ -7,8 +7,9 @@ kernelspec:
 
 # Volume indicators: OBV, MFI, accumulation/distribution and VWAP
 
-`OBV` and `AD` add up volume signed by the price move, `MFI` is an RSI weighted
-by volume, and `RollingVWAP` averages the price weighted by volume.
+`OBV` and `AD` add up volume signed by the price move, `MFI` is an RSI-like
+ratio of up and down money flow, and `RollingVWAP` averages the price weighted
+by volume.
 
 ```{code-cell} ipython3
 import pandas as pd
@@ -24,6 +25,8 @@ df["obv"] = OBV()(c, v)          # volume signed by the close-to-close move
 df["ad"] = AD()(h, l, c, v)      # volume weighted by the close in the range
 df["mfi"] = MFI(14)(h, l, c, v)
 df["vwap"] = RollingVWAP(20)(h, l, c, v)
+print("change over 2022-2026, OBV:", df["obv"].iloc[-1] - df["obv"].iloc[0],
+      "AD:", round(df["ad"].iloc[-1] - df["ad"].iloc[0]))
 df[["close", "vwap", "obv", "ad", "mfi"]].tail().round(1)
 ```
 
@@ -54,12 +57,14 @@ previous close. `AD` counts the share given by where the close sits between the
 day's low and high. Over 2022 to 2026, `OBV` falls by 4.6 million BTC and `AD`
 rises by 4.0 million.
 
-`MFI` is the RSI formula applied to the typical price `(high + low + close) / 3`
-times volume, so a move on heavy volume counts more; 80 and 20 are the usual
-overbought and oversold levels. `RollingVWAP` weights the typical price of each
-of the last 20 days by its volume. For a VWAP that restarts each session, sum
-price times volume and volume per session as on
-[Restart a calculation each day, contract or group](../portfolios/per-group.md).
+`MFI` is an RSI-like ratio of up and down money flow: it sums the typical price
+`(high + low + close) / 3` times volume over the up days and the down days of
+the window, without Wilder's smoothing, so a move on heavy volume counts more;
+80 and 20 are the usual overbought and oversold levels. `RollingVWAP` weights
+the typical price of each of the last 20 days by its volume. For a VWAP that
+restarts each session, sum price times volume and volume per session as on
+[Restart a calculation each day, contract or group](../portfolios/per-
+group.md).
 
 ## Go deeper
 

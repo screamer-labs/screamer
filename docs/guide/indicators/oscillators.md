@@ -27,7 +27,10 @@ df["cci"] = CCI(20)(h, l, c)
 df["trix"] = TRIX(15)(c)
 df["ultimate"] = UltimateOscillator(7, 14, 28)(h, l, c)
 cols = ["stoch_rsi", "williams_r", "cci", "trix", "ultimate"]
-df[cols].tail().round(2)
+print("CCI within +-100:", f"{(df['cci'].abs() <= 100).mean():.0%}",
+      "| TRIX sign changes in 2025:",
+      int((df["trix"] > 0).astype(int).diff().abs().loc["2025"].sum()))
+df[cols].describe().loc[["min", "max"]].round(2)
 ```
 
 ```{code-cell} ipython3
@@ -62,9 +65,9 @@ The dashed lines are the usual overbought and oversold levels, and zero for
   and 1. Averaging three periods keeps it in a narrower band than the others:
   between 23 and 78 on these data.
 
-The three range oscillators move together: over 2022 to 2026 `WilliamsR` has a
-correlation of 0.87 with `CCI` and 0.78 with `UltimateOscillator`, so using
-several of them adds little.
+`WilliamsR`, `CCI` and `UltimateOscillator` move together: over 2022 to 2026
+the correlation of `WilliamsR` with each of the other two is near 0.8 or
+above, so using several of them adds little.
 
 ## Go deeper
 

@@ -11,7 +11,7 @@ from ordinary moves and compare each day with the same weekday in past weeks.
 2. [Measure volatility from OHLC bars](ohlc.md)
 3. [Measure the average true range](atr.md)
 4. [Separate jumps from normal volatility (bipower variation)](jumps.md)
-5. [Compare each day with the same weekday in past weeks (seasonal z-score)](seasonality.md)
+5. [Compare each day with the same weekday in past weeks (seasonality, seasonal z-score)](seasonality.md)
 
 ```{toctree}
 :hidden:
