@@ -54,7 +54,7 @@ with the best Sharpe ratio. Every fill is at the next open and pays a 0.1%
 taker fee and 0.05% slippage. With the default `method="bars"`, every permuted
 market keeps the first bar, the last close, and the distribution of daily gaps
 and bar shapes, in a random order (see
-[Generate synthetic price paths with the same return distribution (permuted bars, surrogate data)](synthetic-paths.md)).
+[Generate synthetic price paths by shuffling bars or returns (permuted bars, surrogate data)](synthetic-paths.md)).
 The strategy repeats its search on each one, so the null distribution is that
 of the best of six spans on a market with no serial structure.
 

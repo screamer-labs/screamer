@@ -61,13 +61,14 @@ and the default maintenance rate is 0.5%. A long is liquidated at
 `entry * (1 - 1 / leverage + maintenance)` and a short at
 `entry * (1 + 1 / leverage - maintenance)`. The `distance` output is the move
 still needed from the bar's low (for a long) or high (for a short) to that
-price, as a fraction of it; 0 or less means the bar reached it, and `breached`
-turns 1. All three outputs are NaN while the position is flat. Adding to a
-position blends its entry price, and reducing it keeps the entry.
+price, as a fraction of that low or high; 0 or less means the bar reached it,
+and `breached` turns 1. All three outputs are NaN while the position is flat.
+Adding to a position blends its entry price, and reducing it keeps the entry.
 
 `LiquidationDistance` only measures: it does not close the position. At 3x the
-book came within about 7% of liquidation and never reached it. At 5x it
-would have been liquidated twice, so 5x was too much leverage for this rule.
+book came within about 7% of liquidation and never reached it. At 5x two
+of its positions reached their liquidation price, so 5x was too much leverage
+for this rule.
 Both functions use only the bars up to the current one, so a [live
 loop](../live/live-loop.md) can watch them bar by bar and cut the position
 before the margin runs out.

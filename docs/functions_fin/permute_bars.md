@@ -2,8 +2,8 @@
 name: permute_bars
 title: permute_bars
 kind: function
-short: Bar-permuted copies of an OHLC series that keep its return distribution but no serial
-  structure.
+short: Bar-permuted copies of an OHLC series that keep its distributions of gaps and intrabar
+  shapes, its first bar and its last close, but no serial structure.
 tags:
 - permutation
 - shuffle

@@ -52,14 +52,15 @@ and the spread is one tick of 0.5 USD. Trades that share a millisecond are the
 pieces of one order that walks through the book, and they make up 47% of the
 rows, so each trade is measured against the mid in force when its order
 arrived: `Lag(1)` gives the mid built from the trade before, and
-`Segment(First())` keeps the first such value of each millisecond. Every trade on the tape counts as a fill here; to
-measure your own fills, run both functions on the tape and read the rows where
-your orders filled.
+`Segment(First())` keeps the first such value of each millisecond. Every trade
+on the tape counts as a fill here; to measure your own fills, run both
+functions on the tape and read the rows where your orders filled.
 
 `EffectiveSpread()(price, mid)` is `2 * |price - mid|`: a fill at the bid or
 ask of a one-tick quote gives 0.5 USD, and each further tick an order walks
-through the book adds 1 USD, which lifts the mean to 2.08 USD. `RealizedSpread(lag)(price, mid)`
-is `2 * D * (price - mid)` with the mid taken `lag` trades later and `D = +1`
+through the book adds 1 USD, which lifts the mean to 2.08 USD.
+`RealizedSpread(lag)(price, mid)` is `2 * D * (price - mid)` with the mid
+taken `lag` trades later and `D = +1`
 for a fill above the mid and -1 below it. Its value at a row belongs to the
 trade `lag` rows earlier, so it never uses a future price. The lag counts
 trades, so the later pieces of the same order count as later trades.

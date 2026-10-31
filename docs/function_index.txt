@@ -293,7 +293,7 @@ circular_shift, Randomly rotated copies of a series, for randomization tests.
 deflated_sharpe, Probabilistic Sharpe ratio against the Sharpe ratio the best of your tried variants would reach by luck.
 forecast_pairs, Build a forecasting training set where row t holds the features at t and the target over the horizon after t.
 from_pandas, Convert a pandas Series or DataFrame to a (values, index) tuple.
-permute_bars, Bar-permuted copies of an OHLC series that keep its return distribution but no serial structure.
+permute_bars, Bar-permuted copies of an OHLC series that keep its distributions of gaps and intrabar shapes, its first bar and its last close, but no serial structure.
 permute_returns, Copies of a price series with its returns in random order.
 position_test, Test whether a backtest's timing beats randomly timed copies of the same strategy, with a p-value.
 probabilistic_sharpe, Probability that a strategy's true Sharpe ratio is above a benchmark, given its sample length and fat tails.

@@ -63,9 +63,9 @@ pnls add up to the book's.
 On a row where an asset has a NaN field, `backtest_report` skips that asset: it
 adds no pnl, and its equity holds. An asset that starts trading later joins
 the book on its first row. The gray lines in the plot are the 20 assets'
-equity curves, and the blue one is their sum. The book earned 1.39 times its
-capital over the period, with a Sharpe ratio of 0.42, and lost almost half
-of its peak equity at its worst.
+equity curves, and the blue one is their sum. The book's profit over the
+period was 139% of its starting capital, with a Sharpe ratio of 0.42, and it
+lost almost half of its peak equity at its worst.
 
 ## Go deeper
 

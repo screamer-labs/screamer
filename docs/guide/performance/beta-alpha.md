@@ -63,7 +63,7 @@ standard. Total least squares gives a larger slope here: when the two series
 are not perfectly correlated, its slope lies between the least-squares slope
 of SOL on BTC and one over the slope of BTC on SOL.
 
-The beta of SOL to BTC was above 1 for most of the sample. The alpha swings
+The beta of SOL to BTC was above 1 almost throughout the sample. The alpha swings
 far above and below zero: 90 days hold too little data to estimate an
 average return, so a large alpha in one window says little about the next.
 

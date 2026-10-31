@@ -5,7 +5,7 @@ kernelspec:
   display_name: Python 3
 ---
 
-# Generate synthetic price paths with the same return distribution (permuted bars, surrogate data)
+# Generate synthetic price paths by shuffling bars or returns (permuted bars, surrogate data)
 
 `permute_bars` returns copies of an OHLC series with its daily gaps and bar
 shapes in random order, and `permute_returns` copies of a single price series
@@ -52,10 +52,11 @@ from the first bar. Every copy starts at the first close and ends at the last
 one, and every bar is valid. `permute_returns` shuffles the daily log returns of
 the close alone.
 
-The daily standard deviation is the same as that of BTC, because the copies
-hold the same returns (`permute_returns`) or the same gaps and shapes
-(`permute_bars`, whose close-to-close returns are new combinations of them).
-What changes is their order. The standard deviation over time
+The daily standard deviation is that of BTC in both sets of copies. The
+`permute_returns` copies hold the same returns in a new order. The
+`permute_bars` copies combine the same gaps and shapes into new close-to-close
+returns, so their standard deviation matches only approximately, here to four
+decimals. The standard deviation over time
 of the 30-day volatility falls from 0.0085 to 0.0059, because calm and volatile
 days no longer cluster, and the median copy has a maximum drawdown of 62%
 against 67% for BTC. A strategy that profits from momentum, mean reversion, or

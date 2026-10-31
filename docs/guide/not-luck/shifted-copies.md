@@ -50,8 +50,9 @@ rotates the signal by a random offset of at least 100 days, with values that
 fall off the end wrapping around to the start, so it has the same values and
 the same autocorrelation as the signal but sits at the wrong time. A copy
 shifted by only a few days would have a 20-day window that overlaps the 5-day
-return it is scored on, and a high correlation for that reason alone; `min_shift=100` keeps every copy far from the real alignment. The
-leading warmup of 20 NaN values stays in place.
+return it is scored on, and a high correlation for that reason alone;
+`min_shift=100` keeps every copy far from the real alignment. The leading
+warmup of 20 NaN values stays in place.
 
 The signal's correlation of -0.018 is near the middle of its copies: 59% of
 them do at least as well, so this sample shows no momentum in BTC at this

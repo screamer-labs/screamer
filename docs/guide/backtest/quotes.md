@@ -56,7 +56,7 @@ builds a quote from each trade. A trade started by a buyer fills at the ask
 and one started by a seller at the bid, and the spread of this market is
 usually one tick of 0.5 USD, so a buy at a price gives the ask at that
 price and the bid a tick below, and a sell the reverse. The tape does not show
-the size on each side, so the page shows 1 BTC on both, more than any order
+the size on each side, so the page assumes 1 BTC on both, more than any order
 here. The signal is the moving-average rule of [Backtest on tick trades
 instead of bars](tick-trades.md), lagged one event so that each order uses
 only the quotes before it.
@@ -78,10 +78,10 @@ market_ask`) is a market order: it fills at the ask and pays `taker_fee`. The
 ask side is the mirror image.
 
 Resting at the touch avoids the taker fee, but its fills come when the price
-has already moved through the order, so each one starts at a loss to the mid. A quote built from
-trades only changes when someone trades, so these fills are a rough guide;
-with real quotes, prefer the quotes together with the trades, as in the
-notebook below.
+has already moved through the order, so each one starts at a loss to the mid.
+A quote built from trades only changes when someone trades, so these fills
+are a rough guide; with real quotes, prefer the quotes together with the
+trades, as in the notebook below.
 
 ## Go deeper
 

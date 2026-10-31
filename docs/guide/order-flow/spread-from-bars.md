@@ -49,7 +49,8 @@ plt.tight_layout()
 ```
 
 The data is six hours of Deribit BTC perpetual trades, where the quoted spread
-is usually one tick of 0.5 USD, a known value to hold the estimates against. `Resample(agg="ohlc")` turns the trades into one-minute bars.
+is usually one tick of 0.5 USD, a known value to hold the estimates against.
+`Resample(agg="ohlc")` turns the trades into one-minute bars.
 `CorwinSchultzSpread` compares the high-low range of one bar with the range of
 two bars together: price variance grows with the length of the period and the
 spread does not, which separates the two. `AbdiRanaldoSpread` measures how far
