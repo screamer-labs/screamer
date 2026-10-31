@@ -3,7 +3,8 @@
 devtools/build_guide.py builds the Guide landing pages and the home table of
 contents from docs/guide.yml. These tests fail when a notebook or recipe is not
 reachable from the Guide, a generated file is stale, a task page has the wrong
-shape, or a function is used on no Guide task page.
+shape, a function outside the allow-list is used on no Guide task page, or an
+allow-listed function is used on one.
 """
 import copy
 import importlib.util
@@ -139,16 +140,64 @@ def test_moved_pages_redirect():
         assert target.with_suffix(".md") not in stubs, f"{path.relative_to(DOCS)}: redirect chain"
 
 
-# Functions that no Guide task page needs to use: elementwise math and logic
-# helpers, which any page can use but no task is about.
-NOT_IN_GUIDE = {
-    "Abs", "Acos", "Add", "And", "Asin", "Atan", "Atan2", "Cart2Polar", "Ceil",
-    "Cos", "Cube", "Elu", "Equal", "Erf", "Erfc", "Exp", "Floor", "GreaterEqual",
+# Functions allowed on no Guide task page. The gate is a ratchet: a function
+# outside these sets must appear in a Guide code cell, and a listed function that
+# a page starts to use must leave the list, so the list only shrinks.
+#
+# Elementwise math and logic helpers: any page can use them, no task is about
+# them. Cart2Polar and Polar2Cart are elementwise coordinate conversions and
+# Identity passes its input through, so they belong here too.
+MATH_HELPERS = {
+    "Acos", "Add", "And", "Asin", "Atan", "Atan2", "Cart2Polar", "Ceil", "Cos",
+    "Cube", "Elu", "Equal", "Erf", "Erfc", "Exp", "Floor", "GreaterEqual",
     "GreaterThan", "Hypot", "Identity", "IsFinite", "IsNan", "LessEqual",
-    "LessThan", "Linear", "Linear2", "Log", "Mul", "NegPart", "Not", "NotEqual",
-    "Or", "Polar2Cart", "PosPart", "Power", "Relu", "Selu", "Sigmoid", "Sin",
-    "Softsign", "Sqrt", "Square", "Tanh", "Where",
+    "LessThan", "Linear", "Linear2", "Mul", "Not", "NotEqual", "Or", "Polar2Cart",
+    "Power", "Relu", "Selu", "Sigmoid", "Sin", "Softsign", "Sqrt", "Square", "Tanh",
+    "Where",
 }
+
+# Functions still waiting for a Guide page (snapshot at the end of Phase 3).
+# Remove a name when a page starts to use it; never add one.
+NOT_YET_IN_GUIDE = {
+    # functions_cross
+    "CrossTopBottom",
+    # functions_ew
+    "EwAlpha", "EwCorr", "EwCov", "EwGarmanKlassVar", "EwGarmanKlassVol", "EwKurt",
+    "EwParkinsonVar", "EwParkinsonVol", "EwResidualStd", "EwRms",
+    "EwRogersSatchellVar", "EwRogersSatchellVol", "EwSkew", "EwSpread", "EwVar",
+    "EwYangZhangVar", "EwYangZhangVol", "EwZscore",
+    # functions_expanding
+    "ExpandingKurt", "ExpandingMean", "ExpandingProd", "ExpandingSkew",
+    "ExpandingSlope", "ExpandingStd", "ExpandingSum", "ExpandingVar",
+    # functions_fin
+    "BacktestL1TradesOrders", "BacktestPortfolioTarget", "BacktestReport",
+    "BacktestStats", "BayesianRegression", "PortfolioReport", "ROC", "ROCP", "ROCR",
+    "RollingCov", "RollingHitRate", "RollingLinearRegression", "RollingPercentile",
+    "RollingRank", "RollingResidualStd", "RollingSpread", "RollingTSF",
+    "RollingUpsideDeviation", "backtest_trades",
+    # functions_micro
+    "BulkVolumeClassifier", "ContOFI", "EwKyleLambda", "LeeReadySign", "Propagator",
+    "RollingOrderImbalance",
+    # functions_misc
+    "CumMax", "CumMin", "CumProd", "Detrend", "Diff2", "Last", "Momentum",
+    # functions_rolling
+    "ADOSC", "ADXR", "BOP", "DEMA", "DX", "ImpulseClip", "MACD", "MinusDI",
+    "MinusDM", "NATR", "PlusDM", "RollingArgmax", "RollingArgmin",
+    "RollingGarmanKlassVar", "RollingGarmanKlassVol", "RollingIqr", "RollingKurt",
+    "RollingMax", "RollingMin", "RollingMinMax", "RollingParkinsonVar",
+    "RollingParkinsonVol", "RollingPoly2", "RollingQuantile", "RollingRange",
+    "RollingRealizedKurt", "RollingRealizedSkew", "RollingRms",
+    "RollingRogersSatchellVar", "RollingRogersSatchellVol", "RollingSeasonalMean",
+    "RollingSeasonalStd", "RollingSkew", "RollingVar", "RollingYangZhangVar",
+    "Stoch", "TEMA", "TRIMA", "TrueRange", "WMA",
+    # functions_signal
+    "ButterBandpass", "ButterBandstop", "ButterHighpass", "CycleAmplitude",
+    "CycleFrequency", "CyclePhase", "Decycler", "HilbertPhasor", "MovingAverage",
+    # functions_streams
+    "Delay", "Dropna", "Filter", "Merge", "from_pandas", "reshape", "split",
+}
+
+NOT_IN_GUIDE = MATH_HELPERS | NOT_YET_IN_GUIDE
 
 
 def _function_pages():
@@ -171,14 +220,20 @@ def _guide_usage():
 
 
 def test_not_in_guide_names_are_functions():
+    assert not MATH_HELPERS & NOT_YET_IN_GUIDE
     stale = sorted(NOT_IN_GUIDE - _function_pages())
     assert not stale, f"NOT_IN_GUIDE lists names without a function page: {stale}"
 
 
-# Phase 3 Tasks 2-5 add the pages that close the gap; Task 6 removes the xfail.
-@pytest.mark.xfail(strict=False, reason="Guide coverage is incomplete until Phase 3 lands")
 def test_guide_covers_functions():
     gap = sorted(_function_pages() - NOT_IN_GUIDE - set(_guide_usage()))
     assert not gap, (
         f"{len(gap)} functions are used on no Guide task page. Use each in a task "
-        f"page's code cell, or add it to NOT_IN_GUIDE with a reason:\n" + "\n".join(gap))
+        f"page's code cell:\n" + "\n".join(gap))
+
+
+def test_allow_list_only_shrinks():
+    covered = sorted(NOT_IN_GUIDE & set(_guide_usage()))
+    assert not covered, (
+        f"A Guide page now uses these functions; remove them from MATH_HELPERS or "
+        f"NOT_YET_IN_GUIDE in tests/test_guide.py:\n" + "\n".join(covered))

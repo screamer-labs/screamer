@@ -14,12 +14,14 @@ This extension renders it on the HTML page, so the frontmatter is the one copy:
   full source;
 - a parameter table and the outputs, after the Description section;
 - a "Used in the Guide" list of the Guide task pages whose code cells use
-  the function, in the order of ``docs/guide.yml``;
+  the function, in the order of ``docs/guide.yml`` (the first five, then a
+  count of the rest);
 - See also and References lists at the end of the page.
 
 The text is inserted while Sphinx reads the source; the files on disk are
 unchanged.
 """
+import ast
 import functools
 import json
 import math
@@ -47,6 +49,8 @@ FROM_IMPORT_RE = re.compile(
     r"^\s*from\s+screamer(?:\.\w+)*\s+import\s+(\([^)]*\)|[^\n]*)", re.M)
 MODULE_IMPORT_RE = re.compile(r"^\s*import\s+screamer(?:\s+as\s+(\w+))?\s*$", re.M)
 COMMENT_RE = re.compile(r"#[^\n]*")
+# A function page lists at most this many Guide pages, then "and N more".
+USED_IN_MAX = 5
 
 
 def _js_signatures():
@@ -255,6 +259,28 @@ def screamer_names(code):
     reads it from the module (``import screamer as sc`` then ``sc.Name``).
     Comments, strings and longer names that contain it do not count.
     """
+    lines = ["" if line.lstrip().startswith(("%", "!")) else line
+             for line in code.splitlines()]
+    try:
+        tree = ast.parse("\n".join(lines))
+    except SyntaxError:
+        return _screamer_names_re(code)
+    names, aliases = set(), set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.level == 0 and (
+                node.module or "").split(".")[0] == "screamer":
+            names.update(a.name for a in node.names if a.name != "*")
+        elif isinstance(node, ast.Import):
+            aliases.update(a.asname or a.name for a in node.names if a.name == "screamer")
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name)
+                and node.value.id in aliases):
+            names.add(node.attr)
+    return names
+
+
+def _screamer_names_re(code):
+    """Line-based fallback for a cell that does not parse as Python."""
     code = COMMENT_RE.sub("", code)
     names = set()
     for m in FROM_IMPORT_RE.finditer(code):
@@ -303,9 +329,11 @@ def _used_in(docname, name, usage):
     if not docs:
         return ""
     lines = []
-    for doc in docs:
+    for doc in docs[:USED_IN_MAX]:
         rel = os.path.relpath(doc, os.path.dirname(docname))
         lines.append(f"- [{_page_title(DOCS / f'{doc}.md')}]({rel}.md)")
+    if len(docs) > USED_IN_MAX:
+        lines.append(f"- and {len(docs) - USED_IN_MAX} more")
     return "## Used in the Guide\n\n" + "\n".join(lines) + "\n"
 
 

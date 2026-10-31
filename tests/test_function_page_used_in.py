@@ -107,3 +107,37 @@ def test_changed_usage_rereads_the_function_page(docs):
         "SignedVolume\n", "SignedVolume, RollingZscore\n"), encoding="utf-8")
     assert mod._guide_outdated(None, env, set(), set(), set()) == [
         "functions_rolling/RollingZscore"]
+
+
+def test_hash_inside_a_string_keeps_the_alias_call():
+    names = _module().screamer_names(
+        'import screamer as sc\nplt.title("#1 by volume"); z = sc.RollingZscore(20)(x)')
+    assert names == {"RollingZscore"}
+
+
+def test_string_mention_of_alias_does_not_count():
+    names = _module().screamer_names('import screamer as sc\nprint("use sc.EwMean here")')
+    assert names == set()
+
+
+def test_multi_module_import_and_continuation():
+    mod = _module()
+    assert mod.screamer_names("import numpy as np, screamer as sc\ny = sc.EwMean(5)(x)") == {"EwMean"}
+    assert mod.screamer_names("from screamer import EwMean, \\\n    Sign\n") == {"EwMean", "Sign"}
+    assert mod.screamer_names("import screamer\ny = screamer.Sign()(x)") == {"Sign"}
+
+
+def test_magic_lines_do_not_hide_names():
+    assert _module().screamer_names("%matplotlib inline\nfrom screamer import Sign") == {"Sign"}
+
+
+def test_used_in_shows_five_pages_then_a_count(monkeypatch):
+    mod = _module()
+    monkeypatch.setattr(mod, "_page_title", lambda path: path.stem.upper())
+    docs = [f"guide/flow/p{i}" for i in range(8)]
+    out = mod._used_in("functions_math/Sign", "Sign", {"Sign": docs})
+    items = [line for line in out.splitlines() if line.startswith("- ")]
+    assert items[:5] == [f"- [P{i}](../guide/flow/p{i}.md)" for i in range(5)]
+    assert items[5:] == ["- and 3 more"]
+    exact = mod._used_in("functions_math/Sign", "Sign", {"Sign": docs[:5]})
+    assert len(exact.splitlines()) == 7 and "more" not in exact
