@@ -17,8 +17,8 @@ namespace screamer {
     // BacktestL1TradesOrders: 10 -> 4. The preferred market-making engine: quotes mark the
     // position and seed context, TRADES drive passive fills (unambiguous execution
     // events), and a quote cross with no explaining trade is the run-over fallback.
-    // A side arrives when it was not quoted on the previous event (or its last
-    // order was consumed) or its price changed; an arriving bid at or above the
+    // A side arrives when it was not quoted on the previous event, its price
+    // changed, or its previous order was fully filled; an arriving bid at or above the
     // market ask is a taker from the touch, before any print is considered.
     // Inputs (bid_price, bid_size, ask_price, ask_size, market_bid, market_ask,
     // market_bid_size, market_ask_size, trade_price, trade_size). Trades are NOT
@@ -143,15 +143,9 @@ namespace screamer {
             // rest, then the slippage model moves the average, never beyond the
             // limit, regardless of any print.
             if (arrival && (quote_through || opp_price == my_price)) {
-                const double disp = std::min(remaining, opp_size);
-                const double over = remaining - disp;
-                const double tick = slippage_.tick_size();
-                const double walk = buy ? std::min(opp_price + tick, my_price)
-                                        : std::max(opp_price - tick, my_price);
-                const double vwap = (disp * opp_price + over * walk) / remaining;
-                const double fill = slippage_.fill(vwap, buy);
                 dpos = buy ? remaining : -remaining;
-                fill_price = buy ? std::min(fill, my_price) : std::max(fill, my_price);
+                fill_price = detail::marketable_fill(buy, my_price, remaining,
+                                                     opp_price, opp_size, slippage_);
                 is_taker = true;
                 prev_price = nan;                              // order consumed
                 return;
@@ -166,7 +160,8 @@ namespace screamer {
                 if (filled > 0.0) {
                     dpos = buy ? filled : -filled; fill_price = my_price; is_taker = false;
                 }
-                prev_price = quote_through ? nan : my_price;   // still resting unless the quote also crossed
+                // still resting unless the quote also crossed or the print filled it fully
+                prev_price = (quote_through || filled >= remaining) ? nan : my_price;
                 return;
             }
 

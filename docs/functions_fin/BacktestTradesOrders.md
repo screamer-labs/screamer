@@ -110,8 +110,11 @@ Fill logic per event:
   (maker fill, paying `maker_fee`). A print strictly below `bid_price`
   sweeps the full remaining `min(bid_size, room)` without a participation cap.
   With `fill="breach"` the at-price case is skipped; only a strict breach fills.
-- **Crossing on arrival.** A bid arrives when it was not quoted on the previous
-  event or its price changed; a size change alone is not an arrival. An arriving
+- **Crossing on arrival.** A bid arrives when its side was not quoted on the
+  previous event, its price changed, or its previous order was fully filled. A
+  side with no room under its position limit counts as not quoted, and a size
+  change alone is not an arrival. So a bid that a print sweeps fully, quoted
+  again at the same price while prints stay below it, fills as a taker. An arriving
   bid above the print is marketable: it fills `min(bid_size, room)` as a taker at
   the print plus the `slippage` offset, capped at `bid_price`, and pays
   `taker_fee`. An arriving bid exactly at the print rests.

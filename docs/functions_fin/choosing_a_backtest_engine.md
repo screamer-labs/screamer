@@ -74,10 +74,12 @@ The strategy posts a two-sided resting quote each event. Either or both sides ca
 fill on the same event. Setting a side's size to zero or its price to NaN disables
 that side.
 
-A side arrives on an event when it was not quoted on the previous event or its
-price changed. A size change alone is not an arrival. An arriving order that
-crosses the market is marketable: it fills immediately as a taker at the best
-market price, capped at its limit, and pays `taker_fee`. The market price is the
+An order arrives on an event when its side was not quoted on the previous event,
+its price changed, or its previous order was fully filled. A side with no room
+under its position limit counts as not quoted, and a size change alone is not an
+arrival. An arriving order that crosses the market is marketable: it fills
+immediately as a taker at the best market price, capped at its limit, and pays
+`taker_fee`. The market price is the
 opposite touch for L1 (`bid_price >= market_ask` or `ask_price <= market_bid`),
 the print for trades (`bid_price > trade_price`), and the open for OHLC bars
 (`bid_price > open`). An order that rests unchanged fills as a maker at its own

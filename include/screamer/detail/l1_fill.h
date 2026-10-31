@@ -15,8 +15,8 @@ namespace screamer { namespace detail {
 
     // L1Fill: shared fill core for L1 quote-based backtest engines. Posts a
     // two-sided quote each event. A side arrives when it was not quoted on the
-    // previous event (or its last order was consumed) or its price changed; a
-    // size change alone is not an arrival. An arriving bid at or above the
+    // previous event, its price changed, or its previous order was fully
+    // filled; a size change alone is not an arrival. An arriving bid at or above the
     // market ask is a marketable taker: it takes the displayed size at the
     // touch and walks one tick_size for the rest, and the slippage model then
     // moves that average price against the trader, never beyond the limit. A
@@ -138,17 +138,12 @@ namespace screamer { namespace detail {
             const bool through = buy ? (opp_price < my_price) : (opp_price > my_price);
             const bool lock    = (opp_price == my_price);
             const double remaining = std::min(my_size, room);
+            const bool was_locked = locked;
 
             if (arrival && (through || lock)) {          // marketable: taker from the touch
-                const double disp = std::min(remaining, opp_size);
-                const double over = remaining - disp;
-                const double tick = slippage_.tick_size();
-                const double walk = buy ? std::min(opp_price + tick, my_price)
-                                        : std::max(opp_price - tick, my_price);
-                const double vwap = (disp * opp_price + over * walk) / remaining;
-                const double fill = slippage_.fill(vwap, buy);
                 r.dpos = buy ? remaining : -remaining;
-                r.fill_price = buy ? std::min(fill, my_price) : std::max(fill, my_price);
+                r.fill_price = marketable_fill(buy, my_price, remaining,
+                                               opp_price, opp_size, slippage_);
                 r.is_taker = true;
                 prev_price = std::numeric_limits<double>::quiet_NaN();   // order consumed
                 locked = false;
@@ -158,14 +153,18 @@ namespace screamer { namespace detail {
                 prev_price = std::numeric_limits<double>::quiet_NaN();   // order consumed
                 locked = false;
             } else if (lock) {
-                if (!breach_ && !locked) {                // touch mode, first event of this lock
+                locked = true; prev_price = my_price;     // a lock is still resting
+                if (!breach_ && !was_locked) {            // touch mode, first event of this lock
                     const double filled = std::min(remaining, participation_ * opp_size);
                     if (filled > 0.0) {
                         r.dpos = buy ? filled : -filled;
                         r.fill_price = my_price; r.is_taker = false;
                     }
+                    if (filled >= remaining) {            // fully filled: the order is gone
+                        prev_price = std::numeric_limits<double>::quiet_NaN();
+                        locked = false;
+                    }
                 }
-                locked = true; prev_price = my_price;     // a lock is still resting
             } else {                                       // opp on the far side: resting
                 prev_price = my_price; locked = false;
             }

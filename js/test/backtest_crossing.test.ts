@@ -43,3 +43,13 @@ test("crossing: L1Trades new bid at the ask is a taker", () => {
   assert.equal(out[0][2], 1);
   assert.ok(close(out[0][3], 0.5 + 0.202));
 });
+
+test("crossing: a fully filled Trades bid quoted again is a new order", () => {
+  const out = BacktestTradesOrders(0.001, 0.002)([100, 100, 100, 100], [1, 1, 1, 1],
+                                                [NaN, NaN, NaN, NaN], [0, 0, 0, 0],
+                                                [101, 99, 97, 95], [1, 1, 1, 1]) as number[][];
+  assert.deepEqual(out.map((r) => r[2]), [0, 1, 2, 3]);
+  assert.ok(close(out[1][3], 0.1));            // maker at 100
+  assert.ok(close(out[2][3], 97 * 0.002));     // taker at the print 97
+  assert.ok(close(out[3][3], 95 * 0.002));
+});

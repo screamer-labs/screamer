@@ -1,6 +1,7 @@
 #ifndef SCREAMER_DETAIL_SLIPPAGE_H
 #define SCREAMER_DETAIL_SLIPPAGE_H
 
+#include <algorithm>
 #include <cmath>
 #include <stdexcept>
 #include <string>
@@ -77,6 +78,23 @@ namespace screamer { namespace detail {
         Unit unit_;
         double tick_;
     };
+
+    // Fill price of a marketable order of `remaining` units at `limit` against
+    // the opposite touch (opp_price, opp_size): the displayed size at the touch,
+    // the rest one tick further, the average then moved by the slippage model.
+    // Neither the walk nor the slippage passes the limit; a +/-inf limit (market
+    // order) leaves both uncapped. remaining > 0.
+    inline double marketable_fill(bool buy, double limit, double remaining,
+                                  double opp_price, double opp_size,
+                                  const Slippage& slippage) {
+        const double disp = std::min(remaining, opp_size);
+        const double over = remaining - disp;
+        const double tick = slippage.tick_size();
+        const double walk = buy ? std::min(opp_price + tick, limit)
+                                : std::max(opp_price - tick, limit);
+        const double fill = slippage.fill((disp * opp_price + over * walk) / remaining, buy);
+        return buy ? std::min(fill, limit) : std::max(fill, limit);
+    }
 
 }} // namespace screamer::detail
 

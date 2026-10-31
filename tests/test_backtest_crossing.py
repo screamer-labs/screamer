@@ -338,3 +338,58 @@ def test_streaming_equals_batch_and_reset(kind, factory):
     np.testing.assert_array_equal(np.nan_to_num(stream), np.nan_to_num(batch))
     np.testing.assert_array_equal(np.nan_to_num(again), np.nan_to_num(batch))
     assert np.count_nonzero(np.diff(np.nan_to_num(batch[:, 2]))) > 20
+
+
+# ------------------------------------- a fully filled order no longer exists
+
+def test_trades_fully_filled_bid_requoted_is_an_arrival():
+    # bid 100 rests above print 101, then prints 99, 97, 95: the first sweep is a
+    # maker fill at 100; the order is gone, so the same quote on the next prints
+    # is a new order through the market: a taker at each print.
+    out = s.BacktestTradesOrders(**FEES)(
+        np.array([[100, 1, nan, 0, p, 1] for p in (101, 99, 97, 95)], float))
+    np.testing.assert_allclose(out[:, 2], [0, 1, 2, 3])
+    np.testing.assert_allclose(out[1, 3], _maker_cost(1, 100))
+    np.testing.assert_allclose(out[2, 3], _taker_cost(1, 97, 97))
+    np.testing.assert_allclose(out[3, 3], _taker_cost(1, 95, 95))
+
+
+def test_trades_touch_partial_fill_keeps_the_order_resting():
+    out = s.BacktestTradesOrders(participation_ratio=0.5, **FEES)(
+        np.array([[100, 1, nan, 0, 101, 1], [100, 1, nan, 0, 100, 1],
+                  [100, 1, nan, 0, 99, 1]], float))
+    np.testing.assert_allclose(out[:, 2], [0, 0.5, 1.5])
+    np.testing.assert_allclose(out[2, 3], _maker_cost(1, 100))      # still resting: maker
+
+
+@pytest.mark.parametrize("engine", L1_ENGINES)
+@pytest.mark.parametrize("fill", ["touch", "breach"])
+def test_l1_fully_filled_order_requoted_at_the_ask_is_a_taker(engine, fill):
+    # bid 100 rests, is run over on event 1 (maker at 100), and the same quote
+    # meets the ask at 100 on event 2: a new order, so a taker.
+    out = engine(fill=fill, **FEES)(_l1([[100, 1, nan, 0, 99, 101, 5, 5],
+                                         [100, 1, nan, 0, 98, 99, 5, 5],
+                                         [100, 1, nan, 0, 99, 100, 5, 5]], engine))
+    np.testing.assert_allclose(out[:, 2], [0, 1, 2])
+    np.testing.assert_allclose(out[1, 3], _maker_cost(1, 100))
+    np.testing.assert_allclose(out[2, 3], _taker_cost(1, 100, 99.5))
+
+
+def test_l1trades_print_fully_filled_order_requoted_at_the_ask_is_a_taker():
+    out = s.BacktestL1TradesOrders(**FEES)(
+        np.array([[100, 1, nan, 0, 99, 101, 5, 5, nan, nan],
+                  [100, 1, nan, 0, 99, 101, 5, 5, 99.5, 5],
+                  [100, 1, nan, 0, 99, 100, 5, 5, nan, nan]], float))
+    np.testing.assert_allclose(out[:, 2], [0, 1, 2])
+    np.testing.assert_allclose(out[1, 3], _maker_cost(1, 100))
+    np.testing.assert_allclose(out[2, 3], _taker_cost(1, 100, 99.5))
+
+
+def test_l1_touch_lock_that_fills_fully_ends_the_order():
+    out = s.BacktestL1Orders(fill="touch", **FEES)(
+        np.array([[100, 1, nan, 0, 99, 101, 5, 8],
+                  [100, 1, nan, 0, 99, 100, 5, 8],
+                  [100, 1, nan, 0, 99, 100, 5, 8]], float))
+    np.testing.assert_allclose(out[:, 2], [0, 1, 2])
+    np.testing.assert_allclose(out[1, 3], _maker_cost(1, 100))       # lock fills it fully
+    np.testing.assert_allclose(out[2, 3], _taker_cost(1, 100, 99.5)) # same quote: new order

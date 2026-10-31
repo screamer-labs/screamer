@@ -19,8 +19,8 @@ namespace screamer { namespace detail {
     // it (touch: trade_price <= bid, breach: <) for min(bid_size,
     // participation * trade_size, room) at the bid, paying maker_fee; a
     // through-print sweeps the full resting size. A bid arrives when it was not
-    // quoted on the previous event or its price changed (a size change alone is
-    // not an arrival); an arriving bid above the print is marketable and fills
+    // quoted on the previous event, its price changed, or its previous order was
+    // fully filled (a size change alone is not an arrival); an arriving bid above the print is marketable and fills
     // its full size as a taker at the print moved by the slippage model, capped
     // at the bid. A NaN/inf bid price is a market order (+inf limit) that always
     // fills that way. The sell side is symmetric. Fills are capped so the position stays in
@@ -91,6 +91,8 @@ namespace screamer { namespace detail {
                 double dpos = 0.0;
                 if (through) dpos = std::min(bid_size, room);
                 else if (at) dpos = std::min(std::min(bid_size, participation_ * trade_size), room);
+                if (dpos >= std::min(bid_size, room))   // fully filled: the order is gone
+                    bid_prev_ = std::numeric_limits<double>::quiet_NaN();
                 if (dpos > 0.0) {
                     const bool taker = through && (arrival || std::isinf(limit));
                     const double fp = taker ? std::min(slippage_.buy(trade_price), limit) : limit;
@@ -119,6 +121,8 @@ namespace screamer { namespace detail {
                 double dpos = 0.0;
                 if (through) dpos = -std::min(ask_size, room);
                 else if (at) dpos = -std::min(std::min(ask_size, participation_ * trade_size), room);
+                if (-dpos >= std::min(ask_size, room))  // fully filled: the order is gone
+                    ask_prev_ = std::numeric_limits<double>::quiet_NaN();
                 if (dpos != 0.0) {
                     const bool taker = through && (arrival || std::isinf(limit));
                     const double fp = taker ? std::max(slippage_.sell(trade_price), limit) : limit;
