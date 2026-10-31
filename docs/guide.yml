@@ -111,18 +111,28 @@ parts:
     - guide/signal-to-position/volatility-sizing
     deeper: []
   - slug: backtest
-    title: Backtest a signal on OHLCV bars
-    line: Signal backtests on bars, the backtest report, fees and slippage, limit and stop orders, tick trades, L1 quotes, volume caps, and liquidation distance.
+    title: Backtest a strategy
+    line: Backtests on bars, tick trades and bid-ask quotes (L1), the backtest report, fees and slippage, limit and stop orders, volume caps (participation), portfolio reports, drawdown, and liquidation distance.
     tasks:
     - guide/backtest/ohlcv
     - guide/backtest/costs
+    - guide/backtest/limit-stop-orders
+    - guide/backtest/volume-cap
+    - guide/backtest/tick-trades
+    - guide/backtest/quotes
+    - guide/backtest/portfolio-report
+    - guide/backtest/drawdown-liquidation
     deeper:
     - notebooks/14-backtesting-a-signal
     - notebooks/15-event-driven-backtests
   - slug: performance
     title: Measure performance and risk
-    line: Rolling Sharpe, Sortino and Calmar ratios, CVaR and downside deviation, beta and alpha against a benchmark, and factor regressions.
-    tasks: []
+    line: Rolling Sharpe, Sortino, Calmar and Omega ratios, the information ratio, CVaR (expected shortfall) and downside deviation, beta and alpha against a benchmark, and multi-factor regressions.
+    tasks:
+    - guide/performance/rolling-ratios
+    - guide/performance/tail-risk
+    - guide/performance/beta-alpha
+    - guide/performance/factor-regression
     deeper: []
   - slug: strategies
     title: Strategy templates

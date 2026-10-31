@@ -53,4 +53,4 @@ trades each.
 - [Bars from ticks notebook](../../notebooks/09-bars-from-ticks.ipynb): time, count, volume, and dollar bars, and empty buckets.
 - [Custom and multi-column bars notebook](../../notebooks/10-custom-and-multi-column-bars.ipynb): a function as the bar reducer, and bars over several columns.
 - [`Resample`](../../functions_streams/Resample.md): every `agg=` option and how empty buckets are filled.
-- [Backtest a signal on OHLCV bars](../backtest/index.md): trade a signal on these bars, with costs.
+- [Backtest a strategy](../backtest/index.md): trade a signal on these bars, with costs.
