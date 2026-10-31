@@ -15,7 +15,7 @@
 6. :doc:`Detect mean reversion <guide/mean-reversion/index>`: Variance ratio test, Hurst exponent, Ornstein-Uhlenbeck (OU) half-life, and z-score bands.
 7. :doc:`Find cycles <guide/cycles/index>`: Dominant cycle period (Ehlers, Hilbert transform, roofing filter) and cycle turning points (sinewave indicator).
 8. :doc:`Detect regimes and change points <guide/regimes/index>`: Hidden Markov models (HMM), Bayesian online changepoint detection, CUSUM filter events, and permutation entropy.
-9. :doc:`Read order flow and liquidity <guide/order-flow/index>`: Trade signing (tick rule), order-flow imbalance (OFI), price impact (Kyle's lambda), Amihud illiquidity, bid-ask spread estimators, VPIN toxicity, micro-price, and Hawkes trade arrivals.
+9. :doc:`Read order flow and liquidity <guide/order-flow/index>`: Trade signing (tick rule), order-flow imbalance (OFI), price impact (Kyle's lambda), Amihud illiquidity, bid-ask spread from bars (Corwin-Schultz, Abdi-Ranaldo, Roll), effective and realized spread, VPIN toxicity, micro-price and queue imbalance, and Hawkes trade arrivals.
 
 **Part 2: Build a strategy**
 
@@ -24,7 +24,7 @@
 12. :doc:`Measure performance and risk <guide/performance/index>`: Rolling Sharpe, Sortino, Calmar and Omega ratios, the information ratio, CVaR (expected shortfall) and downside deviation, beta and alpha against a benchmark, and multi-factor regressions.
 13. :doc:`Strategy templates <guide/strategies/index>`: Trend following, breakouts, RSI and Bollinger Band reversion, pairs trading, cross-sectional momentum, funding carry, and volatility targeting.
 14. :doc:`Stops and exits <guide/stops/index>`: Stop-loss, take-profit and trailing-stop exits on a backtest.
-15. :doc:`Portfolios of many assets <guide/portfolios/index>`: Multi-asset backtests and sizing, cross-sectional z-scores and winsorizing, and calculations that restart per day, contract or group.
+15. :doc:`Portfolios of many assets <guide/portfolios/index>`: Multi-asset backtests and sizing, cross-sectional z-scores, demeaning and winsorizing, and calculations that restart per day, contract or group (Segment).
 
 **Part 3: Test a strategy**
 

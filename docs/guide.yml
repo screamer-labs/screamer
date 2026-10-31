@@ -89,12 +89,17 @@ parts:
     deeper: []
   - slug: order-flow
     title: Read order flow and liquidity
-    line: Trade signing (tick rule), order-flow imbalance (OFI), price impact (Kyle's lambda), Amihud illiquidity, bid-ask spread estimators, VPIN toxicity, micro-price, and Hawkes trade arrivals.
+    line: Trade signing (tick rule), order-flow imbalance (OFI), price impact (Kyle's lambda), Amihud illiquidity, bid-ask spread from bars (Corwin-Schultz, Abdi-Ranaldo, Roll), effective and realized spread, VPIN toxicity, micro-price and queue imbalance, and Hawkes trade arrivals.
     tasks:
     - guide/order-flow/sign-trades
     - guide/order-flow/imbalance
     - guide/order-flow/price-impact
     - guide/order-flow/illiquidity
+    - guide/order-flow/spread-from-bars
+    - guide/order-flow/fill-quality
+    - guide/order-flow/vpin
+    - guide/order-flow/micro-price
+    - guide/order-flow/hawkes
     deeper:
     - notebooks/11-microstructure-order-flow
     - notebooks/12-microstructure-price-impact
@@ -155,9 +160,11 @@ parts:
     deeper: []
   - slug: portfolios
     title: Portfolios of many assets
-    line: Multi-asset backtests and sizing, cross-sectional z-scores and winsorizing, and calculations that restart per day, contract or group.
+    line: Multi-asset backtests and sizing, cross-sectional z-scores, demeaning and winsorizing, and calculations that restart per day, contract or group (Segment).
     tasks:
     - guide/portfolios/multi-asset
+    - guide/portfolios/cross-sectional-scores
+    - guide/portfolios/per-group
     deeper: []
 - title: Test a strategy
   chapters:
