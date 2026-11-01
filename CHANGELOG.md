@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented in this file.
 
+3.11.2 - 2026-11-01
+-------------------
+
+### Fixed
+
+* The registry freshness test is skipped when the source tree is absent, as
+  the other source-tree checks are. The release wheel tests remove the
+  source package, so this test stopped the 3.11.1 upload to PyPI. 3.11.1 is
+  on npm only; 3.11.2 has the same library code as 3.11.0 and is on both.
+
 3.11.1 - 2026-11-01
 -------------------
 

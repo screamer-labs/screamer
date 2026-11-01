@@ -1164,6 +1164,10 @@ def test_settings_compat_table_shipped_empty():
         screamer.from_settings({"type": "RollingMean", "settings": {"window": 7}})
 
 
+# The release wheel-test CI job removes the source package (screamer/data/help.json
+# with it), which this generator reads; tests.yml runs it on the source tree.
+@pytest.mark.skipif(not (ROOT / "screamer" / "data" / "help.json").exists(),
+                    reason="needs the source tree")
 def test_op_registry_fresh():
     gen = ROOT / "devtools" / "gen_op_registry.py"
     committed = (ROOT / "src" / "screamer" / "serial" / "op_registry.cpp").read_text(encoding="utf-8")
