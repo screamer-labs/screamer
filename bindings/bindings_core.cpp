@@ -2,6 +2,8 @@
 #include <nanobind/stl/vector.h>   // std::vector <-> list
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/tuple.h>
+#include <cstdint>
+#include <optional>
 #include <vector>
 #include <string>
 #include "screamer/common/eval_op.h"
@@ -12,9 +14,102 @@
 #include "screamer/common/gc.h"
 #include "screamer/common/shape.h"
 #include "screamer/common/finite_settings.h"
+#include "screamer/common/json.h"
+#include "screamer/serial/archive.h"
+#include "screamer/serial/cbor.h"
+#include "screamer/serial/envelope.h"
+#include "screamer/serial/errors.h"
 
 namespace nb = nanobind;
 using namespace nb::literals;
+
+namespace {
+
+namespace json = screamer::json;
+namespace serial = screamer::serial;
+
+// A test object for the archives (tests/test_serial_core.py): every field call
+// of serial/archive.h, a nested block with its own state() and a nested
+// object saved through write_state/read_state as a nested operator is.
+struct SerialDemoBlock {
+    double a = -0.0;
+    std::vector<double> buf{1.0, 2.0, 3.0};
+    int count = 2;
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("a", a);
+        ar("buf", buf);
+        ar("count", count);
+        ar.check(count >= 0 && static_cast<std::size_t>(count) <= buf.size(),
+                 "count must be at most the buffer length");
+    }
+};
+
+struct SerialDemoOp {
+    static constexpr int kStateVersion = 1;
+    double total = 10.0;
+    long long seen = 4;
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("total", total);
+        ar("seen", seen);
+    }
+    void write_state(json::Value& out) const {
+        out = json::Value::object();
+        out.set("version", json::Value::integer(kStateVersion));
+        out.set("values", serial::save_state(*this));
+    }
+    void read_state(const json::Value& in, const std::string& path) {
+        const json::Value* version = in.kind == json::Value::Kind::Object ? in.get("version") : nullptr;
+        const json::Value* values = in.kind == json::Value::Kind::Object ? in.get("values") : nullptr;
+        if (!version || version->kind != json::Value::Kind::Int || !values)
+            throw serial::StateMismatch(path, "expected {\"version\": N, \"values\": {...}}");
+        if (version->i != kStateVersion) throw serial::StateVersionError(path, version->i, kStateVersion);
+        serial::load_state(*this, *values, path);
+    }
+};
+
+struct SerialDemo {
+    explicit SerialDemo(std::size_t k) : fixed(k, 0.0), k_(k) {}
+    double x = 1.5;
+    int n = 1;
+    std::vector<double> v{1.0, 2.0};
+    std::vector<double> fixed;
+    SerialDemoBlock block;
+    SerialDemoOp inner;
+    bool flag = false;
+    std::string label = "demo";
+    std::optional<double> opt;
+    std::size_t k_;
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("x", x);
+        ar("n", n);
+        ar("v", v);
+        ar.fixed("fixed", fixed, k_);
+        ar.object("block", block);
+        ar.op("inner", inner);
+        ar("flag", flag);
+        ar("label", label);
+        ar("opt", opt);
+        ar.check(!(x < n), "x must not be below n");
+    }
+};
+
+std::string utf8(nb::handle text) {
+    Py_ssize_t n = 0;
+    const char* u = PyUnicode_Check(text.ptr()) ? PyUnicode_AsUTF8AndSize(text.ptr(), &n) : nullptr;
+    if (!u) {
+        PyErr_Clear();
+        throw nb::type_error("expected a str");
+    }
+    return std::string(u, static_cast<std::size_t>(n));
+}
+
+}  // namespace
 
 void init_bindings_core(nb::module_& m) {
 
@@ -85,4 +180,49 @@ void init_bindings_core(nb::module_& m) {
     m.def("_input_shape", [](const std::vector<std::vector<std::size_t>>& shapes, std::size_t n_in) {
         return screamer::shape::broadcast(screamer::shape::input_views(shapes, n_in)).shape;
     }, "shapes"_a, "n_in"_a);
+
+    // The errors of save and load (serial/errors.h), kept under private names
+    // here (an upper-case public name of this module is taken for an operator
+    // class); screamer exports them under their own names. A translator tries
+    // the most recently registered type first, so the subclasses follow the
+    // base.
+    const auto hide = [&m](const char* name) {
+        m.attr((std::string("_") + name).c_str()) = m.attr(name);
+        nb::delattr(m, name);
+    };
+    auto save_error = nb::exception<serial::SaveError>(m, "SaveError", PyExc_ValueError);
+    nb::exception<serial::StateVersionError>(m, "StateVersionError", save_error);
+    nb::exception<serial::NotSaveable>(m, "NotSaveable", save_error);
+    nb::exception<serial::StateMismatch>(m, "StateMismatch", save_error);
+    for (const char* name : {"SaveError", "StateVersionError", "NotSaveable", "StateMismatch"}) hide(name);
+
+    // Test hooks of the serial core (tests/test_serial_core.py): JSON text in,
+    // the save layout (json::dump_save) out.
+    m.def("_serial_dump_save", [](nb::handle text) {
+        return json::dump_save(json::parse(utf8(text)));
+    }, "text"_a);
+    m.def("_serial_cbor_roundtrip", [](nb::handle text) {
+        const std::vector<std::uint8_t> b = serial::cbor::encode(json::parse(utf8(text)));
+        return json::dump_save(serial::cbor::decode(b.data(), b.size()));
+    }, "text"_a);
+    m.def("_serial_cbor_encode", [](nb::handle text) {
+        const std::vector<std::uint8_t> b = serial::cbor::encode(json::parse(utf8(text)));
+        return nb::bytes(reinterpret_cast<const char*>(b.data()), b.size());
+    }, "text"_a);
+    m.def("_serial_cbor_decode", [](nb::bytes data) {
+        return json::dump_save(serial::cbor::decode(reinterpret_cast<const std::uint8_t*>(data.c_str()),
+                                                    data.size()));
+    }, "data"_a);
+    m.def("_serial_wrap", [](nb::handle text) {
+        return json::dump_save(serial::wrap(json::parse(utf8(text))));
+    }, "text"_a);
+    m.def("_serial_check_envelope", [](nb::handle text) {
+        return json::dump_save(serial::unwrap(json::parse(utf8(text))));
+    }, "text"_a);
+    nb::class_<SerialDemo>(m, "_SerialDemo")
+        .def(nb::init<std::size_t>(), "k"_a)
+        .def("state", [](const SerialDemo& d) { return json::dump_save(serial::save_state(d)); })
+        .def("set_state", [](SerialDemo& d, nb::handle text) {
+            serial::load_state(d, json::parse(utf8(text)), "demo");
+        }, "text"_a);
 }

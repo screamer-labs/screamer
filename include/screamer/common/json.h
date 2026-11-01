@@ -1,0 +1,584 @@
+#ifndef SCREAMER_COMMON_JSON_H
+#define SCREAMER_COMMON_JSON_H
+
+// The JSON tree and text of screamer's saved forms: a Pipeline description
+// (dag/graph_json.h) and a save file (serial/). A Value keeps the keys of an
+// object in insertion order and an integer apart from a float. The text uses
+// Python's spellings of the non-finite numbers (NaN, Infinity, -Infinity);
+// dump() writes it as Python's json.dumps does, and dump_save() writes the
+// layout of a save file.
+
+#include <cerrno>
+#include <cfloat>
+#include <iomanip>
+#include <locale>
+#include <sstream>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <stdexcept>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+
+namespace screamer { namespace json {
+
+// The JSON text never depends on the locale, and nothing here reads global
+// locale state (LC_NUMERIC, localeconv): numbers go through streams imbued
+// with std::locale::classic(), whose num_put and num_get use the "C" rules
+// on every thread whatever the process locale. (std::to_chars and
+// std::from_chars for double would do the same, but libc++ provides
+// from_chars for double only in recent releases, and to_chars needs macOS
+// 13.3, newer than the wheels' deployment target.)
+namespace detail {
+
+// A JSON number's text (checked by the parser) as the nearest double. A value
+// beyond the double range is infinite and one below it zero or subnormal, as
+// Python's float() gives; the streams flag both (libc++ and libstdc++ set
+// failbit, and libstdc++ gives DBL_MAX for an overflow), so the flag is read
+// against the value.
+inline double read_double(const std::string& text) {
+    std::istringstream is(text);
+    is.imbue(std::locale::classic());
+    double d = 0.0;
+    is >> d;
+    if (is.fail() && (std::isinf(d) || std::fabs(d) == DBL_MAX))
+        d = (text[0] == '-') ? -HUGE_VAL : HUGE_VAL;
+    return d;
+}
+
+// Decimal text of an integer, without the C library's (locale-aware) printf.
+inline std::string int_text(std::int64_t v) {
+    char buf[24];
+    char* p = buf + sizeof buf;
+    const bool neg = v < 0;
+    // Work in unsigned: -INT64_MIN does not fit int64.
+    std::uint64_t u = neg ? 0 - static_cast<std::uint64_t>(v) : static_cast<std::uint64_t>(v);
+    do { *--p = static_cast<char>('0' + u % 10); u /= 10; } while (u);
+    if (neg) *--p = '-';
+    return std::string(p, buf + sizeof buf);
+}
+
+// Decimal text of an unsigned integer.
+inline std::string uint_text(std::uint64_t u) {
+    char buf[24];
+    char* p = buf + sizeof buf;
+    do { *--p = static_cast<char>('0' + u % 10); u /= 10; } while (u);
+    return std::string(p, buf + sizeof buf);
+}
+
+// The value of the digits of a whole number (a big_integer's text) when it is
+// a non-negative integer that fits uint64.
+inline bool parse_uint(const std::string& digits, std::uint64_t& out) {
+    if (digits.empty()) return false;
+    std::uint64_t u = 0;
+    for (char c : digits) {
+        if (c < '0' || c > '9') return false;
+        const std::uint64_t d = static_cast<std::uint64_t>(c - '0');
+        if (u > (UINT64_MAX - d) / 10) return false;
+        u = u * 10 + d;
+    }
+    out = u;
+    return true;
+}
+
+// The shortest scientific text of `v` ("d.ddde±xx", the "C" rules) that
+// reads back to `v`: its digits and decimal exponent.
+inline void shortest_digits(double v, std::string& digits, int& exp10) {
+    std::ostringstream os;
+    os.imbue(std::locale::classic());
+    os << std::scientific;
+    std::string t;
+    for (int prec = 1; prec <= 17; ++prec) {
+        os.str(std::string());
+        os << std::setprecision(prec - 1) << v;
+        t = os.str();
+        if (read_double(t) == v) break;
+    }
+    const std::size_t e = t.find('e');
+    digits.clear();
+    for (std::size_t k = 0; k < e; ++k)
+        if (t[k] >= '0' && t[k] <= '9') digits += t[k];
+    int x = 0;
+    std::size_t k = e + 1;
+    const bool neg = t[k] == '-';
+    if (t[k] == '-' || t[k] == '+') ++k;
+    for (; k < t.size(); ++k) x = x * 10 + (t[k] - '0');
+    exp10 = neg ? -x : x;
+}
+
+}  // namespace detail
+
+// ---- Values ----------------------------------------------------------------
+
+struct Value {
+    enum class Kind { Null, Bool, Int, Float, String, Array, Object };
+    Kind kind = Kind::Null;
+    bool b = false;
+    std::int64_t i = 0;
+    double d = 0.0;
+    std::string s;          // a String; for a whole Float past int64, its digits
+    bool whole = false;     // a Float written as a whole number past int64
+    std::vector<Value> a;
+    std::vector<std::pair<std::string, Value>> o;   // in insertion order
+
+    static Value null() { return Value(); }
+    static Value boolean(bool v) { Value x; x.kind = Kind::Bool; x.b = v; return x; }
+    static Value integer(std::int64_t v) { Value x; x.kind = Kind::Int; x.i = v; return x; }
+    static Value number(double v) { Value x; x.kind = Kind::Float; x.d = v; return x; }
+    // A whole number past the int64 range: a Float that keeps its digits, so
+    // a binding reads it as an integer (a setting then says "must be at
+    // most") and the writer writes the digits back.
+    static Value big_integer(double v, std::string digits) {
+        Value x = number(v);
+        x.whole = true;
+        x.s = std::move(digits);
+        return x;
+    }
+    static Value string(std::string v) { Value x; x.kind = Kind::String; x.s = std::move(v); return x; }
+    static Value array() { Value x; x.kind = Kind::Array; return x; }
+    static Value object() { Value x; x.kind = Kind::Object; return x; }
+
+    bool is_number() const { return kind == Kind::Int || kind == Kind::Float; }
+    double as_double() const { return kind == Kind::Int ? static_cast<double>(i) : d; }
+
+    const Value* get(const std::string& key) const {
+        for (const auto& kv : o)
+            if (kv.first == key) return &kv.second;
+        return nullptr;
+    }
+    // Sets `key`, keeping its place when it is already there (as a later
+    // duplicate key of a JSON object replaces the earlier one in Python).
+    void set(const std::string& key, Value v) {
+        for (auto& kv : o)
+            if (kv.first == key) { kv.second = std::move(v); return; }
+        o.emplace_back(key, std::move(v));
+    }
+};
+
+// ---- Parse -------------------------------------------------------------------
+
+namespace detail {
+
+class Parser {
+public:
+    Parser(const std::string& text, const char* label) : t_(text), label_(label) {}
+
+    Value document() {
+        ws();
+        Value v = value(0);
+        ws();
+        if (p_ != t_.size()) fail("extra data after the JSON value");
+        return v;
+    }
+
+private:
+    static constexpr int kMaxDepth = 512;
+    const std::string& t_;
+    const char* label_;
+    std::size_t p_ = 0;
+
+    [[noreturn]] void fail(const std::string& what) const {
+        std::size_t line = 1, col = 1;
+        for (std::size_t k = 0; k < p_ && k < t_.size(); ++k) {
+            if (t_[k] == '\n') { ++line; col = 1; } else { ++col; }
+        }
+        throw std::invalid_argument(std::string("invalid ") + label_ + ": " + what + " at line " +
+                                    std::to_string(line) + ", column " + std::to_string(col));
+    }
+
+    void ws() {
+        while (p_ < t_.size() && (t_[p_] == ' ' || t_[p_] == '\t' || t_[p_] == '\n' || t_[p_] == '\r'))
+            ++p_;
+    }
+
+    bool word(const char* w) {
+        std::size_t n = 0;
+        while (w[n]) ++n;
+        if (t_.compare(p_, n, w) != 0) return false;
+        p_ += n;
+        return true;
+    }
+
+    Value value(int depth) {
+        if (depth > kMaxDepth) fail("values nested too deeply");
+        if (p_ >= t_.size()) fail("expected a value");
+        const char c = t_[p_];
+        if (c == '{') return object(depth);
+        if (c == '[') return array(depth);
+        if (c == '"') return Value::string(string());
+        if (word("true")) return Value::boolean(true);
+        if (word("false")) return Value::boolean(false);
+        if (word("null")) return Value::null();
+        if (word("NaN")) return Value::number(std::nan(""));
+        if (word("Infinity")) return Value::number(HUGE_VAL);
+        if (word("-Infinity")) return Value::number(-HUGE_VAL);
+        if (c == '-' || (c >= '0' && c <= '9')) return number();
+        fail("expected a value");
+    }
+
+    Value object(int depth) {
+        ++p_;   // {
+        Value v = Value::object();
+        ws();
+        if (p_ < t_.size() && t_[p_] == '}') { ++p_; return v; }
+        // The keys seen, to their place in v.o: a later duplicate key
+        // replaces the earlier value (as Python's json does) in linear time.
+        std::unordered_map<std::string, std::size_t> at;
+        for (;;) {
+            ws();
+            if (p_ >= t_.size() || t_[p_] != '"') fail("expected a property name in double quotes");
+            std::string key = string();
+            ws();
+            if (p_ >= t_.size() || t_[p_] != ':') fail("expected ':' after a property name");
+            ++p_;
+            ws();
+            Value item = value(depth + 1);
+            const auto ins = at.emplace(key, v.o.size());
+            if (ins.second) v.o.emplace_back(std::move(key), std::move(item));
+            else v.o[ins.first->second].second = std::move(item);
+            ws();
+            if (p_ < t_.size() && t_[p_] == ',') { ++p_; continue; }
+            if (p_ < t_.size() && t_[p_] == '}') { ++p_; return v; }
+            fail("expected ',' or '}' in an object");
+        }
+    }
+
+    Value array(int depth) {
+        ++p_;   // [
+        Value v = Value::array();
+        ws();
+        if (p_ < t_.size() && t_[p_] == ']') { ++p_; return v; }
+        for (;;) {
+            ws();
+            v.a.push_back(value(depth + 1));
+            ws();
+            if (p_ < t_.size() && t_[p_] == ',') { ++p_; continue; }
+            if (p_ < t_.size() && t_[p_] == ']') { ++p_; return v; }
+            fail("expected ',' or ']' in an array");
+        }
+    }
+
+    unsigned hex4() {
+        if (p_ + 4 > t_.size()) fail("expected four hex digits after \\u");
+        unsigned u = 0;
+        for (int k = 0; k < 4; ++k) {
+            const char h = t_[p_++];
+            u <<= 4;
+            if (h >= '0' && h <= '9') u |= static_cast<unsigned>(h - '0');
+            else if (h >= 'a' && h <= 'f') u |= static_cast<unsigned>(h - 'a' + 10);
+            else if (h >= 'A' && h <= 'F') u |= static_cast<unsigned>(h - 'A' + 10);
+            else { --p_; fail("expected four hex digits after \\u"); }
+        }
+        return u;
+    }
+
+    static void utf8(std::string& out, unsigned cp) {
+        if (cp < 0x80) {
+            out += static_cast<char>(cp);
+        } else if (cp < 0x800) {
+            out += static_cast<char>(0xC0 | (cp >> 6));
+            out += static_cast<char>(0x80 | (cp & 0x3F));
+        } else if (cp < 0x10000) {
+            out += static_cast<char>(0xE0 | (cp >> 12));
+            out += static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
+            out += static_cast<char>(0x80 | (cp & 0x3F));
+        } else {
+            out += static_cast<char>(0xF0 | (cp >> 18));
+            out += static_cast<char>(0x80 | ((cp >> 12) & 0x3F));
+            out += static_cast<char>(0x80 | ((cp >> 6) & 0x3F));
+            out += static_cast<char>(0x80 | (cp & 0x3F));
+        }
+    }
+
+    std::string string() {
+        ++p_;   // "
+        std::string out;
+        for (;;) {
+            if (p_ >= t_.size()) fail("unterminated string");
+            const unsigned char c = static_cast<unsigned char>(t_[p_]);
+            if (c == '"') { ++p_; return out; }
+            if (c < 0x20) fail("a control character in a string");
+            if (c != '\\') { out += static_cast<char>(c); ++p_; continue; }
+            ++p_;
+            if (p_ >= t_.size()) fail("unterminated string");
+            const char e = t_[p_++];
+            switch (e) {
+            case '"': out += '"'; break;
+            case '\\': out += '\\'; break;
+            case '/': out += '/'; break;
+            case 'b': out += '\b'; break;
+            case 'f': out += '\f'; break;
+            case 'n': out += '\n'; break;
+            case 'r': out += '\r'; break;
+            case 't': out += '\t'; break;
+            case 'u': {
+                const std::size_t at = p_ - 2;
+                unsigned cp = hex4();
+                // A surrogate pair is one code point; a lone surrogate is no
+                // character, and both languages refuse it.
+                if (cp >= 0xD800 && cp < 0xDC00 && p_ + 1 < t_.size() && t_[p_] == '\\' &&
+                    t_[p_ + 1] == 'u') {
+                    const std::size_t back = p_;
+                    p_ += 2;
+                    const unsigned lo = hex4();
+                    if (lo >= 0xDC00 && lo < 0xE000) cp = 0x10000 + ((cp - 0xD800) << 10) + (lo - 0xDC00);
+                    else p_ = back;
+                }
+                if (cp >= 0xD800 && cp < 0xE000) {
+                    p_ = at;
+                    fail("a lone surrogate in a string");
+                }
+                utf8(out, cp);
+                break;
+            }
+            default:
+                --p_;
+                fail("an invalid escape in a string");
+            }
+        }
+    }
+
+    Value number() {
+        const std::size_t start = p_;
+        if (t_[p_] == '-') ++p_;
+        if (p_ >= t_.size() || !(t_[p_] >= '0' && t_[p_] <= '9')) fail("expected a digit");
+        if (t_[p_] == '0') {
+            ++p_;
+        } else {
+            while (p_ < t_.size() && t_[p_] >= '0' && t_[p_] <= '9') ++p_;
+        }
+        bool whole = true;
+        if (p_ < t_.size() && t_[p_] == '.') {
+            whole = false;
+            ++p_;
+            if (p_ >= t_.size() || !(t_[p_] >= '0' && t_[p_] <= '9')) fail("expected a digit after '.'");
+            while (p_ < t_.size() && t_[p_] >= '0' && t_[p_] <= '9') ++p_;
+        }
+        if (p_ < t_.size() && (t_[p_] == 'e' || t_[p_] == 'E')) {
+            whole = false;
+            ++p_;
+            if (p_ < t_.size() && (t_[p_] == '+' || t_[p_] == '-')) ++p_;
+            if (p_ >= t_.size() || !(t_[p_] >= '0' && t_[p_] <= '9')) fail("expected a digit in an exponent");
+            while (p_ < t_.size() && t_[p_] >= '0' && t_[p_] <= '9') ++p_;
+        }
+        const std::string text = t_.substr(start, p_ - start);
+        if (whole) {
+            // An integer that fits int64 stays an integer; a larger one is a float.
+            const bool neg = text[0] == '-';
+            const std::uint64_t limit = neg ? 9223372036854775808ULL : 9223372036854775807ULL;
+            std::uint64_t u = 0;
+            bool fits = true;
+            for (std::size_t k = neg ? 1 : 0; k < text.size() && fits; ++k) {
+                const std::uint64_t d = static_cast<std::uint64_t>(text[k] - '0');
+                if (u > (limit - d) / 10) fits = false;
+                else u = u * 10 + d;
+            }
+            if (fits)
+                return Value::integer(neg ? static_cast<std::int64_t>(0 - u) : static_cast<std::int64_t>(u));
+            return Value::big_integer(json::detail::read_double(text), text);
+        }
+        return Value::number(json::detail::read_double(text));
+    }
+};
+
+}  // namespace detail
+
+// The Value of a JSON text. A malformed text raises std::invalid_argument
+// "invalid <label>: <what> at line L, column C".
+inline Value parse(const std::string& text, const char* label = "JSON") {
+    return detail::Parser(text, label).document();
+}
+
+// ---- Write -------------------------------------------------------------------
+
+// A double as Python's repr writes it: the shortest digits that read back to
+// the same double, in fixed notation for a decimal point position from -3
+// to 16 and in exponent notation (1e-05, 1e+16) otherwise; a whole number
+// keeps ".0". JSON spells the non-finite values NaN, Infinity and -Infinity.
+inline std::string float_text(double v) {
+    if (std::isnan(v)) return "NaN";
+    if (std::isinf(v)) return v > 0 ? "Infinity" : "-Infinity";
+    if (v == 0.0) return std::signbit(v) ? "-0.0" : "0.0";
+    const bool neg = std::signbit(v);
+    std::string digits;
+    int exp10 = 0;
+    json::detail::shortest_digits(std::fabs(v), digits, exp10);
+    while (digits.size() > 1 && digits.back() == '0') digits.pop_back();
+    const int decpt = exp10 + 1;   // value = 0.digits * 10^decpt
+    const int n = static_cast<int>(digits.size());
+    std::string out = neg ? "-" : "";
+    if (decpt <= -4 || decpt > 16) {
+        out += digits[0];
+        if (n > 1) out += "." + digits.substr(1);
+        const int x = decpt - 1;
+        const int ax = x < 0 ? -x : x;
+        out += 'e';
+        out += x < 0 ? '-' : '+';
+        if (ax < 10) out += '0';
+        out += json::detail::int_text(ax);
+    } else if (decpt <= 0) {
+        out += "0." + std::string(static_cast<std::size_t>(-decpt), '0') + digits;
+    } else if (decpt >= n) {
+        out += digits + std::string(static_cast<std::size_t>(decpt - n), '0') + ".0";
+    } else {
+        out += digits.substr(0, static_cast<std::size_t>(decpt)) + "." +
+               digits.substr(static_cast<std::size_t>(decpt));
+    }
+    return out;
+}
+
+namespace detail {
+
+// A string as json.dumps writes it (ensure_ascii): ASCII only, a code point
+// above 0x7F as \uXXXX (a surrogate pair above 0xFFFF), lower-case hex.
+inline void write_string(std::string& out, const std::string& s) {
+    static const char* hex = "0123456789abcdef";
+    auto u4 = [&](unsigned u) {
+        out += "\\u";
+        for (int k = 3; k >= 0; --k) out += hex[(u >> (4 * k)) & 0xF];
+    };
+    out += '"';
+    for (std::size_t k = 0; k < s.size();) {
+        const unsigned char c = static_cast<unsigned char>(s[k]);
+        if (c < 0x80) {
+            switch (c) {
+            case '"': out += "\\\""; break;
+            case '\\': out += "\\\\"; break;
+            case '\n': out += "\\n"; break;
+            case '\r': out += "\\r"; break;
+            case '\t': out += "\\t"; break;
+            case '\b': out += "\\b"; break;
+            case '\f': out += "\\f"; break;
+            default:
+                if (c < 0x20) u4(c);
+                else out += static_cast<char>(c);
+            }
+            ++k;
+            continue;
+        }
+        // A UTF-8 sequence (a malformed byte is written as its own code point).
+        unsigned cp = c;
+        std::size_t len = 1;
+        if ((c & 0xE0) == 0xC0) { cp = c & 0x1F; len = 2; }
+        else if ((c & 0xF0) == 0xE0) { cp = c & 0x0F; len = 3; }
+        else if ((c & 0xF8) == 0xF0) { cp = c & 0x07; len = 4; }
+        if (k + len > s.size()) len = 1, cp = c;
+        for (std::size_t j = 1; j < len; ++j) cp = (cp << 6) | (static_cast<unsigned char>(s[k + j]) & 0x3F);
+        k += len;
+        if (cp >= 0x10000) {
+            cp -= 0x10000;
+            u4(0xD800 + (cp >> 10));
+            u4(0xDC00 + (cp & 0x3FF));
+        } else {
+            u4(cp);
+        }
+    }
+    out += '"';
+}
+
+inline void write(std::string& out, const Value& v, int indent, int level) {
+    using K = Value::Kind;
+    const auto newline = [&](int lvl) {
+        out += '\n';
+        out.append(static_cast<std::size_t>(indent) * static_cast<std::size_t>(lvl), ' ');
+    };
+    switch (v.kind) {
+    case K::Null: out += "null"; return;
+    case K::Bool: out += v.b ? "true" : "false"; return;
+    case K::Int: out += json::detail::int_text(v.i); return;
+    case K::Float: out += v.whole ? v.s : float_text(v.d); return;
+    case K::String: write_string(out, v.s); return;
+    case K::Array:
+        if (v.a.empty()) { out += "[]"; return; }
+        out += '[';
+        for (std::size_t k = 0; k < v.a.size(); ++k) {
+            if (k) out += indent >= 0 ? "," : ", ";
+            if (indent >= 0) newline(level + 1);
+            write(out, v.a[k], indent, level + 1);
+        }
+        if (indent >= 0) newline(level);
+        out += ']';
+        return;
+    case K::Object:
+        if (v.o.empty()) { out += "{}"; return; }
+        out += '{';
+        for (std::size_t k = 0; k < v.o.size(); ++k) {
+            if (k) out += indent >= 0 ? "," : ", ";
+            if (indent >= 0) newline(level + 1);
+            write_string(out, v.o[k].first);
+            out += ": ";
+            write(out, v.o[k].second, indent, level + 1);
+        }
+        if (indent >= 0) newline(level);
+        out += '}';
+        return;
+    }
+}
+
+}  // namespace detail
+
+// The text of `v` as Python's json.dumps(v, indent=indent) writes it; a
+// negative indent is json.dumps' default (one line, ", " and ": ").
+inline std::string dump(const Value& v, int indent) {
+    std::string out;
+    detail::write(out, v, indent, 0);
+    return out;
+}
+
+namespace detail {
+
+inline void write_save(std::string& out, const Value& v, int level) {
+    using K = Value::Kind;
+    const auto newline = [&](int lvl) {
+        out += '\n';
+        out.append(2 * static_cast<std::size_t>(lvl), ' ');
+    };
+    if (v.kind == K::Array) {
+        bool flat = true;
+        for (const Value& e : v.a) flat = flat && e.kind != K::Array && e.kind != K::Object;
+        if (flat) { write(out, v, -1, 0); return; }
+        out += '[';
+        for (std::size_t k = 0; k < v.a.size(); ++k) {
+            if (k) out += ',';
+            newline(level + 1);
+            write_save(out, v.a[k], level + 1);
+        }
+        newline(level);
+        out += ']';
+        return;
+    }
+    if (v.kind == K::Object && !v.o.empty()) {
+        out += '{';
+        for (std::size_t k = 0; k < v.o.size(); ++k) {
+            if (k) out += ',';
+            newline(level + 1);
+            write_string(out, v.o[k].first);
+            out += ": ";
+            write_save(out, v.o[k].second, level + 1);
+        }
+        newline(level);
+        out += '}';
+        return;
+    }
+    write(out, v, -1, 0);
+}
+
+}  // namespace detail
+
+// The text of a save file: objects indented by 2 spaces, an array of scalars
+// on one line ("[1.0, NaN, 3.0]", so a long buffer stays one line), keys in
+// insertion order, and every double in the shortest text that reads back to
+// its bits.
+inline std::string dump_save(const Value& v) {
+    std::string out;
+    detail::write_save(out, v, 0);
+    return out;
+}
+
+}}  // namespace screamer::json
+
+#endif  // SCREAMER_COMMON_JSON_H

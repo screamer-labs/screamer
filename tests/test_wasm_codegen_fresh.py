@@ -48,6 +48,7 @@ NON_OP_CLASS_NAMES = {
     "PortfolioReportLazyIterator",
     "RowOp",
     "RowOpLazyIterator",
+    "_SerialDemo",   # a private test object of the save archives (test_serial_core.py)
 }
 
 # Matches `nb::class_<...anything, possibly with nested <>...>(m, "NAME")`.

@@ -42,6 +42,16 @@ add_executable(screamer
     ${PURE_SOURCES})
 
 target_compile_features(screamer PRIVATE cxx_std_17)
+
+# The library version, written into save files (include/screamer/serial/envelope.h):
+# the root project's VERSION, which this standalone project does not declare.
+file(STRINGS "${SCREAMER_ROOT}/CMakeLists.txt" _screamer_project
+     REGEX "^project\\(screamer VERSION [0-9.]+")
+string(REGEX REPLACE ".*VERSION ([0-9.]+).*" "\\1" SCREAMER_VERSION "${_screamer_project}")
+if(NOT SCREAMER_VERSION)
+    message(FATAL_ERROR "No project(screamer VERSION ...) in ${SCREAMER_ROOT}/CMakeLists.txt")
+endif()
+target_compile_definitions(screamer PRIVATE SCREAMER_VERSION_STRING="${SCREAMER_VERSION}")
 target_include_directories(screamer PRIVATE
     "${SCREAMER_ROOT}/include"
     "${CMAKE_CURRENT_SOURCE_DIR}")  # so #include "embind_runtime.h" resolves

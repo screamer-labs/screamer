@@ -121,6 +121,9 @@ target_include_directories(
     "${CMAKE_SOURCE_DIR}/include"
 )
 
+# The library version, written into save files (include/screamer/serial/envelope.h).
+target_compile_definitions(screamer_bindings PRIVATE SCREAMER_VERSION_STRING="${PROJECT_VERSION}")
+
 # Optimization flags. MSVC takes different flags than GCC/Clang.
 if(MSVC)
     # Plain /O2. Skip /fp:fast (analogue of GCC -ffast-math, which we
