@@ -26,8 +26,26 @@
 
 namespace screamer {
 
-class BandSignal : public ScreamerBase {
+class BandSignal : public serial::Saveable<BandSignal, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "BandSignal";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("entry", entry_);
+        ar("exit", exit_);
+        ar("stop", stop_);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("pos", pos_);
+        ar("lock_short", lock_short_);
+        ar("lock_long", lock_long_);
+        ar.check(pos_ == 0.0 || pos_ == 1.0 || pos_ == -1.0, "pos must be -1, 0 or 1");
+    }
+
     BandSignal(double entry = 2.0, double exit = 0.0,
                double stop = std::numeric_limits<double>::infinity())
         : entry_(entry), exit_(exit), stop_(stop)

@@ -42,8 +42,58 @@
 
 namespace screamer {
 
-class RollingADF : public ScreamerBase {
+class RollingADF : public serial::Saveable<RollingADF, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "RollingADF";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", w_);
+        ar("lags", p_);
+    }
+
+    // The rows in the window (count_ rows from slot 0; the ring is full or
+    // still fills from slot 0), the lagged differences a later row reads,
+    // and the sums. Older rows and differences are never read again, and
+    // the elimination scratch a_ is not state.
+    template <class Ar>
+    void state(Ar& ar) {
+        const std::size_t w = static_cast<std::size_t>(w_), p = static_cast<std::size_t>(p_);
+        const std::size_t stride = d_ + 1;
+        ar("count", count_);
+        ar("head", head_);
+        ar("since_refresh", since_refresh_);
+        ar("seen", seen_);
+        ar.check(count_ <= w && head_ < w && since_refresh_ < w,
+                 "count, head and since_refresh must lie inside the window");
+        ar.check(count_ == w || head_ == count_, "head must equal count until the window is full");
+        ar.check(count_ == std::min(seen_ > p + 1 ? seen_ - (p + 1) : 0, w),
+                 "count must follow from seen");
+        const std::size_t lags = std::min(seen_ > 0 ? seen_ - 1 : 0, p);
+        std::vector<double> rows, hist;
+        if constexpr (Ar::kSaving) {
+            rows.assign(rows_.begin(), rows_.begin() + count_ * stride);
+            hist.assign(hist_.begin(), hist_.begin() + lags);
+        }
+        ar.local("rows", rows, count_ * stride);
+        ar.local("hist", hist, lags);
+        if constexpr (Ar::kLoading)
+            ar.apply([this, rows, hist] {
+                         std::fill(std::copy(rows.begin(), rows.end(), rows_.begin()), rows_.end(), 0.0);
+                         std::fill(std::copy(hist.begin(), hist.end(), hist_.begin()), hist_.end(), 0.0);
+                     },
+                     [this, old_rows = rows_, old_hist = hist_] {
+                         rows_ = old_rows;
+                         hist_ = old_hist;
+                     });
+        ar.fixed("xtx", xtx_, d_ * d_);
+        ar.fixed("xty", xty_, d_);
+        ar("yty", yty_);
+        ar("prev", prev_);
+        ar("origin", origin_);
+    }
+
     RollingADF(int window_size = 100, int lags = 1)
         : w_(window_size), p_(lags), d_(static_cast<std::size_t>(lags) + 2)
     {

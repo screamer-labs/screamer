@@ -1,0 +1,40 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "TripleBarrier",
+    "settings": {
+      "horizon": 5,
+      "upper": 0.01,
+      "lower": 0.01,
+      "barrier_unit": "fraction",
+      "vol_span": 100.0
+    },
+    "state": {
+      "version": 1,
+      "values": {
+        "price": [1000.3907507803297, 1001.6311009938439, 1003.489220391607, 1005.8463403589633, 1007.2939345130559],
+        "upper": [1010.394658288133, 1011.6474120037824, 1013.5241125955231, 1015.9048037625529, 1017.3668738581864],
+        "lower": [990.3868432725263, 991.6147899839054, 993.4543281876909, 995.7878769553737, 997.2209951679254],
+        "label": [NaN, NaN, NaN, NaN, NaN],
+        "ret": [NaN, NaN, NaN, NaN, NaN],
+        "hold": [NaN, NaN, NaN, NaN, NaN],
+        "age": [4, 3, 2, 1, 0],
+        "open": [true, true, true, true, true],
+        "cursor": 0,
+        "prev_close": 1007.2939345130559,
+        "sigma": NaN,
+        "vol": {
+          "sums": {
+            "w": 0.0,
+            "origin": 0.0,
+            "s1": 0.0,
+            "s2": 0.0,
+            "tick": 0
+          },
+          "w2": 0.0
+        }
+      }
+    }
+  }
+}

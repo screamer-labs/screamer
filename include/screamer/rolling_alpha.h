@@ -22,6 +22,19 @@ namespace screamer {
 
 class RollingAlpha : public FunctorBase<RollingAlpha, 2, 1> {
 public:
+    static constexpr const char* kTypeName = "RollingAlpha";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) { mean_x_.settings(ar); }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("beta", beta_);
+        ar.object("mean_x", mean_x_);
+        ar.object("mean_y", mean_y_);
+    }
+
     RollingAlpha(int window_size, const std::string& start_policy = "strict")
         : beta_(window_size, start_policy),
           mean_x_(window_size, start_policy),

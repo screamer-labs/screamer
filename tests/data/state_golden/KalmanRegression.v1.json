@@ -1,0 +1,24 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "KalmanRegression",
+    "settings": {
+      "delta": 1e-06,
+      "obs_var": 0.001,
+      "prior_var": 1.0,
+      "huber": Infinity
+    },
+    "state": {
+      "version": 1,
+      "values": {
+        "a": 0.0011873689701322446,
+        "b": 0.998531705504544,
+        "p00": 1.0000094812720486,
+        "p01": -0.0009917850927226102,
+        "p11": 9.846109947415438e-07,
+        "n": 50
+      }
+    }
+  }
+}

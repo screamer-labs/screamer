@@ -26,6 +26,18 @@ class RollingResidualStd : public StepperFunctorBase<RollingResidualStd, 2, 1> {
     using StdSums = detail::ShiftedWindowSums<2>;
 
 public:
+    static constexpr const char* kTypeName = "RollingResidualStd";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) { spread_.settings(ar); }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("spread", spread_);
+        ar.object("sums", sums_);
+    }
+
     RollingResidualStd(int window_size, const std::string& start_policy = "strict")
         : spread_(window_size, start_policy),
           start_policy_(detail::parse_start_policy(start_policy)),

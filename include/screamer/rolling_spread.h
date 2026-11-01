@@ -34,6 +34,18 @@ class RollingSpread : public StepperFunctorBase<RollingSpread, 2, 1> {
     using Sums = detail::ShiftedWindowCoSums<>;
 
 public:
+    static constexpr const char* kTypeName = "RollingSpread";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", static_cast<int>(sums_.capacity()));
+        ar("start_policy", std::string(detail::start_policy_name(start_policy_)));
+    }
+
+    template <class Ar>
+    void state(Ar& ar) { ar.object("sums", sums_); }
+
     RollingSpread(int window_size, const std::string& start_policy = "strict")
         : start_policy_(detail::parse_start_policy(start_policy)),
           sums_(window_size >= 2 ? window_size : 2, start_policy_)

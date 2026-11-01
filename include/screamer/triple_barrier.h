@@ -63,6 +63,7 @@ public:
           lower_(check_distance(lower, "lower")),
           unit_(parse_unit(barrier_unit)),
           sqrt_h_(std::sqrt(static_cast<double>(horizon))),
+          vol_span_(vol_span),
           vol_(std::nullopt, check_span(vol_span))
     {
         if (unit_ == Unit::fraction && lower_ >= 1.0)
@@ -81,6 +82,56 @@ public:
 
     // One step: test the bar against every open entry, emit the entry from
     // `horizon` steps ago, and open an entry at this step's close.
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("horizon", horizon_);
+        ar("upper", upper_);
+        ar("lower", lower_);
+        ar("barrier_unit", std::string(unit_ == Unit::price ? "price"
+                                       : unit_ == Unit::vol ? "vol" : "fraction"));
+        ar("vol_span", vol_span_);
+    }
+
+    // The ring of open labels as it is (one entry per field), with its
+    // cursor; it grows to horizon entries during the warm-up.
+    template <class Ar>
+    void state(Ar& ar) {
+        std::vector<double> price, upper, lower, label, ret, hold;
+        std::vector<int> age;
+        std::vector<bool> open;
+        if constexpr (Ar::kSaving)
+            for (const Entry& en : ring_) {
+                price.push_back(en.price); upper.push_back(en.upper); lower.push_back(en.lower);
+                label.push_back(en.label); ret.push_back(en.ret); hold.push_back(en.hold);
+                age.push_back(en.age); open.push_back(en.open);
+            }
+        ar.local("price", price);
+        const std::size_t n = price.size();
+        ar.check(n <= static_cast<std::size_t>(horizon_), "the ring holds at most horizon entries");
+        ar.local("upper", upper, n);
+        ar.local("lower", lower, n);
+        ar.local("label", label, n);
+        ar.local("ret", ret, n);
+        ar.local("hold", hold, n);
+        ar.local("age", age, n);
+        ar.local("open", open, n);
+        if constexpr (Ar::kLoading) {
+            std::vector<Entry> ring(n);
+            for (std::size_t k = 0; k < n; ++k) {
+                ring[k] = Entry{price[k], upper[k], lower[k], label[k], ret[k], hold[k],
+                                age[k], static_cast<bool>(open[k])};
+                ar.check(ring[k].age >= 0 && ring[k].age <= horizon_, "age must lie in 0 .. horizon");
+            }
+            ar.apply([this, ring] { ring_ = ring; }, [this, old = ring_] { ring_ = old; });
+        }
+        ar("cursor", cursor_);
+        ar.check(n < static_cast<std::size_t>(horizon_) ? cursor_ == 0 : cursor_ < n,
+                 "cursor must be 0 during the warm-up, then inside the ring");
+        ar("prev_close", prev_close_);
+        ar("sigma", sigma_);
+        ar.object("vol", vol_);
+    }
+
     template <bool kBar>
     Result step(double open, double high, double low, double close) {
         const bool valid = kBar
@@ -219,6 +270,7 @@ private:
     double lower_;
     Unit unit_;
     double sqrt_h_;
+    double vol_span_;
     EwStd vol_;
     std::vector<Entry> ring_;
     std::size_t cursor_ = 0;
@@ -230,6 +282,15 @@ private:
 
 class TripleBarrier : public FunctorBase<TripleBarrier, 1, 3> {
 public:
+    static constexpr const char* kTypeName = "TripleBarrier";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) { core_.settings(ar); }
+
+    template <class Ar>
+    void state(Ar& ar) { core_.state(ar); }
+
     explicit TripleBarrier(int horizon = 20, double upper = 0.0, double lower = 0.0,
                            const std::string& barrier_unit = "fraction",
                            double vol_span = 100.0)
@@ -248,6 +309,15 @@ private:
 
 class TripleBarrierOHLC : public FunctorBase<TripleBarrierOHLC, 4, 3> {
 public:
+    static constexpr const char* kTypeName = "TripleBarrierOHLC";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) { core_.settings(ar); }
+
+    template <class Ar>
+    void state(Ar& ar) { core_.state(ar); }
+
     explicit TripleBarrierOHLC(int horizon = 20, double upper = 0.0, double lower = 0.0,
                                const std::string& barrier_unit = "fraction",
                                double vol_span = 100.0)

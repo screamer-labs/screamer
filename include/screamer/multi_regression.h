@@ -67,6 +67,7 @@
 #include <vector>
 #include "screamer/common/float_info.h"
 #include "screamer/common/var_arity_op.h"
+#include "screamer/detail/ew_args.h"
 
 namespace screamer {
 namespace detail {
@@ -131,7 +132,60 @@ public:
 
     void reset() override { reset_fit(); }
 
+    // The fit's running state. A rolling fit saves the rows in its window
+    // (n_ rows from slot 0 while it fills, else the whole ring), since a row
+    // is read again when it leaves; the arrays save their used entries. l_
+    // and inv_ are scratch of fit().
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("n", n_);
+        ar("head", head_);
+        ar("since_refresh", since_refresh_);
+        if (w_) {
+            ar.check(n_ <= w_ && head_ < w_ && since_refresh_ < w_,
+                     "n, head and since_refresh must lie inside the window");
+            ar.check(n_ == w_ || head_ == n_, "head must equal n until the window is full");
+        } else {
+            ar.check(head_ == 0 && since_refresh_ == 0, "an expanding fit has no ring");
+        }
+        if (w_) {
+            std::vector<double> rows;
+            if constexpr (Ar::kSaving) rows.assign(ring_.begin(), ring_.begin() + n_ * d_);
+            ar.local("rows", rows, n_ * d_);
+            if constexpr (Ar::kLoading)
+                ar.apply([this, rows] {
+                             std::fill(std::copy(rows.begin(), rows.end(), ring_.begin()), ring_.end(), 0.0);
+                         },
+                         [this, old = ring_] { ring_ = old; });
+        }
+        if constexpr (kEw) ar("wsum", wsum_);
+        used(ar, "mean", mean_, d_);
+        used(ar, "origin", origin_, d_);
+        std::vector<double> c;
+        if constexpr (Ar::kSaving)
+            for (std::size_t i = 0; i < d_; ++i)
+                for (std::size_t j = i; j < d_; ++j) c.push_back(c_[i * D + j]);
+        ar.local("c", c, d_ * (d_ + 1) / 2);
+        if constexpr (Ar::kLoading)
+            ar.apply([this, c] {
+                         std::size_t q = 0;
+                         for (std::size_t i = 0; i < d_; ++i)
+                             for (std::size_t j = i; j < d_; ++j) c_[i * D + j] = c[q++];
+                     },
+                     [this, old = c_] { c_ = old; });
+        ar("fitted", fitted_);
+        ar("b0", b0_);
+        ar("r2", r2_);
+        used(ar, "b", b_, k_);
+        if constexpr (kEw) used(ar, "peak", peak_, k_);
+        ar.check(!fitted_ || n_ >= n_min_, "a fit needs n_min rows");
+    }
+
 protected:
+    std::size_t window() const { return w_; }
+    int n_regressors() const { return static_cast<int>(k_); }
+    bool intercept() const { return icpt_; }
+
     // d^(1/8) by three square roots, correctly rounded in every binding.
     static double slow_decay(double d) { return std::sqrt(std::sqrt(std::sqrt(d))); }
 
@@ -142,6 +196,17 @@ protected:
     }
 
 private:
+    // The first len entries of an array; the others stay zero.
+    template <class Ar, std::size_t N>
+    static void used(Ar& ar, const char* name, std::array<double, N>& a, std::size_t len) {
+        std::vector<double> v;
+        if constexpr (Ar::kSaving) v.assign(a.begin(), a.begin() + len);
+        ar.local(name, v, len);
+        if constexpr (Ar::kLoading)
+            ar.apply([&a, v] { std::copy(v.begin(), v.end(), a.begin()); },
+                     [&a, old = a] { a = old; });
+    }
+
     void reset_fit() {
         n_ = 0;
         wsum_ = 0.0;
@@ -457,6 +522,16 @@ private:
 
 class RollingMultiRegression : public detail::OLSFit<RollingMultiRegression> {
 public:
+    static constexpr const char* kTypeName = "RollingMultiRegression";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", static_cast<int>(window()));
+        ar("n_regressors", n_regressors());
+        ar("intercept", intercept());
+    }
+
     RollingMultiRegression(int window_size, int n_regressors, bool intercept = true)
         : detail::OLSFit<RollingMultiRegression>(check_window(window_size, n_regressors, intercept),
                                      n_regressors, intercept) {}
@@ -474,19 +549,39 @@ private:
 
 class ExpandingMultiRegression : public detail::OLSFit<ExpandingMultiRegression> {
 public:
+    static constexpr const char* kTypeName = "ExpandingMultiRegression";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("n_regressors", n_regressors());
+        ar("intercept", intercept());
+    }
+
     ExpandingMultiRegression(int n_regressors, bool intercept = true)
         : detail::OLSFit<ExpandingMultiRegression>(0, n_regressors, intercept) {}
 };
 
 class EwMultiRegression : public detail::OLSFit<EwMultiRegression, true> {
 public:
+    static constexpr const char* kTypeName = "EwMultiRegression";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("n_regressors", n_regressors());
+        ar("intercept", intercept());
+        args_.settings(ar);
+    }
+
     EwMultiRegression(int n_regressors, bool intercept = true,
                       std::optional<double> com = std::nullopt,
                       std::optional<double> span = std::nullopt,
                       std::optional<double> halflife = std::nullopt,
                       std::optional<double> alpha = std::nullopt)
         : detail::OLSFit<EwMultiRegression, true>(
-              0, n_regressors, intercept, decay(n_regressors, com, span, halflife, alpha)) {}
+              0, n_regressors, intercept, decay(n_regressors, com, span, halflife, alpha)),
+          args_{com, span, halflife, alpha} {}
 
 private:
     // 1 - alpha, with alpha from exactly one of com, span, halflife and alpha
@@ -507,6 +602,8 @@ private:
             throw std::invalid_argument("Alpha must be a finite value between 0 and 1 (exclusive)");
         return 1.0 - a;
     }
+
+    detail::EwArgs args_;
 };
 
 }  // namespace screamer

@@ -1,0 +1,20 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "BandSignal",
+    "settings": {
+      "entry": 2.0,
+      "exit": 0.0,
+      "stop": Infinity
+    },
+    "state": {
+      "version": 1,
+      "values": {
+        "pos": -1.0,
+        "lock_short": false,
+        "lock_long": false
+      }
+    }
+  }
+}

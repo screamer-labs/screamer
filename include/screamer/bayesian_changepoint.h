@@ -44,9 +44,35 @@ public:
     // differently and the last bits of batch and per-event output differ.
     // A step costs O(max_run) logs and exps, so the call itself is free.
     static constexpr bool kInlineColumnCall = false;
+    static constexpr const char* kTypeName = "BayesianChangepoint";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("expected_run", expected_run_);
+        ar("max_run", static_cast<int>(R_ - 1));
+        ar("prior_var", prior_var_);
+    }
+
+    // The len_ live run lengths; the entries past them are not read before
+    // they are written again.
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("len", len_);
+        ar.check(len_ <= R_, "len must be at most max_run + 1");
+        for (auto [name, v] : {std::pair{"prob", &prob_}, std::pair{"logp", &logp_},
+                               std::pair{"mu", &mu_}, std::pair{"beta", &beta_}}) {
+            std::vector<double> head;
+            if constexpr (Ar::kSaving) head.assign(v->begin(), v->begin() + len_);
+            ar.local(name, head, len_);
+            if constexpr (Ar::kLoading)
+                ar.apply([v, head] { std::copy(head.begin(), head.end(), v->begin()); },
+                         [v, old = *v] { *v = old; });
+        }
+    }
 
     BayesianChangepoint(double expected_run = 250.0, int max_run = 1000, double prior_var = 1.0)
-        : prior_var_(check(expected_run, max_run, prior_var)),
+        : expected_run_(expected_run), prior_var_(check(expected_run, max_run, prior_var)),
           log_h_(-std::log(expected_run)),
           log_1mh_(std::log1p(-1.0 / expected_run)),
           R_(static_cast<std::size_t>(max_run) + 1),
@@ -154,6 +180,7 @@ private:
         return std::make_tuple(rl, mean, std::sqrt(var < 0.0 ? 0.0 : var));   // NaN stays NaN
     }
 
+    const double expected_run_;
     const double prior_var_;
     const double log_h_;     // log H
     const double log_1mh_;   // log (1 - H); -inf when expected_run is 1

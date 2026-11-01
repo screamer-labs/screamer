@@ -63,10 +63,16 @@ function assertBitwise(got: number[], want: number[], what: string) {
 }
 
 // Equal to 1e-9 (relative, or absolute near zero), NaN equal to NaN.
-const close = (a: number, b: number) => same(a, b) || Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(a), Math.abs(b));
-function assertClose(got: number[], want: number[], what: string) {
+const close = (a: number, b: number, tol = 1e-9) =>
+  same(a, b) || Math.abs(a - b) <= tol * Math.max(1, Math.abs(a), Math.abs(b));
+// Operators whose outputs JavaScript and Python round apart by more: at the
+// cases' price scale of 1e3, BayesianRegression's 2x2 solve is ill
+// conditioned, so the last-bit differences of the native and WASM builds
+// grow to a few 1e-9.
+const TOL: Record<string, number> = { BayesianRegression: 1e-8 };
+function assertClose(got: number[], want: number[], what: string, tol = 1e-9) {
   assert.equal(got.length, want.length, `${what}: length`);
-  for (let i = 0; i < got.length; i++) assert.ok(close(got[i], want[i]), `${what}[${i}]: ${got[i]} vs ${want[i]}`);
+  for (let i = 0; i < got.length; i++) assert.ok(close(got[i], want[i], tol), `${what}[${i}]: ${got[i]} vs ${want[i]}`);
 }
 
 // Two trees of the same shape whose numbers agree by `eq`.
@@ -126,7 +132,7 @@ for (const c of ORACLE.cases) {
       // Byte for byte but for the library version, which is this build's.
       assert.equal(noVersion(op.dumps()), noVersion(c.json_text));
       assert.equal(noVersionHex(hex(op.dumps("cbor"))), noVersionHex(c.cbor_hex));
-      assertClose(feed(op, c.rest), want, `${c.name} rest`);
+      assertClose(feed(op, c.rest), want, `${c.name} rest`, TOL[c.name]);
       op.dispose();
     }
   });
@@ -166,7 +172,7 @@ for (const c of ORACLE.cases) {
     assert.equal(op.dumps(), ref.dumps());
     const got = flat(op.resume(...arrays(c.rest)));
     assertBitwise(got, feed(ref, c.rest), `${c.name} resume`);
-    assertClose(got, want, `${c.name} resume vs Python`);
+    assertClose(got, want, `${c.name} resume vs Python`, TOL[c.name]);
     // The end state stays: the object continues from it.
     assert.equal(op.dumps(), ref.dumps());
     op.dispose(); ref.dispose();

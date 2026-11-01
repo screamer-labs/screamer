@@ -1,0 +1,27 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "BayesianRegression",
+    "settings": {
+      "com": null,
+      "span": 20.0,
+      "halflife": null,
+      "alpha": null,
+      "prior_precision": 1.0,
+      "prior_sigma": 1.0
+    },
+    "state": {
+      "version": 1,
+      "values": {
+        "L11": 11.429546169532767,
+        "L12": 10446.399608798458,
+        "L22": 10463420.537708705,
+        "eta1": 10432.97369890222,
+        "eta2": 10449969.202123519,
+        "s": 10436538.840279076,
+        "a": 7.214773084766383
+      }
+    }
+  }
+}

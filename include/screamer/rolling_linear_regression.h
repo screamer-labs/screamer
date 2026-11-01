@@ -37,6 +37,18 @@ class RollingLinearRegression : public StepperFunctorBase<RollingLinearRegressio
     using Sums = detail::ShiftedWindowCoSums<>;
 
 public:
+    static constexpr const char* kTypeName = "RollingLinearRegression";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", static_cast<int>(sums_.capacity()));
+        ar("start_policy", std::string(detail::start_policy_name(start_policy_)));
+    }
+
+    template <class Ar>
+    void state(Ar& ar) { ar.object("sums", sums_); }
+
     RollingLinearRegression(int window_size, const std::string& start_policy = "strict")
         : start_policy_(detail::parse_start_policy(start_policy)),
           sums_(window_size >= 3 ? window_size : 3, start_policy_)

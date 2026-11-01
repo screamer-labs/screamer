@@ -64,6 +64,28 @@ namespace screamer {
 
 class KalmanRegression : public FunctorBase<KalmanRegression, 2, 4> {
 public:
+    static constexpr const char* kTypeName = "KalmanRegression";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("delta", delta_);
+        ar("obs_var", obs_var_);
+        ar("prior_var", prior_var_);
+        ar("huber", huber_);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("a", a_);
+        ar("b", b_);
+        ar("p00", p00_);
+        ar("p01", p01_);
+        ar("p11", p11_);
+        ar("n", n_);
+        ar.check(n_ >= 0, "n must not be negative");
+    }
+
     KalmanRegression(double delta = 1e-6, double obs_var = 1e-3, double prior_var = 1.0,
                      double huber = std::numeric_limits<double>::infinity())
         : delta_(delta), obs_var_(obs_var), prior_var_(prior_var), huber_(huber),

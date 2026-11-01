@@ -28,16 +28,12 @@ HELP: dict[str, dict] = json.loads(
 FUNCTOR_NAMES = sorted(n for n, e in HELP.items() if e.get("kind", "functor") == "functor")
 
 KNOWN_UNSAVEABLE: set[str] = {
-    'AbdiRanaldoSpread', 'AmihudIlliquidity', 'BandSignal', 'BayesianChangepoint',
-    'BayesianRegression', 'BulkVolumeClassifier', 'ContOFI', 'CorwinSchultzSpread',
-    'Detrend', 'Diff', 'Diff2', 'EdgeSpread', 'EffectiveSpread', 'EwKyleLambda',
-    'EwMultiRegression', 'ExpandingMultiRegression', 'First', 'HawkesIntensity',
-    'KalmanRegression', 'Lag', 'Last', 'LeeReadySign', 'MicroPrice', 'Momentum', 'OFI',
-    'Propagator', 'QueueImbalance', 'RealizedSpread', 'RollSpread', 'RollingADF',
-    'RollingAlpha', 'RollingBeta', 'RollingCorr', 'RollingCov', 'RollingKyleLambda',
-    'RollingLinearRegression', 'RollingMultiRegression', 'RollingOrderImbalance',
-    'RollingResidualStd', 'RollingSpread', 'RollingTLSBeta', 'SignedVolume',
-    'TickRuleSign', 'TripleBarrier', 'TripleBarrierOHLC', 'VPIN'
+    'AbdiRanaldoSpread', 'AmihudIlliquidity', 'BulkVolumeClassifier', 'ContOFI',
+    'CorwinSchultzSpread', 'Detrend', 'Diff', 'Diff2', 'EdgeSpread', 'EffectiveSpread',
+    'EwKyleLambda', 'First', 'HawkesIntensity', 'Lag', 'Last', 'LeeReadySign',
+    'MicroPrice', 'Momentum', 'OFI', 'Propagator', 'QueueImbalance', 'RealizedSpread',
+    'RollSpread', 'RollingKyleLambda', 'RollingOrderImbalance', 'SignedVolume',
+    'TickRuleSign', 'VPIN'
 }
 
 # Arguments that differ from the sweep's: Segment runs an operator that can be

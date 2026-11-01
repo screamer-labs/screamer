@@ -573,6 +573,75 @@ def test_portfolio_loads_into_a_fresh_engine():
     a.set_state(fresh)
     assert _same(a.state(), fresh)
 
+def _fed_rows(op, rows):
+    for r in rows:
+        op(*r)
+    return op
+
+
+_RETS = tuple(np.diff(np.log(_WALK)))
+_PAIRS = tuple(zip(_WALK[1:], _WALK[:-1]))
+
+
+@pytest.mark.parametrize("make, edit, message", [
+    (lambda: _fed(screamer.RollingCVaR(5), _RETS[:8]),
+     lambda v: v["tree"].update(keys=[k + 1.0 for k in v["tree"]["keys"]]),
+     "RollingCVaR: tree must hold the values of the window"),
+    (lambda: _fed(screamer.RollingMaxDrawdown(5), _WALK[:3]),
+     lambda v: v.update(index=1), "RollingMaxDrawdown: index must equal count"),
+    (lambda: _fed(screamer.RollingSortino(5), _RETS[:3]),
+     lambda v: v.update(count=6), "RollingSortino: count must lie in"),
+    (lambda: _fed(screamer.RollingHitRate(5), _RETS[:3]),
+     lambda v: v.update(n_seen=6), "RollingHitRate: n_seen must lie in"),
+    (lambda: _fed(screamer.RollingDownsideDeviation(5, start_policy="zero"), _RETS[:3]),
+     lambda v: v.update(n=3), "RollingDownsideDeviation: n must equal window_size"),
+    (lambda: _fed(screamer.BandSignal(), (2.5, 1.0)),
+     lambda v: v.update(pos=0.5), "BandSignal: pos must be"),
+    (lambda: _fed2(screamer.KalmanRegression(), _PAIRS[:3]),
+     lambda v: v.update(n=-1), "KalmanRegression: n must not be negative"),
+    (lambda: _fed(screamer.RollingADF(10, 1), _WALK[:8]),
+     lambda v: v.update(seen=v["seen"] + 1), "RollingADF: count must follow from seen"),
+    (lambda: _fed(screamer.RollingADF(10, 1), _WALK[:6]),
+     lambda v: v.update(head=0), "RollingADF: head must equal count"),
+    (lambda: _fed_rows(screamer.RollingMultiRegression(8, 1), _PAIRS[:5]),
+     lambda v: v.update(head=1), "RollingMultiRegression: head must equal n"),
+    (lambda: _fed_rows(screamer.ExpandingMultiRegression(1), _PAIRS[:5]),
+     lambda v: v.update(fitted=True, n=1), "ExpandingMultiRegression: a fit needs n_min"),
+    (lambda: _fed_rows(screamer.EwMultiRegression(1, span=5.0), _PAIRS[:5]),
+     lambda v: v.update(c=[0.0]), r"EwMultiRegression.c: expected 3 values, got 1"),
+    (lambda: _fed(screamer.BayesianChangepoint(max_run=4), _RETS[:10]),
+     lambda v: v.update(len=6), "BayesianChangepoint: len must be at most"),
+    (lambda: _fed(screamer.TripleBarrier(5, 0.01, 0.01), _WALK[:3]),
+     lambda v: v.update(cursor=1), "TripleBarrier: cursor must be 0 during the warm-up"),
+    (lambda: _fed(screamer.TripleBarrier(5, 0.01, 0.01), _WALK[:3]),
+     lambda v: v.update(age=[0, 9, 0]), "TripleBarrier: age must lie in"),
+])
+def test_fin_state_checks(make, edit, message):
+    """The state checks of the return, ratio, regression and label
+    operators: a hand edit that breaks one raises a SaveError naming the path
+    and leaves the operator unchanged."""
+    op = make()
+    state = op.state()
+    before = op.dumps()
+    edit(state["values"])
+    with pytest.raises(screamer.SaveError, match=message):
+        op.set_state(state)
+    assert op.dumps() == before
+
+
+def test_triple_barrier_ring_continues_after_load():
+    """A TripleBarrier saved with open labels in its ring loads and resolves
+    them as the original does."""
+    x = np.asarray(_WALK)
+    a = _fed(screamer.TripleBarrierOHLC(5, 0.005, 0.005), ())
+    for v in x[:12]:
+        a(v, v + 0.4, v - 0.4, v)
+    assert any(a.state()["values"]["open"])
+    b = screamer.loads(a.dumps())
+    assert b.dumps() == a.dumps()
+    np.testing.assert_array_equal([b(v, v + 0.4, v - 0.4, v) for v in x[12:]],
+                                  [a(v, v + 0.4, v - 0.4, v) for v in x[12:]])
+
 def test_renamed_alias_saves_its_own_type():
     """ExpandingSum is CumSum under another name, and saves under its own."""
     a = _fed(screamer.ExpandingSum(), (1.0, 2.0))
@@ -876,6 +945,11 @@ def _check_js_file(c):
     return a
 
 
+# Operators whose JavaScript and Python outputs round apart by more (the TOL
+# table of js/test/save_restore.test.ts says why).
+_JS_TOL = {"BayesianRegression": 1e-8}
+
+
 def test_js_files_load_byte_for_byte():
     """The files JavaScript wrote (js/scripts/gen_save_js.ts) load in Python
     and write back the same bytes, in JSON and CBOR, and continue as
@@ -889,8 +963,9 @@ def test_js_files_load_byte_for_byte():
         k = splits(c["name"], kwargs_for(c["name"]))[2]
         ref = make()
         feed(ref, inputs, 0, k)
+        tol = _JS_TOL.get(c["name"], 1e-9)
         np.testing.assert_allclose(feed(a, inputs, k, k + REST), feed(ref, inputs, k, k + REST),
-                                   rtol=1e-9, atol=1e-9, equal_nan=True)
+                                   rtol=tol, atol=tol, equal_nan=True)
 
 
 def test_js_files_of_another_library_version():

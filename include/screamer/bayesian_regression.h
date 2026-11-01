@@ -21,11 +21,33 @@
 #include <tuple>
 #include "screamer/common/functor_base.h"
 #include "screamer/common/float_info.h"
+#include "screamer/detail/ew_args.h"
 
 namespace screamer {
 
 class BayesianRegression : public FunctorBase<BayesianRegression, 2, 4> {
 public:
+    static constexpr const char* kTypeName = "BayesianRegression";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        args_.settings(ar);
+        ar("prior_precision", prior_precision_);
+        ar("prior_sigma", prior_sigma_);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("L11", L11_);
+        ar("L12", L12_);
+        ar("L22", L22_);
+        ar("eta1", eta1_);
+        ar("eta2", eta2_);
+        ar("s", s_);
+        ar("a", a_);
+    }
+
     BayesianRegression(
         std::optional<double> com = std::nullopt,
         std::optional<double> span = std::nullopt,
@@ -33,7 +55,8 @@ public:
         std::optional<double> alpha = std::nullopt,
         double prior_precision = 1.0,
         double prior_sigma = 1.0)
-        : prior_precision_(prior_precision), prior_sigma_(prior_sigma)
+        : args_{com, span, halflife, alpha},
+          prior_precision_(prior_precision), prior_sigma_(prior_sigma)
     {
         require_finite("prior_precision", prior_precision);
         require_finite("prior_sigma", prior_sigma);
@@ -115,6 +138,7 @@ public:
     }
 
 private:
+    detail::EwArgs args_;
     double prior_precision_, prior_sigma_;
     double lambda_{};
     double a0_{}, b0_{}, s0_{};
