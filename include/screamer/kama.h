@@ -37,9 +37,29 @@
 
 namespace screamer {
 
-class KAMA : public ScreamerBase {
+class KAMA : public serial::Saveable<KAMA, ScreamerBase> {
     friend struct detail::TestAccess;   // tests read the event counters (test_access.h)
 public:
+    static constexpr const char* kTypeName = "KAMA";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", window_size_);
+        ar("fast", fast_);
+        ar("slow", slow_);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("lag", lag_buffer_);
+        ar.object("abs_diff_sum", rolling_abs_diff_);
+        ar("prev_x", prev_x_);
+        ar("kama", kama_);
+        ar("n_seen", n_seen_);
+        ar.check(n_seen_ >= 0, "n_seen must not be negative");
+    }
+
     KAMA(int window_size, int fast = 2, int slow = 30)
         : window_size_(window_size),
           fast_(fast),

@@ -28,8 +28,25 @@
 
 namespace screamer {
 
-class HullMA : public ScreamerBase {
+class HullMA : public serial::Saveable<HullMA, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "HullMA";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", window_size_);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("wma_half", wma_half_);
+        ar.object("wma_full", wma_full_);
+        ar.object("wma_outer", wma_outer_);
+        ar("n_seen", n_seen_);
+        ar.check(n_seen_ >= 0 && n_seen_ <= full_warmup_, "n_seen must lie in 0 .. window_size + sqrt(window_size) - 1");
+    }
+
     explicit HullMA(int window_size)
         : window_size_(window_size),
           n_half_(window_size / 2),

@@ -24,6 +24,23 @@ namespace screamer {
 class ATR : public FunctorBase<ATR, 3, 1> {
     friend struct detail::TestAccess;   // tests read the event counters (test_access.h)
 public:
+    static constexpr const char* kTypeName = "ATR";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", window_size_);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("true_range", true_range_);
+        ar("seed_sum", seed_sum_);
+        ar("atr", atr_);
+        ar("n_tr", n_tr_);
+        ar.check(n_tr_ >= 0, "n_tr must not be negative");
+    }
+
     // The column loop runs on a local copy, its state in registers.
     static constexpr bool kColumnCopy = true;
 
@@ -32,6 +49,8 @@ public:
             throw std::invalid_argument("Window size must be at least 2.");
         }
     }
+
+    int window_size() const { return window_size_; }
 
     void reset() override {
         true_range_.reset();

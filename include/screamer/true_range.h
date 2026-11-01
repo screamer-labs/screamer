@@ -21,6 +21,17 @@ namespace screamer {
 
 class TrueRange : public FunctorBase<TrueRange, 3, 1> {
 public:
+    static constexpr const char* kTypeName = "TrueRange";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("prev_close", prev_close_);
+    }
+
     TrueRange() = default;
 
     void reset() override {

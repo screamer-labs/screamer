@@ -26,6 +26,29 @@ namespace screamer {
 
 class UltimateOscillator : public FunctorBase<UltimateOscillator, 3, 1> {
 public:
+    static constexpr const char* kTypeName = "UltimateOscillator";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("period1", period1_);
+        ar("period2", period2_);
+        ar("period3", period3_);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("bp_sum_1", bp_sum_1_);
+        ar.object("bp_sum_2", bp_sum_2_);
+        ar.object("bp_sum_3", bp_sum_3_);
+        ar.object("tr_sum_1", tr_sum_1_);
+        ar.object("tr_sum_2", tr_sum_2_);
+        ar.object("tr_sum_3", tr_sum_3_);
+        ar("prev_close", prev_close_);
+        ar("n_seen", n_seen_);
+        ar.check(n_seen_ >= 0 && n_seen_ <= max_period_ + 1, "n_seen must lie in 0 .. the longest period + 1");
+    }
+
     UltimateOscillator(int period1 = 7, int period2 = 14, int period3 = 28)
         : period1_(period1),
           period2_(period2),

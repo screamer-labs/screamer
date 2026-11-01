@@ -28,8 +28,24 @@
 
 namespace screamer {
 
-class TRIMA : public ScreamerBase {
+class TRIMA : public serial::Saveable<TRIMA, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "TRIMA";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", window_size_);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("inner", inner_);
+        ar.object("outer", outer_);
+        ar("n_seen", n_seen_);
+        ar.check(n_seen_ >= 0 && n_seen_ <= window_size_, "n_seen must lie in 0 .. window_size");
+    }
+
     explicit TRIMA(int window_size)
         : window_size_(window_size),
           n_inner_(compute_inner(window_size)),

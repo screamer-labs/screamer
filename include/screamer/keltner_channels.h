@@ -31,6 +31,21 @@ namespace screamer {
 
 class KeltnerChannels : public FunctorBase<KeltnerChannels, 3, 3> {
 public:
+    static constexpr const char* kTypeName = "KeltnerChannels";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", atr_.window_size());
+        ar("num_atr", num_atr_);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("mid", mid_);
+        ar.object("atr", atr_);
+    }
+
     explicit KeltnerChannels(int window_size = 20, double num_atr = 2.0)
         : num_atr_(num_atr),
           mid_(std::nullopt, static_cast<double>(window_size),

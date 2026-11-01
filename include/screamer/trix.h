@@ -25,10 +25,27 @@
 
 namespace screamer {
 
-class TRIX : public ScreamerBase {
+class TRIX : public serial::Saveable<TRIX, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "TRIX";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("span", span_);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("ema1", ema1_);
+        ar.object("ema2", ema2_);
+        ar.object("ema3", ema3_);
+        ar("prev_ema3", prev_ema3_);
+    }
+
     explicit TRIX(int span)
-        : ema1_(std::nullopt, static_cast<double>(span),
+        : span_(span),
+          ema1_(std::nullopt, static_cast<double>(span),
                 std::nullopt, std::nullopt),
           ema2_(std::nullopt, static_cast<double>(span),
                 std::nullopt, std::nullopt),
@@ -69,6 +86,7 @@ public:
     }
 
 private:
+    int span_;   // as given
     EwMean ema1_;
     EwMean ema2_;
     EwMean ema3_;

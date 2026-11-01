@@ -1,0 +1,29 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "MACD",
+    "settings": {
+      "fast": 12,
+      "slow": 26,
+      "signal": 9
+    },
+    "state": {
+      "version": 1,
+      "values": {
+        "ema_fast": {
+          "sum_x": 6509.244455663517,
+          "sum_w": 6.498467572280347
+        },
+        "ema_slow": {
+          "sum_x": 13209.886376787801,
+          "sum_w": 13.212163414505385
+        },
+        "ema_signal": {
+          "sum_x": 4.290605067073887,
+          "sum_w": 4.9999286376153655
+        }
+      }
+    }
+  }
+}

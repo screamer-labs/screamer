@@ -77,7 +77,20 @@ public:
     const StartPolicy start_policy() {
         return start_policy_;
     }
-    
+
+    // The ring as stored (slot `index` is written next) and the samples in
+    // it.
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.fixed("buffer", buffer_, capacity_);
+        ar("index", index_);
+        ar("count", size_);
+        ar.check(index_ < capacity_, "index must be below the delay");
+        ar.check(size_ <= capacity_, "count must be at most the delay");
+        ar.check(size_ == capacity_ || index_ == size_,
+                 "index must equal count until the buffer is full");
+    }
+
 private:
     const size_t capacity_;
     const StartPolicy start_policy_; 

@@ -15,8 +15,22 @@
 
 namespace screamer {
 
-class DEMA : public ScreamerBase {
+class DEMA : public serial::Saveable<DEMA, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "DEMA";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ema1_.settings(ar);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("ema1", ema1_);
+        ar.object("ema2", ema2_);
+    }
+
     explicit DEMA(
         std::optional<double> com = std::nullopt,
         std::optional<double> span = std::nullopt,

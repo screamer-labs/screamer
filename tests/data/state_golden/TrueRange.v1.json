@@ -1,0 +1,14 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "TrueRange",
+    "settings": {},
+    "state": {
+      "version": 1,
+      "values": {
+        "prev_close": 1005.6018314473394
+      }
+    }
+  }
+}

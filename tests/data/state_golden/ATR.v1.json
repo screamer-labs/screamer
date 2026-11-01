@@ -1,0 +1,21 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "ATR",
+    "settings": {
+      "window_size": 14
+    },
+    "state": {
+      "version": 1,
+      "values": {
+        "true_range": {
+          "prev_close": 995.8182641513137
+        },
+        "seed_sum": 32.526331519717246,
+        "atr": 2.4479500764024515,
+        "n_tr": 27
+      }
+    }
+  }
+}

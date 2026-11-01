@@ -18,6 +18,19 @@ namespace screamer {
 
 class NATR : public FunctorBase<NATR, 3, 1> {
 public:
+    static constexpr const char* kTypeName = "NATR";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        atr_.settings(ar);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        atr_.state(ar);
+    }
+
     // The column loop runs on a local copy, its state in registers.
     static constexpr bool kColumnCopy = true;
 

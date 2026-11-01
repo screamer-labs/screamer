@@ -15,6 +15,15 @@ namespace screamer {
 
 class BOP : public FunctorBase<BOP, 4, 1> {
 public:
+    static constexpr const char* kTypeName = "BOP";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar&) {}
+
     BOP() = default;
 
     ResultTuple call(const InputArray& inputs) override {

@@ -33,8 +33,26 @@
 
 namespace screamer {
 
-class WMA : public ScreamerBase {
+class WMA : public serial::Saveable<WMA, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "WMA";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", window_size_);
+        ar("start_policy", std::string(detail::start_policy_name(start_policy_)));
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("sums", rolling_sum_);
+        ar("weighted_sum", weighted_sum_);
+        ar("prev_simple_sum", prev_simple_sum_);
+        ar("n", n_);
+        ar.check(n_ >= 0 && n_ <= window_size_, "n must lie in 0 .. window_size");
+    }
+
     WMA(int window_size, const std::string& start_policy = "strict")
         : window_size_(window_size),
           start_policy_(detail::parse_start_policy(start_policy)),
