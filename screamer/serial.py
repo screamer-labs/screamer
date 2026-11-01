@@ -151,15 +151,18 @@ def from_settings(node):
     return _build(node.get("type"), node.get("settings", {}), "object")
 
 
-def _build(type_name, settings, path):
+def _build(type_name, settings, path, depth=0):
     """The operator ``type_name(**settings)``; ``path`` names it in errors
-    ("object" for the top of a file, else the setting that holds it)."""
+    ("object" for the top of a file, else the setting that holds it), and
+    ``depth`` counts the operators that hold it."""
     import screamer
     from ._functor_params import _load_help
     cls = getattr(screamer, type_name, None) if isinstance(type_name, str) else None
     if not getattr(cls, "_screamer_wrapped", False):
         raise SaveError(f"{path}.type: unknown type {type_name!r}")
     label = type_name if path == "object" else path
+    if depth >= _b._serial_max_op_depth:
+        raise SaveError(f"{label}: operators nested more than {_b._serial_max_op_depth} deep")
     if not isinstance(settings, dict):
         raise SaveError(f"{label}.settings: expected an object, got {type(settings).__name__}")
     settings = _renamed(type_name, settings, label)
@@ -171,11 +174,11 @@ def _build(type_name, settings, path):
         if value is None:            # an optional argument that was not given
             continue
         if params[name].get("type") == "op":
-            value = _build_op(value, f"{label}.settings.{name}")
+            value = _build_op(value, f"{label}.settings.{name}", depth + 1)
         kwargs[name] = value
     try:
         return cls(**kwargs)
-    except (TypeError, ValueError, RuntimeError) as e:
+    except (TypeError, ValueError, RuntimeError, IndexError, MemoryError) as e:
         raise SaveError(f"{label}.settings: {e}") from None
 
 
@@ -192,10 +195,10 @@ def _renamed(type_name, settings, label):
     return settings
 
 
-def _build_op(node, path):
+def _build_op(node, path, depth):
     if not isinstance(node, dict) or set(node) != {"type", "settings"}:
         raise SaveError(f"{path}: expected {{'type': ..., 'settings': {{...}}}}")
-    return _build(node["type"], node["settings"], path)
+    return _build(node["type"], node["settings"], path, depth)
 
 
 # ---- The methods of every operator ------------------------------------------
@@ -214,13 +217,27 @@ def save(self, path):
     ``.cbor`` path, JSON otherwise. ``screamer.load`` reads it back."""
     path = os.fspath(path)
     cbor = str(path).lower().endswith(".cbor")
-    data = self.dumps(format="cbor" if cbor else "json")
-    if cbor:
-        with open(path, "wb") as fh:
-            fh.write(data)
-    else:
-        with open(path, "w", encoding="utf-8", newline="") as fh:
-            fh.write(data)
+    _write_file(path, self.dumps(format="cbor" if cbor else "json"))
+
+
+def _write_file(path, data):
+    """Write a save file, ``str`` as UTF-8 or ``bytes``, to ``path``: to a new
+    file beside it, then renamed over it, so a failed write leaves the
+    previous file as it was."""
+    path = os.fsdecode(os.fspath(path))
+    tmp = f"{path}.{os.urandom(6).hex()}.tmp"
+    try:
+        with open(tmp, "xb") as fh:
+            fh.write(data if isinstance(data, bytes) else data.encode("utf-8"))
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 
 def dumps(self, format="json"):

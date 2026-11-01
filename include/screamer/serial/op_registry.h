@@ -11,7 +11,10 @@
 // optional setting stays unset), and a nested operator setting is the object
 // {"type": T, "settings": {...}}. An unknown type or parameter, a value of
 // the wrong kind and a value the constructor refuses raise SaveError, with
-// the path of the setting: "RollingMean.settings.window_size: ...".
+// the path of the setting: "RollingMean.settings.window_size: ...". An
+// integer setting outside its range is worded as the bindings word it
+// (common/int_settings.h), and operators nested more than kMaxOpDepth deep
+// raise SaveError.
 
 #include <memory>
 #include <string>
@@ -21,6 +24,9 @@
 #include "screamer/common/json.h"
 
 namespace screamer { namespace serial {
+
+// The deepest nesting of operators a file builds (Segment(Segment(...))).
+inline constexpr int kMaxOpDepth = 32;
 
 // A fresh operator of type `type` built from `settings`; `path` names the
 // node in errors ("object" for the top of a file).

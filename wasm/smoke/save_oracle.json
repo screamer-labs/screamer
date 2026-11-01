@@ -130930,5 +130930,2207 @@
    "name": "WilliamsR",
    "settings": {}
   }
+ ],
+ "int_errors": [
+  {
+   "name": "ADOSC",
+   "settings": {
+    "fast": -1
+   },
+   "message": "ADOSC.settings: ADOSC: fast must be at least 2, got -1"
+  },
+  {
+   "name": "ADOSC",
+   "settings": {
+    "fast": 0
+   },
+   "message": "ADOSC.settings: ADOSC: fast must be at least 2, got 0"
+  },
+  {
+   "name": "ADOSC",
+   "settings": {
+    "slow": -1
+   },
+   "message": "ADOSC.settings: ADOSC: slow must be at least 3, got -1"
+  },
+  {
+   "name": "ADOSC",
+   "settings": {
+    "slow": 0
+   },
+   "message": "ADOSC.settings: ADOSC: slow must be at least 3, got 0"
+  },
+  {
+   "name": "ADX",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "ADX.settings: ADX: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "ADX",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "ADX.settings: ADX: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "ADXR",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "ADXR.settings: ADXR: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "ADXR",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "ADXR.settings: ADXR: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "ATR",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "ATR.settings: ATR: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "ATR",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "ATR.settings: ATR: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "AbdiRanaldoSpread",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "AbdiRanaldoSpread.settings: AbdiRanaldoSpread: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "AbdiRanaldoSpread",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "AbdiRanaldoSpread.settings: AbdiRanaldoSpread: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "AmihudIlliquidity",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "AmihudIlliquidity.settings: AmihudIlliquidity: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "AmihudIlliquidity",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "AmihudIlliquidity.settings: AmihudIlliquidity: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "BacktestOHLCTarget",
+   "settings": {
+    "delay": -1
+   },
+   "message": "BacktestOHLCTarget.settings: BacktestOHLCTarget: delay must be at least 0, got -1"
+  },
+  {
+   "name": "BacktestOHLCTarget",
+   "settings": {
+    "delay": 0
+   },
+   "message": "BacktestOHLCTarget.settings: delay=0 requires fill_at=\"close\": a target decided at a bar's close cannot trade at an earlier price of that bar."
+  },
+  {
+   "name": "BacktestOHLCVTarget",
+   "settings": {
+    "delay": -1
+   },
+   "message": "BacktestOHLCVTarget.settings: BacktestOHLCVTarget: delay must be at least 0, got -1"
+  },
+  {
+   "name": "BacktestOHLCVTarget",
+   "settings": {
+    "delay": 0
+   },
+   "message": "BacktestOHLCVTarget.settings: delay=0 requires fill_at=\"close\": a target decided at a bar's close cannot trade at an earlier price of that bar."
+  },
+  {
+   "name": "BacktestPortfolioOHLCTarget",
+   "settings": {
+    "delay": -1
+   },
+   "message": "BacktestPortfolioOHLCTarget.settings: BacktestPortfolioOHLCTarget: delay must be at least 0, got -1"
+  },
+  {
+   "name": "BacktestPortfolioOHLCTarget",
+   "settings": {
+    "delay": 0
+   },
+   "message": "BacktestPortfolioOHLCTarget.settings: delay=0 requires fill_at=\"close\": a target decided at a bar's close cannot trade at an earlier price of that bar."
+  },
+  {
+   "name": "BayesianChangepoint",
+   "settings": {
+    "max_run": -1
+   },
+   "message": "BayesianChangepoint.settings: BayesianChangepoint: max_run must be at least 1, got -1"
+  },
+  {
+   "name": "BayesianChangepoint",
+   "settings": {
+    "max_run": 0
+   },
+   "message": "BayesianChangepoint.settings: BayesianChangepoint: max_run must be at least 1, got 0"
+  },
+  {
+   "name": "BollingerBands",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "BollingerBands.settings: BollingerBands: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "BollingerBands",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "BollingerBands.settings: BollingerBands: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "BulkVolumeClassifier",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "BulkVolumeClassifier.settings: BulkVolumeClassifier: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "BulkVolumeClassifier",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "BulkVolumeClassifier.settings: BulkVolumeClassifier: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "Butter",
+   "settings": {
+    "order": -1
+   },
+   "message": "Butter.settings: Butter: order must be at least 1, got -1"
+  },
+  {
+   "name": "Butter",
+   "settings": {
+    "order": 0
+   },
+   "message": "Butter.settings: Butter: order must be at least 1, got 0"
+  },
+  {
+   "name": "ButterBandpass",
+   "settings": {
+    "order": -1
+   },
+   "message": "ButterBandpass.settings: ButterBandpass: order must be at least 1, got -1"
+  },
+  {
+   "name": "ButterBandpass",
+   "settings": {
+    "order": 0
+   },
+   "message": "ButterBandpass.settings: ButterBandpass: order must be at least 1, got 0"
+  },
+  {
+   "name": "ButterBandstop",
+   "settings": {
+    "order": -1
+   },
+   "message": "ButterBandstop.settings: ButterBandstop: order must be at least 1, got -1"
+  },
+  {
+   "name": "ButterBandstop",
+   "settings": {
+    "order": 0
+   },
+   "message": "ButterBandstop.settings: ButterBandstop: order must be at least 1, got 0"
+  },
+  {
+   "name": "ButterHighpass",
+   "settings": {
+    "order": -1
+   },
+   "message": "ButterHighpass.settings: ButterHighpass: order must be at least 1, got -1"
+  },
+  {
+   "name": "ButterHighpass",
+   "settings": {
+    "order": 0
+   },
+   "message": "ButterHighpass.settings: ButterHighpass: order must be at least 1, got 0"
+  },
+  {
+   "name": "CCI",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "CCI.settings: CCI: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "CCI",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "CCI.settings: CCI: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "CorwinSchultzSpread",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "CorwinSchultzSpread.settings: CorwinSchultzSpread: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "CorwinSchultzSpread",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "CorwinSchultzSpread.settings: CorwinSchultzSpread: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "CrossStd",
+   "settings": {
+    "ddof": -1
+   },
+   "message": "CrossStd.settings: CrossStd: ddof must be at least 0, got -1"
+  },
+  {
+   "name": "CrossStd",
+   "settings": {
+    "ddof": 0
+   },
+   "message": null
+  },
+  {
+   "name": "CrossTopBottom",
+   "settings": {
+    "count": -1
+   },
+   "message": "CrossTopBottom.settings: CrossTopBottom: count must be at least 1, got -1"
+  },
+  {
+   "name": "CrossTopBottom",
+   "settings": {
+    "count": 0
+   },
+   "message": "CrossTopBottom.settings: CrossTopBottom: count must be at least 1, got 0"
+  },
+  {
+   "name": "DX",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "DX.settings: DX: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "DX",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "DX.settings: DX: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "Detrend",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "Detrend.settings: Detrend: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "Detrend",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "Detrend.settings: Detrend: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "Diff",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "Diff.settings: Diff: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "Diff",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "Diff.settings: Diff: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "DonchianChannels",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "DonchianChannels.settings: DonchianChannels: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "DonchianChannels",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "DonchianChannels.settings: DonchianChannels: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "EdgeSpread",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "EdgeSpread.settings: EdgeSpread: window_size must be at least 3, got -1"
+  },
+  {
+   "name": "EdgeSpread",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "EdgeSpread.settings: EdgeSpread: window_size must be at least 3, got 0"
+  },
+  {
+   "name": "EwMultiRegression",
+   "settings": {
+    "n_regressors": -1,
+    "alpha": 0.1
+   },
+   "message": "EwMultiRegression.settings: EwMultiRegression: n_regressors must be at least 1, got -1"
+  },
+  {
+   "name": "EwMultiRegression",
+   "settings": {
+    "n_regressors": 0,
+    "alpha": 0.1
+   },
+   "message": "EwMultiRegression.settings: EwMultiRegression: n_regressors must be at least 1, got 0"
+  },
+  {
+   "name": "ExpandingMultiRegression",
+   "settings": {
+    "n_regressors": -1
+   },
+   "message": "ExpandingMultiRegression.settings: ExpandingMultiRegression: n_regressors must be at least 1, got -1"
+  },
+  {
+   "name": "ExpandingMultiRegression",
+   "settings": {
+    "n_regressors": 0
+   },
+   "message": "ExpandingMultiRegression.settings: ExpandingMultiRegression: n_regressors must be at least 1, got 0"
+  },
+  {
+   "name": "FracDiff",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "FracDiff.settings: FracDiff: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "FracDiff",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "FracDiff.settings: FracDiff: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "Hampel",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "Hampel.settings: Hampel: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "Hampel",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "Hampel.settings: Hampel: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "Hold",
+   "settings": {
+    "n": -1
+   },
+   "message": "Hold.settings: Hold: n must be at least 1, got -1"
+  },
+  {
+   "name": "Hold",
+   "settings": {
+    "n": 0
+   },
+   "message": "Hold.settings: Hold: n must be at least 1, got 0"
+  },
+  {
+   "name": "Hold",
+   "settings": {
+    "n": 3,
+    "cooldown": -1
+   },
+   "message": "Hold.settings: Hold: cooldown must be at least 0, got -1"
+  },
+  {
+   "name": "Hold",
+   "settings": {
+    "n": 3,
+    "cooldown": 0
+   },
+   "message": null
+  },
+  {
+   "name": "HullMA",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "HullMA.settings: HullMA: window_size must be at least 4, got -1"
+  },
+  {
+   "name": "HullMA",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "HullMA.settings: HullMA: window_size must be at least 4, got 0"
+  },
+  {
+   "name": "ImpulseClip",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "ImpulseClip.settings: ImpulseClip: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "ImpulseClip",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "ImpulseClip.settings: ImpulseClip: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "KAMA",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "KAMA.settings: KAMA: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "KAMA",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "KAMA.settings: KAMA: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "KAMA",
+   "settings": {
+    "fast": -1
+   },
+   "message": "KAMA.settings: KAMA: fast must be at least 1, got -1"
+  },
+  {
+   "name": "KAMA",
+   "settings": {
+    "fast": 0
+   },
+   "message": "KAMA.settings: KAMA: fast must be at least 1, got 0"
+  },
+  {
+   "name": "KAMA",
+   "settings": {
+    "slow": -1
+   },
+   "message": "KAMA.settings: KAMA: slow must be at least 1, got -1"
+  },
+  {
+   "name": "KAMA",
+   "settings": {
+    "slow": 0
+   },
+   "message": "KAMA.settings: KAMA: slow must be at least 1, got 0"
+  },
+  {
+   "name": "KeltnerChannels",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "KeltnerChannels.settings: KeltnerChannels: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "KeltnerChannels",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "KeltnerChannels.settings: KeltnerChannels: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "Lag",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "Lag.settings: Lag: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "Lag",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "Lag.settings: Lag: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "LogReturn",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "LogReturn.settings: LogReturn: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "LogReturn",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "LogReturn.settings: LogReturn: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "MACD",
+   "settings": {
+    "fast": -1
+   },
+   "message": "MACD.settings: MACD: fast must be at least 2, got -1"
+  },
+  {
+   "name": "MACD",
+   "settings": {
+    "fast": 0
+   },
+   "message": "MACD.settings: MACD: fast must be at least 2, got 0"
+  },
+  {
+   "name": "MACD",
+   "settings": {
+    "slow": -1
+   },
+   "message": "MACD.settings: MACD: slow must be at least 3, got -1"
+  },
+  {
+   "name": "MACD",
+   "settings": {
+    "slow": 0
+   },
+   "message": "MACD.settings: MACD: slow must be at least 3, got 0"
+  },
+  {
+   "name": "MACD",
+   "settings": {
+    "signal": -1
+   },
+   "message": "MACD.settings: MACD: signal must be at least 2, got -1"
+  },
+  {
+   "name": "MACD",
+   "settings": {
+    "signal": 0
+   },
+   "message": "MACD.settings: MACD: signal must be at least 2, got 0"
+  },
+  {
+   "name": "MFI",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "MFI.settings: MFI: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "MFI",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "MFI.settings: MFI: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "MinusDI",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "MinusDI.settings: MinusDI: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "MinusDI",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "MinusDI.settings: MinusDI: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "MinusDM",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "MinusDM.settings: MinusDM: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "MinusDM",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "MinusDM.settings: MinusDM: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "Momentum",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "Momentum.settings: Momentum: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "Momentum",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "Momentum.settings: Momentum: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "NATR",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "NATR.settings: NATR: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "NATR",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "NATR.settings: NATR: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "PlusDI",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "PlusDI.settings: PlusDI: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "PlusDI",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "PlusDI.settings: PlusDI: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "PlusDM",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "PlusDM.settings: PlusDM: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "PlusDM",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "PlusDM.settings: PlusDM: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "Propagator",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "Propagator.settings: Propagator: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "Propagator",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "Propagator.settings: Propagator: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "ROC",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "ROC.settings: ROC: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "ROC",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "ROC.settings: ROC: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "ROCP",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "ROCP.settings: ROCP: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "ROCP",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "ROCP.settings: ROCP: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "ROCR",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "ROCR.settings: ROCR: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "ROCR",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "ROCR.settings: ROCR: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "RealizedSpread",
+   "settings": {
+    "lag": -1
+   },
+   "message": "RealizedSpread.settings: RealizedSpread: lag must be at least 1, got -1"
+  },
+  {
+   "name": "RealizedSpread",
+   "settings": {
+    "lag": 0
+   },
+   "message": "RealizedSpread.settings: RealizedSpread: lag must be at least 1, got 0"
+  },
+  {
+   "name": "Return",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "Return.settings: Return: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "Return",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "Return.settings: Return: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "RollSpread",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollSpread.settings: RollSpread: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "RollSpread",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollSpread.settings: RollSpread: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "RollingADF",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingADF.settings: RollingADF: window_size must be at least 4, got -1"
+  },
+  {
+   "name": "RollingADF",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingADF.settings: RollingADF: window_size must be at least 4, got 0"
+  },
+  {
+   "name": "RollingADF",
+   "settings": {
+    "lags": -1
+   },
+   "message": "RollingADF.settings: RollingADF: lags must be at least 0, got -1"
+  },
+  {
+   "name": "RollingADF",
+   "settings": {
+    "lags": 0
+   },
+   "message": null
+  },
+  {
+   "name": "RollingAlpha",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingAlpha.settings: RollingAlpha: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "RollingAlpha",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingAlpha.settings: RollingAlpha: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "RollingArgmax",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingArgmax.settings: RollingArgmax: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "RollingArgmax",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingArgmax.settings: RollingArgmax: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "RollingArgmin",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingArgmin.settings: RollingArgmin: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "RollingArgmin",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingArgmin.settings: RollingArgmin: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "RollingBeta",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingBeta.settings: RollingBeta: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "RollingBeta",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingBeta.settings: RollingBeta: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "RollingBipowerVar",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingBipowerVar.settings: RollingBipowerVar: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "RollingBipowerVar",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingBipowerVar.settings: RollingBipowerVar: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "RollingCVaR",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingCVaR.settings: RollingCVaR: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "RollingCVaR",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingCVaR.settings: RollingCVaR: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "RollingCalmar",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingCalmar.settings: RollingCalmar: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "RollingCalmar",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingCalmar.settings: RollingCalmar: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "RollingCorr",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingCorr.settings: RollingCorr: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "RollingCorr",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingCorr.settings: RollingCorr: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "RollingCov",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingCov.settings: RollingCov: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "RollingCov",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingCov.settings: RollingCov: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "RollingDownsideDeviation",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingDownsideDeviation.settings: RollingDownsideDeviation: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "RollingDownsideDeviation",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingDownsideDeviation.settings: RollingDownsideDeviation: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "RollingGarmanKlassVar",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingGarmanKlassVar.settings: RollingGarmanKlassVar: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "RollingGarmanKlassVar",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingGarmanKlassVar.settings: RollingGarmanKlassVar: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "RollingGarmanKlassVol",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingGarmanKlassVol.settings: RollingGarmanKlassVol: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "RollingGarmanKlassVol",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingGarmanKlassVol.settings: RollingGarmanKlassVol: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "RollingHMM",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingHMM.settings: RollingHMM: window_size must be at least 10, got -1"
+  },
+  {
+   "name": "RollingHMM",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingHMM.settings: RollingHMM: window_size must be at least 10, got 0"
+  },
+  {
+   "name": "RollingHMM",
+   "settings": {
+    "refit_every": -1
+   },
+   "message": "RollingHMM.settings: RollingHMM: refit_every must be at least 1, got -1"
+  },
+  {
+   "name": "RollingHMM",
+   "settings": {
+    "refit_every": 0
+   },
+   "message": "RollingHMM.settings: RollingHMM: refit_every must be at least 1, got 0"
+  },
+  {
+   "name": "RollingHMM",
+   "settings": {
+    "max_iter": -1
+   },
+   "message": "RollingHMM.settings: RollingHMM: max_iter must be at least 1, got -1"
+  },
+  {
+   "name": "RollingHMM",
+   "settings": {
+    "max_iter": 0
+   },
+   "message": "RollingHMM.settings: RollingHMM: max_iter must be at least 1, got 0"
+  },
+  {
+   "name": "RollingHitRate",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingHitRate.settings: RollingHitRate: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "RollingHitRate",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingHitRate.settings: RollingHitRate: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "RollingHurst",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingHurst.settings: RollingHurst: window_size must be at least 32, got -1"
+  },
+  {
+   "name": "RollingHurst",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingHurst.settings: RollingHurst: window_size must be at least 32, got 0"
+  },
+  {
+   "name": "RollingHurst",
+   "settings": {
+    "min_scale": -1
+   },
+   "message": "RollingHurst.settings: RollingHurst: min_scale must be at least 4, got -1"
+  },
+  {
+   "name": "RollingHurst",
+   "settings": {
+    "min_scale": 0
+   },
+   "message": "RollingHurst.settings: RollingHurst: min_scale must be at least 4, got 0"
+  },
+  {
+   "name": "RollingInfoRatio",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingInfoRatio.settings: RollingInfoRatio: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "RollingInfoRatio",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingInfoRatio.settings: RollingInfoRatio: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "RollingIqr",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingIqr.settings: RollingIqr: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "RollingIqr",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingIqr.settings: RollingIqr: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "RollingJumpShare",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingJumpShare.settings: RollingJumpShare: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "RollingJumpShare",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingJumpShare.settings: RollingJumpShare: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "RollingKurt",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingKurt.settings: RollingKurt: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "RollingKurt",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingKurt.settings: RollingKurt: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "RollingKyleLambda",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingKyleLambda.settings: RollingKyleLambda: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "RollingKyleLambda",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingKyleLambda.settings: RollingKyleLambda: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "RollingLinearRegression",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingLinearRegression.settings: RollingLinearRegression: window_size must be at least 3, got -1"
+  },
+  {
+   "name": "RollingLinearRegression",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingLinearRegression.settings: RollingLinearRegression: window_size must be at least 3, got 0"
+  },
+  {
+   "name": "RollingMad",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingMad.settings: RollingMad: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "RollingMad",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingMad.settings: RollingMad: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "RollingMax",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingMax.settings: RollingMax: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "RollingMax",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingMax.settings: RollingMax: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "RollingMaxDrawdown",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingMaxDrawdown.settings: RollingMaxDrawdown: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "RollingMaxDrawdown",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingMaxDrawdown.settings: RollingMaxDrawdown: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "RollingMean",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingMean.settings: RollingMean: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "RollingMean",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingMean.settings: RollingMean: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "RollingMedian",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingMedian.settings: RollingMedian: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "RollingMedian",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingMedian.settings: RollingMedian: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "RollingMedianAD",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingMedianAD.settings: RollingMedianAD: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "RollingMedianAD",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingMedianAD.settings: RollingMedianAD: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "RollingMin",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingMin.settings: RollingMin: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "RollingMin",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingMin.settings: RollingMin: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "RollingMinMax",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingMinMax.settings: RollingMinMax: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "RollingMinMax",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingMinMax.settings: RollingMinMax: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "RollingMultiRegression",
+   "settings": {
+    "window_size": -1,
+    "n_regressors": 3
+   },
+   "message": "RollingMultiRegression.settings: RollingMultiRegression: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "RollingMultiRegression",
+   "settings": {
+    "window_size": 0,
+    "n_regressors": 3
+   },
+   "message": "RollingMultiRegression.settings: RollingMultiRegression: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "RollingMultiRegression",
+   "settings": {
+    "window_size": 20,
+    "n_regressors": -1
+   },
+   "message": "RollingMultiRegression.settings: RollingMultiRegression: n_regressors must be at least 1, got -1"
+  },
+  {
+   "name": "RollingMultiRegression",
+   "settings": {
+    "window_size": 20,
+    "n_regressors": 0
+   },
+   "message": "RollingMultiRegression.settings: RollingMultiRegression: n_regressors must be at least 1, got 0"
+  },
+  {
+   "name": "RollingOU",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingOU.settings: RollingOU: window_size must be at least 3, got -1"
+  },
+  {
+   "name": "RollingOU",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingOU.settings: RollingOU: window_size must be at least 3, got 0"
+  },
+  {
+   "name": "RollingOmega",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingOmega.settings: RollingOmega: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "RollingOmega",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingOmega.settings: RollingOmega: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "RollingOrderImbalance",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingOrderImbalance.settings: RollingOrderImbalance: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "RollingOrderImbalance",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingOrderImbalance.settings: RollingOrderImbalance: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "RollingParkinsonVar",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingParkinsonVar.settings: RollingParkinsonVar: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "RollingParkinsonVar",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingParkinsonVar.settings: RollingParkinsonVar: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "RollingParkinsonVol",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingParkinsonVol.settings: RollingParkinsonVol: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "RollingParkinsonVol",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingParkinsonVol.settings: RollingParkinsonVol: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "RollingPercentile",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingPercentile.settings: RollingPercentile: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "RollingPercentile",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingPercentile.settings: RollingPercentile: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "RollingPermutationEntropy",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingPermutationEntropy.settings: RollingPermutationEntropy: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "RollingPermutationEntropy",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingPermutationEntropy.settings: RollingPermutationEntropy: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "RollingPermutationEntropy",
+   "settings": {
+    "order": -1
+   },
+   "message": "RollingPermutationEntropy.settings: RollingPermutationEntropy: order must be at least 2, got -1"
+  },
+  {
+   "name": "RollingPermutationEntropy",
+   "settings": {
+    "order": 0
+   },
+   "message": "RollingPermutationEntropy.settings: RollingPermutationEntropy: order must be at least 2, got 0"
+  },
+  {
+   "name": "RollingPermutationEntropy",
+   "settings": {
+    "delay": -1
+   },
+   "message": "RollingPermutationEntropy.settings: RollingPermutationEntropy: delay must be at least 1, got -1"
+  },
+  {
+   "name": "RollingPermutationEntropy",
+   "settings": {
+    "delay": 0
+   },
+   "message": "RollingPermutationEntropy.settings: RollingPermutationEntropy: delay must be at least 1, got 0"
+  },
+  {
+   "name": "RollingPoly1",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingPoly1.settings: RollingPoly1: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "RollingPoly1",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingPoly1.settings: RollingPoly1: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "RollingPoly1",
+   "settings": {
+    "derivative_order": -1
+   },
+   "message": "RollingPoly1.settings: RollingPoly1: derivative_order must be at least 0, got -1"
+  },
+  {
+   "name": "RollingPoly1",
+   "settings": {
+    "derivative_order": 0
+   },
+   "message": null
+  },
+  {
+   "name": "RollingPoly2",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingPoly2.settings: RollingPoly2: window_size must be at least 3, got -1"
+  },
+  {
+   "name": "RollingPoly2",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingPoly2.settings: RollingPoly2: window_size must be at least 3, got 0"
+  },
+  {
+   "name": "RollingPoly2",
+   "settings": {
+    "derivative_order": -1
+   },
+   "message": "RollingPoly2.settings: RollingPoly2: derivative_order must be at least 0, got -1"
+  },
+  {
+   "name": "RollingPoly2",
+   "settings": {
+    "derivative_order": 0
+   },
+   "message": null
+  },
+  {
+   "name": "RollingQuantile",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingQuantile.settings: RollingQuantile: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "RollingQuantile",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingQuantile.settings: RollingQuantile: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "RollingRSI",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingRSI.settings: RollingRSI: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "RollingRSI",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingRSI.settings: RollingRSI: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "RollingRange",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingRange.settings: RollingRange: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "RollingRange",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingRange.settings: RollingRange: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "RollingRank",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingRank.settings: RollingRank: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "RollingRank",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingRank.settings: RollingRank: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "RollingRealizedKurt",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingRealizedKurt.settings: RollingRealizedKurt: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "RollingRealizedKurt",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingRealizedKurt.settings: RollingRealizedKurt: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "RollingRealizedSkew",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingRealizedSkew.settings: RollingRealizedSkew: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "RollingRealizedSkew",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingRealizedSkew.settings: RollingRealizedSkew: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "RollingResidualStd",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingResidualStd.settings: RollingResidualStd: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "RollingResidualStd",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingResidualStd.settings: RollingResidualStd: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "RollingRms",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingRms.settings: RollingRms: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "RollingRms",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingRms.settings: RollingRms: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "RollingRogersSatchellVar",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingRogersSatchellVar.settings: RollingRogersSatchellVar: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "RollingRogersSatchellVar",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingRogersSatchellVar.settings: RollingRogersSatchellVar: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "RollingRogersSatchellVol",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingRogersSatchellVol.settings: RollingRogersSatchellVol: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "RollingRogersSatchellVol",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingRogersSatchellVol.settings: RollingRogersSatchellVol: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "RollingSeasonalMean",
+   "settings": {
+    "period": -1
+   },
+   "message": "RollingSeasonalMean.settings: RollingSeasonalMean: period must be at least 1, got -1"
+  },
+  {
+   "name": "RollingSeasonalMean",
+   "settings": {
+    "period": 0
+   },
+   "message": "RollingSeasonalMean.settings: RollingSeasonalMean: period must be at least 1, got 0"
+  },
+  {
+   "name": "RollingSeasonalMean",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingSeasonalMean.settings: RollingSeasonalMean: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "RollingSeasonalMean",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingSeasonalMean.settings: RollingSeasonalMean: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "RollingSeasonalStd",
+   "settings": {
+    "period": -1
+   },
+   "message": "RollingSeasonalStd.settings: RollingSeasonalStd: period must be at least 1, got -1"
+  },
+  {
+   "name": "RollingSeasonalStd",
+   "settings": {
+    "period": 0
+   },
+   "message": "RollingSeasonalStd.settings: RollingSeasonalStd: period must be at least 1, got 0"
+  },
+  {
+   "name": "RollingSeasonalStd",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingSeasonalStd.settings: RollingSeasonalStd: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "RollingSeasonalStd",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingSeasonalStd.settings: RollingSeasonalStd: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "RollingSeasonalZscore",
+   "settings": {
+    "period": -1
+   },
+   "message": "RollingSeasonalZscore.settings: RollingSeasonalZscore: period must be at least 1, got -1"
+  },
+  {
+   "name": "RollingSeasonalZscore",
+   "settings": {
+    "period": 0
+   },
+   "message": "RollingSeasonalZscore.settings: RollingSeasonalZscore: period must be at least 1, got 0"
+  },
+  {
+   "name": "RollingSeasonalZscore",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingSeasonalZscore.settings: RollingSeasonalZscore: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "RollingSeasonalZscore",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingSeasonalZscore.settings: RollingSeasonalZscore: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "RollingSharpe",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingSharpe.settings: RollingSharpe: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "RollingSharpe",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingSharpe.settings: RollingSharpe: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "RollingSigmaClip",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingSigmaClip.settings: RollingSigmaClip: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "RollingSigmaClip",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingSigmaClip.settings: RollingSigmaClip: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "RollingSkew",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingSkew.settings: RollingSkew: window_size must be at least 3, got -1"
+  },
+  {
+   "name": "RollingSkew",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingSkew.settings: RollingSkew: window_size must be at least 3, got 0"
+  },
+  {
+   "name": "RollingSortino",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingSortino.settings: RollingSortino: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "RollingSortino",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingSortino.settings: RollingSortino: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "RollingSpread",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingSpread.settings: RollingSpread: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "RollingSpread",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingSpread.settings: RollingSpread: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "RollingStd",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingStd.settings: RollingStd: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "RollingStd",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingStd.settings: RollingStd: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "RollingSum",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingSum.settings: RollingSum: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "RollingSum",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingSum.settings: RollingSum: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "RollingTLSBeta",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingTLSBeta.settings: RollingTLSBeta: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "RollingTLSBeta",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingTLSBeta.settings: RollingTLSBeta: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "RollingTSF",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingTSF.settings: RollingTSF: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "RollingTSF",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingTSF.settings: RollingTSF: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "RollingUpsideDeviation",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingUpsideDeviation.settings: RollingUpsideDeviation: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "RollingUpsideDeviation",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingUpsideDeviation.settings: RollingUpsideDeviation: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "RollingVWAP",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingVWAP.settings: RollingVWAP: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "RollingVWAP",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingVWAP.settings: RollingVWAP: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "RollingVar",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingVar.settings: RollingVar: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "RollingVar",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingVar.settings: RollingVar: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "RollingVarianceRatio",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingVarianceRatio.settings: RollingVarianceRatio: window_size must be at least 5, got -1"
+  },
+  {
+   "name": "RollingVarianceRatio",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingVarianceRatio.settings: RollingVarianceRatio: window_size must be at least 5, got 0"
+  },
+  {
+   "name": "RollingVarianceRatio",
+   "settings": {
+    "lag": -1
+   },
+   "message": "RollingVarianceRatio.settings: RollingVarianceRatio: lag must be at least 2, got -1"
+  },
+  {
+   "name": "RollingVarianceRatio",
+   "settings": {
+    "lag": 0
+   },
+   "message": "RollingVarianceRatio.settings: RollingVarianceRatio: lag must be at least 2, got 0"
+  },
+  {
+   "name": "RollingYangZhangVar",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingYangZhangVar.settings: RollingYangZhangVar: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "RollingYangZhangVar",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingYangZhangVar.settings: RollingYangZhangVar: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "RollingYangZhangVol",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingYangZhangVol.settings: RollingYangZhangVol: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "RollingYangZhangVol",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingYangZhangVol.settings: RollingYangZhangVol: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "RollingZscore",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "RollingZscore.settings: RollingZscore: window_size must be at least 2, got -1"
+  },
+  {
+   "name": "RollingZscore",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "RollingZscore.settings: RollingZscore: window_size must be at least 2, got 0"
+  },
+  {
+   "name": "Stoch",
+   "settings": {
+    "fastk_period": -1
+   },
+   "message": "Stoch.settings: Stoch: fastk_period must be at least 1, got -1"
+  },
+  {
+   "name": "Stoch",
+   "settings": {
+    "fastk_period": 0
+   },
+   "message": "Stoch.settings: Stoch: fastk_period must be at least 1, got 0"
+  },
+  {
+   "name": "Stoch",
+   "settings": {
+    "smooth_k": -1
+   },
+   "message": "Stoch.settings: Stoch: smooth_k must be at least 1, got -1"
+  },
+  {
+   "name": "Stoch",
+   "settings": {
+    "smooth_k": 0
+   },
+   "message": "Stoch.settings: Stoch: smooth_k must be at least 1, got 0"
+  },
+  {
+   "name": "Stoch",
+   "settings": {
+    "d": -1
+   },
+   "message": "Stoch.settings: Stoch: d must be at least 1, got -1"
+  },
+  {
+   "name": "Stoch",
+   "settings": {
+    "d": 0
+   },
+   "message": "Stoch.settings: Stoch: d must be at least 1, got 0"
+  },
+  {
+   "name": "StochRSI",
+   "settings": {
+    "rsi_period": -1
+   },
+   "message": "StochRSI.settings: StochRSI: rsi_period must be at least 2, got -1"
+  },
+  {
+   "name": "StochRSI",
+   "settings": {
+    "rsi_period": 0
+   },
+   "message": "StochRSI.settings: StochRSI: rsi_period must be at least 2, got 0"
+  },
+  {
+   "name": "StochRSI",
+   "settings": {
+    "stoch_period": -1
+   },
+   "message": "StochRSI.settings: StochRSI: stoch_period must be at least 1, got -1"
+  },
+  {
+   "name": "StochRSI",
+   "settings": {
+    "stoch_period": 0
+   },
+   "message": "StochRSI.settings: StochRSI: stoch_period must be at least 1, got 0"
+  },
+  {
+   "name": "StochRSI",
+   "settings": {
+    "smooth_k": -1
+   },
+   "message": "StochRSI.settings: StochRSI: smooth_k must be at least 1, got -1"
+  },
+  {
+   "name": "StochRSI",
+   "settings": {
+    "smooth_k": 0
+   },
+   "message": "StochRSI.settings: StochRSI: smooth_k must be at least 1, got 0"
+  },
+  {
+   "name": "StochRSI",
+   "settings": {
+    "d": -1
+   },
+   "message": "StochRSI.settings: StochRSI: d must be at least 1, got -1"
+  },
+  {
+   "name": "StochRSI",
+   "settings": {
+    "d": 0
+   },
+   "message": "StochRSI.settings: StochRSI: d must be at least 1, got 0"
+  },
+  {
+   "name": "TRIMA",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "TRIMA.settings: TRIMA: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "TRIMA",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "TRIMA.settings: TRIMA: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "TRIX",
+   "settings": {
+    "span": -1
+   },
+   "message": "TRIX.settings: TRIX: span must be at least 2, got -1"
+  },
+  {
+   "name": "TRIX",
+   "settings": {
+    "span": 0
+   },
+   "message": "TRIX.settings: TRIX: span must be at least 2, got 0"
+  },
+  {
+   "name": "TripleBarrier",
+   "settings": {
+    "horizon": -1,
+    "upper": 0.01,
+    "lower": 0.01
+   },
+   "message": "TripleBarrier.settings: TripleBarrier: horizon must be at least 1, got -1"
+  },
+  {
+   "name": "TripleBarrier",
+   "settings": {
+    "horizon": 0,
+    "upper": 0.01,
+    "lower": 0.01
+   },
+   "message": "TripleBarrier.settings: TripleBarrier: horizon must be at least 1, got 0"
+  },
+  {
+   "name": "TripleBarrierOHLC",
+   "settings": {
+    "horizon": -1,
+    "upper": 0.01,
+    "lower": 0.01
+   },
+   "message": "TripleBarrierOHLC.settings: TripleBarrierOHLC: horizon must be at least 1, got -1"
+  },
+  {
+   "name": "TripleBarrierOHLC",
+   "settings": {
+    "horizon": 0,
+    "upper": 0.01,
+    "lower": 0.01
+   },
+   "message": "TripleBarrierOHLC.settings: TripleBarrierOHLC: horizon must be at least 1, got 0"
+  },
+  {
+   "name": "UltimateOscillator",
+   "settings": {
+    "period1": -1
+   },
+   "message": "UltimateOscillator.settings: UltimateOscillator: period1 must be at least 1, got -1"
+  },
+  {
+   "name": "UltimateOscillator",
+   "settings": {
+    "period1": 0
+   },
+   "message": "UltimateOscillator.settings: UltimateOscillator: period1 must be at least 1, got 0"
+  },
+  {
+   "name": "UltimateOscillator",
+   "settings": {
+    "period2": -1
+   },
+   "message": "UltimateOscillator.settings: UltimateOscillator: period2 must be at least 1, got -1"
+  },
+  {
+   "name": "UltimateOscillator",
+   "settings": {
+    "period2": 0
+   },
+   "message": "UltimateOscillator.settings: UltimateOscillator: period2 must be at least 1, got 0"
+  },
+  {
+   "name": "UltimateOscillator",
+   "settings": {
+    "period3": -1
+   },
+   "message": "UltimateOscillator.settings: UltimateOscillator: period3 must be at least 1, got -1"
+  },
+  {
+   "name": "UltimateOscillator",
+   "settings": {
+    "period3": 0
+   },
+   "message": "UltimateOscillator.settings: UltimateOscillator: period3 must be at least 1, got 0"
+  },
+  {
+   "name": "VPIN",
+   "settings": {
+    "n_buckets": -1
+   },
+   "message": "VPIN.settings: VPIN: n_buckets must be at least 1, got -1"
+  },
+  {
+   "name": "VPIN",
+   "settings": {
+    "n_buckets": 0
+   },
+   "message": "VPIN.settings: VPIN: n_buckets must be at least 1, got 0"
+  },
+  {
+   "name": "WMA",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "WMA.settings: WMA: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "WMA",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "WMA.settings: WMA: window_size must be at least 1, got 0"
+  },
+  {
+   "name": "WilliamsR",
+   "settings": {
+    "window_size": -1
+   },
+   "message": "WilliamsR.settings: WilliamsR: window_size must be at least 1, got -1"
+  },
+  {
+   "name": "WilliamsR",
+   "settings": {
+    "window_size": 0
+   },
+   "message": "WilliamsR.settings: WilliamsR: window_size must be at least 1, got 0"
+  }
  ]
 }

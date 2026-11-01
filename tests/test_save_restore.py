@@ -19,6 +19,7 @@ import numpy as np
 import pytest
 
 import screamer
+from screamer import Input, Pipeline
 from screamer import screamer_bindings as _b
 from tests._oracle_fresh import _same as _oracle_same, run_generator
 from tests.regime_helpers import assert_bitwise
@@ -911,6 +912,62 @@ def test_nested_op_refuses_per_column_state():
                        match=re.escape("Segment.op.columns: a nested operator holds no per-column state")):
         a.set_state(state)
     assert a(labels[2], x[2]) == 5.5
+
+
+def test_operator_nesting_is_capped():
+    """Settings nested deeper than serial::kMaxOpDepth raise SaveError
+    before any operator is built, in Python and in the C++ registry."""
+    assert _b._serial_max_op_depth == 32
+    node = {"type": "RollingMean", "settings": {"window_size": 3}}
+    for _ in range(33):
+        node = {"type": "Segment", "settings": {"op": node}}
+    where = "Segment" + ".settings.op" * 32 + ": operators nested more than 32 deep"
+    with pytest.raises(screamer.SaveError, match=re.escape(where)):
+        screamer.from_settings(node)
+    with pytest.raises(screamer.SaveError, match=re.escape(where)):
+        _b._serial_make_op("Segment", json.dumps(node["settings"]))
+
+
+def test_int_settings_out_of_range_as_python_words_them():
+    """Every integer setting at -1 and at 0 (the oracle's "int_errors", which
+    Python wrote) gives the same SaveError through the C++ registry, which
+    JavaScript uses."""
+    cases = json.loads((ROOT / "wasm" / "smoke" / "save_oracle.json").read_text("utf-8"))["int_errors"]
+    assert len(cases) > 300
+    for c in cases:
+        try:
+            _b._serial_make_op(c["name"], json.dumps(c["settings"]))
+            got = None
+        except screamer.SaveError as e:
+            got = str(e)
+        assert got == c["message"], c
+
+
+# ---- Files ---------------------------------------------------------------------
+
+@pytest.mark.parametrize("name", ["m.json", "m.cbor"])
+def test_failed_save_keeps_the_previous_file(tmp_path, monkeypatch, name):
+    """A save writes a new file beside the target and renames it over the
+    target, so a write that fails leaves the previous file whole."""
+    import os
+    path = tmp_path / name
+    _rolling_mean_20().save(path)
+    before = path.read_bytes()
+
+    def fail(src, dst):
+        raise OSError("disk full")
+    monkeypatch.setattr(os, "replace", fail)
+    x = Input("x")
+    pipe = Pipeline([x], [screamer.RollingMean(3)(x)])
+    for obj in (screamer.RollingMean(7), pipe, pipe.live()):
+        with pytest.raises(OSError, match="disk full"):
+            obj.save(path)
+        assert path.read_bytes() == before
+        assert sorted(p.name for p in tmp_path.iterdir()) == [name]
+    monkeypatch.undo()
+    screamer.RollingMean(7).save(path)
+    assert screamer.load(path).settings()["window_size"] == 7
+    assert sorted(p.name for p in tmp_path.iterdir()) == [name]
 
 
 # ---- Golden files ------------------------------------------------------------

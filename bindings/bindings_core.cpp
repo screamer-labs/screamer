@@ -281,6 +281,8 @@ void init_bindings_core(nb::module_& m) {
     // (old, new) pairs in the order they apply; screamer/serial.py renames
     // the keys of its settings dict with them.
     m.def("_serial_renames", &serial::renames_for, "type"_a);
+    // The deepest nesting of operators a file builds (serial/op_registry.h).
+    m.attr("_serial_max_op_depth") = serial::kMaxOpDepth;
     // The C++ registry (serial/op_registry.h), for the tests: the operator
     // built from its settings, an instance of its binding class.
     m.def("_serial_make_op", [](const std::string& type, nb::handle text) {

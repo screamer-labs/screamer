@@ -174,3 +174,25 @@ export async function nodeFs(who: string): Promise<any> {
     throw new TypeError(`${who} uses the file system, which needs Node.js; in a browser, use dumps() and loads()`);
   }
 }
+
+/**
+ * @internal Writes a save file (Node.js): to a new file beside `path`, then
+ * renamed over it, so a failed write leaves the previous file as it was.
+ */
+export async function writeSaveFile(path: string, data: string | Uint8Array, who: string): Promise<void> {
+  const fs = await nodeFs(`${who}.save`);
+  const tmp = `${path}.${Math.random().toString(16).slice(2, 14)}.tmp`;
+  let fh: any;
+  try {
+    fh = await fs.open(tmp, "wx");
+    await fh.writeFile(data);
+    await fh.sync();
+    await fh.close();
+    fh = undefined;
+    await fs.rename(tmp, path);
+  } catch (e) {
+    await fh?.close().catch(() => undefined);
+    await fs.rm(tmp, { force: true }).catch(() => undefined);
+    throw e;
+  }
+}

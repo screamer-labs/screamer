@@ -14,7 +14,9 @@ their settings and their inputs):
 
 The save point is after two windows (tests/save_cases.py splits). "registry"
 lists every functor with the settings it is built with in the save tests, so
-JavaScript can check that fromSettings builds each one.
+JavaScript can check that fromSettings builds each one. "int_errors" holds,
+for each integer setting of the registry set to -1 and to 0, the message of
+Python's SaveError (null when the value builds), which JavaScript must give.
 
 Numbers are written exactly; NaN is null, and an infinity is the string
 "Infinity" or "-Infinity" (in "settings" null means not given, and only the
@@ -112,11 +114,33 @@ def registry():
             for n in FUNCTOR_NAMES]
 
 
+def int_errors():
+    """The message of each registry entry with one integer setting at -1 or 0."""
+    from screamer._functor_params import _load_help
+    help_map = _load_help()
+    out = []
+    for r in registry():
+        params = (help_map.get(r["name"]) or {}).get("parameters", [])
+        for p in params:
+            if p.get("type") != "int":
+                continue
+            for value in (-1, 0):
+                settings = dict(r["settings"], **{p["name"]: value})
+                try:
+                    screamer.from_settings({"type": r["name"], "settings": settings})
+                    message = None
+                except screamer.SaveError as e:
+                    message = str(e)
+                out.append({"name": r["name"], "settings": settings, "message": message})
+    return out
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--stdout", action="store_true", help="print the fixture instead of writing it")
     args = p.parse_args()
-    text = json.dumps({"cases": cases(), "registry": registry()}, allow_nan=False, indent=1) + "\n"
+    text = json.dumps({"cases": cases(), "registry": registry(), "int_errors": int_errors()},
+                      allow_nan=False, indent=1) + "\n"
     if args.stdout:
         sys.stdout.write(text)
         return

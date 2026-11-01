@@ -14,7 +14,7 @@
 // test_edited_setting_refuses_or_fresh and test_bad_files_named_errors.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as S from "../src/index.ts";
@@ -36,6 +36,7 @@ interface Case {
 const ORACLE = JSON.parse(readFileSync(new URL("../../wasm/smoke/save_oracle.json", import.meta.url), "utf8")) as {
   cases: Case[];
   registry: { name: string; settings: Record<string, unknown> }[];
+  int_errors: { name: string; settings: Record<string, unknown>; message: string | null }[];
 };
 
 // null is NaN, and "Infinity" / "-Infinity" the infinities.
@@ -508,7 +509,7 @@ test("save: a file nested too deeply raises, and the module keeps working", () =
   assert.equal(keep(S.loads(a.dumps("cbor"))).dumps(), a.dumps());
 }));
 
-test("save: nested operators load once per level", () => owning((keep) => {
+test("save: nested operators load once per level, and their nesting is capped", () => owning((keep) => {
   let op: any = S.RollingMean(3);
   for (let d = 0; d < 16; d++) op = S.Segment(op);
   keep(op);
@@ -517,6 +518,10 @@ test("save: nested operators load once per level", () => owning((keep) => {
   const start = performance.now();
   assert.equal(keep(S.loads(text)).dumps(), text);
   assert.ok(performance.now() - start < 1000);
+  let node: any = { type: "RollingMean", settings: { window_size: 3 } };
+  for (let d = 0; d < 33; d++) node = { type: "Segment", settings: { op: node } };
+  const where = "Segment" + ".settings.op".repeat(32) + ": operators nested more than 32 deep";
+  assert.throws(() => S.fromSettings(node), (e: any) => e instanceof S.SaveError && e.message === where);
 }));
 
 test("save: a nested operator refuses per-column state", () => owning((keep) => {
@@ -528,4 +533,44 @@ test("save: a nested operator refuses per-column state", () => owning((keep) => 
   assert.throws(() => a.setState(state), (e: any) => e instanceof S.StateMismatch &&
     e.message === "Segment.op.columns: a nested operator holds no per-column state");
   assert.equal(a(0, 6), 5.5);
+}));
+
+test("save: an integer setting out of range words the error as Python does", () => {
+  assert.ok(ORACLE.int_errors.length > 300);
+  for (const c of ORACLE.int_errors) {
+    let got: string | null = null;
+    try {
+      S.fromSettings({ type: c.name, settings: decodeSettings(c.settings) }).dispose();
+    } catch (e: any) {
+      assert.ok(e instanceof S.SaveError, `${c.name}: ${e}`);
+      got = e.message;
+    }
+    assert.equal(got, c.message, `${c.name} ${JSON.stringify(c.settings)}`);
+  }
+});
+
+test("save: a failed save leaves the previous file and no temporary file", () => owning(async (keep) => {
+  const dir = mkdtempSync(join(tmpdir(), "screamer-save-"));
+  try {
+    const a = keep(rollingMean20());
+    const path = join(dir, "m.json");
+    await a.save(path);
+    await a.save(path);
+    assert.deepEqual(readdirSync(dir), ["m.json"]);
+    // A target the rename cannot replace (a directory that holds a file).
+    const blocked = join(dir, "d.json");
+    mkdirSync(blocked);
+    writeFileSync(join(blocked, "keep"), "x");
+    await assert.rejects(a.save(blocked));
+    const x = S.Input("x");
+    const pipe = new S.Pipeline([x], [OPS.RollingMean(3)(x)]);
+    await assert.rejects(pipe.save(blocked));
+    await assert.rejects(pipe.live().save(blocked));
+    pipe.dispose();
+    assert.deepEqual(readdirSync(dir).sort(), ["d.json", "m.json"]);
+    assert.deepEqual(readdirSync(blocked), ["keep"]);
+    assert.equal(keep(await S.load(path)).dumps(), a.dumps());
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 }));

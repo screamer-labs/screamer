@@ -1,5 +1,5 @@
 import type { Screamer, RawOp } from "./loader.js";
-import { nodeFs, normalizeError, NotSaveable, wasmCall } from "./errors.js";
+import { normalizeError, NotSaveable, wasmCall, writeSaveFile } from "./errors.js";
 import { jsonText } from "./json_text.js";
 import { asNd, type NdArray } from "./ndarray.js";
 import { Node, isNode } from "./node.js";
@@ -332,9 +332,7 @@ function installSave(op: any, M: Screamer, raw: RawOp, live: () => void): void {
   };
   op.save = async (path: unknown) => {
     if (typeof path !== "string") throw new TypeError(`${who}.save: path must be a string, got ${aKind(path)}`);
-    const data = op.dumps(path.toLowerCase().endsWith(".cbor") ? "cbor" : "json");
-    const fs = await nodeFs(`${who}.save`);
-    await fs.writeFile(path, data);
+    await writeSaveFile(path, op.dumps(path.toLowerCase().endsWith(".cbor") ? "cbor" : "json"), who);
   };
 }
 

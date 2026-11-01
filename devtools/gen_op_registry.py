@@ -105,10 +105,12 @@ SCREAMER_NOINLINE void collect(const Value& s, const char* type, const char* con
     }
 }
 
+// An integer past the int range raises std::out_of_range, which make_op
+// words as the binding words a value outside the setting's range.
 SCREAMER_NOINLINE int read_int(const Value& v, const char* type, const char* name) {
-    if (v.kind != Value::Kind::Int || v.i < std::numeric_limits<int>::min() ||
-        v.i > std::numeric_limits<int>::max())
-        wrong(type, name, "an integer in the int range", v);
+    if (v.kind != Value::Kind::Int) wrong(type, name, "an integer in the int range", v);
+    if (v.i < std::numeric_limits<int>::min() || v.i > std::numeric_limits<int>::max())
+        throw std::out_of_range("outside the int range");
     return static_cast<int>(v.i);
 }
 
@@ -152,6 +154,10 @@ SCREAMER_NOINLINE screamer::OpArg read_op(const Value& v, const char* type, cons
         throw SaveError(where + ": expected {\"type\": ..., \"settings\": {...}}");
     return screamer::OpArg::owning(screamer::serial::make_op(t->s, *settings, where));
 }
+
+// The depth of the make_op calls running on this thread: a nested operator
+// setting builds its operator with a call of its own.
+thread_local int op_depth = 0;
 
 using Maker = std::unique_ptr<screamer::EvalOp> (*)(const Value&, const char*);
 """[1:]
@@ -223,11 +229,12 @@ def generate(ops: list[dict], help_map: dict) -> str:
     out = [HEADER]
     out.append('#include "screamer/serial/op_registry.h"')
     out.append("")
-    for h in ["algorithm", "cstddef", "initializer_list", "limits", "memory", "optional",
-              "string", "utility", "vector"]:
+    for h in ["algorithm", "cstddef", "exception", "initializer_list", "limits", "memory", "new",
+              "optional", "stdexcept", "string", "utility", "vector"]:
         out.append(f"#include <{h}>")
     out.append("")
     out.append('#include "screamer/common/eval_op.h"   // SCREAMER_NOINLINE')
+    out.append('#include "screamer/common/int_settings.h"')
     out.append('#include "screamer/common/json.h"')
     out.append('#include "screamer/common/op_arg.h"')
     out.append('#include "screamer/serial/errors.h"')
@@ -267,6 +274,38 @@ def generate(ops: list[dict], help_map: dict) -> str:
     out.append('    {nullptr, nullptr},')
     out.append("};")
     out.append("")
+    out.append("// The message of the binding for an integer setting outside its range")
+    out.append("// (common/int_settings.h), \"RollingMean: window_size must be at least 1,")
+    out.append("// got -1\", or \"\" when every integer setting is in range. `alloc` is a")
+    out.append("// constructor that ran out of memory.")
+    out.append("std::string int_range_text(const Entry& e, const std::string& type, const Value& s, bool alloc) {")
+    out.append("    std::vector<std::string> names, texts;")
+    out.append("    std::vector<double> values;")
+    out.append("    for (const char* p = e.kinds; *p;) {")
+    out.append("        const char* end = p;")
+    out.append("        while (*end && *end != ';') ++end;")
+    out.append("        if (end[-1] == 'i') {")
+    out.append("            const std::string name(p, static_cast<std::size_t>(end - p) - 2);")
+    out.append("            const Value* v = s.get(name);")
+    out.append("            if (v && v->kind == Value::Kind::Int) {")
+    out.append("                names.push_back(name);")
+    out.append("                values.push_back(static_cast<double>(v->i));")
+    out.append("                texts.push_back(screamer::json::detail::int_text(v->i));")
+    out.append("            }")
+    out.append("        }")
+    out.append("        p = *end ? end + 1 : end;")
+    out.append("    }")
+    out.append("    return screamer::int_setting_error(type, names, values, texts, alloc);")
+    out.append("}")
+    out.append("")
+    out.append("// A constructor's refusal as a SaveError naming the operator, in the words")
+    out.append("// of the binding for an integer setting outside its range.")
+    out.append("[[noreturn]] void refused(const Entry& e, const std::string& type, const Value& s,")
+    out.append("                          const std::string& label, bool alloc, const char* what) {")
+    out.append("    const std::string msg = int_range_text(e, type, s, alloc);")
+    out.append("    throw SaveError(label + \".settings: \" + (msg.empty() ? std::string(what) : msg));")
+    out.append("}")
+    out.append("")
     out.append("}  // namespace")
     out.append("")
     out.append(MAKE_OP)
@@ -284,21 +323,34 @@ std::unique_ptr<EvalOp> make_op(const std::string& type, const json::Value& sett
             if (type == (*u)[0]) throw NotSaveable(type, (*u)[1]);
         throw SaveError(path + ".type: unknown type '" + type + "'");
     }
-    if (settings.kind != json::Value::Kind::Object)
-        throw SaveError((path == "object" ? type : path) + ".settings: expected an object, got " +
-                        detail::kind_text(settings));
     // The label of the operator in errors: its type at the top of a file,
     // else the setting that holds it ("Segment.settings.op").
     const std::string label = path == "object" ? type : path;
+    if (op_depth >= kMaxOpDepth)
+        throw SaveError(label + ": operators nested more than " + std::to_string(kMaxOpDepth) + " deep");
+    if (settings.kind != json::Value::Kind::Object)
+        throw SaveError(label + ".settings: expected an object, got " + detail::kind_text(settings));
+    struct Depth {
+        Depth() { ++op_depth; }
+        ~Depth() { --op_depth; }
+    } depth;
     json::Value s = settings;
     apply_settings_compat(type, s, label);
+    // A value the constructor refuses is a SaveError: an integer setting
+    // outside its range in the binding's words, else the constructor's.
     try {
         return e->make(s, label.c_str());
     } catch (const SaveError&) {
         throw;
+    } catch (const std::bad_alloc&) {
+        refused(*e, type, s, label, true, "the operator needs more memory than is available");
+    } catch (const std::length_error& err) {   // a buffer's size
+        refused(*e, type, s, label, true, err.what());
     } catch (const std::invalid_argument& err) {
-        throw SaveError(label + ".settings: " + err.what());
-    } catch (const std::runtime_error& err) {   // a setting the design refuses
+        refused(*e, type, s, label, false, err.what());
+    } catch (const std::out_of_range& err) {
+        refused(*e, type, s, label, false, err.what());
+    } catch (const std::exception& err) {   // a setting the design refuses
         throw SaveError(label + ".settings: " + err.what());
     }
 }

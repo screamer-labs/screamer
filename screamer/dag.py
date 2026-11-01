@@ -289,14 +289,8 @@ def _check_format(format):
 
 
 def _write_file(path, data):
-    import os
-    path = os.fspath(path)
-    if isinstance(data, bytes):
-        with open(path, "wb") as fh:
-            fh.write(data)
-    else:
-        with open(path, "w", encoding="utf-8", newline="") as fh:
-            fh.write(data)
+    from .serial import _write_file
+    _write_file(path, data)
 
 
 def _saveable_description(dag, who):
