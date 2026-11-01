@@ -24,6 +24,7 @@
 #include "screamer/dag/checked_index.h"
 #include "screamer/dag/graph_json.h"
 #include "screamer/dag/forecast_pairs.h"
+#include "screamer/dag/session_file.h"
 #include "screamer/streams/py_index.h"
 #include "screamer/streams/event.h"
 #include "screamer/streams/merge_source.h"
@@ -631,6 +632,11 @@ static nb::object from_json_value(const dag::json::Value& v) {
     return nb::none();
 }
 
+[[noreturn]] static void throw_lazy_not_saveable(const std::string& owner) {
+    throw serial::NotSaveable(owner, "a lazy call in progress cannot be saved; run the events "
+                                     "through Pipeline.live() and save the live session");
+}
+
 void init_bindings_dag(nb::module_& m) {
     // A Pipeline description checked against the shared schema, in its
     // normal form (dict in, dict out); from JSON text; and to JSON text as
@@ -1080,6 +1086,36 @@ void init_bindings_dag(nb::module_& m) {
             unit = u;
         }
 
+        // The session's save file (dag/session_file.h): `description` is the
+        // Pipeline's to_dict(), and the engine notes the unit of time indexes.
+        nb::object dumps(nb::handle description, bool cbor) {
+            const bool time = unit.kind == TimeUnit::kDatetime || unit.kind == TimeUnit::kTimedelta;
+            pcg->cg->set_index_unit(time ? dag::time_unit_text(unit.kind == TimeUnit::kDatetime ? 0 : 1,
+                                                               unit.base, unit.num)
+                                         : std::string());
+            dag::json::Value node = dag::session_node(*pcg->cg, to_json_value(description));
+            if (!cbor) {
+                const std::string text = serial::dumps_node_json(std::move(node));
+                return nb::str(text.data(), text.size());
+            }
+            const std::vector<std::uint8_t> b = serial::dumps_node_cbor(std::move(node));
+            return nb::bytes(reinterpret_cast<const char*>(b.data()), b.size());
+        }
+
+        // Loads a saved state (JSON text) into this session, which runs the
+        // saved Pipeline, and takes back the index kind: a saved time unit,
+        // else numbers once the session has taken an event or an advance.
+        void load_state(const std::string& text) {
+            dag::load_session_state(*pcg->cg, text);
+            TimeUnit u;
+            int kind = 0, base = 0, num = 1;
+            if (dag::parse_time_unit(pcg->cg->index_unit(), kind, base, num))
+                u = TimeUnit{kind == 0 ? TimeUnit::kDatetime : TimeUnit::kTimedelta, base, num};
+            else if (pcg->cg->has_events())
+                u.kind = TimeUnit::kNumber;
+            unit = u;
+        }
+
         void push_value(std::size_t src, std::int64_t t, nb::handle value) {
             PyObject* p = value.ptr();
             if (PyFloat_Check(p)) {                // float, np.float64
@@ -1127,7 +1163,23 @@ void init_bindings_dag(nb::module_& m) {
              }, "input"_a, "index"_a.none(), "value"_a.none())
         .def("_advance", [](nb::handle self, nb::handle now) {
                  nb::inst_ptr<PyLiveSession>(self)->advance(now);
-             }, "now"_a.none());
+             }, "now"_a.none())
+        .def("_dumps", [](PyLiveSession& s, nb::handle description, bool cbor) {
+                 return s.dumps(description, cbor);
+             }, "description"_a, "cbor"_a = false)
+        .def("_load_state", [](PyLiveSession& s, const std::string& text) { s.load_state(text); },
+             "text"_a);
+
+    // The save file of a Pipeline: its description, state null.
+    m.def("_pipeline_dumps", [](nb::handle description, bool cbor) -> nb::object {
+        dag::json::Value node = dag::pipeline_node(to_json_value(description));
+        if (!cbor) {
+            const std::string text = serial::dumps_node_json(std::move(node));
+            return nb::str(text.data(), text.size());
+        }
+        const std::vector<std::uint8_t> b = serial::dumps_node_cbor(std::move(node));
+        return nb::bytes(reinterpret_cast<const char*>(b.data()), b.size());
+    }, "description"_a, "cbor"_a = false);
 
     // Lazy driver over a compiled graph and Python-iterator feeds.
     nb::class_<LazyDriver>(m, "_LazyDriver", nb::type_slots(gc_slots<LazyDriver>))
@@ -1141,6 +1193,11 @@ void init_bindings_dag(nb::module_& m) {
              "cg"_a, "iterators"_a, "n_out"_a, "owner"_a = "Pipeline",
              "shape_input"_a = -1, "shape_tail"_a = std::vector<std::size_t>{})
         .def("__iter__", [](nb::object self) { return self; })
+        // A lazy call keeps its state in the iterator it is reading, so it
+        // cannot be saved; a live session can.
+        .def("save", [](LazyDriver& d, nb::handle) { throw_lazy_not_saveable(d.owner()); }, "path"_a)
+        .def("dumps", [](LazyDriver& d, nb::handle) { throw_lazy_not_saveable(d.owner()); },
+             "format"_a = "json")
         // An index error of the merge names the input, not the API: put the
         // owner ("Pipeline") in front, as merge and combine_latest do.
         .def("__next__", [](LazyDriver& d) -> nb::object {
@@ -1244,6 +1301,8 @@ void init_bindings_dag(nb::module_& m) {
 
         void set_max_pending(std::size_t n) { builder.set_max_pending(n); }
 
+        void set_key(std::size_t key) { builder.set_key(key); }
+
         void set_outputs(std::vector<std::size_t> outs) {
             builder.set_outputs(std::move(outs));
         }
@@ -1321,6 +1380,7 @@ void init_bindings_dag(nb::module_& m) {
              "dropna"_a, "features_index"_a)
         .def("set_outputs", &PyGraphBuilder::set_outputs, "output_ids"_a)
         .def("set_max_pending", &PyGraphBuilder::set_max_pending, "max_pending"_a)
+        .def("set_key", &PyGraphBuilder::set_key, "key"_a)
         .def("compile", [](PyGraphBuilder& b) { return b.compile(); })
         .def("run_batch", [](PyGraphBuilder& b, nb::list feeds) {
             // Marshal feeds (list of (index, values) tuples) -> raw spans.

@@ -29,6 +29,16 @@ row operator (a cross-section operator or portfolio engine) and
 ``PortfolioReport`` are one object for K assets: their ``resume`` on (T, K)
 inputs continues that state, and rows of another K raise ``ValueError``.
 
+A ``Pipeline`` saves its description (the text ``to_json`` writes) with
+``"state": null`` and loads as a Pipeline. A live session (``Pipeline.live()``)
+saves the description and everything it holds: the operators' state, the
+events that wait in a join or a window, the watermarks, and the outputs that
+``result()`` has not returned. ``load`` gives back a live session that
+continues where the saved one stopped. Its state fits only the description it
+was saved with, so a file whose graph was edited raises ``StateMismatch``
+(``on_mismatch="fresh"`` starts the edited graph fresh). A lazy call
+(``pipe(iterator)``) cannot be saved; run the events through a live session.
+
 ``load``, ``loads`` and ``from_settings`` build operators. The C++ core writes
 and reads the files (``include/screamer/serial``), so Python, JavaScript and
 C++ write the same bytes for the same operator. An operator is built through
@@ -61,7 +71,8 @@ _ON_MISMATCH = ("error", "fresh")
 
 
 def load(path, on_mismatch="error"):
-    """Load an operator from a file written by ``save``.
+    """Load an operator, a Pipeline or a live session from a file written by
+    ``save``.
 
     Parameters
     ----------
@@ -69,21 +80,25 @@ def load(path, on_mismatch="error"):
         The file, JSON or CBOR (the encoding is read from the file).
     on_mismatch : {"error", "fresh"}
         What to do with a state that does not fit the file's settings (an
-        edited setting) or that another state version wrote: raise, or keep
-        the settings, start the operator fresh and warn.
+        edited setting, or an edited graph of a live session) or that another
+        state version wrote: raise, or keep the settings, start the operator
+        or session fresh and warn.
     """
     with open(os.fspath(path), "rb") as fh:
         return loads(fh.read(), on_mismatch=on_mismatch)
 
 
 def loads(data, on_mismatch="error"):
-    """Load an operator from the ``str`` or ``bytes`` that ``dumps`` returned.
+    """Load an operator, a Pipeline or a live session from the ``str`` or
+    ``bytes`` that ``dumps`` returned.
 
     See ``load`` for ``on_mismatch``.
     """
     if on_mismatch not in _ON_MISMATCH:
         raise ValueError(f"on_mismatch must be 'error' or 'fresh', got {on_mismatch!r}")
     type_name, settings, state = _b._serial_load_node(data)
+    if type_name in ("Pipeline", "LiveSession"):
+        return _load_pipeline(type_name, settings, state, on_mismatch)
     op = _build(type_name, json.loads(settings), "object")
     if state is not None:
         try:
@@ -94,6 +109,34 @@ def loads(data, on_mismatch="error"):
             # A failed load leaves the operator as built: fresh.
             warnings.warn(f"{e}; {type_name} starts fresh", UserWarning, stacklevel=2)
     return op
+
+
+def _load_pipeline(type_name, settings, state, on_mismatch):
+    """A Pipeline from its file, or a live session that continues where the
+    saved one stopped. The state of a session fits only the Pipeline it was
+    saved from: a file whose description was edited (a node added, removed or
+    changed in a way its state depends on) raises StateMismatch, or with
+    ``on_mismatch="fresh"`` gives a fresh session of the edited Pipeline."""
+    from .dag import Pipeline
+    try:
+        pipe = Pipeline.from_json(settings)
+    except (TypeError, ValueError) as e:
+        raise SaveError(f"{type_name}.settings: {e}") from None
+    if type_name == "Pipeline":
+        if state is not None:
+            raise SaveError("Pipeline.state: a Pipeline holds no state; a file with state "
+                            "is a live session's (\"type\": \"LiveSession\")")
+        return pipe
+    session = pipe.live()
+    if state is not None:
+        try:
+            session._load_state(state)
+        except (StateMismatch, StateVersionError) as e:
+            if on_mismatch == "error":
+                raise
+            # A failed load leaves the session as it was built: fresh.
+            warnings.warn(f"{e}; the LiveSession starts fresh", UserWarning, stacklevel=3)
+    return session
 
 
 def from_settings(node):

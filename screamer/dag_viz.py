@@ -26,30 +26,44 @@ def _classify(node):
     return "functor", type(op).__name__, dict(getattr(op, "_screamer_params", {}))
 
 
-def build_graph(dag):
-    """Walk the Pipeline's outputs into an ordered node list plus the input/output ids.
+def walk(outputs):
+    """The nodes reachable from ``outputs`` in dependency order, and their ids.
 
     Nodes are deduplicated by identity (a shared node appears once) and numbered
-    in dependency order. Returns (nodes, input_ids, output_ids).
+    depth first from the outputs, each after its inputs. These ids are the node
+    ids of ``Pipeline.to_json`` and the keys of a live session's saved state.
+    Returns (nodes, {id(node): node id}).
     """
     order, id_of = [], {}
 
     def visit(node):
         key = id(node)
         if key in id_of:
-            return id_of[key]
-        in_ids = [visit(i) for i in node.inputs]
-        kind, name, params = _classify(node)
-        nid = len(order)
-        id_of[key] = nid
-        order.append(NodeInfo(nid, kind, name, params, in_ids))
-        return nid
+            return
+        for i in node.inputs:
+            visit(i)
+        id_of[key] = len(order)
+        order.append(node)
 
-    for out in dag.outputs:
+    for out in outputs:
         visit(out)
+    return order, id_of
+
+
+def build_graph(dag):
+    """Walk the Pipeline's outputs into an ordered node list plus the input/output ids.
+
+    The nodes are numbered as ``walk`` numbers them. Returns (nodes, input_ids,
+    output_ids).
+    """
+    order, id_of = walk(dag.outputs)
+    nodes = []
+    for nid, node in enumerate(order):
+        kind, name, params = _classify(node)
+        nodes.append(NodeInfo(nid, kind, name, params, [id_of[id(i)] for i in node.inputs]))
     output_ids = [id_of[id(o)] for o in dag.outputs]
     input_ids = [id_of[id(n)] for n in dag.inputs]
-    return order, input_ids, output_ids
+    return nodes, input_ids, output_ids
 
 
 def _label(node):

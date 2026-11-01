@@ -55,6 +55,12 @@ struct NodeSpec {
                                                    // DropNa with
                                                    // several inputs
     std::vector<std::size_t> inputs;      // producer node ids (edges into this node)
+    // The node of the Pipeline description that built this one (its id in
+    // the graph walk, dag_viz.build_graph and pipeline_io.ts describe): a
+    // live session saves its state by it. kNoKey for a graph built without
+    // a description, which cannot be saved.
+    std::size_t key = kNoKey;
+    static constexpr std::size_t kNoKey = static_cast<std::size_t>(-1);
 };
 
 struct GraphSpec {
@@ -73,8 +79,7 @@ public:
     std::size_t add_input() {
         NodeSpec ns;
         ns.kind = NodeKind::Input;
-        spec_.nodes.push_back(std::move(ns));
-        std::size_t id = spec_.nodes.size() - 1;
+        const std::size_t id = push(std::move(ns));
         spec_.input_ids.push_back(id);
         return id;
     }
@@ -84,8 +89,7 @@ public:
         ns.op     = op;
         ns.max_pending = spec_.max_pending;   // several producers: their reorder cap
         ns.inputs = std::move(inputs);
-        spec_.nodes.push_back(std::move(ns));
-        return spec_.nodes.size() - 1;
+        return push(std::move(ns));
     }
     // The graph's join cap (GraphSpec::max_pending); set it before the nodes
     // that take it as their default.
@@ -101,8 +105,7 @@ public:
         ns.when_all    = when_all;
         ns.max_pending = max_pending;
         ns.inputs      = std::move(inputs);
-        spec_.nodes.push_back(std::move(ns));
-        return spec_.nodes.size() - 1;
+        return push(std::move(ns));
     }
     std::size_t add_dropna(std::vector<std::size_t> inputs, bool how_all) {
         NodeSpec ns;
@@ -110,8 +113,7 @@ public:
         ns.how_all = how_all;
         ns.max_pending = spec_.max_pending;   // several producers: their reorder cap
         ns.inputs  = std::move(inputs);
-        spec_.nodes.push_back(std::move(ns));
-        return spec_.nodes.size() - 1;
+        return push(std::move(ns));
     }
     std::size_t add_select(std::vector<std::size_t> inputs,
                            std::vector<std::size_t> columns) {
@@ -119,8 +121,7 @@ public:
         ns.kind    = NodeKind::Select;
         ns.columns = std::move(columns);
         ns.inputs  = std::move(inputs);
-        spec_.nodes.push_back(std::move(ns));
-        return spec_.nodes.size() - 1;
+        return push(std::move(ns));
     }
     // A cumulative resample given [value, driver] as two inputs reads them as
     // one [value, driver] row: the builder joins them first with a
@@ -147,16 +148,14 @@ public:
         ns.kind     = NodeKind::Resample;
         ns.resample = rp;
         ns.inputs   = std::move(inputs);
-        spec_.nodes.push_back(std::move(ns));
-        return spec_.nodes.size() - 1;
+        return push(std::move(ns));
     }
     std::size_t add_delay(std::vector<std::size_t> inputs, std::int64_t duration) {
         NodeSpec ns;
         ns.kind           = NodeKind::Delay;
         ns.delay_duration = duration;
         ns.inputs         = std::move(inputs);
-        spec_.nodes.push_back(std::move(ns));
-        return spec_.nodes.size() - 1;
+        return push(std::move(ns));
     }
     // Lags rows of any width by `count` events (LagRowsNode).
     std::size_t add_lag_rows(std::vector<std::size_t> inputs, std::size_t count) {
@@ -166,8 +165,7 @@ public:
         ns.kind      = NodeKind::LagRows;
         ns.lag_count = count;
         ns.inputs    = std::move(inputs);
-        spec_.nodes.push_back(std::move(ns));
-        return spec_.nodes.size() - 1;
+        return push(std::move(ns));
     }
     // Pairs the features of X (input 0) with the target of y (input 1)
     // `count` events later, on one clock, stamped at the features' event
@@ -180,8 +178,7 @@ public:
         ns.lag_count   = count;
         ns.max_pending = spec_.max_pending;
         ns.inputs      = std::move(inputs);
-        spec_.nodes.push_back(std::move(ns));
-        return spec_.nodes.size() - 1;
+        return push(std::move(ns));
     }
     // A forward as-of join of y (input 1) on the clock of X (input 0)
     // (ForwardAsOfNode).
@@ -193,8 +190,7 @@ public:
         ns.kind        = NodeKind::ForwardAsOf;
         ns.max_pending = spec_.max_pending;
         ns.inputs      = std::move(inputs);
-        spec_.nodes.push_back(std::move(ns));
-        return spec_.nodes.size() - 1;
+        return push(std::move(ns));
     }
     // Adds a width rule on input `slot` of node `id` (NodeSpec::width_rules).
     void require_width(std::size_t id, WidthRule rule) {
@@ -214,16 +210,25 @@ public:
         ns.kind        = NodeKind::Filter;
         ns.max_pending = spec_.max_pending;
         ns.inputs      = std::move(inputs);
-        spec_.nodes.push_back(std::move(ns));
-        return spec_.nodes.size() - 1;
+        return push(std::move(ns));
     }
+    // The description node that the nodes added from here on build
+    // (NodeSpec::key).
+    void set_key(std::size_t key) { key_ = key; }
     void set_outputs(std::vector<std::size_t> outs) { spec_.output_ids = std::move(outs); }
     const GraphSpec& spec() const { return spec_; }
     // The spec, moved out; the builder is empty afterwards.
     GraphSpec take() { GraphSpec s = std::move(spec_); spec_ = GraphSpec{}; return s; }
 
 private:
+    std::size_t push(NodeSpec ns) {
+        ns.key = key_;
+        spec_.nodes.push_back(std::move(ns));
+        return spec_.nodes.size() - 1;
+    }
+
     GraphSpec spec_;
+    std::size_t key_ = NodeSpec::kNoKey;
 };
 
 }} // namespace screamer::dag

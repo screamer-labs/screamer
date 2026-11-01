@@ -173,5 +173,45 @@ inline void check_index_value(std::size_t input, std::size_t event, Index k) {
     }
 }
 
+// The unit of a time index as a live session saves it: "datetime64[ns]" or
+// "timedelta64[5s]". `kind` is 0 for datetime64 and 1 for timedelta64, `base`
+// the unit in NumPy's order (Y M W B D h m s ms us ns ps fs as generic) and
+// `num` its multiplier. Python notes the unit of a session's indexes, so a
+// loaded session keeps refusing indexes of another kind; JavaScript indexes
+// are numbers and keep a saved unit as it is.
+inline const char* time_unit_name(int base) {
+    static const char* const names[] = {"Y", "M", "W", "B", "D", "h", "m", "s", "ms",
+                                        "us", "ns", "ps", "fs", "as", "generic"};
+    return base >= 0 && base < 15 ? names[base] : nullptr;
+}
+
+inline std::string time_unit_text(int kind, int base, int num) {
+    const char* name = time_unit_name(base);
+    std::string s = kind == 0 ? "datetime64[" : "timedelta64[";
+    if (num != 1) s += std::to_string(num);
+    return s + (name ? name : "?") + "]";
+}
+
+// The parts of a unit's text; false for any other text.
+inline bool parse_time_unit(const std::string& text, int& kind, int& base, int& num) {
+    std::size_t at;
+    if (text.rfind("datetime64[", 0) == 0) { kind = 0; at = 11; }
+    else if (text.rfind("timedelta64[", 0) == 0) { kind = 1; at = 12; }
+    else return false;
+    if (text.size() < at + 2 || text.back() != ']') return false;
+    std::size_t d = at;
+    while (d < text.size() && text[d] >= '0' && text[d] <= '9') ++d;
+    num = 1;
+    if (d > at) {
+        if (d - at > 9 || text[at] == '0') return false;
+        num = std::atoi(text.substr(at, d - at).c_str());
+        if (num == 1) return false;    // a multiplier of 1 is written without it
+    }
+    const std::string name = text.substr(d, text.size() - 1 - d);
+    for (int b = 0; b < 15; ++b)
+        if (name == time_unit_name(b)) { base = b; return true; }
+    return false;
+}
+
 }} // namespace screamer::dag
 #endif

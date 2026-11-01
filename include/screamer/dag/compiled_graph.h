@@ -11,7 +11,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <map>
 #include <memory>
+#include <optional>
 #include <queue>
 #include <stdexcept>
 #include <string>
@@ -26,6 +28,7 @@
 #include "screamer/dag/forward_asof_node.h"
 #include "screamer/dag/lag_rows_node.h"
 #include "screamer/dag/lead_rows_node.h"
+#include "screamer/dag/node_state.h"
 #include "screamer/dag/ordered_merge_node.h"
 #include "screamer/dag/resample_node.h"
 #include "screamer/dag/resample_generic_node.h"
@@ -37,6 +40,8 @@
 #include "screamer/dag/resettable.h"
 #include "screamer/streams/merge_source.h"
 #include "screamer/streams/vector_source.h"
+#include "screamer/serial/archive.h"
+#include "screamer/serial/errors.h"
 #include <utility>
 
 namespace screamer { namespace dag {
@@ -260,6 +265,7 @@ public:
                 // path is preserved via one polymorphic hop.
                 auto fn = std::make_shared<FunctorNode<std::int64_t>>(*ns.op, *downstream);
                 reset_nodes_.push_back(fn.get());
+                piece(id, "op", fn.get());
                 node_input_sink[id] = ordered_input(s, id, *fn, order_memo);
                 owned_.push_back(fn);
                 break;
@@ -270,6 +276,7 @@ public:
                 auto cn = std::make_shared<CombineLatestNode<std::int64_t>>(
                     widths, ns.when_all, *downstream, ns.max_pending);
                 reset_nodes_.push_back(cn.get());
+                piece(id, "combine_latest", cn.get());
                 node_input_sink[id] = [ptr = cn.get()](std::size_t slot) -> Sink<std::int64_t>* {
                     return &ptr->port(slot);
                 };
@@ -296,6 +303,7 @@ public:
                     auto rn = std::make_shared<GenericResampleNode<std::int64_t>>(
                         ns.resample, *downstream);
                     reset_nodes_.push_back(rn.get());
+                    piece(id, "resample", rn.get());
                     node_input_sink[id] = [ptr = rn.get()](std::size_t) -> Sink<std::int64_t>* {
                         return ptr;
                     };
@@ -315,6 +323,7 @@ public:
                                             merge_relation(s, ns.inputs[1], order_memo) & 2);
                     }
                     reset_nodes_.push_back(rn.get());
+                    piece(id, "resample", rn.get());
                     // Initialize ports eagerly here so the lambda captures are stable.
                     rn->port(0);  // creates clock_ports_ on the node
                     node_input_sink[id] = [ptr = rn.get()](std::size_t slot) -> Sink<std::int64_t>* {
@@ -328,6 +337,7 @@ public:
                     // width is always 1 at static inference time (unknown at compile time).
                     auto rn = std::make_shared<ResampleNode<std::int64_t>>(ns.resample, *downstream);
                     reset_nodes_.push_back(rn.get());
+                    piece(id, "resample", rn.get());
                     node_input_sink[id] = [ptr = rn.get()](std::size_t) -> Sink<std::int64_t>* {
                         return ptr;
                     };
@@ -341,6 +351,7 @@ public:
                 // and mask wires to port 1, matching the input order exactly.
                 auto fn = std::make_shared<FilterNode<std::int64_t>>(*downstream, ns.max_pending);
                 reset_nodes_.push_back(fn.get());
+                piece(id, "filter", fn.get());
                 node_input_sink[id] = [ptr = fn.get()](std::size_t slot) -> Sink<std::int64_t>* {
                     return &ptr->port(slot);
                 };
@@ -350,6 +361,7 @@ public:
             case NodeKind::LagRows: {
                 auto ln = std::make_shared<LagRowsNode<std::int64_t>>(ns.lag_count, *downstream);
                 reset_nodes_.push_back(ln.get());
+                piece(id, "lag_rows", ln.get());
                 node_input_sink[id] = [ptr = ln.get()](std::size_t) -> Sink<std::int64_t>* { return ptr; };
                 owned_.push_back(ln);
                 break;
@@ -365,6 +377,7 @@ public:
                 ln->set_ports(rx & 1, rx & 2, ry & 1, ry & 2);
                 reset_nodes_.push_back(ln.get());
                 lead_nodes_.push_back(ln.get());
+                piece(id, "lead_rows", ln.get());
                 node_input_sink[id] = [ptr = ln.get()](std::size_t slot) -> Sink<std::int64_t>* {
                     return &ptr->port(slot);
                 };
@@ -382,6 +395,7 @@ public:
                               merge_relation(s, ns.inputs[1], order_memo) & 2);
                 reset_nodes_.push_back(an.get());
                 asof_nodes_.push_back(an.get());
+                piece(id, "forward_asof", an.get());
                 node_input_sink[id] = [ptr = an.get()](std::size_t slot) -> Sink<std::int64_t>* {
                     return &ptr->port(slot);
                 };
@@ -398,6 +412,9 @@ public:
         }
         set_result_widths(in_width_, {});
         unknown_result_w_ = result_w_;
+        std::stable_sort(pieces_.begin(), pieces_.end(), [](const Piece& a, const Piece& b) {
+            return a.key != b.key ? a.key < b.key : a.spec < b.spec;
+        });
     }
 
     // Resets all stateful nodes and output buffers via a single polymorphic pass.
@@ -410,6 +427,7 @@ public:
         std::fill(in_width_.begin(), in_width_.end(), std::size_t(0));
         std::fill(in_count_.begin(), in_count_.end(), std::size_t(0));
         has_floor_ = false;
+        index_unit_.clear();
         for (auto* n : reset_nodes_) n->reset();
         for (std::size_t o = 0; o < outputs_.size(); ++o) {
             outputs_[o].indices.clear();
@@ -551,6 +569,64 @@ public:
     }
 
     std::size_t output_count() const { return outputs_.size(); }
+
+    // ---- Save and load (a live session) ---------------------------------
+    //
+    // A live session's state is {"version": 1, "engine": {...}, "nodes":
+    // {...}}. "engine" holds what reset() touches outside the nodes: the end
+    // of input, the advance floor, each input's width, last index and event
+    // count, the unit of a session's time indexes (Python notes it, see
+    // set_index_unit), the output rows not drained yet with their watermarks,
+    // and the output join. "nodes" has one entry per node of the Pipeline
+    // description, by its id (NodeSpec::key): {"version": 1, "values": {...}}
+    // with the state of each part the node built ("op", "merge",
+    // "combine_latest", "resample", ...), and empty values for a node that
+    // holds nothing (an input, a Select). Only a graph of the same
+    // description fits a saved state; any other raises StateMismatch (an
+    // unknown or a missing node), and a failed load leaves the session as it
+    // was. A session that a rejected event poisoned cannot be saved.
+    static constexpr int kStateVersion = 1;
+    static constexpr int kNodeStateVersion = 1;
+
+    void write_state(json::Value& out, const std::string& path) const {
+        if (poisoned_)
+            throw serial::NotSaveable(path, "this session rejected an event after part of the "
+                                            "graph took it; it cannot be saved");
+        check_keys(path);
+        serial::Writer w(path);
+        const_cast<CompiledGraph&>(*this).state(w);
+        out = w.take();
+    }
+
+    void read_state(const json::Value& in, const std::string& path) {
+        check_keys(path);
+        serial::load_state(*this, in, path);
+    }
+
+    // The unit of the session's time indexes ("" for numbers or none yet), as
+    // dag::time_unit_text writes it. A binding that reads time indexes sets
+    // it before a save and reads it after a load; the engine only keeps it.
+    void set_index_unit(std::string unit) { index_unit_ = std::move(unit); }
+    const std::string& index_unit() const { return index_unit_; }
+
+    // Whether the session has taken an event or an advance since reset().
+    bool has_events() const {
+        if (has_floor_) return true;
+        for (std::size_t c : in_count_) if (c) return true;
+        return false;
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        int version = kStateVersion;
+        ar.local("version", version);
+        if constexpr (Ar::kLoading)
+            if (version != kStateVersion) throw serial::StateVersionError(ar.path(), version, kStateVersion);
+        EngineState engine{*this};
+        ar.object("engine", engine);
+        NodeStates nodes{*this};
+        ar.object("nodes", nodes);
+    }
 
     // Throws when a rejected event poisoned the session (until reset()).
     void check_live() const {
@@ -711,6 +787,107 @@ public:
 private:
     GraphSpec spec_;
 
+    // A part of a node that holds state: the node of the description it
+    // belongs to, its own node in the spec, and its name in the saved entry.
+    struct Piece {
+        std::size_t key;
+        std::size_t spec;
+        const char* name;
+        Resettable* node;
+    };
+    void piece(std::size_t id, const char* name, Resettable* node) {
+        pieces_.push_back(Piece{spec_.nodes[id].key, id, name, node});
+    }
+
+    // Raises unless every node knows its description node.
+    void check_keys(const std::string& path) const {
+        for (const NodeSpec& n : spec_.nodes)
+            if (n.key == NodeSpec::kNoKey)
+                throw serial::NotSaveable(path, "the graph was built without a Pipeline description");
+    }
+
+    struct EngineState {
+        CompiledGraph& g;
+        template <class Ar>
+        void state(Ar& ar) {
+            ar("flushed", g.flushed_);
+            optional_index(ar, "floor", g.has_floor_, g.floor_);
+            std::optional<std::string> unit;
+            if (!g.index_unit_.empty()) unit = g.index_unit_;
+            ar.local("index_unit", unit);
+            std::vector<std::size_t> widths = g.in_width_;
+            ar.local("input_widths", widths, g.num_in_);
+            ar.fixed("input_last", g.in_last_, g.num_in_);
+            ar.fixed("input_count", g.in_count_, g.num_in_);
+            if constexpr (Ar::kLoading) {
+                int kind = 0, base = 0, num = 0;
+                ar.check(!unit || parse_time_unit(*unit, kind, base, num),
+                         "index_unit must be null or a unit such as \"datetime64[ns]\"");
+                ar.set(g.index_unit_, unit.value_or(std::string()));
+                bool fits = true;
+                try { g.validate_widths(widths); } catch (const std::invalid_argument&) { fits = false; }
+                ar.check(fits, "the input widths do not fit the graph");
+                std::vector<std::size_t> out_w;
+                for (const OutputBuffer& b : g.outputs_) out_w.push_back(b.width);
+                // The undo outlives this object: it holds the graph itself.
+                CompiledGraph* cg = &g;
+                ar.apply([cg, widths] {
+                             cg->in_width_ = widths;
+                             cg->result_w_ = cg->unknown_result_w_;
+                             cg->set_result_widths(cg->in_width_, {});
+                         },
+                         [cg, w = g.in_width_, r = g.result_w_, out_w] {
+                             cg->in_width_ = w;
+                             cg->result_w_ = r;
+                             for (std::size_t o = 0; o < out_w.size(); ++o) cg->outputs_[o].width = out_w[o];
+                         });
+                ar.set(g.poisoned_, false);
+            }
+            ar.objects("outputs", g.outputs_);
+            ar.object("join", g.join_);
+        }
+    };
+
+    // The entry of description node `key`: the state of each of its parts.
+    struct NodeParts {
+        CompiledGraph& g;
+        std::size_t key;
+        template <class Ar>
+        void state(Ar& ar) {
+            for (const Piece& p : g.pieces_)
+                if (p.key == key) ar.op(p.name, *p.node);
+        }
+    };
+    struct NodeEntry {
+        CompiledGraph& g;
+        std::size_t key;
+        template <class Ar>
+        void state(Ar& ar) {
+            int version = kNodeStateVersion;
+            ar.local("version", version);
+            if constexpr (Ar::kLoading)
+                if (version != kNodeStateVersion)
+                    throw serial::StateVersionError(ar.path(), version, kNodeStateVersion);
+            NodeParts parts{g, key};
+            ar.object("values", parts);
+        }
+    };
+    struct NodeStates {
+        CompiledGraph& g;
+        template <class Ar>
+        void state(Ar& ar) {
+            std::vector<std::size_t> keys;
+            for (const NodeSpec& n : g.spec_.nodes) keys.push_back(n.key);
+            std::sort(keys.begin(), keys.end());
+            keys.erase(std::unique(keys.begin(), keys.end()), keys.end());
+            for (std::size_t k : keys) {
+                const std::string name = std::to_string(k);
+                NodeEntry entry{g, k};
+                ar.object(name.c_str(), entry);
+            }
+        }
+    };
+
     // The input of node `id`, which takes its frames at `sink`: the sink
     // itself for one producer, else the ports of an OrderedMergeNode in front
     // of it, so the node takes its producers' events in index order whatever
@@ -730,6 +907,7 @@ private:
         }
         reset_nodes_.push_back(mn.get());
         merge_nodes_.push_back(mn.get());
+        piece(id, "merge", mn.get());
         owned_.push_back(mn);
         return [ptr = mn.get()](std::size_t slot) -> Sink<std::int64_t>* { return &ptr->port(slot); };
     }
@@ -1059,6 +1237,8 @@ private:
     std::vector<std::size_t>                      unknown_result_w_; // result_w_ with no input width known
     std::vector<std::size_t>                      batch_in_w_;      // the input widths of the last batch run
     std::vector<std::size_t>                      batch_result_w_;  // result_w_ for batch_in_w_
+    std::vector<Piece>                            pieces_;          // the parts that hold state, by key
+    std::string                                   index_unit_;      // set_index_unit
 };
 
 // compile() wraps the spec into a CompiledGraph (wiring happens in constructor).

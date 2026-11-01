@@ -45,6 +45,24 @@ inline std::string dumps_json(const EvalOp& op) { return json::dump_save(wrap(sa
 // The save file of `op` as CBOR.
 inline std::vector<std::uint8_t> dumps_cbor(const EvalOp& op) { return cbor::encode(wrap(save_node(op))); }
 
+// The node of an object that is not an operator: a Pipeline (its
+// description as settings, state null) or a live session (its description
+// and the engine's state, dag::CompiledGraph::write_state).
+inline json::Value make_node(const std::string& type, json::Value settings, json::Value state) {
+    json::Value v = json::Value::object();
+    v.o.reserve(3);
+    v.o.emplace_back("type", json::Value::string(type));
+    v.o.emplace_back("settings", std::move(settings));
+    v.o.emplace_back("state", std::move(state));
+    return v;
+}
+
+// The save file of a node, as JSON text or CBOR.
+inline std::string dumps_node_json(json::Value node) { return json::dump_save(wrap(std::move(node))); }
+inline std::vector<std::uint8_t> dumps_node_cbor(json::Value node) {
+    return cbor::encode(wrap(std::move(node)));
+}
+
 // The tree of a save file in either encoding: CBOR when the first byte is not
 // the '{' (or white space) that starts JSON text. A malformed file raises
 // SaveError.

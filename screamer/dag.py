@@ -277,6 +277,69 @@ def _own_copy(op):
     return fresh()
 
 
+def _file_format(path):
+    import os
+    return "cbor" if str(os.fspath(path)).lower().endswith(".cbor") else "json"
+
+
+def _check_format(format):
+    if format not in ("json", "cbor"):
+        raise ValueError(f"format must be 'json' or 'cbor', got {format!r}")
+    return format == "cbor"
+
+
+def _write_file(path, data):
+    import os
+    path = os.fspath(path)
+    if isinstance(data, bytes):
+        with open(path, "wb") as fh:
+            fh.write(data)
+    else:
+        with open(path, "w", encoding="utf-8", newline="") as fh:
+            fh.write(data)
+
+
+def _saveable_description(dag, who):
+    """The description of ``dag`` (``to_dict``) for its save file. A node
+    whose operator is not a screamer class (a Python subclass, or any other
+    callable object) cannot be rebuilt from a file, so it raises NotSaveable
+    naming the node, as an operator setting that holds one does."""
+    from .dag_viz import walk
+    order, _ = walk(dag.outputs)
+    for nid, node in enumerate(order):
+        op = node.op
+        if not isinstance(op, tuple):
+            _check_saveable_op(op, f"{who}.nodes.{nid}")
+        elif op[0] == "operator":
+            for k, v in op[2].items():
+                if _is_op(v):
+                    _check_saveable_op(v, f"{who}.nodes.{nid}.{k}")
+    from .dag_io import to_dict
+    return to_dict(dag)
+
+
+def _is_op(x):
+    from . import screamer_bindings as _b
+    return isinstance(x, _b.EvalOp) or getattr(type(x), "_screamer_wrapped", False)
+
+
+def _check_saveable_op(op, path):
+    import screamer
+    from .serial import NotSaveable
+    cls = type(op)
+    name = cls.__name__
+    if not (getattr(cls, "_screamer_wrapped", False) and getattr(screamer, name, None) is cls):
+        base = next((c.__name__ for c in cls.__mro__[1:]
+                     if getattr(screamer, c.__name__, None) is c and getattr(c, "_screamer_wrapped", False)),
+                    None)
+        what = f"a subclass of {base}" if base else "not a screamer operator"
+        raise NotSaveable(f"{path}: {name} is {what}; a saved Pipeline builds every node from "
+                          "its screamer class, so use the screamer operator itself")
+    for k, v in getattr(op, "_screamer_params", {}).items():
+        if _is_op(v):
+            _check_saveable_op(v, f"{path}.{k}")
+
+
 _LIVE_CLASS = None
 
 
@@ -320,6 +383,23 @@ def _live_dag_class():
             if len(dag.outputs) > 1 and dag.align_outputs:
                 return _aligned(self._cg.drain(True))
             return _values_first(self._cg.drain())
+
+        def save(self, path):
+            """Write the session to ``path``: CBOR for a ``.cbor`` path, JSON
+            otherwise. ``screamer.load`` gives back a live session that
+            continues where this one stopped."""
+            _write_file(path, self.dumps(format=_file_format(path)))
+
+        def dumps(self, format="json"):
+            """The session's save file: ``str`` for ``format="json"``, ``bytes``
+            for ``format="cbor"``. Its settings are the Pipeline's description
+            (``Pipeline.to_json``), its state everything the session holds:
+            the operators' and stream nodes' state, the events that wait in a
+            join or a window, the watermarks, and the outputs that ``result()``
+            has not returned yet. A session that rejected an event cannot be
+            saved."""
+            cbor = _check_format(format)
+            return self._dumps(_saveable_description(self._dag, "LiveSession"), cbor)
 
     _LIVE_CLASS = _LiveDag
     return _LIVE_CLASS
@@ -380,9 +460,13 @@ class Pipeline:
 
     def _compile_cpp(self):
         from . import screamer_bindings as _b
+        from .dag_viz import walk
         gb = _b._GraphBuilder()
         gb.set_max_pending(self.max_pending)
         ids = {}   # id(node) -> C++ node id
+        # Each node's id in the description (to_json): the C++ nodes it
+        # builds carry it, so a live session saves its state by it.
+        keys = walk(self.outputs)[1]
 
         def build(node):
             node_id = id(node)
@@ -390,11 +474,13 @@ class Pipeline:
                 return ids[node_id]
             op = node.op
             if isinstance(op, tuple) and op[0] == "input":
+                gb.set_key(keys[node_id])
                 nid = gb.add_input()
             elif isinstance(op, tuple) and op[0] == "operator":
                 fn, kwargs = op[1], op[2]
                 name = getattr(fn, "__name__", "")
                 inp = [build(i) for i in node.inputs]
+                gb.set_key(keys[node_id])
                 if name == "CombineLatest":
                     # The node's own cap, else the Pipeline's.
                     cap = kwargs.get("max_pending")
@@ -483,6 +569,7 @@ class Pipeline:
                         f"{name} is not supported as a DAG graph node")
             else:                                    # functor instance (EvalOp)
                 inp = [build(i) for i in node.inputs]
+                gb.set_key(keys[node_id])
                 nid = gb.add_functor(_own_copy(op), inp)
             ids[node_id] = nid
             return nid
@@ -580,6 +667,22 @@ class Pipeline:
         return repr_mimebundle(self)
 
     # -- serialization -------------------------------------------------------
+    def save(self, path):
+        """Write the Pipeline to ``path``: CBOR for a ``.cbor`` path, JSON
+        otherwise. ``screamer.load`` gives back a Pipeline.
+
+        The file holds the settings only (the description that ``to_json``
+        writes, with ``"state": null``): a Pipeline keeps no streaming state
+        between calls. To keep state, save a live session (``live()``)."""
+        _write_file(path, self.dumps(format=_file_format(path)))
+
+    def dumps(self, format="json"):
+        """The Pipeline's save file: ``str`` for ``format="json"``, ``bytes``
+        for ``format="cbor"``."""
+        cbor = _check_format(format)
+        from . import screamer_bindings as _b
+        return _b._pipeline_dumps(_saveable_description(self, "Pipeline"), cbor)
+
     def to_dict(self):
         """A JSON-native dict describing the graph (round-trips via :meth:`from_dict`)."""
         from .dag_io import to_dict
