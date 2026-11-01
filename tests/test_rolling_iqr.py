@@ -4,12 +4,8 @@ Tests for RollingIqr = q75 - q25.
 The dedicated implementation uses a single OST queried twice per step,
 saving a factor of 2 in memory and inserts vs the obvious composition
 of two RollingQuantile instances. Both implementations share the same
-linear-interpolation quantile formula, so post-warmup they must agree
-to floating-point precision.
-
-Note: RollingQuantile currently has a pre-existing bug where it
-returns -2 (sentinel) instead of NaN during warmup, so the composition
-reference is only valid for samples >= window_size - 1.
+linear-interpolation quantile formula, so they must agree to
+floating-point precision, with NaN in the same warm-up places.
 """
 import numpy as np
 import pandas as pd
@@ -28,15 +24,14 @@ def test_matches_pandas(w):
 
 
 @pytest.mark.parametrize("w", [5, 10, 20])
-def test_matches_two_rolling_quantile_composition_post_warmup(w):
-    """Composition reference: RollingQuantile(0.75) - RollingQuantile(0.25).
-    Compared after warmup only, due to a pre-existing sentinel bug in
-    RollingQuantile during warmup."""
+def test_matches_two_rolling_quantile_composition(w):
+    """Composition reference: RollingQuantile(0.75) - RollingQuantile(0.25),
+    NaN during warm-up in both."""
     rng = np.random.default_rng(w + 100)
     x = rng.standard_normal(80)
     ours = RollingIqr(w)(x)
     ref = RollingQuantile(w, 0.75)(x) - RollingQuantile(w, 0.25)(x)
-    np.testing.assert_allclose(ours[w - 1:], ref[w - 1:], atol=1e-12)
+    np.testing.assert_allclose(ours, ref, atol=1e-12)
 
 
 def test_strict_warmup_is_nan():

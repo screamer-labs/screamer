@@ -122,6 +122,8 @@ public:
         ar("sum", sum_);
         ar.check(index_ < capacity_, "index must be below window_size");
         ar.check(size_ <= capacity_, "count must be at most window_size");
+        ar.check(size_ == capacity_ || index_ == size_,
+                 "index must equal count until the window is full");
     }
 
 private:

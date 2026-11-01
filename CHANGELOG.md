@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented in this file.
 
+Unreleased
+----------
+
+### Fixed
+
+* **RollingQuantile value by value:** a new `RollingQuantile` started its
+  window filled with -1 instead of the NaN that `reset()` and a batch call use,
+  so for the first `window_size` values fed one at a time (and in a live
+  `Pipeline`), a -1.0 in the data was removed from the window by mistake. For
+  example, `RollingQuantile(3, 0.5)` fed -1, 5, 7 one value at a time gave
+  nan, nan, nan and now gives nan, nan, 5.0, the same as the batch call. Batch
+  results are unchanged.
+
 3.10.1 - 2026-11-01
 -------------------
 

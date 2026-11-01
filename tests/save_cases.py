@@ -88,6 +88,10 @@ _KWARGS = {
     "Segment": lambda: {"op": screamer.RollingMean(5)},
 }
 
+# Operators whose first input is a segment label: runs of 12 rows, so a
+# segment spans a save point and the nested state continues.
+_SEGMENT_LABELS = {"Segment"}
+
 # Events after the last split point.
 REST = 50
 
@@ -129,6 +133,9 @@ def case(name: str):
         probe = [np.stack(_sweep.series(k + 50, 0.0), axis=1) for k in range(_sweep.MAX_INPUTS)]
         n = next(m for m in range(1, _sweep.MAX_INPUTS + 1) if _calls(make, probe[:m]))
         return make, [np.stack(_sweep.series(31 * i, 1e3, t=t), axis=1) for i in range(n)]
+    if name in _SEGMENT_LABELS:
+        x = _sweep.series(0, 1e3, t=t)
+        return make, [np.repeat(np.arange(t // 12 + 1.0), 12)[:t], x[3]]
     found = _sweep.inputs_for(make)
     assert found is not None, f"{name}: no array call with up to {_sweep.MAX_INPUTS} inputs"
     n, layout = found

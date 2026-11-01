@@ -238,6 +238,34 @@ def test_bad_state_invariants_refuse():
         m.set_state(state)
 
 
+def test_rolling_mean_index_must_equal_count_in_warm_up():
+    a = screamer.RollingMean(5)
+    for v in (1.0, 2.0):
+        a(v)
+    state = a.state()
+    state["values"]["index"] = 4
+    with pytest.raises(screamer.SaveError, match="RollingMean: index must equal count"):
+        a.set_state(state)
+
+
+def test_rolling_max_index_not_negative():
+    m = screamer.RollingMax(4)
+    state = m.state()
+    state["values"]["index"] = -1
+    with pytest.raises(screamer.SaveError, match="RollingMax: index must not be negative"):
+        m.set_state(state)
+
+
+def test_rolling_quantile_fresh_value_by_value_equals_batch():
+    """A fresh RollingQuantile starts with an empty (NaN) window, so a -1.0
+    in the data stays in the window (it started filled with -1 before)."""
+    x = [-1.0, 5.0, 7.0]
+    q = screamer.RollingQuantile(3, 0.5)
+    got = [q(v) for v in x]
+    assert_bitwise(got, screamer.RollingQuantile(3, 0.5)(np.array(x)))
+    assert_bitwise(got, [np.nan, np.nan, 5.0])
+
+
 def test_unknown_setting_named():
     with pytest.raises(screamer.SaveError, match="RollingMean.settings.window"):
         screamer.from_settings({"type": "RollingMean", "settings": {"window": 3}})

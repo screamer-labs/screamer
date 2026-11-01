@@ -142,6 +142,7 @@ public:
         ar("index", index_);
         if constexpr (Ar::kLoading) {
             const std::size_t n = values.size();
+            ar.check(index_ >= 0, "index must not be negative");
             ar.check(indices.size() == n, "values and indices must have the same length");
             ar.check(n <= static_cast<std::size_t>(window_size_),
                      "the window holds at most window_size candidates");
