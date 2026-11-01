@@ -2,11 +2,12 @@ import type { Screamer } from "./loader.js";
 import { asNd, type NdArray } from "./ndarray.js";
 import { Node, isNode } from "./node.js";
 import { current } from "./index.js";
-import { normalizeError, wasmCall } from "./errors.js";
+import { normalizeError, NotSaveable, wasmCall } from "./errors.js";
 import { aKind, feedValue, kindName, throwIndexKind, throwMessage, toF64Checked, whereText } from "./kinds.js";
 import { releaseWith, trackStream, type Owned, type StreamHold } from "./runtime.js";
 import { mergeEvents } from "./merge.js";
-import { build, checkDescription, describe, describeJson } from "./pipeline_io.js";
+import { build, checkDescription, describe, describeJson, walkIds } from "./pipeline_io.js";
+import { jsonText } from "./json_text.js";
 
 // One bound feed for an Input: a values stream and its integer index axis.
 type Feed = Float64Array | number[] | NdArray | { values: Float64Array | number[] | NdArray; index?: Float64Array | number[] | null };
@@ -83,11 +84,41 @@ export interface LiveDriver {
   advance(now: number): void;
   flush(): void;
   result(): Output | Output[];
+  /**
+   * The session's save file: JSON text, or a Uint8Array for "cbor". Its
+   * settings are the Pipeline's description (`toJSON()`), its state
+   * everything the session holds: the operators' and stream nodes' state,
+   * the events that wait in a join or a window, the watermarks, and the
+   * outputs `result()` has not returned. `loads` gives back a live session
+   * that continues where this one stopped. Python's `session.dumps`.
+   */
+  dumps(format?: "json" | "cbor"): string | Uint8Array;
+  /** Writes `dumps()` to `path` (Node): CBOR for a `.cbor` path, else JSON. */
+  save(path: string): Promise<void>;
   /** Frees the session's engine and its operator copies now (else the
    * garbage collector, or the Pipeline's dispose(), does). Idempotent. */
   dispose(): void;
   [Symbol.dispose](): void;
 }
+
+// The format of a save call, checked: whether it is CBOR.
+function cborFormat(format: unknown, who: string): boolean {
+  if (format !== "json" && format !== "cbor")
+    throw new RangeError(`${who}.dumps: format must be 'json' or 'cbor', got ${typeof format === "string" ? `'${format}'` : aKind(format)}`);
+  return format === "cbor";
+}
+
+// Writes a save file (Node). node:fs is loaded here, on the first save, so a
+// browser never asks for it.
+async function writeFile(path: unknown, who: string, dumps: (format: "json" | "cbor") => string | Uint8Array): Promise<void> {
+  if (typeof path !== "string") throw new TypeError(`${who}.save: path must be a string, got ${aKind(path)}`);
+  const data = dumps(path.toLowerCase().endsWith(".cbor") ? "cbor" : "json");
+  const fs = await import(["node:fs/promises"][0]);
+  await fs.writeFile(path, data);
+}
+
+/** @internal The key of a live driver's state loader (serial.ts loads). */
+export const LOAD_STATE = Symbol("load session state");
 
 // The options of a Pipeline, checked: a plain object of known keys.
 function pipelineOptions(M: Screamer, opts: unknown): { alignOutputs: boolean; maxPending: number } {
@@ -277,6 +308,9 @@ class PipelineImpl implements Owned {
     this.building = engine;
     const gb = new M.GraphBuilder();
     const ids = new Map<Node, number>();
+    // Each node's id in the description (toJSON): the C++ nodes it builds
+    // carry it, so a live session saves its state by it.
+    const keys = walkIds(this.outputs);
     wasmCall(() => gb.setMaxPending(this.maxPending));
 
     const build = (node: Node): number => {
@@ -285,14 +319,17 @@ class PipelineImpl implements Owned {
       const op = node.op as any;
       let nid: number;
       if (op?.input !== undefined) {
-        nid = wasmCall(() => gb.addInput());
+        nid = wasmCall(() => { gb.setKey(keys.get(node)); return gb.addInput(); });
       } else if (op?.functor !== undefined) {
         const inp = node.inputs.map(build);
+        wasmCall(() => gb.setKey(keys.get(node)));
         const vec = new M.VectorSizeT();
         for (const id of inp) vec.push_back(id);
         try { nid = gb.addFunctor(M.opPtr(this.ownCopy(op)), vec); } catch (e) { throw normalizeError(e); } finally { vec.delete(); }
       } else if (op?.combinator !== undefined) {
-        nid = this.buildCombinator(gb, op, node.inputs.map(build));
+        const inp = node.inputs.map(build);
+        wasmCall(() => gb.setKey(keys.get(node)));
+        nid = this.buildCombinator(gb, op, inp);
       } else {
         throw new TypeError("combinator/operator nodes are not supported yet");
       }
@@ -615,7 +652,15 @@ class PipelineImpl implements Owned {
       throw new TypeError("lazy dag(iterables) with align_outputs=False and multiple outputs is not yet " +
         "supported; use the batch call dag(arrays)");
     const held: StreamHold = {};
-    return trackStream(this.runLazy(srcs, owner, o, held), held);
+    const gen = trackStream(this.runLazy(srcs, owner, o, held), held);
+    // A lazy call keeps its state in the iterators it reads, so it cannot be
+    // saved; a live session can.
+    const refuse = (): never => {
+      throw new NotSaveable(`${this.who}: a lazy call in progress cannot be saved; run the events ` +
+        "through Pipeline.live() and save the live session");
+    };
+    Object.assign(gen, { save: refuse, dumps: refuse });
+    return gen;
   }
 
   private *runLazy(srcs: Iterable<unknown>[], owner: Pipeline, o: LazyOptions,
@@ -784,7 +829,7 @@ class PipelineImpl implements Owned {
         M.freeBuf(buf);
       }
     };
-    const driver: LiveDriver & { [OWNER]: Pipeline } = {
+    const driver: LiveDriver & { [OWNER]: Pipeline; [LOAD_STATE](text: string): void } = {
       [OWNER]: owner,
       push(name: string, index: number, value: number | ArrayLike<number> | NdArray): void {
         live();
@@ -824,6 +869,22 @@ class PipelineImpl implements Owned {
         } catch (e) {
           throw normalizeError(e);
         }
+      },
+      dumps(format: unknown = "json"): string | Uint8Array {
+        live();
+        const cbor = cborFormat(format, "LiveSession");
+        const d = describe(self.inputs, self.outputs, self.alignOutputs, self.maxPending, "LiveSession");
+        return wasmCall(() => engine.cg.saveSession(jsonText(d), cbor));
+      },
+      // `this`, not `driver`: a closure here that holds the driver would put
+      // it in this scope's context, which the engine's onRelease keeps, so
+      // the finalizer could never collect the driver.
+      save(path: string): Promise<void> {
+        return writeFile(path, "LiveSession", (f) => this.dumps(f));
+      },
+      [LOAD_STATE](text: string): void {
+        live();
+        wasmCall(() => engine.cg.loadSessionState(text));
       },
       dispose: end,
       [Symbol.dispose]: end,
@@ -892,6 +953,15 @@ export interface Pipeline {
    * null writes one line.
    */
   toJSONText(indent?: number | null): string;
+  /**
+   * The Pipeline's save file: JSON text, or a Uint8Array for "cbor". It holds
+   * the description (`toJSON()`) with `"state": null`: a Pipeline keeps no
+   * streaming state between calls. `loads` gives back a Pipeline. To keep
+   * state, save a live session. Python's `Pipeline.dumps`.
+   */
+  dumps(format?: "json" | "cbor"): string | Uint8Array;
+  /** Writes `dumps()` to `path` (Node): CBOR for a `.cbor` path, else JSON. */
+  save(path: string): Promise<void>;
   readonly inputs: Node[];
   readonly outputs: Node[];
   readonly alignOutputs: boolean;
@@ -923,6 +993,12 @@ export const Pipeline = function (inputs: Node[], outputs: Node[], opts?: Pipeli
   // JSON.stringify(pipeline) calls toJSON (with the property key, unused).
   (fn as any).toJSON = () => toDict();
   (fn as any).toJSONText = (indent: unknown = 2) => describeJson(toDict(), indent);
+  (fn as any).dumps = (format: unknown = "json") => {
+    const cbor = cborFormat(format, "Pipeline");
+    const d = describe(impl.inputs, impl.outputs, impl.alignOutputs, impl.maxPending, "Pipeline");
+    return wasmCall(() => (current() as any).pipelineDumps(jsonText(d), cbor));
+  };
+  (fn as any).save = (path: string) => writeFile(path, "Pipeline", (f) => (fn as any).dumps(f));
   Object.defineProperty(fn, "inputs", { value: impl.inputs, enumerable: true });
   Object.defineProperty(fn, "outputs", { value: impl.outputs, enumerable: true });
   Object.defineProperty(fn, "alignOutputs", { value: impl.alignOutputs, enumerable: true });

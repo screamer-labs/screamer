@@ -14,7 +14,7 @@ export async function ready(): Promise<void> {
 export { init } from "./loader.js";
 export type { ScreamerOp, SaveState } from "./runtime.js";
 export { load, loads, fromSettings } from "./serial.js";
-export type { LoadOptions, SettingsNode } from "./serial.js";
+export type { Loaded, LoadOptions, SettingsNode } from "./serial.js";
 export { SaveError, StateVersionError, NotSaveable, StateMismatch } from "./errors.js";
 export { toNested } from "./ndarray.js";
 export { reshape } from "./shape.js";

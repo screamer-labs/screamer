@@ -34,6 +34,8 @@
 #include "screamer/dag/checked_index.h"
 #include "screamer/dag/resample_params.h"
 #include "screamer/dag/forecast_pairs.h"
+#include "screamer/dag/session_file.h"
+#include "screamer/serial/file.h"
 
 namespace screamer_wasm {
 
@@ -326,6 +328,27 @@ public:
         return out;
     }
 
+    // The session's save file (dag/session_file.h): JSON text, or a
+    // Uint8Array of CBOR. `description` is the Pipeline's description as JSON
+    // text (pipeline_io.ts describe). Text arguments are vals: an exception
+    // out of an Embind function leaks a std::string argument's wire buffer.
+    emscripten::val saveSession(emscripten::val description, bool cbor) const {
+        screamer::json::Value node = screamer::dag::session_node(
+            *cg_, screamer::json::parse(description.as<std::string>(), "Pipeline JSON"));
+        return file_val(std::move(node), cbor);
+    }
+
+    // Loads a saved state (JSON text) into this session's engine.
+    void loadSessionState(emscripten::val text) {
+        screamer::dag::load_session_state(*cg_, text.as<std::string>());
+    }
+
+    static emscripten::val file_val(screamer::json::Value node, bool cbor) {
+        if (!cbor) return emscripten::val(screamer::serial::dumps_node_json(std::move(node)));
+        const std::vector<std::uint8_t> b = screamer::serial::dumps_node_cbor(std::move(node));
+        return emscripten::val::global("Uint8Array").new_(emscripten::typed_memory_view(b.size(), b.data()));
+    }
+
     // Empties the stored outputs once JS has read them. Their storage stays
     // (cleared) for the graph's next run, which takes it back through
     // drain_into, so a repeated call does not grow its buffers again. Rows
@@ -453,6 +476,10 @@ public:
         b_.set_outputs(std::move(outs));
     }
 
+    // The description node that the nodes added from here on build
+    // (dag::NodeSpec::key).
+    void setKey(std::size_t key) { b_.set_key(key); }
+
     // Compile the accumulated spec into a fresh CompiledGraphWrap; JS takes
     // ownership (return_value_policy::take_ownership) and must .delete() it.
     // The spec moves into the graph, so a builder compiles once: two graphs
@@ -468,6 +495,13 @@ private:
     screamer::dag::GraphBuilder b_;
     bool compiled_ = false;
 };
+
+// The save file of a Pipeline: its description (JSON text), state null.
+inline emscripten::val pipelineDumps(emscripten::val description, bool cbor) {
+    return CompiledGraphWrap::file_val(
+        screamer::dag::pipeline_node(screamer::json::parse(description.as<std::string>(), "Pipeline JSON")),
+        cbor);
+}
 
 }  // namespace screamer_wasm
 
@@ -512,7 +546,10 @@ private:
         .function("output",       &screamer_wasm::CompiledGraphWrap::output)    \
         .function("alignedOutput",&screamer_wasm::CompiledGraphWrap::alignedOutput) \
         .function("alignedIndex", &screamer_wasm::CompiledGraphWrap::alignedIndex) \
-        .function("clearStored",  &screamer_wasm::CompiledGraphWrap::clearStored); \
+        .function("clearStored",  &screamer_wasm::CompiledGraphWrap::clearStored) \
+        .function("saveSession",  &screamer_wasm::CompiledGraphWrap::saveSession) \
+        .function("loadSessionState", &screamer_wasm::CompiledGraphWrap::loadSessionState); \
+    emscripten::function("pipelineDumps", &screamer_wasm::pipelineDumps);       \
     emscripten::class_<screamer_wasm::GraphBuilderWrap>("GraphBuilder")         \
         .constructor<>()                                                       \
         .function("addInput",         &screamer_wasm::GraphBuilderWrap::addInput) \
@@ -526,6 +563,7 @@ private:
         .function("addResample",      &screamer_wasm::GraphBuilderWrap::addResample) \
         .function("addForecastPairs", &screamer_wasm::GraphBuilderWrap::addForecastPairs) \
         .function("setOutputs",       &screamer_wasm::GraphBuilderWrap::setOutputs) \
+        .function("setKey",           &screamer_wasm::GraphBuilderWrap::setKey) \
         .function("compile",          &screamer_wasm::GraphBuilderWrap::compile, \
                   emscripten::allow_raw_pointers(),                            \
                   emscripten::return_value_policy::take_ownership())

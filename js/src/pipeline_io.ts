@@ -11,6 +11,7 @@ import { current } from "./index.js";
 import { aKind } from "./kinds.js";
 import { SETTINGS } from "./runtime.js";
 import { jsonText } from "./json_text.js";
+import { NotSaveable } from "./errors.js";
 
 type Dict = Record<string, any>;
 
@@ -44,29 +45,54 @@ function settingsOf(rec: any, who: string): { cls: string; params: Dict } {
   return { cls: rec.cls, params };
 }
 
-/** The description of a pipeline, as Python's `Pipeline.to_dict()` gives it. */
-export function describe(inputs: Node[], outputs: Node[], alignOutputs: boolean, maxPending: number): Dict {
+/**
+ * The ids of the nodes reachable from `outputs`: each node once, numbered in
+ * dependency order (its inputs first), as Python's graph walk numbers them
+ * (dag_viz.walk). They are the node ids of a description and the keys of a
+ * live session's saved state.
+ */
+export function walkIds(outputs: Node[]): Map<Node, number> {
   const ids = new Map<Node, number>();
+  const visit = (node: Node): void => {
+    if (ids.has(node)) return;
+    node.inputs.forEach(visit);
+    ids.set(node, ids.size);
+  };
+  outputs.forEach(visit);
+  return ids;
+}
+
+/**
+ * The description of a pipeline, as Python's `Pipeline.to_dict()` gives it.
+ * With `saving` (the saved object's type, "Pipeline" or "LiveSession"), a
+ * functor that cannot be described raises NotSaveable naming its node.
+ */
+export function describe(inputs: Node[], outputs: Node[], alignOutputs: boolean, maxPending: number,
+                         saving?: string): Dict {
+  const ids = walkIds(outputs);
   const nodes: Dict[] = [];
-  // Each node once, numbered in dependency order (its inputs first), as
-  // Python's graph walk numbers them.
-  const visit = (node: Node): number => {
-    const seen = ids.get(node);
-    if (seen !== undefined) return seen;
-    const inIds = node.inputs.map(visit);
+  const functor = (node: Node, id: number, at = ""): { cls: string; params: Dict } => {
+    try {
+      return functorOf(node, saving ? `${saving}.save` : "Pipeline.toJSON");
+    } catch (e) {
+      if (!saving || !(e instanceof TypeError)) throw e;
+      throw new NotSaveable(`${saving}.nodes.${id}${at}: a functor without recorded settings cannot be ` +
+        "saved; build it with its factory");
+    }
+  };
+  for (const [node, id] of ids) {
+    const inIds = node.inputs.map((n) => ids.get(n)!);
     const op = node.op as any;
-    const id = nodes.length;
-    ids.set(node, id);
     if (op?.input !== undefined) {
       nodes.push({ id, kind: "input", name: op.input });
     } else if (op?.functor !== undefined) {
-      const f = functorOf(node, "Pipeline.toJSON");
+      const f = functor(node, id);
       nodes.push({ id, kind: "functor", cls: f.cls, params: { ...f.params }, in: inIds });
     } else if (op?.spec) {
       const params: Dict = {};
       for (const [k, v] of Object.entries(op.spec.params as Dict)) {
         if (isNode(v)) {   // a Resample reducer
-          const f = functorOf(v, "Pipeline.toJSON");
+          const f = functor(v, id, `.${k}`);
           params[k] = { functor: f.cls, params: { ...f.params } };
         } else {
           params[k] = v;
@@ -76,9 +102,8 @@ export function describe(inputs: Node[], outputs: Node[], alignOutputs: boolean,
     } else {
       throw new TypeError("Pipeline.toJSON: a node of an unknown kind");
     }
-    return id;
-  };
-  const outIds = outputs.map(visit);
+  }
+  const outIds = outputs.map((n) => ids.get(n)!);
   return {
     screamer_dag: 1,
     inputs: inputs.map((n) => (n.op as any).input),
