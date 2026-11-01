@@ -22,6 +22,12 @@ namespace screamer {
 
 class ExpandingSkew : public detail::RunningMomentsOp<ExpandingSkew, 3, false> {
 public:
+    static constexpr const char* kTypeName = "ExpandingSkew";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
     ExpandingSkew() { reset(); }
 
     inline double value(const State& st, double) const {

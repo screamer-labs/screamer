@@ -8,7 +8,10 @@
 
 namespace screamer {
 
-class ExpandingMax : public CumMax {};
+class ExpandingMax : public serial::Renamed<ExpandingMax, CumMax> {
+public:
+    static constexpr const char* kTypeName = "ExpandingMax";
+};
 
 }  // namespace screamer
 

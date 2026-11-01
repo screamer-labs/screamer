@@ -17,8 +17,23 @@ todo: this implementation might  suffer from numerical instability
 */
 namespace screamer {
 
-    class RollingRms : public ScreamerBase {
+    class RollingRms : public serial::Saveable<RollingRms, ScreamerBase> {
     public:
+        static constexpr const char* kTypeName = "RollingRms";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) {
+            ar("window_size", window_size_);
+            ar("start_policy", std::string(detail::start_policy_name(start_policy_)));
+        }
+
+        template <class Ar>
+        void state(Ar& ar) {
+            ar.object("sums", sum_y2_buffer);
+            ar("count", n_);
+            ar.check(n_ <= static_cast<size_t>(window_size_), "count must be at most window_size");
+        }
 
         RollingRms(int window_size, const std::string& start_policy = "strict") : 
             window_size_(window_size), 

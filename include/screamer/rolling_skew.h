@@ -14,6 +14,14 @@ namespace screamer {
     // stays accurate when the mean is large next to the spread.
     class RollingSkew : public detail::WindowMomentsOp<RollingSkew, 3> {
     public:
+        static constexpr const char* kTypeName = "RollingSkew";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) {
+            ar("window_size", window_size_);
+            ar("start_policy", std::string(detail::start_policy_name(start_policy_)));
+        }
 
         RollingSkew(
             int window_size,

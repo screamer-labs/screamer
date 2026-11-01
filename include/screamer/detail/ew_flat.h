@@ -53,6 +53,9 @@ struct EwFlatPeak {
 
     void reset() { peak = 0.0; }
 
+    template <class Ar>
+    void state(Ar& ar) { ar("peak", peak); }
+
     // Decays the peak, raises it to var, and returns true when var is at most
     // kEwFlat^2 times the peak (also when var is NaN or not positive; a NaN
     // leaves the peak decayed). Call once per row, with the variance of that

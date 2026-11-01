@@ -22,6 +22,12 @@ namespace screamer {
 
 class ExpandingKurt : public detail::RunningMomentsOp<ExpandingKurt, 4, false> {
 public:
+    static constexpr const char* kTypeName = "ExpandingKurt";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
     ExpandingKurt() { reset(); }
 
     inline double value(const State& st, double) const {

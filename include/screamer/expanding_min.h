@@ -8,7 +8,10 @@
 
 namespace screamer {
 
-class ExpandingMin : public CumMin {};
+class ExpandingMin : public serial::Renamed<ExpandingMin, CumMin> {
+public:
+    static constexpr const char* kTypeName = "ExpandingMin";
+};
 
 }  // namespace screamer
 

@@ -114,6 +114,23 @@ public:
 
     int window() const { return w_; }
 
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("sum_tr", sum_tr_);
+        ar("sum_pdm", sum_pdm_);
+        ar("sum_mdm", sum_mdm_);
+        ar("prev_tr", prev_tr_);
+        ar("prev_pdm", prev_pdm_);
+        ar("prev_mdm", prev_mdm_);
+        ar("sum_dx", sum_dx_);
+        ar("prev_adx", prev_adx_);
+        ar("prev_high", prev_high_);
+        ar("prev_low", prev_low_);
+        ar("prev_close", prev_close_);
+        ar("n_seen", n_seen_);
+        ar.check(n_seen_ >= 0, "n_seen must not be negative");
+    }
+
 private:
     int w_;
     double sum_tr_ = 0.0;

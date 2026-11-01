@@ -1,0 +1,18 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "RollingMin",
+    "settings": {
+      "window_size": 20
+    },
+    "state": {
+      "version": 1,
+      "values": {
+        "values": [995.2362508320867, 995.5589897515648, 995.5931521690443, 996.6749199469107, 998.1363185294921],
+        "indices": [32, 36, 37, 38, 39],
+        "index": 40
+      }
+    }
+  }
+}

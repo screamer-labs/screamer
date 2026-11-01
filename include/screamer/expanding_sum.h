@@ -9,7 +9,10 @@
 
 namespace screamer {
 
-class ExpandingSum : public CumSum {};
+class ExpandingSum : public serial::Renamed<ExpandingSum, CumSum> {
+public:
+    static constexpr const char* kTypeName = "ExpandingSum";
+};
 
 }  // namespace screamer
 

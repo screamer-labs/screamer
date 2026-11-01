@@ -14,8 +14,19 @@
 
 namespace screamer {
 
-class CumProd : public ScreamerBase {
+class CumProd : public serial::Saveable<CumProd, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "CumProd";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("prod", prod_);
+    }
+
     CumProd() { reset(); }
 
     void reset() override { prod_ = 1.0; }

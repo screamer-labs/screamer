@@ -16,6 +16,14 @@ namespace screamer {
     // result stays accurate when the mean is large next to the spread.
     class RollingStd : public detail::WindowMomentsOp<RollingStd, 2> {
     public:
+        static constexpr const char* kTypeName = "RollingStd";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) {
+            ar("window_size", window_size_);
+            ar("start_policy", std::string(detail::start_policy_name(start_policy_)));
+        }
 
         RollingStd(int window_size, const std::string& start_policy = "strict") :
             WindowMomentsOp(window_size, detail::parse_start_policy(start_policy),

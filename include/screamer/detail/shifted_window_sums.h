@@ -227,6 +227,38 @@ public:
     // Samples in the window, zero padding included.
     std::size_t count() const { return st_.count; }
 
+    // The ring as stored (slot `index` is written next), the shifted sums
+    // and the time sums, the origin, and the steps since the last
+    // re-centering.
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.fixed("buffer", buffer_, capacity_);
+        State st = st_;
+        std::vector<double> s(st.s, st.s + P);
+        ar.local("sums", s, P);
+        std::vector<double> ts;
+        if constexpr (T > 0) {
+            ts.assign(st.ts.begin(), st.ts.end());
+            ar.local("time_sums", ts, T);
+        }
+        ar.local("index", st.index);
+        ar.local("count", st.count);
+        ar.local("age", st.age);
+        ar.local("origin", st.origin);
+        if constexpr (Ar::kLoading) {
+            ar.check(st.index < capacity_, "index must be below window_size");
+            ar.check(st.count <= capacity_, "count must be at most window_size");
+            ar.check(st.count == capacity_ || st.index == st.count,
+                     "index must equal count until the window is full");
+            ar.check(policy_ != StartPolicy::Zero || st.count == capacity_,
+                     "count must equal window_size under the zero start policy");
+            ar.check(st.age < capacity_, "age must be below window_size");
+            std::copy(s.begin(), s.end(), st.s);
+            if constexpr (T > 0) std::copy(ts.begin(), ts.end(), st.ts.begin());
+            ar.set(st_, st);
+        }
+    }
+
 private:
     // Moves the origin to the window mean and recomputes the sums exactly
     // from the buffer. When the sums may be inaccurate (`refresh`), the mean
@@ -439,6 +471,39 @@ public:
     };
     Cursor cursor() { return Cursor{st_, bx_.data(), by_.data(), capacity_}; }
     void set_state(const State& st) { st_ = st; }
+
+    // As ShiftedWindowSums::state: the rings (x only without kLagged), the
+    // sums, the origins and, with kLagged, the lag ends.
+    template <class Ar>
+    void state(Ar& ar) {
+        if constexpr (!kLagged) ar.fixed("buffer_x", bx_, capacity_);
+        ar.fixed(kLagged ? "buffer" : "buffer_y", by_, capacity_);
+        State st = st_;
+        ar.local("sx", st.sx);
+        ar.local("sy", st.sy);
+        ar.local("sxy", st.sxy);
+        ar.local("sxx", st.sxx);
+        ar.local("syy", st.syy);
+        ar.local("index", st.index);
+        ar.local("count", st.count);
+        ar.local("age", st.age);
+        ar.local("origin_x", st.ox);
+        ar.local("origin_y", st.oy);
+        if constexpr (kLagged) {
+            ar.local("lag_first", st.lag.first);
+            ar.local("lag_last", st.lag.last);
+        }
+        if constexpr (Ar::kLoading) {
+            ar.check(st.index < capacity_, "index must be below window_size");
+            ar.check(st.count <= capacity_, "count must be at most window_size");
+            ar.check(st.count == capacity_ || st.index == st.count,
+                     "index must equal count until the window is full");
+            ar.check(policy_ != StartPolicy::Zero || st.count == capacity_,
+                     "count must equal window_size under the zero start policy");
+            ar.check(st.age < capacity_, "age must be below window_size");
+            ar.set(st_, st);
+        }
+    }
 
 private:
     // One input's new origin (see ShiftedWindowSums::recentered), from its m

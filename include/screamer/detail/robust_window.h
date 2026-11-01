@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <stdexcept>
 #include <vector>
 
@@ -61,6 +62,23 @@ public:
 
     int count() const { return size_; }
     bool full() const { return size_ == window_size_; }
+    int window_size() const { return window_size_; }
+
+    // The ring as stored (slot `index` is written next), the samples in the
+    // window and the slot of the last push. The scratch space holds nothing
+    // between calls.
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.fixed("buffer", buffer_, static_cast<std::size_t>(window_size_));
+        ar("index", index_);
+        ar("count", size_);
+        ar("last", last_);
+        ar.check(index_ >= 0 && index_ < window_size_, "index must lie in 0 .. window_size - 1");
+        ar.check(size_ >= 0 && size_ <= window_size_, "count must lie in 0 .. window_size");
+        ar.check(size_ == window_size_ || index_ == size_,
+                 "index must equal count until the window is full");
+        ar.check(last_ >= 0 && last_ < window_size_, "last must lie in 0 .. window_size - 1");
+    }
 
     double median() {
         load_scratch();

@@ -23,6 +23,12 @@ namespace screamer {
 
 class ExpandingSlope : public detail::RunningMomentsOp<ExpandingSlope, 2, false, true> {
 public:
+    static constexpr const char* kTypeName = "ExpandingSlope";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
     ExpandingSlope() { reset(); }
 
     inline double value(const State& st, double) const {

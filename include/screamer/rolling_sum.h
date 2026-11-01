@@ -6,8 +6,21 @@
 #include <string>
 namespace screamer {
 
-    class RollingSum : public ScreamerBase {
+    class RollingSum : public serial::Saveable<RollingSum, ScreamerBase> {
     public:
+        static constexpr const char* kTypeName = "RollingSum";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) {
+            ar("window_size", static_cast<int>(rolling_sum_.capacity()));
+            ar("start_policy", std::string(detail::start_policy_name(rolling_sum_.start_policy())));
+        }
+
+        template <class Ar>
+        void state(Ar& ar) {
+            rolling_sum_.state(ar);
+        }
 
         RollingSum(int window_size, const std::string& start_policy = "strict") : 
             rolling_sum_(window_size, start_policy)

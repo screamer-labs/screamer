@@ -182,6 +182,23 @@ private:
     Derived& derived() { return static_cast<Derived&>(*this); }
 };
 
+// Renamed<Derived, Base>: an operator that only renames a saveable Base
+// (ExpandingSum is CumSum). It keeps Base's settings and state and saves under
+// its own Derived::kTypeName; its panel columns are Derived copies.
+template <class Derived, class Base>
+class Renamed : public Base {
+public:
+    using Base::Base;
+
+    const char* type_name() const override { return Derived::kTypeName; }
+
+    std::unique_ptr<EvalOp> clone_fresh() const override {
+        auto p = std::make_unique<Derived>(static_cast<const Derived&>(*this));
+        p->reset();
+        return p;
+    }
+};
+
 }}  // namespace screamer::serial
 
 #endif  // SCREAMER_SERIAL_SAVEABLE_H

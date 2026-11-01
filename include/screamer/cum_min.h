@@ -14,8 +14,19 @@
 
 namespace screamer {
 
-class CumMin : public ScreamerBase {
+class CumMin : public serial::Saveable<CumMin, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "CumMin";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("running_min", running_min_);
+    }
+
     CumMin() { reset(); }
 
     void reset() override {

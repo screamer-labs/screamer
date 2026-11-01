@@ -27,6 +27,14 @@ namespace screamer {
 
 class RollingTSF : public detail::WindowMomentsOp<RollingTSF, 2, 1> {
 public:
+    static constexpr const char* kTypeName = "RollingTSF";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", window_size_);
+    }
+
     explicit RollingTSF(int window_size)
         : WindowMomentsOp(window_size, detail::StartPolicy::Strict, detail::StartPolicy::Strict),
           full_(detail::TimeLine::of(static_cast<double>(window_size))),

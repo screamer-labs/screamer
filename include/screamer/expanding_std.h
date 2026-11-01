@@ -20,6 +20,12 @@ namespace screamer {
 
 class ExpandingStd : public detail::RunningMomentsOp<ExpandingStd, 2, false> {
 public:
+    static constexpr const char* kTypeName = "ExpandingStd";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
     ExpandingStd() { reset(); }
 
     inline double value(const State& st, double) const {

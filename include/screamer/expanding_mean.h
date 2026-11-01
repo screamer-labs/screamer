@@ -17,9 +17,22 @@
 
 namespace screamer {
 
-class ExpandingMean : public ScreamerBase {
+class ExpandingMean : public serial::Saveable<ExpandingMean, ScreamerBase> {
     friend struct detail::TestAccess;   // tests read the event counters (test_access.h)
 public:
+    static constexpr const char* kTypeName = "ExpandingMean";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("sum", sum_x_);
+        ar("count", n_);
+        ar.check(n_ >= 0, "count must not be negative");
+    }
+
     ExpandingMean() { reset(); }
 
     void reset() override {

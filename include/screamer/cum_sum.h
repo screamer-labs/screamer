@@ -14,8 +14,19 @@
 
 namespace screamer {
 
-class CumSum : public ScreamerBase {
+class CumSum : public serial::Saveable<CumSum, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "CumSum";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("sum", sum_);
+    }
+
     CumSum() { reset(); }
 
     void reset() override { sum_ = 0.0; }

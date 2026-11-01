@@ -306,8 +306,14 @@ def test_not_saveable_message():
     make, _ = case(name)
     with pytest.raises(screamer.NotSaveable, match=name):
         make().dumps()
-    with pytest.raises(screamer.NotSaveable, match="Segment.op"):
-        screamer.Segment(screamer.RollingStd(5)).dumps()
+    for inner in sorted(KNOWN_UNSAVEABLE):
+        try:
+            seg = screamer.Segment(case(inner)[0]())
+        except (TypeError, ValueError):
+            continue
+        with pytest.raises(screamer.NotSaveable, match="Segment.op"):
+            seg.dumps()
+        break
 
 
 # ---- Nested operators --------------------------------------------------------

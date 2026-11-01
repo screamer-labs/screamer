@@ -33,7 +33,7 @@ template <>
 struct FlatStatePart<false> {};
 
 template <class Derived, int P, bool kDecay, bool kTime = false, bool kFlat = false>
-class RunningMomentsOp : public ScreamerBase {
+class RunningMomentsOp : public serial::Saveable<Derived, ScreamerBase> {
     static_assert(!(kDecay && kTime), "time sums are for the expanding operators");
     static_assert(!kFlat || kDecay, "the flat test is for the weighted operators");
 
@@ -45,6 +45,14 @@ protected:
 
 public:
     void reset() override { st_ = State{}; }
+
+    // Derived adds kTypeName, kStateVersion and settings.
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("sums", st_.sums);
+        if constexpr (kDecay) ar("w2", st_.w2);
+        if constexpr (kFlat) ar.object("flat", st_.flat);
+    }
 
     double process_scalar(double x) override {
         if (isnan2(x)) {

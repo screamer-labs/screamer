@@ -27,7 +27,7 @@ namespace screamer {
 namespace detail {
 
 template <class Derived, int P, int T = 0>
-class WindowMomentsOp : public ScreamerBase {
+class WindowMomentsOp : public serial::Saveable<Derived, ScreamerBase> {
 protected:
     using Sums = ShiftedWindowSums<P, T>;
     using State = typename Sums::State;
@@ -42,6 +42,10 @@ protected:
 
 public:
     void reset() override { sums_.reset(); }
+
+    // Derived adds kTypeName, kStateVersion and settings.
+    template <class Ar>
+    void state(Ar& ar) { ar.object("window", sums_); }
 
     double process_scalar(double x) override {
         if (isnan2(x)) {

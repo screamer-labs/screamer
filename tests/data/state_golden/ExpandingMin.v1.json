@@ -1,0 +1,14 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "ExpandingMin",
+    "settings": {},
+    "state": {
+      "version": 1,
+      "values": {
+        "running_min": 994.9489797543757
+      }
+    }
+  }
+}

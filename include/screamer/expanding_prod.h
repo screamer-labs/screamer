@@ -8,7 +8,10 @@
 
 namespace screamer {
 
-class ExpandingProd : public CumProd {};
+class ExpandingProd : public serial::Renamed<ExpandingProd, CumProd> {
+public:
+    static constexpr const char* kTypeName = "ExpandingProd";
+};
 
 }  // namespace screamer
 

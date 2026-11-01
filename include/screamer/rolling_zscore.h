@@ -16,6 +16,14 @@ namespace screamer {
     // the result stays accurate when the mean is large next to the spread.
     class RollingZscore : public detail::WindowMomentsOp<RollingZscore, 2> {
     public:
+        static constexpr const char* kTypeName = "RollingZscore";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) {
+            ar("window_size", window_size_);
+            ar("start_policy", std::string(detail::start_policy_name(start_policy_)));
+        }
 
         // start_policy as RollingMean and RollingStd: "strict" gives NaN until
         // the window is full, "expanding" uses the samples seen so far (NaN for

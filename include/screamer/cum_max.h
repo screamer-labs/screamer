@@ -17,8 +17,19 @@
 
 namespace screamer {
 
-class CumMax : public ScreamerBase {
+class CumMax : public serial::Saveable<CumMax, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "CumMax";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("running_max", running_max_);
+    }
+
     CumMax() { reset(); }
 
     void reset() override {

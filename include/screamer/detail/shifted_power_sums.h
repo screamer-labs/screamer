@@ -63,6 +63,20 @@ struct ShiftedPowerSums : TimeSumPart<kTime> {
         tick = 0;
     }
 
+    // The sums a power above P never touches stay zero and are not saved.
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("w", w);
+        ar("origin", origin);
+        ar("s1", s1);
+        ar("s2", s2);
+        if constexpr (P >= 3) ar("s3", s3);
+        if constexpr (P >= 4) ar("s4", s4);
+        if constexpr (kTime) ar("ts", this->ts);
+        ar("tick", tick);
+        ar.check(w >= 0.0, "w must not be negative");
+    }
+
     inline void decay(double a) {
         w *= a;
         s1 *= a;
@@ -170,6 +184,20 @@ struct ShiftedCoPowerSums {
     void reset() {
         w = origin_x = origin_y = sx = sy = sxx = syy = sxy = 0.0;
         tick = 0;
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("w", w);
+        ar("origin_x", origin_x);
+        ar("origin_y", origin_y);
+        ar("sx", sx);
+        ar("sy", sy);
+        ar("sxx", sxx);
+        ar("syy", syy);
+        ar("sxy", sxy);
+        ar("tick", tick);
+        ar.check(w >= 0.0, "w must not be negative");
     }
 
     inline void decay(double a) {
