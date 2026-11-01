@@ -226,6 +226,9 @@ nb::object resume_call(EvalOp& self, const nb::args& raw) {
                                    " columns, got " + std::to_string(cols)).c_str());
         for (const auto& c : self.panel_->cols) ops.push_back(c.get());
     } else {
+        if (cols == 0)
+            throw nb::value_error((who + ".resume: a (T, 0) array has no columns to keep "
+                                   "state for").c_str());
         made = std::make_unique<serial::Panel>();
         made->cols.reserve(cols);
         for (std::size_t c = 0; c < cols; ++c) {
@@ -256,6 +259,8 @@ nb::object resume_call(EvalOp& self, const nb::args& raw) {
                     [&p](std::size_t i, std::size_t c) { return p.offset[i * p.columns + c]; },
                     out.get(), self.tight_column());
     }
+    // A throw above leaves the columns that ran advanced (an existing panel
+    // or the object itself); a new panel is installed only after the run.
     if (made) {
         self.reset();
         self.panel_ = std::move(made);

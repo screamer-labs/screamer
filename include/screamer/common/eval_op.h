@@ -8,6 +8,26 @@
 #include "screamer/serial/errors.h"
 #include "screamer/serial/panel.h"
 
+// An error path kept out of line and marked cold, so the check that calls it
+// adds only a test and a branch to a hot path (functor_base.h and
+// dag/checked_index.h define the same SCREAMER_NOINLINE).
+#ifndef SCREAMER_NOINLINE
+#if defined(__GNUC__) || defined(__clang__)
+#define SCREAMER_NOINLINE __attribute__((noinline))
+#elif defined(_MSC_VER)
+#define SCREAMER_NOINLINE __declspec(noinline)
+#else
+#define SCREAMER_NOINLINE
+#endif
+#endif
+#if defined(__GNUC__) || defined(__clang__)
+#define SCREAMER_COLD __attribute__((cold))
+#define SCREAMER_UNLIKELY(x) __builtin_expect(!!(x), 0)
+#else
+#define SCREAMER_COLD
+#define SCREAMER_UNLIKELY(x) (x)
+#endif
+
 namespace screamer {
 
 // The uniform op interface the DAG engine holds for ANY functor, regardless of
@@ -58,18 +78,24 @@ struct EvalOp {
     // when the operator cannot be copied.
     virtual std::unique_ptr<EvalOp> clone_fresh() const { return nullptr; }
 
-    // The per-column state, made by the first `resume` on a (T, K) array:
-    // panel_->cols[c] runs column c, and the operator's own state stays
-    // reset. A default batch call and the binding's reset() drop it; a call
-    // with one event raises while it is held (check_event_call).
+    // The per-column state, made by the first `resume` on a (T, K) array
+    // (K >= 1): panel_->cols[c] runs column c, and the operator's own state
+    // stays reset. A default batch call and reset_all() drop it; a call with
+    // one event raises while it is held (check_event_call). A resume that
+    // throws part way leaves the columns it ran advanced.
     std::unique_ptr<serial::Panel> panel_;
 
     bool has_panel() const { return panel_ != nullptr; }
     std::size_t panel_columns() const { return panel_ ? panel_->cols.size() : 0; }
     void drop_panel() { panel_.reset(); }
+    // The reset of the bindings: drops the panel, then resets the operator.
+    void reset_all() {
+        panel_.reset();
+        reset();
+    }
     // The error of a call with one event while a panel is held.
     void check_event_call() const {
-        if (panel_) throw_panel_event_call();
+        if (SCREAMER_UNLIKELY(panel_ != nullptr)) throw_panel_event_call();
     }
 
     // Save and load. serial::Saveable (serial/saveable.h) implements these for
@@ -89,12 +115,7 @@ struct EvalOp {
     virtual void read_state(const json::Value&, const std::string& path) { not_saveable(path); }
 
 private:
-    [[noreturn]] void throw_panel_event_call() const {
-        const std::string k = std::to_string(panel_->cols.size());
-        throw std::invalid_argument("the object holds per-column state for " + k +
-                                    " columns; call resume with a (T, " + k +
-                                    ") array, or reset() first");
-    }
+    [[noreturn]] SCREAMER_NOINLINE SCREAMER_COLD void throw_panel_event_call() const;
     [[noreturn]] static void not_saveable(const std::string& path) {
         throw serial::NotSaveable(path.empty() ? "operator" : path,
                                   "the operator has no save and load support yet");
@@ -103,6 +124,13 @@ private:
 
 // Out of the class, where EvalOp is complete for Panel's destructor.
 inline EvalOp::~EvalOp() = default;
+
+inline void EvalOp::throw_panel_event_call() const {
+    const std::string k = std::to_string(panel_->cols.size());
+    throw std::invalid_argument("the object holds per-column state for " + k +
+                                " columns; call resume with a (T, " + k +
+                                ") array, or reset() first");
+}
 
 inline void EvalOp::eval_column_resume(const double* const* in, const std::ptrdiff_t* in_stride,
                                        std::size_t T, double* out, std::ptrdiff_t out_stride) {

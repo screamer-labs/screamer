@@ -76,6 +76,7 @@ inline const json::Value& state_body(const json::Value& in, int version, const s
     if (!cols) throw StateMismatch(path + ".values", "missing field");
     if (cols->kind != json::Value::Kind::Array)
         throw StateMismatch(path + ".columns", "expected an array, got " + kind_text(*cols));
+    if (cols->a.empty()) throw StateMismatch(path + ".columns", "expected at least one column");
     columns = true;
     return *cols;
 }

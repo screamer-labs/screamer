@@ -699,6 +699,7 @@ nb::object process_python_array(ScreamerBase& self, nb::ndarray<nb::ro> input);
 // the arrays a default call takes (a list reads as an array) and returns the
 // same result. On a (T, K) batch each column runs on its own operator of the
 // panel (EvalOp::panel_), made on the first such call.
+// A resume that throws part way leaves the columns it ran advanced.
 nb::object resume_call(EvalOp& self, const nb::args& args);
 
 // ---------------------------------------------------------------------------
@@ -1593,6 +1594,13 @@ nb::object functor_call_positional(Op& self, nb::args args) {
 template <class Op>
 nb::object functor_call_named(Op& self, nb::args args, nb::kwargs kwargs) {
     return functor_call<Op>(self, named_inputs<Op>(self, args, kwargs.ptr()));
+}
+
+// resume of an operator with named inputs: the inputs by position or by
+// keyword, as its call takes them.
+template <class Op>
+nb::object resume_named(Op& self, nb::args args, nb::kwargs kwargs) {
+    return resume_call(self, named_inputs<Op>(self, args, kwargs.ptr()));
 }
 
 }  // namespace screamer

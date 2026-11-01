@@ -231,3 +231,28 @@ def test_resume_input_count():
     make, inputs = case("Segment")
     with pytest.raises(ValueError):
         make().resume(inputs[0])
+
+
+def test_resume_named_inputs():
+    """resume takes named inputs by position or by keyword, as the call does."""
+    rng = np.random.default_rng(8)
+    flow, ret = rng.standard_normal(40), rng.standard_normal(40)
+    want = screamer.RollingKyleLambda(5)(flow, ret)
+    f = screamer.RollingKyleLambda(5)
+    got = np.concatenate([f.resume(signed_flow=flow[:20], return_=ret[:20]),
+                          f.resume(flow[20:], return_=ret[20:])])
+    assert_bitwise(got, want)
+    g = screamer.RollingOrderImbalance(5)
+    assert_bitwise(g.resume(signed_flow=flow), screamer.RollingOrderImbalance(5)(flow))
+    with pytest.raises(TypeError, match="unexpected keyword"):
+        screamer.RollingKyleLambda(5).resume(flow, returns=ret)
+
+
+def test_empty_panel_refused():
+    f = screamer.RollingMean(4)
+    with pytest.raises(ValueError, match="no columns"):
+        f.resume(np.empty((10, 0)))
+    assert "values" in _state(f)
+    with pytest.raises(screamer.StateMismatch, match="at least one column"):
+        f.set_state({"version": 1, "columns": []})
+    assert "values" in _state(f)

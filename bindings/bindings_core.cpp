@@ -145,10 +145,7 @@ void init_bindings_core(nb::module_& m) {
             return screamer::resume_call(op, args);
         }, "Process a batch from the current state and keep the end state.")
         // The Python classes use this reset, which also drops a panel.
-        .def("reset", [](screamer::EvalOp& op) {
-            op.drop_panel();
-            op.reset();
-        }, "Reset to the initial state.")
+        .def("reset", &screamer::EvalOp::reset_all, "Reset to the initial state.")
         .def("_saveable", &screamer::EvalOp::saveable)
         .def("_save_type", [](const screamer::EvalOp& op) -> nb::object {
             const char* name = op.type_name();

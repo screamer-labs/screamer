@@ -28,12 +28,14 @@
 #define SCREAMER_INLINE_CALL
 #define SCREAMER_NOINLINE_CALL
 #endif
+#ifndef SCREAMER_NOINLINE
 #if defined(__GNUC__) || defined(__clang__)
 #define SCREAMER_NOINLINE __attribute__((noinline))
 #elif defined(_MSC_VER)
 #define SCREAMER_NOINLINE __declspec(noinline)
 #else
 #define SCREAMER_NOINLINE
+#endif
 #endif
 
 namespace screamer {

@@ -133,6 +133,8 @@ void init_bindings_micro(nb::module_& m) {
              nb::sig("def __call__(self, sign, volume) -> object"),
              "Inputs: sign, then volume, by position or by keyword. One packed input whose\n"
              "last axis holds both fields, or one iterator of (sign, volume) events, also works.")
+        .def("resume", &screamer::resume_named<screamer::SignedVolume>,
+             nb::sig("def resume(self, sign, volume) -> object"))
         .def("reset", &screamer::SignedVolume::reset, "Reset to the initial state.");
 
     nb::class_<screamer::QueueImbalance, screamer::EvalOp>(m, "QueueImbalance")
@@ -143,6 +145,8 @@ void init_bindings_micro(nb::module_& m) {
              nb::sig("def __call__(self, bid_size, ask_size) -> object"),
              "Inputs: bid_size, then ask_size, by position or by keyword. One packed input whose\n"
              "last axis holds both fields, or one iterator of (bid_size, ask_size) events, also works.")
+        .def("resume", &screamer::resume_named<screamer::QueueImbalance>,
+             nb::sig("def resume(self, bid_size, ask_size) -> object"))
         .def("reset", &screamer::QueueImbalance::reset, "Reset to the initial state.");
 
     nb::class_<screamer::RollingOrderImbalance, screamer::ScreamerBase>(m, "RollingOrderImbalance")
@@ -150,6 +154,8 @@ void init_bindings_micro(nb::module_& m) {
              "window_size"_a = 20, "start_policy"_a = "strict")
         .def("__call__", &screamer::screamer_call,
              nb::arg(screamer::RollingOrderImbalance::kInputNames[0]).none())
+        .def("resume", &screamer::resume_named<screamer::RollingOrderImbalance>,
+             nb::sig("def resume(self, signed_flow) -> object"))
         .def("reset", &screamer::RollingOrderImbalance::reset, "Reset to the initial state.");
 
     nb::class_<screamer::RollingKyleLambda, screamer::EvalOp>(m, "RollingKyleLambda")
@@ -161,6 +167,8 @@ void init_bindings_micro(nb::module_& m) {
              nb::sig("def __call__(self, signed_flow, return_) -> object"),
              "Inputs: signed_flow, then return_, by position or by keyword. One packed input whose\n"
              "last axis holds both fields, or one iterator of (signed_flow, return_) events, also works.")
+        .def("resume", &screamer::resume_named<screamer::RollingKyleLambda>,
+             nb::sig("def resume(self, signed_flow, return_) -> object"))
         .def("reset", &screamer::RollingKyleLambda::reset, "Reset to the initial state.");
 
     nb::class_<screamer::EwKyleLambda, screamer::EvalOp>(m, "EwKyleLambda")
@@ -174,6 +182,8 @@ void init_bindings_micro(nb::module_& m) {
              nb::sig("def __call__(self, signed_flow, return_) -> object"),
              "Inputs: signed_flow, then return_, by position or by keyword. One packed input whose\n"
              "last axis holds both fields, or one iterator of (signed_flow, return_) events, also works.")
+        .def("resume", &screamer::resume_named<screamer::EwKyleLambda>,
+             nb::sig("def resume(self, signed_flow, return_) -> object"))
         .def("reset", &screamer::EwKyleLambda::reset, "Reset to the initial state.");
 
 }
