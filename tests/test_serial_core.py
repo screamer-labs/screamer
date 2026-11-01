@@ -99,6 +99,33 @@ def test_unsupported_cbor_raises(hexbytes, what):
         _b._serial_cbor_decode(bytes.fromhex(hexbytes))
 
 
+@pytest.mark.parametrize("hexbytes, want", [
+    ("f93c00", 1.0), ("f97c00", math.inf), ("f98000", -0.0), ("f90001", 2.0 ** -24),
+    ("fa47c35000", 100000.0),
+])
+def test_cbor_reads_float16_and_float32(hexbytes, want):
+    got = json.loads(_b._serial_cbor_decode(bytes.fromhex(hexbytes)))
+    assert _bits(got) == _bits(want)
+
+
+@pytest.mark.parametrize("hexbytes", ["62c328", "61ff", "63eda080", "62c080", "64f4908080", "62e282"])
+def test_cbor_refuses_invalid_utf8(hexbytes):
+    with pytest.raises(ValueError, match="CBOR.*invalid UTF-8"):
+        _b._serial_cbor_decode(bytes.fromhex(hexbytes))
+
+
+def test_cbor_nested_huge_lengths_raise():
+    # 512 nested arrays, each claiming as many elements as the bytes left: a
+    # reservation by the claimed length would ask for tens of gigabytes.
+    n = 1 << 20
+    data = bytearray()
+    for _ in range(512):
+        data += b"\x9b" + (n - len(data) - 9).to_bytes(8, "big")
+    data += b"\x00" * (n - len(data))
+    with pytest.raises(ValueError, match="CBOR"):
+        _b._serial_cbor_decode(bytes(data))
+
+
 def test_cbor_raises_a_save_error():
     with pytest.raises(_b._SaveError):
         _b._serial_cbor_decode(b"\xa1")

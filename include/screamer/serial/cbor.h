@@ -17,6 +17,7 @@
 // float16 and float32 forms of a double. A malformed input raises
 // serial::SaveError "invalid CBOR: ..." with the byte offset.
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -143,9 +144,34 @@ private:
 
     std::string text(std::uint64_t n) {
         const std::size_t len = length(n);
-        std::string s(reinterpret_cast<const char*>(d_ + p_), len);
+        const std::uint8_t* t = d_ + p_;
+        if (!valid_utf8(t, len)) fail("invalid UTF-8 in a text string");
+        std::string s(reinterpret_cast<const char*>(t), len);
         p_ += len;
         return s;
+    }
+
+    // Well-formed UTF-8 (RFC 3629): no overlong forms, surrogates or code
+    // points past U+10FFFF.
+    static bool valid_utf8(const std::uint8_t* t, std::size_t n) {
+        for (std::size_t k = 0; k < n;) {
+            const std::uint8_t c = t[k];
+            if (c < 0x80) { ++k; continue; }
+            std::size_t len;
+            std::uint32_t cp, min;
+            if ((c & 0xE0) == 0xC0) { len = 2; cp = c & 0x1F; min = 0x80; }
+            else if ((c & 0xF0) == 0xE0) { len = 3; cp = c & 0x0F; min = 0x800; }
+            else if ((c & 0xF8) == 0xF0) { len = 4; cp = c & 0x07; min = 0x10000; }
+            else return false;
+            if (n - k < len) return false;
+            for (std::size_t j = 1; j < len; ++j) {
+                if ((t[k + j] & 0xC0) != 0x80) return false;
+                cp = (cp << 6) | (t[k + j] & 0x3F);
+            }
+            if (cp < min || cp > 0x10FFFF || (cp >= 0xD800 && cp < 0xE000)) return false;
+            k += len;
+        }
+        return true;
     }
 
     static double half(std::uint16_t h) {
@@ -203,7 +229,9 @@ private:
         case 4: {
             json::Value a = json::Value::array();
             const std::size_t len = length(n);
-            a.a.reserve(len);
+            // Each element is far larger than its one byte of input, so a
+            // corrupted length reserves little; the vector grows as it reads.
+            a.a.reserve(std::min<std::size_t>(len, 4096));
             for (std::size_t k = 0; k < len; ++k) a.a.push_back(value(depth + 1));
             return a;
         }
