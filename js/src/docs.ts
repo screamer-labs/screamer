@@ -22,6 +22,8 @@ export interface DocParameter {
   defaultText?: string;
   /** True when the setting has no default and must be given. */
   required?: boolean;
+  /** The value the docs examples use for one of several exclusive settings that has no default (EwMean's `span`). */
+  example?: unknown;
   enum?: unknown[];
   min?: number | string;
   max?: number | string;

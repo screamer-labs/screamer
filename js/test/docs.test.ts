@@ -39,7 +39,9 @@ test("docs: every functor accepts its documented options with their defaults", a
     if (!e.parameters?.length) continue;
     const opts: Record<string, unknown> = {};
     for (const p of e.parameters)
-      if (p.defaultText !== undefined) opts[p.name] = Function(`return (${p.defaultText})`)();
+      // One of several exclusive settings (EwMean's span): the docs example value.
+      if (p.example !== undefined) opts[p.name] = p.example;
+      else if (p.defaultText !== undefined) opts[p.name] = Function(`return (${p.defaultText})`)();
       // An operator setting's example is a constructor call ("CumSum()").
       else if (p.required && p.type === "op") opts[p.name] = Function("s", `return s.${p.default}`)(screamer);
       else if (p.required) opts[p.name] = p.default;   // the docs example value
