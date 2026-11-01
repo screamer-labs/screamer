@@ -332,15 +332,18 @@ public:
     // Uint8Array of CBOR. `description` is the Pipeline's description as JSON
     // text (pipeline_io.ts describe). Text arguments are vals: an exception
     // out of an Embind function leaks a std::string argument's wire buffer.
-    emscripten::val saveSession(emscripten::val description, bool cbor) const {
+    emscripten::val saveSession(emscripten::val description, bool cbor) {
         screamer::json::Value node = screamer::dag::session_node(
             *cg_, screamer::json::parse(description.as<std::string>(), "Pipeline JSON"));
         return file_val(std::move(node), cbor);
     }
 
-    // Loads a saved state (JSON text) into this session's engine.
-    void loadSessionState(emscripten::val text) {
-        screamer::dag::load_session_state(*cg_, text.as<std::string>());
+    // Loads a saved state (JSON text) into this session's engine; the
+    // session runs the Pipeline `description` (JSON text).
+    void loadSessionState(emscripten::val text, emscripten::val description) {
+        screamer::dag::load_session_state(
+            *cg_, text.as<std::string>(),
+            screamer::json::parse(description.as<std::string>(), "Pipeline JSON"));
     }
 
     static emscripten::val file_val(screamer::json::Value node, bool cbor) {

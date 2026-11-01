@@ -1103,10 +1103,11 @@ void init_bindings_dag(nb::module_& m) {
         }
 
         // Loads a saved state (JSON text) into this session, which runs the
-        // saved Pipeline, and takes back the index kind: a saved time unit,
-        // else numbers once the session has taken an event or an advance.
-        void load_state(const std::string& text) {
-            dag::load_session_state(*pcg->cg, text);
+        // saved Pipeline (`description`, its to_dict()), and takes back the
+        // index kind: a saved time unit, else numbers once the session has
+        // taken an event or an advance.
+        void load_state(const std::string& text, nb::handle description) {
+            dag::load_session_state(*pcg->cg, text, to_json_value(description));
             TimeUnit u;
             int kind = 0, base = 0, num = 1;
             if (dag::parse_time_unit(pcg->cg->index_unit(), kind, base, num))
@@ -1167,8 +1168,9 @@ void init_bindings_dag(nb::module_& m) {
         .def("_dumps", [](PyLiveSession& s, nb::handle description, bool cbor) {
                  return s.dumps(description, cbor);
              }, "description"_a, "cbor"_a = false)
-        .def("_load_state", [](PyLiveSession& s, const std::string& text) { s.load_state(text); },
-             "text"_a);
+        .def("_load_state", [](PyLiveSession& s, const std::string& text, nb::handle description) {
+                 s.load_state(text, description);
+             }, "text"_a, "description"_a);
 
     // The save file of a Pipeline: its description, state null.
     m.def("_pipeline_dumps", [](nb::handle description, bool cbor) -> nb::object {

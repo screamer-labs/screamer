@@ -884,7 +884,8 @@ class PipelineImpl implements Owned {
       },
       [LOAD_STATE](text: string): void {
         live();
-        wasmCall(() => engine.cg.loadSessionState(text));
+        const d = describe(self.inputs, self.outputs, self.alignOutputs, self.maxPending, "LiveSession");
+        wasmCall(() => engine.cg.loadSessionState(text, jsonText(d)));
       },
       dispose: end,
       [Symbol.dispose]: end,

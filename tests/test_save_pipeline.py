@@ -185,7 +185,11 @@ def test_session_file_layout():
     assert list(state) == ["version", "engine", "nodes"]
     assert state["version"] == 1
     assert list(state["nodes"]) == [str(n["id"]) for n in node["settings"]["nodes"]]
-    assert state["nodes"]["0"] == {"version": 1, "values": {}}       # an input holds nothing
+    # Each entry records its node's structure; an input holds nothing.
+    assert state["nodes"]["0"] == {"version": 1, "node": {"kind": "input", "name": "x"}, "values": {}}
+    assert state["nodes"]["3"]["node"] == {"kind": "operator", "op": "CombineLatest",
+                                           "params": {"emit": "when_all"}, "in": [1, 2]}
+    assert state["engine"]["graph"] == {"inputs": ["x", "y"], "outputs": [3], "align_outputs": True}
     mean = state["nodes"]["1"]["values"]["op"]
     assert mean["version"] == 1 and mean["values"]["count"] == 2
     join = state["nodes"]["3"]["values"]["combine_latest"]["values"]
@@ -199,7 +203,8 @@ def test_pipeline_save_is_settings_only(tmp_path):
     assert f["object"]["type"] == "Pipeline"
     assert f["object"]["state"] is None
     settings = f["object"]["settings"]
-    # The settings are the description to_json writes, byte for byte.
+    # The settings are the description to_json writes, each number in its
+    # setting's kind (here they are written so already).
     assert _b._graph_to_json(settings, 2) == pipe.to_json()
     loaded = screamer.loads(text)
     assert isinstance(loaded, Pipeline)
@@ -210,6 +215,22 @@ def test_pipeline_save_is_settings_only(tmp_path):
         assert screamer.load(tmp_path / name).to_json() == pipe.to_json()
     feeds = ([1.0, 2.0, 3.0, 4.0], [1.0, 1.0, 1.0, 1.0])
     _same(loaded(*feeds), pipe(*feeds))
+
+
+def test_settings_numbers_in_their_kind():
+    # Python's 101 and 101.0 (and JavaScript's 101) save the same bytes: a
+    # float setting is written as a float, an integer one as an integer.
+    def files(upper, every):
+        x = Input("x")
+        pipe = Pipeline([x], [Resample(freq=every, agg="last")(screamer.Clip(upper=upper)(x))])
+        return pipe.dumps(), pipe.live().dumps()
+    assert files(101, 10) == files(101.0, 10.0)
+    f = json.loads(files(101, 10.0)[0])["object"]["settings"]
+    assert f["nodes"][1]["params"]["upper"] == 101.0 and '"upper": 101.0' in files(101, 10)[0]
+    assert '"every": 10,' in files(101, 10.0)[0] or '"freq": 10' in files(101, 10.0)[0]
+    # to_json keeps the numbers as given.
+    x = Input("x")
+    assert '"upper": 101\n' in Pipeline([x], [screamer.Clip(upper=101)(x)]).to_json()
 
 
 def test_session_files(tmp_path):
@@ -238,13 +259,67 @@ def test_structure_edit_refuses_or_fresh():
     settings["nodes"] = settings["nodes"][:2]
     settings["outputs"] = [1]
     text = json.dumps(f)
-    with pytest.raises(screamer.StateMismatch, match=r"LiveSession\.nodes\.2: unknown field"):
+    with pytest.raises(screamer.StateMismatch, match=r"LiveSession\.engine: the graph's inputs, outputs"):
         screamer.loads(text)
     with pytest.warns(UserWarning, match="LiveSession starts fresh"):
         s = screamer.loads(text, on_mismatch="fresh")
     s.push("x", 10, 1.0)
     values, _ = s.result()
     np.testing.assert_array_equal(values, [np.nan])      # fresh: one event of a window of 3
+
+
+def _probe_file():
+    x, y = Input("x"), Input("y")
+    r = Resample(every=10, agg="last")(x)
+    m = screamer.RollingMean(3)(y)
+    pipe = Pipeline([x, y], [CombineLatest()(r, m, y)])  # ids: x 0, r 1, y 2, m 3, join 4
+    s = pipe.live()
+    for t in range(0, 40, 3):
+        s.push("x", t, float(t))
+    for t in range(0, 30, 4):
+        s.push("y", t, float(t))
+    return json.loads(s.dumps())
+
+
+def _swap_join_inputs(d):
+    d["nodes"][4]["in"] = d["nodes"][4]["in"][::-1]
+
+
+def _rewire_mean_to_x(d):
+    d["nodes"][3]["in"] = [0]
+
+
+def _swap_input_names(d):
+    d["inputs"] = d["inputs"][::-1]
+
+
+def _resample(**params):
+    def edit(d):
+        d["nodes"][1]["params"].update(params)
+    return edit
+
+
+@pytest.mark.parametrize("edit, where", [
+    # The walk numbers the edited graph's nodes anew, so the first node that
+    # differs may come before the edited one.
+    (_swap_join_inputs, r"nodes\.\d+: the node differs"),
+    (_rewire_mean_to_x, r"nodes\.\d+: the node differs"),
+    (_swap_input_names, r"engine: the graph's inputs"),
+    (_resample(every=20), r"nodes\.1: the node differs"),
+    (_resample(origin=3), r"nodes\.1: the node differs"),
+    (_resample(agg="first"), r"nodes\.1: the node differs"),
+])
+def test_structure_probes_refuse_or_fresh(edit, where):
+    # A graph edit that keeps every node's state shape still refuses: the
+    # state records the structure it was saved with.
+    f = _probe_file()
+    edit(f["object"]["settings"])
+    text = json.dumps(f)
+    with pytest.raises(screamer.StateMismatch, match=r"^LiveSession\." + where):
+        screamer.loads(text)
+    with pytest.warns(UserWarning, match="LiveSession starts fresh"):
+        s = screamer.loads(text, on_mismatch="fresh")
+    assert json.loads(s.dumps())["object"]["state"]["engine"]["input_count"] == [0, 0]
 
 
 def test_edited_setting_refuses_or_fresh():

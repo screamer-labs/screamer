@@ -130,7 +130,8 @@ def _load_pipeline(type_name, settings, state, on_mismatch):
     session = pipe.live()
     if state is not None:
         try:
-            session._load_state(state)
+            from .dag_io import to_dict
+            session._load_state(state, to_dict(pipe))
         except (StateMismatch, StateVersionError) as e:
             if on_mismatch == "error":
                 raise

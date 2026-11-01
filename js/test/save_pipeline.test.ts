@@ -5,9 +5,10 @@
 // it; tests/test_save_pipeline.py keeps it current) holds, for each graph,
 // the events before and after a save, Python's session file and the outputs
 // after the second part and a flush. JavaScript continues Python's file, and
-// its own session after the same events writes Python's file: byte for byte
-// when every number of the state agrees, to 1e-9 otherwise (a native build
-// may fuse a multiply-add that WebAssembly does not, see save_restore.test.ts).
+// its own session after the same events writes Python's file: the settings
+// byte for byte (each number in its setting's kind), the state byte for byte
+// when every number agrees, to 1e-9 otherwise (a native build may fuse a
+// multiply-add that WebAssembly does not, see save_restore.test.ts).
 // The other tests mirror tests/test_save_pipeline.py.
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -17,7 +18,7 @@ import { join } from "node:path";
 import * as S from "../src/index.ts";
 import * as OPS from "../src/generated/ops.ts";
 import { SETTINGS } from "../src/runtime.ts";
-import { combineLatest } from "../src/combinators.ts";
+import { combineLatest, resample } from "../src/combinators.ts";
 import type { LiveDriver, Output, Pipeline } from "../src/pipeline.ts";
 
 await S.ready();
@@ -120,6 +121,8 @@ test("a JavaScript session writes Python's file, and continues bit for bit", () 
     const s = pipe.live();
     push(s, c.inputs, c.first);
     const saved = s.dumps() as string;
+    const settings = (t: string) => { const u = noVersion(t); return u.slice(0, u.indexOf('\n    "state": {')); };
+    assert.equal(settings(saved), settings(c.file), `${c.name}: the settings`);
     if (noVersion(saved) === noVersion(c.file)) exact++;
     else assert.equal(close(tree(noVersion(saved)), tree(noVersion(c.file))), null, c.name);
     // Loaded from its own JSON or CBOR, the session continues as one that ran
@@ -138,8 +141,8 @@ test("a JavaScript session writes Python's file, and continues bit for bit", () 
     }
     pipe.dispose();
   }
-  // Most states hold no fused arithmetic, so the files agree byte for byte.
-  assert.ok(exact > ORACLE.length / 2, `only ${exact} of ${ORACLE.length} files are byte for byte`);
+  // Only the states of EwMean (fused arithmetic, D4) may differ in a last bit.
+  assert.ok(exact >= ORACLE.length - 2, `only ${exact} of ${ORACLE.length} files are byte for byte`);
 });
 
 // x, y -> RollingMean(2)(x) joined with y.
@@ -205,12 +208,46 @@ test("an edited graph refuses the state, or starts fresh", () => {
   f.object.settings.outputs = [1];
   const edited = text(f);
   assert.throws(() => S.loads(edited), (e: any) => e instanceof S.StateMismatch &&
-    /LiveSession\.nodes\.2: unknown field/.test(e.message));
+    /^LiveSession\.engine: the graph's inputs, outputs/.test(e.message));
   const { value: s, messages } = warnings(() => S.loads<LiveDriver>(edited, { onMismatch: "fresh" }));
   assert.match(messages[0], /LiveSession starts fresh/);
   s.push("x", 10, 1.0);
   assert.ok(Number.isNaN((s.result() as Output).values[0] as number));
   s.dispose();
+});
+
+// x -> Resample(every 10) and y -> RollingMean(3), joined with y: ids x 0,
+// resample 1, y 2, mean 3, join 4.
+function probeFile(): any {
+  const x = S.Input("x"), y = S.Input("y");
+  const r = resample(x, { every: 10, agg: "last" });
+  const m = OPS.RollingMean(3)(y);
+  const s = new S.Pipeline([x, y], [combineLatest([r, m, y])]).live();
+  for (let t = 0; t < 40; t += 3) s.push("x", t, t);
+  for (let t = 0; t < 30; t += 4) s.push("y", t, t);
+  return tree(s.dumps() as string);
+}
+
+test("a graph edit that keeps every state's shape still refuses, or starts fresh", () => {
+  const probes: [(d: any) => void, RegExp][] = [
+    [(d) => { d.nodes[4].in.reverse(); }, /nodes\.\d+: the node differs/],
+    [(d) => { d.nodes[3].in = [0]; }, /nodes\.\d+: the node differs/],
+    [(d) => { d.inputs.reverse(); }, /engine: the graph's inputs/],
+    [(d) => { d.nodes[1].params.every = 20; }, /nodes\.1: the node differs/],
+    [(d) => { d.nodes[1].params.origin = 3; }, /nodes\.1: the node differs/],
+    [(d) => { d.nodes[1].params.agg = "first"; }, /nodes\.1: the node differs/],
+  ];
+  for (const [edit, where] of probes) {
+    const f = probeFile();
+    edit(f.object.settings);
+    const edited = text(f);
+    assert.throws(() => S.loads(edited), (e: any) => e instanceof S.StateMismatch &&
+      new RegExp("^LiveSession\\." + where.source).test(e.message), String(edit));
+    const { value: s, messages } = warnings(() => S.loads<LiveDriver>(edited, { onMismatch: "fresh" }));
+    assert.match(messages[0], /LiveSession starts fresh/);
+    assert.deepEqual(tree(s.dumps() as string).object.state.engine.input_count, [0, 0]);
+    s.dispose();
+  }
 });
 
 test("an edited setting refuses the state", () => {

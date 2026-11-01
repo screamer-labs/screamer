@@ -69,6 +69,7 @@ struct has_settings<T, std::void_t<decltype(std::declval<const T&>().type_name()
 // ---- Values to the tree ------------------------------------------------------
 
 inline json::Value to_value(bool v) { return json::Value::boolean(v); }
+inline json::Value to_value(const json::Value& v) { return v; }
 inline json::Value to_value(const std::string& v) { return json::Value::string(v); }
 
 template <class T, std::enable_if_t<std::is_integral<T>::value, int> = 0>
@@ -111,6 +112,9 @@ inline std::string got_text(const json::Value& v) {
                                   const json::Value& got) {
     throw StateMismatch(where, "expected " + expected + ", got " + got_text(got));
 }
+
+// A tree saved as it is (a description node a live session keeps).
+inline void from_value(const json::Value& v, json::Value& out, const std::string&) { out = v; }
 
 inline void from_value(const json::Value& v, bool& out, const std::string& where) {
     if (v.kind != json::Value::Kind::Bool) mismatch(where, "a boolean", v);

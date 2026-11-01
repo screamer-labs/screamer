@@ -43,6 +43,18 @@ OUT = REPO / "src" / "screamer" / "serial" / "op_registry.cpp"
 sys.path.insert(0, str(REPO / "devtools" / "wasm"))
 from gen_wasm_bindings import collect_op_headers  # noqa: E402
 
+# C++ argument type -> the kind of its setting in a save file: an integer
+# ("i"), a float ("f", a whole value written as 3.0) or a nested operator
+# ("o"); serial::param_kind gives it, so Python and JavaScript, which give
+# 3 and 3.0 alike, write the same bytes.
+KINDS = {
+    "int": "i",
+    "double": "f",
+    "std::optional<double>": "f",
+    "std::vector<double>": "f",
+    "screamer::OpArg": "o",
+}
+
 # C++ argument type -> the reader of its setting.
 READERS = {
     "int": "read_int",
@@ -231,11 +243,14 @@ def generate(ops: list[dict], help_map: dict) -> str:
     out.append("struct Entry {")
     out.append("    const char* name;")
     out.append("    Maker make;")
+    out.append("    const char* kinds;   // \"name=k;...\" for the settings of KINDS")
     out.append("};")
     out.append("")
     out.append("const Entry kRegistry[] = {")
     for op in sorted(ok, key=lambda o: o["name"]):
-        out.append(f'    {{"{op["name"]}", &make_{op["name"]}}},')
+        kinds = ";".join(f'{a["name"]}={KINDS[t]}' for t, a in zip(op["ctor"], op["ctor_args"])
+                         if t in KINDS)
+        out.append(f'    {{"{op["name"]}", &make_{op["name"]}, "{kinds}"}},')
     out.append("};")
     out.append("")
     out.append("const Entry* find(const std::string& type) {")
@@ -284,6 +299,20 @@ std::unique_ptr<EvalOp> make_op(const std::string& type, const json::Value& sett
     } catch (const std::invalid_argument& err) {
         throw SaveError(label + ".settings: " + err.what());
     }
+}
+
+char param_kind(const std::string& type, const std::string& name) {
+    const Entry* e = find(type);
+    if (!e) return 0;
+    const std::string key = name + "=";
+    for (const char* p = e->kinds; *p;) {
+        const char* end = p;
+        while (*end && *end != ';') ++end;
+        if (static_cast<std::size_t>(end - p) == key.size() + 1 && std::string(p, key.size()) == key)
+            return p[key.size()];
+        p = *end ? end + 1 : end;
+    }
+    return 0;
 }
 
 std::vector<std::string> registry_types() {

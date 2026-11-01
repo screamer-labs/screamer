@@ -30,6 +30,11 @@ std::unique_ptr<EvalOp> make_op(const std::string& type, const json::Value& sett
 // The names make_op knows, sorted.
 std::vector<std::string> registry_types();
 
+// The kind of setting `name` of operator `type` in a save file: 'i' an
+// integer, 'f' a float (a number, or an array of numbers), 'o' a nested
+// operator, 0 for any other setting or an unknown operator.
+char param_kind(const std::string& type, const std::string& name);
+
 }}  // namespace screamer::serial
 
 #endif  // SCREAMER_SERIAL_OP_REGISTRY_H

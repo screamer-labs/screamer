@@ -8,10 +8,10 @@
 // Zero per-event allocation is preserved.
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
-#include <map>
 #include <memory>
 #include <optional>
 #include <queue>
@@ -415,6 +415,15 @@ public:
         std::stable_sort(pieces_.begin(), pieces_.end(), [](const Piece& a, const Piece& b) {
             return a.key != b.key ? a.key < b.key : a.spec < b.spec;
         });
+        // A saved node names its parts, so one description node has at most
+        // one part of each name.
+        for (std::size_t i = 0; i < pieces_.size(); ++i)
+            for (std::size_t j = i + 1; j < pieces_.size() && pieces_[j].key == pieces_[i].key; ++j)
+                if (pieces_[i].key != NodeSpec::kNoKey &&
+                        std::string(pieces_[i].name) == pieces_[j].name)
+                    throw std::logic_error("compile: description node " + std::to_string(pieces_[i].key) +
+                                           " builds two parts named '" + pieces_[i].name +
+                                           "'; a saved session could not tell them apart");
     }
 
     // Resets all stateful nodes and output buffers via a single polymorphic pass.
@@ -593,6 +602,7 @@ public:
             throw serial::NotSaveable(path, "this session rejected an event after part of the "
                                             "graph took it; it cannot be saved");
         check_keys(path);
+        check_structure(path);
         serial::Writer w(path);
         const_cast<CompiledGraph&>(*this).state(w);
         out = w.take();
@@ -600,7 +610,21 @@ public:
 
     void read_state(const json::Value& in, const std::string& path) {
         check_keys(path);
+        check_structure(path);
         serial::load_state(*this, in, path);
+    }
+
+    // The structure of the description the graph was built from, which a
+    // saved state records and a load requires equal, so a state never loads
+    // into another graph: `graph` the description's inputs, outputs and
+    // align_outputs; `nodes[id]` a node's kind, operator (with the settings
+    // of a stream operator, whose state depends on them) and inputs
+    // (dag/session_file.h builds them). An operator's own settings are not
+    // part of it: its state checks them itself.
+    void set_structure(json::Value graph, std::vector<json::Value> nodes) {
+        graph_structure_ = std::move(graph);
+        node_structure_ = std::move(nodes);
+        has_structure_ = true;
     }
 
     // The unit of the session's time indexes ("" for numbers or none yet), as
@@ -799,6 +823,44 @@ private:
         pieces_.push_back(Piece{spec_.nodes[id].key, id, name, node});
     }
 
+    // Raises unless the structure of the description is known and covers
+    // every node.
+    void check_structure(const std::string& path) const {
+        if (!has_structure_)
+            throw serial::NotSaveable(path, "the graph's Pipeline description is not known");
+        for (const NodeSpec& n : spec_.nodes)
+            if (n.key >= node_structure_.size() || node_structure_[n.key].kind == json::Value::Kind::Null)
+                throw serial::NotSaveable(path, "the Pipeline description does not cover the graph");
+    }
+
+    // Whether two trees are equal: numbers by value (NaN equals NaN), object
+    // keys in order.
+    static bool same_tree(const json::Value& a, const json::Value& b) {
+        using K = json::Value::Kind;
+        if (a.is_number() && b.is_number()) {
+            const double x = a.as_double(), y = b.as_double();
+            return x == y || (std::isnan(x) && std::isnan(y));
+        }
+        if (a.kind != b.kind) return false;
+        switch (a.kind) {
+        case K::Null: return true;
+        case K::Bool: return a.b == b.b;
+        case K::String: return a.s == b.s;
+        case K::Array:
+            if (a.a.size() != b.a.size()) return false;
+            for (std::size_t k = 0; k < a.a.size(); ++k)
+                if (!same_tree(a.a[k], b.a[k])) return false;
+            return true;
+        case K::Object:
+            if (a.o.size() != b.o.size()) return false;
+            for (std::size_t k = 0; k < a.o.size(); ++k)
+                if (a.o[k].first != b.o[k].first || !same_tree(a.o[k].second, b.o[k].second))
+                    return false;
+            return true;
+        default: return false;
+        }
+    }
+
     // Raises unless every node knows its description node.
     void check_keys(const std::string& path) const {
         for (const NodeSpec& n : spec_.nodes)
@@ -810,6 +872,10 @@ private:
         CompiledGraph& g;
         template <class Ar>
         void state(Ar& ar) {
+            json::Value graph = g.graph_structure_;
+            ar.local("graph", graph);
+            ar.check(same_tree(graph, g.graph_structure_),
+                     "the graph's inputs, outputs or alignment differ from the saved one's");
             ar("flushed", g.flushed_);
             optional_index(ar, "floor", g.has_floor_, g.floor_);
             std::optional<std::string> unit;
@@ -868,6 +934,10 @@ private:
             if constexpr (Ar::kLoading)
                 if (version != kNodeStateVersion)
                     throw serial::StateVersionError(ar.path(), version, kNodeStateVersion);
+            json::Value node = g.node_structure_[key];
+            ar.local("node", node);
+            ar.check(same_tree(node, g.node_structure_[key]),
+                     "the node differs from the saved graph's (its operator, settings or inputs)");
             NodeParts parts{g, key};
             ar.object("values", parts);
         }
@@ -1239,6 +1309,9 @@ private:
     std::vector<std::size_t>                      batch_result_w_;  // result_w_ for batch_in_w_
     std::vector<Piece>                            pieces_;          // the parts that hold state, by key
     std::string                                   index_unit_;      // set_index_unit
+    json::Value                                   graph_structure_; // set_structure
+    std::vector<json::Value>                      node_structure_;  // set_structure, by key
+    bool                                          has_structure_ = false;
 };
 
 // compile() wraps the spec into a CompiledGraph (wiring happens in constructor).
