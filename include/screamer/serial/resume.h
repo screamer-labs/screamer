@@ -28,23 +28,30 @@ struct ResumeColumns {
     std::unique_ptr<Panel> made;   // a new panel, installed by finish_resume
 };
 
-// The columns of a resume of `self` on `cols` columns; `panel` is true for a
-// (T, K) call. `who` names the operator in errors. Another column count than
-// the held panel's, or one series on an object with a panel, raises
+// The columns of a resume of `self` on an array whose axes after time are
+// `assets`: none for one series, (K) for a (T, K) call, (2, 3) for a (T, 2, 3)
+// call. `who` names the operator in errors. Other axes than the held
+// panel's, or one series on an object with a panel, raises
 // std::invalid_argument (ValueError, RangeError).
-inline ResumeColumns resume_columns(EvalOp& self, bool panel, std::size_t cols, const std::string& who) {
+inline ResumeColumns resume_columns(EvalOp& self, const std::vector<std::size_t>& assets,
+                                    const std::string& who) {
     ResumeColumns r;
-    if (!panel) {
+    if (assets.empty()) {
         if (self.has_panel())
             throw std::invalid_argument("resume: object holds " + std::to_string(self.panel_columns()) +
                                         " columns, got a single series");
         r.ops.push_back(&self);
         return r;
     }
+    std::size_t cols = 1;
+    for (std::size_t a : assets) cols *= a;
     if (self.has_panel()) {
         if (self.panel_columns() != cols)
             throw std::invalid_argument("resume: object holds " + std::to_string(self.panel_columns()) +
                                         " columns, got " + std::to_string(cols));
+        if (self.panel_->shape != assets)
+            throw std::invalid_argument("resume: object holds columns of shape " +
+                                        shape_text(self.panel_->shape) + ", got " + shape_text(assets));
         for (const auto& c : self.panel_->cols) r.ops.push_back(c.get());
         return r;
     }
@@ -52,6 +59,7 @@ inline ResumeColumns resume_columns(EvalOp& self, bool panel, std::size_t cols, 
         throw std::invalid_argument(who + ".resume: a (T, 0) array has no columns to keep state for");
     r.made = std::make_unique<Panel>();
     r.made->cols.reserve(cols);
+    r.made->shape = assets;
     for (std::size_t c = 0; c < cols; ++c) {
         std::unique_ptr<EvalOp> op = self.clone_fresh();
         if (!op)

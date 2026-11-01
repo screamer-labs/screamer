@@ -324,7 +324,9 @@ function installSave(op: any, M: Screamer, raw: RawOp, live: () => void): void {
   op.settings = () => { check(); return wasmCall(() => M.serialSettings(raw)); };
   op.state = () => { check(); return wasmCall(() => M.serialState(raw)); };
   op.setState = (state: unknown) => {
-    if (state === null || typeof state !== "object" || Array.isArray(state))
+    // A value JSON has no text for is a TypeError; any other that is not a
+    // state raises StateMismatch in the core, as in Python.
+    if (state === undefined || typeof state === "function" || typeof state === "symbol" || typeof state === "bigint")
       throw new TypeError(`${who}.setState: takes the object state() returned, got ${aKind(state)}`);
     check();
     const text = jsonText(state);

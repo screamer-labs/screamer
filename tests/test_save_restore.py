@@ -945,6 +945,29 @@ def test_int_settings_out_of_range_as_python_words_them():
 
 # ---- Files ---------------------------------------------------------------------
 
+def test_loads_takes_any_bytes_object():
+    a = _rolling_mean_20()
+    blob = a.dumps(format="cbor")
+    for data in (bytearray(blob), memoryview(blob), bytearray(a.dumps().encode("utf-8"))):
+        assert screamer.loads(data).dumps() == a.dumps()
+
+
+def test_utf8_bom_and_other_files():
+    a = _rolling_mean_20()
+    assert screamer.loads(b"\xef\xbb\xbf" + a.dumps().encode("utf-8")).dumps() == a.dumps()
+    for data in ("[1, 2]", b"", b"\xef\xbb\xbf[1]", b"\x00"):
+        with pytest.raises(screamer.SaveError, match="neither a JSON object nor CBOR"):
+            screamer.loads(data)
+
+
+def test_set_state_takes_only_a_state():
+    a = _rolling_mean_20()
+    for bad, kind in (([1], "an array"), ("x", "a string"), (None, "null"), (3, "a number")):
+        with pytest.raises(screamer.StateMismatch, match=re.escape(
+                'RollingMean: expected a state {"version": N, "values": {...}}, got ' + kind)):
+            a.set_state(bad)
+
+
 @pytest.mark.parametrize("name", ["m.json", "m.cbor"])
 def test_failed_save_keeps_the_previous_file(tmp_path, monkeypatch, name):
     """A save writes a new file beside the target and renames it over the
@@ -968,6 +991,19 @@ def test_failed_save_keeps_the_previous_file(tmp_path, monkeypatch, name):
     screamer.RollingMean(7).save(path)
     assert screamer.load(path).settings()["window_size"] == 7
     assert sorted(p.name for p in tmp_path.iterdir()) == [name]
+
+
+def test_fresh_warning_points_at_the_caller(tmp_path):
+    a = _rolling_mean_20()
+    d = json.loads(a.dumps())
+    d["object"]["settings"]["window_size"] = 5
+    path = tmp_path / "m.json"
+    path.write_text(json.dumps(d), encoding="utf-8")
+    for load in (lambda: screamer.loads(json.dumps(d), on_mismatch="fresh"),
+                 lambda: screamer.load(path, on_mismatch="fresh")):
+        with pytest.warns(UserWarning) as rec:
+            load()
+        assert rec[0].filename == __file__
 
 
 # ---- Golden files ------------------------------------------------------------

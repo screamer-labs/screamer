@@ -286,3 +286,9 @@ def test_parse_depth_limit(n):
         _b._serial_dump_save(text)
     with pytest.raises(ValueError, match="CBOR.*nested too deeply"):
         _b._serial_cbor_decode(blob)
+
+
+def test_envelope_refuses_unknown_fields():
+    text = json.dumps({"screamer": "save/1", "library_version": "1", "object": {}, "note": 1})
+    with pytest.raises(_b._SaveError, match="^note: unknown field"):
+        _b._serial_check_envelope(text)

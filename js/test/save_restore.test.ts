@@ -549,6 +549,37 @@ test("save: an integer setting out of range words the error as Python does", () 
   }
 });
 
+test("save: setState of a value that is not a state raises StateMismatch", () => owning((keep) => {
+  const a = keep(rollingMean20());
+  for (const [bad, kind] of [[[1], "an array"], ["x", "a string"], [null, "null"], [3, "a number"]] as const)
+    assert.throws(() => a.setState(bad), (e: any) => e instanceof S.StateMismatch &&
+      e.message === `RollingMean: expected a state {"version": N, "values": {...}}, got ${kind}`);
+  assert.throws(() => a.setState(undefined), TypeError);
+}));
+
+test("save: a byte order mark, other files and unknown envelope fields", () => owning((keep) => {
+  const text = text20();
+  assert.equal(keep(S.loads(Uint8Array.from([0xef, 0xbb, 0xbf, ...new TextEncoder().encode(text)]))).dumps(), text);
+  for (const bad of ["[1, 2]", new Uint8Array(0), Uint8Array.from([0xef, 0xbb, 0xbf, 0x5b, 0x31, 0x5d]), Uint8Array.from([0])])
+    assert.throws(() => S.loads(bad), (e: any) => e instanceof S.SaveError && /neither a JSON object nor CBOR/.test(e.message));
+  const d = JSON.parse(text);
+  d.note = 1;
+  assert.throws(() => S.loads(JSON.stringify(d)), (e: any) => e instanceof S.SaveError && e.message === "note: unknown field");
+}));
+
+test("save: a resume keeps the panel's asset shape", () => owning((keep) => {
+  const T = 4;
+  const data = Float64Array.from({ length: T * 6 }, (_, i) => i);
+  const a = keep(S.RollingMean(2));
+  a.resume({ data, shape: [T, 2, 3] });
+  for (const shape of [[T, 3, 2], [T, 6]])
+    assert.throws(() => a.resume({ data, shape }), /resume: object holds columns of shape \(2, 3\), got/);
+  assert.deepEqual((a.state() as any).shape, [2, 3]);
+  const b = keep(S.loads(a.dumps("cbor")));
+  assert.throws(() => b.resume({ data, shape: [T, 6] }), /shape \(2, 3\), got \(6,\)/);
+  assertBitwise(flat(b.resume({ data, shape: [T, 2, 3] })), flat(a.resume({ data, shape: [T, 2, 3] })), "shape");
+}));
+
 test("save: a failed save leaves the previous file and no temporary file", () => owning(async (keep) => {
   const dir = mkdtempSync(join(tmpdir(), "screamer-save-"));
   try {
@@ -574,3 +605,4 @@ test("save: a failed save leaves the previous file and no temporary file", () =>
     rmSync(dir, { recursive: true, force: true });
   }
 }));
+

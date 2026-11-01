@@ -63,11 +63,14 @@ inline std::vector<std::uint8_t> dumps_node_cbor(json::Value node) {
     return cbor::encode(wrap(std::move(node)));
 }
 
-// The tree of a save file in either encoding: CBOR when the first byte is not
-// the '{' (or white space) that starts JSON text. A malformed file raises
+// The tree of a save file in either encoding: JSON text when the first byte
+// after a UTF-8 byte order mark and white space is '{', CBOR when it is the
+// head of a CBOR map. A malformed file, or one that starts otherwise, raises
 // SaveError.
 inline json::Value parse_file(const std::uint8_t* data, std::size_t size) {
     std::size_t k = 0;
+    if (size >= 3 && data[0] == 0xEF && data[1] == 0xBB && data[2] == 0xBF) k = 3;
+    const std::size_t start = k;
     while (k < size && (data[k] == ' ' || data[k] == '\t' || data[k] == '\n' || data[k] == '\r')) ++k;
     if (k < size && data[k] == '{') {
         // The JSON parser passes the bytes of a string through as they are,
@@ -76,12 +79,15 @@ inline json::Value parse_file(const std::uint8_t* data, std::size_t size) {
         if (bad != size)
             throw SaveError("save JSON: invalid UTF-8 at byte " + std::to_string(bad));
         try {
-            return json::parse(std::string(reinterpret_cast<const char*>(data), size), "save JSON");
+            return json::parse(std::string(reinterpret_cast<const char*>(data) + start, size - start),
+                               "save JSON");
         } catch (const std::invalid_argument& e) {
             throw SaveError(e.what());
         }
     }
-    return cbor::decode(data, size);
+    // A CBOR map head: major type 5.
+    if (start == 0 && size > 0 && (data[0] >> 5) == 5) return cbor::decode(data, size);
+    throw SaveError("not a screamer save file: neither a JSON object nor CBOR");
 }
 
 // The parts of a node of a save file, checked for shape: the type name, the

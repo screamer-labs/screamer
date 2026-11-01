@@ -96,7 +96,8 @@ std::uintptr_t evalResume(screamer::EvalOp& op, std::uintptr_t spec, std::uintpt
         screamer::shape::broadcast(screamer::shape::input_views(s.shapes, ni));
     const std::size_t cols = plan.columns;
     screamer::serial::ResumeColumns columns =
-        screamer::serial::resume_columns(op, plan.shape.size() > 1, cols, who);
+        screamer::serial::resume_columns(
+            op, std::vector<std::size_t>(plan.shape.begin() + 1, plan.shape.end()), who);
     std::unique_ptr<double, decltype(&std::free)> out(
         static_cast<double*>(std::malloc(std::max<std::size_t>(1, plan.T * cols * no) * sizeof(double))),
         &std::free);

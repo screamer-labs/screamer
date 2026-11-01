@@ -16,7 +16,9 @@
 //
 // The state of an operator is the tree {"version": N, "values": {...}}, or
 // {"version": N, "columns": [{...}, ...]} for one holding per-column state (a
-// panel, common/eval_op.h): one values object per column. A version other
+// panel, common/eval_op.h): one values object per column, followed by
+// "shape": [2, 3] for a panel of a (T, 2, 3) resume (a (T, K) one writes
+// none). A version other
 // than kStateVersion raises StateVersionError. serial/file.h builds and reads
 // the save file.
 
@@ -59,7 +61,7 @@ inline const json::Value& state_body(const json::Value& in, int version, const s
         throw StateMismatch(path, "expected a state {\"version\": N, \"values\": {...}}, got " +
                                       kind_text(in));
     for (const auto& kv : in.o)
-        if (kv.first != "version" && kv.first != "values" && kv.first != "columns")
+        if (kv.first != "version" && kv.first != "values" && kv.first != "columns" && kv.first != "shape")
             throw StateMismatch(path + "." + kv.first, "unknown field");
     const json::Value* stored = in.get("version");
     if (!stored) throw StateMismatch(path + ".version", "missing field");
@@ -70,6 +72,7 @@ inline const json::Value& state_body(const json::Value& in, int version, const s
     const json::Value* cols = in.get("columns");
     if (values && cols) throw StateMismatch(path + ".columns", "a state holds values or columns, not both");
     if (values) {
+        if (in.get("shape")) throw StateMismatch(path + ".shape", "unknown field");
         columns = false;
         return *values;
     }
@@ -79,6 +82,20 @@ inline const json::Value& state_body(const json::Value& in, int version, const s
     if (cols->a.empty()) throw StateMismatch(path + ".columns", "expected at least one column");
     columns = true;
     return *cols;
+}
+
+// The axes of a panel state: its "shape", or (K) for K columns without one.
+inline std::vector<std::size_t> panel_shape(const json::Value& in, std::size_t cols, const std::string& path) {
+    const json::Value* shape = in.get("shape");
+    if (!shape) return {cols};
+    std::vector<std::size_t> axes;
+    from_value(*shape, axes, path + ".shape");
+    std::size_t n = 1;
+    for (std::size_t a : axes) n = a == 0 || n > cols / a ? 0 : n * a;   // never past cols
+    if (axes.size() < 2 || n != cols)
+        throw StateMismatch(path + ".shape", "expected two or more axes holding the " + std::to_string(cols) +
+                                                 " columns, got " + shape_text(axes));
+    return axes;
 }
 
 // Drops `op`'s panel as a part of the load `ar`, which restores it when the
@@ -126,9 +143,11 @@ public:
                 for (const auto& c : this->panel_->cols)
                     cols.a.push_back(values_of(static_cast<const Derived&>(*c)));
                 out = json::Value::object();
-                out.o.reserve(2);
+                out.o.reserve(3);
                 out.o.emplace_back("version", json::Value::integer(Derived::kStateVersion));
                 out.o.emplace_back("columns", std::move(cols));
+                if (this->panel_->shape.size() > 1)
+                    out.o.emplace_back("shape", detail::to_value(this->panel_->shape));
                 return;
             }
             out = detail::state_node(Derived::kStateVersion, values_of(derived()));
@@ -149,6 +168,7 @@ public:
                 return;
             }
             auto panel = std::make_unique<Panel>();
+            panel->shape = detail::panel_shape(in, body.a.size(), path);
             panel->cols.reserve(body.a.size());
             for (std::size_t c = 0; c < body.a.size(); ++c) {
                 std::unique_ptr<EvalOp> col = this->clone_fresh();

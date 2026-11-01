@@ -215,6 +215,14 @@ invariant a hand-edited file could break and real input never does. Then run
 `python devtools/gen_state_golden.py <Name>` and commit the golden. A change to the
 layout of `state` needs a new `kStateVersion` and a new golden.
 
+A nested operator goes through `ar.op`, and a member saved in another form than it
+is stored (a tree as its sorted keys) through `ar.local` and `ar.set`. A new or
+changed operator also needs `python devtools/gen_op_registry.py` (the C++ factory
+JavaScript loads with) and `python devtools/wasm/gen_save_oracle.py` (the Python
+files the JavaScript tests read), and the JavaScript suite (`cd js && npm run
+build:wasm && npm test`) must pass. A renamed parameter goes in the table of
+`include/screamer/serial/settings_compat.h`, so older files still load.
+
 **Writing a new contract test.** If a rule applies to every operator, it belongs in
 `tests/test_contract_compliance.py` (or the `nan` / `start_policy` compliance files)
 and must enumerate the registry. A contract test with a hardcoded list of function

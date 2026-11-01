@@ -213,10 +213,10 @@ nb::object resume_call(EvalOp& self, const nb::args& raw) {
 
     // The operator of each column: the object itself for one series, else
     // the panel's, made now on the first (T, K) call (serial/resume.h).
-    const bool panel = shape.size() - (m > 1 ? 1 : 0) > 1;
+    const std::vector<std::size_t> assets(shape.begin() + 1, shape.end() - (m > 1 ? 1 : 0));
     serial::ResumeColumns columns;
     try {
-        columns = serial::resume_columns(self, panel, cols, who);
+        columns = serial::resume_columns(self, assets, who);
     } catch (const serial::ResumeTypeError& e) {
         throw nb::type_error(e.what());
     }

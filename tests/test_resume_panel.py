@@ -348,3 +348,32 @@ def test_portfolio_report_priced_resume():
     assert_bitwise(np.concatenate([first, b.resume(x[20:], prices[20:])]), want)
     with pytest.raises(ValueError, match="resume: object holds 3 assets, got 2"):
         a.resume(x[20:, :2], prices[20:, :2])
+
+
+def test_panel_keeps_its_asset_shape():
+    """A resume on (T, 2, 3) keeps the shape (2, 3): a later resume on
+    (T, 3, 2) or (T, 6) has the same column count but would map the columns
+    to other assets, so it raises. The file holds the shape, and a (T, K)
+    panel's file holds none."""
+    x = np.arange(24.0).reshape(4, 2, 3)
+    a = screamer.RollingMean(2)
+    a.resume(x)
+    for other in (x.reshape(4, 3, 2), x.reshape(4, 6)):
+        with pytest.raises(ValueError, match=r"resume: object holds columns of shape \(2, 3\), got"):
+            a.resume(other)
+    state = a.state()
+    assert state["shape"] == [2, 3] and len(state["columns"]) == 6
+    b = screamer.loads(a.dumps(format="cbor"))
+    with pytest.raises(ValueError, match=r"shape \(2, 3\), got \(6,\)"):
+        b.resume(x.reshape(4, 6))
+    assert_bitwise(b.resume(x), a.resume(x))
+    c = screamer.RollingMean(2)
+    c.resume(x.reshape(4, 6))
+    assert "shape" not in c.state()
+    for bad in ([3, 3], [6], [0, 6], [2, 3, 1, 1, 1, 7]):
+        state["shape"] = bad
+        with pytest.raises(screamer.StateMismatch, match=r"RollingMean\.shape: expected two or more axes"):
+            c.set_state(state)
+    state["shape"] = [3, 2]
+    c.set_state(state)
+    c.resume(x.reshape(4, 3, 2))

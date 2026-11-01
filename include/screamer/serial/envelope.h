@@ -6,7 +6,8 @@
 //   {"screamer": "save/1", "library_version": "3.10.1", "object": <node>}
 //
 // "screamer" names the file schema, which a reader must know; the library
-// version is a note for people and is not checked.
+// version is a note for people and is not checked. Any other field is
+// refused as unknown, as it is in a node.
 
 #include <string>
 
@@ -44,6 +45,9 @@ inline const json::Value& unwrap(const json::Value& file) {
     if (schema->s != kSaveSchema)
         throw SaveError("the file is a \"" + schema->s + "\" save file; this library reads \"" +
                         kSaveSchema + "\"");
+    for (const auto& kv : file.o)
+        if (kv.first != "screamer" && kv.first != "library_version" && kv.first != "object")
+            throw SaveError(kv.first + ": unknown field");
     const json::Value* node = file.get("object");
     if (!node) throw SaveError("not a screamer save file: no \"object\" field");
     return *node;

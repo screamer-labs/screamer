@@ -55,12 +55,18 @@ fresh, so calling it twice on the same data gives the same result.
 state after `load`, and keeps the end state in the object. On a fresh object,
 `resume` is the warm-up call: it runs the history, after which the object can
 be saved or fed one value at a time. Feeding `A` and then `B` gives the same
-numbers, bit for bit, as feeding `A`, saving, loading, and feeding `B`.
+numbers, bit for bit, as feeding `A`, saving, loading, and feeding `B`. A
+`resume` that raises part way keeps the state of the events it ran before
+the error, so the object is partly advanced; save before a `resume` that may
+fail if you need to go back.
 
 On a `(T, K)` array, `resume` keeps one state per column (a panel), and the
 file holds the `K` states. The object then takes only `(T, K)` arrays: a
 `resume` with another `K`, or a call with a single event, raises `ValueError`
-until `reset()` or a default batch call drops the panel. A row operator (the
+until `reset()` or a default batch call drops the panel. A later `resume`
+must also give the same axes: after a `(T, 2, 3)` array, a `(T, 3, 2)` or
+`(T, 6)` array raises `ValueError`, because it would give the columns to other
+assets. A row operator (the
 cross-section operators and the portfolio engines such as
 `BacktestPortfolioOHLCTarget`) and `PortfolioReport` are one object for `K`
 assets: their `resume` continues that one state, and rows of another width
@@ -99,6 +105,8 @@ A file is a JSON object with three fields:
 - `object` is a node: the `type` (the class name), its `settings` and its
   `state`.
 
+A reader refuses any other field, here and in a node.
+
 `settings` lists every constructor parameter under its documented name, in
 the order of the function's page, with defaults filled in. An optional
 parameter that was not given is `null`, so `EwMean(alpha=0.1)` saves
@@ -109,11 +117,15 @@ a node of its own with `type` and `settings`.
 
 `state` holds a state version and the values, `{"version": N, "values":
 {...}}`, or after a `resume` on a `(T, K)` array `{"version": N, "columns":
-[{...}, ...]}` with one entry per column. The values are the members the
-function's `reset()` sets: buffers oldest first, counters and running sums. A
-function with no state saves empty values, and a file with `"state": null`
-holds settings only. A `Pipeline` node has the `Pipeline.to_json` description
-as its settings and `"state": null`; a live session node (`"type":
+[{...}, ...]}` with one entry per column. A `resume` on a `(T, 2, 3)` array
+also writes `"shape": [2, 3]`, the axes that hold the columns. The values are
+the members the function's `reset()` sets: buffers, counters and running sums.
+How a buffer is saved depends on the function: some save the values oldest
+first, and a ring such as the one of `RollingMean` above saves its slots as
+they are, with the `index` of the next slot. A function with no state saves
+empty values, and a file with `"state": null` holds settings only. A
+`Pipeline` node has the `Pipeline.to_json` description as its settings and
+`"state": null`; a live session node (`"type":
 "LiveSession"`) has the same settings and a state with an `engine` part and
 one entry per node of the graph.
 
@@ -154,7 +166,12 @@ it is about, such as `RollingMean.buffer` or
 | `NotSaveable` | The object cannot be saved: a lazy call in progress (use a live session), a live session that rejected an event, or a `Pipeline` node whose function is not a screamer class, such as a Python subclass. |
 
 A failed `load` or `set_state` changes nothing: the object keeps the state it
-had.
+had. A failed `save` leaves the previous file whole: the file is written next
+to it and renamed over it at the end.
+
+Load only files you trust. A file is checked for its shape, but a valid file
+can still ask for a lot of memory, such as a `window_size` of 2147483647,
+which a load allocates or refuses with a `SaveError`.
 
 ## Compatibility
 

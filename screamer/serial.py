@@ -84,21 +84,30 @@ def load(path, on_mismatch="error"):
         state version wrote: raise, or keep the settings, start the operator
         or session fresh and warn.
     """
+    if on_mismatch not in _ON_MISMATCH:
+        raise ValueError(f"on_mismatch must be 'error' or 'fresh', got {on_mismatch!r}")
     with open(os.fspath(path), "rb") as fh:
-        return loads(fh.read(), on_mismatch=on_mismatch)
+        return _loads(fh.read(), on_mismatch, 3)
 
 
 def loads(data, on_mismatch="error"):
     """Load an operator, a Pipeline or a live session from the ``str`` or
-    ``bytes`` that ``dumps`` returned.
+    ``bytes`` (or ``bytearray`` or ``memoryview``) that ``dumps`` returned.
 
     See ``load`` for ``on_mismatch``.
     """
     if on_mismatch not in _ON_MISMATCH:
         raise ValueError(f"on_mismatch must be 'error' or 'fresh', got {on_mismatch!r}")
+    return _loads(data, on_mismatch, 3)
+
+
+def _loads(data, on_mismatch, stacklevel):
+    """``loads``; ``stacklevel`` points a warning at the user's call."""
+    if isinstance(data, (bytearray, memoryview)):
+        data = bytes(data)
     type_name, settings, state = _b._serial_load_node(data)
     if type_name in ("Pipeline", "LiveSession"):
-        return _load_pipeline(type_name, settings, state, on_mismatch)
+        return _load_pipeline(type_name, settings, state, on_mismatch, stacklevel + 1)
     op = _build(type_name, json.loads(settings), "object")
     if state is not None:
         try:
@@ -107,11 +116,11 @@ def loads(data, on_mismatch="error"):
             if on_mismatch == "error":
                 raise
             # A failed load leaves the operator as built: fresh.
-            warnings.warn(f"{e}; {type_name} starts fresh", UserWarning, stacklevel=2)
+            warnings.warn(f"{e}; {type_name} starts fresh", UserWarning, stacklevel=stacklevel)
     return op
 
 
-def _load_pipeline(type_name, settings, state, on_mismatch):
+def _load_pipeline(type_name, settings, state, on_mismatch, stacklevel):
     """A Pipeline from its file, or a live session that continues where the
     saved one stopped. The state of a session fits only the Pipeline it was
     saved from: a file whose description was edited (a node added, removed or
@@ -136,7 +145,7 @@ def _load_pipeline(type_name, settings, state, on_mismatch):
             if on_mismatch == "error":
                 raise
             # A failed load leaves the session as it was built: fresh.
-            warnings.warn(f"{e}; the LiveSession starts fresh", UserWarning, stacklevel=3)
+            warnings.warn(f"{e}; the LiveSession starts fresh", UserWarning, stacklevel=stacklevel)
     return session
 
 
