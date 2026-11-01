@@ -10,6 +10,7 @@ against the C++ class, and the Pipeline graph-building hook -- is inherited unch
 
 The captured params power three things: a readable ``repr``
 (``RollingMean(window_size=20)``), Pipeline node labels, and Pipeline serialization.
+The wrapper also gets the save methods of screamer/serial.py.
 """
 import json
 import math
@@ -19,6 +20,7 @@ import warnings
 from importlib import resources
 
 from . import screamer_bindings as _b
+from .serial import install_methods
 
 _HELP = None
 
@@ -348,6 +350,7 @@ def _make_wrapper(name, base):
     cls.__repr__ = __repr__
     cls._fresh = _fresh
     cls._screamer_wrapped = True
+    install_methods(cls)
     return cls
 
 

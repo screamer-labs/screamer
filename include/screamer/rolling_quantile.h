@@ -6,18 +6,23 @@
 #include "screamer/common/base.h"
 #include "common/order_statistic_tree.h"
 #include "screamer/common/float_info.h"
+#include <algorithm>
 #include <cmath>
 #include <limits>
 #include <stdexcept>
+#include <vector>
 namespace screamer {
 
-    class RollingQuantile : public ScreamerBase {
+    class RollingQuantile : public serial::Saveable<RollingQuantile, ScreamerBase> {
     public:
+        static constexpr const char* kTypeName = "RollingQuantile";
+        static constexpr int kStateVersion = 1;
 
+        // The buffer starts as reset() leaves it, NaN for an empty slot.
         RollingQuantile(int window_size, double quantile) :
             window_size(window_size),
             quantile(quantile),
-            buffer(window_size, -1), // std::numeric_limits<double>::quiet_NaN()
+            buffer(window_size, std::numeric_limits<double>::quiet_NaN()),
             ost(window_size)
         {
             require_finite("quantile", quantile);
@@ -27,15 +32,34 @@ namespace screamer {
             if (quantile < 0.0 || quantile > 1.0) {
                 throw std::invalid_argument("Quantile must be between 0 and 1.");
             }
-
-            double key = 0.5;
-            double nanValue = std::numeric_limits<double>::quiet_NaN();     
         }
 
         void reset() override
         {
             buffer.reset(std::numeric_limits<double>::quiet_NaN());
             ost.clear();
+        }
+
+        template <class Ar>
+        void settings(Ar& ar) {
+            ar("window_size", window_size);
+            ar("quantile", quantile);
+        }
+
+        // The window oldest first (NaN for an empty slot) and the order
+        // statistic tree of its values.
+        template <class Ar>
+        void state(Ar& ar) {
+            std::vector<double> window;
+            if constexpr (Ar::kSaving) window = buffer.oldest_first();
+            ar.local("window", window, buffer.size());
+            ar.object("tree", ost);
+            if constexpr (Ar::kLoading) {
+                std::vector<double> old = buffer.oldest_first();
+                ar.apply([&] { buffer.assign_oldest_first(window); },
+                         [this, old = std::move(old)] { buffer.assign_oldest_first(old); });
+                ar.check(tree_matches_window(), "tree must hold the values of the window");
+            }
         }
 
     private:
@@ -66,6 +90,22 @@ namespace screamer {
         double quantile;
         FixedSizeBuffer buffer;
         OrderStatisticTree ost;
+
+        // The tree's values are the window's values that are not NaN.
+        bool tree_matches_window() const {
+            std::vector<double> values;
+            for (std::size_t k = 0; k < buffer.size(); ++k)
+                if (!isnan2(buffer[k])) values.push_back(buffer[k]);
+            std::sort(values.begin(), values.end());
+            std::vector<double> keys;
+            std::vector<int> counts;
+            ost.keys(keys, counts);
+            std::size_t at = 0;
+            for (std::size_t k = 0; k < keys.size(); ++k)
+                for (int c = 0; c < counts[k]; ++c, ++at)
+                    if (at >= values.size() || !(values[at] == keys[k])) return false;
+            return at == values.size();
+        }
 
         void add(double x)
         {

@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <vector>
 #include "screamer/common/eval_op.h"
+#include "screamer/serial/saveable.h"
 
 namespace screamer {
 
@@ -26,6 +27,9 @@ namespace screamer {
 // A row reduction (`per_asset_out` false, such as CrossStd) instead returns
 // `fields_out` values for the whole row, one row of a (T,) or (T, fields_out)
 // result.
+//
+// A saveable row operator derives from serial::Saveable<Op, RowOp>
+// (serial/saveable.h).
 class RowOp : public EvalOp {
 public:
     explicit RowOp(std::size_t fields_in = 1, std::size_t fields_out = 1,

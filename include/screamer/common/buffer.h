@@ -63,6 +63,19 @@ public:
 
     }
 
+    size_t size() const { return N; }
+
+    // The values oldest first, and the same order stored back (N values).
+    std::vector<double> oldest_first() const {
+        std::vector<double> out(N);
+        for (size_t k = 0; k < N; ++k) out[k] = (*this)[k];
+        return out;
+    }
+    void assign_oldest_first(const std::vector<double>& values) {
+        std::copy(values.begin(), values.end(), buffer.begin());
+        index = 0;
+    }
+
 private:
     const size_t N;     // The lag value (number of steps to delay), marked as const
     size_t index; // Tracks the current position in the buffer

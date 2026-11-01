@@ -10,6 +10,7 @@
 #include <vector>
 #include <cstdint>
 #include "screamer/common/eval_op.h"
+#include "screamer/serial/saveable.h"
 
 // Inline the operator's call() into the batch column loop. Clang's inliner
 // otherwise keeps larger calls out of line (always under the WASM build's -Oz):
@@ -109,8 +110,10 @@ namespace detail {
 
 }
 
+// The save virtuals come from serial::Saveable: an operator that declares
+// kTypeName, kStateVersion, settings() and state() is saveable.
 template <class Derived, size_t N, size_t M>
-class FunctorBase : public EvalOp {
+class FunctorBase : public serial::Saveable<Derived, EvalOp> {
 public:
     static constexpr size_t kN = N;
     static constexpr size_t kM = M;

@@ -112,6 +112,18 @@ public:
         sum_ = sum;
     }
 
+    // The ring as stored (slot `index` is written next), the samples in the
+    // window and their sum.
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.fixed("buffer", buffer_, capacity_);
+        ar("index", index_);
+        ar("count", size_);
+        ar("sum", sum_);
+        ar.check(index_ < capacity_, "index must be below window_size");
+        ar.check(size_ <= capacity_, "count must be at most window_size");
+    }
+
 private:
     const size_t capacity_;
     const StartPolicy start_policy_; 

@@ -28,6 +28,7 @@
 // loop only ever compares values.
 
 #include "screamer/detail/test_access.h"
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <stdexcept>
@@ -122,6 +123,47 @@ public:
 
     std::int64_t samples_seen() const { return index_; }
     int window_size() const { return window_size_; }
+
+    // The live candidates oldest first, with their sample indexes, and the
+    // samples seen. A load stores the candidates from slot 0.
+    template <class Ar>
+    void state(Ar& ar) {
+        std::vector<double> values;
+        std::vector<std::int64_t> indices;
+        if constexpr (Ar::kSaving) {
+            for (std::size_t k = 0, slot = head_; k < count_; ++k) {
+                values.push_back(values_[slot]);
+                indices.push_back(indices_[slot]);
+                if (++slot == capacity_) slot = 0;
+            }
+        }
+        ar.local("values", values);
+        ar.local("indices", indices);
+        ar("index", index_);
+        if constexpr (Ar::kLoading) {
+            const std::size_t n = values.size();
+            ar.check(indices.size() == n, "values and indices must have the same length");
+            ar.check(n <= static_cast<std::size_t>(window_size_),
+                     "the window holds at most window_size candidates");
+            for (std::size_t k = 0; k < n; ++k) {
+                ar.check(values[k] == values[k], "values must not be NaN");
+                ar.check(indices[k] < index_ && indices[k] >= index_ - window_size_,
+                         "indices must lie in the window of the last window_size samples");
+                if (k == 0) continue;
+                ar.check(indices[k - 1] < indices[k], "indices must increase");
+                ar.check(IsMax ? values[k - 1] > values[k] : values[k - 1] < values[k],
+                         IsMax ? "values must decrease" : "values must increase");
+            }
+            std::vector<double> v(capacity_);
+            std::vector<std::int64_t> ix(capacity_);
+            std::copy(values.begin(), values.end(), v.begin());
+            std::copy(indices.begin(), indices.end(), ix.begin());
+            ar.set(values_, std::move(v));
+            ar.set(indices_, std::move(ix));
+            ar.set(head_, std::size_t{0});
+            ar.set(count_, n);
+        }
+    }
 
 private:
     int window_size_;

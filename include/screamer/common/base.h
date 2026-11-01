@@ -3,10 +3,13 @@
 
 #include <cstddef>
 #include "screamer/common/eval_op.h"
+#include "screamer/serial/saveable.h"
 #include "screamer/common/skip_nan_column.h"
 
 namespace screamer {
 
+// A saveable operator derives from serial::Saveable<Op, ScreamerBase>
+// (serial/saveable.h).
 class ScreamerBase : public EvalOp {
 public:
     virtual ~ScreamerBase() = default;

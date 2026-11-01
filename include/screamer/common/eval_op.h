@@ -2,6 +2,8 @@
 #define SCREAMER_EVAL_OP_H
 
 #include <cstddef>
+#include <string>
+#include "screamer/serial/errors.h"
 
 namespace screamer {
 
@@ -30,6 +32,28 @@ struct EvalOp {
     // loop is tight enough that the column driver tiles long strided columns
     // (run_columns' `tight`). False for a per-step call kept out of line.
     virtual bool tight_column() const { return false; }
+
+    // Save and load. serial::Saveable (serial/saveable.h) implements these for
+    // an operator that describes its settings and state; any other operator
+    // is not saveable, and its write and read calls raise NotSaveable.
+    //
+    // type_name() is the operator's registry name ("RollingMean"), or null.
+    // write_settings writes the constructor arguments as an object, by their
+    // documented names. write_state writes {"version": N, "values": {...}},
+    // and read_state loads that tree, or raises a SaveError naming `path` and
+    // leaves the operator unchanged.
+    virtual bool saveable() const { return false; }
+    virtual const char* type_name() const { return nullptr; }
+    virtual int state_version() const { return 0; }
+    virtual void write_settings(json::Value&) const { not_saveable(""); }
+    virtual void write_state(json::Value&) const { not_saveable(""); }
+    virtual void read_state(const json::Value&, const std::string& path) { not_saveable(path); }
+
+private:
+    [[noreturn]] static void not_saveable(const std::string& path) {
+        throw serial::NotSaveable(path.empty() ? "operator" : path,
+                                  "the operator has no save and load support yet");
+    }
 };
 
 } // namespace screamer

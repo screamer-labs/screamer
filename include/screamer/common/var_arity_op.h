@@ -20,14 +20,16 @@
 #include "screamer/common/column_driver.h"
 #include "screamer/common/eval_op.h"
 #include "screamer/common/functor_base.h"
+#include "screamer/serial/saveable.h"
 
 namespace screamer {
 
 // The most outputs a VarArityOp can have.
 constexpr std::size_t kMaxVarArityOutputs = 32;
 
+// The save virtuals come from serial::Saveable, as for FunctorBase.
 template <class Derived>
-class VarArityOp : public EvalOp {
+class VarArityOp : public serial::Saveable<Derived, EvalOp> {
 public:
     // At least two inputs: the Python dispatch routes a one-input operator
     // through ScreamerBase or FunctorBase<_, 1, M>, never through a view.

@@ -14,6 +14,17 @@
 //       ar.check(count_ <= window_size_, "count must be at most window_size");
 //   }
 //
+// A member whose stored form differs from the saved one (a ring saved oldest
+// first, a tree saved as its sorted keys) goes through a local:
+// ar.local(name, x) (or ar.local(name, vec, expected_len)) writes it or reads
+// it without logging, and the object, after its checks, assigns the member
+// with ar.set(member, value) or rebuilds it with ar.apply(redo, undo), so a
+// failed or validating load can undo it.
+//
+// An object lists its constructor arguments the same way in a member
+// template settings(Ar&), which a Writer in settings mode runs; ar.op there
+// writes the nested operator's type and settings.
+//
 // Writer builds the tree (an object, keys in the order listed). Validator
 // checks a tree against the object and leaves the object as it was; Reader
 // assigns the tree's values. load_state() runs both, so a tree that does not
@@ -27,7 +38,8 @@
 //
 // ar.op recurses into a nested operator through its write_state(json::Value&)
 // and read_state(const json::Value&, const std::string& path); a validation
-// pass loads it and restores it from a snapshot.
+// pass loads it and restores it from a snapshot. A Writer also asks it
+// saveable(), and in settings mode type_name() and write_settings().
 
 #include <cstddef>
 #include <cstdint>
@@ -232,6 +244,33 @@ public:
         });
     }
 
+    // Reads a field into a local, which the load does not undo.
+    template <class T>
+    void local(const char* name, T& x) {
+        from_value(take(name), x, at(name));
+    }
+
+    template <class V>
+    void local(const char* name, V& x, std::size_t expected_len) {
+        from_value(take(name), x, at(name));
+        if (x.size() != expected_len)
+            throw StateMismatch(at(name), "expected " + std::to_string(expected_len) + " values, got " +
+                                              std::to_string(x.size()));
+    }
+
+    // Assigns a value read into a local, undone with the load.
+    template <class T>
+    void set(T& field, T value) {
+        undo_->assign(field, std::move(value));
+    }
+
+    // Runs `redo` now and `undo` when the load is undone: for a member
+    // rebuilt from values read into locals.
+    void apply(const std::function<void()>& redo, std::function<void()> undo) {
+        redo();
+        undo_->add(std::move(undo));
+    }
+
     void check(bool cond, const char* message) const {
         if (!cond) throw StateMismatch(path_, message);
     }
@@ -279,13 +318,18 @@ private:
 
 }  // namespace detail
 
-// Builds the tree of an object's fields.
+// Builds the tree of an object's fields: of its state(), or in settings mode
+// of its settings(). `path` names the object in the error of a nested
+// operator that cannot be saved.
 class Writer {
 public:
     static constexpr bool kSaving = true;
     static constexpr bool kLoading = false;
 
-    Writer() : tree_(json::Value::object()) {}
+    enum class Mode { State, Settings };
+
+    explicit Writer(std::string path = "", Mode mode = Mode::State)
+        : tree_(json::Value::object()), path_(std::move(path)), mode_(mode) {}
 
     template <class T>
     void operator()(const char* name, const T& field) {
@@ -297,17 +341,40 @@ public:
         (*this)(name, field);
     }
 
+    template <class T>
+    void local(const char* name, const T& x) {
+        (*this)(name, x);
+    }
+
+    template <class V>
+    void local(const char* name, const V& x, std::size_t) {
+        (*this)(name, x);
+    }
+
     template <class B>
     void object(const char* name, B& block) {
-        Writer sub;
+        Writer sub(at(name), mode_);
         block.state(sub);
         tree_.o.emplace_back(name, sub.take());
     }
 
+    // A nested operator: its state node, or in settings mode
+    // {"type": T, "settings": {...}}.
     template <class Op>
     void op(const char* name, const Op& nested) {
+        if (!nested.saveable())
+            throw NotSaveable(at(name), "the operator has no save and load support yet");
         json::Value v;
-        nested.write_state(v);
+        if (mode_ == Mode::Settings) {
+            json::Value settings;
+            nested.write_settings(settings);
+            v = json::Value::object();
+            v.o.reserve(2);
+            v.o.emplace_back("type", json::Value::string(nested.type_name()));
+            v.o.emplace_back("settings", std::move(settings));
+        } else {
+            nested.write_state(v);
+        }
         tree_.o.emplace_back(name, std::move(v));
     }
 
@@ -316,7 +383,11 @@ public:
     json::Value take() { return std::move(tree_); }
 
 private:
+    std::string at(const char* name) const { return path_.empty() ? name : path_ + "." + name; }
+
     json::Value tree_;
+    std::string path_;
+    Mode mode_;
 };
 
 using Validator = detail::Loader<false>;

@@ -36,6 +36,9 @@ namespace screamer {
 
 class Segment : public VarArityOp<Segment> {
 public:
+    static constexpr const char* kTypeName = "Segment";
+    static constexpr int kStateVersion = 1;
+
     explicit Segment(OpArg op)
         : VarArityOp<Segment>(checked_n_in(op.op), checked_n_out(op.op)),
           op_(op.op), keep_(std::move(op.keep)) {}
@@ -51,6 +54,17 @@ public:
         op_->reset();
         started_ = false;
         label_ = 0.0;
+    }
+
+    // The op as {"type": T, "settings": {...}}.
+    template <class Ar>
+    void settings(Ar& ar) { ar.op("op", *op_); }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("started", started_);
+        ar("label", label_);
+        ar.op("op", *op_);
     }
 
     // One row: in[0] is the label, in[1..] are op's inputs.

@@ -39,11 +39,12 @@ LEVELS = (0.0, 1e3)
 MAX_INPUTS = 10
 
 # Not numeric operators: graph nodes and stream combinators that need an
-# index, a graph or a second stream, and Filter, whose output length depends
-# on the data.
+# index, a graph or a second stream, Filter, whose output length depends on
+# the data, and the errors of save and load.
 EXCLUDED = {
     "Node", "Pipeline", "Delay", "Merge", "CombineLatest", "Dropna", "Select",
     "Resample", "Filter",
+    "SaveError", "StateVersionError", "NotSaveable", "StateMismatch",
 }
 
 # Operators without defaults for every argument.

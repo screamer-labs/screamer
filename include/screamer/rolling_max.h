@@ -11,12 +11,21 @@
 
 namespace screamer {
 
-class RollingMax : public ScreamerBase {
+class RollingMax : public serial::Saveable<RollingMax, ScreamerBase> {
     friend struct detail::TestAccess;   // tests read the event counters (test_access.h)
 public:
+    static constexpr const char* kTypeName = "RollingMax";
+    static constexpr int kStateVersion = 1;
+
     explicit RollingMax(int window_size) : deque_(window_size) {}
 
     void reset() override { deque_.reset(); }
+
+    template <class Ar>
+    void settings(Ar& ar) { ar("window_size", deque_.window_size()); }
+
+    template <class Ar>
+    void state(Ar& ar) { deque_.state(ar); }
 
     // Array path. The event path keeps the monotonic deque, which needs no
     // lookahead; over a whole array the block decomposition computes the same

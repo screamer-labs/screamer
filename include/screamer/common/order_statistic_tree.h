@@ -46,6 +46,47 @@ namespace screamer {
             node_pool.reserve(max_window_size * 2); // Re-reserve to ensure pool capacity
         }        
 
+        // The distinct keys in increasing order, each with its count. Equal
+        // keys (0.0 and -0.0) share a node, which keeps the key inserted first.
+        void keys(std::vector<double>& keys, std::vector<int>& counts) const {
+            in_order(root, keys, counts);
+        }
+
+        // A tree of `keys` (increasing) with `counts`: the same keys and
+        // order statistics as the tree that wrote them.
+        void rebuild(const std::vector<double>& keys, const std::vector<int>& counts) {
+            clear();
+            for (std::size_t k = 0; k < keys.size(); ++k)
+                for (int c = 0; c < counts[k]; ++c) insert(keys[k]);
+        }
+
+        // The keys and counts, checked: increasing keys, no NaN, counts of
+        // at least 1, and at most max_window_size values in all.
+        template <class Ar>
+        void state(Ar& ar) {
+            std::vector<double> k;
+            std::vector<int> c;
+            if constexpr (Ar::kSaving) keys(k, c);
+            ar.local("keys", k);
+            ar.local("counts", c);
+            if constexpr (Ar::kLoading) {
+                ar.check(k.size() == c.size(), "keys and counts must have the same length");
+                long long total = 0;
+                for (std::size_t i = 0; i < k.size(); ++i) {
+                    ar.check(k[i] == k[i], "keys must not be NaN");
+                    ar.check(i == 0 || k[i - 1] < k[i], "keys must increase");
+                    ar.check(c[i] >= 1, "counts must be at least 1");
+                    total += c[i];
+                }
+                ar.check(total <= max_window_size, "the tree holds at most window_size values");
+                std::vector<double> old_k;
+                std::vector<int> old_c;
+                keys(old_k, old_c);
+                ar.apply([&] { rebuild(k, c); },
+                         [this, old_k = std::move(old_k), old_c = std::move(old_c)] { rebuild(old_k, old_c); });
+            }
+        }
+
     private:
         struct OSTNode {
             double key;
@@ -242,6 +283,14 @@ namespace screamer {
             return node;
         }
 
+
+        void in_order(const OSTNode* node, std::vector<double>& keys, std::vector<int>& counts) const {
+            if (!node) return;
+            in_order(node->left, keys, counts);
+            keys.push_back(node->key);
+            counts.push_back(node->count);
+            in_order(node->right, keys, counts);
+        }
 
         double kth_element(OSTNode* node, int k) const {
             int left_size = get_size(node->left);

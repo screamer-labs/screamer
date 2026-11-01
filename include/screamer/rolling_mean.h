@@ -8,13 +8,24 @@
 #include <string>
 namespace screamer {
 
-    class RollingMean : public ScreamerBase {
+    class RollingMean : public serial::Saveable<RollingMean, ScreamerBase> {
     public:
+        static constexpr const char* kTypeName = "RollingMean";
+        static constexpr int kStateVersion = 1;
 
         RollingMean(int window_size, const std::string& start_policy = "strict") : 
             rolling_mean_(window_size, start_policy)
         {
         }
+
+        template <class Ar>
+        void settings(Ar& ar) {
+            ar("window_size", static_cast<int>(rolling_mean_.capacity()));
+            ar("start_policy", std::string(detail::start_policy_name(rolling_mean_.start_policy())));
+        }
+
+        template <class Ar>
+        void state(Ar& ar) { rolling_mean_.state(ar); }
 
         void reset() override {
             rolling_mean_.reset();

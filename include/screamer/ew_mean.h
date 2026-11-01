@@ -12,13 +12,17 @@
 
 namespace screamer {
 
-    class EwMean : public ScreamerBase {
+    class EwMean : public serial::Saveable<EwMean, ScreamerBase> {
     public:
+        static constexpr const char* kTypeName = "EwMean";
+        static constexpr int kStateVersion = 1;
+
         explicit EwMean(
             std::optional<double> com = std::nullopt,
             std::optional<double> span = std::nullopt,
             std::optional<double> halflife = std::nullopt,
             std::optional<double> alpha = std::nullopt)
+            : com_(com), span_(span), halflife_(halflife), alpha_arg_(alpha)
         {
             // Count the number of provided arguments
             int provided_args = (com.has_value() ? 1 : 0) +
@@ -54,6 +58,21 @@ namespace screamer {
             sum_x_ = 0.0;
             sum_w_ = 0.0;
 
+        }
+
+        // The one smoothing argument given; the others are null.
+        template <class Ar>
+        void settings(Ar& ar) {
+            ar("com", com_);
+            ar("span", span_);
+            ar("halflife", halflife_);
+            ar("alpha", alpha_arg_);
+        }
+
+        template <class Ar>
+        void state(Ar& ar) {
+            ar("sum_x", sum_x_);
+            ar("sum_w", sum_w_);
         }
 
         double process_scalar(double newValue) override {
@@ -106,6 +125,7 @@ namespace screamer {
         // the same way.
         static inline double step(double s, double d, double v) { return s * d + v; }
 
+        std::optional<double> com_, span_, halflife_, alpha_arg_;   // as given
         double alpha_;
         
         double one_minus_alpha_;

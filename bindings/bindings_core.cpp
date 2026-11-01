@@ -19,6 +19,8 @@
 #include "screamer/serial/cbor.h"
 #include "screamer/serial/envelope.h"
 #include "screamer/serial/errors.h"
+#include "screamer/serial/file.h"
+#include "screamer/serial/saveable.h"
 
 namespace nb = nanobind;
 using namespace nb::literals;
@@ -48,6 +50,9 @@ struct SerialDemoBlock {
 
 struct SerialDemoOp {
     static constexpr int kStateVersion = 1;
+    bool saveable() const { return true; }
+    const char* type_name() const { return "SerialDemoOp"; }
+    void write_settings(json::Value& out) const { out = json::Value::object(); }
     double total = 10.0;
     long long seen = 4;
 
@@ -99,6 +104,22 @@ struct SerialDemo {
     }
 };
 
+// The bytes of a save file given as str (JSON text) or bytes (either
+// encoding).
+std::string file_bytes(nb::handle data) {
+    if (nb::isinstance<nb::bytes>(data)) {
+        nb::bytes b = nb::borrow<nb::bytes>(data);
+        return std::string(b.c_str(), b.size());
+    }
+    Py_ssize_t n = 0;
+    const char* u = PyUnicode_Check(data.ptr()) ? PyUnicode_AsUTF8AndSize(data.ptr(), &n) : nullptr;
+    if (!u) {
+        PyErr_Clear();
+        throw nb::type_error("expected the save file as str or bytes");
+    }
+    return std::string(u, static_cast<std::size_t>(n));
+}
+
 std::string utf8(nb::handle text) {
     Py_ssize_t n = 0;
     const char* u = PyUnicode_Check(text.ptr()) ? PyUnicode_AsUTF8AndSize(text.ptr(), &n) : nullptr;
@@ -113,9 +134,44 @@ std::string utf8(nb::handle text) {
 
 void init_bindings_core(nb::module_& m) {
 
+    // The save virtuals (serial/saveable.h), bound once for every operator;
+    // screamer/serial.py builds the public methods on them. Trees cross as
+    // compact JSON text.
     nb::class_<screamer::EvalOp>(m, "EvalOp")
         .def_prop_ro("num_inputs", &screamer::EvalOp::n_in)
-        .def_prop_ro("num_outputs", &screamer::EvalOp::n_out);
+        .def_prop_ro("num_outputs", &screamer::EvalOp::n_out)
+        .def("_saveable", &screamer::EvalOp::saveable)
+        .def("_save_type", [](const screamer::EvalOp& op) -> nb::object {
+            const char* name = op.type_name();
+            return name ? nb::object(nb::str(name)) : nb::none();
+        })
+        .def("_settings_json", [](const screamer::EvalOp& op) {
+            json::Value v;
+            op.write_settings(v);
+            return json::dump(v, -1);
+        })
+        .def("_state_json", [](const screamer::EvalOp& op) {
+            json::Value v;
+            op.write_state(v);
+            return json::dump(v, -1);
+        })
+        .def("_set_state_json", [](screamer::EvalOp& op, nb::handle text, const std::string& path) {
+            json::Value tree;
+            try {
+                tree = json::parse(utf8(text), "state JSON");
+            } catch (const std::invalid_argument& e) {
+                throw serial::SaveError(e.what());
+            }
+            op.read_state(tree, path);
+        }, "text"_a, "path"_a)
+        .def("_dumps", [](const screamer::EvalOp& op, bool cbor) -> nb::object {
+            if (!cbor) {
+                const std::string text = serial::dumps_json(op);
+                return nb::str(text.data(), text.size());
+            }
+            const std::vector<std::uint8_t> b = serial::dumps_cbor(op);
+            return nb::bytes(reinterpret_cast<const char*>(b.data()), b.size());
+        }, "cbor"_a = false);
 
     // The message for a float setting that is not finite (finite_settings.h),
     // asked by the Python class after its constructor raised ValueError.
@@ -195,6 +251,21 @@ void init_bindings_core(nb::module_& m) {
     nb::exception<serial::NotSaveable>(m, "NotSaveable", save_error);
     nb::exception<serial::StateMismatch>(m, "StateMismatch", save_error);
     for (const char* name : {"SaveError", "StateVersionError", "NotSaveable", "StateMismatch"}) hide(name);
+
+    // The node of a save file (str or bytes, JSON or CBOR) as (type,
+    // settings JSON, state JSON or None), its shape checked.
+    m.def("_serial_load_node", [](nb::handle data) {
+        const std::string bytes = file_bytes(data);
+        const json::Value file =
+            serial::parse_file(reinterpret_cast<const std::uint8_t*>(bytes.data()), bytes.size());
+        const serial::NodeParts parts = serial::node_parts(serial::unwrap(file), "object");
+        nb::object state = nb::none();
+        if (parts.state) {
+            const std::string text = json::dump(*parts.state, -1);
+            state = nb::str(text.data(), text.size());
+        }
+        return nb::make_tuple(parts.type, json::dump(*parts.settings, -1), state);
+    }, "data"_a);
 
     // Test hooks of the serial core (tests/test_serial_core.py): JSON text in,
     // the save layout (json::dump_save) out.

@@ -201,6 +201,8 @@
 #include "screamer/serial/cbor.h"
 #include "screamer/serial/envelope.h"
 #include "screamer/serial/errors.h"
+#include "screamer/serial/file.h"
+#include "screamer/serial/saveable.h"
 #include "screamer/spread_estimators.h"
 #include "screamer/stoch.h"
 #include "screamer/stoch_rsi.h"
