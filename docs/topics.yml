@@ -57,8 +57,8 @@ groups:
 
   streaming:
     name: "Streaming & pipelines"
-    desc: "Align and reshape event streams, and wire operators into a runnable pipeline."
-    topics: [streams, graphs]
+    desc: "Align and reshape event streams, wire operators into a runnable pipeline, and save and resume them."
+    topics: [streams, graphs, save-restore]
 
   machine-learning:
     name: "Forecasting & ML"
@@ -201,6 +201,10 @@ topics:
   graphs:
     name: "Pipelines"
     desc: "Building and running a pipeline."
+
+  save-restore:
+    name: "Save and restore"
+    desc: "Writing an operator, a Pipeline or a live session to a file and resuming it later."
 
   supervised:
     name: "Supervised learning & online forecasting"

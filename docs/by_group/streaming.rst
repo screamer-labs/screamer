@@ -4,7 +4,7 @@
 Streaming & pipelines
 =====================
 
-Align and reshape event streams, and wire operators into a runnable pipeline.
+Align and reshape event streams, wire operators into a runnable pipeline, and save and resume them.
 
 Streams
 -------
@@ -58,6 +58,26 @@ Building and running a pipeline.
    * - :doc:`Pipeline </functions_dag/Pipeline>`
      - A reusable N-in / M-out function you define once and call on stored or live data.
 
+Save and restore
+----------------
+
+Writing an operator, a Pipeline or a live session to a file and resuming it later.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Function
+     - Description
+   * - :doc:`from_settings </functions_dag/from_settings>`
+     - Build a fresh function from its type and settings, with no state.
+   * - :doc:`load </functions_dag/load>`
+     - Read a file that save wrote and return the function, Pipeline or live session it holds.
+   * - :doc:`loads </functions_dag/loads>`
+     - Read a save file from a string or bytes and return the object it holds.
+   * - :doc:`resume </functions_dag/resume>`
+     - The batch call that starts from a function's state and keeps the end state.
+
 .. toctree::
    :hidden:
 
@@ -65,9 +85,13 @@ Building and running a pipeline.
    /functions_streams/Delay
    /functions_streams/Filter
    /functions_streams/from_pandas
+   /functions_dag/from_settings
+   /functions_dag/load
+   /functions_dag/loads
    /functions_streams/Merge
    /functions_dag/Pipeline
    /functions_streams/reshape
+   /functions_dag/resume
    /functions_streams/Select
    /functions_streams/split
    /functions_streams/Stream

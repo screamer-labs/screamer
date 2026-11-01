@@ -34,7 +34,7 @@ Each chapter answers a few tasks with a short, runnable example. Read in order, 
 
 ## Part 4: Run a strategy live
 
-18. [Run on live data](live/index.md): Streaming one value at a time, aligning streams, pipelines, a live trading loop, and JavaScript in the browser.
+18. [Run on live data](live/index.md): Streaming one value at a time, aligning streams, pipelines, a live trading loop, saving and resuming a strategy, and JavaScript in the browser.
 
 ```{toctree}
 :hidden:

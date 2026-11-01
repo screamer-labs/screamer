@@ -61,7 +61,7 @@ Every function, grouped by what it does. Pick a group to browse; the search box 
       :link: by_group/streaming
       :link-type: doc
 
-      Align and reshape event streams, and wire operators into a runnable pipeline.
+      Align and reshape event streams, wire operators into a runnable pipeline, and save and resume them.
 
    .. grid-item-card:: Forecasting & ML
       :link: by_group/machine-learning

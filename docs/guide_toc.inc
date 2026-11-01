@@ -33,4 +33,4 @@
 
 **Part 4: Run a strategy live**
 
-18. :doc:`Run on live data <guide/live/index>`: Streaming one value at a time, aligning streams, pipelines, a live trading loop, and JavaScript in the browser.
+18. :doc:`Run on live data <guide/live/index>`: Streaming one value at a time, aligning streams, pipelines, a live trading loop, saving and resuming a strategy, and JavaScript in the browser.

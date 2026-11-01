@@ -5,6 +5,39 @@ All notable changes to this project are documented in this file.
 Unreleased
 ----------
 
+### Added
+
+* **Save and restore:** every function, `Pipeline` and live session can be
+  written to a file and read back, and continues exactly where it stopped.
+  `obj.save(path)` writes the file and `screamer.load(path)` reads it;
+  `obj.dumps()` and `screamer.loads(data)` do the same in memory. A file holds
+  the settings (the constructor arguments) and the state (what the object has
+  learned from the data), in readable JSON or, for a path ending in `.cbor` or
+  `dumps(format="cbor")`, in CBOR (RFC 8949) with the same content. Numbers
+  read back bit for bit, NaN and infinities included.
+  * `obj.settings()`, `obj.state()` and `obj.set_state(d)` give and take the
+    two parts as dicts; `screamer.from_settings(node)` builds a fresh object
+    from settings alone.
+  * `obj.resume(*inputs)` is the batch call that starts from the object's
+    state and keeps the end state: the warm-up call on history, and the
+    continuation after a load. On a `(T, K)` array it keeps one state per
+    column; a row operator, such as a portfolio engine, and `PortfolioReport`
+    continue their book of `K` assets. Default batch calls are unchanged.
+  * A `Pipeline` saves its description; a live session saves its description
+    and its state, including the events that wait in a join or a window, and
+    loads as a session that continues.
+  * Every file is validated on load. An edited setting that the state depends
+    on, or a state another state version wrote, raises `StateMismatch` or
+    `StateVersionError` naming the field; `on_mismatch="fresh"` keeps the
+    settings, starts that object fresh and warns. All errors derive from
+    `SaveError`, a `ValueError`. Settings load in every later release; a
+    state loads while its function's state version is unchanged.
+  * JavaScript has the same calls (`save`, `load`, `dumps`, `loads`,
+    `settings`, `state`, `setState`, `fromSettings`, `resume`), and the two
+    languages read each other's files.
+  * New Guide page [Save a strategy and resume it later](https://screamer.readthedocs.io/en/latest/guide/live/save-and-resume.html)
+    and reference page [Save and restore](https://screamer.readthedocs.io/en/latest/save_restore.html).
+
 ### Fixed
 
 * **RollingQuantile value by value:** a new `RollingQuantile` started its
@@ -26,6 +59,13 @@ Unreleased
   `repr`, `Pipeline.to_json` and the stream copies of an object built with
   positional caps: they recorded the caps swapped, so a stream copy raised
   `ValueError` (min_position above max_position).
+* **Defaults the constructors do not have:** the function pages and `help()`
+  showed a default for settings that are one of several exclusive choices and
+  have none: `span=20.0` for `EwMean`, `DEMA`, `TEMA`, `EwStd`, the Ew
+  volatility estimators, `EwKyleLambda`, `BayesianRegression`,
+  `EwMultiRegression` and the other Ew functions, and the `period` of
+  `SuperSmoother` and `Decycler` and the periods of `RoofingFilter`. A call
+  without them raises, so the pages now show `None`.
 
 3.10.1 - 2026-11-01
 -------------------

@@ -212,13 +212,14 @@ parts:
   chapters:
   - slug: live
     title: Run on live data
-    line: Streaming one value at a time, aligning streams, pipelines, a live trading loop, and JavaScript in the browser.
+    line: Streaming one value at a time, aligning streams, pipelines, a live trading loop, saving and resuming a strategy, and JavaScript in the browser.
     tasks:
     - guide/live/one-value-at-a-time
     - guide/live/align-streams
     - guide/live/pipeline
     - guide/live/live-loop
     - guide/live/research-to-live
+    - guide/live/save-and-resume
     - guide/live/browser
     deeper:
     - notebooks/06-streaming-live-events

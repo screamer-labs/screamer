@@ -347,6 +347,106 @@
     "details": "",
     "examples": []
   },
+  "from_settings": {
+    "name": "from_settings",
+    "title": "from_settings",
+    "kind": "function",
+    "short": "Build a fresh function from its type and settings, with no state.",
+    "tags": [
+      "save",
+      "settings",
+      "clone",
+      "restore",
+      "configuration"
+    ],
+    "see_also": [
+      "load",
+      "loads",
+      "resume"
+    ],
+    "topics": [
+      "save-restore"
+    ],
+    "details": "`from_settings(node)` builds a fresh function from `{\"type\": T, \"settings\":\n{...}}`: the `\"object\"` of a save file, or a dict made from a function's\n`settings()`. A `\"state\"` in the node is ignored, so the new function starts\nfrom no data, as scikit-learn's `clone` does.\n\n`settings()` returns a function's constructor arguments by name, with\ndefaults filled in and `None` for an optional argument that was not given.\nUse `from_settings` to rebuild a function whose saved state another release\ncannot read, then warm it up with `resume` on history. An unknown type, an\nunknown setting or a setting the constructor refuses raises `SaveError`. In\nJavaScript the call is `fromSettings(node)`.",
+    "examples": [],
+    "doc_path": "functions_dag/from_settings"
+  },
+  "load": {
+    "name": "load",
+    "title": "load",
+    "kind": "function",
+    "short": "Read a file that save wrote and return the function, Pipeline or live session it holds.",
+    "tags": [
+      "save",
+      "load",
+      "restore",
+      "checkpoint",
+      "persistence",
+      "state"
+    ],
+    "see_also": [
+      "loads",
+      "from_settings",
+      "resume",
+      "Pipeline"
+    ],
+    "topics": [
+      "save-restore"
+    ],
+    "details": "`load(path)` reads a file that `save` wrote and returns the object it holds,\nready to continue where the saved one stopped: a function with its state, a\n`Pipeline`, or a live session from `Pipeline.live()`. The file can be JSON or\nCBOR; `load` reads the encoding from its first byte.\n\nEvery function has the method `save(path)`, which writes its settings (the\nconstructor arguments) and its state (what it has learned from the data). The\nloaded object is built through its screamer class, so it has the same `repr`\nand the same behavior as one built by hand. A file that does not fit raises a\n`SaveError` (a `ValueError`) whose message starts with the path of the field,\nand loads nothing.\n\n`on_mismatch` decides what happens to a state that does not fit the file's\nsettings, such as an edited `window_size`, or that another state version\nwrote. `\"error\"`, the default, raises `StateMismatch` or `StateVersionError`.\n`\"fresh\"` keeps the settings, starts that object (or the whole live session)\nfresh and warns with a `UserWarning`. In JavaScript, `await load(path, {\nonMismatch })` reads the file in Node.js. See [Save and\nrestore](../save_restore.md) for the file layout and the compatibility rule.",
+    "examples": [],
+    "doc_path": "functions_dag/load"
+  },
+  "loads": {
+    "name": "loads",
+    "title": "loads",
+    "kind": "function",
+    "short": "Read a save file from a string or bytes and return the object it holds.",
+    "tags": [
+      "save",
+      "load",
+      "restore",
+      "serialize",
+      "json",
+      "cbor"
+    ],
+    "see_also": [
+      "load",
+      "from_settings",
+      "resume"
+    ],
+    "topics": [
+      "save-restore"
+    ],
+    "details": "`loads(data)` reads the file that `dumps` returned, a JSON `str` or CBOR\n`bytes`, and returns the function, `Pipeline` or live session it holds. It is\n`load` without a file, for a file kept in a database, sent over a network, or\nheld in a test.\n\nEvery function has the method `dumps(format=\"json\")`, which returns its save\nfile as a `str`, or as `bytes` for `format=\"cbor\"` (CBOR, RFC 8949, a binary\nencoding of the same content). `loads` reads either encoding and takes the\nsame `on_mismatch` as `load`. In JavaScript, `loads(data, { onMismatch })`\ntakes the string or the `Uint8Array` that `dumps` returned.",
+    "examples": [],
+    "doc_path": "functions_dag/loads"
+  },
+  "resume": {
+    "name": "resume",
+    "title": "resume",
+    "kind": "guide",
+    "short": "The batch call that starts from a function's state and keeps the end state.",
+    "tags": [
+      "resume",
+      "warm up",
+      "continue",
+      "save",
+      "state",
+      "panel"
+    ],
+    "see_also": [
+      "load",
+      "from_settings",
+      "Pipeline"
+    ],
+    "topics": [
+      "save-restore"
+    ],
+    "details": "`f.resume(*inputs)` is a batch call that starts from the function's current\nstate and keeps the end state in the function. Every function has it. A\ndefault call, `f(x)`, starts from a fresh state and leaves the function fresh;\n`f.resume(x)` continues instead, so feeding `A` and then `B` with `resume`\ngives the numbers of one call on `A` followed by `B`. It takes the inputs a\ndefault call takes and returns the same shape.\n\nOn a fresh function, `resume` is the warm-up call: it runs the history, after\nwhich the function can be saved with `save`, or fed one value at a time. After\n`load`, it continues from the loaded state.\n\nOn a `(T, K)` array, `resume` keeps one state per column (a panel), saved as\none state per column. The function then takes only `(T, K)` arrays with the\nsame `K`: another `K`, or a call with a single event, raises `ValueError`\nuntil `reset()` or a default batch call drops the panel. A row operator (the\ncross-section operators and the portfolio engines) and `PortfolioReport` are\none object for `K` assets already: their `resume` continues that state, and\nrows of another width raise `ValueError`. In JavaScript the method is\n`f.resume(...inputs)`.",
+    "examples": [],
+    "doc_path": "functions_dag/resume"
+  },
   "EwAlpha": {
     "name": "EwAlpha",
     "title": "Exponentially-weighted alpha",

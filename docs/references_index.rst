@@ -51,6 +51,13 @@ longer guides to backtesting, labels, agents, and JavaScript.
       The trade-signing, order-flow, and price-impact model behind the
       microstructure operators.
 
+   .. grid-item-card:: Save and restore
+      :link: save_restore
+      :link-type: doc
+
+      The save file, the calls that write and read it, the errors, and which
+      files load in a later release.
+
    .. grid-item-card:: Performance
       :link: performance
       :link-type: doc
@@ -108,6 +115,7 @@ longer guides to backtesting, labels, agents, and JavaScript.
    nan_and_warmup
    multistream
    pipelines
+   save_restore
    microstructure
    performance
    conventions

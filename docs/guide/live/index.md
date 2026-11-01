@@ -3,8 +3,8 @@
 The functions that run on a whole array also run one event at a time on a
 live feed. These pages call a function value by value, align feeds that tick
 at different times, wire functions into a pipeline, run them in a live event
-loop, and move a strategy from research to a live loop, in Python and in the
-browser.
+loop, move a strategy from research to a live loop, and save a strategy to
+resume it later, in Python and in the browser.
 
 <!-- tasks:start -->
 
@@ -13,7 +13,8 @@ browser.
 3. [Wire functions into a pipeline](pipeline.md)
 4. [Run functions in a live event loop](live-loop.md)
 5. [Move a strategy from research to a live loop](research-to-live.md)
-6. [Run screamer in the browser](browser.md)
+6. [Save a strategy and resume it later (save, load, state)](save-and-resume.md)
+7. [Run screamer in the browser](browser.md)
 
 ```{toctree}
 :hidden:
@@ -23,6 +24,7 @@ browser.
 /guide/live/pipeline
 /guide/live/live-loop
 /guide/live/research-to-live
+/guide/live/save-and-resume
 /guide/live/browser
 /notebooks/06-streaming-live-events
 /notebooks/07-multi-stream-operators
