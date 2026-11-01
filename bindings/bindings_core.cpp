@@ -9,6 +9,7 @@
 #include "screamer/common/eval_op.h"
 #include "screamer/common/int_settings.h"
 #include "screamer/common/base.h"
+#include "screamer/common/dispatch.h"
 #include "screamer/common/async_generator.h"
 #include "screamer/common/lazy_eval_iterator.h"
 #include "screamer/common/gc.h"
@@ -140,6 +141,14 @@ void init_bindings_core(nb::module_& m) {
     nb::class_<screamer::EvalOp>(m, "EvalOp")
         .def_prop_ro("num_inputs", &screamer::EvalOp::n_in)
         .def_prop_ro("num_outputs", &screamer::EvalOp::n_out)
+        .def("resume", [](screamer::EvalOp& op, nb::args args) {
+            return screamer::resume_call(op, args);
+        }, "Process a batch from the current state and keep the end state.")
+        // The Python classes use this reset, which also drops a panel.
+        .def("reset", [](screamer::EvalOp& op) {
+            op.drop_panel();
+            op.reset();
+        }, "Reset to the initial state.")
         .def("_saveable", &screamer::EvalOp::saveable)
         .def("_save_type", [](const screamer::EvalOp& op) -> nb::object {
             const char* name = op.type_name();

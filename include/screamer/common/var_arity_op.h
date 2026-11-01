@@ -50,8 +50,16 @@ public:
     SCREAMER_NOINLINE
     void eval_column(const double* const* in, const std::ptrdiff_t* in_stride,
                      std::size_t T, double* out, std::ptrdiff_t out_stride) override {
+        static_cast<Derived&>(*this).Derived::reset();
+        VarArityOp::eval_column_resume(in, in_stride, T, out, out_stride);
+    }
+
+    // The step loop from the current state; eval_column runs it after the
+    // reset.
+    SCREAMER_NOINLINE
+    void eval_column_resume(const double* const* in, const std::ptrdiff_t* in_stride,
+                            std::size_t T, double* out, std::ptrdiff_t out_stride) override {
         Derived& self = static_cast<Derived&>(*this);
-        self.Derived::reset();
         const std::size_t n = n_in_;
         std::array<const double*, kMaxColumnInputs> p{};
         std::array<double, kMaxColumnInputs> row{};

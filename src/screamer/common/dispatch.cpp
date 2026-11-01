@@ -1,7 +1,10 @@
 #include "screamer/common/dispatch.h"
 #include "screamer/common/lazy_eval_iterator.h"
+#include "screamer/common/row_op.h"
 #include <nanobind/stl/vector.h>
 #include <limits>
+#include <memory>
+#include <string>
 #include <vector>
 
 namespace screamer {
@@ -25,7 +28,10 @@ nb::object screamer_call(ScreamerBase& self, nb::object raw) {
     // One number event: a float (np.float64 too, a float subclass) skips
     // normalization and routing.
     PyObject* p = raw.ptr();
-    if (PyFloat_Check(p)) return nb::steal(PyFloat_FromDouble(self.process_scalar(PyFloat_AsDouble(p))));
+    if (PyFloat_Check(p)) {
+        self.check_event_call();
+        return nb::steal(PyFloat_FromDouble(self.process_scalar(PyFloat_AsDouble(p))));
+    }
     nb::object obj = normalize_input(raw, self);
     try {
         return screamer_route(self, std::move(obj));
@@ -36,13 +42,16 @@ nb::object screamer_call(ScreamerBase& self, nb::object raw) {
 
 static nb::object screamer_route(ScreamerBase& self, nb::object obj) {
     if (can_cast_to_double(obj)) {
+        self.check_event_call();
         double value;
         // An int too large for a double fails here; name it, not a bad_cast.
         if (!nb::try_cast<double>(obj, value)) throw_unsupported_input(nb::find(self), obj);
         return nb::float_(self.process_scalar(value));
     }
-    if (obj.is_none())                    // a missing value, NaN (R-b)
+    if (obj.is_none()) {                  // a missing value, NaN (R-b)
+        self.check_event_call();
         return nb::float_(self.process_scalar(std::numeric_limits<double>::quiet_NaN()));
+    }
 
     if (is_async_iterable(obj))
         return nb::cast(LazyAsyncIterator(nb::find(self), { obj }));
@@ -75,6 +84,7 @@ static nb::object screamer_route(ScreamerBase& self, nb::object obj) {
             // Rank 0: a 0-d array carries a single sample with no time axis, so
             // it behaves like a scalar - one event in, one scalar out.
             nb::dlpack::dtype dt = arr.dtype();
+            self.check_event_call();
             return nb::float_(self.process_scalar(detail::load_elem(arr.data(), 0, dt)));
         }
         return process_python_array(self, arr);
@@ -88,8 +98,10 @@ static nb::object screamer_route(ScreamerBase& self, nb::object obj) {
         // Checked after is_ndarray so no supported dtype pays for this.
         nb::ndarray<nb::ro> arr = nb::cast<nb::ndarray<nb::ro>>(
             detail::coerce_to_f64(obj, op_display_name(nb::find(self))));
-        if (arr.ndim() == 0)   // a 0-d array is one number
+        if (arr.ndim() == 0) {   // a 0-d array is one number
+            self.check_event_call();
             return nb::float_(self.process_scalar(detail::load_elem(arr.data(), 0, arr.dtype())));
+        }
         return process_python_array(self, arr);
     }
 
@@ -148,6 +160,107 @@ nb::object process_python_array(ScreamerBase& self, nb::ndarray<nb::ro> input) {
                     out.get(), false);
     }
     return detail::make_owned_array(std::move(out), shape::consume_unit_field(shape));
+}
+
+nb::object resume_call(EvalOp& self, const nb::args& raw) {
+    nb::object owner = nb::find(self);
+    const std::string who = op_display_name(owner);
+    if (dynamic_cast<const RowOp*>(&self))
+        throw nb::type_error((who + ".resume: a cross-sectional operator has no resume").c_str());
+    nb::args args = normalize_args(raw, self);
+
+    // Every input as an array with a time axis.
+    nb::object numpy = nb::module_::import_("numpy");
+    std::vector<nb::object> arrays;
+    for (nb::handle a : args) {
+        nb::object x = detail::is_ndarray(a)
+            ? nb::borrow(a) : numpy.attr("asarray")(a, nb::arg("dtype") = "float64");
+        x = detail::coerce_if_unsupported_dtype_array(x, who);
+        if (!is_series_array(x))
+            throw nb::type_error((who + ".resume takes arrays with a time axis; call the "
+                                  "object with one event instead").c_str());
+        arrays.push_back(std::move(x));
+    }
+
+    // The inputs and the result's shape, as the default call reads them.
+    const std::size_t n = self.n_in(), m = self.n_out();
+    std::vector<size_t> shape;
+    std::size_t T = 0, cols = 0;
+    detail::ContigDouble one;
+    detail::NInputs<0> many;
+    if (n == 1) {
+        if (arrays.size() != 1) throw_input_count(who, 1, arrays.size());
+        one = detail::read_double_view(nb::cast<nb::ndarray<nb::ro>>(arrays[0]));
+        shape = shape::consume_unit_field(one.shape);
+        T = one.time();
+        cols = one.cols();
+    } else {
+        if (arrays.size() == 1 && nb::cast<nb::ndarray<nb::ro>>(arrays[0]).ndim() >= 2) {
+            many = detail::read_inputs<0>({ arrays[0] }, n);
+        } else if (arrays.size() == n) {
+            nb::list l;
+            for (const nb::object& x : arrays) l.append(x);
+            many = detail::read_tuple_inputs<0>(owner, nb::tuple(l), n);
+        } else {
+            throw_input_count(who, n, arrays.size());
+        }
+        shape = many.plan.shape;
+        T = many.plan.T;
+        cols = many.plan.columns;
+    }
+    if (m > 1) shape.push_back(m);
+
+    // The operator of each column: the object itself for one series, else
+    // the panel's, made now on the first (T, K) call.
+    std::vector<EvalOp*> ops;
+    std::unique_ptr<serial::Panel> made;
+    const bool panel = shape.size() - (m > 1 ? 1 : 0) > 1;
+    if (!panel) {
+        if (self.has_panel())
+            throw nb::value_error(("resume: object holds " + std::to_string(self.panel_columns()) +
+                                   " columns, got a single series").c_str());
+        ops.push_back(&self);
+    } else if (self.has_panel()) {
+        if (self.panel_columns() != cols)
+            throw nb::value_error(("resume: object holds " + std::to_string(self.panel_columns()) +
+                                   " columns, got " + std::to_string(cols)).c_str());
+        for (const auto& c : self.panel_->cols) ops.push_back(c.get());
+    } else {
+        made = std::make_unique<serial::Panel>();
+        made->cols.reserve(cols);
+        for (std::size_t c = 0; c < cols; ++c) {
+            std::unique_ptr<EvalOp> op = self.clone_fresh();
+            if (!op)
+                throw nb::type_error((who + ".resume: this operator cannot keep per-column state "
+                                      "yet; resume one series at a time").c_str());
+            ops.push_back(op.get());
+            made->cols.push_back(std::move(op));
+        }
+    }
+
+    auto out = detail::new_output(T * cols * m);
+    std::size_t next = 0;   // run_columns runs the columns in order
+    auto run = [&ops, &next](const double* const* x, const std::ptrdiff_t* xs, std::size_t t,
+                             double* y, std::ptrdiff_t ys) {
+        ops[next++]->eval_column_resume(x, xs, t, y, ys);
+    };
+    if (n == 1) {
+        const double* base = one.values();
+        run_columns(run, 1, m, T, cols, &base, &cols,
+                    [](std::size_t, std::size_t c) { return c; }, out.get(), self.tight_column());
+    } else {
+        const shape::Plan& p = many.plan;
+        const double* base[kMaxColumnInputs];
+        for (std::size_t i = 0; i < n; ++i) base[i] = many.data[i];
+        run_columns(run, n, m, T, cols, base, p.time_stride.data(),
+                    [&p](std::size_t i, std::size_t c) { return p.offset[i * p.columns + c]; },
+                    out.get(), self.tight_column());
+    }
+    if (made) {
+        self.reset();
+        self.panel_ = std::move(made);
+    }
+    return detail::make_owned_array(std::move(out), shape);
 }
 
 }  // namespace screamer

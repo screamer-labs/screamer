@@ -22,6 +22,9 @@ public:
     // else through process_array_stride.
     void eval_column(const double* const* in, const std::ptrdiff_t* in_stride,
                      std::size_t T, double* out, std::ptrdiff_t out_stride) override;
+    // The column from the current state, through process_scalar.
+    void eval_column_resume(const double* const* in, const std::ptrdiff_t* in_stride,
+                            std::size_t T, double* out, std::ptrdiff_t out_stride) override;
 
     virtual double process_scalar(double value) = 0;
 

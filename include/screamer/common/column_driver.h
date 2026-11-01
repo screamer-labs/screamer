@@ -82,7 +82,9 @@ inline void scatter_tile(double* out, std::size_t cols, std::size_t c0, std::siz
 // both bindings. Input i of column c starts at base[i] + offset(i, c) and
 // advances by time_stride[i] per step; output column c starts at
 // out + c * n_out and advances by cols * n_out (row-major (T, cols, n_out)).
-// `run(in, in_stride, T, out, out_stride)` is the operator's eval_column.
+// `run(in, in_stride, T, out, out_stride)` is the operator's eval_column; it
+// is called once per column, in column order (a resume of a panel counts the
+// calls to pick each column's operator).
 //
 // A column of a (T, K) array has a stride of K elements, so a long column
 // walked in place touches a new cache line every step, and a tight loop over

@@ -17,6 +17,7 @@
 
 #include <array>
 #include <cstddef>
+#include <memory>
 #include "screamer/arithmetic.h"
 #include "screamer/ofi.h"
 #include "screamer/rolling_sum.h"
@@ -28,9 +29,9 @@ namespace screamer {
 namespace detail {
 
 // A two-input operator that passes its inputs to Base in the reverse order.
-// Every path into the kernel is one of the two overrides: call() for one
-// event (and EvalOp::eval, which calls it) and eval_column() for a batch
-// column. The column swaps its two input pointers and strides, so the batch
+// Every path into the kernel is one of the overrides: call() for one event
+// (and EvalOp::eval, which calls it), and eval_column() and
+// eval_column_resume() for a batch column. The column swaps its two input pointers and strides, so the batch
 // loop runs Base's own inlined kernel with no copy.
 template <class Base>
 class SwapTwoInputs : public Base {
@@ -49,6 +50,20 @@ public:
         const double* const swapped[2] = { in[1], in[0] };
         const std::ptrdiff_t strides[2] = { in_stride[1], in_stride[0] };
         Base::eval_column(swapped, strides, T, out, out_stride);
+    }
+
+    void eval_column_resume(const double* const* in, const std::ptrdiff_t* in_stride,
+                            std::size_t T, double* out, std::ptrdiff_t out_stride) override {
+        const double* const swapped[2] = { in[1], in[0] };
+        const std::ptrdiff_t strides[2] = { in_stride[1], in_stride[0] };
+        Base::eval_column_resume(swapped, strides, T, out, out_stride);
+    }
+
+    // A copy that keeps the swap; Base's would drop it.
+    std::unique_ptr<EvalOp> clone_fresh() const override {
+        auto p = std::make_unique<SwapTwoInputs>(*this);
+        p->reset();
+        return p;
     }
 };
 

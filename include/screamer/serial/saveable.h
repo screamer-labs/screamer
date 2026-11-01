@@ -14,12 +14,15 @@
 // ScreamerBase or RowOp operator derives from Saveable<Op, ScreamerBase> or
 // Saveable<Op, RowOp>. An operator without kStateVersion stays not saveable.
 //
-// The state of an operator is the tree {"version": N, "values": {...}}; a
-// version other than kStateVersion raises StateVersionError. serial/file.h
-// builds and reads the save file.
+// The state of an operator is the tree {"version": N, "values": {...}}, or
+// {"version": N, "columns": [{...}, ...]} for one holding per-column state (a
+// panel, common/eval_op.h): one values object per column. A version other
+// than kStateVersion raises StateVersionError. serial/file.h builds and reads
+// the save file.
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -29,6 +32,7 @@
 #include "screamer/common/json.h"
 #include "screamer/serial/archive.h"
 #include "screamer/serial/errors.h"
+#include "screamer/serial/panel.h"
 
 namespace screamer { namespace serial {
 
@@ -47,14 +51,15 @@ inline json::Value state_node(int version, json::Value values) {
     return v;
 }
 
-// The values of a state tree {"version": N, "values": {...}} of the given
-// version.
-inline const json::Value& state_values(const json::Value& in, int version, const std::string& path) {
+// The body of a state tree of the given version: its "values" object, or its
+// "columns" array when `columns` is set to true.
+inline const json::Value& state_body(const json::Value& in, int version, const std::string& path,
+                                     bool& columns) {
     if (in.kind != json::Value::Kind::Object)
         throw StateMismatch(path, "expected a state {\"version\": N, \"values\": {...}}, got " +
                                       kind_text(in));
     for (const auto& kv : in.o)
-        if (kv.first != "version" && kv.first != "values")
+        if (kv.first != "version" && kv.first != "values" && kv.first != "columns")
             throw StateMismatch(path + "." + kv.first, "unknown field");
     const json::Value* stored = in.get("version");
     if (!stored) throw StateMismatch(path + ".version", "missing field");
@@ -62,8 +67,17 @@ inline const json::Value& state_values(const json::Value& in, int version, const
         throw StateMismatch(path + ".version", "expected an integer, got " + kind_text(*stored));
     if (stored->i != version) throw StateVersionError(path, stored->i, version);
     const json::Value* values = in.get("values");
-    if (!values) throw StateMismatch(path + ".values", "missing field");
-    return *values;
+    const json::Value* cols = in.get("columns");
+    if (values && cols) throw StateMismatch(path + ".columns", "a state holds values or columns, not both");
+    if (values) {
+        columns = false;
+        return *values;
+    }
+    if (!cols) throw StateMismatch(path + ".values", "missing field");
+    if (cols->kind != json::Value::Kind::Array)
+        throw StateMismatch(path + ".columns", "expected an array, got " + kind_text(*cols));
+    columns = true;
+    return *cols;
 }
 
 }  // namespace detail
@@ -97,23 +111,72 @@ public:
 
     void write_state(json::Value& out) const override {
         if constexpr (detail::describes_state<Derived>::value) {
-            Writer w(Derived::kTypeName);
-            const_cast<Derived&>(derived()).state(w);
-            out = detail::state_node(Derived::kStateVersion, w.take());
+            if (this->panel_) {
+                json::Value cols = json::Value::array();
+                cols.a.reserve(this->panel_->cols.size());
+                for (const auto& c : this->panel_->cols)
+                    cols.a.push_back(values_of(static_cast<const Derived&>(*c)));
+                out = json::Value::object();
+                out.o.reserve(2);
+                out.o.emplace_back("version", json::Value::integer(Derived::kStateVersion));
+                out.o.emplace_back("columns", std::move(cols));
+                return;
+            }
+            out = detail::state_node(Derived::kStateVersion, values_of(derived()));
         } else {
             Base::write_state(out);
         }
     }
 
+    // A "values" state loads into the operator and drops a panel it holds; a
+    // "columns" state loads into fresh copies (clone_fresh) that become the
+    // panel, and resets the operator. Nothing changes when any part fails.
     void read_state(const json::Value& in, const std::string& path) override {
         if constexpr (detail::describes_state<Derived>::value) {
-            load_state(derived(), detail::state_values(in, Derived::kStateVersion, path), path);
+            bool columns = false;
+            const json::Value& body = detail::state_body(in, Derived::kStateVersion, path, columns);
+            if (!columns) {
+                load_state(derived(), body, path);
+                this->panel_.reset();
+                return;
+            }
+            auto panel = std::make_unique<Panel>();
+            panel->cols.reserve(body.a.size());
+            for (std::size_t c = 0; c < body.a.size(); ++c) {
+                std::unique_ptr<EvalOp> col = this->clone_fresh();
+                if (!col)
+                    throw StateMismatch(path + ".columns", "the operator cannot hold per-column state");
+                load_state(static_cast<Derived&>(*col), body.a[c],
+                           path + ".columns[" + std::to_string(c) + "]");
+                panel->cols.push_back(std::move(col));
+            }
+            this->reset();
+            this->panel_ = std::move(panel);
         } else {
             Base::read_state(in, path);
         }
     }
 
+    // A copy in its reset state, one column of a panel. The copy is a
+    // Derived: by the CRTP contract an operator derived from Derived only
+    // renames it, or overrides this too (detail::SwapTwoInputs).
+    std::unique_ptr<EvalOp> clone_fresh() const override {
+        if constexpr (std::is_copy_constructible_v<Derived>) {
+            auto p = std::make_unique<Derived>(derived());
+            p->reset();
+            return p;
+        } else {
+            return Base::clone_fresh();
+        }
+    }
+
 private:
+    static json::Value values_of(const Derived& op) {
+        Writer w(Derived::kTypeName);
+        const_cast<Derived&>(op).state(w);
+        return w.take();
+    }
+
     const Derived& derived() const { return static_cast<const Derived&>(*this); }
     Derived& derived() { return static_cast<Derived&>(*this); }
 };

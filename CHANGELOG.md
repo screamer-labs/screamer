@@ -14,6 +14,11 @@ Unreleased
   example, `RollingQuantile(3, 0.5)` fed -1, 5, 7 one value at a time gave
   nan, nan, nan and now gives nan, nan, 5.0, the same as the batch call. Batch
   results are unchanged.
+* **One event as a tuple:** calling a multi-input operator with one event
+  given as a tuple of its inputs, such as `RollingCorr(5)((x, y))`, reset the
+  operator before it ran, so a series fed this way restarted at every event
+  and returned NaN throughout. The event now continues the state, as
+  `RollingCorr(5)(x, y)` does. Batch results are unchanged.
 
 3.10.1 - 2026-11-01
 -------------------

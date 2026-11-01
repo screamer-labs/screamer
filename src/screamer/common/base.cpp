@@ -13,6 +13,13 @@ void ScreamerBase::eval_column(const double* const* in, const std::ptrdiff_t* in
                              static_cast<size_t>(in_stride[0]), T);
 }
 
+void ScreamerBase::eval_column_resume(const double* const* in, const std::ptrdiff_t* in_stride,
+                                      std::size_t T, double* out, std::ptrdiff_t out_stride) {
+    const double* x = in[0];
+    const std::ptrdiff_t xs = in_stride[0];
+    for (std::size_t t = 0; t < T; ++t, x += xs, out += out_stride) *out = process_scalar(*x);
+}
+
 void ScreamerBase::process_array_no_stride(double* result_data, const double* input_data, size_t size) {
     for (size_t i = 0; i < size; i++) {
         result_data[i] = process_scalar(input_data[i]);

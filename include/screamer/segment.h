@@ -18,7 +18,8 @@
 // The batch path finds the segment boundaries on the label column and runs
 // op.eval_column once per segment (eval_column resets op first), so a column
 // costs one pass over the labels plus op's own batch loop; the per-event path
-// runs op.eval. Both leave the same state.
+// runs op.eval. Both leave the same state. A resumed column (no reset) runs
+// the per-event step, which continues the current segment.
 
 #include <array>
 #include <cstddef>
@@ -49,6 +50,13 @@ public:
     // The op is held by pointer; a copy would share its state.
     Segment(const Segment&) = delete;
     Segment& operator=(const Segment&) = delete;
+
+    // A new Segment around a fresh copy of op, for one column of a panel.
+    std::unique_ptr<EvalOp> clone_fresh() const override {
+        std::unique_ptr<EvalOp> op = op_->clone_fresh();
+        if (!op) return nullptr;
+        return std::make_unique<Segment>(std::move(op));
+    }
 
     void reset() override {
         op_->reset();

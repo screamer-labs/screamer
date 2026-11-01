@@ -76,6 +76,8 @@ struct VarArityView {
         return r;
     }
     void reset() { op.reset(); }
+    void drop_panel() { op.drop_panel(); }
+    void check_event_call() const { op.check_event_call(); }
     std::size_t n_in() const { return op.n_in(); }
     std::size_t n_out() const { return op.n_out(); }
     bool tight_column() const { return op.tight_column(); }

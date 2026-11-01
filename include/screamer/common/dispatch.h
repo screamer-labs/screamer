@@ -694,6 +694,13 @@ inline nb::args normalize_args(const nb::args& args, const S& op) {
 nb::object screamer_call(ScreamerBase& self, nb::object obj);
 nb::object process_python_array(ScreamerBase& self, nb::ndarray<nb::ro> input);
 
+// resume(*inputs) of every operator (decision 8 of save and restore): a batch
+// call that starts from the current state and keeps the end state. It takes
+// the arrays a default call takes (a list reads as an array) and returns the
+// same result. On a (T, K) batch each column runs on its own operator of the
+// panel (EvalOp::panel_), made on the first such call.
+nb::object resume_call(EvalOp& self, const nb::args& args);
+
 // ---------------------------------------------------------------------------
 // Relocated FunctorBase dispatch. Was FunctorBase::handle_input* member
 // templates; moved here as free templates parameterized on the operator type
@@ -800,19 +807,34 @@ inline nb::object collect_events(nb::object owner, std::vector<nb::object> sourc
     nb::object it = nb::cast(LazyEvalIterator(
         std::make_unique<EventStepper>(owner, n, /*stream=*/false), std::move(sources)));
     PyObject* out = PySequence_List(it.ptr());
+    nb::cast<EvalOp&>(owner).drop_panel();
     nb::cast<EvalOp&>(owner).reset();
     if (!out) throw nb::python_error();
     return nb::steal(out);
 }
 
+// True when the list or tuple `seq` is not empty and its first item is a
+// number.
+inline bool starts_with_number(nb::handle seq) {
+    if (PySequence_Size(seq.ptr()) <= 0) return false;
+    nb::object first = nb::steal(PySequence_GetItem(seq.ptr(), 0));
+    if (!first.is_valid()) throw nb::python_error();
+    double d;
+    return read_double(first, d);
+}
+
 // An eager list call is an independent run (decision D8): it starts from a
 // reset operator and leaves it reset, like a batch call, also when it fails.
+// It drops the per-column state of a resumed panel (EvalOp::panel_) too.
 // reset() is not noexcept, and a destructor must not throw (it may run while
 // an exception unwinds), so the closing reset swallows its own error.
 template <class Op>
 struct EagerRun {
     Op& op;
-    explicit EagerRun(Op& o) : op(o) { op.reset(); }
+    explicit EagerRun(Op& o) : op(o) {
+        op.drop_panel();
+        op.reset();
+    }
     ~EagerRun() {
         try { op.reset(); } catch (...) {}
     }
@@ -1053,6 +1075,7 @@ nb::object functor_1i_Mo(Op& self, nb::object input) {
     {
         double d;
         if (read_double(input, d)) {
+            self.check_event_call();
             typename Op::InputArray input_array = { d };
             return nb::cast(self.call(input_array));
         }
@@ -1115,6 +1138,7 @@ nb::object functor_1i_1o(Op& self, nb::object input) {
     {
         double d;
         if (read_double(input, d)) {
+            self.check_event_call();
             typename Op::InputArray input_array = { d };
             return nb::cast(self.call(input_array));
         }
@@ -1186,7 +1210,10 @@ nb::object functor_Ni_1o(Op& self, const nb::args& raw_args) {
    // A single argument, list/tuple with N-tuples inside: [ (1,2,3), (4,5,6), ...]
     if (args.size() == 1) {
         nb::object input = nb::borrow<nb::object>(args[0]);
-        if (nb::isinstance<nb::list>(input) || nb::isinstance<nb::tuple>(input)) {
+        // A tuple of N numbers is one event (case 3), not a list of events,
+        // and must not reset the operator.
+        if ((nb::isinstance<nb::list>(input) || nb::isinstance<nb::tuple>(input)) &&
+            !(nb::isinstance<nb::tuple>(input) && starts_with_number(input))) {
             EagerRun<Op> run(self);
             bool valid = true;
             std::vector<typename Op::ResultTuple> results;
@@ -1243,7 +1270,10 @@ nb::object functor_Ni_1o(Op& self, const nb::args& raw_args) {
         for (size_t i = 0; i < N; ++i) {
             if (!read_double(nb::borrow<nb::object>(inputs[i]), array[i])) { ok = false; break; }
         }
-        if (ok) return nb::cast(self.call(array));
+        if (ok) {
+            self.check_event_call();
+            return nb::cast(self.call(array));
+        }
     }
 
     // A list or tuple mixed with arrays, in any position, reads as an array
@@ -1307,7 +1337,10 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
     // [(x0, y0), (x1, y1), ...] -> list of M-tuples
     if (args.size() == 1) {
         nb::object input = nb::borrow<nb::object>(args[0]);
-        if (nb::isinstance<nb::list>(input) || nb::isinstance<nb::tuple>(input)) {
+        // A tuple of N numbers is one event (case 3), not a list of events,
+        // and must not reset the operator.
+        if ((nb::isinstance<nb::list>(input) || nb::isinstance<nb::tuple>(input)) &&
+            !(nb::isinstance<nb::tuple>(input) && starts_with_number(input))) {
             EagerRun<Op> run(self);
             bool valid = true;
             std::vector<typename Op::ResultTuple> results;
@@ -1361,7 +1394,10 @@ nb::object functor_Ni_Mo(Op& self, const nb::args& raw_args) {
         for (size_t i = 0; i < N; ++i) {
             if (!read_double(nb::borrow<nb::object>(inputs[i]), array[i])) { ok = false; break; }
         }
-        if (ok) return nb::cast(self.call(array));
+        if (ok) {
+            self.check_event_call();
+            return nb::cast(self.call(array));
+        }
     }
 
     // A list or tuple mixed with arrays, in any position, reads as an array
@@ -1428,8 +1464,10 @@ nb::object functor_route(Op& self, const nb::args& args) {
 template <class Op>
 nb::object functor_call(Op& self, nb::args raw) {
     // One scalar event: exact numbers skip normalization and routing (D1).
-    if (typename Op::InputArray v; detail::read_scalar_args<Op::kN>(raw, v, in_fields(self)))
+    if (typename Op::InputArray v; detail::read_scalar_args<Op::kN>(raw, v, in_fields(self))) {
+        self.check_event_call();
         return nb::cast(self.call(v));
+    }
     nb::args args = normalize_args(raw, self);
     try {
         return functor_route<Op>(self, args);

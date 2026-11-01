@@ -187,6 +187,15 @@ public:
                                               std::array<size_t, N>{}, 0, T))
                 return;
         }
+        FunctorBase::eval_column_resume(in, in_stride, T, out, out_stride);
+    }
+
+    // The per-sample loop from the current state, with no reset and no
+    // process_columns. eval_column runs it after the reset, so each operator
+    // compiles its loop once.
+    SCREAMER_NOINLINE
+    void eval_column_resume(const double* const* in, const std::ptrdiff_t* in_stride,
+                            std::size_t T, double* out, std::ptrdiff_t out_stride) override {
         run_column(in, in_stride, T, out, out_stride, std::make_index_sequence<N>{});
     }
 

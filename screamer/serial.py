@@ -19,6 +19,13 @@ Every operator has these methods:
 * ``state()`` returns the state, ``{"version": N, "values": {...}}``, and
   ``set_state(d)`` loads one.
 
+A default batch call starts from a reset operator and leaves it reset.
+``resume(data)`` is the batch call that starts from the operator's state and
+keeps the end state, so ``f.resume(history)`` warms ``f`` up for saving or for
+calls with one event at a time. On a (T, K) array ``resume`` keeps one state
+per column, saved as ``{"version": N, "columns": [{...}, ...]}``; a call with
+one event then raises until ``reset()`` or a default batch call drops it.
+
 ``load``, ``loads`` and ``from_settings`` build operators. The C++ core writes
 and reads the files (``include/screamer/serial``), so Python, JavaScript and
 C++ write the same bytes for the same operator. An operator is built through
@@ -184,6 +191,8 @@ def set_state(self, state):
 
 
 def install_methods(cls):
-    """Add the save methods to an operator class."""
+    """Add the save methods to an operator class, and the ``reset`` that also
+    drops the per-column state of a resumed (T, K) batch."""
     for fn in (save, dumps, settings, state, set_state):
         setattr(cls, fn.__name__, fn)
+    cls.reset = _b.EvalOp.reset
