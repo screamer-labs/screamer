@@ -32,7 +32,7 @@ void write_node_state(const N& node, json::Value& out) {
     out = serial::detail::state_node(N::kStateVersion, serial::save_state(node));
 }
 
-// Loads a node's tree: a Validator pass, then a Reader pass, so a tree that
+// Loads a node's tree: a Validate pass, then a Read pass, so a tree that
 // does not fit leaves the node unchanged.
 template <class N>
 void read_node_state(N& node, const json::Value& in, const std::string& path) {

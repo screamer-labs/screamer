@@ -26,11 +26,12 @@
 // template settings(Ar&), which a Writer in settings mode runs; ar.op there
 // writes the nested operator's type and settings.
 //
-// Writer builds the tree (an object, keys in the order listed). Validator
-// checks a tree against the object and leaves the object as it was; Reader
-// assigns the tree's values. load_state() runs both, so a tree that does not
-// fit leaves the object unchanged: every assignment is logged and undone when
-// a later field fails.
+// Writer builds the tree (an object, keys in the order listed). A Loader
+// reads it in two passes: the Validate pass checks the tree against the
+// object and leaves the object as it was, and the Read pass assigns the
+// tree's values. load_state() runs both, so a tree that does not fit leaves
+// the object unchanged: every assignment is logged and undone when a later
+// field fails.
 //
 // A field of the tree that the object does not list ("unknown field"), a
 // listed field the tree lacks ("missing field"), a value of another type or
@@ -206,16 +207,21 @@ private:
     std::vector<std::function<void()>> steps_;
 };
 
-// Validator (Commit false) and Reader (Commit true): the same walk over the
-// tree; a Validator undoes its assignments at the end.
-template <bool Commit>
+// The archive of a load. A load walks the tree twice with the same Loader
+// type, so each state() is compiled once for loading: a Validate pass, which
+// undoes its assignments at the end, then a Read pass, which keeps them.
 class Loader {
 public:
     static constexpr bool kSaving = false;
     static constexpr bool kLoading = true;
 
+    enum class Pass { Validate, Read };
+
     // `tree` is the object holding the fields; `path` names it in messages.
-    Loader(const json::Value& tree, std::string path) : Loader(tree, std::move(path), nullptr) {}
+    Loader(const json::Value& tree, std::string path, Pass pass)
+        : Loader(tree, std::move(path), nullptr) {
+        commit_ = pass == Pass::Read;
+    }
 
     Loader(const Loader&) = delete;
     Loader& operator=(const Loader&) = delete;
@@ -313,9 +319,9 @@ public:
             if (!used_[k]) throw StateMismatch(path_ + "." + tree_.o[k].first, "unknown field");
     }
 
-    // Ends the load: a Validator restores the object, a Reader keeps it.
+    // Ends the load: a Validate pass restores the object, a Read pass keeps it.
     void done() {
-        if (Commit) own_.clear();
+        if (commit_) own_.clear();
         else own_.undo();
     }
     // Restores the object after a failed load.
@@ -345,6 +351,7 @@ private:
     UndoLog own_;
     UndoLog* undo_;
     std::vector<bool> used_;
+    bool commit_ = false;
 };
 
 }  // namespace detail
@@ -436,9 +443,6 @@ private:
     Mode mode_;
 };
 
-using Validator = detail::Loader<false>;
-using Reader = detail::Loader<true>;
-
 // The tree of `obj`'s state(). The Writer only reads the members, but state()
 // is one non-const template for every archive.
 template <class T>
@@ -448,13 +452,14 @@ json::Value save_state(const T& obj) {
     return w.take();
 }
 
-// Loads `tree` into `obj` through its state(): a Validator pass, then a Reader
+// Loads `tree` into `obj` through its state(): a Validate pass, then a Read
 // pass. Raises StateMismatch (or the error of a nested operator) naming the
 // path of the field, and then leaves `obj` unchanged.
 template <class T>
 void load_state(T& obj, const json::Value& tree, const std::string& path) {
+    using detail::Loader;
     {
-        Validator v(tree, path);
+        Loader v(tree, path, Loader::Pass::Validate);
         try {
             obj.state(v);
             v.finish();
@@ -464,7 +469,7 @@ void load_state(T& obj, const json::Value& tree, const std::string& path) {
         }
         v.done();
     }
-    Reader r(tree, path);
+    Loader r(tree, path, Loader::Pass::Read);
     try {
         obj.state(r);
         r.finish();
