@@ -35,8 +35,34 @@
 
 namespace screamer {
 
-class RollingVarianceRatio : public ScreamerBase {
+class RollingVarianceRatio : public serial::Saveable<RollingVarianceRatio, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "RollingVarianceRatio";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", w_);
+        ar("lag", q_);
+        ar("output", std::string(zscore_ ? "zscore" : "ratio"));
+        ar("start_policy", std::string(detail::start_policy_name(policy_)));
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        // The ring as stored (slot `head` is written next) and the samples in
+        // it; the deviations are scratch space.
+        const std::size_t W = ring_.size();
+        ar.fixed("buffer", ring_, W);
+        ar("head", head_);
+        ar("count", count_);
+        ar.check(head_ < W, "head must be below window_size");
+        ar.check(count_ <= W, "count must be at most window_size");
+        ar.check(count_ == W || head_ == count_, "head must equal count until the window is full");
+        ar.check(policy_ != detail::StartPolicy::Zero || count_ == W,
+                 "count must equal window_size under the zero start policy");
+    }
+
     static bool parse_output(const std::string& s) {
         if (s == "ratio") return false;
         if (s == "zscore") return true;

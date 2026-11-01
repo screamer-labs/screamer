@@ -34,7 +34,7 @@ namespace screamer {
 namespace detail {
 
 template <class Derived>
-class SeasonalMomentsOp : public ScreamerBase {
+class SeasonalMomentsOp : public serial::Saveable<Derived, ScreamerBase> {
 protected:
     using Sums = ShiftedWindowSums<2>;
     using State = Sums::State;
@@ -58,6 +58,23 @@ public:
     void reset() override {
         for (Sums& s : slots_) s.reset();
         slot_ = 0;
+    }
+
+    // Derived adds kTypeName and kStateVersion.
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("period", static_cast<int>(slots_.size()));
+        ar("window_size", window_size_);
+        ar("start_policy", std::string(start_policy_name(start_policy_)));
+    }
+
+    // The window of each slot of the period, and the slot of the next
+    // sample.
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.objects("slots", slots_);
+        ar("slot", slot_);
+        ar.check(slot_ < slots_.size(), "slot must be below period");
     }
 
     double process_scalar(double x) override {
@@ -87,6 +104,9 @@ protected:
 
 class RollingSeasonalMean : public detail::SeasonalMomentsOp<RollingSeasonalMean> {
 public:
+    static constexpr const char* kTypeName = "RollingSeasonalMean";
+    static constexpr int kStateVersion = 1;
+
     RollingSeasonalMean(int period = 24, int window_size = 20,
                         const std::string& start_policy = "strict")
         : SeasonalMomentsOp(period, window_size, start_policy, 1) {}
@@ -99,6 +119,9 @@ public:
 
 class RollingSeasonalStd : public detail::SeasonalMomentsOp<RollingSeasonalStd> {
 public:
+    static constexpr const char* kTypeName = "RollingSeasonalStd";
+    static constexpr int kStateVersion = 1;
+
     RollingSeasonalStd(int period = 24, int window_size = 20,
                        const std::string& start_policy = "strict")
         : SeasonalMomentsOp(period, window_size, start_policy, 2) {}
@@ -112,6 +135,9 @@ public:
 
 class RollingSeasonalZscore : public detail::SeasonalMomentsOp<RollingSeasonalZscore> {
 public:
+    static constexpr const char* kTypeName = "RollingSeasonalZscore";
+    static constexpr int kStateVersion = 1;
+
     RollingSeasonalZscore(int period = 24, int window_size = 20,
                           const std::string& start_policy = "strict")
         : SeasonalMomentsOp(period, window_size, start_policy, 2) {}

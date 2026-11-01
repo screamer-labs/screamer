@@ -91,7 +91,44 @@ public:
         if (bv < 0.0) bv = 0.0;     // a residue of the sliding sum
     }
 
+    int window_size() const { return window_size_; }
+    StartPolicy start_policy() const { return policy_; }
+
+    // The two sliding sums, the rings of nonzero flags with their slots and
+    // counts, the samples seen (up to window_size) and the last |r|.
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("pairs", pairs_);
+        ar.object("squares", squares_);
+        ar.fixed("square_nonzero", square_nz_, square_nz_.size());
+        ar.fixed("pair_nonzero", pair_nz_, pair_nz_.size());
+        ar("square_pos", square_pos_);
+        ar("pair_pos", pair_pos_);
+        ar("square_count", square_count_);
+        ar("pair_count", pair_count_);
+        ar("n", n_);
+        ar("has_prev", has_prev_);
+        ar("prev_abs", prev_abs_);
+        ar.check(square_pos_ < square_nz_.size(), "square_pos must be below window_size");
+        ar.check(pair_pos_ < pair_nz_.size(), "pair_pos must be below window_size - 1");
+        ar.check(square_count_ == count_set(square_nz_),
+                 "square_count must equal the nonzero flags of square_nonzero");
+        ar.check(pair_count_ == count_set(pair_nz_),
+                 "pair_count must equal the nonzero flags of pair_nonzero");
+        ar.check(n_ <= static_cast<std::size_t>(window_size_), "n must be at most window_size");
+    }
+
 private:
+    // The flags set in a ring; a flag other than 0 or 1 does not count.
+    static std::size_t count_set(const std::vector<unsigned char>& ring) {
+        std::size_t n = 0;
+        for (unsigned char f : ring) {
+            if (f > 1) return static_cast<std::size_t>(-1);
+            n += f;
+        }
+        return n;
+    }
+
     // Ring of "term was nonzero" flags with a running count.
     static void track(std::vector<unsigned char>& ring, std::size_t& pos,
                       std::size_t& count, bool nonzero) {
@@ -113,8 +150,22 @@ private:
 
 }  // namespace detail
 
-class RollingBipowerVar : public ScreamerBase {
+class RollingBipowerVar : public serial::Saveable<RollingBipowerVar, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "RollingBipowerVar";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", window_.window_size());
+        ar("start_policy", std::string(detail::start_policy_name(window_.start_policy())));
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        window_.state(ar);
+    }
+
     RollingBipowerVar(int window_size = 20, const std::string& start_policy = "strict")
         : window_(window_size, start_policy) {}
 
@@ -131,8 +182,22 @@ private:
     detail::BipowerWindow window_;
 };
 
-class RollingJumpShare : public ScreamerBase {
+class RollingJumpShare : public serial::Saveable<RollingJumpShare, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "RollingJumpShare";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", window_.window_size());
+        ar("start_policy", std::string(detail::start_policy_name(window_.start_policy())));
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        window_.state(ar);
+    }
+
     RollingJumpShare(int window_size = 20, const std::string& start_policy = "strict")
         : window_(window_size, start_policy) {}
 

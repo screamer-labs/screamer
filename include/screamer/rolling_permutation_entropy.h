@@ -40,8 +40,45 @@
 
 namespace screamer {
 
-class RollingPermutationEntropy : public ScreamerBase {
+class RollingPermutationEntropy : public serial::Saveable<RollingPermutationEntropy, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "RollingPermutationEntropy";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", static_cast<int>(W_));
+        ar("order", m_);
+        ar("delay", tau_);
+        ar("start_policy", std::string(detail::start_policy_name(policy_)));
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        // The value ring (slot `vhead` is written next), the pattern code ring
+        // (slot `chead`), the count of each code, its sum of n log n and the
+        // distinct codes.
+        const std::size_t V = values_.size();
+        ar.fixed("values", values_, V);
+        ar.fixed("codes", codes_, W_);
+        ar.fixed("counts", counts_, n_codes_);
+        ar("vhead", vhead_);
+        ar("nvalues", nvalues_);
+        ar("chead", chead_);
+        ar("ncodes", ncodes_);
+        ar("since_exact", since_exact_);
+        ar("distinct", distinct_);
+        ar("S", S_);
+        ar.check(vhead_ < V, "vhead must be below (order - 1) * delay + 1");
+        ar.check(nvalues_ <= V, "nvalues must be at most (order - 1) * delay + 1");
+        ar.check(nvalues_ == V || vhead_ == nvalues_, "vhead must equal nvalues until the ring is full");
+        ar.check(chead_ < W_, "chead must be below window_size");
+        ar.check(ncodes_ <= W_, "ncodes must be at most window_size");
+        ar.check(ncodes_ == W_ || chead_ == ncodes_, "chead must equal ncodes until the window is full");
+        ar.check(since_exact_ < W_, "since_exact must be below window_size");
+        ar.check(counts_match(), "counts must count the codes in the window, and distinct the codes seen");
+    }
+
     RollingPermutationEntropy(int window_size = 100, int order = 3, int delay = 1,
                               const std::string& start_policy = "strict")
         : W_(check(window_size, order, delay)), m_(order), tau_(delay),
@@ -177,6 +214,19 @@ private:
         const double w = static_cast<double>(ncodes_);
         const double h = (nlogn_[ncodes_] - S_) / (w * log_norm_);
         return h < 0.0 ? 0.0 : (h > 1.0 ? 1.0 : h);
+    }
+
+    // The load check of state(): every code in range, counts_ the histogram
+    // of the first ncodes_ codes, distinct_ its nonzero entries.
+    bool counts_match() const {
+        std::vector<std::size_t> h(n_codes_, 0);
+        for (std::size_t i = 0; i < ncodes_; ++i) {
+            if (codes_[i] >= n_codes_) return false;
+            ++h[codes_[i]];
+        }
+        std::size_t d = 0;
+        for (std::size_t c = 0; c < n_codes_; ++c) d += h[c] != 0 ? 1 : 0;
+        return h == counts_ && d == distinct_;
     }
 
     static constexpr std::int64_t kMaxSpan = std::int64_t{1} << 24;

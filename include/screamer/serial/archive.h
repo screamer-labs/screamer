@@ -10,6 +10,7 @@
 //       ar("sums", sums_);                      // a std::vector of those
 //       ar.fixed("buffer", buf_, window_size_); // a vector of a given length
 //       ar.object("deque", deque_);             // a member with its own state()
+//       ar.objects("slots", slots_);            // a vector of those, same length
 //       ar.op("inner", *op_);                   // a nested operator
 //       ar.check(count_ <= window_size_, "count must be at most window_size");
 //   }
@@ -232,6 +233,21 @@ public:
         sub.finish();
     }
 
+    template <class V>
+    void objects(const char* name, V& blocks) {
+        const json::Value& arr = take(name);
+        const std::string where = at(name);
+        if (arr.kind != json::Value::Kind::Array) mismatch(where, "an array", arr);
+        if (arr.a.size() != blocks.size())
+            throw StateMismatch(where, "expected " + std::to_string(blocks.size()) + " objects, got " +
+                                           std::to_string(arr.a.size()));
+        for (std::size_t k = 0; k < blocks.size(); ++k) {
+            Loader sub(arr.a[k], where + "[" + std::to_string(k) + "]", undo_);
+            blocks[k].state(sub);
+            sub.finish();
+        }
+    }
+
     template <class Op>
     void op(const char* name, Op& nested) {
         const json::Value& tree = take(name);
@@ -356,6 +372,18 @@ public:
         Writer sub(at(name), mode_);
         block.state(sub);
         tree_.o.emplace_back(name, sub.take());
+    }
+
+    template <class V>
+    void objects(const char* name, V& blocks) {
+        json::Value a = json::Value::array();
+        a.a.reserve(blocks.size());
+        for (std::size_t k = 0; k < blocks.size(); ++k) {
+            Writer sub(at(name) + "[" + std::to_string(k) + "]", mode_);
+            blocks[k].state(sub);
+            a.a.push_back(sub.take());
+        }
+        tree_.o.emplace_back(name, std::move(a));
     }
 
     // A nested operator: its state node, or in settings mode

@@ -226,6 +226,7 @@ public:
     void set_state(const State& st) { st_ = st; }
     // Samples in the window, zero padding included.
     std::size_t count() const { return st_.count; }
+    std::size_t capacity() const { return capacity_; }
 
     // The ring as stored (slot `index` is written next), the shifted sums
     // and the time sums, the origin, and the steps since the last
@@ -471,6 +472,7 @@ public:
     };
     Cursor cursor() { return Cursor{st_, bx_.data(), by_.data(), capacity_}; }
     void set_state(const State& st) { st_ = st; }
+    std::size_t capacity() const { return capacity_; }
 
     // As ShiftedWindowSums::state: the rings (x only without kLagged), the
     // sums, the origins and, with kLagged, the lag ends.

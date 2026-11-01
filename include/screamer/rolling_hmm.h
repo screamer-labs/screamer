@@ -55,6 +55,70 @@ namespace screamer {
 
 class RollingHMM : public FunctorBase<RollingHMM, 1, 3> {
 public:
+    static constexpr const char* kTypeName = "RollingHMM";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", static_cast<int>(W_));
+        ar("refit_every", refit_every_);
+        ar("emission", std::string(ar1_ ? "ar1" : "gaussian"));
+        ar("max_iter", max_iter_);
+        ar("tol", tol_);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        // The window oldest first (count values; a load places it from slot 0),
+        // the refit clock, the filtered state probabilities and the fitted
+        // parameters. The other buffers are scratch space of a fit.
+        std::vector<double> window;
+        if constexpr (Ar::kSaving) {
+            const std::size_t start = count_ == W_ ? head_ : 0;
+            for (std::size_t i = 0; i < count_; ++i) window.push_back(buf_[(start + i) % W_]);
+        }
+        ar.local("window", window);
+        ar("since", since_);
+        ar("fitted", fitted_);
+        ar("prev", prev_);
+        Params th = th_;
+        std::vector<double> p(p_, p_ + 2), pi(th.pi, th.pi + 2), mu(th.mu, th.mu + 2),
+            phi(th.phi, th.phi + 2), var(th.var, th.var + 2), logv(th.logv, th.logv + 2),
+            a{th.A[0][0], th.A[0][1], th.A[1][0], th.A[1][1]};
+        ar.local("p", p, 2);
+        ar.local("pi", pi, 2);
+        ar.local("A", a, 4);
+        ar.local("mu", mu, 2);
+        ar.local("phi", phi, 2);
+        ar.local("var", var, 2);
+        ar.local("logv", logv, 2);
+        if constexpr (Ar::kLoading) {
+            const std::size_t n = window.size();
+            ar.check(n <= W_, "window must hold at most window_size values");
+            ar.check(since_ >= 0 && since_ < refit_every_, "since must lie in 0 .. refit_every - 1");
+            ar.check(!fitted_ || n == W_, "a fitted model must have a full window");
+            for (int k = 0; k < 2; ++k) {
+                th.pi[k] = pi[k];
+                th.mu[k] = mu[k];
+                th.phi[k] = phi[k];
+                th.var[k] = var[k];
+                th.logv[k] = logv[k];
+            }
+            th.A[0][0] = a[0];
+            th.A[0][1] = a[1];
+            th.A[1][0] = a[2];
+            th.A[1][1] = a[3];
+            std::vector<double> buf(W_, 0.0);
+            std::copy(window.begin(), window.end(), buf.begin());
+            ar.set(buf_, std::move(buf));
+            ar.set(head_, n == W_ ? std::size_t{0} : n);
+            ar.set(count_, n);
+            ar.set(p_[0], p[0]);
+            ar.set(p_[1], p[1]);
+            ar.set(th_, th);
+        }
+    }
+
     // The batch column loop calls call() out of line, the same code as a
     // per-event call: inlined, the compiler may contract the multiply-adds
     // differently and the last bits of batch and per-event output differ.

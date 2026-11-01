@@ -34,6 +34,21 @@ class BollingerBands : public StepperFunctorBase<BollingerBands, 1, 3> {
     using Sums = detail::ShiftedWindowSums<2>;
 
 public:
+    static constexpr const char* kTypeName = "BollingerBands";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", static_cast<int>(sums_.capacity()));
+        ar("num_std", num_std_);
+        ar("start_policy", std::string(detail::start_policy_name(start_policy_)));
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("window", sums_);
+    }
+
     BollingerBands(int window_size,
                    double num_std = 2.0,
                    const std::string& start_policy = "strict")

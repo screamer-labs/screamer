@@ -48,10 +48,28 @@
 
 namespace screamer {
 
-class RollingOU : public ScreamerBase {
+class RollingOU : public serial::Saveable<RollingOU, ScreamerBase> {
     using Sums = detail::ShiftedWindowCoSums<true>;
 
 public:
+    static constexpr const char* kTypeName = "RollingOU";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", static_cast<int>(sums_.capacity()) + 1);
+        ar("output", std::string(kOutputs[output_]));
+        ar("start_policy", std::string(detail::start_policy_name(start_policy_)));
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("window", sums_);
+        ar("has_prev", has_prev_);
+        ar.check(start_policy_ != detail::StartPolicy::Zero || has_prev_,
+                 "has_prev must be true under the zero start policy");
+    }
+
     static int parse_output(const std::string& s) {
         if (s == "mrr")     return 0;
         if (s == "mean")    return 1;
@@ -167,6 +185,7 @@ private:
     }
 
     const int output_;
+    static constexpr const char* kOutputs[] = {"mrr", "mean", "relmean", "std"};
     const detail::StartPolicy start_policy_;
     Sums sums_;
     bool has_prev_ = false;

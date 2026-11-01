@@ -47,7 +47,7 @@ namespace detail {
 // The window of returns with sum r^2 and sum r^P (P = 3 or 4). Derived
 // supplies double value(const State&) const for the current window.
 template <class Derived, int P>
-class RealizedMomentsOp : public ScreamerBase {
+class RealizedMomentsOp : public serial::Saveable<Derived, ScreamerBase> {
     static_assert(P == 3 || P == 4, "RealizedMomentsOp: P is 3 or 4");
 
 protected:
@@ -72,6 +72,33 @@ public:
         std::fill(buf_.begin(), buf_.end(), 0.0);
         st_ = State{};
         if (policy_ == StartPolicy::Zero) st_.count = buf_.size();
+    }
+
+    // Derived adds kTypeName and kStateVersion.
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", static_cast<int>(buf_.size()));
+        ar("start_policy", std::string(start_policy_name(policy_)));
+    }
+
+    // The ring as stored (slot `pos` is written next), the two power sums,
+    // the returns in the window and the steps since the last recompute.
+    template <class Ar>
+    void state(Ar& ar) {
+        const std::size_t cap = buf_.size();
+        ar.fixed("buffer", buf_, cap);
+        ar("s2", st_.s2);
+        ar("sp", st_.sp);
+        ar("count", st_.count);
+        ar("pos", st_.pos);
+        ar("since", st_.since);
+        ar.check(st_.pos < cap, "pos must be below window_size");
+        ar.check(st_.count <= cap, "count must be at most window_size");
+        ar.check(st_.count == cap || st_.pos == st_.count,
+                 "pos must equal count until the window is full");
+        ar.check(policy_ != StartPolicy::Zero || st_.count == cap,
+                 "count must equal window_size under the zero start policy");
+        ar.check(st_.since < cap, "since must be below window_size");
     }
 
     double process_scalar(double x) override {
@@ -204,6 +231,9 @@ private:
 class RollingRealizedSkew
     : public detail::RealizedMomentsOp<RollingRealizedSkew, 3> {
 public:
+    static constexpr const char* kTypeName = "RollingRealizedSkew";
+    static constexpr int kStateVersion = 1;
+
     RollingRealizedSkew(int window_size = 20, const std::string& start_policy = "strict")
         : RealizedMomentsOp(window_size, start_policy) {}
 
@@ -217,6 +247,9 @@ public:
 class RollingRealizedKurt
     : public detail::RealizedMomentsOp<RollingRealizedKurt, 4> {
 public:
+    static constexpr const char* kTypeName = "RollingRealizedKurt";
+    static constexpr int kStateVersion = 1;
+
     RollingRealizedKurt(int window_size = 20, const std::string& start_policy = "strict")
         : RealizedMomentsOp(window_size, start_policy) {}
 

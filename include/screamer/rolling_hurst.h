@@ -34,8 +34,29 @@ namespace screamer {
 // pi as a constant of the language (M_PI is POSIX, not standard C++).
 inline constexpr double kHurstPi = 3.14159265358979323846;
 
-class RollingHurst : public ScreamerBase {
+class RollingHurst : public serial::Saveable<RollingHurst, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "RollingHurst";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", window_size_);
+        ar("min_scale", min_scale_);
+        ar("method", method_);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.fixed("buffer", buffer_, static_cast<std::size_t>(window_size_));
+        ar("index", index_);
+        ar("count", size_);
+        ar.check(index_ >= 0 && index_ < window_size_, "index must lie in 0 .. window_size - 1");
+        ar.check(size_ >= 0 && size_ <= window_size_, "count must lie in 0 .. window_size");
+        ar.check(size_ == window_size_ || index_ == size_,
+                 "index must equal count until the window is full");
+    }
+
     explicit RollingHurst(int window_size = 256,
                           int min_scale = 4,
                           const std::string& method = "rs")
