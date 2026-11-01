@@ -251,7 +251,8 @@ namespace {
 using screamer::json::Value;
 using screamer::serial::SaveError;
 
-// The setting of an operator (type, its parameter `name`) in errors.
+// An operator's setting in errors: `type` is the operator's label (its type
+// at the top of a file, else the setting that holds it), `name` the setting.
 [[noreturn]] SCREAMER_NOINLINE void wrong(const char* type, const char* name, const char* expected,
                                           const Value& got) {
     throw SaveError(std::string(type) + ".settings." + name + ": expected " + expected + ", got " +
@@ -325,16 +326,14 @@ SCREAMER_NOINLINE screamer::OpArg read_op(const Value& v, const char* type, cons
     return screamer::OpArg::owning(screamer::serial::make_op(t->s, *settings, where));
 }
 
-using Maker = std::unique_ptr<screamer::EvalOp> (*)(const Value&);
+using Maker = std::unique_ptr<screamer::EvalOp> (*)(const Value&, const char*);
 
-std::unique_ptr<screamer::EvalOp> make_AD(const Value& s) {
-    static const char* const T = "AD";
+std::unique_ptr<screamer::EvalOp> make_AD(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::AD>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_ADOSC(const Value& s) {
-    static const char* const T = "ADOSC";
+std::unique_ptr<screamer::EvalOp> make_ADOSC(const Value& s, const char* T) {
     static const char* const N[] = {"fast", "slow"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -343,8 +342,7 @@ std::unique_ptr<screamer::EvalOp> make_ADOSC(const Value& s) {
         v[1] ? read_int(*v[1], T, N[1]) : 10);
 }
 
-std::unique_ptr<screamer::EvalOp> make_ADX(const Value& s) {
-    static const char* const T = "ADX";
+std::unique_ptr<screamer::EvalOp> make_ADX(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -352,8 +350,7 @@ std::unique_ptr<screamer::EvalOp> make_ADX(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 14);
 }
 
-std::unique_ptr<screamer::EvalOp> make_ADXR(const Value& s) {
-    static const char* const T = "ADXR";
+std::unique_ptr<screamer::EvalOp> make_ADXR(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -361,8 +358,7 @@ std::unique_ptr<screamer::EvalOp> make_ADXR(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 14);
 }
 
-std::unique_ptr<screamer::EvalOp> make_ATR(const Value& s) {
-    static const char* const T = "ATR";
+std::unique_ptr<screamer::EvalOp> make_ATR(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -370,8 +366,7 @@ std::unique_ptr<screamer::EvalOp> make_ATR(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 14);
 }
 
-std::unique_ptr<screamer::EvalOp> make_AbdiRanaldoSpread(const Value& s) {
-    static const char* const T = "AbdiRanaldoSpread";
+std::unique_ptr<screamer::EvalOp> make_AbdiRanaldoSpread(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "start_policy"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -380,26 +375,22 @@ std::unique_ptr<screamer::EvalOp> make_AbdiRanaldoSpread(const Value& s) {
         v[1] ? read_string(*v[1], T, N[1]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_Abs(const Value& s) {
-    static const char* const T = "Abs";
+std::unique_ptr<screamer::EvalOp> make_Abs(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Transform<(double (*)(double)) std::abs>>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_Acos(const Value& s) {
-    static const char* const T = "Acos";
+std::unique_ptr<screamer::EvalOp> make_Acos(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Transform<(double (*)(double)) std::acos>>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_Add(const Value& s) {
-    static const char* const T = "Add";
+std::unique_ptr<screamer::EvalOp> make_Add(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Add>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_AmihudIlliquidity(const Value& s) {
-    static const char* const T = "AmihudIlliquidity";
+std::unique_ptr<screamer::EvalOp> make_AmihudIlliquidity(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "start_policy"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -408,38 +399,32 @@ std::unique_ptr<screamer::EvalOp> make_AmihudIlliquidity(const Value& s) {
         v[1] ? read_string(*v[1], T, N[1]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_And(const Value& s) {
-    static const char* const T = "And";
+std::unique_ptr<screamer::EvalOp> make_And(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::And>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_Asin(const Value& s) {
-    static const char* const T = "Asin";
+std::unique_ptr<screamer::EvalOp> make_Asin(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Transform<(double (*)(double)) std::asin>>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_Atan(const Value& s) {
-    static const char* const T = "Atan";
+std::unique_ptr<screamer::EvalOp> make_Atan(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Transform<(double (*)(double)) std::atan>>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_Atan2(const Value& s) {
-    static const char* const T = "Atan2";
+std::unique_ptr<screamer::EvalOp> make_Atan2(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Atan2>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_BOP(const Value& s) {
-    static const char* const T = "BOP";
+std::unique_ptr<screamer::EvalOp> make_BOP(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::BOP>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_BacktestCarry(const Value& s) {
-    static const char* const T = "BacktestCarry";
+std::unique_ptr<screamer::EvalOp> make_BacktestCarry(const Value& s, const char* T) {
     static const char* const N[] = {"multiplier"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -447,8 +432,7 @@ std::unique_ptr<screamer::EvalOp> make_BacktestCarry(const Value& s) {
         v[0] ? read_double(*v[0], T, N[0]) : 1.0);
 }
 
-std::unique_ptr<screamer::EvalOp> make_BacktestL1Orders(const Value& s) {
-    static const char* const T = "BacktestL1Orders";
+std::unique_ptr<screamer::EvalOp> make_BacktestL1Orders(const Value& s, const char* T) {
     static const char* const N[] = {"maker_fee", "taker_fee", "fill", "participation_ratio", "tick_size", "min_position", "max_position", "multiplier", "maker_fee_per_contract", "taker_fee_per_contract", "slippage", "slippage_unit"};
     const Value* v[12];
     collect(s, T, N, 12, v);
@@ -467,8 +451,7 @@ std::unique_ptr<screamer::EvalOp> make_BacktestL1Orders(const Value& s) {
         v[11] ? read_string(*v[11], T, N[11]) : "fraction");
 }
 
-std::unique_ptr<screamer::EvalOp> make_BacktestL1Target(const Value& s) {
-    static const char* const T = "BacktestL1Target";
+std::unique_ptr<screamer::EvalOp> make_BacktestL1Target(const Value& s, const char* T) {
     static const char* const N[] = {"taker_fee", "tick_size", "min_position", "max_position", "multiplier", "fee_per_contract", "slippage", "slippage_unit", "stop_loss", "take_profit", "trailing_stop", "size", "initial_capital", "rebalance_band"};
     const Value* v[14];
     collect(s, T, N, 14, v);
@@ -489,8 +472,7 @@ std::unique_ptr<screamer::EvalOp> make_BacktestL1Target(const Value& s) {
         v[13] ? read_double(*v[13], T, N[13]) : 0.0);
 }
 
-std::unique_ptr<screamer::EvalOp> make_BacktestL1TradesOrders(const Value& s) {
-    static const char* const T = "BacktestL1TradesOrders";
+std::unique_ptr<screamer::EvalOp> make_BacktestL1TradesOrders(const Value& s, const char* T) {
     static const char* const N[] = {"maker_fee", "taker_fee", "fill", "participation_ratio", "tick_size", "min_position", "max_position", "multiplier", "maker_fee_per_contract", "taker_fee_per_contract", "slippage", "slippage_unit"};
     const Value* v[12];
     collect(s, T, N, 12, v);
@@ -509,8 +491,7 @@ std::unique_ptr<screamer::EvalOp> make_BacktestL1TradesOrders(const Value& s) {
         v[11] ? read_string(*v[11], T, N[11]) : "fraction");
 }
 
-std::unique_ptr<screamer::EvalOp> make_BacktestOHLCOrders(const Value& s) {
-    static const char* const T = "BacktestOHLCOrders";
+std::unique_ptr<screamer::EvalOp> make_BacktestOHLCOrders(const Value& s, const char* T) {
     static const char* const N[] = {"maker_fee", "taker_fee", "fill", "participation_ratio", "tick_size", "min_position", "max_position", "multiplier", "maker_fee_per_contract", "taker_fee_per_contract", "slippage", "slippage_unit"};
     const Value* v[12];
     collect(s, T, N, 12, v);
@@ -529,8 +510,7 @@ std::unique_ptr<screamer::EvalOp> make_BacktestOHLCOrders(const Value& s) {
         v[11] ? read_string(*v[11], T, N[11]) : "fraction");
 }
 
-std::unique_ptr<screamer::EvalOp> make_BacktestOHLCTarget(const Value& s) {
-    static const char* const T = "BacktestOHLCTarget";
+std::unique_ptr<screamer::EvalOp> make_BacktestOHLCTarget(const Value& s, const char* T) {
     static const char* const N[] = {"taker_fee", "tick_size", "min_position", "max_position", "multiplier", "fee_per_contract", "slippage", "slippage_unit", "fill_at", "delay", "stop_loss", "take_profit", "trailing_stop", "size", "initial_capital", "rebalance_band"};
     const Value* v[16];
     collect(s, T, N, 16, v);
@@ -553,8 +533,7 @@ std::unique_ptr<screamer::EvalOp> make_BacktestOHLCTarget(const Value& s) {
         v[15] ? read_double(*v[15], T, N[15]) : 0.0);
 }
 
-std::unique_ptr<screamer::EvalOp> make_BacktestOHLCVTarget(const Value& s) {
-    static const char* const T = "BacktestOHLCVTarget";
+std::unique_ptr<screamer::EvalOp> make_BacktestOHLCVTarget(const Value& s, const char* T) {
     static const char* const N[] = {"max_participation", "taker_fee", "tick_size", "min_position", "max_position", "multiplier", "fee_per_contract", "slippage", "slippage_unit", "fill_at", "delay", "stop_loss", "take_profit", "trailing_stop", "size", "initial_capital", "rebalance_band"};
     const Value* v[17];
     collect(s, T, N, 17, v);
@@ -578,8 +557,7 @@ std::unique_ptr<screamer::EvalOp> make_BacktestOHLCVTarget(const Value& s) {
         v[16] ? read_double(*v[16], T, N[16]) : 0.0);
 }
 
-std::unique_ptr<screamer::EvalOp> make_BacktestPortfolioOHLCTarget(const Value& s) {
-    static const char* const T = "BacktestPortfolioOHLCTarget";
+std::unique_ptr<screamer::EvalOp> make_BacktestPortfolioOHLCTarget(const Value& s, const char* T) {
     static const char* const N[] = {"fee", "slippage", "slippage_unit", "tick_size", "multiplier", "fee_per_contract", "size", "initial_capital", "rebalance_band", "rebalance", "max_gross", "max_net", "fill_at", "delay"};
     const Value* v[14];
     collect(s, T, N, 14, v);
@@ -600,8 +578,7 @@ std::unique_ptr<screamer::EvalOp> make_BacktestPortfolioOHLCTarget(const Value& 
         v[13] ? read_int(*v[13], T, N[13]) : 1);
 }
 
-std::unique_ptr<screamer::EvalOp> make_BacktestPortfolioTarget(const Value& s) {
-    static const char* const T = "BacktestPortfolioTarget";
+std::unique_ptr<screamer::EvalOp> make_BacktestPortfolioTarget(const Value& s, const char* T) {
     static const char* const N[] = {"fee", "slippage", "slippage_unit", "tick_size", "multiplier", "fee_per_contract", "size", "initial_capital", "rebalance_band", "rebalance", "max_gross", "max_net"};
     const Value* v[12];
     collect(s, T, N, 12, v);
@@ -620,8 +597,7 @@ std::unique_ptr<screamer::EvalOp> make_BacktestPortfolioTarget(const Value& s) {
         v[11] ? read_double(*v[11], T, N[11]) : std::numeric_limits<double>::infinity());
 }
 
-std::unique_ptr<screamer::EvalOp> make_BacktestPriceTarget(const Value& s) {
-    static const char* const T = "BacktestPriceTarget";
+std::unique_ptr<screamer::EvalOp> make_BacktestPriceTarget(const Value& s, const char* T) {
     static const char* const N[] = {"spread", "fee", "min_position", "max_position", "multiplier", "fee_per_contract", "slippage", "slippage_unit", "tick_size", "stop_loss", "take_profit", "trailing_stop", "size", "initial_capital", "rebalance_band"};
     const Value* v[15];
     collect(s, T, N, 15, v);
@@ -643,8 +619,7 @@ std::unique_ptr<screamer::EvalOp> make_BacktestPriceTarget(const Value& s) {
         v[14] ? read_double(*v[14], T, N[14]) : 0.0);
 }
 
-std::unique_ptr<screamer::EvalOp> make_BacktestReport(const Value& s) {
-    static const char* const T = "BacktestReport";
+std::unique_ptr<screamer::EvalOp> make_BacktestReport(const Value& s, const char* T) {
     static const char* const N[] = {"periods_per_year"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -652,8 +627,7 @@ std::unique_ptr<screamer::EvalOp> make_BacktestReport(const Value& s) {
         v[0] ? read_double(*v[0], T, N[0]) : 1.0);
 }
 
-std::unique_ptr<screamer::EvalOp> make_BacktestStats(const Value& s) {
-    static const char* const T = "BacktestStats";
+std::unique_ptr<screamer::EvalOp> make_BacktestStats(const Value& s, const char* T) {
     static const char* const N[] = {"periods_per_year"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -661,8 +635,7 @@ std::unique_ptr<screamer::EvalOp> make_BacktestStats(const Value& s) {
         v[0] ? read_double(*v[0], T, N[0]) : 1.0);
 }
 
-std::unique_ptr<screamer::EvalOp> make_BacktestTradesOrders(const Value& s) {
-    static const char* const T = "BacktestTradesOrders";
+std::unique_ptr<screamer::EvalOp> make_BacktestTradesOrders(const Value& s, const char* T) {
     static const char* const N[] = {"maker_fee", "taker_fee", "fill", "participation_ratio", "tick_size", "min_position", "max_position", "multiplier", "maker_fee_per_contract", "taker_fee_per_contract", "slippage", "slippage_unit"};
     const Value* v[12];
     collect(s, T, N, 12, v);
@@ -681,8 +654,7 @@ std::unique_ptr<screamer::EvalOp> make_BacktestTradesOrders(const Value& s) {
         v[11] ? read_string(*v[11], T, N[11]) : "fraction");
 }
 
-std::unique_ptr<screamer::EvalOp> make_BacktestTradesTarget(const Value& s) {
-    static const char* const T = "BacktestTradesTarget";
+std::unique_ptr<screamer::EvalOp> make_BacktestTradesTarget(const Value& s, const char* T) {
     static const char* const N[] = {"taker_fee", "tick_size", "min_position", "max_position", "multiplier", "fee_per_contract", "slippage", "slippage_unit", "stop_loss", "take_profit", "trailing_stop", "size", "initial_capital", "rebalance_band", "max_participation"};
     const Value* v[15];
     collect(s, T, N, 15, v);
@@ -704,8 +676,7 @@ std::unique_ptr<screamer::EvalOp> make_BacktestTradesTarget(const Value& s) {
         v[14] ? read_double(*v[14], T, N[14]) : std::numeric_limits<double>::infinity());
 }
 
-std::unique_ptr<screamer::EvalOp> make_BandSignal(const Value& s) {
-    static const char* const T = "BandSignal";
+std::unique_ptr<screamer::EvalOp> make_BandSignal(const Value& s, const char* T) {
     static const char* const N[] = {"entry", "exit", "stop"};
     const Value* v[3];
     collect(s, T, N, 3, v);
@@ -715,8 +686,7 @@ std::unique_ptr<screamer::EvalOp> make_BandSignal(const Value& s) {
         v[2] ? read_double(*v[2], T, N[2]) : std::numeric_limits<double>::infinity());
 }
 
-std::unique_ptr<screamer::EvalOp> make_BayesianChangepoint(const Value& s) {
-    static const char* const T = "BayesianChangepoint";
+std::unique_ptr<screamer::EvalOp> make_BayesianChangepoint(const Value& s, const char* T) {
     static const char* const N[] = {"expected_run", "max_run", "prior_var"};
     const Value* v[3];
     collect(s, T, N, 3, v);
@@ -726,8 +696,7 @@ std::unique_ptr<screamer::EvalOp> make_BayesianChangepoint(const Value& s) {
         v[2] ? read_double(*v[2], T, N[2]) : 1.0);
 }
 
-std::unique_ptr<screamer::EvalOp> make_BayesianRegression(const Value& s) {
-    static const char* const T = "BayesianRegression";
+std::unique_ptr<screamer::EvalOp> make_BayesianRegression(const Value& s, const char* T) {
     static const char* const N[] = {"com", "span", "halflife", "alpha", "prior_precision", "prior_sigma"};
     const Value* v[6];
     collect(s, T, N, 6, v);
@@ -740,8 +709,7 @@ std::unique_ptr<screamer::EvalOp> make_BayesianRegression(const Value& s) {
         v[5] ? read_double(*v[5], T, N[5]) : 1.0);
 }
 
-std::unique_ptr<screamer::EvalOp> make_BollingerBands(const Value& s) {
-    static const char* const T = "BollingerBands";
+std::unique_ptr<screamer::EvalOp> make_BollingerBands(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "num_std", "start_policy"};
     const Value* v[3];
     collect(s, T, N, 3, v);
@@ -751,8 +719,7 @@ std::unique_ptr<screamer::EvalOp> make_BollingerBands(const Value& s) {
         v[2] ? read_string(*v[2], T, N[2]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_BulkVolumeClassifier(const Value& s) {
-    static const char* const T = "BulkVolumeClassifier";
+std::unique_ptr<screamer::EvalOp> make_BulkVolumeClassifier(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "start_policy"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -761,8 +728,7 @@ std::unique_ptr<screamer::EvalOp> make_BulkVolumeClassifier(const Value& s) {
         v[1] ? read_string(*v[1], T, N[1]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_Butter(const Value& s) {
-    static const char* const T = "Butter";
+std::unique_ptr<screamer::EvalOp> make_Butter(const Value& s, const char* T) {
     static const char* const N[] = {"order", "cutoff_freq", "start_policy"};
     const Value* v[3];
     collect(s, T, N, 3, v);
@@ -772,8 +738,7 @@ std::unique_ptr<screamer::EvalOp> make_Butter(const Value& s) {
         v[2] ? read_string(*v[2], T, N[2]) : "steady");
 }
 
-std::unique_ptr<screamer::EvalOp> make_ButterBandpass(const Value& s) {
-    static const char* const T = "ButterBandpass";
+std::unique_ptr<screamer::EvalOp> make_ButterBandpass(const Value& s, const char* T) {
     static const char* const N[] = {"order", "low_cutoff", "high_cutoff", "start_policy"};
     const Value* v[4];
     collect(s, T, N, 4, v);
@@ -784,8 +749,7 @@ std::unique_ptr<screamer::EvalOp> make_ButterBandpass(const Value& s) {
         v[3] ? read_string(*v[3], T, N[3]) : "steady");
 }
 
-std::unique_ptr<screamer::EvalOp> make_ButterBandstop(const Value& s) {
-    static const char* const T = "ButterBandstop";
+std::unique_ptr<screamer::EvalOp> make_ButterBandstop(const Value& s, const char* T) {
     static const char* const N[] = {"order", "low_cutoff", "high_cutoff", "start_policy"};
     const Value* v[4];
     collect(s, T, N, 4, v);
@@ -796,8 +760,7 @@ std::unique_ptr<screamer::EvalOp> make_ButterBandstop(const Value& s) {
         v[3] ? read_string(*v[3], T, N[3]) : "steady");
 }
 
-std::unique_ptr<screamer::EvalOp> make_ButterHighpass(const Value& s) {
-    static const char* const T = "ButterHighpass";
+std::unique_ptr<screamer::EvalOp> make_ButterHighpass(const Value& s, const char* T) {
     static const char* const N[] = {"order", "cutoff_freq", "start_policy"};
     const Value* v[3];
     collect(s, T, N, 3, v);
@@ -807,8 +770,7 @@ std::unique_ptr<screamer::EvalOp> make_ButterHighpass(const Value& s) {
         v[2] ? read_string(*v[2], T, N[2]) : "steady");
 }
 
-std::unique_ptr<screamer::EvalOp> make_CCI(const Value& s) {
-    static const char* const T = "CCI";
+std::unique_ptr<screamer::EvalOp> make_CCI(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -816,20 +778,17 @@ std::unique_ptr<screamer::EvalOp> make_CCI(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 14);
 }
 
-std::unique_ptr<screamer::EvalOp> make_Cart2Polar(const Value& s) {
-    static const char* const T = "Cart2Polar";
+std::unique_ptr<screamer::EvalOp> make_Cart2Polar(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Cart2Polar>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_Ceil(const Value& s) {
-    static const char* const T = "Ceil";
+std::unique_ptr<screamer::EvalOp> make_Ceil(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Transform<(double (*)(double)) std::ceil>>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_Clip(const Value& s) {
-    static const char* const T = "Clip";
+std::unique_ptr<screamer::EvalOp> make_Clip(const Value& s, const char* T) {
     static const char* const N[] = {"lower", "upper"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -838,14 +797,12 @@ std::unique_ptr<screamer::EvalOp> make_Clip(const Value& s) {
         v[1] ? read_optional(*v[1], T, N[1]) : std::optional<double>());
 }
 
-std::unique_ptr<screamer::EvalOp> make_ContOFI(const Value& s) {
-    static const char* const T = "ContOFI";
+std::unique_ptr<screamer::EvalOp> make_ContOFI(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::ContOFI>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_CorwinSchultzSpread(const Value& s) {
-    static const char* const T = "CorwinSchultzSpread";
+std::unique_ptr<screamer::EvalOp> make_CorwinSchultzSpread(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "adjust_overnight", "start_policy"};
     const Value* v[3];
     collect(s, T, N, 3, v);
@@ -855,20 +812,17 @@ std::unique_ptr<screamer::EvalOp> make_CorwinSchultzSpread(const Value& s) {
         v[2] ? read_string(*v[2], T, N[2]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_Cos(const Value& s) {
-    static const char* const T = "Cos";
+std::unique_ptr<screamer::EvalOp> make_Cos(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Transform<(double (*)(double)) std::cos>>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_CrossDemean(const Value& s) {
-    static const char* const T = "CrossDemean";
+std::unique_ptr<screamer::EvalOp> make_CrossDemean(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::CrossDemean>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_CrossNormalize(const Value& s) {
-    static const char* const T = "CrossNormalize";
+std::unique_ptr<screamer::EvalOp> make_CrossNormalize(const Value& s, const char* T) {
     static const char* const N[] = {"gross", "net"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -877,8 +831,7 @@ std::unique_ptr<screamer::EvalOp> make_CrossNormalize(const Value& s) {
         v[1] ? read_optional(*v[1], T, N[1]) : std::optional<double>());
 }
 
-std::unique_ptr<screamer::EvalOp> make_CrossRank(const Value& s) {
-    static const char* const T = "CrossRank";
+std::unique_ptr<screamer::EvalOp> make_CrossRank(const Value& s, const char* T) {
     static const char* const N[] = {"scale"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -886,8 +839,7 @@ std::unique_ptr<screamer::EvalOp> make_CrossRank(const Value& s) {
         v[0] ? read_string(*v[0], T, N[0]) : "signed");
 }
 
-std::unique_ptr<screamer::EvalOp> make_CrossStd(const Value& s) {
-    static const char* const T = "CrossStd";
+std::unique_ptr<screamer::EvalOp> make_CrossStd(const Value& s, const char* T) {
     static const char* const N[] = {"ddof"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -895,8 +847,7 @@ std::unique_ptr<screamer::EvalOp> make_CrossStd(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 1);
 }
 
-std::unique_ptr<screamer::EvalOp> make_CrossTopBottom(const Value& s) {
-    static const char* const T = "CrossTopBottom";
+std::unique_ptr<screamer::EvalOp> make_CrossTopBottom(const Value& s, const char* T) {
     static const char* const N[] = {"count"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -904,8 +855,7 @@ std::unique_ptr<screamer::EvalOp> make_CrossTopBottom(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 1);
 }
 
-std::unique_ptr<screamer::EvalOp> make_CrossWinsorize(const Value& s) {
-    static const char* const T = "CrossWinsorize";
+std::unique_ptr<screamer::EvalOp> make_CrossWinsorize(const Value& s, const char* T) {
     static const char* const N[] = {"lower", "upper"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -914,44 +864,37 @@ std::unique_ptr<screamer::EvalOp> make_CrossWinsorize(const Value& s) {
         v[1] ? read_double(*v[1], T, N[1]) : 0.95);
 }
 
-std::unique_ptr<screamer::EvalOp> make_CrossZscore(const Value& s) {
-    static const char* const T = "CrossZscore";
+std::unique_ptr<screamer::EvalOp> make_CrossZscore(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::CrossZscore>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_Cube(const Value& s) {
-    static const char* const T = "Cube";
+std::unique_ptr<screamer::EvalOp> make_Cube(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Transform<(double (*)(double)) screamer::cube>>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_CumMax(const Value& s) {
-    static const char* const T = "CumMax";
+std::unique_ptr<screamer::EvalOp> make_CumMax(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::CumMax>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_CumMin(const Value& s) {
-    static const char* const T = "CumMin";
+std::unique_ptr<screamer::EvalOp> make_CumMin(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::CumMin>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_CumProd(const Value& s) {
-    static const char* const T = "CumProd";
+std::unique_ptr<screamer::EvalOp> make_CumProd(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::CumProd>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_CumSum(const Value& s) {
-    static const char* const T = "CumSum";
+std::unique_ptr<screamer::EvalOp> make_CumSum(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::CumSum>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_CusumFilter(const Value& s) {
-    static const char* const T = "CusumFilter";
+std::unique_ptr<screamer::EvalOp> make_CusumFilter(const Value& s, const char* T) {
     static const char* const N[] = {"threshold", "drift"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -960,32 +903,27 @@ std::unique_ptr<screamer::EvalOp> make_CusumFilter(const Value& s) {
         v[1] ? read_double(*v[1], T, N[1]) : 0.0);
 }
 
-std::unique_ptr<screamer::EvalOp> make_CycleAmplitude(const Value& s) {
-    static const char* const T = "CycleAmplitude";
+std::unique_ptr<screamer::EvalOp> make_CycleAmplitude(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::CycleAmplitude>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_CycleFrequency(const Value& s) {
-    static const char* const T = "CycleFrequency";
+std::unique_ptr<screamer::EvalOp> make_CycleFrequency(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::CycleFrequency>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_CyclePhase(const Value& s) {
-    static const char* const T = "CyclePhase";
+std::unique_ptr<screamer::EvalOp> make_CyclePhase(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::CyclePhase>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_CycleSine(const Value& s) {
-    static const char* const T = "CycleSine";
+std::unique_ptr<screamer::EvalOp> make_CycleSine(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::CycleSine>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_DEMA(const Value& s) {
-    static const char* const T = "DEMA";
+std::unique_ptr<screamer::EvalOp> make_DEMA(const Value& s, const char* T) {
     static const char* const N[] = {"com", "span", "halflife", "alpha"};
     const Value* v[4];
     collect(s, T, N, 4, v);
@@ -996,8 +934,7 @@ std::unique_ptr<screamer::EvalOp> make_DEMA(const Value& s) {
         v[3] ? read_optional(*v[3], T, N[3]) : std::optional<double>());
 }
 
-std::unique_ptr<screamer::EvalOp> make_DX(const Value& s) {
-    static const char* const T = "DX";
+std::unique_ptr<screamer::EvalOp> make_DX(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -1005,8 +942,7 @@ std::unique_ptr<screamer::EvalOp> make_DX(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 14);
 }
 
-std::unique_ptr<screamer::EvalOp> make_Decycler(const Value& s) {
-    static const char* const T = "Decycler";
+std::unique_ptr<screamer::EvalOp> make_Decycler(const Value& s, const char* T) {
     static const char* const N[] = {"period", "cutoff", "start_policy"};
     const Value* v[3];
     collect(s, T, N, 3, v);
@@ -1016,8 +952,7 @@ std::unique_ptr<screamer::EvalOp> make_Decycler(const Value& s) {
         v[2] ? read_string(*v[2], T, N[2]) : "steady");
 }
 
-std::unique_ptr<screamer::EvalOp> make_Detrend(const Value& s) {
-    static const char* const T = "Detrend";
+std::unique_ptr<screamer::EvalOp> make_Detrend(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "start_policy"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -1026,8 +961,7 @@ std::unique_ptr<screamer::EvalOp> make_Detrend(const Value& s) {
         v[1] ? read_string(*v[1], T, N[1]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_Diff(const Value& s) {
-    static const char* const T = "Diff";
+std::unique_ptr<screamer::EvalOp> make_Diff(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "start_policy"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -1036,8 +970,7 @@ std::unique_ptr<screamer::EvalOp> make_Diff(const Value& s) {
         v[1] ? read_string(*v[1], T, N[1]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_Diff2(const Value& s) {
-    static const char* const T = "Diff2";
+std::unique_ptr<screamer::EvalOp> make_Diff2(const Value& s, const char* T) {
     static const char* const N[] = {"start_policy"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -1045,20 +978,17 @@ std::unique_ptr<screamer::EvalOp> make_Diff2(const Value& s) {
         v[0] ? read_string(*v[0], T, N[0]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_Div(const Value& s) {
-    static const char* const T = "Div";
+std::unique_ptr<screamer::EvalOp> make_Div(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Div>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_DominantCycle(const Value& s) {
-    static const char* const T = "DominantCycle";
+std::unique_ptr<screamer::EvalOp> make_DominantCycle(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::DominantCycle>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_DonchianChannels(const Value& s) {
-    static const char* const T = "DonchianChannels";
+std::unique_ptr<screamer::EvalOp> make_DonchianChannels(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -1066,14 +996,12 @@ std::unique_ptr<screamer::EvalOp> make_DonchianChannels(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 20);
 }
 
-std::unique_ptr<screamer::EvalOp> make_Drawdown(const Value& s) {
-    static const char* const T = "Drawdown";
+std::unique_ptr<screamer::EvalOp> make_Drawdown(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Drawdown>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_EdgeSpread(const Value& s) {
-    static const char* const T = "EdgeSpread";
+std::unique_ptr<screamer::EvalOp> make_EdgeSpread(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "sign", "start_policy"};
     const Value* v[3];
     collect(s, T, N, 3, v);
@@ -1083,38 +1011,32 @@ std::unique_ptr<screamer::EvalOp> make_EdgeSpread(const Value& s) {
         v[2] ? read_string(*v[2], T, N[2]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_EffectiveSpread(const Value& s) {
-    static const char* const T = "EffectiveSpread";
+std::unique_ptr<screamer::EvalOp> make_EffectiveSpread(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::EffectiveSpread>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_Elu(const Value& s) {
-    static const char* const T = "Elu";
+std::unique_ptr<screamer::EvalOp> make_Elu(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Transform<(double (*)(double)) screamer::elu>>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_Equal(const Value& s) {
-    static const char* const T = "Equal";
+std::unique_ptr<screamer::EvalOp> make_Equal(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Equal>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_Erf(const Value& s) {
-    static const char* const T = "Erf";
+std::unique_ptr<screamer::EvalOp> make_Erf(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Transform<(double (*)(double)) std::erf>>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_Erfc(const Value& s) {
-    static const char* const T = "Erfc";
+std::unique_ptr<screamer::EvalOp> make_Erfc(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Transform<(double (*)(double)) std::erfc>>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_EwAlpha(const Value& s) {
-    static const char* const T = "EwAlpha";
+std::unique_ptr<screamer::EvalOp> make_EwAlpha(const Value& s, const char* T) {
     static const char* const N[] = {"com", "span", "halflife", "alpha"};
     const Value* v[4];
     collect(s, T, N, 4, v);
@@ -1125,8 +1047,7 @@ std::unique_ptr<screamer::EvalOp> make_EwAlpha(const Value& s) {
         v[3] ? read_optional(*v[3], T, N[3]) : std::optional<double>());
 }
 
-std::unique_ptr<screamer::EvalOp> make_EwBeta(const Value& s) {
-    static const char* const T = "EwBeta";
+std::unique_ptr<screamer::EvalOp> make_EwBeta(const Value& s, const char* T) {
     static const char* const N[] = {"com", "span", "halflife", "alpha"};
     const Value* v[4];
     collect(s, T, N, 4, v);
@@ -1137,8 +1058,7 @@ std::unique_ptr<screamer::EvalOp> make_EwBeta(const Value& s) {
         v[3] ? read_optional(*v[3], T, N[3]) : std::optional<double>());
 }
 
-std::unique_ptr<screamer::EvalOp> make_EwCorr(const Value& s) {
-    static const char* const T = "EwCorr";
+std::unique_ptr<screamer::EvalOp> make_EwCorr(const Value& s, const char* T) {
     static const char* const N[] = {"com", "span", "halflife", "alpha"};
     const Value* v[4];
     collect(s, T, N, 4, v);
@@ -1149,8 +1069,7 @@ std::unique_ptr<screamer::EvalOp> make_EwCorr(const Value& s) {
         v[3] ? read_optional(*v[3], T, N[3]) : std::optional<double>());
 }
 
-std::unique_ptr<screamer::EvalOp> make_EwCov(const Value& s) {
-    static const char* const T = "EwCov";
+std::unique_ptr<screamer::EvalOp> make_EwCov(const Value& s, const char* T) {
     static const char* const N[] = {"com", "span", "halflife", "alpha"};
     const Value* v[4];
     collect(s, T, N, 4, v);
@@ -1161,8 +1080,7 @@ std::unique_ptr<screamer::EvalOp> make_EwCov(const Value& s) {
         v[3] ? read_optional(*v[3], T, N[3]) : std::optional<double>());
 }
 
-std::unique_ptr<screamer::EvalOp> make_EwGarmanKlassVar(const Value& s) {
-    static const char* const T = "EwGarmanKlassVar";
+std::unique_ptr<screamer::EvalOp> make_EwGarmanKlassVar(const Value& s, const char* T) {
     static const char* const N[] = {"com", "span", "halflife", "alpha"};
     const Value* v[4];
     collect(s, T, N, 4, v);
@@ -1173,8 +1091,7 @@ std::unique_ptr<screamer::EvalOp> make_EwGarmanKlassVar(const Value& s) {
         v[3] ? read_optional(*v[3], T, N[3]) : std::optional<double>());
 }
 
-std::unique_ptr<screamer::EvalOp> make_EwGarmanKlassVol(const Value& s) {
-    static const char* const T = "EwGarmanKlassVol";
+std::unique_ptr<screamer::EvalOp> make_EwGarmanKlassVol(const Value& s, const char* T) {
     static const char* const N[] = {"com", "span", "halflife", "alpha"};
     const Value* v[4];
     collect(s, T, N, 4, v);
@@ -1185,8 +1102,7 @@ std::unique_ptr<screamer::EvalOp> make_EwGarmanKlassVol(const Value& s) {
         v[3] ? read_optional(*v[3], T, N[3]) : std::optional<double>());
 }
 
-std::unique_ptr<screamer::EvalOp> make_EwKurt(const Value& s) {
-    static const char* const T = "EwKurt";
+std::unique_ptr<screamer::EvalOp> make_EwKurt(const Value& s, const char* T) {
     static const char* const N[] = {"com", "span", "halflife", "alpha"};
     const Value* v[4];
     collect(s, T, N, 4, v);
@@ -1197,8 +1113,7 @@ std::unique_ptr<screamer::EvalOp> make_EwKurt(const Value& s) {
         v[3] ? read_optional(*v[3], T, N[3]) : std::optional<double>());
 }
 
-std::unique_ptr<screamer::EvalOp> make_EwKyleLambda(const Value& s) {
-    static const char* const T = "EwKyleLambda";
+std::unique_ptr<screamer::EvalOp> make_EwKyleLambda(const Value& s, const char* T) {
     static const char* const N[] = {"com", "span", "halflife", "alpha"};
     const Value* v[4];
     collect(s, T, N, 4, v);
@@ -1209,8 +1124,7 @@ std::unique_ptr<screamer::EvalOp> make_EwKyleLambda(const Value& s) {
         v[3] ? read_optional(*v[3], T, N[3]) : std::optional<double>());
 }
 
-std::unique_ptr<screamer::EvalOp> make_EwMean(const Value& s) {
-    static const char* const T = "EwMean";
+std::unique_ptr<screamer::EvalOp> make_EwMean(const Value& s, const char* T) {
     static const char* const N[] = {"com", "span", "halflife", "alpha"};
     const Value* v[4];
     collect(s, T, N, 4, v);
@@ -1221,8 +1135,7 @@ std::unique_ptr<screamer::EvalOp> make_EwMean(const Value& s) {
         v[3] ? read_optional(*v[3], T, N[3]) : std::optional<double>());
 }
 
-std::unique_ptr<screamer::EvalOp> make_EwMultiRegression(const Value& s) {
-    static const char* const T = "EwMultiRegression";
+std::unique_ptr<screamer::EvalOp> make_EwMultiRegression(const Value& s, const char* T) {
     static const char* const N[] = {"n_regressors", "intercept", "com", "span", "halflife", "alpha"};
     const Value* v[6];
     collect(s, T, N, 6, v);
@@ -1235,8 +1148,7 @@ std::unique_ptr<screamer::EvalOp> make_EwMultiRegression(const Value& s) {
         v[5] ? read_optional(*v[5], T, N[5]) : std::optional<double>());
 }
 
-std::unique_ptr<screamer::EvalOp> make_EwParkinsonVar(const Value& s) {
-    static const char* const T = "EwParkinsonVar";
+std::unique_ptr<screamer::EvalOp> make_EwParkinsonVar(const Value& s, const char* T) {
     static const char* const N[] = {"com", "span", "halflife", "alpha"};
     const Value* v[4];
     collect(s, T, N, 4, v);
@@ -1247,8 +1159,7 @@ std::unique_ptr<screamer::EvalOp> make_EwParkinsonVar(const Value& s) {
         v[3] ? read_optional(*v[3], T, N[3]) : std::optional<double>());
 }
 
-std::unique_ptr<screamer::EvalOp> make_EwParkinsonVol(const Value& s) {
-    static const char* const T = "EwParkinsonVol";
+std::unique_ptr<screamer::EvalOp> make_EwParkinsonVol(const Value& s, const char* T) {
     static const char* const N[] = {"com", "span", "halflife", "alpha"};
     const Value* v[4];
     collect(s, T, N, 4, v);
@@ -1259,8 +1170,7 @@ std::unique_ptr<screamer::EvalOp> make_EwParkinsonVol(const Value& s) {
         v[3] ? read_optional(*v[3], T, N[3]) : std::optional<double>());
 }
 
-std::unique_ptr<screamer::EvalOp> make_EwResidualStd(const Value& s) {
-    static const char* const T = "EwResidualStd";
+std::unique_ptr<screamer::EvalOp> make_EwResidualStd(const Value& s, const char* T) {
     static const char* const N[] = {"com", "span", "halflife", "alpha"};
     const Value* v[4];
     collect(s, T, N, 4, v);
@@ -1271,8 +1181,7 @@ std::unique_ptr<screamer::EvalOp> make_EwResidualStd(const Value& s) {
         v[3] ? read_optional(*v[3], T, N[3]) : std::optional<double>());
 }
 
-std::unique_ptr<screamer::EvalOp> make_EwRms(const Value& s) {
-    static const char* const T = "EwRms";
+std::unique_ptr<screamer::EvalOp> make_EwRms(const Value& s, const char* T) {
     static const char* const N[] = {"com", "span", "halflife", "alpha"};
     const Value* v[4];
     collect(s, T, N, 4, v);
@@ -1283,8 +1192,7 @@ std::unique_ptr<screamer::EvalOp> make_EwRms(const Value& s) {
         v[3] ? read_optional(*v[3], T, N[3]) : std::optional<double>());
 }
 
-std::unique_ptr<screamer::EvalOp> make_EwRogersSatchellVar(const Value& s) {
-    static const char* const T = "EwRogersSatchellVar";
+std::unique_ptr<screamer::EvalOp> make_EwRogersSatchellVar(const Value& s, const char* T) {
     static const char* const N[] = {"com", "span", "halflife", "alpha"};
     const Value* v[4];
     collect(s, T, N, 4, v);
@@ -1295,8 +1203,7 @@ std::unique_ptr<screamer::EvalOp> make_EwRogersSatchellVar(const Value& s) {
         v[3] ? read_optional(*v[3], T, N[3]) : std::optional<double>());
 }
 
-std::unique_ptr<screamer::EvalOp> make_EwRogersSatchellVol(const Value& s) {
-    static const char* const T = "EwRogersSatchellVol";
+std::unique_ptr<screamer::EvalOp> make_EwRogersSatchellVol(const Value& s, const char* T) {
     static const char* const N[] = {"com", "span", "halflife", "alpha"};
     const Value* v[4];
     collect(s, T, N, 4, v);
@@ -1307,8 +1214,7 @@ std::unique_ptr<screamer::EvalOp> make_EwRogersSatchellVol(const Value& s) {
         v[3] ? read_optional(*v[3], T, N[3]) : std::optional<double>());
 }
 
-std::unique_ptr<screamer::EvalOp> make_EwSkew(const Value& s) {
-    static const char* const T = "EwSkew";
+std::unique_ptr<screamer::EvalOp> make_EwSkew(const Value& s, const char* T) {
     static const char* const N[] = {"com", "span", "halflife", "alpha"};
     const Value* v[4];
     collect(s, T, N, 4, v);
@@ -1319,8 +1225,7 @@ std::unique_ptr<screamer::EvalOp> make_EwSkew(const Value& s) {
         v[3] ? read_optional(*v[3], T, N[3]) : std::optional<double>());
 }
 
-std::unique_ptr<screamer::EvalOp> make_EwSpread(const Value& s) {
-    static const char* const T = "EwSpread";
+std::unique_ptr<screamer::EvalOp> make_EwSpread(const Value& s, const char* T) {
     static const char* const N[] = {"com", "span", "halflife", "alpha"};
     const Value* v[4];
     collect(s, T, N, 4, v);
@@ -1331,8 +1236,7 @@ std::unique_ptr<screamer::EvalOp> make_EwSpread(const Value& s) {
         v[3] ? read_optional(*v[3], T, N[3]) : std::optional<double>());
 }
 
-std::unique_ptr<screamer::EvalOp> make_EwStd(const Value& s) {
-    static const char* const T = "EwStd";
+std::unique_ptr<screamer::EvalOp> make_EwStd(const Value& s, const char* T) {
     static const char* const N[] = {"com", "span", "halflife", "alpha"};
     const Value* v[4];
     collect(s, T, N, 4, v);
@@ -1343,8 +1247,7 @@ std::unique_ptr<screamer::EvalOp> make_EwStd(const Value& s) {
         v[3] ? read_optional(*v[3], T, N[3]) : std::optional<double>());
 }
 
-std::unique_ptr<screamer::EvalOp> make_EwVar(const Value& s) {
-    static const char* const T = "EwVar";
+std::unique_ptr<screamer::EvalOp> make_EwVar(const Value& s, const char* T) {
     static const char* const N[] = {"com", "span", "halflife", "alpha"};
     const Value* v[4];
     collect(s, T, N, 4, v);
@@ -1355,8 +1258,7 @@ std::unique_ptr<screamer::EvalOp> make_EwVar(const Value& s) {
         v[3] ? read_optional(*v[3], T, N[3]) : std::optional<double>());
 }
 
-std::unique_ptr<screamer::EvalOp> make_EwYangZhangVar(const Value& s) {
-    static const char* const T = "EwYangZhangVar";
+std::unique_ptr<screamer::EvalOp> make_EwYangZhangVar(const Value& s, const char* T) {
     static const char* const N[] = {"com", "span", "halflife", "alpha"};
     const Value* v[4];
     collect(s, T, N, 4, v);
@@ -1367,8 +1269,7 @@ std::unique_ptr<screamer::EvalOp> make_EwYangZhangVar(const Value& s) {
         v[3] ? read_optional(*v[3], T, N[3]) : std::optional<double>());
 }
 
-std::unique_ptr<screamer::EvalOp> make_EwYangZhangVol(const Value& s) {
-    static const char* const T = "EwYangZhangVol";
+std::unique_ptr<screamer::EvalOp> make_EwYangZhangVol(const Value& s, const char* T) {
     static const char* const N[] = {"com", "span", "halflife", "alpha"};
     const Value* v[4];
     collect(s, T, N, 4, v);
@@ -1379,8 +1280,7 @@ std::unique_ptr<screamer::EvalOp> make_EwYangZhangVol(const Value& s) {
         v[3] ? read_optional(*v[3], T, N[3]) : std::optional<double>());
 }
 
-std::unique_ptr<screamer::EvalOp> make_EwZscore(const Value& s) {
-    static const char* const T = "EwZscore";
+std::unique_ptr<screamer::EvalOp> make_EwZscore(const Value& s, const char* T) {
     static const char* const N[] = {"com", "span", "halflife", "alpha"};
     const Value* v[4];
     collect(s, T, N, 4, v);
@@ -1391,38 +1291,32 @@ std::unique_ptr<screamer::EvalOp> make_EwZscore(const Value& s) {
         v[3] ? read_optional(*v[3], T, N[3]) : std::optional<double>());
 }
 
-std::unique_ptr<screamer::EvalOp> make_Exp(const Value& s) {
-    static const char* const T = "Exp";
+std::unique_ptr<screamer::EvalOp> make_Exp(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Transform<(double (*)(double)) std::exp>>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_ExpandingKurt(const Value& s) {
-    static const char* const T = "ExpandingKurt";
+std::unique_ptr<screamer::EvalOp> make_ExpandingKurt(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::ExpandingKurt>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_ExpandingMax(const Value& s) {
-    static const char* const T = "ExpandingMax";
+std::unique_ptr<screamer::EvalOp> make_ExpandingMax(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::ExpandingMax>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_ExpandingMean(const Value& s) {
-    static const char* const T = "ExpandingMean";
+std::unique_ptr<screamer::EvalOp> make_ExpandingMean(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::ExpandingMean>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_ExpandingMin(const Value& s) {
-    static const char* const T = "ExpandingMin";
+std::unique_ptr<screamer::EvalOp> make_ExpandingMin(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::ExpandingMin>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_ExpandingMultiRegression(const Value& s) {
-    static const char* const T = "ExpandingMultiRegression";
+std::unique_ptr<screamer::EvalOp> make_ExpandingMultiRegression(const Value& s, const char* T) {
     static const char* const N[] = {"n_regressors", "intercept"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -1431,50 +1325,42 @@ std::unique_ptr<screamer::EvalOp> make_ExpandingMultiRegression(const Value& s) 
         v[1] ? read_bool(*v[1], T, N[1]) : true);
 }
 
-std::unique_ptr<screamer::EvalOp> make_ExpandingProd(const Value& s) {
-    static const char* const T = "ExpandingProd";
+std::unique_ptr<screamer::EvalOp> make_ExpandingProd(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::ExpandingProd>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_ExpandingSkew(const Value& s) {
-    static const char* const T = "ExpandingSkew";
+std::unique_ptr<screamer::EvalOp> make_ExpandingSkew(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::ExpandingSkew>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_ExpandingSlope(const Value& s) {
-    static const char* const T = "ExpandingSlope";
+std::unique_ptr<screamer::EvalOp> make_ExpandingSlope(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::ExpandingSlope>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_ExpandingStd(const Value& s) {
-    static const char* const T = "ExpandingStd";
+std::unique_ptr<screamer::EvalOp> make_ExpandingStd(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::ExpandingStd>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_ExpandingSum(const Value& s) {
-    static const char* const T = "ExpandingSum";
+std::unique_ptr<screamer::EvalOp> make_ExpandingSum(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::ExpandingSum>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_ExpandingVar(const Value& s) {
-    static const char* const T = "ExpandingVar";
+std::unique_ptr<screamer::EvalOp> make_ExpandingVar(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::ExpandingVar>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_Ffill(const Value& s) {
-    static const char* const T = "Ffill";
+std::unique_ptr<screamer::EvalOp> make_Ffill(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Ffill>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_FillNa(const Value& s) {
-    static const char* const T = "FillNa";
+std::unique_ptr<screamer::EvalOp> make_FillNa(const Value& s, const char* T) {
     static const char* const N[] = {"fill"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -1482,20 +1368,17 @@ std::unique_ptr<screamer::EvalOp> make_FillNa(const Value& s) {
         v[0] ? read_double(*v[0], T, N[0]) : 0.0);
 }
 
-std::unique_ptr<screamer::EvalOp> make_First(const Value& s) {
-    static const char* const T = "First";
+std::unique_ptr<screamer::EvalOp> make_First(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::First>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_Floor(const Value& s) {
-    static const char* const T = "Floor";
+std::unique_ptr<screamer::EvalOp> make_Floor(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Transform<(double (*)(double)) std::floor>>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_FracDiff(const Value& s) {
-    static const char* const T = "FracDiff";
+std::unique_ptr<screamer::EvalOp> make_FracDiff(const Value& s, const char* T) {
     static const char* const N[] = {"d", "window_size", "threshold", "start_policy"};
     const Value* v[4];
     collect(s, T, N, 4, v);
@@ -1506,20 +1389,17 @@ std::unique_ptr<screamer::EvalOp> make_FracDiff(const Value& s) {
         v[3] ? read_string(*v[3], T, N[3]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_GreaterEqual(const Value& s) {
-    static const char* const T = "GreaterEqual";
+std::unique_ptr<screamer::EvalOp> make_GreaterEqual(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::GreaterEqual>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_GreaterThan(const Value& s) {
-    static const char* const T = "GreaterThan";
+std::unique_ptr<screamer::EvalOp> make_GreaterThan(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::GreaterThan>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_Hampel(const Value& s) {
-    static const char* const T = "Hampel";
+std::unique_ptr<screamer::EvalOp> make_Hampel(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "n_sigma", "output", "start_policy"};
     const Value* v[4];
     collect(s, T, N, 4, v);
@@ -1530,8 +1410,7 @@ std::unique_ptr<screamer::EvalOp> make_Hampel(const Value& s) {
         v[3] ? read_string(*v[3], T, N[3]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_HawkesIntensity(const Value& s) {
-    static const char* const T = "HawkesIntensity";
+std::unique_ptr<screamer::EvalOp> make_HawkesIntensity(const Value& s, const char* T) {
     static const char* const N[] = {"decay", "alpha", "mu"};
     const Value* v[3];
     collect(s, T, N, 3, v);
@@ -1541,14 +1420,12 @@ std::unique_ptr<screamer::EvalOp> make_HawkesIntensity(const Value& s) {
         v[2] ? read_double(*v[2], T, N[2]) : 0.0);
 }
 
-std::unique_ptr<screamer::EvalOp> make_HilbertPhasor(const Value& s) {
-    static const char* const T = "HilbertPhasor";
+std::unique_ptr<screamer::EvalOp> make_HilbertPhasor(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::HilbertPhasor>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_Hold(const Value& s) {
-    static const char* const T = "Hold";
+std::unique_ptr<screamer::EvalOp> make_Hold(const Value& s, const char* T) {
     static const char* const N[] = {"n", "release", "cooldown"};
     const Value* v[3];
     collect(s, T, N, 3, v);
@@ -1558,8 +1435,7 @@ std::unique_ptr<screamer::EvalOp> make_Hold(const Value& s) {
         v[2] ? read_int(*v[2], T, N[2]) : 0);
 }
 
-std::unique_ptr<screamer::EvalOp> make_HullMA(const Value& s) {
-    static const char* const T = "HullMA";
+std::unique_ptr<screamer::EvalOp> make_HullMA(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -1567,20 +1443,17 @@ std::unique_ptr<screamer::EvalOp> make_HullMA(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 20);
 }
 
-std::unique_ptr<screamer::EvalOp> make_Hypot(const Value& s) {
-    static const char* const T = "Hypot";
+std::unique_ptr<screamer::EvalOp> make_Hypot(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Hypot>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_Identity(const Value& s) {
-    static const char* const T = "Identity";
+std::unique_ptr<screamer::EvalOp> make_Identity(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Transform<(double (*)(double)) screamer::identity>>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_ImpulseClip(const Value& s) {
-    static const char* const T = "ImpulseClip";
+std::unique_ptr<screamer::EvalOp> make_ImpulseClip(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "n_sigma", "output", "start_policy"};
     const Value* v[4];
     collect(s, T, N, 4, v);
@@ -1591,26 +1464,22 @@ std::unique_ptr<screamer::EvalOp> make_ImpulseClip(const Value& s) {
         v[3] ? read_string(*v[3], T, N[3]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_InstantaneousTrendline(const Value& s) {
-    static const char* const T = "InstantaneousTrendline";
+std::unique_ptr<screamer::EvalOp> make_InstantaneousTrendline(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::InstantaneousTrendline>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_IsFinite(const Value& s) {
-    static const char* const T = "IsFinite";
+std::unique_ptr<screamer::EvalOp> make_IsFinite(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::IsFinite>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_IsNan(const Value& s) {
-    static const char* const T = "IsNan";
+std::unique_ptr<screamer::EvalOp> make_IsNan(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::IsNan>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_KAMA(const Value& s) {
-    static const char* const T = "KAMA";
+std::unique_ptr<screamer::EvalOp> make_KAMA(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "fast", "slow"};
     const Value* v[3];
     collect(s, T, N, 3, v);
@@ -1620,8 +1489,7 @@ std::unique_ptr<screamer::EvalOp> make_KAMA(const Value& s) {
         v[2] ? read_int(*v[2], T, N[2]) : 30);
 }
 
-std::unique_ptr<screamer::EvalOp> make_KalmanFilter(const Value& s) {
-    static const char* const T = "KalmanFilter";
+std::unique_ptr<screamer::EvalOp> make_KalmanFilter(const Value& s, const char* T) {
     static const char* const N[] = {"process_var", "observation_var", "initial_state", "initial_variance", "huber"};
     const Value* v[5];
     collect(s, T, N, 5, v);
@@ -1633,8 +1501,7 @@ std::unique_ptr<screamer::EvalOp> make_KalmanFilter(const Value& s) {
         v[4] ? read_double(*v[4], T, N[4]) : std::numeric_limits<double>::infinity());
 }
 
-std::unique_ptr<screamer::EvalOp> make_KalmanRegression(const Value& s) {
-    static const char* const T = "KalmanRegression";
+std::unique_ptr<screamer::EvalOp> make_KalmanRegression(const Value& s, const char* T) {
     static const char* const N[] = {"delta", "obs_var", "prior_var", "huber"};
     const Value* v[4];
     collect(s, T, N, 4, v);
@@ -1645,8 +1512,7 @@ std::unique_ptr<screamer::EvalOp> make_KalmanRegression(const Value& s) {
         v[3] ? read_double(*v[3], T, N[3]) : std::numeric_limits<double>::infinity());
 }
 
-std::unique_ptr<screamer::EvalOp> make_KeltnerChannels(const Value& s) {
-    static const char* const T = "KeltnerChannels";
+std::unique_ptr<screamer::EvalOp> make_KeltnerChannels(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "num_atr"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -1655,8 +1521,7 @@ std::unique_ptr<screamer::EvalOp> make_KeltnerChannels(const Value& s) {
         v[1] ? read_double(*v[1], T, N[1]) : 2.0);
 }
 
-std::unique_ptr<screamer::EvalOp> make_Lag(const Value& s) {
-    static const char* const T = "Lag";
+std::unique_ptr<screamer::EvalOp> make_Lag(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "start_policy"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -1665,32 +1530,27 @@ std::unique_ptr<screamer::EvalOp> make_Lag(const Value& s) {
         v[1] ? read_string(*v[1], T, N[1]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_Last(const Value& s) {
-    static const char* const T = "Last";
+std::unique_ptr<screamer::EvalOp> make_Last(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Last>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_LeeReadySign(const Value& s) {
-    static const char* const T = "LeeReadySign";
+std::unique_ptr<screamer::EvalOp> make_LeeReadySign(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::LeeReadySign>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_LessEqual(const Value& s) {
-    static const char* const T = "LessEqual";
+std::unique_ptr<screamer::EvalOp> make_LessEqual(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::LessEqual>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_LessThan(const Value& s) {
-    static const char* const T = "LessThan";
+std::unique_ptr<screamer::EvalOp> make_LessThan(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::LessThan>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_Linear(const Value& s) {
-    static const char* const T = "Linear";
+std::unique_ptr<screamer::EvalOp> make_Linear(const Value& s, const char* T) {
     static const char* const N[] = {"scale", "shift"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -1699,8 +1559,7 @@ std::unique_ptr<screamer::EvalOp> make_Linear(const Value& s) {
         v[1] ? read_double(*v[1], T, N[1]) : 0.0);
 }
 
-std::unique_ptr<screamer::EvalOp> make_Linear2(const Value& s) {
-    static const char* const T = "Linear2";
+std::unique_ptr<screamer::EvalOp> make_Linear2(const Value& s, const char* T) {
     static const char* const N[] = {"a", "b", "c"};
     const Value* v[3];
     collect(s, T, N, 3, v);
@@ -1710,8 +1569,7 @@ std::unique_ptr<screamer::EvalOp> make_Linear2(const Value& s) {
         v[2] ? read_double(*v[2], T, N[2]) : 0.0);
 }
 
-std::unique_ptr<screamer::EvalOp> make_LiquidationDistance(const Value& s) {
-    static const char* const T = "LiquidationDistance";
+std::unique_ptr<screamer::EvalOp> make_LiquidationDistance(const Value& s, const char* T) {
     static const char* const N[] = {"leverage", "maintenance"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -1720,14 +1578,12 @@ std::unique_ptr<screamer::EvalOp> make_LiquidationDistance(const Value& s) {
         v[1] ? read_double(*v[1], T, N[1]) : 0.005);
 }
 
-std::unique_ptr<screamer::EvalOp> make_Log(const Value& s) {
-    static const char* const T = "Log";
+std::unique_ptr<screamer::EvalOp> make_Log(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Transform<(double (*)(double)) std::log>>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_LogReturn(const Value& s) {
-    static const char* const T = "LogReturn";
+std::unique_ptr<screamer::EvalOp> make_LogReturn(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -1735,8 +1591,7 @@ std::unique_ptr<screamer::EvalOp> make_LogReturn(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 1);
 }
 
-std::unique_ptr<screamer::EvalOp> make_MACD(const Value& s) {
-    static const char* const T = "MACD";
+std::unique_ptr<screamer::EvalOp> make_MACD(const Value& s, const char* T) {
     static const char* const N[] = {"fast", "slow", "signal"};
     const Value* v[3];
     collect(s, T, N, 3, v);
@@ -1746,8 +1601,7 @@ std::unique_ptr<screamer::EvalOp> make_MACD(const Value& s) {
         v[2] ? read_int(*v[2], T, N[2]) : 9);
 }
 
-std::unique_ptr<screamer::EvalOp> make_MAMA(const Value& s) {
-    static const char* const T = "MAMA";
+std::unique_ptr<screamer::EvalOp> make_MAMA(const Value& s, const char* T) {
     static const char* const N[] = {"fast_limit", "slow_limit"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -1756,8 +1610,7 @@ std::unique_ptr<screamer::EvalOp> make_MAMA(const Value& s) {
         v[1] ? read_double(*v[1], T, N[1]) : 0.05);
 }
 
-std::unique_ptr<screamer::EvalOp> make_MFI(const Value& s) {
-    static const char* const T = "MFI";
+std::unique_ptr<screamer::EvalOp> make_MFI(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -1765,20 +1618,17 @@ std::unique_ptr<screamer::EvalOp> make_MFI(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 14);
 }
 
-std::unique_ptr<screamer::EvalOp> make_MaxDrawdown(const Value& s) {
-    static const char* const T = "MaxDrawdown";
+std::unique_ptr<screamer::EvalOp> make_MaxDrawdown(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::MaxDrawdown>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_MicroPrice(const Value& s) {
-    static const char* const T = "MicroPrice";
+std::unique_ptr<screamer::EvalOp> make_MicroPrice(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::MicroPrice>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_MinusDI(const Value& s) {
-    static const char* const T = "MinusDI";
+std::unique_ptr<screamer::EvalOp> make_MinusDI(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -1786,8 +1636,7 @@ std::unique_ptr<screamer::EvalOp> make_MinusDI(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 14);
 }
 
-std::unique_ptr<screamer::EvalOp> make_MinusDM(const Value& s) {
-    static const char* const T = "MinusDM";
+std::unique_ptr<screamer::EvalOp> make_MinusDM(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -1795,8 +1644,7 @@ std::unique_ptr<screamer::EvalOp> make_MinusDM(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 14);
 }
 
-std::unique_ptr<screamer::EvalOp> make_Momentum(const Value& s) {
-    static const char* const T = "Momentum";
+std::unique_ptr<screamer::EvalOp> make_Momentum(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "start_policy"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -1805,8 +1653,7 @@ std::unique_ptr<screamer::EvalOp> make_Momentum(const Value& s) {
         v[1] ? read_string(*v[1], T, N[1]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_MovingAverage(const Value& s) {
-    static const char* const T = "MovingAverage";
+std::unique_ptr<screamer::EvalOp> make_MovingAverage(const Value& s, const char* T) {
     static const char* const N[] = {"taps"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -1814,14 +1661,12 @@ std::unique_ptr<screamer::EvalOp> make_MovingAverage(const Value& s) {
         v[0] ? decltype(std::vector<double>{0.25, 0.5, 0.25})(read_vector(*v[0], T, N[0])) : std::vector<double>{0.25, 0.5, 0.25});
 }
 
-std::unique_ptr<screamer::EvalOp> make_Mul(const Value& s) {
-    static const char* const T = "Mul";
+std::unique_ptr<screamer::EvalOp> make_Mul(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Mul>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_NATR(const Value& s) {
-    static const char* const T = "NATR";
+std::unique_ptr<screamer::EvalOp> make_NATR(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -1829,44 +1674,37 @@ std::unique_ptr<screamer::EvalOp> make_NATR(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 14);
 }
 
-std::unique_ptr<screamer::EvalOp> make_NegPart(const Value& s) {
-    static const char* const T = "NegPart";
+std::unique_ptr<screamer::EvalOp> make_NegPart(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Transform<(double (*)(double)) screamer::neg_part>>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_Not(const Value& s) {
-    static const char* const T = "Not";
+std::unique_ptr<screamer::EvalOp> make_Not(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Not>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_NotEqual(const Value& s) {
-    static const char* const T = "NotEqual";
+std::unique_ptr<screamer::EvalOp> make_NotEqual(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::NotEqual>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_OBV(const Value& s) {
-    static const char* const T = "OBV";
+std::unique_ptr<screamer::EvalOp> make_OBV(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::OBV>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_OFI(const Value& s) {
-    static const char* const T = "OFI";
+std::unique_ptr<screamer::EvalOp> make_OFI(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::OFI>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_Or(const Value& s) {
-    static const char* const T = "Or";
+std::unique_ptr<screamer::EvalOp> make_Or(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Or>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_PlusDI(const Value& s) {
-    static const char* const T = "PlusDI";
+std::unique_ptr<screamer::EvalOp> make_PlusDI(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -1874,8 +1712,7 @@ std::unique_ptr<screamer::EvalOp> make_PlusDI(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 14);
 }
 
-std::unique_ptr<screamer::EvalOp> make_PlusDM(const Value& s) {
-    static const char* const T = "PlusDM";
+std::unique_ptr<screamer::EvalOp> make_PlusDM(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -1883,26 +1720,22 @@ std::unique_ptr<screamer::EvalOp> make_PlusDM(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 14);
 }
 
-std::unique_ptr<screamer::EvalOp> make_Polar2Cart(const Value& s) {
-    static const char* const T = "Polar2Cart";
+std::unique_ptr<screamer::EvalOp> make_Polar2Cart(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Polar2Cart>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_PortfolioReport(const Value& s) {
-    static const char* const T = "PortfolioReport";
+std::unique_ptr<screamer::EvalOp> make_PortfolioReport(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::PortfolioReport>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_PosPart(const Value& s) {
-    static const char* const T = "PosPart";
+std::unique_ptr<screamer::EvalOp> make_PosPart(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Transform<(double (*)(double)) screamer::pos_part>>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_Power(const Value& s) {
-    static const char* const T = "Power";
+std::unique_ptr<screamer::EvalOp> make_Power(const Value& s, const char* T) {
     static const char* const N[] = {"p"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -1910,8 +1743,7 @@ std::unique_ptr<screamer::EvalOp> make_Power(const Value& s) {
         v[0] ? read_double(*v[0], T, N[0]) : 2.0);
 }
 
-std::unique_ptr<screamer::EvalOp> make_Propagator(const Value& s) {
-    static const char* const T = "Propagator";
+std::unique_ptr<screamer::EvalOp> make_Propagator(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "g0", "gamma"};
     const Value* v[3];
     collect(s, T, N, 3, v);
@@ -1921,14 +1753,12 @@ std::unique_ptr<screamer::EvalOp> make_Propagator(const Value& s) {
         v[2] ? read_double(*v[2], T, N[2]) : 0.5);
 }
 
-std::unique_ptr<screamer::EvalOp> make_QueueImbalance(const Value& s) {
-    static const char* const T = "QueueImbalance";
+std::unique_ptr<screamer::EvalOp> make_QueueImbalance(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::QueueImbalance>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_ROC(const Value& s) {
-    static const char* const T = "ROC";
+std::unique_ptr<screamer::EvalOp> make_ROC(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -1936,8 +1766,7 @@ std::unique_ptr<screamer::EvalOp> make_ROC(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 10);
 }
 
-std::unique_ptr<screamer::EvalOp> make_ROCP(const Value& s) {
-    static const char* const T = "ROCP";
+std::unique_ptr<screamer::EvalOp> make_ROCP(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -1945,8 +1774,7 @@ std::unique_ptr<screamer::EvalOp> make_ROCP(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 10);
 }
 
-std::unique_ptr<screamer::EvalOp> make_ROCR(const Value& s) {
-    static const char* const T = "ROCR";
+std::unique_ptr<screamer::EvalOp> make_ROCR(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -1954,8 +1782,7 @@ std::unique_ptr<screamer::EvalOp> make_ROCR(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 10);
 }
 
-std::unique_ptr<screamer::EvalOp> make_RealizedSpread(const Value& s) {
-    static const char* const T = "RealizedSpread";
+std::unique_ptr<screamer::EvalOp> make_RealizedSpread(const Value& s, const char* T) {
     static const char* const N[] = {"lag"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -1963,14 +1790,12 @@ std::unique_ptr<screamer::EvalOp> make_RealizedSpread(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 1);
 }
 
-std::unique_ptr<screamer::EvalOp> make_Relu(const Value& s) {
-    static const char* const T = "Relu";
+std::unique_ptr<screamer::EvalOp> make_Relu(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Transform<(double (*)(double)) screamer::relu>>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_Return(const Value& s) {
-    static const char* const T = "Return";
+std::unique_ptr<screamer::EvalOp> make_Return(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -1978,8 +1803,7 @@ std::unique_ptr<screamer::EvalOp> make_Return(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 1);
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollSpread(const Value& s) {
-    static const char* const T = "RollSpread";
+std::unique_ptr<screamer::EvalOp> make_RollSpread(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "start_policy"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -1988,8 +1812,7 @@ std::unique_ptr<screamer::EvalOp> make_RollSpread(const Value& s) {
         v[1] ? read_string(*v[1], T, N[1]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingADF(const Value& s) {
-    static const char* const T = "RollingADF";
+std::unique_ptr<screamer::EvalOp> make_RollingADF(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "lags"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -1998,8 +1821,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingADF(const Value& s) {
         v[1] ? read_int(*v[1], T, N[1]) : 1);
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingAlpha(const Value& s) {
-    static const char* const T = "RollingAlpha";
+std::unique_ptr<screamer::EvalOp> make_RollingAlpha(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "start_policy"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -2008,8 +1830,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingAlpha(const Value& s) {
         v[1] ? read_string(*v[1], T, N[1]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingArgmax(const Value& s) {
-    static const char* const T = "RollingArgmax";
+std::unique_ptr<screamer::EvalOp> make_RollingArgmax(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -2017,8 +1838,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingArgmax(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 20);
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingArgmin(const Value& s) {
-    static const char* const T = "RollingArgmin";
+std::unique_ptr<screamer::EvalOp> make_RollingArgmin(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -2026,8 +1846,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingArgmin(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 20);
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingBeta(const Value& s) {
-    static const char* const T = "RollingBeta";
+std::unique_ptr<screamer::EvalOp> make_RollingBeta(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "start_policy"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -2036,8 +1855,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingBeta(const Value& s) {
         v[1] ? read_string(*v[1], T, N[1]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingBipowerVar(const Value& s) {
-    static const char* const T = "RollingBipowerVar";
+std::unique_ptr<screamer::EvalOp> make_RollingBipowerVar(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "start_policy"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -2046,8 +1864,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingBipowerVar(const Value& s) {
         v[1] ? read_string(*v[1], T, N[1]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingCVaR(const Value& s) {
-    static const char* const T = "RollingCVaR";
+std::unique_ptr<screamer::EvalOp> make_RollingCVaR(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "alpha"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -2056,8 +1873,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingCVaR(const Value& s) {
         v[1] ? read_double(*v[1], T, N[1]) : 0.05);
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingCalmar(const Value& s) {
-    static const char* const T = "RollingCalmar";
+std::unique_ptr<screamer::EvalOp> make_RollingCalmar(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "periods_per_year"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -2066,8 +1882,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingCalmar(const Value& s) {
         v[1] ? read_double(*v[1], T, N[1]) : 1.0);
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingCorr(const Value& s) {
-    static const char* const T = "RollingCorr";
+std::unique_ptr<screamer::EvalOp> make_RollingCorr(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "start_policy"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -2076,8 +1891,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingCorr(const Value& s) {
         v[1] ? read_string(*v[1], T, N[1]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingCov(const Value& s) {
-    static const char* const T = "RollingCov";
+std::unique_ptr<screamer::EvalOp> make_RollingCov(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "start_policy"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -2086,8 +1900,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingCov(const Value& s) {
         v[1] ? read_string(*v[1], T, N[1]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingDownsideDeviation(const Value& s) {
-    static const char* const T = "RollingDownsideDeviation";
+std::unique_ptr<screamer::EvalOp> make_RollingDownsideDeviation(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "mar", "start_policy"};
     const Value* v[3];
     collect(s, T, N, 3, v);
@@ -2097,8 +1910,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingDownsideDeviation(const Value& s) 
         v[2] ? read_string(*v[2], T, N[2]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingGarmanKlassVar(const Value& s) {
-    static const char* const T = "RollingGarmanKlassVar";
+std::unique_ptr<screamer::EvalOp> make_RollingGarmanKlassVar(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -2106,8 +1918,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingGarmanKlassVar(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 20);
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingGarmanKlassVol(const Value& s) {
-    static const char* const T = "RollingGarmanKlassVol";
+std::unique_ptr<screamer::EvalOp> make_RollingGarmanKlassVol(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -2115,8 +1926,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingGarmanKlassVol(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 20);
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingHMM(const Value& s) {
-    static const char* const T = "RollingHMM";
+std::unique_ptr<screamer::EvalOp> make_RollingHMM(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "refit_every", "emission", "max_iter", "tol"};
     const Value* v[5];
     collect(s, T, N, 5, v);
@@ -2128,8 +1938,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingHMM(const Value& s) {
         v[4] ? read_double(*v[4], T, N[4]) : 1e-6);
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingHitRate(const Value& s) {
-    static const char* const T = "RollingHitRate";
+std::unique_ptr<screamer::EvalOp> make_RollingHitRate(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -2137,8 +1946,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingHitRate(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 252);
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingHurst(const Value& s) {
-    static const char* const T = "RollingHurst";
+std::unique_ptr<screamer::EvalOp> make_RollingHurst(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "min_scale", "method"};
     const Value* v[3];
     collect(s, T, N, 3, v);
@@ -2148,8 +1956,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingHurst(const Value& s) {
         v[2] ? read_string(*v[2], T, N[2]) : "rs");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingInfoRatio(const Value& s) {
-    static const char* const T = "RollingInfoRatio";
+std::unique_ptr<screamer::EvalOp> make_RollingInfoRatio(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "periods_per_year"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -2158,8 +1965,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingInfoRatio(const Value& s) {
         v[1] ? read_double(*v[1], T, N[1]) : 1.0);
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingIqr(const Value& s) {
-    static const char* const T = "RollingIqr";
+std::unique_ptr<screamer::EvalOp> make_RollingIqr(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -2167,8 +1973,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingIqr(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 20);
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingJumpShare(const Value& s) {
-    static const char* const T = "RollingJumpShare";
+std::unique_ptr<screamer::EvalOp> make_RollingJumpShare(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "start_policy"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -2177,8 +1982,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingJumpShare(const Value& s) {
         v[1] ? read_string(*v[1], T, N[1]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingKurt(const Value& s) {
-    static const char* const T = "RollingKurt";
+std::unique_ptr<screamer::EvalOp> make_RollingKurt(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "start_policy"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -2187,8 +1991,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingKurt(const Value& s) {
         v[1] ? read_string(*v[1], T, N[1]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingKyleLambda(const Value& s) {
-    static const char* const T = "RollingKyleLambda";
+std::unique_ptr<screamer::EvalOp> make_RollingKyleLambda(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "start_policy"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -2197,8 +2000,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingKyleLambda(const Value& s) {
         v[1] ? read_string(*v[1], T, N[1]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingLinearRegression(const Value& s) {
-    static const char* const T = "RollingLinearRegression";
+std::unique_ptr<screamer::EvalOp> make_RollingLinearRegression(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "start_policy"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -2207,8 +2009,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingLinearRegression(const Value& s) {
         v[1] ? read_string(*v[1], T, N[1]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingMad(const Value& s) {
-    static const char* const T = "RollingMad";
+std::unique_ptr<screamer::EvalOp> make_RollingMad(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "start_policy"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -2217,8 +2018,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingMad(const Value& s) {
         v[1] ? read_string(*v[1], T, N[1]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingMax(const Value& s) {
-    static const char* const T = "RollingMax";
+std::unique_ptr<screamer::EvalOp> make_RollingMax(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -2226,8 +2026,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingMax(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 20);
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingMaxDrawdown(const Value& s) {
-    static const char* const T = "RollingMaxDrawdown";
+std::unique_ptr<screamer::EvalOp> make_RollingMaxDrawdown(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -2235,8 +2034,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingMaxDrawdown(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 252);
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingMean(const Value& s) {
-    static const char* const T = "RollingMean";
+std::unique_ptr<screamer::EvalOp> make_RollingMean(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "start_policy"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -2245,8 +2043,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingMean(const Value& s) {
         v[1] ? read_string(*v[1], T, N[1]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingMedian(const Value& s) {
-    static const char* const T = "RollingMedian";
+std::unique_ptr<screamer::EvalOp> make_RollingMedian(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -2254,8 +2051,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingMedian(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 20);
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingMedianAD(const Value& s) {
-    static const char* const T = "RollingMedianAD";
+std::unique_ptr<screamer::EvalOp> make_RollingMedianAD(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "start_policy"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -2264,8 +2060,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingMedianAD(const Value& s) {
         v[1] ? read_string(*v[1], T, N[1]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingMin(const Value& s) {
-    static const char* const T = "RollingMin";
+std::unique_ptr<screamer::EvalOp> make_RollingMin(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -2273,8 +2068,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingMin(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 20);
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingMinMax(const Value& s) {
-    static const char* const T = "RollingMinMax";
+std::unique_ptr<screamer::EvalOp> make_RollingMinMax(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -2282,8 +2076,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingMinMax(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 20);
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingMultiRegression(const Value& s) {
-    static const char* const T = "RollingMultiRegression";
+std::unique_ptr<screamer::EvalOp> make_RollingMultiRegression(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "n_regressors", "intercept"};
     const Value* v[3];
     collect(s, T, N, 3, v);
@@ -2293,8 +2086,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingMultiRegression(const Value& s) {
         v[2] ? read_bool(*v[2], T, N[2]) : true);
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingOU(const Value& s) {
-    static const char* const T = "RollingOU";
+std::unique_ptr<screamer::EvalOp> make_RollingOU(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "output", "start_policy"};
     const Value* v[3];
     collect(s, T, N, 3, v);
@@ -2304,8 +2096,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingOU(const Value& s) {
         v[2] ? read_string(*v[2], T, N[2]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingOmega(const Value& s) {
-    static const char* const T = "RollingOmega";
+std::unique_ptr<screamer::EvalOp> make_RollingOmega(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "threshold"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -2314,8 +2105,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingOmega(const Value& s) {
         v[1] ? read_double(*v[1], T, N[1]) : 0.0);
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingOrderImbalance(const Value& s) {
-    static const char* const T = "RollingOrderImbalance";
+std::unique_ptr<screamer::EvalOp> make_RollingOrderImbalance(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "start_policy"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -2324,8 +2114,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingOrderImbalance(const Value& s) {
         v[1] ? read_string(*v[1], T, N[1]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingParkinsonVar(const Value& s) {
-    static const char* const T = "RollingParkinsonVar";
+std::unique_ptr<screamer::EvalOp> make_RollingParkinsonVar(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -2333,8 +2122,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingParkinsonVar(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 20);
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingParkinsonVol(const Value& s) {
-    static const char* const T = "RollingParkinsonVol";
+std::unique_ptr<screamer::EvalOp> make_RollingParkinsonVol(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -2342,8 +2130,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingParkinsonVol(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 20);
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingPercentile(const Value& s) {
-    static const char* const T = "RollingPercentile";
+std::unique_ptr<screamer::EvalOp> make_RollingPercentile(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -2351,8 +2138,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingPercentile(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 20);
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingPermutationEntropy(const Value& s) {
-    static const char* const T = "RollingPermutationEntropy";
+std::unique_ptr<screamer::EvalOp> make_RollingPermutationEntropy(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "order", "delay", "start_policy"};
     const Value* v[4];
     collect(s, T, N, 4, v);
@@ -2363,8 +2149,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingPermutationEntropy(const Value& s)
         v[3] ? read_string(*v[3], T, N[3]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingPoly1(const Value& s) {
-    static const char* const T = "RollingPoly1";
+std::unique_ptr<screamer::EvalOp> make_RollingPoly1(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "derivative_order", "start_policy"};
     const Value* v[3];
     collect(s, T, N, 3, v);
@@ -2374,8 +2159,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingPoly1(const Value& s) {
         v[2] ? read_string(*v[2], T, N[2]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingPoly2(const Value& s) {
-    static const char* const T = "RollingPoly2";
+std::unique_ptr<screamer::EvalOp> make_RollingPoly2(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "derivative_order", "start_policy"};
     const Value* v[3];
     collect(s, T, N, 3, v);
@@ -2385,8 +2169,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingPoly2(const Value& s) {
         v[2] ? read_string(*v[2], T, N[2]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingQuantile(const Value& s) {
-    static const char* const T = "RollingQuantile";
+std::unique_ptr<screamer::EvalOp> make_RollingQuantile(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "quantile"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -2395,8 +2178,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingQuantile(const Value& s) {
         v[1] ? read_double(*v[1], T, N[1]) : 0.5);
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingRSI(const Value& s) {
-    static const char* const T = "RollingRSI";
+std::unique_ptr<screamer::EvalOp> make_RollingRSI(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "method", "start_policy"};
     const Value* v[3];
     collect(s, T, N, 3, v);
@@ -2406,8 +2188,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingRSI(const Value& s) {
         v[2] ? read_string(*v[2], T, N[2]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingRange(const Value& s) {
-    static const char* const T = "RollingRange";
+std::unique_ptr<screamer::EvalOp> make_RollingRange(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -2415,8 +2196,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingRange(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 20);
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingRank(const Value& s) {
-    static const char* const T = "RollingRank";
+std::unique_ptr<screamer::EvalOp> make_RollingRank(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -2424,8 +2204,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingRank(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 20);
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingRealizedKurt(const Value& s) {
-    static const char* const T = "RollingRealizedKurt";
+std::unique_ptr<screamer::EvalOp> make_RollingRealizedKurt(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "start_policy"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -2434,8 +2213,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingRealizedKurt(const Value& s) {
         v[1] ? read_string(*v[1], T, N[1]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingRealizedSkew(const Value& s) {
-    static const char* const T = "RollingRealizedSkew";
+std::unique_ptr<screamer::EvalOp> make_RollingRealizedSkew(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "start_policy"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -2444,8 +2222,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingRealizedSkew(const Value& s) {
         v[1] ? read_string(*v[1], T, N[1]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingResidualStd(const Value& s) {
-    static const char* const T = "RollingResidualStd";
+std::unique_ptr<screamer::EvalOp> make_RollingResidualStd(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "start_policy"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -2454,8 +2231,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingResidualStd(const Value& s) {
         v[1] ? read_string(*v[1], T, N[1]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingRms(const Value& s) {
-    static const char* const T = "RollingRms";
+std::unique_ptr<screamer::EvalOp> make_RollingRms(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "start_policy"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -2464,8 +2240,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingRms(const Value& s) {
         v[1] ? read_string(*v[1], T, N[1]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingRogersSatchellVar(const Value& s) {
-    static const char* const T = "RollingRogersSatchellVar";
+std::unique_ptr<screamer::EvalOp> make_RollingRogersSatchellVar(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -2473,8 +2248,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingRogersSatchellVar(const Value& s) 
         v[0] ? read_int(*v[0], T, N[0]) : 20);
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingRogersSatchellVol(const Value& s) {
-    static const char* const T = "RollingRogersSatchellVol";
+std::unique_ptr<screamer::EvalOp> make_RollingRogersSatchellVol(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -2482,8 +2256,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingRogersSatchellVol(const Value& s) 
         v[0] ? read_int(*v[0], T, N[0]) : 20);
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingSeasonalMean(const Value& s) {
-    static const char* const T = "RollingSeasonalMean";
+std::unique_ptr<screamer::EvalOp> make_RollingSeasonalMean(const Value& s, const char* T) {
     static const char* const N[] = {"period", "window_size", "start_policy"};
     const Value* v[3];
     collect(s, T, N, 3, v);
@@ -2493,8 +2266,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingSeasonalMean(const Value& s) {
         v[2] ? read_string(*v[2], T, N[2]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingSeasonalStd(const Value& s) {
-    static const char* const T = "RollingSeasonalStd";
+std::unique_ptr<screamer::EvalOp> make_RollingSeasonalStd(const Value& s, const char* T) {
     static const char* const N[] = {"period", "window_size", "start_policy"};
     const Value* v[3];
     collect(s, T, N, 3, v);
@@ -2504,8 +2276,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingSeasonalStd(const Value& s) {
         v[2] ? read_string(*v[2], T, N[2]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingSeasonalZscore(const Value& s) {
-    static const char* const T = "RollingSeasonalZscore";
+std::unique_ptr<screamer::EvalOp> make_RollingSeasonalZscore(const Value& s, const char* T) {
     static const char* const N[] = {"period", "window_size", "start_policy"};
     const Value* v[3];
     collect(s, T, N, 3, v);
@@ -2515,8 +2286,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingSeasonalZscore(const Value& s) {
         v[2] ? read_string(*v[2], T, N[2]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingSharpe(const Value& s) {
-    static const char* const T = "RollingSharpe";
+std::unique_ptr<screamer::EvalOp> make_RollingSharpe(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "periods_per_year"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -2525,8 +2295,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingSharpe(const Value& s) {
         v[1] ? read_double(*v[1], T, N[1]) : 1.0);
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingSigmaClip(const Value& s) {
-    static const char* const T = "RollingSigmaClip";
+std::unique_ptr<screamer::EvalOp> make_RollingSigmaClip(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "lower", "upper", "output", "start_policy"};
     const Value* v[5];
     collect(s, T, N, 5, v);
@@ -2538,8 +2307,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingSigmaClip(const Value& s) {
         v[4] ? read_string(*v[4], T, N[4]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingSkew(const Value& s) {
-    static const char* const T = "RollingSkew";
+std::unique_ptr<screamer::EvalOp> make_RollingSkew(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "start_policy"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -2548,8 +2316,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingSkew(const Value& s) {
         v[1] ? read_string(*v[1], T, N[1]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingSortino(const Value& s) {
-    static const char* const T = "RollingSortino";
+std::unique_ptr<screamer::EvalOp> make_RollingSortino(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "periods_per_year", "target"};
     const Value* v[3];
     collect(s, T, N, 3, v);
@@ -2559,8 +2326,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingSortino(const Value& s) {
         v[2] ? read_double(*v[2], T, N[2]) : 0.0);
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingSpread(const Value& s) {
-    static const char* const T = "RollingSpread";
+std::unique_ptr<screamer::EvalOp> make_RollingSpread(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "start_policy"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -2569,8 +2335,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingSpread(const Value& s) {
         v[1] ? read_string(*v[1], T, N[1]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingStd(const Value& s) {
-    static const char* const T = "RollingStd";
+std::unique_ptr<screamer::EvalOp> make_RollingStd(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "start_policy"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -2579,8 +2344,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingStd(const Value& s) {
         v[1] ? read_string(*v[1], T, N[1]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingSum(const Value& s) {
-    static const char* const T = "RollingSum";
+std::unique_ptr<screamer::EvalOp> make_RollingSum(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "start_policy"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -2589,8 +2353,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingSum(const Value& s) {
         v[1] ? read_string(*v[1], T, N[1]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingTLSBeta(const Value& s) {
-    static const char* const T = "RollingTLSBeta";
+std::unique_ptr<screamer::EvalOp> make_RollingTLSBeta(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "start_policy"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -2599,8 +2362,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingTLSBeta(const Value& s) {
         v[1] ? read_string(*v[1], T, N[1]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingTSF(const Value& s) {
-    static const char* const T = "RollingTSF";
+std::unique_ptr<screamer::EvalOp> make_RollingTSF(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -2608,8 +2370,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingTSF(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 20);
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingUpsideDeviation(const Value& s) {
-    static const char* const T = "RollingUpsideDeviation";
+std::unique_ptr<screamer::EvalOp> make_RollingUpsideDeviation(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "mar", "start_policy"};
     const Value* v[3];
     collect(s, T, N, 3, v);
@@ -2619,8 +2380,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingUpsideDeviation(const Value& s) {
         v[2] ? read_string(*v[2], T, N[2]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingVWAP(const Value& s) {
-    static const char* const T = "RollingVWAP";
+std::unique_ptr<screamer::EvalOp> make_RollingVWAP(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -2628,8 +2388,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingVWAP(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 20);
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingVar(const Value& s) {
-    static const char* const T = "RollingVar";
+std::unique_ptr<screamer::EvalOp> make_RollingVar(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "start_policy"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -2638,8 +2397,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingVar(const Value& s) {
         v[1] ? read_string(*v[1], T, N[1]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingVarianceRatio(const Value& s) {
-    static const char* const T = "RollingVarianceRatio";
+std::unique_ptr<screamer::EvalOp> make_RollingVarianceRatio(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "lag", "output", "start_policy"};
     const Value* v[4];
     collect(s, T, N, 4, v);
@@ -2650,8 +2408,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingVarianceRatio(const Value& s) {
         v[3] ? read_string(*v[3], T, N[3]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingYangZhangVar(const Value& s) {
-    static const char* const T = "RollingYangZhangVar";
+std::unique_ptr<screamer::EvalOp> make_RollingYangZhangVar(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -2659,8 +2416,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingYangZhangVar(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 20);
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingYangZhangVol(const Value& s) {
-    static const char* const T = "RollingYangZhangVol";
+std::unique_ptr<screamer::EvalOp> make_RollingYangZhangVol(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -2668,8 +2424,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingYangZhangVol(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 20);
 }
 
-std::unique_ptr<screamer::EvalOp> make_RollingZscore(const Value& s) {
-    static const char* const T = "RollingZscore";
+std::unique_ptr<screamer::EvalOp> make_RollingZscore(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "start_policy"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -2678,8 +2433,7 @@ std::unique_ptr<screamer::EvalOp> make_RollingZscore(const Value& s) {
         v[1] ? read_string(*v[1], T, N[1]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_RoofingFilter(const Value& s) {
-    static const char* const T = "RoofingFilter";
+std::unique_ptr<screamer::EvalOp> make_RoofingFilter(const Value& s, const char* T) {
     static const char* const N[] = {"hp_period", "lp_period", "hp_cutoff", "lp_cutoff", "start_policy"};
     const Value* v[5];
     collect(s, T, N, 5, v);
@@ -2691,14 +2445,12 @@ std::unique_ptr<screamer::EvalOp> make_RoofingFilter(const Value& s) {
         v[4] ? read_string(*v[4], T, N[4]) : "steady");
 }
 
-std::unique_ptr<screamer::EvalOp> make_Round(const Value& s) {
-    static const char* const T = "Round";
+std::unique_ptr<screamer::EvalOp> make_Round(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Transform<(double (*)(double)) std::nearbyint>>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_SchmittTrigger(const Value& s) {
-    static const char* const T = "SchmittTrigger";
+std::unique_ptr<screamer::EvalOp> make_SchmittTrigger(const Value& s, const char* T) {
     static const char* const N[] = {"lower", "upper", "initial"};
     const Value* v[3];
     collect(s, T, N, 3, v);
@@ -2708,8 +2460,7 @@ std::unique_ptr<screamer::EvalOp> make_SchmittTrigger(const Value& s) {
         v[2] ? read_double(*v[2], T, N[2]) : 0.0);
 }
 
-std::unique_ptr<screamer::EvalOp> make_Segment(const Value& s) {
-    static const char* const T = "Segment";
+std::unique_ptr<screamer::EvalOp> make_Segment(const Value& s, const char* T) {
     static const char* const N[] = {"op"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -2717,56 +2468,47 @@ std::unique_ptr<screamer::EvalOp> make_Segment(const Value& s) {
         v[0] ? read_op(*v[0], T, N[0]) : (required(T, N[0]), screamer::OpArg()));
 }
 
-std::unique_ptr<screamer::EvalOp> make_Selu(const Value& s) {
-    static const char* const T = "Selu";
+std::unique_ptr<screamer::EvalOp> make_Selu(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Transform<(double (*)(double)) screamer::selu>>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_Sigmoid(const Value& s) {
-    static const char* const T = "Sigmoid";
+std::unique_ptr<screamer::EvalOp> make_Sigmoid(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Transform<(double (*)(double)) screamer::sigmoid>>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_Sign(const Value& s) {
-    static const char* const T = "Sign";
+std::unique_ptr<screamer::EvalOp> make_Sign(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Transform<(double (*)(double))screamer::signum<double> >>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_SignedVolume(const Value& s) {
-    static const char* const T = "SignedVolume";
+std::unique_ptr<screamer::EvalOp> make_SignedVolume(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::SignedVolume>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_Sin(const Value& s) {
-    static const char* const T = "Sin";
+std::unique_ptr<screamer::EvalOp> make_Sin(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Transform<(double (*)(double)) std::sin>>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_Softsign(const Value& s) {
-    static const char* const T = "Softsign";
+std::unique_ptr<screamer::EvalOp> make_Softsign(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Transform<(double (*)(double)) screamer::softsign>>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_Sqrt(const Value& s) {
-    static const char* const T = "Sqrt";
+std::unique_ptr<screamer::EvalOp> make_Sqrt(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Transform<(double (*)(double)) std::sqrt>>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_Square(const Value& s) {
-    static const char* const T = "Square";
+std::unique_ptr<screamer::EvalOp> make_Square(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Transform<(double (*)(double)) screamer::square>>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_Stoch(const Value& s) {
-    static const char* const T = "Stoch";
+std::unique_ptr<screamer::EvalOp> make_Stoch(const Value& s, const char* T) {
     static const char* const N[] = {"fastk_period", "smooth_k", "d"};
     const Value* v[3];
     collect(s, T, N, 3, v);
@@ -2776,8 +2518,7 @@ std::unique_ptr<screamer::EvalOp> make_Stoch(const Value& s) {
         v[2] ? read_int(*v[2], T, N[2]) : 3);
 }
 
-std::unique_ptr<screamer::EvalOp> make_StochRSI(const Value& s) {
-    static const char* const T = "StochRSI";
+std::unique_ptr<screamer::EvalOp> make_StochRSI(const Value& s, const char* T) {
     static const char* const N[] = {"rsi_period", "stoch_period", "smooth_k", "d"};
     const Value* v[4];
     collect(s, T, N, 4, v);
@@ -2788,14 +2529,12 @@ std::unique_ptr<screamer::EvalOp> make_StochRSI(const Value& s) {
         v[3] ? read_int(*v[3], T, N[3]) : 3);
 }
 
-std::unique_ptr<screamer::EvalOp> make_Sub(const Value& s) {
-    static const char* const T = "Sub";
+std::unique_ptr<screamer::EvalOp> make_Sub(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Sub>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_SuperSmoother(const Value& s) {
-    static const char* const T = "SuperSmoother";
+std::unique_ptr<screamer::EvalOp> make_SuperSmoother(const Value& s, const char* T) {
     static const char* const N[] = {"period", "cutoff", "start_policy"};
     const Value* v[3];
     collect(s, T, N, 3, v);
@@ -2805,8 +2544,7 @@ std::unique_ptr<screamer::EvalOp> make_SuperSmoother(const Value& s) {
         v[2] ? read_string(*v[2], T, N[2]) : "steady");
 }
 
-std::unique_ptr<screamer::EvalOp> make_TEMA(const Value& s) {
-    static const char* const T = "TEMA";
+std::unique_ptr<screamer::EvalOp> make_TEMA(const Value& s, const char* T) {
     static const char* const N[] = {"com", "span", "halflife", "alpha"};
     const Value* v[4];
     collect(s, T, N, 4, v);
@@ -2817,8 +2555,7 @@ std::unique_ptr<screamer::EvalOp> make_TEMA(const Value& s) {
         v[3] ? read_optional(*v[3], T, N[3]) : std::optional<double>());
 }
 
-std::unique_ptr<screamer::EvalOp> make_TRIMA(const Value& s) {
-    static const char* const T = "TRIMA";
+std::unique_ptr<screamer::EvalOp> make_TRIMA(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -2826,8 +2563,7 @@ std::unique_ptr<screamer::EvalOp> make_TRIMA(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 20);
 }
 
-std::unique_ptr<screamer::EvalOp> make_TRIX(const Value& s) {
-    static const char* const T = "TRIX";
+std::unique_ptr<screamer::EvalOp> make_TRIX(const Value& s, const char* T) {
     static const char* const N[] = {"span"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -2835,26 +2571,22 @@ std::unique_ptr<screamer::EvalOp> make_TRIX(const Value& s) {
         v[0] ? read_int(*v[0], T, N[0]) : 14);
 }
 
-std::unique_ptr<screamer::EvalOp> make_Tanh(const Value& s) {
-    static const char* const T = "Tanh";
+std::unique_ptr<screamer::EvalOp> make_Tanh(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Transform<(double (*)(double)) std::tanh>>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_TickRuleSign(const Value& s) {
-    static const char* const T = "TickRuleSign";
+std::unique_ptr<screamer::EvalOp> make_TickRuleSign(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::TickRuleSign>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_TrendMode(const Value& s) {
-    static const char* const T = "TrendMode";
+std::unique_ptr<screamer::EvalOp> make_TrendMode(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::TrendMode>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_TripleBarrier(const Value& s) {
-    static const char* const T = "TripleBarrier";
+std::unique_ptr<screamer::EvalOp> make_TripleBarrier(const Value& s, const char* T) {
     static const char* const N[] = {"horizon", "upper", "lower", "barrier_unit", "vol_span"};
     const Value* v[5];
     collect(s, T, N, 5, v);
@@ -2866,8 +2598,7 @@ std::unique_ptr<screamer::EvalOp> make_TripleBarrier(const Value& s) {
         v[4] ? read_double(*v[4], T, N[4]) : 100.0);
 }
 
-std::unique_ptr<screamer::EvalOp> make_TripleBarrierOHLC(const Value& s) {
-    static const char* const T = "TripleBarrierOHLC";
+std::unique_ptr<screamer::EvalOp> make_TripleBarrierOHLC(const Value& s, const char* T) {
     static const char* const N[] = {"horizon", "upper", "lower", "barrier_unit", "vol_span"};
     const Value* v[5];
     collect(s, T, N, 5, v);
@@ -2879,14 +2610,12 @@ std::unique_ptr<screamer::EvalOp> make_TripleBarrierOHLC(const Value& s) {
         v[4] ? read_double(*v[4], T, N[4]) : 100.0);
 }
 
-std::unique_ptr<screamer::EvalOp> make_TrueRange(const Value& s) {
-    static const char* const T = "TrueRange";
+std::unique_ptr<screamer::EvalOp> make_TrueRange(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::TrueRange>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_UltimateOscillator(const Value& s) {
-    static const char* const T = "UltimateOscillator";
+std::unique_ptr<screamer::EvalOp> make_UltimateOscillator(const Value& s, const char* T) {
     static const char* const N[] = {"period1", "period2", "period3"};
     const Value* v[3];
     collect(s, T, N, 3, v);
@@ -2896,8 +2625,7 @@ std::unique_ptr<screamer::EvalOp> make_UltimateOscillator(const Value& s) {
         v[2] ? read_int(*v[2], T, N[2]) : 28);
 }
 
-std::unique_ptr<screamer::EvalOp> make_VPIN(const Value& s) {
-    static const char* const T = "VPIN";
+std::unique_ptr<screamer::EvalOp> make_VPIN(const Value& s, const char* T) {
     static const char* const N[] = {"bucket_volume", "n_buckets"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -2906,8 +2634,7 @@ std::unique_ptr<screamer::EvalOp> make_VPIN(const Value& s) {
         v[1] ? read_int(*v[1], T, N[1]) : 50);
 }
 
-std::unique_ptr<screamer::EvalOp> make_WMA(const Value& s) {
-    static const char* const T = "WMA";
+std::unique_ptr<screamer::EvalOp> make_WMA(const Value& s, const char* T) {
     static const char* const N[] = {"window_size", "start_policy"};
     const Value* v[2];
     collect(s, T, N, 2, v);
@@ -2916,14 +2643,12 @@ std::unique_ptr<screamer::EvalOp> make_WMA(const Value& s) {
         v[1] ? read_string(*v[1], T, N[1]) : "strict");
 }
 
-std::unique_ptr<screamer::EvalOp> make_Where(const Value& s) {
-    static const char* const T = "Where";
+std::unique_ptr<screamer::EvalOp> make_Where(const Value& s, const char* T) {
     collect(s, T, nullptr, 0, nullptr);
     return std::make_unique<screamer::Where>();
 }
 
-std::unique_ptr<screamer::EvalOp> make_WilliamsR(const Value& s) {
-    static const char* const T = "WilliamsR";
+std::unique_ptr<screamer::EvalOp> make_WilliamsR(const Value& s, const char* T) {
     static const char* const N[] = {"window_size"};
     const Value* v[1];
     collect(s, T, N, 1, v);
@@ -3241,15 +2966,19 @@ std::unique_ptr<EvalOp> make_op(const std::string& type, const json::Value& sett
         throw SaveError(path + ".type: unknown type '" + type + "'");
     }
     if (settings.kind != json::Value::Kind::Object)
-        throw SaveError(type + ".settings: expected an object, got " + detail::kind_text(settings));
+        throw SaveError((path == "object" ? type : path) + ".settings: expected an object, got " +
+                        detail::kind_text(settings));
+    // The label of the operator in errors: its type at the top of a file,
+    // else the setting that holds it ("Segment.settings.op").
+    const std::string label = path == "object" ? type : path;
     json::Value s = settings;
-    apply_settings_compat(type, s, type);
+    apply_settings_compat(type, s, label);
     try {
-        return e->make(s);
+        return e->make(s, label.c_str());
     } catch (const SaveError&) {
         throw;
     } catch (const std::invalid_argument& err) {
-        throw SaveError(type + ".settings: " + err.what());
+        throw SaveError(label + ".settings: " + err.what());
     }
 }
 

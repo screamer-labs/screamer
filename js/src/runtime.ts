@@ -696,6 +696,8 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp, finalize 
     const kind = streamKind(args, nIn, opName(raw));
     if (kind) {
       pool.check();
+      // A stream on an op holding per-column state raises and keeps it.
+      try { raw.checkEventCall(); } catch (e) { throw normalizeError(e); }
       raw.reset();
       return kind === "async" ? runAsyncStream(args, openStream, op) : runStream(args, openStream, op);
     }
@@ -1098,6 +1100,7 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
   };
   const stream = (srcs: any[], async: boolean) => {
     pool.check();
+    try { raw.checkEventCall(); } catch (e) { throw normalizeError(e); }
     raw.reset();
     return async ? runAsyncStream(srcs, openStream, op) : runStream(srcs, openStream, op);
   };

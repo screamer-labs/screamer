@@ -156,6 +156,7 @@ void check_prices(screamer::detail::ContigDouble& prices, bool batch, std::size_
 nb::object portfolio_report_event(screamer::PortfolioReport& self,
                                   const screamer::detail::ContigDouble& values,
                                   screamer::detail::ContigDouble* prices) {
+    self.check_event_call();
     std::size_t assets = 0;
     if (values.ndim() == 1) {
         if (values.shape[0] == 0 || values.shape[0] % 4 != 0)
@@ -186,7 +187,7 @@ nb::object portfolio_report_batch(screamer::PortfolioReport& self,
         throw nb::value_error("PortfolioReport requires at least one asset.");
     if (prices) check_prices(*prices, true, time, assets);
     double* out = new double[time * 6 ? time * 6 : 1];
-    self.reset();
+    self.reset_all();   // a default batch call drops the per-column state of a resume
     for (std::size_t t = 0; t < time; ++t) {
         const double* row = values.data.data() + t * assets * 4;
         auto result = prices
@@ -240,7 +241,8 @@ PairKind pair_kind(nb::handle event) {
 class PortfolioReportStepper final : public screamer::EventStep {
 public:
     PortfolioReportStepper(const nb::object& owner, std::size_t n_sources)
-        : owner_(screamer::EventStepper::fresh_copy(owner)),
+        : owner_((nb::cast<screamer::PortfolioReport&>(owner).check_event_call(),
+                  screamer::EventStepper::fresh_copy(owner))),
           op_(nb::cast<screamer::PortfolioReport&>(owner_)),
           n_sources_(n_sources) {
         nb::cast<screamer::PortfolioReport&>(owner).reset();
@@ -373,6 +375,7 @@ nb::object portfolio_report_call(screamer::PortfolioReport& self, nb::args raw) 
     if (args.size() == 4) {
         // One event of the four portfolio columns, as JavaScript reads four
         // numbers (and a Pipeline node takes four inputs).
+        self.check_event_call();
         screamer::PortfolioReport::InputArray in;
         for (std::size_t i = 0; i < 4; ++i)
             if (!screamer::read_double(args[i], in[i]))

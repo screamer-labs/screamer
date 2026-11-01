@@ -43,13 +43,19 @@ def _same(a, b, path="$"):
     return None if a == b else f"{path}: {a!r} != {b!r}"
 
 
-def assert_oracle_fresh(gen, fixture, root):
-    """Run `gen --stdout` and compare its JSON with the committed fixture."""
+def run_generator(gen, root):
+    """The stdout of `gen --stdout`, run in a child process with the test's
+    import path."""
     env = dict(os.environ)
     env["PYTHONPATH"] = os.pathsep.join([str(root)] + [p for p in sys.path if p])
     r = subprocess.run([sys.executable, str(gen), "--stdout"], cwd=root, env=env, capture_output=True)
     assert r.returncode == 0, r.stderr.decode(errors="replace")
-    diff = _same(json.loads(r.stdout), json.loads(fixture.read_bytes()))
+    return r.stdout.decode("utf-8")
+
+
+def assert_oracle_fresh(gen, fixture, root):
+    """Run `gen --stdout` and compare its JSON with the committed fixture."""
+    diff = _same(json.loads(run_generator(gen, root)), json.loads(fixture.read_bytes()))
     rel = fixture.relative_to(root)
     assert diff is None, (f"{rel} is stale ({diff}): re-run python "
                           f"{gen.relative_to(root)} and commit the result.")

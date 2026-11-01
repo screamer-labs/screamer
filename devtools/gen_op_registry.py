@@ -66,7 +66,8 @@ namespace {
 using screamer::json::Value;
 using screamer::serial::SaveError;
 
-// The setting of an operator (type, its parameter `name`) in errors.
+// An operator's setting in errors: `type` is the operator's label (its type
+// at the top of a file, else the setting that holds it), `name` the setting.
 [[noreturn]] SCREAMER_NOINLINE void wrong(const char* type, const char* name, const char* expected,
                                           const Value& got) {
     throw SaveError(std::string(type) + ".settings." + name + ": expected " + expected + ", got " +
@@ -140,7 +141,7 @@ SCREAMER_NOINLINE screamer::OpArg read_op(const Value& v, const char* type, cons
     return screamer::OpArg::owning(screamer::serial::make_op(t->s, *settings, where));
 }
 
-using Maker = std::unique_ptr<screamer::EvalOp> (*)(const Value&);
+using Maker = std::unique_ptr<screamer::EvalOp> (*)(const Value&, const char*);
 """[1:]
 
 
@@ -172,6 +173,9 @@ def render_arg(op: dict, i: int) -> str:
     default = a["default"]
     got = f'{READERS[t]}(*v[{i}], T, N[{i}])'
     if t == "std::optional<double>":
+        if default is not None:
+            raise SystemExit(f"{op['name']}.{a['name']}: an optional setting with the default "
+                             f"{default!r}; make_op reads a missing optional setting as not given")
         fallback = "std::optional<double>()"
     elif default is None:
         fallback = f"(required(T, N[{i}]), {t}())"
@@ -186,8 +190,7 @@ def render_arg(op: dict, i: int) -> str:
 def render_maker(op: dict) -> str:
     name = op["name"]
     n = len(op["ctor"])
-    lines = [f"std::unique_ptr<screamer::EvalOp> make_{name}(const Value& s) {{"]
-    lines.append(f'    static const char* const T = "{name}";')
+    lines = [f"std::unique_ptr<screamer::EvalOp> make_{name}(const Value& s, const char* T) {{"]
     if n == 0:
         lines.append("    collect(s, T, nullptr, 0, nullptr);")
         lines.append(f"    return std::make_unique<{op['cpp_type']}>();")
@@ -267,15 +270,19 @@ std::unique_ptr<EvalOp> make_op(const std::string& type, const json::Value& sett
         throw SaveError(path + ".type: unknown type '" + type + "'");
     }
     if (settings.kind != json::Value::Kind::Object)
-        throw SaveError(type + ".settings: expected an object, got " + detail::kind_text(settings));
+        throw SaveError((path == "object" ? type : path) + ".settings: expected an object, got " +
+                        detail::kind_text(settings));
+    // The label of the operator in errors: its type at the top of a file,
+    // else the setting that holds it ("Segment.settings.op").
+    const std::string label = path == "object" ? type : path;
     json::Value s = settings;
-    apply_settings_compat(type, s, type);
+    apply_settings_compat(type, s, label);
     try {
-        return e->make(s);
+        return e->make(s, label.c_str());
     } catch (const SaveError&) {
         throw;
     } catch (const std::invalid_argument& err) {
-        throw SaveError(type + ".settings: " + err.what());
+        throw SaveError(label + ".settings: " + err.what());
     }
 }
 

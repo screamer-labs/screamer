@@ -40,13 +40,16 @@ function rawSource(M: Screamer, type: string, text: string): { raw: RawOp; src: 
 // Pipeline.toJSON (pipeline_io.ts): every setting of the file is given, null
 // is not. A nested operator ({type, settings}) is recorded as a factory-built
 // op is.
-function record(cls: string, settings: Record<string, unknown>): { cls: string; names: string[]; given: unknown[] } {
+// `settings` has the renames applied (settingsCompat); a nested operator's
+// are applied here.
+function record(M: Screamer, cls: string, settings: Record<string, unknown>): { cls: string; names: string[]; given: unknown[] } {
   const names = Object.keys(settings);
   const given = names.map((n) => {
     const v: any = settings[n];
     if (v !== null && typeof v === "object" && !Array.isArray(v) && typeof v.type === "string" && "settings" in v) {
       const nested = () => undefined;
-      (nested as any)[SETTINGS] = record(v.type, v.settings);
+      const inner = wasmCall(() => M.serialSettingsCompat(v.type, jsonText(v.settings)));
+      (nested as any)[SETTINGS] = record(M, v.type, inner);
       return nested;
     }
     return v === null ? undefined : v;
@@ -59,7 +62,7 @@ function record(cls: string, settings: Record<string, unknown>): { cls: string; 
 function build(M: Screamer, type: string, text: string): { op: ScreamerOp; raw: RawOp } {
   const { raw, src } = rawSource(M, type, text);
   const op = raw.mapRowInto ? wrapRowOp(M, src) : raw.reduceInto ? wrapReducerOp(M, src) : wrapOp(M, src);
-  (op as any)[SETTINGS] = record(type, wasmCall(() => M.serialSettingsCompat(type, text)));
+  (op as any)[SETTINGS] = record(M, type, wasmCall(() => M.serialSettingsCompat(type, text)));
   return { op, raw };
 }
 

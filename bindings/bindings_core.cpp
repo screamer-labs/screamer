@@ -2,6 +2,7 @@
 #include <nanobind/stl/vector.h>   // std::vector <-> list
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/tuple.h>
+#include <nanobind/stl/pair.h>
 #include <nanobind/stl/unique_ptr.h>
 #include <cstdint>
 #include <optional>
@@ -276,13 +277,10 @@ void init_bindings_core(nb::module_& m) {
         return nb::make_tuple(parts.type, json::dump(*parts.settings, -1), state);
     }, "data"_a);
 
-    // The settings of a file with the renamed parameters applied
-    // (serial/settings_compat.h): JSON text in and out.
-    m.def("_serial_settings_compat", [](const std::string& type, nb::handle text) {
-        json::Value s = json::parse(utf8(text), "settings JSON");
-        serial::apply_settings_compat(type, s, type);
-        return json::dump(s, -1);
-    }, "type"_a, "text"_a);
+    // The renamed parameters of an operator (serial/settings_compat.h), as
+    // (old, new) pairs in the order they apply; screamer/serial.py renames
+    // the keys of its settings dict with them.
+    m.def("_serial_renames", &serial::renames_for, "type"_a);
     // The C++ registry (serial/op_registry.h), for the tests: the operator
     // built from its settings, an instance of its binding class.
     m.def("_serial_make_op", [](const std::string& type, nb::handle text) {

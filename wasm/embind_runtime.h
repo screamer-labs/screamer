@@ -52,6 +52,7 @@ inline void writeResult(double* dest, const std::tuple<Ts...>& result) {
 template <class Op>
 inline void reduceInto(Op& op, std::uintptr_t inPtr, std::uintptr_t outPtr,
                        std::size_t groups) {
+    op.check_event_call();
     writeResult(reinterpret_cast<double*>(outPtr),
                 op.call_assets(reinterpret_cast<const double*>(inPtr), groups));
 }
@@ -79,6 +80,7 @@ inline void reduceBatchInto(Op& op, std::uintptr_t inPtr, std::uintptr_t outPtr,
 template <class Op>
 inline void reducePricedInto(Op& op, std::uintptr_t inPtr, std::uintptr_t pricePtr,
                              std::uintptr_t outPtr, std::size_t groups) {
+    op.check_event_call();
     writeResult(reinterpret_cast<double*>(outPtr),
                 op.call_assets(reinterpret_cast<const double*>(inPtr),
                                reinterpret_cast<const double*>(pricePtr), groups));
@@ -227,6 +229,7 @@ inline std::string finiteSettingError(std::string op, emscripten::val names, ems
         .function("evalInto", &screamer_wasm::evalInto, emscripten::allow_raw_pointers()) \
         .function("reset", &screamer::EvalOp::reset_all)                       \
         .function("nIn", &screamer::EvalOp::n_in)                              \
+        .function("checkEventCall", &screamer::EvalOp::check_event_call)       \
         .function("nOut", &screamer::EvalOp::n_out);                           \
     emscripten::function("allocF64", &screamer_wasm::allocF64);               \
     emscripten::function("freeBuf", &screamer_wasm::freeBuf);                 \

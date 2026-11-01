@@ -62,6 +62,9 @@ public:
           in_(op_.n_in()), out_(op_.n_out()),
           unpack_(n_sources == 1 && n_in_ > 1) {
         if (stream) {
+            // A stream on an object holding per-column state raises, and
+            // leaves that state as it is (decision 9).
+            op_.check_event_call();
             first_owner_ = fresh_copy(op_owner_);
             first_ = &nb::cast<EvalOp&>(first_owner_);
         } else {

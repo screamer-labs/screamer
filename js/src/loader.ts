@@ -12,6 +12,9 @@ export interface RawOp {
   nIn(): number; nOut(): number;
   evalInto(inPtr: number, outPtr: number): void;
   reset(): void; delete(): void;
+  // Throws while the op holds per-column state from a resume on a (T, K)
+  // array (a panel): a call with one event, or a stream, would bypass it.
+  checkEventCall(): void;
   // Present only on dynamic-width reducers (see wrapReducerOp): one event
   // reduces an (assets, nIn) block, so the asset count travels per call.
   reduceInto?(inPtr: number, outPtr: number, groups: number): void;

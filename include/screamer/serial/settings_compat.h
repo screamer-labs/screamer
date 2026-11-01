@@ -11,6 +11,7 @@
 
 #include <cstddef>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "screamer/common/json.h"
@@ -56,9 +57,20 @@ inline void apply_rename(const SettingRename& r, json::Value& settings, const st
 
 }  // namespace detail
 
+// The renames of `type`, (old, new) in the order they apply: the table's
+// rows, then the test rows. Python applies them to its settings dict.
+inline std::vector<std::pair<std::string, std::string>> renames_for(const std::string& type) {
+    std::vector<std::pair<std::string, std::string>> r;
+    const std::vector<SettingRename>* tables[] = {&detail::setting_renames(), &detail::test_renames()};
+    for (const auto* rows : tables)
+        for (const SettingRename& x : *rows)
+            if (x.type == type) r.emplace_back(x.old_name, x.new_name);
+    return r;
+}
+
 // Applies the renames of `type` to its settings object; `path` names the
-// operator in errors ("RollingMean"). Anything but an object is left to the
-// caller's check.
+// operator in errors ("RollingMean", or "Segment.settings.op" for a nested
+// one). Anything but an object is left to the caller's check.
 inline void apply_settings_compat(const std::string& type, json::Value& settings, const std::string& path) {
     if (settings.kind != json::Value::Kind::Object) return;
     for (const SettingRename& r : detail::setting_renames())

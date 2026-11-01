@@ -178,14 +178,25 @@ test("save: fromSettings builds every operator of the registry", () => {
   }
 });
 
+// Runs `fn` with `keep`, which records an op to dispose when `fn` ends.
+async function owning(fn: (keep: <T extends { dispose(): void }>(op: T) => T) => void | Promise<void>) {
+  const ops: { dispose(): void }[] = [];
+  try {
+    await fn((op) => { ops.push(op); return op; });
+  } finally {
+    ops.forEach((op) => op.dispose());
+  }
+}
+
 const rollingMean20 = () => {
   const a = S.RollingMean(20);
   for (let v = 0; v < 30; v++) a(v);
   return a;
 };
+const text20 = () => { const a = rollingMean20(); try { return a.dumps() as string; } finally { a.dispose(); } };
 
-test("save: an edited setting refuses, or starts fresh with a warning", () => {
-  const text = rollingMean20().dumps() as string;
+test("save: an edited setting refuses, or starts fresh with a warning", () => owning((keep) => {
+  const text = text20();
   const edited = text.replace('"window_size": 20', '"window_size": 50');
   assert.notEqual(edited, text);
   assert.throws(() => S.loads(edited), (e: any) => e instanceof S.StateMismatch && /window_size|buffer/.test(e.message));
@@ -193,13 +204,13 @@ test("save: an edited setting refuses, or starts fresh with a warning", () => {
   const warn = console.warn;
   console.warn = (m: string) => { warned.push(String(m)); };
   let b: any;
-  try { b = S.loads(edited, { onMismatch: "fresh" }); } finally { console.warn = warn; }
+  try { b = keep(S.loads(edited, { onMismatch: "fresh" })); } finally { console.warn = warn; }
   assert.equal(warned.length, 1);
   assert.match(warned[0], /RollingMean/);
-  const fresh = S.RollingMean(50);
+  const fresh = keep(S.RollingMean(50));
   const x = Array.from({ length: 100 }, (_, i) => i);
-  assertBitwise(x.map((v) => b(v)), x.map((v) => fresh(v)), "fresh");
-});
+  assertBitwise(x.map((v) => b(v)), x.map((v) => fresh(v) as number), "fresh");
+}));
 
 type Edit = (d: any) => void;
 const STATE_EDITS: [Edit, string][] = [
@@ -219,23 +230,23 @@ const edit = (text: string, fn: Edit) => { const d = JSON.parse(text); fn(d); re
 
 test("save: a bad file raises a SaveError naming the place", () => {
   for (const [bad, where] of BAD_FILES) {
-    const data = typeof bad === "function" ? edit(rollingMean20().dumps() as string, bad) : bad;
+    const data = typeof bad === "function" ? edit(text20(), bad) : bad;
     assert.throws(() => S.loads(data), (e: any) => e instanceof S.SaveError && e.message.includes(where),
       `expected a SaveError naming ${where}`);
   }
 });
 
-test("save: a failed setState leaves the operator unchanged", () => {
+test("save: a failed setState leaves the operator unchanged", () => owning((keep) => {
   for (const [bad, where] of STATE_EDITS) {
-    const a = rollingMean20();
+    const a = keep(rollingMean20());
     const before = a.state();
     const state = JSON.parse(edit(a.dumps() as string, bad)).object.state;
     assert.throws(() => a.setState(state), (e: any) => e instanceof S.StateMismatch && e.message.includes(where));
     assert.deepEqual(a.state(), before);
-    const b = rollingMean20();
+    const b = keep(rollingMean20());
     for (let v = 30; v < 60; v++) assert.ok(same(a(v) as number, b(v) as number));
   }
-});
+}));
 
 test("save: the error classes", () => {
   for (const E of [S.StateVersionError, S.NotSaveable, S.StateMismatch]) {
@@ -243,7 +254,7 @@ test("save: the error classes", () => {
   }
   assert.ok(new S.SaveError("x") instanceof RangeError);
   assert.equal(new S.StateMismatch("x").name, "StateMismatch");
-  const text = (rollingMean20().dumps() as string).replace('"version": 1', '"version": 99');
+  const text = text20().replace('"version": 1', '"version": 99');
   assert.throws(() => S.loads(text), (e: any) => e instanceof S.StateVersionError && /RollingMean.*99.*\b1\b/.test(e.message));
   assert.throws(() => S.loads(text, { onMismatch: "ignore" as any }), /onMismatch/);
   assert.throws(() => S.loads(42 as any), TypeError);
@@ -251,6 +262,9 @@ test("save: the error classes", () => {
     (e: any) => e instanceof S.SaveError && e.message.includes("RollingMean.settings.window: unknown parameter"));
   assert.throws(() => S.fromSettings({ type: "RollingMean", settings: { window_size: 0 } }),
     (e: any) => e instanceof S.SaveError && e.message.includes("RollingMean.settings"));
+  // A nested operator's errors name the setting that holds it.
+  assert.throws(() => S.fromSettings({ type: "Segment", settings: { op: { type: "RollingMean", settings: { window: 3 } } } }),
+    (e: any) => e instanceof S.SaveError && e.message.includes("Segment.settings.op.settings.window: unknown parameter"));
 });
 
 test("save: an operator without save support raises NotSaveable", () => {
@@ -263,57 +277,57 @@ test("save: an operator without save support raises NotSaveable", () => {
   op.dispose();
 });
 
-test("save: a nested operator saves and loads", () => {
-  const a = S.Segment(S.RollingMean(5));
+test("save: a nested operator saves and loads", () => owning((keep) => {
+  const a = keep(S.Segment(S.RollingMean(5)));
   const labels = Array.from({ length: 72 }, (_, i) => Math.floor(i / 9));
   const x = labels.map((_, i) => Math.sin(i));
   for (let t = 0; t < 40; t++) a(labels[t], x[t]);
   const text = a.dumps() as string;
   assert.deepEqual(JSON.parse(text).object.settings,
     { op: { type: "RollingMean", settings: { window_size: 5, start_policy: "strict" } } });
-  const b = S.loads(text);
+  const b = keep(S.loads(text));
   for (let t = 40; t < 72; t++) assert.ok(same(b(labels[t], x[t]) as number, a(labels[t], x[t]) as number));
   // A loaded operator saves in a Pipeline as one built by its factory.
-  const c = S.loads(text);
+  const c = keep(S.loads(text));
   const l = S.Input("l"), xs = S.Input("x");
   const p = new S.Pipeline([l, xs], [c(l, xs)] as any);
   assert.match(p.toJSONText(), /"cls": ?"Segment"/);
-});
+}));
 
-test("save: save and load files, CBOR for a .cbor path", async () => {
+test("save: save and load files, CBOR for a .cbor path", () => owning(async (keep) => {
   const dir = mkdtempSync(join(tmpdir(), "screamer-save-"));
   try {
-    const a = rollingMean20();
+    const a = keep(rollingMean20());
     for (const name of ["m.json", "m.cbor"]) {
       const path = join(dir, name);
       await a.save(path);
       const raw = readFileSync(path);
       assert.equal(raw[0] === 0x7b, name.endsWith(".json"));
-      const b = await S.load(path);
+      const b = keep(await S.load(path));
       assert.equal(b.dumps(), a.dumps());
     }
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
-});
+}));
 
-test("save: resume on a (T, K) array keeps one state per column", () => {
+test("save: resume on a (T, K) array keeps one state per column", () => owning((keep) => {
   const T = 6, K = 3;
   const data = Float64Array.from({ length: 2 * T * K }, (_, i) => Math.cos(i));
   const first = { data: data.subarray(0, T * K), shape: [T, K] };
   const second = { data: data.subarray(T * K), shape: [T, K] };
-  const a = S.RollingMean(4);
+  const a = keep(S.RollingMean(4));
   a.resume(first);
   assert.throws(() => a(1.0), /per-column state for 3 columns/);
   assert.throws(() => a.resume({ data: new Float64Array(2 * T), shape: [T, 2] }), /holds 3 columns, got 2/);
   assert.throws(() => a.resume(new Float64Array(T)), /holds 3 columns, got a single series/);
   const text = a.dumps() as string;
   assert.ok(Array.isArray(JSON.parse(text).object.state.columns));
-  const b = S.loads(text);
+  const b = keep(S.loads(text));
   const wantB: any = a.resume(second);
   assertBitwise(flat(b.resume(second)), flat(wantB), "panel");
   // The columns continue as one batch call over both halves gives.
-  const whole: any = S.RollingMean(4)({ data, shape: [2 * T, K] });
+  const whole: any = keep(S.RollingMean(4))({ data, shape: [2 * T, K] });
   assertBitwise(flat(wantB), flat(whole).slice(T * K), "panel vs batch");
   // A default batch call or reset() drops the columns.
   b.reset();
@@ -321,20 +335,82 @@ test("save: resume on a (T, K) array keeps one state per column", () => {
   a(new Float64Array(5));
   assert.ok(Number.isNaN(a(1.0) as number));
   assert.throws(() => a.resume(2.0 as any), TypeError);
+}));
+
+// Inputs of a (T, K) resume: K = 2 columns per input.
+const panelOf = (n: number, T: number, shift: number) =>
+  Array.from({ length: n }, (_, i) => ({ data: Float64Array.from({ length: 2 * T }, (_, j) => 100 + Math.sin(j + i + shift)), shape: [T, 2] }));
+
+async function* agen(v: number) { yield v; }
+
+test("save: one-event calls and streams raise on an object holding per-column state", () => {
+  let checked = 0;
+  for (const r of ORACLE.registry) {
+    if (r.name === "PortfolioReport") continue;
+    const op = S.fromSettings({ type: r.name, settings: decode(r.settings) });
+    try {
+      if ((op as any).rowOp) continue;
+      const n = op.numInputs;
+      try { op.resume(...panelOf(n, 30, 0)); } catch { continue; }   // keeps no per-column state
+      checked++;
+      const ev = Array.from({ length: n }, (_, i) => 100 + i);
+      const panelError = /per-column state for 2 columns/;
+      assert.throws(() => op(...ev), panelError, `${r.name}: one event`);
+      assert.throws(() => op(...ev.map((v) => [v][Symbol.iterator]())), panelError, `${r.name}: a stream`);
+      assert.throws(() => op(...ev.map((v) => agen(v))), panelError, `${r.name}: an async stream`);
+      if (n > 1) assert.throws(() => op([ev][Symbol.iterator]()), panelError, `${r.name}: one stream of events`);
+      // The columns are kept.
+      assert.throws(() => op.resume(...panelOf(n, 30, 1).map((p) => ({ data: p.data.subarray(0, 30), shape: [30, 1] }))),
+        /holds 2 columns, got 1/, r.name);
+      op.resume(...panelOf(n, 30, 1));
+    } finally {
+      op.dispose();
+    }
+  }
+  assert.ok(checked >= ORACLE.cases.length, `only ${checked} operators keep per-column state`);
 });
 
-test("save: the rename table applies to fromSettings and loads", () => {
+test("save: PortfolioReport raises on one event while it holds per-column state", () => owning((keep) => {
+  const T = 8, K = 3;
+  const block = { data: Float64Array.from({ length: T * K * 4 }, (_, i) => 1 + (i % 7)), shape: [T, K, 4] };
+  const pr: any = keep(S.PortfolioReport());
+  pr.resume(block);
+  const row = { data: block.data.slice(0, K * 4), shape: [K, 4] };
+  const panelError = /per-column state for 3 columns/;
+  assert.throws(() => pr(1, 1, 1, 1), panelError);
+  assert.throws(() => pr(row), panelError);
+  assert.throws(() => pr(row, new Float64Array(K).fill(1)), panelError);
+  assert.throws(() => pr([row][Symbol.iterator]()), panelError);
+  pr.resume(block);   // the columns are kept
+  pr(block);          // a default batch call drops them
+  pr(row);
+}));
+
+test("save: the rename table applies to fromSettings and loads", () => owning((keep) => {
   const M: any = S.current();
   M._serialTestRename("RollingMean", "window", "window_size");
   try {
-    const a = S.fromSettings({ type: "RollingMean", settings: { window: 7 } });
+    const a = keep(S.fromSettings({ type: "RollingMean", settings: { window: 7 } }));
     assert.deepEqual(a.settings(), { window_size: 7, start_policy: "strict" });
-    const old = (S.RollingMean(7).dumps() as string).replace('"window_size"', '"window"');
-    assert.equal(S.loads(old).dumps(), S.RollingMean(7).dumps());
+    const ref = keep(S.RollingMean(7));
+    const old = (ref.dumps() as string).replace('"window_size"', '"window"');
+    assert.equal(keep(S.loads(old)).dumps(), ref.dumps());
+    // A nested operator's settings are renamed too, in the record Pipeline.toJSON reads.
+    const seg = keep(S.fromSettings({ type: "Segment", settings: { op: { type: "RollingMean", settings: { window: 7 } } } }));
+    const l = S.Input("l"), xs = S.Input("x");
+    assert.match(new S.Pipeline([l, xs], [seg(l, xs)] as any).toJSONText(), /"window_size": ?7/);
     assert.throws(() => S.fromSettings({ type: "RollingMean", settings: { window: 7, window_size: 7 } }),
       (e: any) => e instanceof S.SaveError && /RollingMean.settings.window: renamed to window_size/.test(e.message));
   } finally {
     M._serialTestRenameClear();
   }
   assert.throws(() => S.fromSettings({ type: "RollingMean", settings: { window: 7 } }), S.SaveError);
+}));
+
+test("save: wasm/smoke/save_js.json is what scripts/gen_save_js.ts writes today", async () => {
+  const { fixtureText, FIXTURE_PATH } = await import("../scripts/gen_save_js.ts");
+  const norm = (text: string) => (JSON.parse(text) as { name: string; json_text: string; cbor_hex: string }[])
+    .map((c) => ({ ...c, json_text: noVersion(c.json_text), cbor_hex: noVersionHex(c.cbor_hex) }));
+  assert.deepEqual(norm(await fixtureText()), norm(readFileSync(FIXTURE_PATH, "utf8")),
+    "wasm/smoke/save_js.json is stale: run node --import tsx scripts/gen_save_js.ts");
 });

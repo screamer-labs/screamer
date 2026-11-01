@@ -105,30 +105,44 @@ def from_settings(node):
 
 
 def _build(type_name, settings, path):
-    """The operator ``type_name(**settings)``; ``path`` names it in errors."""
+    """The operator ``type_name(**settings)``; ``path`` names it in errors
+    ("object" for the top of a file, else the setting that holds it)."""
     import screamer
     from ._functor_params import _load_help
     cls = getattr(screamer, type_name, None) if isinstance(type_name, str) else None
     if not getattr(cls, "_screamer_wrapped", False):
         raise SaveError(f"{path}.type: unknown type {type_name!r}")
+    label = type_name if path == "object" else path
     if not isinstance(settings, dict):
-        raise SaveError(f"{type_name}.settings: expected an object, got {type(settings).__name__}")
-    # The renamed parameters (include/screamer/serial/settings_compat.h).
-    settings = json.loads(_b._serial_settings_compat(type_name, json.dumps(settings)))
+        raise SaveError(f"{label}.settings: expected an object, got {type(settings).__name__}")
+    settings = _renamed(type_name, settings, label)
     params = {p["name"]: p for p in (_load_help().get(type_name) or {}).get("parameters", [])}
     kwargs = {}
     for name, value in settings.items():
         if name not in params:
-            raise SaveError(f"{type_name}.settings.{name}: unknown parameter")
+            raise SaveError(f"{label}.settings.{name}: unknown parameter")
         if value is None:            # an optional argument that was not given
             continue
         if params[name].get("type") == "op":
-            value = _build_op(value, f"{type_name}.settings.{name}")
+            value = _build_op(value, f"{label}.settings.{name}")
         kwargs[name] = value
     try:
         return cls(**kwargs)
     except (TypeError, ValueError) as e:
-        raise SaveError(f"{type_name}.settings: {e}") from None
+        raise SaveError(f"{label}.settings: {e}") from None
+
+
+def _renamed(type_name, settings, label):
+    """``settings`` with the renamed parameters of the C++ table
+    (include/screamer/serial/settings_compat.h) under their new names, in
+    place; a file that gives both names is refused."""
+    for old, new in _b._serial_renames(type_name):
+        if old not in settings:
+            continue
+        if new in settings:
+            raise SaveError(f"{label}.settings.{old}: renamed to {new}, and the file gives both")
+        settings = {(new if k == old else k): v for k, v in settings.items()}
+    return settings
 
 
 def _build_op(node, path):

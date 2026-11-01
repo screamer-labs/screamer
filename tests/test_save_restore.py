@@ -13,19 +13,17 @@ layout per state version, so a layout change without a version bump fails.
 from __future__ import annotations
 
 import json
-import os
 import pathlib
 import re
-import subprocess
-import sys
 
 import numpy as np
 import pytest
 
 import screamer
 from screamer import screamer_bindings as _b
-from tests._oracle_fresh import _same as _oracle_same
+from tests._oracle_fresh import _same as _oracle_same, run_generator
 from tests.regime_helpers import assert_bitwise
+from tests import test_batch_stream_bitwise as _sweep
 from tests.save_cases import (FUNCTOR_NAMES, HELP, KNOWN_UNSAVEABLE, REST, case, feed,
                               kwargs_for, splits)
 
@@ -457,18 +455,10 @@ def test_settings_compat_table_shipped_empty():
         screamer.from_settings({"type": "RollingMean", "settings": {"window": 7}})
 
 
-def _run_generator(path):
-    env = dict(os.environ)
-    env["PYTHONPATH"] = os.pathsep.join([str(ROOT)] + [p for p in sys.path if p])
-    r = subprocess.run([sys.executable, str(path), "--stdout"], cwd=ROOT, env=env, capture_output=True)
-    assert r.returncode == 0, r.stderr.decode(errors="replace")
-    return r.stdout.decode("utf-8")
-
-
 def test_op_registry_fresh():
     gen = ROOT / "devtools" / "gen_op_registry.py"
     committed = (ROOT / "src" / "screamer" / "serial" / "op_registry.cpp").read_text(encoding="utf-8")
-    assert _run_generator(gen) == committed, (
+    assert run_generator(gen, ROOT) == committed, (
         "src/screamer/serial/op_registry.cpp is stale: run python devtools/gen_op_registry.py")
 
 
@@ -484,7 +474,7 @@ def test_js_oracle_fresh():
     the library version is ignored."""
     gen = ROOT / "devtools" / "wasm" / "gen_save_oracle.py"
     fixture = ROOT / "wasm" / "smoke" / "save_oracle.json"
-    now = json.loads(_run_generator(gen))
+    now = json.loads(run_generator(gen, ROOT))
     committed = json.loads(fixture.read_text(encoding="utf-8"))
 
     def comparable(doc):
@@ -497,3 +487,95 @@ def test_js_oracle_fresh():
     assert diff is None, (f"wasm/smoke/save_oracle.json is stale ({diff}): run python "
                           "devtools/wasm/gen_save_oracle.py and commit the result")
     assert [c["name"] for c in now["cases"]] == SAVEABLE
+
+
+def test_from_settings_takes_python_values():
+    """Settings built in Python (NumPy integers, an operator object where a
+    {type, settings} node belongs) are read as before, without a JSON pass."""
+    a = screamer.from_settings({"type": "RollingMean", "settings": {"window_size": np.int64(5)}})
+    assert a.settings()["window_size"] == 5
+    with pytest.raises(screamer.SaveError, match=re.escape("Segment.settings.op: expected")):
+        screamer.from_settings({"type": "Segment", "settings": {"op": screamer.RollingMean(3)}})
+
+
+def test_nested_setting_errors_name_the_path():
+    node = {"type": "Segment", "settings": {"op": {"type": "RollingMean", "settings": {"window": 3}}}}
+    where = "Segment.settings.op.settings.window: unknown parameter"
+    with pytest.raises(screamer.SaveError, match=re.escape(where)):
+        screamer.from_settings(node)
+    with pytest.raises(screamer.SaveError, match=re.escape(where)):
+        _b._serial_make_op("Segment", json.dumps(node["settings"]))
+    bad = '{"op": {"type": "RollingMean", "settings": {"window_size": 0}}}'
+    with pytest.raises(screamer.SaveError, match=re.escape("Segment.settings.op.settings: ")):
+        _b._serial_make_op("Segment", bad)
+
+
+def _js_fixture():
+    return json.loads((ROOT / "wasm" / "smoke" / "save_js.json").read_text(encoding="utf-8"))
+
+
+def test_js_files_load_byte_for_byte():
+    """The files JavaScript wrote (js/scripts/gen_save_js.ts) load in Python
+    and write back the same bytes, in JSON and CBOR, and continue as
+    Python's own file does (to 1e-9: D4, see js/test/save_restore.test.ts)."""
+    fixture = _js_fixture()
+    assert [c["name"] for c in fixture] == SAVEABLE, (
+        "wasm/smoke/save_js.json is stale: run node --import tsx js/scripts/gen_save_js.ts")
+    for c in fixture:
+        text, blob = c["json_text"], bytes.fromhex(c["cbor_hex"])
+        a, b = screamer.loads(text), screamer.loads(blob)
+        assert a.dumps() == text and b.dumps() == text
+        assert a.dumps(format="cbor") == blob and b.dumps(format="cbor") == blob
+        make, inputs = case(c["name"])
+        k = splits(c["name"], kwargs_for(c["name"]))[2]
+        ref = make()
+        feed(ref, inputs, 0, k)
+        np.testing.assert_allclose(feed(a, inputs, k, k + REST), feed(ref, inputs, k, k + REST),
+                                   rtol=1e-9, atol=1e-9, equal_nan=True)
+
+
+# ---- Calls with one event on an object holding per-column state ---------------
+
+def _panel_inputs(name, inputs):
+    """Inputs of a (T, K) resume: two columns per input, or the block itself."""
+    if name in _sweep.BLOCK_OPS:
+        return list(inputs)
+    if any(np.ndim(x) != 1 for x in inputs):
+        return None
+    return [np.stack([x, x[::-1]], axis=1) for x in inputs]
+
+
+@pytest.mark.parametrize("name", FUNCTOR_NAMES)
+def test_event_calls_on_a_panel_raise(name):
+    """After a resume on a (T, K) array every call with one event, and every
+    stream, raises (decision 9) and keeps the per-column state."""
+    make, inputs = case(name)
+    panel = _panel_inputs(name, inputs)
+    op = make()
+    try:
+        op.resume(*(panel or []))
+    except (TypeError, ValueError):
+        pytest.skip(f"{name} keeps no per-column state")
+    if panel is None:
+        pytest.skip(f"{name} keeps no per-column state")
+    k = panel[0].shape[1]
+    if name in _sweep.BLOCK_OPS:
+        row = panel[0][0]
+        calls = [lambda: op(*[float(v) for v in row[0]]), lambda: op(row),
+                 lambda: op(row, np.ones(k)), lambda: op(iter([row])),
+                 lambda: op(iter([row]), iter([np.ones(k)]))]
+    else:
+        ev = [float(x[0, 0]) for x in panel]
+        calls = [lambda: op(*ev), lambda: op(*[iter([v]) for v in ev])]
+        if len(ev) > 1:
+            calls += [lambda: op(tuple(ev)), lambda: op(iter([tuple(ev)]))]
+
+        async def agen(v):
+            yield v
+        calls.append(lambda: op(*[agen(v) for v in ev]))
+    for call in calls:
+        with pytest.raises(ValueError, match=f"per-column state for {k} columns"):
+            call()
+    with pytest.raises(ValueError, match=f"holds {k} columns, got {k + 1}"):
+        op.resume(*[np.concatenate([x, x[:, :1]], axis=1) for x in panel])
+    op.resume(*panel)    # the columns are still there
