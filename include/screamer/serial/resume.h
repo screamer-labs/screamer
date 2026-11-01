@@ -63,6 +63,16 @@ inline ResumeColumns resume_columns(EvalOp& self, bool panel, std::size_t cols, 
     return r;
 }
 
+// A resume of a row operator or PortfolioReport (one object for k assets,
+// no panel): an object that holds state for `held` assets (0 when it holds
+// none) continues only on rows of that many. std::invalid_argument
+// (ValueError, RangeError).
+inline void check_resume_assets(std::size_t held, std::size_t k) {
+    if (held != 0 && held != k)
+        throw std::invalid_argument("resume: object holds " + std::to_string(held) + " assets, got " +
+                                    std::to_string(k));
+}
+
 // After the run: a new panel becomes the object's, and the object resets. A
 // throw during the run leaves the columns that ran advanced (an existing
 // panel or the object itself); a new panel is installed only after the run.

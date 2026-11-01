@@ -18,14 +18,16 @@ export interface RawOp {
   // Present only on dynamic-width reducers (see wrapReducerOp): one event
   // reduces an (assets, nIn) block, so the asset count travels per call.
   reduceInto?(inPtr: number, outPtr: number, groups: number): void;
-  reduceBatchInto?(inPtr: number, outPtr: number, rows: number, groups: number): void;
+  // `resume` runs from the op's state and keeps the end state.
+  reduceBatchInto?(inPtr: number, outPtr: number, rows: number, groups: number, resume: boolean): void;
   // The same with one price per group (groups doubles per event at pricePtr).
   reducePricedInto?(inPtr: number, pricePtr: number, outPtr: number, groups: number): void;
-  reducePricedBatchInto?(inPtr: number, pricePtr: number, outPtr: number, rows: number, groups: number): void;
+  reducePricedBatchInto?(inPtr: number, pricePtr: number, outPtr: number, rows: number, groups: number,
+                         resume: boolean): void;
   // Present only on row ops (see wrapRowOp): one event is a row of k assets
   // with fieldsIn() values each, so k travels per call.
   mapRowInto?(inPtr: number, outPtr: number, k: number): void;
-  mapRowsInto?(inPtr: number, outPtr: number, rows: number, k: number, packed: boolean): void;
+  mapRowsInto?(inPtr: number, outPtr: number, rows: number, k: number, packed: boolean, resume: boolean): void;
   fieldsIn?(): number;
   fieldsOut?(): number;
   // False on a row reduction (CrossStd): an event writes fieldsOut() values

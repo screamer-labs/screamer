@@ -9,9 +9,9 @@ save file holds as ``"columns"``.
 
 The tests run every saveable functor of the registry
 (``tests/save_cases.py``), so operators that gain save support join them. A
-row operator (cross-section, portfolio engine) is one object for K assets
-already and has no resume, and PortfolioReport reduces a (T, K, 4) block, so
-these tests leave both out; their save tests are in tests/test_save_restore.py.
+row operator (cross-section, portfolio engine) and PortfolioReport are one
+object for K assets already: their resume continues that state, with no
+per-column state, and the tests at the end of this file cover them.
 """
 from __future__ import annotations
 
@@ -264,8 +264,88 @@ def test_empty_panel_refused():
     assert "values" in _state(f)
 
 
-@pytest.mark.parametrize("name", sorted(ROW_OPS))
-def test_row_op_has_no_resume(name):
+# ---- Row operators and PortfolioReport ----------------------------------------
+
+ROW_SAVEABLE = sorted(n for n in (ROW_OPS | BLOCK_OPS) if n not in KNOWN_UNSAVEABLE)
+
+
+def _assets(inputs):
+    return inputs[0].shape[1]
+
+
+def _fewer_assets(inputs):
+    return [x[:, :-1] for x in inputs]
+
+
+@pytest.mark.parametrize("name", ROW_SAVEABLE)
+def test_row_resume_continues(name):
+    """A resume split anywhere gives the uninterrupted batch bit for bit, also
+    through a save and load between the two calls; the object keeps its own
+    state for its K assets (no per-column state)."""
     make, inputs = case(name)
-    with pytest.raises(TypeError, match="has no resume"):
-        make().resume(*inputs)
+    k = _split(name)
+    want = np.asarray(make()(*inputs))
+    a = make()
+    assert_bitwise(a.resume(*_part(inputs, 0, k)), want[:k])
+    assert "values" in _state(a)
+    b = screamer.loads(a.dumps())
+    c = screamer.loads(a.dumps(format="cbor"))
+    rest = _part(inputs, k, len(inputs[0]))
+    assert_bitwise(b.resume(*rest), want[k:])
+    assert_bitwise(c.resume(*rest), want[k:])
+    assert_bitwise(a.resume(*rest), want[k:])
+
+
+@pytest.mark.parametrize("name", ROW_SAVEABLE)
+def test_row_resume_other_width_raises(name):
+    make, inputs = case(name)
+    a = make()
+    a.resume(*_part(inputs, 0, 5))
+    before = a.dumps()
+    m = _assets(inputs)
+    with pytest.raises(ValueError, match=f"resume: object holds {m} assets, got {m - 1}"):
+        a.resume(*_part(_fewer_assets(inputs), 5, 10))
+    assert a.dumps() == before
+    # A fresh object takes any width.
+    assert_bitwise(make().resume(*_fewer_assets(inputs)), make()(*_fewer_assets(inputs)))
+
+
+@pytest.mark.parametrize("name", ROW_SAVEABLE)
+def test_row_resume_on_fresh_equals_batch(name):
+    make, inputs = case(name)
+    assert_bitwise(make().resume(*inputs), make()(*inputs))
+
+
+@pytest.mark.parametrize("name", ROW_SAVEABLE)
+def test_row_default_batch_unchanged(name):
+    make, inputs = case(name)
+    first = make()(*inputs)
+    g = make()
+    g.resume(*_part(inputs, 0, 7))
+    assert_bitwise(g(*inputs), first)
+    # The default batch call left the object reset.
+    assert _same(_state(g), _state(make()))
+
+
+@pytest.mark.parametrize("name", ROW_SAVEABLE)
+def test_row_resume_takes_series(name):
+    """A resume takes arrays with a time axis: one row is a TypeError, as is
+    an iterator of rows."""
+    make, inputs = case(name)
+    with pytest.raises(TypeError, match="resume"):
+        make().resume(*[x[0] for x in inputs])
+    with pytest.raises(TypeError, match="resume"):
+        make().resume(*[iter(x) for x in inputs])
+
+
+def test_portfolio_report_priced_resume():
+    """PortfolioReport's resume with prices continues the priced report."""
+    make, (x,) = case("PortfolioReport")
+    prices = np.abs(x[:, :, 0]) + 1.0
+    want = screamer.PortfolioReport()(x, prices)
+    a = screamer.PortfolioReport()
+    first = a.resume(x[:20], prices[:20])
+    b = screamer.loads(a.dumps())
+    assert_bitwise(np.concatenate([first, b.resume(x[20:], prices[20:])]), want)
+    with pytest.raises(ValueError, match="resume: object holds 3 assets, got 2"):
+        a.resume(x[20:, :2], prices[20:, :2])

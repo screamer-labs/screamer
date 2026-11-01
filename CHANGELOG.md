@@ -22,7 +22,10 @@ Unreleased
 * **BacktestL1TradesOrders docs:** the parameter list gave `max_position`
   before `min_position`, while the constructor takes `min_position` first, so
   a positional call written from the docs swapped the two caps. The docs (and
-  `help()`) now list them in the constructor's order.
+  `help()`) now list them in the constructor's order. This also corrects the
+  `repr`, `Pipeline.to_json` and the stream copies of an object built with
+  positional caps: they recorded the caps swapped, so a stream copy raised
+  `ValueError` (min_position above max_position).
 
 3.10.1 - 2026-11-01
 -------------------

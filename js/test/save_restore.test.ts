@@ -18,6 +18,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as S from "../src/index.ts";
+import type { NdArray } from "../src/ndarray.ts";
 
 await S.ready();
 
@@ -96,6 +97,16 @@ function feed(op: any, inputs: Num[][]): number[] {
 }
 
 const arrays = (inputs: Num[][]) => inputs.map((x) => Float64Array.from(x, num));
+// Nested rows (a row op's (T, K) input, PortfolioReport's (T, K, 4) block) as
+// an NdArray.
+const nd = (x: any): NdArray => {
+  const shape: number[] = [];
+  for (let y = x; Array.isArray(y); y = y[0]) shape.push(y.length);
+  return { data: Float64Array.from(x.flat(Infinity) as Num[], num), shape };
+};
+// The inputs of a resume: series, or for a row op and PortfolioReport blocks.
+const resumeInputs = (op: any, inputs: any[]) =>
+  op.rowOp || op.opName === "PortfolioReport" ? inputs.map(nd) : arrays(inputs);
 
 for (const c of ORACLE.cases) {
   const want = c.expected_rest_output.flat().map(num);
@@ -160,17 +171,10 @@ for (const c of ORACLE.cases) {
 
   test(`save: ${c.name} resume equals one event at a time, and Python`, () => {
     const op = S.fromSettings({ type: c.name, settings: decodeSettings(c.settings) });
-    // A row operator is one object for K assets and has no resume;
-    // PortfolioReport reduces a (T, K, 4) block (tested below).
-    if ((op as any).rowOp || c.name === "PortfolioReport") {
-      if ((op as any).rowOp) assert.throws(() => op.resume(...arrays(c.prefix)), /has no resume/);
-      op.dispose();
-      return;
-    }
     const ref = fed();
-    op.resume(...arrays(c.prefix));
+    op.resume(...resumeInputs(op, c.prefix));
     assert.equal(op.dumps(), ref.dumps());
-    const got = flat(op.resume(...arrays(c.rest)));
+    const got = flat(op.resume(...resumeInputs(op, c.rest)));
     assertBitwise(got, feed(ref, c.rest), `${c.name} resume`);
     assertClose(got, want, `${c.name} resume vs Python`, TOL[c.name]);
     // The end state stays: the object continues from it.
@@ -396,20 +400,51 @@ test("save: one-event calls and streams raise on an object holding per-column st
   }
 });
 
-test("save: PortfolioReport raises on one event while it holds per-column state", () => owning((keep) => {
-  const T = 8, K = 3;
-  const block = { data: Float64Array.from({ length: T * K * 4 }, (_, i) => 1 + (i % 7)), shape: [T, K, 4] };
-  const pr: any = keep(S.PortfolioReport());
-  pr.resume(block);
-  const row = { data: block.data.slice(0, K * 4), shape: [K, 4] };
-  const panelError = /per-column state for 3 columns/;
-  assert.throws(() => pr(1, 1, 1, 1), panelError);
-  assert.throws(() => pr(row), panelError);
-  assert.throws(() => pr(row, new Float64Array(K).fill(1)), panelError);
-  assert.throws(() => pr([row][Symbol.iterator]()), panelError);
-  pr.resume(block);   // the columns are kept
-  pr(block);          // a default batch call drops them
-  pr(row);
+// A (T, K) block of a row op's input, or a (T, K, 4) one of PortfolioReport's.
+const block = (T: number, K: number, F: number, shift: number): NdArray => ({
+  data: Float64Array.from({ length: T * K * F }, (_, i) => 1 + ((i * 7 + shift) % 11) + 0.01 * i),
+  shape: F === 1 ? [T, K] : [T, K, F],
+});
+const rows = (x: NdArray, a: number, b: number): NdArray => {
+  const w = x.data.length / x.shape[0];
+  return { data: x.data.slice(a * w, b * w), shape: [b - a, ...x.shape.slice(1)] };
+};
+
+test("save: PortfolioReport resume continues the report for its assets", () => owning((keep) => {
+  const T = 12, K = 3, x = block(T, K, 4, 0), prices = block(T, K, 1, 3);
+  for (const priced of [false, true]) {
+    const args = (a: number, b: number) => (priced ? [rows(x, a, b), rows(prices, a, b)] : [rows(x, a, b)]);
+    const want = flat(keep(S.PortfolioReport())(...args(0, T)));
+    const pr: any = keep(S.PortfolioReport());
+    const first = flat(pr.resume(...args(0, 5)));
+    const loaded: any = keep(S.loads(pr.dumps()));
+    assertBitwise([...first, ...flat(loaded.resume(...args(5, T)))], want, "loaded");
+    assertBitwise([...first, ...flat(pr.resume(...args(5, T)))], want, "resumed");
+    assert.throws(() => pr.resume(...(priced ? [block(2, 2, 4, 0), block(2, 2, 1, 0)] : [block(2, 2, 4, 0)])),
+      /resume: object holds 3 assets, got 2/);
+    pr(x);   // a default batch call is unchanged
+    assertBitwise(flat(keep(S.PortfolioReport()).resume(...args(0, T))), want, "fresh");
+  }
+}));
+
+test("save: a row op's resume continues its assets", () => owning((keep) => {
+  const T = 12, K = 3;
+  for (const name of ["BacktestPortfolioTarget", "BacktestPortfolioOHLCTarget", "CrossRank", "CrossStd"]) {
+    const make = (): any => keep((S as any)[name]());
+    const fi = make().rowOp.fieldsIn;
+    const ins = Array.from({ length: fi }, (_, f) => block(T, K, 1, f));
+    const want = flat(make()(...ins));
+    const op = make();
+    const first = flat(op.resume(...ins.map((x) => rows(x, 0, 5))));
+    const loaded: any = keep(S.loads(op.dumps()));
+    const rest = ins.map((x) => rows(x, 5, T));
+    assertBitwise([...first, ...flat(loaded.resume(...rest))], want, `${name} loaded`);
+    assertBitwise([...first, ...flat(op.resume(...rest))], want, `${name} resumed`);
+    assert.throws(() => op.resume(...ins.map(() => block(2, 2, 1, 0))), /resume: object holds 3 assets, got 2/, name);
+    assert.throws(() => op.resume(...ins.map(() => new Float64Array(K))), TypeError, name);
+    assertBitwise(flat(op(...ins)), want, `${name} default batch`);
+    assertBitwise(flat(make().resume(...ins)), want, `${name} fresh`);
+  }
 }));
 
 test("save: the rename table applies to fromSettings and loads", () => owning((keep) => {

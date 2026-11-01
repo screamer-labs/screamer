@@ -21,6 +21,7 @@
 #include "screamer/common/functor_base.h"
 #include "screamer/common/op_arg.h"
 #include "screamer/common/row_op.h"
+#include "screamer/serial/resume.h"
 
 namespace screamer_wasm {
 
@@ -61,17 +62,23 @@ inline void reduceInto(Op& op, std::uintptr_t inPtr, std::uintptr_t outPtr,
 // events. Layout: inPtr = rows * groups * n_in() doubles (row-major),
 // outPtr = rows * n_out(). Brackets the run with resets at both ends (the
 // first also drops a panel, as every default batch call does), so a batch
-// call is independent of what came before and leaves no state behind.
+// call is independent of what came before and leaves no state behind. A
+// `resume` run starts from the op's state and keeps the end state.
 template <class Op>
 inline void reduceBatchInto(Op& op, std::uintptr_t inPtr, std::uintptr_t outPtr,
-                            std::size_t rows, std::size_t groups) {
+                            std::size_t rows, std::size_t groups, bool resume) {
     const double* in = reinterpret_cast<const double*>(inPtr);
     double* out = reinterpret_cast<double*>(outPtr);
     const std::size_t ni = op.n_in(), no = op.n_out();
-    op.reset_all();
+    if (resume) {
+        op.check_event_call();
+        screamer::serial::check_resume_assets(op.assets(), groups);
+    } else {
+        op.reset_all();
+    }
     for (std::size_t r = 0; r < rows; ++r)
         writeResult(out + r * no, op.call_assets(in + r * groups * ni, groups));
-    op.reset();
+    if (!resume) op.reset();
 }
 
 // The same two entry points with one price per group: pricePtr holds `groups`
@@ -88,16 +95,22 @@ inline void reducePricedInto(Op& op, std::uintptr_t inPtr, std::uintptr_t priceP
 
 template <class Op>
 inline void reducePricedBatchInto(Op& op, std::uintptr_t inPtr, std::uintptr_t pricePtr,
-                                  std::uintptr_t outPtr, std::size_t rows, std::size_t groups) {
+                                  std::uintptr_t outPtr, std::size_t rows, std::size_t groups,
+                                  bool resume) {
     const double* in = reinterpret_cast<const double*>(inPtr);
     const double* prices = reinterpret_cast<const double*>(pricePtr);
     double* out = reinterpret_cast<double*>(outPtr);
     const std::size_t ni = op.n_in(), no = op.n_out();
-    op.reset_all();
+    if (resume) {
+        op.check_event_call();
+        screamer::serial::check_resume_assets(op.assets(), groups);
+    } else {
+        op.reset_all();
+    }
     for (std::size_t r = 0; r < rows; ++r)
         writeResult(out + r * no,
                     op.call_assets(in + r * groups * ni, prices + r * groups, groups));
-    op.reset();
+    if (!resume) op.reset();
 }
 
 // ---- Row ops (cross-sectional operators, portfolio engines) ---------------
@@ -122,9 +135,16 @@ template <class Op> inline bool perAssetOut(Op& op) { return op.per_asset_out();
 
 // `packed` reads each row as k assets of fieldsIn() values (a packed
 // (T, K, F) array) instead of fieldsIn() blocks of k values (RowOp::call_rows).
+// A `resume` run starts from the op's state and keeps the end state.
 template <class Op>
 inline void mapRowsInto(Op& op, std::uintptr_t inPtr, std::uintptr_t outPtr,
-                        std::size_t rows, std::size_t k, bool packed) {
+                        std::size_t rows, std::size_t k, bool packed, bool resume) {
+    if (resume) {
+        screamer::serial::check_resume_assets(op.width(), k);
+        op.call_rows(reinterpret_cast<const double*>(inPtr), reinterpret_cast<double*>(outPtr),
+                     rows, k, packed);
+        return;
+    }
     op.reset();
     try {
         op.call_rows(reinterpret_cast<const double*>(inPtr), reinterpret_cast<double*>(outPtr),

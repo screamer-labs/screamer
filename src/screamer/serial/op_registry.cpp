@@ -220,6 +220,7 @@
 #include "screamer/serial/errors.h"
 #include "screamer/serial/file.h"
 #include "screamer/serial/op_registry.h"
+#include "screamer/serial/resume.h"
 #include "screamer/serial/saveable.h"
 #include "screamer/serial/settings_compat.h"
 #include "screamer/spread_estimators.h"

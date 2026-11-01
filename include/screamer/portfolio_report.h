@@ -89,6 +89,10 @@ namespace screamer {
         }
 
         // Reduce one contiguous (assets, 4) row from a backtest engine.
+        // The assets the report holds positions for, 0 before its first row
+        // (or after a four-column call).
+        std::size_t assets() const { return prev_positions_.size(); }
+
         ResultTuple call_assets(const double* row, std::size_t assets) {
             return reduce<false>(row, nullptr, assets);
         }

@@ -50,6 +50,7 @@
 #include "screamer/validation/time_splits.h"
 #include "screamer/portfolio_report.h"
 #include "screamer/common/row_op.h"
+#include "screamer/serial/resume.h"
 #include "screamer/cross_section.h"
 #include "screamer/backtest_portfolio_target.h"
 #include "screamer/common/per_asset.h"
@@ -176,9 +177,12 @@ nb::object portfolio_report_row(screamer::PortfolioReport& self, nb::object row)
     return portfolio_report_event(self, portfolio_values(std::move(row), "rows"), nullptr);
 }
 
+// A default batch starts and ends reset; a `resume` batch starts from the
+// report's state and keeps the end state.
 nb::object portfolio_report_batch(screamer::PortfolioReport& self,
                                   const screamer::detail::ContigDouble& values,
-                                  screamer::detail::ContigDouble* prices = nullptr) {
+                                  screamer::detail::ContigDouble* prices = nullptr,
+                                  bool resume = false) {
     if (values.ndim() != 3 || values.shape[2] != 4)
         throw nb::value_error("PortfolioReport batch input must have shape (time, assets, 4).");
     const std::size_t time = values.shape[0];
@@ -186,17 +190,22 @@ nb::object portfolio_report_batch(screamer::PortfolioReport& self,
     if (assets == 0)
         throw nb::value_error("PortfolioReport requires at least one asset.");
     if (prices) check_prices(*prices, true, time, assets);
-    double* out = new double[time * 6 ? time * 6 : 1];
-    self.reset_all();   // a default batch call drops the per-column state of a resume
+    if (resume) {
+        self.check_event_call();
+        screamer::serial::check_resume_assets(self.assets(), assets);
+    } else {
+        self.reset_all();   // a default batch call drops the per-column state of a resume
+    }
+    std::unique_ptr<double[]> out(new double[time * 6 ? time * 6 : 1]);
     for (std::size_t t = 0; t < time; ++t) {
         const double* row = values.data.data() + t * assets * 4;
         auto result = prices
             ? self.call_assets(row, prices->data.data() + t * assets, assets)
             : self.call_assets(row, assets);
-        screamer::detail::write_tuple_to_memory(out + t * 6, result);
+        screamer::detail::write_tuple_to_memory(out.get() + t * 6, result);
     }
-    self.reset();
-    return screamer::detail::make_owned_array(out, {time, 6});
+    if (!resume) self.reset();
+    return screamer::detail::make_owned_array(std::move(out), {time, 6});
 }
 
 // The number of values in a list, tuple, or array, counted without NumPy;
@@ -342,6 +351,47 @@ nb::object portfolio_report_priced(screamer::PortfolioReport& self, nb::args arg
     return out;
 }
 
+// The inputs of a resume as arrays; an iterator or a Pipeline node raises
+// the resume TypeError.
+std::vector<nb::object> resume_arrays(nb::handle owner, const nb::args& args) {
+    std::vector<nb::object> out;
+    for (nb::handle a : args) {
+        nb::object x = nb::borrow<nb::object>(a);
+        if (screamer::is_dag_node(x) || screamer::is_lazy_iterable(x) || screamer::is_async_iterable(x))
+            throw nb::type_error((screamer::op_display_name(owner) +
+                                  ".resume takes arrays with a time axis; call the object with "
+                                  "one event instead").c_str());
+        out.push_back(std::move(x));
+    }
+    return out;
+}
+
+// PortfolioReport's resume: the (T, K, 4) engine output, and optionally the
+// (T, K) prices, reduced from the report's state, keeping the end state; or
+// four series of the portfolio columns (the four-input call's resume).
+nb::object portfolio_report_resume(screamer::PortfolioReport& self, nb::args raw) {
+    nb::args args = screamer::normalize_args(raw, self);
+    std::vector<nb::object> xs = resume_arrays(nb::find(self), args);
+    if (xs.size() == 4) {
+        nb::module_ np = nb::module_::import_("numpy");
+        for (const nb::object& a : xs)
+            if (nb::cast<int>(np.attr("ndim")(a)) != 1)
+                throw nb::type_error("PortfolioReport.resume takes four series, or the (T, K, 4) "
+                                     "engine output and optional (T, K) prices");
+        return screamer::resume_call(self, args);
+    }
+    if (xs.size() != 1 && xs.size() != 2)
+        screamer::throw_input_count(screamer::op_display_name(nb::find(self)), 4, xs.size(),
+                                    ", or the engine output and optional prices");
+    auto values = portfolio_values(xs[0], "rows");
+    if (values.ndim() != 3)
+        throw nb::type_error("PortfolioReport.resume takes the (T, K, 4) engine output; call the "
+                             "object with one row instead");
+    if (xs.size() == 1) return portfolio_report_batch(self, values, nullptr, /*resume=*/true);
+    auto prices = portfolio_values(xs[1], "prices");
+    return portfolio_report_batch(self, values, &prices, /*resume=*/true);
+}
+
 // Runs one call of a row operator or PortfolioReport and puts the operator's
 // name in front of a TypeError or ValueError that does not name it yet
 // (a value-kind error from a shared reader, a complex dtype).
@@ -476,8 +526,11 @@ nb::object row_op_result(const screamer::RowOp& op, double* out, std::size_t tim
     return screamer::detail::make_owned_array(out, row_op_shape(op, time, k, batch));
 }
 
+// A batch (2-D fields) starts and ends reset, unless it is a `resume`: that
+// starts from the operator's state and keeps the end state.
 nb::object row_op_run(screamer::RowOp& self,
-                      const std::vector<screamer::detail::ContigDouble>& fields) {
+                      const std::vector<screamer::detail::ContigDouble>& fields,
+                      bool resume = false) {
     const std::size_t fi = self.fields_in();
     const std::size_t nd = fields[0].ndim();
     if (nd != 1 && nd != 2)
@@ -487,13 +540,18 @@ nb::object row_op_run(screamer::RowOp& self,
         if (f.shape != fields[0].shape)
             throw nb::value_error("all inputs of a row operator must have the same shape.");
     const bool batch = nd == 2;
+    if (resume && !batch)
+        throw nb::type_error((screamer::op_display_name(nb::find(self)) +
+                              ".resume takes (T, K) arrays; call the object with one row instead").c_str());
     const std::size_t time = batch ? fields[0].shape[0] : 1;
     const std::size_t k = fields[0].shape[nd - 1];
     if (k == 0) throw nb::value_error("a row operator needs at least one asset.");
+    if (resume) screamer::serial::check_resume_assets(self.width(), k);
     const std::size_t step_out = self.out_width(k), n_out = time * step_out;
     double* out = new double[n_out ? n_out : 1];
     std::vector<double> event(fi > 1 ? fi * k : 0);
-    if (batch) self.reset();
+    const bool fresh = batch && !resume;   // a default batch runs from a reset state
+    if (fresh) self.reset();
     try {
         for (std::size_t t = 0; t < time; ++t) {
             const double* in = fields[0].data.data() + t * k;
@@ -506,16 +564,16 @@ nb::object row_op_run(screamer::RowOp& self,
         }
     } catch (...) {
         delete[] out;
-        if (batch) self.reset();
+        if (fresh) self.reset();
         throw;
     }
-    if (batch) self.reset();
+    if (fresh) self.reset();
     return row_op_result(self, out, time, k, batch);
 }
 
 // A packed (T, K, F) array, F = fields_in: T events, one call_rows over its
 // rows. Returns (T, K) or (T, K, fields_out), as the separate inputs do.
-nb::object row_op_packed(screamer::RowOp& self, nb::object x) {
+nb::object row_op_packed(screamer::RowOp& self, nb::object x, bool resume = false) {
     const screamer::detail::ContigDouble p =
         screamer::detail::read_double_view(nb::cast<nb::ndarray<nb::ro>>(x));
     const std::size_t fi = self.fields_in();
@@ -527,17 +585,18 @@ nb::object row_op_packed(screamer::RowOp& self, nb::object x) {
                                ").").c_str());
     const std::size_t time = p.shape[0], k = p.shape[1];
     if (k == 0) throw nb::value_error("a row operator needs at least one asset.");
+    if (resume) screamer::serial::check_resume_assets(self.width(), k);
     const std::size_t n_out = time * self.out_width(k);
     double* out = new double[n_out ? n_out : 1];
-    self.reset();
+    if (!resume) self.reset();
     try {
         self.call_rows(p.values(), out, time, k, /*packed=*/true);
     } catch (...) {
         delete[] out;
-        self.reset();
+        if (!resume) self.reset();
         throw;
     }
-    self.reset();
+    if (!resume) self.reset();
     return row_op_result(self, out, time, k, true);
 }
 
@@ -607,6 +666,34 @@ private:
     std::vector<screamer::detail::ContigDouble> fields_;
     std::size_t event_ = 0;               // events seen, for error messages
 };
+
+// A row operator's resume: (T, K) arrays (or one packed (T, K, F) array), run
+// from the operator's state for its K assets, keeping the end state. A row
+// operator is one object for K assets, so it keeps no per-column state.
+nb::object row_op_resume(screamer::RowOp& self, nb::args raw) {
+    nb::args args = screamer::normalize_args(raw, self);
+    std::vector<nb::object> xs = resume_arrays(nb::find(self), args);
+    const std::size_t fi = self.fields_in(), n = xs.size();
+    if (n == 1 && fi > 1) {
+        nb::object a = xs[0];
+        if (screamer::detail::is_unsupported_dtype_array(a)) a = screamer::detail::coerce_to_f64(a);
+        if (!screamer::detail::is_ndarray(a)) {
+            screamer::refuse_text(a);
+            nb::module_ np = nb::module_::import_("numpy");
+            a = np.attr("asarray")(a, nb::arg("dtype") = np.attr("float64"));
+        }
+        if (nb::cast<int>(a.attr("ndim")) == 3) return row_op_packed(self, a, /*resume=*/true);
+    }
+    if (n != fi)
+        screamer::throw_input_count(screamer::op_display_name(nb::find(self)), fi, n,
+            fi > 1 ? ", or one packed (T, K, " + std::to_string(fi) + ") array" : "");
+    std::vector<screamer::detail::ContigDouble> fields;
+    for (const nb::object& a : xs) {
+        fields.push_back(row_op_input(a));
+        fields.back().shape = screamer::shape::consume_unit_field(fields.back().shape);
+    }
+    return row_op_run(self, fields, /*resume=*/true);
+}
 
 nb::object row_op_call(screamer::RowOp& self, nb::args raw) {
     nb::args args = screamer::normalize_args(raw, self);
@@ -1723,6 +1810,9 @@ void init_bindings_fin(nb::module_& m) {
         .def("__call__", [](screamer::PortfolioReport& self, nb::args a) {
             return named_call(self, [&] { return portfolio_report_call(self, a); });
         })
+        .def("resume", [](screamer::PortfolioReport& self, nb::args a) {
+            return named_call(self, [&] { return portfolio_report_resume(self, a); });
+        }, "Process a batch from the current state and keep the end state.")
         .def("reset", &screamer::PortfolioReport::reset, "Reset.");
 
 
@@ -1730,6 +1820,9 @@ void init_bindings_fin(nb::module_& m) {
         .def("__call__", [](screamer::RowOp& self, nb::args a) {
             return named_call(self, [&] { return row_op_call(self, a); });
         })
+        .def("resume", [](screamer::RowOp& self, nb::args a) {
+            return named_call(self, [&] { return row_op_resume(self, a); });
+        }, "Process a batch from the current state and keep the end state.")
         .def("reset", &screamer::RowOp::reset, "Reset.");
 
 

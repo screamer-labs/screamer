@@ -24,7 +24,10 @@ A default batch call starts from a reset operator and leaves it reset.
 keeps the end state, so ``f.resume(history)`` warms ``f`` up for saving or for
 calls with one event at a time. On a (T, K) array ``resume`` keeps one state
 per column, saved as ``{"version": N, "columns": [{...}, ...]}``; a call with
-one event then raises until ``reset()`` or a default batch call drops it.
+one event then raises until ``reset()`` or a default batch call drops it. A
+row operator (a cross-section operator or portfolio engine) and
+``PortfolioReport`` are one object for K assets: their ``resume`` on (T, K)
+inputs continues that state, and rows of another K raise ``ValueError``.
 
 ``load``, ``loads`` and ``from_settings`` build operators. The C++ core writes
 and reads the files (``include/screamer/serial``), so Python, JavaScript and

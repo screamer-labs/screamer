@@ -48,7 +48,6 @@ namespace screamer {
                 held_total += t.held;
             }
 
-            // The nine BacktestStats columns, after at least one step.
             template <class Ar>
             void state(Ar& ar) {
                 ar("steps", steps);
@@ -68,6 +67,7 @@ namespace screamer {
                 ar.check(steps >= 0 && held_total >= 0, "counts must not be negative");
             }
 
+            // The nine BacktestStats columns, after at least one step.
             void values(double ppy, double* out) const {
                 const double nan = std::numeric_limits<double>::quiet_NaN();
                 const double n = static_cast<double>(steps);

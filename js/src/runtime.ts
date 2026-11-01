@@ -58,7 +58,8 @@ export type ScreamerOp = {
   /**
    * A batch call that starts from the operator's state and keeps the end
    * state, where a default batch call starts and ends reset. On a (T, K)
-   * array it keeps one state per column. Python's `resume`.
+   * array it keeps one state per column; a row op and PortfolioReport, one
+   * object for K assets, continue that state instead. Python's `resume`.
    */
   resume(...inputs: any[]): any;
   /** Writes the save file to `path` (Node): CBOR for a `.cbor` path, JSON otherwise. */
@@ -941,8 +942,10 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
     return nOut === 1 ? v[0] : Array.from(v);
   };
 
+  // `resume` runs from the op's state and keeps the end state (C++ checks the
+  // asset count); a default batch starts and ends reset.
   const batch = (flat: ArrayLike<number>, rows: number, assets: number,
-                 prices?: ArrayLike<number>): NdArray | Float64Array => {
+                 prices?: ArrayLike<number>, resume = false): NdArray | Float64Array => {
     if (rows === 0) {
       return nOut === 1 ? new Float64Array(0) : { data: new Float64Array(0), shape: [0, nOut] };
     }
@@ -954,9 +957,9 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
       try {
         if (prices) {
           M.viewF64(priceP, rows * assets).set(prices as number[]);
-          raw.reducePricedBatchInto!(inP, priceP, outP, rows, assets);
+          raw.reducePricedBatchInto!(inP, priceP, outP, rows, assets, resume);
         } else {
-          raw.reduceBatchInto!(inP, outP, rows, assets);
+          raw.reduceBatchInto!(inP, outP, rows, assets, resume);
         }
       } catch (e) { throw normalizeError(e); }
       const data = new Float64Array(M.viewF64(outP, rows * nOut));
@@ -1175,9 +1178,32 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
   const op = call as ScreamerOp;
   op.reset = () => { if (disposed) throw new Error("operation used after dispose()"); raw.reset(); };
   op.dispose = free;
+  // A resume reduces the (T, K, 4) engine output (and optional (T, K)
+  // prices) from the report's state, as Python's does; four series resume
+  // the four-column call.
   op.resume = (...args: any[]) => {
     if (disposed) throw new Error("operation used after dispose()");
-    return base.resume(...args);
+    const who = opName(raw);
+    if (args.length === 4) {
+      if (args.some((a) => isNd(a) && a.shape.length > 1))
+        throw new TypeError(`${who}.resume takes four series, or the (T, K, 4) engine output and optional (T, K) prices`);
+      return base.resume(...args);
+    }
+    if (args.length !== 1 && args.length !== 2)
+      throw new RangeError(inputCountText(who, 4, args.length, ", or the engine output and optional prices"));
+    const x = args[0];
+    let b: { flat: ArrayLike<number>; rows: number; assets: number };
+    if (isNd(x) && x.shape.length === 3) {
+      if (x.shape[2] !== width)
+        throw new RangeError(`expected a batch of shape (events, assets, ${width}), got [${x.shape}]`);
+      b = { flat: x.data, rows: x.shape[0], assets: x.shape[1] };
+    } else if (isNestedBatch(x)) {
+      b = nestedFlat(x);
+    } else {
+      throw new TypeError(`${who}.resume takes the (T, K, ${width}) engine output; call the object with one row instead`);
+    }
+    const prices = args.length === 2 ? asPrices(args[1], b.rows, b.assets) : undefined;
+    return batch(b.flat, b.rows, b.assets, prices, true);
   };
   installSave(op, M, raw, () => { if (disposed) throw new Error("operation used after dispose()"); });
   (op as any)[Symbol.dispose] = free;
@@ -1250,8 +1276,9 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
     return new Float64Array(M.viewF64(res.evOut, outWidth(k)));
   };
 
-  // T events from fi (T, K) blocks, each flat and row-major.
-  const batch = (blocks: ArrayLike<number>[], T: number, k: number): NdArray => {
+  // T events from fi (T, K) blocks, each flat and row-major. `resume` runs
+  // from the op's state and keeps the end state (C++ checks the asset count).
+  const batch = (blocks: ArrayLike<number>[], T: number, k: number, resume = false): NdArray => {
     if (k === 0) throw new RangeError("a row op needs at least one asset");
     const shape = outShape(T, k);
     if (T === 0) return { data: new Float64Array(0), shape };
@@ -1263,7 +1290,7 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
       else for (let t = 0; t < T; t++)
         for (let f = 0; f < fi; f++)
           for (let j = 0; j < k; j++) view[(t * fi + f) * k + j] = blocks[f][t * k + j];
-      try { raw.mapRowsInto!(inP, outP, T, k, false); } catch (e) { throw normalizeError(e); }
+      try { raw.mapRowsInto!(inP, outP, T, k, false, resume); } catch (e) { throw normalizeError(e); }
       return { data: new Float64Array(M.viewF64(outP, nOut)), shape };
     } finally {
       M.freeBuf(inP); M.freeBuf(outP);
@@ -1272,7 +1299,7 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
 
   // T events from one packed [T, K, F] NdArray, F = fi last (rule 4): its
   // rows go to the engine as they are, and C++ reads each asset's fields.
-  const packedBatch = (x: NdArray): NdArray => {
+  const packedBatch = (x: NdArray, resume = false): NdArray => {
     const [T, k, F] = x.shape;
     if (F !== fi)
       throw new RangeError(`a packed input of ${opName(raw)} has shape [T, K, ${fi}], got [${x.shape}]`);
@@ -1283,7 +1310,7 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
     const inP = M.allocF64(nIn), outP = M.allocF64(nOut);
     try {
       M.viewF64(inP, nIn).set(x.data);
-      try { raw.mapRowsInto!(inP, outP, T, k, true); } catch (e) { throw normalizeError(e); }
+      try { raw.mapRowsInto!(inP, outP, T, k, true, resume); } catch (e) { throw normalizeError(e); }
       return { data: new Float64Array(M.viewF64(outP, nOut)), shape };
     } finally {
       M.freeBuf(inP); M.freeBuf(outP);
@@ -1395,8 +1422,26 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
   const op = call as ScreamerOp;
   op.reset = () => { if (disposed) throw new Error("operation used after dispose()"); raw.reset(); };
   op.dispose = free;
-  // A row op is one object for K assets: it keeps no state per column.
-  op.resume = () => { throw new TypeError(`${opName(raw)}.resume: a cross-sectional operator has no resume`); };
+  // A row op is one object for K assets: a resume continues its state for
+  // them (no per-column state), on (T, K) arrays or one packed (T, K, F) array.
+  op.resume = (...args: any[]) => {
+    if (disposed) throw new Error("operation used after dispose()");
+    const who = opName(raw);
+    if (args.some(isNode) || streamKind(args, fi, who))
+      throw new TypeError(`${who}.resume takes arrays with a time axis; call the object with one event instead`);
+    if (args.length === 1 && fi > 1 && isNd(args[0]) && args[0].shape.length === 3)
+      return packedBatch(args[0], true);
+    if (args.length !== fi)
+      throw new RangeError(inputCountText(who, fi, args.length, fi > 1 ? `, or one packed (T, K, ${fi}) array` : ""));
+    const rowText = `${who}.resume takes (T, K) arrays; call the object with one row instead`;
+    if (args.some((a) => isTyped(a) || isNumArr(a) || (isNd(a) && a.shape.length === 1))) throw new TypeError(rowText);
+    const blocks = args.map(asBlock);
+    if (blocks.some((b) => b === null)) throw new TypeError(rowText);
+    const b0 = blocks[0]!;
+    if (blocks.some((b) => b!.T !== b0.T || b!.k !== b0.k))
+      throw new RangeError("all inputs must have the same shape");
+    return batch(blocks.map((b) => b!.flat), b0.T, b0.k, true);
+  };
   installSave(op, M, raw, () => { if (disposed) throw new Error("operation used after dispose()"); });
   (op as any)[Symbol.dispose] = free;
   // Marks a row op (rows of K assets), so callers such as positionTest can

@@ -982,9 +982,7 @@ def test_js_files_of_another_library_version():
 # ---- Calls with one event on an object holding per-column state ---------------
 
 def _panel_inputs(name, inputs):
-    """Inputs of a (T, K) resume: two columns per input, or the block itself."""
-    if name in _sweep.BLOCK_OPS:
-        return list(inputs)
+    """Inputs of a (T, K) resume: two columns per input."""
     if any(np.ndim(x) != 1 for x in inputs):
         return None
     return [np.stack([x, x[::-1]], axis=1) for x in inputs]
@@ -994,6 +992,8 @@ def _panel_inputs(name, inputs):
 def test_event_calls_on_a_panel_raise(name):
     """After a resume on a (T, K) array every call with one event, and every
     stream, raises (decision 9) and keeps the per-column state."""
+    if name in _sweep.BLOCK_OPS:
+        pytest.skip(f"{name} continues its report on resume; it keeps no per-column state")
     make, inputs = case(name)
     panel = _panel_inputs(name, inputs)
     op = make()
@@ -1004,20 +1004,14 @@ def test_event_calls_on_a_panel_raise(name):
     if panel is None:
         pytest.skip(f"{name} keeps no per-column state")
     k = panel[0].shape[1]
-    if name in _sweep.BLOCK_OPS:
-        row = panel[0][0]
-        calls = [lambda: op(*[float(v) for v in row[0]]), lambda: op(row),
-                 lambda: op(row, np.ones(k)), lambda: op(iter([row])),
-                 lambda: op(iter([row]), iter([np.ones(k)]))]
-    else:
-        ev = [float(x[0, 0]) for x in panel]
-        calls = [lambda: op(*ev), lambda: op(*[iter([v]) for v in ev])]
-        if len(ev) > 1:
-            calls += [lambda: op(tuple(ev)), lambda: op(iter([tuple(ev)]))]
+    ev = [float(x[0, 0]) for x in panel]
+    calls = [lambda: op(*ev), lambda: op(*[iter([v]) for v in ev])]
+    if len(ev) > 1:
+        calls += [lambda: op(tuple(ev)), lambda: op(iter([tuple(ev)]))]
 
-        async def agen(v):
-            yield v
-        calls.append(lambda: op(*[agen(v) for v in ev]))
+    async def agen(v):
+        yield v
+    calls.append(lambda: op(*[agen(v) for v in ev]))
     for call in calls:
         with pytest.raises(ValueError, match=f"per-column state for {k} columns"):
             call()
