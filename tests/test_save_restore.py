@@ -259,6 +259,63 @@ def test_rolling_max_index_not_negative():
         m.set_state(state)
 
 
+def _fed(op, values):
+    for v in values:
+        op(v)
+    return op
+
+
+@pytest.mark.parametrize("make, edit, message", [
+    (lambda: _fed(screamer.RollingVar(4), (1.0, 2.0)),
+     lambda v: v["window"].update(index=3), "RollingVar.window: index must equal count"),
+    (lambda: _fed(screamer.RollingVar(4, start_policy="zero"), (1.0,)),
+     lambda v: v["window"].update(count=1, index=1), "count must equal window_size under the zero"),
+    (lambda: _fed(screamer.RollingSum(4), (1.0, 2.0)),
+     lambda v: v.update(count=5), "RollingSum: count must be at most window_size"),
+    (lambda: _fed(screamer.RollingRange(4), (1.0, 2.0)),
+     lambda v: v["min"].update(index=3, indices=[1, 2]), "min and max must have seen the same"),
+    (lambda: _fed(screamer.RollingMedian(4), (1.0, 2.0, 3.0)),
+     lambda v: v.update(high=[9.0]), "RollingMedian: low and high must hold the values"),
+    (lambda: _fed(screamer.RollingIqr(4), (1.0, 2.0, 3.0)),
+     lambda v: v["window"].__setitem__(1, 7.0), "RollingIqr: tree must hold the values"),
+    (lambda: _fed(screamer.Hampel(4), (1.0, 2.0)),
+     lambda v: v["window"].update(last=4), "Hampel.window: last must lie in"),
+    (lambda: _fed(screamer.RollingPermutationEntropy(10, 3), np.arange(6.0)),
+     lambda v: v["counts"].__setitem__(0, 9), "counts must count the codes"),
+    (lambda: _fed(screamer.RollingBipowerVar(4), (1.0, -2.0, 3.0)),
+     lambda v: v.update(square_count=0), "square_count must equal the nonzero flags"),
+    (lambda: _fed(screamer.RollingHMM(10), (1.0, 2.0)),
+     lambda v: v.update(fitted=True), "a fitted model must have a full window"),
+    (lambda: _fed(screamer.RollingSeasonalMean(3, 4), (1.0, 2.0)),
+     lambda v: v.update(slots=v["slots"][:2]), r"RollingSeasonalMean.slots: expected 3 objects, got 2"),
+    (lambda: _fed(screamer.RollingSeasonalMean(3, 4), (1.0, 2.0)),
+     lambda v: v["slots"][1].update(count=5), r"RollingSeasonalMean.slots\[1\]: count must be at most"),
+])
+def test_rolling_state_checks(make, edit, message):
+    """A hand edit that breaks a state invariant raises a SaveError naming the
+    field's path, and leaves the operator unchanged."""
+    op = make()
+    state = op.state()
+    before = op.dumps()
+    edit(state["values"])
+    with pytest.raises(screamer.SaveError, match=message):
+        op.set_state(state)
+    assert op.dumps() == before
+
+
+def test_renamed_alias_saves_its_own_type():
+    """ExpandingSum is CumSum under another name, and saves under its own."""
+    a = _fed(screamer.ExpandingSum(), (1.0, 2.0))
+    doc = json.loads(a.dumps())
+    assert doc["object"]["type"] == "ExpandingSum"
+    b = screamer.loads(a.dumps())
+    assert type(b).__name__ == "ExpandingSum" and b(3.0) == 6.0
+    assert json.loads(_fed(screamer.CumSum(), (1.0,)).dumps())["object"]["type"] == "CumSum"
+    p = screamer.ExpandingMax()
+    p.resume(np.array([[1.0, 5.0], [3.0, 2.0]]))
+    assert type(screamer.loads(p.dumps())).__name__ == "ExpandingMax"
+
+
 def test_rolling_quantile_fresh_value_by_value_equals_batch():
     """A fresh RollingQuantile starts with an empty (NaN) window, so a -1.0
     in the data stays in the window (it started filled with -1 before)."""
