@@ -103,7 +103,7 @@ its own. Sketch (the builder fixes the exact field names):
 ```
 
 - The settings section reuses the existing Pipeline description (graph_json.h:
-  `{"functor": name, "params": {...}}`, canonical names, defaults filled in), so the
+  `{"functor": name, "params": {...}}`, canonical names, defaults filled in, and each number written in its parameter's type so Python and JavaScript write the same bytes), so the
   current `Pipeline.to_json` output becomes the settings-only case of the new file and
   existing saved graphs keep loading.
 - `"state"` is absent (or `null`) for a settings-only file and for stateless functions,
