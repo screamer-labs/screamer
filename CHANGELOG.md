@@ -19,6 +19,10 @@ Unreleased
   operator before it ran, so a series fed this way restarted at every event
   and returned NaN throughout. The event now continues the state, as
   `RollingCorr(5)(x, y)` does. Batch results are unchanged.
+* **BacktestL1TradesOrders docs:** the parameter list gave `max_position`
+  before `min_position`, while the constructor takes `min_position` first, so
+  a positional call written from the docs swapped the two caps. The docs (and
+  `help()`) now list them in the constructor's order.
 
 3.10.1 - 2026-11-01
 -------------------

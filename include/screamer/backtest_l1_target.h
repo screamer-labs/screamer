@@ -31,6 +31,35 @@ namespace screamer {
     // toward the last finite target.
     class BacktestL1Target : public FunctorBase<BacktestL1Target, 5, 4> {
     public:
+        static constexpr const char* kTypeName = "BacktestL1Target";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) {
+            ar("taker_fee", core_.taker_fee());
+            ar("tick_size", core_.slippage().tick_size());
+            ar("min_position", min_);
+            ar("max_position", max_);
+            ar("multiplier", core_.multiplier());
+            ar("fee_per_contract", core_.taker_fee_per_contract());
+            ar("slippage", core_.slippage().amount());
+            ar("slippage_unit", std::string(core_.slippage().unit_name()));
+            ar("stop_loss", exits_.stop_loss());
+            ar("take_profit", exits_.take_profit());
+            ar("trailing_stop", exits_.trailing_stop());
+            ar("size", std::string(sizer_.size_name()));
+            ar("initial_capital", sizer_.initial_capital());
+            ar("rebalance_band", sizer_.rebalance_band());
+        }
+
+        template <class Ar>
+        void state(Ar& ar) {
+            ar.object("core", core_);
+            ar.object("exits", exits_);
+            ar.object("sizer", sizer_);
+            ar("working", working_);
+        }
+
         // The market input (after the target) that marks a position: the ask.
         // walk_forward's carry marks with it.
         static constexpr std::size_t mark_input = 1;

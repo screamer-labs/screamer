@@ -47,6 +47,35 @@ namespace screamer {
     // step (nan_policy: ignore).
     class BacktestPriceTarget : public FunctorBase<BacktestPriceTarget, 2, 4> {
     public:
+        static constexpr const char* kTypeName = "BacktestPriceTarget";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) {
+            ar("spread", spread_);
+            ar("fee", fee_);
+            ar("min_position", min_position_);
+            ar("max_position", max_position_);
+            ar("multiplier", account_.multiplier());
+            ar("fee_per_contract", fee_per_contract_);
+            ar("slippage", slippage_.amount());
+            ar("slippage_unit", std::string(slippage_.unit_name()));
+            ar("tick_size", slippage_.tick_size());
+            ar("stop_loss", exits_.stop_loss());
+            ar("take_profit", exits_.take_profit());
+            ar("trailing_stop", exits_.trailing_stop());
+            ar("size", std::string(sizer_.size_name()));
+            ar("initial_capital", sizer_.initial_capital());
+            ar("rebalance_band", sizer_.rebalance_band());
+        }
+
+        template <class Ar>
+        void state(Ar& ar) {
+            ar.object("account", account_);
+            ar.object("exits", exits_);
+            ar.object("sizer", sizer_);
+        }
+
         // The market input (after the target) that marks a position: the price.
         // walk_forward's carry marks with it.
         static constexpr std::size_t mark_input = 0;

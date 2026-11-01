@@ -1,0 +1,23 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "LiquidationDistance",
+    "settings": {
+      "leverage": 10.0,
+      "maintenance": 0.005
+    },
+    "state": {
+      "version": 1,
+      "values": {
+        "prev_position": 1006.814869702575,
+        "target": 1006.814869702575,
+        "filled": 1006.814869702575,
+        "entry": 1001.9217308304096,
+        "liq": 906.7391664015207,
+        "side": 1,
+        "breached": false
+      }
+    }
+  }
+}

@@ -61,6 +61,20 @@ public:
         prev_pos_ = position;
     }
 
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("open", open_);
+        ar("prev_pos", prev_pos_);
+        ar("entry", cur_.entry);
+        ar("exit", cur_.exit);
+        ar("side", cur_.side);
+        ar("pnl", cur_.pnl);
+        ar("cost", cur_.cost);
+        ar("held", cur_.held);
+        ar("closed", cur_.closed);
+        ar.check(open_ == (prev_pos_ != 0.0), "open must hold exactly when prev_pos is not zero");
+    }
+
     bool open() const { return open_; }
     const RoundTrip& current() const { return cur_; }
 

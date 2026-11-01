@@ -1,0 +1,27 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "BacktestReport",
+    "settings": {
+      "periods_per_year": 1.0
+    },
+    "state": {
+      "version": 1,
+      "values": {
+        "report": {
+          "peak_equity": 1006.814869702575,
+          "worst_dd": -8.598981256687011,
+          "cum_cost": 49945.93597111072,
+          "cum_turnover": 1034.7209096754286,
+          "trade_count": 50.0,
+          "pnl_n": 50,
+          "pnl_mean": 1000.1513976380388,
+          "pnl_m2": 384.85752329764676
+        },
+        "has_prev_pos": true,
+        "prev_pos": 1005.6018314473394
+      }
+    }
+  }
+}

@@ -50,14 +50,14 @@ parameters:
   min: 0.0
   description: Instrument price grid (0 = continuous). A marketable order walks one tick past
     the displayed quote for the size beyond it; slippage offsets round up to whole ticks.
-- name: max_position
-  type: float
-  default: .inf
-  description: Inventory ceiling; buy fills are capped so the position never exceeds it. The default, inf, is no bound.
 - name: min_position
   type: float
   default: -.inf
   description: Inventory floor; sell fills are capped so the position never falls below it. The default, -inf, is no bound.
+- name: max_position
+  type: float
+  default: .inf
+  description: Inventory ceiling; buy fills are capped so the position never exceeds it. The default, inf, is no bound.
 - name: multiplier
   type: float
   default: 1.0

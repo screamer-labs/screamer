@@ -1,0 +1,52 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "BacktestOHLCVTarget",
+    "settings": {
+      "max_participation": 1.0,
+      "taker_fee": 0.0,
+      "tick_size": 0.0,
+      "min_position": -Infinity,
+      "max_position": Infinity,
+      "multiplier": 1.0,
+      "fee_per_contract": 0.0,
+      "slippage": 0.0,
+      "slippage_unit": "fraction",
+      "fill_at": "open",
+      "delay": 1,
+      "stop_loss": 0.0,
+      "take_profit": 0.0,
+      "trailing_stop": 0.0,
+      "size": "units",
+      "initial_capital": 0.0,
+      "rebalance_band": 0.0
+    },
+    "state": {
+      "version": 1,
+      "values": {
+        "core": {
+          "account": {
+            "position": 1006.8463403589633,
+            "prev_close": 1006.814869702575,
+            "cum_equity": 7820.943432894727,
+            "has_prev": true
+          }
+        },
+        "exits": {
+          "entry": 999.0121030386006,
+          "best": 998.9985247727907,
+          "blocked": 0.0
+        },
+        "sizer": {
+          "has": false,
+          "value": NaN,
+          "units": NaN
+        },
+        "working": 1006.8463403589633,
+        "queue": [1008.2939345130559],
+        "head": 0
+      }
+    }
+  }
+}

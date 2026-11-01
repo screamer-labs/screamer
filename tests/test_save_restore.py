@@ -394,6 +394,185 @@ def test_rolling_hmm_zero_var_after_inf_continues():
     np.testing.assert_array_equal([b(v) for v in x[61:]], [a(v) for v in x[61:]])
 
 
+# ---- Backtest engines mid position ---------------------------------------------
+
+_T = 160
+_rng = np.random.default_rng(11)
+_P = 100.0 + np.cumsum(_rng.normal(0.0, 0.6, _T))
+_OPEN = np.concatenate([[_P[0]], _P[:-1]])
+_HIGH = np.maximum(_OPEN, _P) + 0.3
+_LOW = np.minimum(_OPEN, _P) - 0.3
+_TGT = np.round(3.0 * np.sin(np.arange(_T) / 7.0))
+_SIZE = 2.0 + (np.arange(_T) % 5)
+_CHUNK = _P[(np.arange(_T) // 8) * 8]              # quotes re-priced every 8 events
+_MY_BID, _MY_ASK = _CHUNK - 0.4, _CHUNK + 0.4
+_ONES = np.ones(_T)
+
+
+def _engine_out(op, inputs):
+    """An engine's (T, 4) output, fed by events."""
+    return feed(op, inputs, 0, _T)
+
+
+_PRICE_OUT = _engine_out(screamer.BacktestPriceTarget(fee=1e-4), [_TGT, _P])
+
+
+def _portfolio_inputs(fields):
+    """K = 3 assets: shifted copies of the walk, asset 1 unquoted on t 60..75."""
+    cols = [np.stack([x, x * 1.01 + 1.0, x * 0.99 - 1.0], axis=1) for x in fields]
+    for c in cols[1:]:
+        c[60:76, 1] = np.nan
+    return cols
+
+
+_PF_OUT = feed(screamer.BacktestPortfolioTarget(size="units"),
+               _portfolio_inputs([_TGT, _P]), 0, _T).reshape(_T, 3, 4)
+
+
+def _pos(v):
+    return v["account"]["position"] if "account" in v else v["core"]["account"]["position"]
+
+
+def _finite(xs):
+    return any(x == x for x in xs)
+
+
+# (name, make, inputs, holds): `holds(values)` tells when the state is mid run.
+_MID = [
+    ("BacktestPriceTarget",
+     lambda: screamer.BacktestPriceTarget(fee=1e-4, stop_loss=0.05, trailing_stop=0.02,
+                                          size="notional", initial_capital=1e3),
+     [_TGT * 100.0, _P], lambda v: _pos(v) != 0 and v["exits"]["entry"] == v["exits"]["entry"]),
+    ("BacktestOHLCTarget", lambda: screamer.BacktestOHLCTarget(delay=3, taker_fee=1e-4),
+     [_TGT, _OPEN, _HIGH, _LOW, _P],
+     lambda v: _pos(v) != 0 and _finite(v["queue"]) and v["head"] != 0),
+    ("BacktestOHLCVTarget",
+     lambda: screamer.BacktestOHLCVTarget(max_participation=0.5, delay=2, trailing_stop=0.03),
+     [_TGT, _OPEN, _HIGH, _LOW, _P, _SIZE], lambda v: _pos(v) != 0 and _finite(v["queue"])),
+    ("BacktestL1Target", lambda: screamer.BacktestL1Target(stop_loss=0.02),
+     [_TGT, _P - 0.05, _P + 0.05, _SIZE, _SIZE], lambda v: _pos(v) != 0),
+    ("BacktestTradesTarget", lambda: screamer.BacktestTradesTarget(max_participation=0.5),
+     [_TGT, _P, _SIZE], lambda v: _pos(v) != 0 and v["working"] == v["working"]),
+    ("BacktestOHLCOrders", lambda: screamer.BacktestOHLCOrders(maker_fee=-1e-4),
+     [_MY_BID, _ONES, _MY_ASK, _ONES, _OPEN, _HIGH, _LOW, _P], lambda v: _pos(v) != 0),
+    ("BacktestTradesOrders", lambda: screamer.BacktestTradesOrders(participation_ratio=0.5),
+     [_MY_BID, _ONES, _MY_ASK, _ONES, _P, _SIZE],
+     lambda v: _pos(v) != 0 and v["bid_prev"] == v["bid_prev"]),
+    ("BacktestL1Orders", lambda: screamer.BacktestL1Orders(fill="touch"),
+     [_MY_BID, _ONES, _MY_ASK, _ONES, _P - 0.05, _P + 0.05, _SIZE, _SIZE],
+     lambda v: _pos(v) != 0 and v["bid_prev"] == v["bid_prev"]),
+    ("BacktestL1TradesOrders", lambda: screamer.BacktestL1TradesOrders(),
+     [_MY_BID, _ONES, _MY_ASK, _ONES, _P - 0.05, _P + 0.05, _SIZE, _SIZE, _P, _SIZE],
+     lambda v: _pos(v) != 0 and v["bid_prev"] == v["bid_prev"]),
+    ("BacktestCarry", lambda: screamer.BacktestCarry(),
+     [*_PRICE_OUT.T, _P, np.full(_T, 1e-4)], lambda v: v["prev_position"] != 0),
+    ("BacktestReport", lambda: screamer.BacktestReport(252.0), list(_PRICE_OUT.T),
+     lambda v: v["has_prev_pos"] and v["prev_pos"] != 0),
+    ("BacktestStats", lambda: screamer.BacktestStats(252.0), list(_PRICE_OUT.T),
+     lambda v: v["tracker"]["open"] and v["stats"]["trades"] > 0),
+    ("BacktestPortfolioTarget",
+     lambda: screamer.BacktestPortfolioTarget(fee=[1e-4, 2e-4, 0.0], size="units"),
+     _portfolio_inputs([_TGT, _P]),
+     lambda v: any(a["position"] != 0 for a in v["accounts"])),
+    ("BacktestPortfolioOHLCTarget",
+     lambda: screamer.BacktestPortfolioOHLCTarget(size="units", delay=2, fill_at="open"),
+     _portfolio_inputs([_TGT, _OPEN, _HIGH, _LOW, _P]),
+     lambda v: _finite(v["pending"]) and _finite(v["queue"])
+     and any(a["position"] != 0 for a in v["accounts"])),
+    ("PortfolioReport", lambda: screamer.PortfolioReport(), [_PF_OUT],
+     lambda v: any(p != 0 for p in v["prev_positions"])),
+]
+
+
+@pytest.mark.parametrize("name, make, inputs, holds", _MID, ids=[m[0] for m in _MID])
+def test_backtest_mid_position(name, make, inputs, holds):
+    """A backtest engine saved mid run (holding a position, with a resting
+    order or a delayed target where it has them) loads and continues bit for
+    bit, through JSON and CBOR; the infinite position caps of its settings
+    round-trip."""
+    a = make()
+    for k in range(1, _T - 20):
+        feed(a, inputs, k - 1, k)
+        if k >= 10 and holds(json.loads(a.dumps())["object"]["state"]["values"]):
+            break
+    else:
+        pytest.fail(f"{name}: the run never reached the state to save")
+    text, blob = a.dumps(), a.dumps(format="cbor")
+    settings = json.loads(text)["object"]["settings"]
+    if "max_position" in settings:
+        assert settings["max_position"] == np.inf and settings["min_position"] == -np.inf
+    if "max_gross" in settings:
+        assert settings["max_gross"] == np.inf and settings["max_net"] == np.inf
+    want = feed(a, inputs, k, _T)
+    for data in (text, blob):
+        b = screamer.loads(data)
+        assert b.dumps() == text
+        assert_bitwise(feed(b, inputs, k, _T), want)
+    # The continuation equals the uninterrupted run.
+    assert_bitwise(want, feed(make(), inputs, 0, _T)[k:])
+
+def _mid(name, k=40):
+    """An engine of the mid-position cases fed k events."""
+    _, make, inputs, _ = next(m for m in _MID if m[0] == name)
+    op = make()
+    feed(op, inputs, 0, k)
+    return op
+
+
+@pytest.mark.parametrize("make, edit, message", [
+    (lambda: _mid("BacktestPriceTarget"),
+     lambda v: v["account"].update(has_prev=False), "BacktestPriceTarget.account: an account"),
+    (lambda: _mid("BacktestPriceTarget"),
+     lambda v: v["exits"].update(blocked=2.0), "BacktestPriceTarget.exits: blocked must be"),
+    (lambda: _mid("BacktestPriceTarget"),
+     lambda v: v["sizer"].update(has=False), "BacktestPriceTarget.sizer: value must be set"),
+    (lambda: _mid("BacktestOHLCTarget"),
+     lambda v: v.update(head=3), "BacktestOHLCTarget: head must be inside"),
+    (lambda: _mid("BacktestOHLCTarget"),
+     lambda v: v.update(queue=[0.0]), r"BacktestOHLCTarget.queue: expected 3 values, got 1"),
+    (lambda: _mid("BacktestL1Orders"),
+     lambda v: v.update(bid_locked=True, bid_prev=np.nan), "BacktestL1Orders: a locked bid"),
+    (lambda: _mid("BacktestStats"),
+     lambda v: v["stats"].update(wins=v["stats"]["trades"] + 1), "BacktestStats.stats: wins"),
+    (lambda: _mid("BacktestStats"),
+     lambda v: v["tracker"].update(open=not v["tracker"]["open"]), "BacktestStats.tracker: open"),
+    (lambda: _mid("BacktestReport"),
+     lambda v: v["report"].update(worst_dd=1.0), "BacktestReport.report: worst_dd"),
+    (lambda: _fed(screamer.LiquidationDistance(5.0), ()),
+     lambda v: v.update(side=2), "LiquidationDistance: side must be"),
+    (lambda: _mid("BacktestPortfolioOHLCTarget"),
+     lambda v: v.update(width=2), "BacktestPortfolioOHLCTarget.accounts: expected 2 objects, got 3"),
+    (lambda: _mid("BacktestPortfolioTarget"),
+     lambda v: v.update(width=4), "BacktestPortfolioTarget: width must fit"),
+    (lambda: _mid("BacktestPortfolioOHLCTarget"),
+     lambda v: v.update(head=2), "BacktestPortfolioOHLCTarget: head must be inside"),
+    (lambda: _mid("BacktestPortfolioOHLCTarget"),
+     lambda v: v.update(pending=[0.0]), r"BacktestPortfolioOHLCTarget.pending: expected 3 values"),
+])
+def test_backtest_state_checks(make, edit, message):
+    """The state checks of the backtest engines and their blocks: a hand edit
+    that breaks one raises a SaveError naming the path and leaves the engine
+    unchanged."""
+    op = make()
+    state = op.state()
+    before = op.dumps()
+    edit(state["values"])
+    with pytest.raises(screamer.SaveError, match=message):
+        op.set_state(state)
+    assert op.dumps() == before
+
+
+def test_portfolio_loads_into_a_fresh_engine():
+    """A portfolio engine's state of K assets loads into a fresh engine (no
+    width yet), and a state of no assets resets a running one."""
+    a = _mid("BacktestPortfolioOHLCTarget")
+    b = screamer.BacktestPortfolioOHLCTarget(size="units", delay=2, fill_at="open")
+    fresh = b.state()
+    b.set_state(a.state())
+    assert b.dumps() == a.dumps()
+    a.set_state(fresh)
+    assert _same(a.state(), fresh)
+
 def test_renamed_alias_saves_its_own_type():
     """ExpandingSum is CumSum under another name, and saves under its own."""
     a = _fed(screamer.ExpandingSum(), (1.0, 2.0))

@@ -1,0 +1,95 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "BacktestPortfolioOHLCTarget",
+    "settings": {
+      "fee": 0.0,
+      "slippage": 0.0,
+      "slippage_unit": "fraction",
+      "tick_size": 0.0,
+      "multiplier": 1.0,
+      "fee_per_contract": 0.0,
+      "size": "weight",
+      "initial_capital": 1.0,
+      "rebalance_band": 0.0,
+      "rebalance": "drifted",
+      "max_gross": Infinity,
+      "max_net": Infinity,
+      "fill_at": "open",
+      "delay": 1
+    },
+    "state": {
+      "version": 1,
+      "values": {
+        "width": 10,
+        "accounts": [
+          {
+            "position": 0.0,
+            "prev_close": 996.0592897140085,
+            "cum_equity": -8.53806703015282,
+            "has_prev": true
+          },
+          {
+            "position": 0.0,
+            "prev_close": 997.6513782829437,
+            "cum_equity": -6.083260229809431,
+            "has_prev": true
+          },
+          {
+            "position": 0.0,
+            "prev_close": 995.0592897140085,
+            "cum_equity": -8.530110768666953,
+            "has_prev": true
+          },
+          {
+            "position": 0.0,
+            "prev_close": 996.6513782829437,
+            "cum_equity": -10.857044342168194,
+            "has_prev": true
+          },
+          {
+            "position": 0.0,
+            "prev_close": 997.6522450779379,
+            "cum_equity": -8.188851495734472,
+            "has_prev": true
+          },
+          {
+            "position": 0.0,
+            "prev_close": 996.4955953503109,
+            "cum_equity": -11.125974581278602,
+            "has_prev": true
+          },
+          {
+            "position": 0.0,
+            "prev_close": 996.2615953175882,
+            "cum_equity": -8.464452012780546,
+            "has_prev": true
+          },
+          {
+            "position": 0.0,
+            "prev_close": 996.231976955596,
+            "cum_equity": -7.077746923050951,
+            "has_prev": true
+          },
+          {
+            "position": 0.0,
+            "prev_close": 996.6602133075496,
+            "cum_equity": -4.724343577243943,
+            "has_prev": true
+          },
+          {
+            "position": 0.0,
+            "prev_close": 996.1595330562254,
+            "cum_equity": -11.081296820177952,
+            "has_prev": true
+          }
+        ],
+        "working": [1005.1446743408897, 1006.8463403589633, 1004.1446743408897, 1005.8463403589633, 1006.5825781420712, 1005.6289189859644, 1005.3820045204707, 1005.1385406558816, 1005.9045100064488, 1005.6456802590038],
+        "queue": [1006.814869702575, 1008.2939345130559, 1005.6018314473394, 1007.2939345130559, 1007.8564363898506, 1006.9222905692943, 1007.2224398952, 1007.115780951805, 1006.57322587298, 1006.9469885098895],
+        "head": 0,
+        "pending": [NaN, NaN, NaN, NaN, NaN, NaN, NaN, NaN, NaN, NaN]
+      }
+    }
+  }
+}

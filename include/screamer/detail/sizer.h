@@ -42,6 +42,23 @@ namespace screamer { namespace detail {
         }
 
         bool active() const { return mode_ != Mode::Units; }
+        const char* size_name() const {
+            switch (mode_) {
+                case Mode::Notional: return "notional";
+                case Mode::Weight:   return "weight";
+                default:             return "units";
+            }
+        }
+        double initial_capital() const { return capital_; }
+        double rebalance_band() const { return band_; }
+
+        template <class Ar>
+        void state(Ar& ar) {
+            ar("has", has_);
+            ar("value", value_);
+            ar("units", units_);
+            ar.check(has_ != isnan2(value_), "value must be set exactly when has is true");
+        }
 
         void reset() {
             has_ = false;

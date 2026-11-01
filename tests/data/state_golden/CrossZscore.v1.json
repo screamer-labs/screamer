@@ -1,0 +1,14 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "CrossZscore",
+    "settings": {},
+    "state": {
+      "version": 1,
+      "values": {
+        "width": 10
+      }
+    }
+  }
+}

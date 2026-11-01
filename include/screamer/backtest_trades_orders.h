@@ -18,6 +18,28 @@ namespace screamer {
     // [min_position, max_position]. Outputs [equity, pnl, position, cost].
     class BacktestTradesOrders : public FunctorBase<BacktestTradesOrders, 6, 4> {
     public:
+        static constexpr const char* kTypeName = "BacktestTradesOrders";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) {
+            ar("maker_fee", core_.maker_fee());
+            ar("taker_fee", core_.taker_fee());
+            ar("fill", std::string(core_.breach() ? "breach" : "touch"));
+            ar("participation_ratio", core_.participation());
+            ar("tick_size", core_.slippage().tick_size());
+            ar("min_position", core_.min_position());
+            ar("max_position", core_.max_position());
+            ar("multiplier", core_.multiplier());
+            ar("maker_fee_per_contract", core_.maker_fee_per_contract());
+            ar("taker_fee_per_contract", core_.taker_fee_per_contract());
+            ar("slippage", core_.slippage().amount());
+            ar("slippage_unit", std::string(core_.slippage().unit_name()));
+        }
+
+        template <class Ar>
+        void state(Ar& ar) { core_.state(ar); }
+
         BacktestTradesOrders(double maker_fee = 0.0, double taker_fee = 0.0,
                              const std::string& fill = "touch",
                              double participation_ratio = 1.0, double tick_size = 0.0,

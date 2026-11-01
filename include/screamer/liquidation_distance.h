@@ -49,10 +49,32 @@ namespace screamer {
 
 class LiquidationDistance : public FunctorBase<LiquidationDistance, 4, 3> {
 public:
+    static constexpr const char* kTypeName = "LiquidationDistance";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("leverage", leverage_);
+        ar("maintenance", maintenance_);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("prev_position", prev_position_);
+        ar("target", target_);
+        ar("filled", filled_);
+        ar("entry", entry_);
+        ar("liq", liq_);
+        ar("side", side_);
+        ar("breached", breached_);
+        ar.check(side_ >= -1 && side_ <= 1, "side must be -1, 0 or 1");
+    }
+
     // State is a few plain values: the column loop runs on a register copy.
     static constexpr bool kColumnCopy = true;
 
     explicit LiquidationDistance(double leverage, double maintenance = 0.005)
+        : leverage_(leverage), maintenance_(maintenance)
     {
         require_finite("leverage", leverage);
         require_finite("maintenance", maintenance);
@@ -103,6 +125,7 @@ public:
     }
 
 private:
+    double leverage_, maintenance_;
     double long_factor_ = 0.0;
     double short_factor_ = 0.0;
     double prev_position_ = 0.0;

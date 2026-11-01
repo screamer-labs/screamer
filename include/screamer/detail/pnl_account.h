@@ -41,6 +41,7 @@ public:
         has_prev_ = false;
     }
 
+    double multiplier() const { return multiplier_; }
     double position() const { return position_; }
     double equity() const { return cum_equity_; }
     // Equity marked at `price`: the last equity plus the open position's move
@@ -66,6 +67,17 @@ public:
         prev_close_ = close;
         has_prev_ = true;
         return {cum_equity_, pnl, position_, trade_cost};
+    }
+
+    // Before its first step the account is flat.
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("position", position_);
+        ar("prev_close", prev_close_);
+        ar("cum_equity", cum_equity_);
+        ar("has_prev", has_prev_);
+        ar.check(has_prev_ || (position_ == 0.0 && cum_equity_ == 0.0),
+                 "an account without a mark must be flat");
     }
 
 private:

@@ -52,6 +52,20 @@ namespace screamer {
                 out[4] = worst_dd;
                 out[5] = sharpe;
             }
+
+            template <class Ar>
+            void state(Ar& ar) {
+                ar("peak_equity", peak_equity);
+                ar("worst_dd", worst_dd);
+                ar("cum_cost", cum_cost);
+                ar("cum_turnover", cum_turnover);
+                ar("trade_count", trade_count);
+                ar("pnl_n", pnl_n);
+                ar("pnl_mean", pnl_mean);
+                ar("pnl_m2", pnl_m2);
+                ar.check(pnl_n >= 0, "pnl_n must not be negative");
+                ar.check(!(worst_dd > 0.0), "worst_dd must not be positive");
+            }
         };
 
     } // namespace detail
@@ -79,12 +93,25 @@ namespace screamer {
     // the next finite bar, as CumSum and the other accumulators do.
     class BacktestReport : public FunctorBase<BacktestReport, 4, 6> {
     public:
+        static constexpr const char* kTypeName = "BacktestReport";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) { ar("periods_per_year", ppy_); }
+
+        template <class Ar>
+        void state(Ar& ar) {
+            ar.object("report", state_);
+            ar("has_prev_pos", has_prev_pos_);
+            ar("prev_pos", prev_pos_);
+        }
+
         // The output columns, in order; the bindings label the columns with these.
         static constexpr std::array<const char*, 6> column_names{{
             "drawdown", "cum_cost", "turnover", "trades", "max_drawdown", "sharpe"}};
 
         explicit BacktestReport(double periods_per_year = 1.0)
-            : sqrt_ppy_(std::sqrt(periods_per_year))
+            : ppy_(periods_per_year), sqrt_ppy_(std::sqrt(periods_per_year))
         {
             if (!(periods_per_year > 0.0) || !std::isfinite(periods_per_year))
                 throw std::invalid_argument("periods_per_year must be finite and positive.");
@@ -121,6 +148,7 @@ namespace screamer {
         detail::ReportState state_;
         bool has_prev_pos_ = false;
         double prev_pos_ = 0.0;
+        double ppy_ = 1.0;
         double sqrt_ppy_ = 1.0;
     };
 

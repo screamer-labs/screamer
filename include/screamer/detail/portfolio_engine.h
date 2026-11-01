@@ -103,14 +103,72 @@ namespace screamer { namespace detail {
             working_.clear();
             queue_.clear();
             pending_.clear();
+            head_ = 0;
+        }
+
+        // Settings of the operators built on this engine.
+        const std::vector<double>& fee() const { return fee_; }
+        const std::vector<double>& slippage() const { return slip_amt_; }
+        const std::string& slippage_unit() const { return slip_unit_; }
+        const std::vector<double>& tick_size() const { return tick_; }
+        const std::vector<double>& multiplier() const { return mult_; }
+        const std::vector<double>& fee_per_contract() const { return fpc_; }
+        const char* size_name() const {
+            switch (mode_) {
+                case Mode::Units:    return "units";
+                case Mode::Notional: return "notional";
+                default:             return "weight";
+            }
+        }
+        double initial_capital() const { return capital_; }
+        double rebalance_band() const { return band_; }
+        const char* rebalance_name() const { return rebalance_all_ ? "all" : "drifted"; }
+        double max_gross() const { return max_gross_; }
+        double max_net() const { return max_net_; }
+        const char* fill_at_name() const {
+            switch (fill_at_) {
+                case FillAt::Open:    return "open";
+                case FillAt::Typical: return "typical";
+                case FillAt::OHLC4:   return "ohlc4";
+                default:              return "close";
+            }
+        }
+        int delay() const { return delay_; }
+
+        // Whether the per-asset values fit k assets.
+        bool fits(std::size_t k) const {
+            for (const auto* v : {&fee_, &slip_amt_, &tick_, &mult_, &fpc_})
+                if (v->size() != 1 && v->size() != k) return false;
+            return true;
+        }
+
+        // The state of k assets (0 before the first row): the accounts, the
+        // working targets, the delay queue as it is with its head, and the
+        // orders waiting for a quoted bar. A load of another k rebuilds the
+        // per-asset state first; the step's scratch (due_, ref_, goal_,
+        // trade_) is not state.
+        template <class Ar>
+        void state(Ar& ar, std::size_t k) {
+            if constexpr (Ar::kLoading) {
+                ar.check(k == 0 || fits(k), "width must fit the per-asset settings");
+                if (k != k_)
+                    ar.apply([this, k] { if (k) set_width(k); else reset(); },
+                             [this, old = *this] { *this = old; });
+            }
+            ar.objects("accounts", accts_);
+            ar.fixed("working", working_, k);
+            ar.fixed("queue", queue_, static_cast<std::size_t>(delay_) * k);
+            ar("head", head_);
+            ar.fixed("pending", pending_, k);
+            ar.check(delay_ == 0 ? head_ == 0 : head_ < static_cast<std::size_t>(delay_),
+                     "head must be inside the delay queue");
         }
 
         // Fix the number of assets and build the per-asset state.
         void set_width(std::size_t k) {
-            for (const auto* v : {&fee_, &slip_amt_, &tick_, &mult_, &fpc_})
-                if (v->size() != 1 && v->size() != k)
-                    throw std::invalid_argument(
-                        "per-asset values must have one entry or one per asset.");
+            if (!fits(k))
+                throw std::invalid_argument(
+                    "per-asset values must have one entry or one per asset.");
             k_ = k;
             accts_.clear();
             slips_.clear();

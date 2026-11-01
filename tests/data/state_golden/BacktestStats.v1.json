@@ -1,0 +1,40 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "BacktestStats",
+    "settings": {
+      "periods_per_year": 1.0
+    },
+    "state": {
+      "version": 1,
+      "values": {
+        "stats": {
+          "steps": 50,
+          "held_n": 50,
+          "exposed": 50,
+          "trades": 0,
+          "wins": 0,
+          "held_total": 0,
+          "gross_win": 0.0,
+          "gross_loss": 0.0,
+          "pnl_sum": 50007.56988190192,
+          "down_sq": 0.0,
+          "equity_peak": 1006.814869702575,
+          "worst_dd": -8.598981256687011
+        },
+        "tracker": {
+          "open": true,
+          "prev_pos": 1005.6018314473394,
+          "entry": 0,
+          "exit": 0,
+          "side": 1.0,
+          "pnl": 50007.56988190192,
+          "cost": 49945.93597111072,
+          "held": 50,
+          "closed": false
+        }
+      }
+    }
+  }
+}

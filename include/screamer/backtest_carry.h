@@ -26,6 +26,18 @@ namespace screamer {
     // state held). Pass a rate of 0 on steps without carry.
     class BacktestCarry : public FunctorBase<BacktestCarry, 6, 4> {
     public:
+        static constexpr const char* kTypeName = "BacktestCarry";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) { ar("multiplier", multiplier_); }
+
+        template <class Ar>
+        void state(Ar& ar) {
+            ar("cum_carry", cum_carry_);
+            ar("prev_position", prev_position_);
+        }
+
         explicit BacktestCarry(double multiplier = 1.0) : multiplier_(multiplier) {
             if (!(multiplier_ > 0.0) || !std::isfinite(multiplier_))
                 throw std::invalid_argument("multiplier must be finite and positive.");

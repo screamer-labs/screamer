@@ -19,6 +19,33 @@ namespace screamer {
     // limited by volume; BacktestOHLCVTarget adds that.
     class BacktestOHLCTarget : public FunctorBase<BacktestOHLCTarget, 5, 4> {
     public:
+        static constexpr const char* kTypeName = "BacktestOHLCTarget";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) {
+            const auto& core = engine_.core();
+            ar("taker_fee", core.taker_fee());
+            ar("tick_size", core.slippage().tick_size());
+            ar("min_position", core.min_position());
+            ar("max_position", core.max_position());
+            ar("multiplier", core.multiplier());
+            ar("fee_per_contract", core.taker_fee_per_contract());
+            ar("slippage", core.slippage().amount());
+            ar("slippage_unit", std::string(core.slippage().unit_name()));
+            ar("fill_at", std::string(engine_.fill_at_name()));
+            ar("delay", engine_.delay());
+            ar("stop_loss", engine_.exits().stop_loss());
+            ar("take_profit", engine_.exits().take_profit());
+            ar("trailing_stop", engine_.exits().trailing_stop());
+            ar("size", std::string(engine_.sizer().size_name()));
+            ar("initial_capital", engine_.sizer().initial_capital());
+            ar("rebalance_band", engine_.sizer().rebalance_band());
+        }
+
+        template <class Ar>
+        void state(Ar& ar) { engine_.state(ar); }
+
         // The market input (after the target) that marks a position: the close.
         // walk_forward's carry marks with it.
         static constexpr std::size_t mark_input = 3;

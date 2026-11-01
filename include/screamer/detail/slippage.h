@@ -34,6 +34,14 @@ namespace screamer { namespace detail {
         }
 
         double tick_size() const { return tick_; }
+        double amount() const { return amount_; }
+        const char* unit_name() const {
+            switch (unit_) {
+                case Unit::Ticks: return "ticks";
+                case Unit::Price: return "price";
+                default:          return "fraction";
+            }
+        }
 
         double buy(double reference) const { return reference + offset(reference); }
 

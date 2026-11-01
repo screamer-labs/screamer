@@ -10,14 +10,49 @@
 
 namespace screamer {
 
+    namespace detail {
+        // A per-asset setting: a number when one value serves every asset.
+        template <class Ar>
+        void per_asset(Ar& ar, const char* name, const std::vector<double>& v) {
+            if (v.size() == 1) ar(name, v[0]);
+            else ar(name, v);
+        }
+    } // namespace detail
+
     // BacktestPortfolioTarget: K assets traded toward per-asset targets from
     // one capital account, filled at each step's price (like
     // BacktestPriceTarget, per asset). Inputs: target (T, K) and price (T, K).
     // Output: (T, K, 4), [equity, pnl, position, cost] per asset; the
     // portfolio is the sum over assets plus initial_capital. See
     // detail/portfolio_engine.h for the target, sizing, drift, and limit rules.
-    class BacktestPortfolioTarget : public RowOp {
+    class BacktestPortfolioTarget : public serial::Saveable<BacktestPortfolioTarget, RowOp> {
     public:
+        static constexpr const char* kTypeName = "BacktestPortfolioTarget";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) {
+            const auto& e = engine_;
+            detail::per_asset(ar, "fee", e.fee());
+            detail::per_asset(ar, "slippage", e.slippage());
+            ar("slippage_unit", e.slippage_unit());
+            detail::per_asset(ar, "tick_size", e.tick_size());
+            detail::per_asset(ar, "multiplier", e.multiplier());
+            detail::per_asset(ar, "fee_per_contract", e.fee_per_contract());
+            ar("size", std::string(e.size_name()));
+            ar("initial_capital", e.initial_capital());
+            ar("rebalance_band", e.rebalance_band());
+            ar("rebalance", std::string(e.rebalance_name()));
+            ar("max_gross", e.max_gross());
+            ar("max_net", e.max_net());
+        }
+
+        template <class Ar>
+        void state(Ar& ar) {
+            width_state(ar);
+            engine_.state(ar, width());
+        }
+
         // The market input (after the target) that marks a position: the price.
         // walk_forward's carry marks with it.
         static constexpr std::size_t mark_input = 0;
@@ -34,7 +69,7 @@ namespace screamer {
                                 const std::string& rebalance = "drifted",
                                 double max_gross = std::numeric_limits<double>::infinity(),
                                 double max_net = std::numeric_limits<double>::infinity())
-            : RowOp(2, 4),
+            : serial::Saveable<BacktestPortfolioTarget, RowOp>(2, 4),
               engine_(std::move(fee), std::move(slippage), slippage_unit, std::move(tick_size),
                       std::move(multiplier), std::move(fee_per_contract), size,
                       initial_capital, rebalance_band, rebalance, max_gross, max_net,
@@ -56,8 +91,36 @@ namespace screamer {
     // target, open, high, low, close, each (T, K). The target decided on bar t
     // executes `delay` bars later (default 1) at the bar's `fill_at` price
     // ("open", "close", "typical", "ohlc4"); delay = 0 needs fill_at = "close".
-    class BacktestPortfolioOHLCTarget : public RowOp {
+    class BacktestPortfolioOHLCTarget : public serial::Saveable<BacktestPortfolioOHLCTarget, RowOp> {
     public:
+        static constexpr const char* kTypeName = "BacktestPortfolioOHLCTarget";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) {
+            const auto& e = engine_;
+            detail::per_asset(ar, "fee", e.fee());
+            detail::per_asset(ar, "slippage", e.slippage());
+            ar("slippage_unit", e.slippage_unit());
+            detail::per_asset(ar, "tick_size", e.tick_size());
+            detail::per_asset(ar, "multiplier", e.multiplier());
+            detail::per_asset(ar, "fee_per_contract", e.fee_per_contract());
+            ar("size", std::string(e.size_name()));
+            ar("initial_capital", e.initial_capital());
+            ar("rebalance_band", e.rebalance_band());
+            ar("rebalance", std::string(e.rebalance_name()));
+            ar("max_gross", e.max_gross());
+            ar("max_net", e.max_net());
+            ar("fill_at", std::string(engine_.fill_at_name()));
+            ar("delay", engine_.delay());
+        }
+
+        template <class Ar>
+        void state(Ar& ar) {
+            width_state(ar);
+            engine_.state(ar, width());
+        }
+
         // The market input (after the target) that marks a position: the close.
         // walk_forward's carry marks with it.
         static constexpr std::size_t mark_input = 3;
@@ -76,7 +139,7 @@ namespace screamer {
                                     double max_net = std::numeric_limits<double>::infinity(),
                                     const std::string& fill_at = "open",
                                     int delay = 1)
-            : RowOp(5, 4),
+            : serial::Saveable<BacktestPortfolioOHLCTarget, RowOp>(5, 4),
               engine_(std::move(fee), std::move(slippage), slippage_unit, std::move(tick_size),
                       std::move(multiplier), std::move(fee_per_contract), size,
                       initial_capital, rebalance_band, rebalance, max_gross, max_net,

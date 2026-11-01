@@ -108,6 +108,12 @@ protected:
     virtual void on_width(std::size_t /*k*/) {}
     virtual void reset_state() {}
 
+    // The number of assets as state (0 before the first row), the first
+    // field of a saveable row operator's state(). A load sets it without
+    // on_width: the operator's own state() rebuilds what depends on it.
+    template <class Ar>
+    void width_state(Ar& ar) { ar("width", width_); }
+
 private:
     std::size_t fields_in_, fields_out_;
     bool per_asset_out_;

@@ -49,6 +49,25 @@ namespace screamer {
             }
 
             // The nine BacktestStats columns, after at least one step.
+            template <class Ar>
+            void state(Ar& ar) {
+                ar("steps", steps);
+                ar("held_n", held_n);
+                ar("exposed", exposed);
+                ar("trades", trades);
+                ar("wins", wins);
+                ar("held_total", held_total);
+                ar("gross_win", gross_win);
+                ar("gross_loss", gross_loss);
+                ar("pnl_sum", pnl_sum);
+                ar("down_sq", down_sq);
+                ar("equity_peak", equity_peak);
+                ar("worst_dd", worst_dd);
+                ar.check(0 <= exposed && exposed <= held_n, "exposed must be in 0..held_n");
+                ar.check(0 <= wins && wins <= trades, "wins must be in 0..trades");
+                ar.check(steps >= 0 && held_total >= 0, "counts must not be negative");
+            }
+
             void values(double ppy, double* out) const {
                 const double nan = std::numeric_limits<double>::quiet_NaN();
                 const double n = static_cast<double>(steps);
@@ -97,6 +116,18 @@ namespace screamer {
     // holds and the output row is all NaN.
     class BacktestStats : public FunctorBase<BacktestStats, 4, 9> {
     public:
+        static constexpr const char* kTypeName = "BacktestStats";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) { ar("periods_per_year", ppy_); }
+
+        template <class Ar>
+        void state(Ar& ar) {
+            ar.object("stats", state_);
+            ar.object("tracker", tracker_);
+        }
+
         // The output columns, in order; the bindings label the columns with these.
         static constexpr std::array<const char*, 9> column_names{{
             "exposure", "round_trips", "win_rate", "profit_factor", "avg_win",

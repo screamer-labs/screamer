@@ -31,6 +31,32 @@ namespace screamer {
     // fee (reference = its own price), a taker fill's is measured against the mid.
     class BacktestL1TradesOrders : public FunctorBase<BacktestL1TradesOrders, 10, 4> {
     public:
+        static constexpr const char* kTypeName = "BacktestL1TradesOrders";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) {
+            ar("maker_fee", maker_fee_);
+            ar("taker_fee", taker_fee_);
+            ar("fill", std::string(breach_ ? "breach" : "touch"));
+            ar("participation_ratio", participation_);
+            ar("tick_size", slippage_.tick_size());
+            ar("min_position", min_position_);
+            ar("max_position", max_position_);
+            ar("multiplier", account_.multiplier());
+            ar("maker_fee_per_contract", maker_fee_per_contract_);
+            ar("taker_fee_per_contract", taker_fee_per_contract_);
+            ar("slippage", slippage_.amount());
+            ar("slippage_unit", std::string(slippage_.unit_name()));
+        }
+
+        template <class Ar>
+        void state(Ar& ar) {
+            ar.object("account", account_);
+            ar("bid_prev", bid_prev_);
+            ar("ask_prev", ask_prev_);
+        }
+
         BacktestL1TradesOrders(double maker_fee = 0.0, double taker_fee = 0.0,
                          const std::string& fill = "touch",
                          double participation_ratio = 1.0, double tick_size = 0.0,

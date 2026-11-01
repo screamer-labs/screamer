@@ -87,6 +87,33 @@ namespace screamer { namespace detail {
             head_ = 0;
         }
 
+        // Settings of the operators built on this engine.
+        const OHLCFill& core() const { return core_; }
+        const RiskExits& exits() const { return exits_; }
+        const Sizer& sizer() const { return sizer_; }
+        int delay() const { return delay_; }
+        const char* fill_at_name() const {
+            switch (fill_at_) {
+                case FillAt::Close:   return "close";
+                case FillAt::Typical: return "typical";
+                case FillAt::OHLC4:   return "ohlc4";
+                default:              return "open";
+            }
+        }
+
+        // The delay queue is saved as it is, with its head.
+        template <class Ar>
+        void state(Ar& ar) {
+            ar.object("core", core_);
+            ar.object("exits", exits_);
+            ar.object("sizer", sizer_);
+            ar("working", working_);
+            ar.fixed("queue", queue_, queue_.size());
+            ar("head", head_);
+            ar.check(queue_.empty() ? head_ == 0 : head_ < queue_.size(),
+                     "head must be inside the delay queue");
+        }
+
         Row step(double target, double open, double high, double low, double close,
                  double max_fill) {
             double due = target;                     // delay 0: trade this bar

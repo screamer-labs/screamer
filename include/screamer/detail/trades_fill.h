@@ -67,6 +67,26 @@ namespace screamer { namespace detail {
         // Fill price of the last fill in the most recent quote(), NaN if none.
         double last_fill_price() const { return last_fill_; }
 
+        // Settings of the operators built on this core.
+        double maker_fee() const { return maker_fee_; }
+        double taker_fee() const { return taker_fee_; }
+        double maker_fee_per_contract() const { return maker_fee_per_contract_; }
+        double taker_fee_per_contract() const { return taker_fee_per_contract_; }
+        bool breach() const { return breach_; }
+        double participation() const { return participation_; }
+        const Slippage& slippage() const { return slippage_; }
+        double min_position() const { return min_pos_; }
+        double max_position() const { return max_pos_; }
+        double multiplier() const { return account_.multiplier(); }
+
+        // last_fill_ is set by every quote before a caller reads it.
+        template <class Ar>
+        void state(Ar& ar) {
+            ar.object("account", account_);
+            ar("bid_prev", bid_prev_);
+            ar("ask_prev", ask_prev_);
+        }
+
         std::tuple<double, double, double, double>
         quote(double bid_price, double bid_size,
               double ask_price, double ask_size,

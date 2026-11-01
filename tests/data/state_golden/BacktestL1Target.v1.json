@@ -1,0 +1,51 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "BacktestL1Target",
+    "settings": {
+      "taker_fee": 0.0,
+      "tick_size": 0.0,
+      "min_position": -Infinity,
+      "max_position": Infinity,
+      "multiplier": 1.0,
+      "fee_per_contract": 0.0,
+      "slippage": 0.0,
+      "slippage_unit": "fraction",
+      "stop_loss": 0.0,
+      "take_profit": 0.0,
+      "trailing_stop": 0.0,
+      "size": "units",
+      "initial_capital": 0.0,
+      "rebalance_band": 0.0
+    },
+    "state": {
+      "version": 1,
+      "values": {
+        "core": {
+          "account": {
+            "position": 1008.2939345130559,
+            "prev_close": 1006.4478829801976,
+            "cum_equity": 6218.548718940443,
+            "has_prev": true
+          },
+          "bid_prev": NaN,
+          "ask_prev": NaN,
+          "bid_locked": false,
+          "ask_locked": false
+        },
+        "exits": {
+          "entry": NaN,
+          "best": NaN,
+          "blocked": 0.0
+        },
+        "sizer": {
+          "has": false,
+          "value": NaN,
+          "units": NaN
+        },
+        "working": 1008.2939345130559
+      }
+    }
+  }
+}

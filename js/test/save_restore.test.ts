@@ -154,6 +154,13 @@ for (const c of ORACLE.cases) {
 
   test(`save: ${c.name} resume equals one event at a time, and Python`, () => {
     const op = S.fromSettings({ type: c.name, settings: decodeSettings(c.settings) });
+    // A row operator is one object for K assets and has no resume;
+    // PortfolioReport reduces a (T, K, 4) block (tested below).
+    if ((op as any).rowOp || c.name === "PortfolioReport") {
+      if ((op as any).rowOp) assert.throws(() => op.resume(...arrays(c.prefix)), /has no resume/);
+      op.dispose();
+      return;
+    }
     const ref = fed();
     op.resume(...arrays(c.prefix));
     assert.equal(op.dumps(), ref.dumps());

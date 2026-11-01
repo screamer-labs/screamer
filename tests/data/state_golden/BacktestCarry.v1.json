@@ -1,0 +1,17 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "BacktestCarry",
+    "settings": {
+      "multiplier": 1.0
+    },
+    "state": {
+      "version": 1,
+      "values": {
+        "cum_carry": 48809709245.63703,
+        "prev_position": 1005.6018314473394
+      }
+    }
+  }
+}

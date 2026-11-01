@@ -38,6 +38,9 @@ namespace screamer { namespace detail {
         }
 
         bool active() const { return stop_ > 0.0 || take_ > 0.0 || trail_ > 0.0; }
+        double stop_loss() const { return stop_; }
+        double take_profit() const { return take_; }
+        double trailing_stop() const { return trail_; }
 
         void reset() {
             entry_ = std::numeric_limits<double>::quiet_NaN();
@@ -112,6 +115,15 @@ namespace screamer { namespace detail {
             if (target * blocked_ > 0.0) return 0.0;           // same side: stay flat
             blocked_ = 0.0;                                    // flat or reversed: release
             return target;
+        }
+
+        template <class Ar>
+        void state(Ar& ar) {
+            ar("entry", entry_);
+            ar("best", best_);
+            ar("blocked", blocked_);
+            ar.check(blocked_ == 0.0 || blocked_ == 1.0 || blocked_ == -1.0,
+                     "blocked must be -1, 0 or 1");
         }
 
     private:

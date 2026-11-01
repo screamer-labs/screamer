@@ -1,0 +1,25 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "PortfolioReport",
+    "settings": {},
+    "state": {
+      "version": 1,
+      "values": {
+        "peak_equity": 3002.3588184922983,
+        "worst_dd": -22.19322537781818,
+        "cum_cost": 149553.15192547682,
+        "cum_turnover": 3115.883563749392,
+        "trade_count": 150.0,
+        "has_prev_pos": true,
+        "prev_pos": 2994.860863508366,
+        "prev_positions": [1005.6018314473394, 984.5944650186053, 1004.6645670424213],
+        "priced": false,
+        "pnl_n": 50,
+        "pnl_mean": 2994.8148013489094,
+        "pnl_m2": 2168.670496781258
+      }
+    }
+  }
+}

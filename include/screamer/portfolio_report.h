@@ -34,6 +34,29 @@ namespace screamer {
     // change in portfolio definition or in the units of turnover.
     class PortfolioReport : public FunctorBase<PortfolioReport, 4, 6> {
     public:
+        static constexpr const char* kTypeName = "PortfolioReport";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar&) {}
+
+        template <class Ar>
+        void state(Ar& ar) {
+            ar("peak_equity", peak_equity_);
+            ar("worst_dd", worst_dd_);
+            ar("cum_cost", cum_cost_);
+            ar("cum_turnover", cum_turnover_);
+            ar("trade_count", trade_count_);
+            ar("has_prev_pos", has_prev_pos_);
+            ar("prev_pos", prev_pos_);
+            ar("prev_positions", prev_positions_);
+            ar("priced", priced_);
+            ar("pnl_n", pnl_n_);
+            ar("pnl_mean", pnl_mean_);
+            ar("pnl_m2", pnl_m2_);
+            ar.check(pnl_n_ >= 0, "pnl_n must not be negative");
+        }
+
         PortfolioReport() { reset(); }
 
         void reset() override {
@@ -45,6 +68,7 @@ namespace screamer {
             has_prev_pos_ = false;
             prev_pos_ = 0.0;
             prev_positions_.clear();
+            priced_ = false;
             pnl_n_ = 0;
             pnl_mean_ = 0.0;
             pnl_m2_ = 0.0;

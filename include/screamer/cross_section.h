@@ -58,8 +58,20 @@ namespace screamer {
     // CrossRank: the rank of each asset within the row, ties given their
     // average rank, scaled to [0, 1] ("unit": lowest 0, highest 1) or to
     // [-1, 1] ("signed"). A row with one valid asset gives the midpoint.
-    class CrossRank : public RowOp {
+    class CrossRank : public serial::Saveable<CrossRank, RowOp> {
     public:
+        static constexpr const char* kTypeName = "CrossRank";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) {
+            ar("scale", std::string(signed_ ? "signed" : "unit"));
+        }
+
+        // A row's result depends on that row alone; the state is the width.
+        template <class Ar>
+        void state(Ar& ar) { width_state(ar); }
+
         explicit CrossRank(const std::string& scale = "signed") : signed_(parse(scale)) {}
 
     protected:
@@ -93,7 +105,18 @@ namespace screamer {
     // CrossZscore: (x - mean) / std across the row, with the sample standard
     // deviation (ddof = 1). A row whose valid values are all equal gives 0; a
     // row with one valid asset gives NaN.
-    class CrossZscore : public RowOp {
+    class CrossZscore : public serial::Saveable<CrossZscore, RowOp> {
+    public:
+        static constexpr const char* kTypeName = "CrossZscore";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar&) {}
+
+        // A row's result depends on that row alone; the state is the width.
+        template <class Ar>
+        void state(Ar& ar) { width_state(ar); }
+
     protected:
         void map_row(const double* in, double* out, std::size_t k) override {
             detail::fill_nan(out, k);
@@ -112,9 +135,21 @@ namespace screamer {
     // per row (a row reduction): sqrt(sum (x - mean)^2 / (n - ddof)) over the
     // n non-NaN assets, as pandas DataFrame.std(axis=1, ddof=ddof) and numpy
     // nanstd(axis=1, ddof=ddof). A row with n <= ddof gives NaN.
-    class CrossStd : public RowOp {
+    class CrossStd : public serial::Saveable<CrossStd, RowOp> {
     public:
-        explicit CrossStd(int ddof = 1) : RowOp(1, 1, /*per_asset_out=*/false), ddof_(ddof) {
+        static constexpr const char* kTypeName = "CrossStd";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) {
+            ar("ddof", ddof_);
+        }
+
+        // A row's result depends on that row alone; the state is the width.
+        template <class Ar>
+        void state(Ar& ar) { width_state(ar); }
+
+        explicit CrossStd(int ddof = 1) : serial::Saveable<CrossStd, RowOp>(1, 1, /*per_asset_out=*/false), ddof_(ddof) {
             if (ddof_ < 0) throw std::invalid_argument("ddof must be non-negative.");
         }
 
@@ -137,7 +172,18 @@ namespace screamer {
     };
 
     // CrossDemean: x - mean across the row.
-    class CrossDemean : public RowOp {
+    class CrossDemean : public serial::Saveable<CrossDemean, RowOp> {
+    public:
+        static constexpr const char* kTypeName = "CrossDemean";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar&) {}
+
+        // A row's result depends on that row alone; the state is the width.
+        template <class Ar>
+        void state(Ar& ar) { width_state(ar); }
+
     protected:
         void map_row(const double* in, double* out, std::size_t k) override {
             double s = 0.0;
@@ -153,8 +199,21 @@ namespace screamer {
     // CrossWinsorize: clip each value to the row's `lower` and `upper`
     // quantiles (linear interpolation between order statistics, as numpy's
     // default quantile).
-    class CrossWinsorize : public RowOp {
+    class CrossWinsorize : public serial::Saveable<CrossWinsorize, RowOp> {
     public:
+        static constexpr const char* kTypeName = "CrossWinsorize";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) {
+            ar("lower", lo_);
+            ar("upper", hi_);
+        }
+
+        // A row's result depends on that row alone; the state is the width.
+        template <class Ar>
+        void state(Ar& ar) { width_state(ar); }
+
         CrossWinsorize(double lower = 0.05, double upper = 0.95) : lo_(lower), hi_(upper) {
             if (!(lo_ >= 0.0 && lo_ <= hi_ && hi_ <= 1.0))
                 throw std::invalid_argument("need 0 <= lower <= upper <= 1.");
@@ -193,8 +252,21 @@ namespace screamer {
     //     (net = 0 is dollar-neutral).
     // A row with no exposure to scale (all zero, or all equal with a net
     // target) gives zero weights.
-    class CrossNormalize : public RowOp {
+    class CrossNormalize : public serial::Saveable<CrossNormalize, RowOp> {
     public:
+        static constexpr const char* kTypeName = "CrossNormalize";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) {
+            ar("gross", gross_);
+            ar("net", isnan2(net_) ? std::optional<double>() : std::optional<double>(net_));
+        }
+
+        // A row's result depends on that row alone; the state is the width.
+        template <class Ar>
+        void state(Ar& ar) { width_state(ar); }
+
         CrossNormalize(double gross = 1.0, std::optional<double> net = std::nullopt)
             : gross_(gross), net_(net ? *net : detail::kNaN) {
             if (!(std::isfinite(gross_) && gross_ >= 0.0))
@@ -243,8 +315,20 @@ namespace screamer {
     // (the earlier column ranks lower). With fewer than 2 * count valid
     // assets, count is reduced to half of them so no asset is on both sides.
     // A row whose valid values are all equal gives 0 for every asset.
-    class CrossTopBottom : public RowOp {
+    class CrossTopBottom : public serial::Saveable<CrossTopBottom, RowOp> {
     public:
+        static constexpr const char* kTypeName = "CrossTopBottom";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) {
+            ar("count", count_);
+        }
+
+        // A row's result depends on that row alone; the state is the width.
+        template <class Ar>
+        void state(Ar& ar) { width_state(ar); }
+
         explicit CrossTopBottom(int count = 1) : count_(count) {
             if (count_ < 1) throw std::invalid_argument("count must be at least 1.");
         }

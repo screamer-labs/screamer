@@ -8,7 +8,10 @@ result bit for bit, also through a save and load between the parts. A
 save file holds as ``"columns"``.
 
 The tests run every saveable functor of the registry
-(``tests/save_cases.py``), so operators that gain save support join them.
+(``tests/save_cases.py``), so operators that gain save support join them. A
+row operator (cross-section, portfolio engine) is one object for K assets
+already and has no resume, and PortfolioReport reduces a (T, K, 4) block, so
+these tests leave both out; their save tests are in tests/test_save_restore.py.
 """
 from __future__ import annotations
 
@@ -19,9 +22,12 @@ import pytest
 
 import screamer
 from tests.regime_helpers import assert_bitwise
+from tests.param_cases import ROW_OPS
+from tests.test_batch_stream_bitwise import BLOCK_OPS
 from tests.save_cases import FUNCTOR_NAMES, KNOWN_UNSAVEABLE, case, kwargs_for, splits
 
-SAVEABLE = [n for n in FUNCTOR_NAMES if n not in KNOWN_UNSAVEABLE]
+SAVEABLE = [n for n in FUNCTOR_NAMES if n not in KNOWN_UNSAVEABLE
+            and n not in ROW_OPS and n not in BLOCK_OPS]
 K = 5
 
 
@@ -256,3 +262,10 @@ def test_empty_panel_refused():
     with pytest.raises(screamer.StateMismatch, match="at least one column"):
         f.set_state({"version": 1, "columns": []})
     assert "values" in _state(f)
+
+
+@pytest.mark.parametrize("name", sorted(ROW_OPS))
+def test_row_op_has_no_resume(name):
+    make, inputs = case(name)
+    with pytest.raises(TypeError, match="has no resume"):
+        make().resume(*inputs)
