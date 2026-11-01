@@ -26,6 +26,7 @@ namespace screamer_wasm {
 
 // One event: read n_in doubles at inPtr, write n_out doubles at outPtr.
 inline void evalInto(screamer::EvalOp& op, std::uintptr_t inPtr, std::uintptr_t outPtr) {
+    op.check_event_call();
     op.eval(reinterpret_cast<const double*>(inPtr), reinterpret_cast<double*>(outPtr));
 }
 
@@ -57,15 +58,16 @@ inline void reduceInto(Op& op, std::uintptr_t inPtr, std::uintptr_t outPtr,
 
 // Batch by the batch==stream invariant: replay the reduction over `rows`
 // events. Layout: inPtr = rows * groups * n_in() doubles (row-major),
-// outPtr = rows * n_out(). Brackets the run with reset() at both ends, so a
-// batch call is independent of what came before and leaves no state behind.
+// outPtr = rows * n_out(). Brackets the run with resets at both ends (the
+// first also drops a panel, as every default batch call does), so a batch
+// call is independent of what came before and leaves no state behind.
 template <class Op>
 inline void reduceBatchInto(Op& op, std::uintptr_t inPtr, std::uintptr_t outPtr,
                             std::size_t rows, std::size_t groups) {
     const double* in = reinterpret_cast<const double*>(inPtr);
     double* out = reinterpret_cast<double*>(outPtr);
     const std::size_t ni = op.n_in(), no = op.n_out();
-    op.reset();
+    op.reset_all();
     for (std::size_t r = 0; r < rows; ++r)
         writeResult(out + r * no, op.call_assets(in + r * groups * ni, groups));
     op.reset();
@@ -89,7 +91,7 @@ inline void reducePricedBatchInto(Op& op, std::uintptr_t inPtr, std::uintptr_t p
     const double* prices = reinterpret_cast<const double*>(pricePtr);
     double* out = reinterpret_cast<double*>(outPtr);
     const std::size_t ni = op.n_in(), no = op.n_out();
-    op.reset();
+    op.reset_all();
     for (std::size_t r = 0; r < rows; ++r)
         writeResult(out + r * no,
                     op.call_assets(in + r * groups * ni, prices + r * groups, groups));
@@ -217,11 +219,13 @@ inline std::string finiteSettingError(std::string op, emscripten::val names, ems
 }  // namespace screamer_wasm
 
 // Register the shared runtime on the EvalOp base class ONCE. Every op class is
-// registered with base<EvalOp>, so all ops inherit evalInto/reset/etc.
+// registered with base<EvalOp>, so all ops inherit evalInto/reset/etc. reset
+// also drops the per-column state of a resume on a (T, K) array
+// (EvalOp::reset_all); the save functions are wasm/serial_bindings.cpp.
 #define SCREAMER_REGISTER_EVAL_OP_RUNTIME()                                    \
     emscripten::class_<screamer::EvalOp>("EvalOp")                             \
         .function("evalInto", &screamer_wasm::evalInto, emscripten::allow_raw_pointers()) \
-        .function("reset", &screamer::EvalOp::reset)                           \
+        .function("reset", &screamer::EvalOp::reset_all)                       \
         .function("nIn", &screamer::EvalOp::n_in)                              \
         .function("nOut", &screamer::EvalOp::n_out);                           \
     emscripten::function("allocF64", &screamer_wasm::allocF64);               \

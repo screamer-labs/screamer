@@ -1,6 +1,7 @@
 #include "screamer/common/dispatch.h"
 #include "screamer/common/lazy_eval_iterator.h"
 #include "screamer/common/row_op.h"
+#include "screamer/serial/resume.h"
 #include <nanobind/stl/vector.h>
 #include <limits>
 #include <memory>
@@ -211,35 +212,15 @@ nb::object resume_call(EvalOp& self, const nb::args& raw) {
     if (m > 1) shape.push_back(m);
 
     // The operator of each column: the object itself for one series, else
-    // the panel's, made now on the first (T, K) call.
-    std::vector<EvalOp*> ops;
-    std::unique_ptr<serial::Panel> made;
+    // the panel's, made now on the first (T, K) call (serial/resume.h).
     const bool panel = shape.size() - (m > 1 ? 1 : 0) > 1;
-    if (!panel) {
-        if (self.has_panel())
-            throw nb::value_error(("resume: object holds " + std::to_string(self.panel_columns()) +
-                                   " columns, got a single series").c_str());
-        ops.push_back(&self);
-    } else if (self.has_panel()) {
-        if (self.panel_columns() != cols)
-            throw nb::value_error(("resume: object holds " + std::to_string(self.panel_columns()) +
-                                   " columns, got " + std::to_string(cols)).c_str());
-        for (const auto& c : self.panel_->cols) ops.push_back(c.get());
-    } else {
-        if (cols == 0)
-            throw nb::value_error((who + ".resume: a (T, 0) array has no columns to keep "
-                                   "state for").c_str());
-        made = std::make_unique<serial::Panel>();
-        made->cols.reserve(cols);
-        for (std::size_t c = 0; c < cols; ++c) {
-            std::unique_ptr<EvalOp> op = self.clone_fresh();
-            if (!op)
-                throw nb::type_error((who + ".resume: this operator cannot keep per-column state "
-                                      "yet; resume one series at a time").c_str());
-            ops.push_back(op.get());
-            made->cols.push_back(std::move(op));
-        }
+    serial::ResumeColumns columns;
+    try {
+        columns = serial::resume_columns(self, panel, cols, who);
+    } catch (const serial::ResumeTypeError& e) {
+        throw nb::type_error(e.what());
     }
+    std::vector<EvalOp*>& ops = columns.ops;
 
     auto out = detail::new_output(T * cols * m);
     std::size_t next = 0;   // run_columns runs the columns in order
@@ -259,12 +240,7 @@ nb::object resume_call(EvalOp& self, const nb::args& raw) {
                     [&p](std::size_t i, std::size_t c) { return p.offset[i * p.columns + c]; },
                     out.get(), self.tight_column());
     }
-    // A throw above leaves the columns that ran advanced (an existing panel
-    // or the object itself); a new panel is installed only after the run.
-    if (made) {
-        self.reset();
-        self.panel_ = std::move(made);
-    }
+    serial::finish_resume(self, columns);
     return detail::make_owned_array(std::move(out), shape);
 }
 

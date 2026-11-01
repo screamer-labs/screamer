@@ -13,13 +13,18 @@ layout per state version, so a layout change without a version bump fails.
 from __future__ import annotations
 
 import json
+import os
 import pathlib
 import re
+import subprocess
+import sys
 
 import numpy as np
 import pytest
 
 import screamer
+from screamer import screamer_bindings as _b
+from tests._oracle_fresh import _same as _oracle_same
 from tests.regime_helpers import assert_bitwise
 from tests.save_cases import (FUNCTOR_NAMES, HELP, KNOWN_UNSAVEABLE, REST, case, feed,
                               kwargs_for, splits)
@@ -370,3 +375,125 @@ def test_goldens_cover_saveable():
         if not (GOLDEN / f"{name}.v{version}.json").exists():
             missing.append(f"{name}.v{version}")
     assert not missing, f"no golden for {missing}; run devtools/gen_state_golden.py"
+
+
+# ---- The C++ registry and the JavaScript files ---------------------------------
+
+def _settings_value(v):
+    """A constructor argument of tests/save_cases.py as a settings value."""
+    if isinstance(v, _b.EvalOp):
+        return {"type": type(v).__name__, "settings": v.settings()}
+    if isinstance(v, (list, tuple, np.ndarray)):
+        return [_settings_value(x) for x in v]
+    if isinstance(v, (bool, np.bool_)):
+        return bool(v)
+    if isinstance(v, (int, np.integer)):
+        return int(v)
+    if isinstance(v, (float, np.floating)):
+        return float(v)
+    return v
+
+
+@pytest.mark.parametrize("name", FUNCTOR_NAMES)
+def test_make_op_builds_every_functor(name):
+    """serial::make_op (the JavaScript loader's builder) builds each functor
+    as its Python class does: the same outputs, and the same file."""
+    make, inputs = case(name)
+    settings = {k: _settings_value(v) for k, v in kwargs_for(name).items()}
+    built = _b._serial_make_op(name, json.dumps(settings))
+    assert_bitwise(np.asarray(built(*inputs)), np.asarray(make()(*inputs)))
+    if name not in KNOWN_UNSAVEABLE:
+        assert built._dumps(False) == make().dumps()
+
+
+@pytest.mark.parametrize("settings, where, error", [
+    ('{"window": 3}', "RollingMean.settings.window: unknown parameter", screamer.SaveError),
+    ('{"window_size": 2.5}', "RollingMean.settings.window_size: expected an integer", screamer.SaveError),
+    ('{"window_size": "3"}', "RollingMean.settings.window_size: expected an integer", screamer.SaveError),
+    ('{"window_size": 0}', "RollingMean.settings: ", screamer.SaveError),
+    ('[]', "RollingMean.settings: expected an object, got an array", screamer.SaveError),
+])
+def test_make_op_errors_named(settings, where, error):
+    with pytest.raises(error, match=re.escape(where)):
+        _b._serial_make_op("RollingMean", settings)
+
+
+def test_make_op_unknown_type_and_nested():
+    with pytest.raises(screamer.SaveError, match=re.escape("object.type: unknown type 'Nope'")):
+        _b._serial_make_op("Nope", "{}")
+    with pytest.raises(screamer.SaveError,
+                       match=re.escape("Segment.settings.op.type: unknown type 'Nope'")):
+        _b._serial_make_op("Segment", '{"op": {"type": "Nope", "settings": {}}}')
+    with pytest.raises(screamer.SaveError, match=re.escape("Segment.settings.op: missing required")):
+        _b._serial_make_op("Segment", "{}")
+    seg = _b._serial_make_op("Segment", '{"op": {"type": "RollingMean", "settings": {"window_size": 5}}}')
+    assert seg._dumps(False) == screamer.Segment(screamer.RollingMean(5)).dumps()
+
+
+@pytest.fixture
+def rename_window():
+    """A test row of the rename table: RollingMean's window_size was 'window'."""
+    _b._serial_test_rename("RollingMean", "window", "window_size")
+    yield
+    _b._serial_test_rename_clear()
+
+
+def test_settings_compat_renames(rename_window):
+    a = screamer.from_settings({"type": "RollingMean", "settings": {"window": 7}})
+    assert a.settings() == {"window_size": 7, "start_policy": "strict"}
+    old = screamer.RollingMean(7).dumps().replace('"window_size"', '"window"')
+    assert screamer.loads(old).dumps() == screamer.RollingMean(7).dumps()
+    built = _b._serial_make_op("RollingMean", '{"window": 7}')
+    assert built._dumps(False) == screamer.RollingMean(7).dumps()
+    for both in ({"window": 7, "window_size": 7},):
+        with pytest.raises(screamer.SaveError, match="RollingMean.settings.window: renamed to window_size"):
+            screamer.from_settings({"type": "RollingMean", "settings": both})
+        with pytest.raises(screamer.SaveError, match="RollingMean.settings.window: renamed to window_size"):
+            _b._serial_make_op("RollingMean", json.dumps(both))
+
+
+def test_settings_compat_table_shipped_empty():
+    with pytest.raises(screamer.SaveError, match="RollingMean.settings.window: unknown parameter"):
+        screamer.from_settings({"type": "RollingMean", "settings": {"window": 7}})
+
+
+def _run_generator(path):
+    env = dict(os.environ)
+    env["PYTHONPATH"] = os.pathsep.join([str(ROOT)] + [p for p in sys.path if p])
+    r = subprocess.run([sys.executable, str(path), "--stdout"], cwd=ROOT, env=env, capture_output=True)
+    assert r.returncode == 0, r.stderr.decode(errors="replace")
+    return r.stdout.decode("utf-8")
+
+
+def test_op_registry_fresh():
+    gen = ROOT / "devtools" / "gen_op_registry.py"
+    committed = (ROOT / "src" / "screamer" / "serial" / "op_registry.cpp").read_text(encoding="utf-8")
+    assert _run_generator(gen) == committed, (
+        "src/screamer/serial/op_registry.cpp is stale: run python devtools/gen_op_registry.py")
+
+
+def _file_tree(text):
+    doc = json.loads(text)
+    doc["library_version"] = "*"
+    return doc
+
+
+def test_js_oracle_fresh():
+    """wasm/smoke/save_oracle.json is what devtools/wasm/gen_save_oracle.py
+    writes today. The numbers compare to 1e-9 (tests/_oracle_fresh.py) and
+    the library version is ignored."""
+    gen = ROOT / "devtools" / "wasm" / "gen_save_oracle.py"
+    fixture = ROOT / "wasm" / "smoke" / "save_oracle.json"
+    now = json.loads(_run_generator(gen))
+    committed = json.loads(fixture.read_text(encoding="utf-8"))
+
+    def comparable(doc):
+        for c in doc["cases"]:
+            c["json_text"] = _file_tree(c["json_text"])
+            c["cbor_hex"] = _file_tree(_b._serial_cbor_decode(bytes.fromhex(c["cbor_hex"])))
+        return doc
+
+    diff = _oracle_same(comparable(now), comparable(committed))
+    assert diff is None, (f"wasm/smoke/save_oracle.json is stale ({diff}): run python "
+                          "devtools/wasm/gen_save_oracle.py and commit the result")
+    assert [c["name"] for c in now["cases"]] == SAVEABLE

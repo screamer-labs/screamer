@@ -10,20 +10,9 @@ import * as ops from "./generated/ops.js";
 import { current } from "./index.js";
 import { aKind } from "./kinds.js";
 import { SETTINGS } from "./runtime.js";
+import { jsonText } from "./json_text.js";
 
 type Dict = Record<string, any>;
-
-// JSON text of a description, with a non-finite number spelled as Python's
-// json module writes it (NaN, Infinity, -Infinity) and -0 as -0.0;
-// JSON.stringify alone would write null and 0. Such a number goes through a
-// marker string that no setting holds.
-const MARK = "\u0000";
-const MARKED = /"\\u0000(NaN|Infinity|-Infinity|-0\.0)"/g;
-function jsonText(x: unknown): string {
-  return JSON.stringify(x, (_k, v) => (typeof v !== "number" ? v
-    : !Number.isFinite(v) ? MARK + String(v) : Object.is(v, -0) ? MARK + "-0.0" : v))
-    .replace(MARKED, "$1");
-}
 
 // A functor node's op as Python writes it: its class and the settings its
 // factory recorded.

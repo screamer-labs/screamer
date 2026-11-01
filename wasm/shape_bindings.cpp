@@ -13,7 +13,9 @@
 #include "screamer/common/base.h"
 #include "screamer/common/column_driver.h"
 #include "screamer/common/eval_op.h"
+#include "screamer/common/row_op.h"
 #include "screamer/common/shape.h"
+#include "screamer/serial/resume.h"
 
 namespace {
 
@@ -59,6 +61,7 @@ std::uintptr_t evalShaped(screamer::EvalOp& op, std::uintptr_t spec, std::uintpt
     const screamer::shape::Plan plan =
         screamer::shape::broadcast(screamer::shape::input_views(s.shapes, ni));
     const std::size_t cols = plan.columns;
+    op.drop_panel();   // a default batch call drops the per-column state of a resume
     std::unique_ptr<double, decltype(&std::free)> out(
         static_cast<double*>(std::malloc(std::max<std::size_t>(1, plan.T * cols * no) * sizeof(double))),
         &std::free);
@@ -72,6 +75,44 @@ std::uintptr_t evalShaped(screamer::EvalOp& op, std::uintptr_t spec, std::uintpt
         [&plan, cols](std::size_t i, std::size_t c) { return plan.offset[i * cols + c]; }, out.get(),
         op.tight_column());
     op.reset();
+    double* sh = reinterpret_cast<double*>(shapeOut);
+    sh[0] = static_cast<double>(plan.shape.size());
+    for (std::size_t d = 0; d < plan.shape.size(); ++d) sh[1 + d] = static_cast<double>(plan.shape[d]);
+    return reinterpret_cast<std::uintptr_t>(out.release());
+}
+
+// A resume call (serial/resume.h): evalShaped's layout, run from the
+// operator's current state, which it keeps. One series runs on the operator
+// itself; a (T, *A) call runs column c on column c of its panel, made on the
+// first such call. `who` names the operator in errors.
+std::uintptr_t evalResume(screamer::EvalOp& op, std::uintptr_t spec, std::uintptr_t shapeOut,
+                          emscripten::val who_js) {
+    const std::string who = who_js.as<std::string>();
+    if (dynamic_cast<const screamer::RowOp*>(&op))
+        throw screamer::serial::ResumeTypeError(who + ".resume: a cross-sectional operator has no resume");
+    Spec s = read_spec(spec);
+    const std::size_t ni = op.n_in(), no = op.n_out();
+    const screamer::shape::Plan plan =
+        screamer::shape::broadcast(screamer::shape::input_views(s.shapes, ni));
+    const std::size_t cols = plan.columns;
+    screamer::serial::ResumeColumns columns =
+        screamer::serial::resume_columns(op, plan.shape.size() > 1, cols, who);
+    std::unique_ptr<double, decltype(&std::free)> out(
+        static_cast<double*>(std::malloc(std::max<std::size_t>(1, plan.T * cols * no) * sizeof(double))),
+        &std::free);
+    if (!out) throw std::bad_alloc();
+    std::vector<const double*> base(ni);
+    for (std::size_t i = 0; i < ni; ++i) base[i] = s.data[s.data.size() == 1 ? 0 : i];
+    std::size_t next = 0;   // run_columns runs the columns in order
+    screamer::run_columns(
+        [&columns, &next](const double* const* in, const std::ptrdiff_t* in_stride, std::size_t T,
+                          double* y, std::ptrdiff_t y_stride) {
+            columns.ops[next++]->eval_column_resume(in, in_stride, T, y, y_stride);
+        },
+        ni, no, plan.T, cols, base.data(), plan.time_stride.data(),
+        [&plan, cols](std::size_t i, std::size_t c) { return plan.offset[i * cols + c]; }, out.get(),
+        op.tight_column());
+    screamer::serial::finish_resume(op, columns);
     double* sh = reinterpret_cast<double*>(shapeOut);
     sh[0] = static_cast<double>(plan.shape.size());
     for (std::size_t d = 0; d < plan.shape.size(); ++d) sh[1 + d] = static_cast<double>(plan.shape[d]);
@@ -121,6 +162,7 @@ emscripten::val layoutPlan(emscripten::val layout_js, emscripten::val shape) {
 
 EMSCRIPTEN_BINDINGS(screamer_shape) {
     emscripten::function("evalShaped", &evalShaped, emscripten::allow_raw_pointers());
+    emscripten::function("evalResume", &evalResume, emscripten::allow_raw_pointers());
     emscripten::function("layoutPlan", &layoutPlan);
     emscripten::function("eventPlan", &eventPlan);
 }
@@ -131,7 +173,8 @@ EMSCRIPTEN_BINDINGS(screamer_shape) {
 // JavaScript as it does from an Embind method.
 extern "C" {
 EMSCRIPTEN_KEEPALIVE void screamer_eval(std::uintptr_t op, std::uintptr_t in, std::uintptr_t out) {
-    reinterpret_cast<screamer::EvalOp*>(op)->eval(reinterpret_cast<const double*>(in),
-                                                  reinterpret_cast<double*>(out));
+    screamer::EvalOp* p = reinterpret_cast<screamer::EvalOp*>(op);
+    p->check_event_call();
+    p->eval(reinterpret_cast<const double*>(in), reinterpret_cast<double*>(out));
 }
 }  // extern "C"

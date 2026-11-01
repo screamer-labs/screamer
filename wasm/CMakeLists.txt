@@ -13,12 +13,13 @@ if(NOT DEFINED SCREAMER_ROOT)
 endif()
 
 # Pure C++ sources: everything the ops compile from, minus the two nanobind TUs.
-# Glob common/ and detail/ (and dag/ if it ever grows .cpp files) then drop the
-# nanobind translation units explicitly.
+# Glob common/, detail/, dag/ and serial/ (the generated operator registry)
+# then drop the nanobind translation units explicitly.
 file(GLOB_RECURSE PURE_SOURCES
     "${SCREAMER_ROOT}/src/screamer/common/*.cpp"
     "${SCREAMER_ROOT}/src/screamer/detail/*.cpp"
-    "${SCREAMER_ROOT}/src/screamer/dag/*.cpp")
+    "${SCREAMER_ROOT}/src/screamer/dag/*.cpp"
+    "${SCREAMER_ROOT}/src/screamer/serial/*.cpp")
 list(REMOVE_ITEM PURE_SOURCES
     "${SCREAMER_ROOT}/src/screamer/common/dispatch.cpp"
     "${SCREAMER_ROOT}/src/screamer/common/async_generator.cpp")
@@ -38,6 +39,7 @@ add_executable(screamer
     "${CMAKE_CURRENT_SOURCE_DIR}/join_bindings.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/merge_bindings.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/graph_json_bindings.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/serial_bindings.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/exception_message.cpp"
     ${PURE_SOURCES})
 

@@ -1,5 +1,6 @@
 import type { Screamer, RawOp } from "./loader.js";
-import { normalizeError } from "./errors.js";
+import { normalizeError, NotSaveable, wasmCall } from "./errors.js";
+import { jsonText } from "./json_text.js";
 import { asNd, type NdArray } from "./ndarray.js";
 import { Node, isNode } from "./node.js";
 import {
@@ -42,7 +43,30 @@ export type ScreamerOp = {
   reset(): void;
   dispose(): void;
   [Symbol.dispose](): void;
+  /**
+   * The save file of the operator: JSON text, or the CBOR bytes for
+   * `"cbor"`. `loads` reads it back. Python's `dumps`.
+   */
+  dumps(format?: "json"): string;
+  dumps(format: "cbor"): Uint8Array;
+  /** The constructor arguments by their Python names; an optional one not given is null. */
+  settings(): Record<string, unknown>;
+  /** The state, `{ version, values }`, or `{ version, columns }` after a resume on a (T, K) array. */
+  state(): SaveState;
+  /** Loads a state that `state()` returned; one that does not fit raises and changes nothing. */
+  setState(state: SaveState): void;
+  /**
+   * A batch call that starts from the operator's state and keeps the end
+   * state, where a default batch call starts and ends reset. On a (T, K)
+   * array it keeps one state per column. Python's `resume`.
+   */
+  resume(...inputs: any[]): any;
+  /** Writes the save file to `path` (Node): CBOR for a `.cbor` path, JSON otherwise. */
+  save(path: string): Promise<void>;
 };
+
+/** An operator's state as `state()` returns it. */
+export type SaveState = { version: number; values?: Record<string, unknown>; columns?: Record<string, unknown>[] };
 
 const isTyped = (x: any) => x instanceof Float64Array;
 
@@ -277,6 +301,43 @@ class OpRes implements Owned {
   }
 }
 
+// The save methods of a wrapper (dumps, settings, state, setState, save) on
+// its raw op; `live` throws when the wrapper is disposed. The C++ core writes
+// and reads the files (wasm/serial_bindings.cpp). An operator saves under its
+// own class name only, as in Python, so one that would save as another
+// operator raises NotSaveable.
+function installSave(op: any, M: Screamer, raw: RawOp, live: () => void): void {
+  const who = opName(raw);
+  const check = () => {
+    live();
+    if (!M.serialSaveable(raw)) throw new NotSaveable(`${who}: the operator has no save and load support yet`);
+    const saves = M.serialTypeName(raw);
+    if (saves !== who) throw new NotSaveable(`${who}: saves as ${saves}, which is another operator`);
+  };
+  op.dumps = (format: unknown = "json") => {
+    if (format !== "json" && format !== "cbor")
+      throw new RangeError(`${who}.dumps: format must be 'json' or 'cbor', got ${typeof format === "string" ? `'${format}'` : aKind(format)}`);
+    check();
+    return wasmCall(() => M.serialDumps(raw, format === "cbor"));
+  };
+  op.settings = () => { check(); return wasmCall(() => M.serialSettings(raw)); };
+  op.state = () => { check(); return wasmCall(() => M.serialState(raw)); };
+  op.setState = (state: unknown) => {
+    if (state === null || typeof state !== "object" || Array.isArray(state))
+      throw new TypeError(`${who}.setState: takes the object state() returned, got ${aKind(state)}`);
+    check();
+    const text = jsonText(state);
+    wasmCall(() => M.serialSetState(raw, text, who));
+  };
+  // node:fs is loaded here, on the first save, so a browser never asks for it.
+  op.save = async (path: unknown) => {
+    if (typeof path !== "string") throw new TypeError(`${who}.save: path must be a string, got ${aKind(path)}`);
+    const data = op.dumps(path.toLowerCase().endsWith(".cbor") ? "cbor" : "json");
+    const fs = await import(["node:fs/promises"][0]);
+    await fs.writeFile(path, data);
+  };
+}
+
 // `copy` builds the stream copies when `src` is a raw op whose factory lives
 // elsewhere (wrapReducerOp passes its own). `finalize` false leaves freeing
 // to a wrapper that owns this one and always disposes it (wrapReducerOp).
@@ -329,7 +390,9 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp, finalize 
   // C-contiguous block of numbers with its shape. Returns the flat
   // (T, *A, nOut) result and the (T, *A) shape.
   type Part = { data: ArrayLike<number>; shape: number[] };
-  function runShaped(parts: Part[]): { data: Float64Array; shape: number[] } {
+  // `resume` true runs a resume call (evalResume): from the op's state, which
+  // it keeps.
+  function runShaped(parts: Part[], resume = false): { data: Float64Array; shape: number[] } {
     const ptrs: number[] = [];
     let outPtr = 0;
     try {
@@ -347,7 +410,9 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp, finalize 
       ptrs.push(specPtr);
       M.viewF64(specPtr, spec.length).set(spec);
       const shapePtr = specPtr + 8 * spec.length;
-      try { outPtr = M.evalShaped(raw, specPtr, shapePtr); } catch (e) { throw normalizeError(e); }
+      try {
+        outPtr = resume ? M.evalResume(raw, specPtr, shapePtr, opName(raw)) : M.evalShaped(raw, specPtr, shapePtr);
+      } catch (e) { throw normalizeError(e); }
       const sv = M.viewF64(shapePtr, 1 + maxNd);
       const shape = Array.from(sv.subarray(1, 1 + sv[0]));
       const n = shape.reduce((p, d) => p * d, 1) * nOut;
@@ -713,9 +778,34 @@ export function wrapOp(M: Screamer, src: OpSource, copy?: () => RawOp, finalize 
     throw new TypeError(`expected ${nIn} numeric inputs`);
   };
 
+  // A resume call: arrays with a time axis, read as a batch call reads them,
+  // and the result in the container that call gives. One series runs on raw;
+  // a (T, *A) call keeps one state per column (a panel, in C++).
+  const resume = (...args: any[]): any => {
+    if (disposed) throw new Error("operation used after dispose()");
+    const who = opName(raw);
+    const packed = nIn > 1 && args.length === 1 && isNd(args[0]) && args[0].shape.length >= 2;
+    if (args.length !== nIn && !packed) throw new RangeError(inputCountText(who, nIn, args.length));
+    const parts: Part[] = args.map((a) => {
+      if (isNd(a) && a.shape.length > 0) return a;
+      if (isTyped(a)) return { data: a, shape: [a.length] };
+      if (Array.isArray(a) && a.every(numOrNull)) return { data: a.map((x) => x ?? NaN), shape: [a.length] };
+      throw new TypeError(`${who}.resume takes arrays with a time axis; call the object with one event instead`);
+    });
+    const { data, shape } = runShaped(parts, true);
+    if (args.some(isNd)) return { data, shape: nOut === 1 ? shape : [...shape, nOut] };
+    // Arrays of numbers give an Array of per-event results, typed arrays a
+    // typed result, as a batch call gives (rule 3).
+    const rows = shape[0];
+    if (args.every((x) => Array.isArray(x))) return perEvent(nOut === 1 ? data : { data, shape: [rows, nOut] }, rows);
+    return nOut === 1 ? data : { data, shape: [rows, nOut] };
+  };
+
   const op = call as ScreamerOp;
   op.reset = () => { if (disposed) throw new Error("operation used after dispose()"); raw.reset(); };
   op.dispose = free;
+  op.resume = resume;
+  installSave(op, M, raw, () => { if (disposed) throw new Error("operation used after dispose()"); });
   (op as any)[Symbol.dispose] = free;
   (op as any).numInputs = nIn;
   (op as any).opName = opName(raw);
@@ -1082,6 +1172,11 @@ export function wrapReducerOp(M: Screamer, src: OpSource): ScreamerOp {
   const op = call as ScreamerOp;
   op.reset = () => { if (disposed) throw new Error("operation used after dispose()"); raw.reset(); };
   op.dispose = free;
+  op.resume = (...args: any[]) => {
+    if (disposed) throw new Error("operation used after dispose()");
+    return base.resume(...args);
+  };
+  installSave(op, M, raw, () => { if (disposed) throw new Error("operation used after dispose()"); });
   (op as any)[Symbol.dispose] = free;
   (op as any).numInputs = width;
   (op as any).opName = opName(raw);
@@ -1297,6 +1392,9 @@ export function wrapRowOp(M: Screamer, src: OpSource): ScreamerOp {
   const op = call as ScreamerOp;
   op.reset = () => { if (disposed) throw new Error("operation used after dispose()"); raw.reset(); };
   op.dispose = free;
+  // A row op is one object for K assets: it keeps no state per column.
+  op.resume = () => { throw new TypeError(`${opName(raw)}.resume: a cross-sectional operator has no resume`); };
+  installSave(op, M, raw, () => { if (disposed) throw new Error("operation used after dispose()"); });
   (op as any)[Symbol.dispose] = free;
   // Marks a row op (rows of K assets), so callers such as positionTest can
   // tell a portfolio engine from a per-column one.

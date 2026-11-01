@@ -113,6 +113,8 @@ def _build(type_name, settings, path):
         raise SaveError(f"{path}.type: unknown type {type_name!r}")
     if not isinstance(settings, dict):
         raise SaveError(f"{type_name}.settings: expected an object, got {type(settings).__name__}")
+    # The renamed parameters (include/screamer/serial/settings_compat.h).
+    settings = json.loads(_b._serial_settings_compat(type_name, json.dumps(settings)))
     params = {p["name"]: p for p in (_load_help().get(type_name) or {}).get("parameters", [])}
     kwargs = {}
     for name, value in settings.items():

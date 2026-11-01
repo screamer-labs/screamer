@@ -41,13 +41,13 @@ struct ZPK {
 };
 
 // Function to compute the degree (difference in the number of poles and zeros)
-int relative_degree(const std::vector<std::complex<double>>& z,
+inline int relative_degree(const std::vector<std::complex<double>>& z,
                     const std::vector<std::complex<double>>& p) {
     return static_cast<int>(p.size()) - static_cast<int>(z.size());
 }
 
 // Function to check if all complex roots come in conjugate pairs
-bool roots_are_conjugate_pairs(const std::vector<std::complex<double>>& roots) {
+inline bool roots_are_conjugate_pairs(const std::vector<std::complex<double>>& roots) {
     std::vector<std::complex<double>> roots_sorted = roots;
     std::vector<std::complex<double>> roots_conj = roots;
 
@@ -78,7 +78,7 @@ bool roots_are_conjugate_pairs(const std::vector<std::complex<double>>& roots) {
 }
 
 // Function to multiply two polynomials with complex coefficients
-std::vector<std::complex<double>> poly_mult(const std::vector<std::complex<double>>& p1,
+inline std::vector<std::complex<double>> poly_mult(const std::vector<std::complex<double>>& p1,
                                             const std::vector<std::complex<double>>& p2) {
     std::vector<std::complex<double>> result(p1.size() + p2.size() - 1, std::complex<double>(0.0, 0.0));
     for (size_t i = 0; i < p1.size(); ++i) {
@@ -90,7 +90,7 @@ std::vector<std::complex<double>> poly_mult(const std::vector<std::complex<doubl
 }
 
 // Function to compute polynomial coefficients from roots
-std::vector<std::complex<double>> poly(const std::vector<std::complex<double>>& roots) {
+inline std::vector<std::complex<double>> poly(const std::vector<std::complex<double>>& roots) {
     std::vector<std::complex<double>> coeffs = {1.0}; // Start with leading coefficient as 1
 
     for (const auto& root : roots) {
@@ -121,7 +121,7 @@ inline std::complex<double> prod_neg(const std::vector<std::complex<double>>& ro
 
 // Low-pass to high-pass ZPK transformation.
 // Mirrors each finite zero/pole through wo:  s -> wo / s
-ZPK lp2hp_zpk(const std::vector<std::complex<double>>& z,
+inline ZPK lp2hp_zpk(const std::vector<std::complex<double>>& z,
               const std::vector<std::complex<double>>& p,
               double k, double wo = 1.0) {
     std::vector<std::complex<double>> z_hp, p_hp;
@@ -140,7 +140,7 @@ ZPK lp2hp_zpk(const std::vector<std::complex<double>>& z,
 
 // Low-pass to band-pass ZPK transformation.
 // Substitution: s -> (s^2 + wo^2) / (s * bw)
-ZPK lp2bp_zpk(const std::vector<std::complex<double>>& z,
+inline ZPK lp2bp_zpk(const std::vector<std::complex<double>>& z,
               const std::vector<std::complex<double>>& p,
               double k, double wo = 1.0, double bw = 1.0) {
     const std::complex<double> wo2(wo * wo, 0.0);
@@ -168,7 +168,7 @@ ZPK lp2bp_zpk(const std::vector<std::complex<double>>& z,
 
 // Low-pass to band-stop ZPK transformation.
 // Substitution: s -> (s * bw) / (s^2 + wo^2)
-ZPK lp2bs_zpk(const std::vector<std::complex<double>>& z,
+inline ZPK lp2bs_zpk(const std::vector<std::complex<double>>& z,
               const std::vector<std::complex<double>>& p,
               double k, double wo = 1.0, double bw = 1.0) {
     const std::complex<double> wo2(wo * wo, 0.0);
@@ -198,7 +198,7 @@ ZPK lp2bs_zpk(const std::vector<std::complex<double>>& z,
 
 
 // Low-pass to low-pass transformation for ZPK representation
-ZPK lp2lp_zpk(const std::vector<std::complex<double>>& z,
+inline ZPK lp2lp_zpk(const std::vector<std::complex<double>>& z,
               const std::vector<std::complex<double>>& p,
               double k, double wo = 1.0) {
     // Scale zeros and poles by the cutoff frequency wo
@@ -219,7 +219,7 @@ ZPK lp2lp_zpk(const std::vector<std::complex<double>>& z,
 
 
 //  Return a digital IIR filter from an analog one using a bilinear transform.
-ZPK bilinear_zpk(const std::vector<std::complex<double>>& z,
+inline ZPK bilinear_zpk(const std::vector<std::complex<double>>& z,
                  const std::vector<std::complex<double>>& p,
                  double k, double fs) {
     if (fs <= 0.0) {
@@ -267,7 +267,7 @@ ZPK bilinear_zpk(const std::vector<std::complex<double>>& z,
 
 
 // Main function to convert ZPK to TF
-void zpk2tf(const std::vector<std::complex<double>>& zeros,
+inline void zpk2tf(const std::vector<std::complex<double>>& zeros,
             const std::vector<std::complex<double>>& poles,
             double k,
             std::vector<double>& b,

@@ -44,6 +44,28 @@ export function setExceptionHelpers(h: ExceptionHelpers): void {
 
 const WasmException: (new (...a: any[]) => unknown) | undefined = (globalThis as any).WebAssembly?.Exception;
 
+/**
+ * A file or state that cannot be saved or loaded (Python's `screamer.SaveError`,
+ * a ValueError, so a RangeError here). Each message starts with the path of
+ * the place it is about, such as `RollingMean.buffer`.
+ */
+export class SaveError extends RangeError {}
+/** A stored state version that is not the one this library reads. */
+export class StateVersionError extends SaveError {}
+/** An operator without save support, or one that cannot be saved now. */
+export class NotSaveable extends SaveError {}
+/** A state that does not fit the operator: a field, type, length or invariant. */
+export class StateMismatch extends SaveError {}
+for (const C of [SaveError, StateVersionError, NotSaveable, StateMismatch])
+  Object.defineProperty(C.prototype, "name", { value: C.name, writable: true, configurable: true });
+
+// The C++ save errors (include/screamer/serial/errors.h) by their type name,
+// the subclasses first; the name may be mangled.
+const SAVE_ERRORS: [RegExp, new (m?: string) => SaveError][] = [
+  [/StateVersionError/, StateVersionError], [/NotSaveable/, NotSaveable],
+  [/StateMismatch/, StateMismatch], [/SaveError/, SaveError],
+];
+
 /** The text of the RangeError for a call that needs more WASM heap than there is
  * (Python raises MemoryError). */
 export const OUT_OF_MEMORY = "out of memory: the call needs more memory than is available";
@@ -65,9 +87,12 @@ export function normalizeError(e: unknown): unknown {
     // be read (no heap left to copy it).
     if (!type || /bad_alloc|length_error/.test(type)) return new RangeError(OUT_OF_MEMORY);
     // A custom metric's result of the wrong kind, an index or a setting of the
-    // wrong kind is a TypeError, as in Python (MetricTypeError, IndexTypeError,
-    // SettingTypeError; the type name may be mangled).
-    if (/MetricTypeError|IndexTypeError|SettingTypeError/.test(type)) return new TypeError(msg);
+    // wrong kind, or a resume the operator cannot run, is a TypeError, as in
+    // Python (MetricTypeError, IndexTypeError, SettingTypeError,
+    // ResumeTypeError; the type name may be mangled). A save error keeps its
+    // class.
+    if (/MetricTypeError|IndexTypeError|SettingTypeError|ResumeTypeError/.test(type)) return new TypeError(msg);
+    for (const [re, C] of SAVE_ERRORS) if (re.test(type)) return new C(msg);
     return new RangeError(msg ?? `C++ exception of type ${type}`);
   }
   if (e instanceof Error && /must be|at least|invalid_argument|out of range|>=|<=/.test(e.message))

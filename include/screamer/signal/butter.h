@@ -14,7 +14,7 @@
 
 namespace screamer {
 
-    ZPK ButterworthZPK(int N) {
+    inline ZPK ButterworthZPK(int N) {
 
         std::vector<std::complex<double>> zeros;
 
@@ -27,7 +27,7 @@ namespace screamer {
         return {zeros, poles, 1.0};
     }
 
-    void butterworth_filter(int N, double cutoff_freq, std::vector<double>& b, std::vector<double>& a) {
+    inline void butterworth_filter(int N, double cutoff_freq, std::vector<double>& b, std::vector<double>& a) {
         ZPK but = ButterworthZPK(N);
 
         // Pre-warp frequencies for digital filter design
@@ -48,7 +48,7 @@ namespace screamer {
 
     // High-pass Butterworth (b, a) coefficients via the standard
     // analog-prototype -> lp2hp -> bilinear -> tf pipeline.
-    void butterworth_filter_hp(int N, double cutoff_freq,
+    inline void butterworth_filter_hp(int N, double cutoff_freq,
                                std::vector<double>& b, std::vector<double>& a) {
         ZPK but = ButterworthZPK(N);
         double fs = 2.0;
@@ -60,7 +60,7 @@ namespace screamer {
 
 
     // Band-pass Butterworth: produces a 2N-order filter.
-    void butterworth_filter_bp(int N, double low_cutoff, double high_cutoff,
+    inline void butterworth_filter_bp(int N, double low_cutoff, double high_cutoff,
                                std::vector<double>& b, std::vector<double>& a) {
         if (!(low_cutoff > 0.0 && high_cutoff > low_cutoff && high_cutoff < 1.0)) {
             throw std::invalid_argument(
@@ -79,7 +79,7 @@ namespace screamer {
 
 
     // Band-stop (notch) Butterworth: also produces a 2N-order filter.
-    void butterworth_filter_bs(int N, double low_cutoff, double high_cutoff,
+    inline void butterworth_filter_bs(int N, double low_cutoff, double high_cutoff,
                                std::vector<double>& b, std::vector<double>& a) {
         if (!(low_cutoff > 0.0 && high_cutoff > low_cutoff && high_cutoff < 1.0)) {
             throw std::invalid_argument(
