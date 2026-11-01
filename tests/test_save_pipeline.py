@@ -189,7 +189,8 @@ def test_session_file_layout():
     assert state["nodes"]["0"] == {"version": 1, "node": {"kind": "input", "name": "x"}, "values": {}}
     assert state["nodes"]["3"]["node"] == {"kind": "operator", "op": "CombineLatest",
                                            "params": {"emit": "when_all"}, "in": [1, 2]}
-    assert state["engine"]["graph"] == {"inputs": ["x", "y"], "outputs": [3], "align_outputs": True}
+    assert state["engine"]["graph"] == {"inputs": ["x", "y"], "outputs": [3], "align_outputs": True,
+                                        "max_pending": 1_000_000}
     mean = state["nodes"]["1"]["values"]["op"]
     assert mean["version"] == 1 and mean["values"]["count"] == 2
     join = state["nodes"]["3"]["values"]["combine_latest"]["values"]
@@ -227,7 +228,7 @@ def test_settings_numbers_in_their_kind():
     assert files(101, 10) == files(101.0, 10.0)
     f = json.loads(files(101, 10.0)[0])["object"]["settings"]
     assert f["nodes"][1]["params"]["upper"] == 101.0 and '"upper": 101.0' in files(101, 10)[0]
-    assert '"every": 10,' in files(101, 10.0)[0] or '"freq": 10' in files(101, 10.0)[0]
+    assert '"every": 10,' in files(101, 10.0)[0]
     # to_json keeps the numbers as given.
     x = Input("x")
     assert '"upper": 101\n' in Pipeline([x], [screamer.Clip(upper=101)(x)]).to_json()
@@ -320,6 +321,40 @@ def test_structure_probes_refuse_or_fresh(edit, where):
     with pytest.warns(UserWarning, match="LiveSession starts fresh"):
         s = screamer.loads(text, on_mismatch="fresh")
     assert json.loads(s.dumps())["object"]["state"]["engine"]["input_count"] == [0, 0]
+
+
+def test_sorted_keys_file_loads():
+    # A file re-serialized with its keys sorted (json.dumps(sort_keys=True),
+    # jq -S, a jsonb column) is the same session.
+    x, y = Input("x"), Input("y")
+    pipe = Pipeline([x, y], [CombineLatest()(Resample(every=10, agg="ohlc")(x), y)])
+    a = pipe.live()
+    for t in range(0, 40, 3):
+        a.push("x", t, float(t))
+    for t in range(0, 12, 4):
+        a.push("y", t, float(t))
+    text = a.dumps()
+    b = screamer.loads(json.dumps(json.loads(text), sort_keys=True))
+    assert b.dumps() == text
+    for s in (a, b):
+        for t in range(12, 50, 4):
+            s.push("y", t, 1.0)
+        s.flush()
+    _same(b.result(), a.result())
+
+
+def test_edited_max_pending_refuses():
+    # max_pending bounds what the joins hold: a session holding 5 waiting
+    # events does not load into a graph that allows 2.
+    x, y = Input("x"), Input("y")
+    s = Pipeline([x, y], [CombineLatest()(x, y)], max_pending=10).live()
+    for t in range(5):
+        s.push("x", t, 1.0)
+    f = json.loads(s.dumps())
+    assert f["object"]["state"]["engine"]["graph"]["max_pending"] == 10
+    f["object"]["settings"]["max_pending"] = 2
+    with pytest.raises(screamer.StateMismatch, match=r"^LiveSession\.engine: .*max_pending"):
+        screamer.loads(json.dumps(f))
 
 
 def test_edited_setting_refuses_or_fresh():

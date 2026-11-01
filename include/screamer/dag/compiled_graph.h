@@ -833,8 +833,9 @@ private:
                 throw serial::NotSaveable(path, "the Pipeline description does not cover the graph");
     }
 
-    // Whether two trees are equal: numbers by value (NaN equals NaN), object
-    // keys in order.
+    // Whether two trees are equal: numbers by value (NaN equals NaN), arrays
+    // in order, objects whatever their key order (a file re-serialized with
+    // sorted keys is the same file).
     static bool same_tree(const json::Value& a, const json::Value& b) {
         using K = json::Value::Kind;
         if (a.is_number() && b.is_number()) {
@@ -853,9 +854,10 @@ private:
             return true;
         case K::Object:
             if (a.o.size() != b.o.size()) return false;
-            for (std::size_t k = 0; k < a.o.size(); ++k)
-                if (a.o[k].first != b.o[k].first || !same_tree(a.o[k].second, b.o[k].second))
-                    return false;
+            for (const auto& kv : a.o) {
+                const json::Value* other = b.get(kv.first);
+                if (!other || !same_tree(kv.second, *other)) return false;
+            }
             return true;
         default: return false;
         }
@@ -875,7 +877,7 @@ private:
             json::Value graph = g.graph_structure_;
             ar.local("graph", graph);
             ar.check(same_tree(graph, g.graph_structure_),
-                     "the graph's inputs, outputs or alignment differ from the saved one's");
+                     "the graph's inputs, outputs, alignment or max_pending differ from the saved one's");
             ar("flushed", g.flushed_);
             optional_index(ar, "floor", g.has_floor_, g.floor_);
             std::optional<std::string> unit;

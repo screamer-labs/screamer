@@ -25,33 +25,29 @@ namespace screamer { namespace dag {
 
 namespace detail {
 
-// The kind of a stream operator's setting (the settings of graph_json.h's
-// operator schemas): 'i' an integer, 'f' a float, 'o' a functor reducer
-// ({"functor", "params"}), 0 for any other.
+// The kind of a stream operator's setting, from its schema (graph_json.h
+// OperatorParam): 'i' an integer, 'f' a float, 'o' a functor reducer
+// ({"functor", "params"}), 0 for any other. `op` is a canonical name.
 inline char operator_param_kind(const std::string& op, const std::string& name) {
-    if (op == "CombineLatest") return name == "max_pending" ? 'i' : 0;
-    if (op == "Delay") return name == "duration" ? 'i' : 0;
-    if (op == "forecast_pairs") return name == "count" || name == "duration" ? 'i' : 0;
-    if (op == "Resample") {
-        if (name == "threshold") return 'f';
-        if (name == "agg") return 'o';
-        if (name == "every" || name == "freq" || name == "count" || name == "origin" ||
-            name == "max_age" || name == "max_fill")
-            return 'i';
-    }
+    for (const auto& sc : operator_schemas())
+        if (op == sc.name)
+            for (const OperatorParam& p : sc.params)
+                if (name == p.name) return p.kind;
     return 0;
 }
 
 // `v` written in kind `k`: a whole float as an integer for 'i', an integer
-// as a float for 'f' (each number of an array too).
+// as a float for 'f', each number of an array too.
 inline void number_kind(json::Value& v, char k) {
     using K = json::Value::Kind;
     if (k == 'f') {
         if (v.kind == K::Int) v = json::Value::number(static_cast<double>(v.i));
         else if (v.kind == K::Array) for (json::Value& e : v.a) number_kind(e, k);
-    } else if (k == 'i' && v.kind == K::Float && !v.whole && std::isfinite(v.d) &&
-               v.d == std::floor(v.d) && std::fabs(v.d) < 9.2e18) {
-        v = json::Value::integer(static_cast<std::int64_t>(v.d));
+    } else if (k == 'i') {
+        if (v.kind == K::Float && !v.whole && std::isfinite(v.d) && v.d == std::floor(v.d) &&
+                std::fabs(v.d) < 9.2e18)
+            v = json::Value::integer(static_cast<std::int64_t>(v.d));
+        else if (v.kind == K::Array) for (json::Value& e : v.a) number_kind(e, k);
     }
 }
 
@@ -81,6 +77,8 @@ inline void functor_params(const std::string& cls, json::Value& params) {
 // number in its setting's kind, so Python's 3 and 3.0 and JavaScript's 3
 // write the same bytes. Pipeline.to_json keeps the numbers as given.
 inline json::Value save_settings(const json::Value& description) {
+    // check_graph gives the normal form: every node has "kind", an operator
+    // "op" (canonical) and "params", a functor "cls" and "params".
     json::Value d = check_graph(description);
     for (auto& kv : d.o) {
         if (kv.first == "max_pending") detail::number_kind(kv.second, 'i');
@@ -109,7 +107,8 @@ inline json::Value save_settings(const json::Value& description) {
 // with a stream operator's settings, and its inputs.
 inline void set_structure(CompiledGraph& g, const json::Value& settings) {
     json::Value graph = json::Value::object();
-    for (const char* k : {"inputs", "outputs", "align_outputs"})
+    // max_pending bounds the joins' waiting events, which the state holds.
+    for (const char* k : {"inputs", "outputs", "align_outputs", "max_pending"})
         if (const json::Value* v = settings.get(k)) graph.set(k, *v);
     std::vector<json::Value> nodes;
     for (const json::Value& n : settings.get("nodes")->a) {

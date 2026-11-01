@@ -250,6 +250,40 @@ test("a graph edit that keeps every state's shape still refuses, or starts fresh
   }
 });
 
+// A tree with every object's keys sorted (jq -S, a jsonb column).
+const sorted = (t: any): any => Array.isArray(t) ? t.map(sorted)
+  : t !== null && typeof t === "object"
+    ? Object.fromEntries(Object.keys(t).sort().map((k) => [k, sorted(t[k])])) : t;
+
+test("a file re-serialized with sorted keys is the same session", () => {
+  const x = S.Input("x"), y = S.Input("y");
+  const pipe = new S.Pipeline([x, y], [combineLatest([resample(x, { every: 10, agg: "ohlc" }), y])]);
+  const a = pipe.live();
+  for (let t = 0; t < 40; t += 3) a.push("x", t, t);
+  for (let t = 0; t < 12; t += 4) a.push("y", t, t);
+  const saved = a.dumps() as string;
+  const b = S.loads<LiveDriver>(text(sorted(tree(saved))));
+  assert.equal(b.dumps(), saved);
+  for (const s of [a, b]) {
+    for (let t = 12; t < 50; t += 4) s.push("y", t, 1);
+    s.flush();
+  }
+  assert.deepEqual(flatOutputs(b.result()), flatOutputs(a.result()));
+  b.dispose();
+  pipe.dispose();
+});
+
+test("an edited max_pending refuses the state", () => {
+  const x = S.Input("x"), y = S.Input("y");
+  const s = new S.Pipeline([x, y], [combineLatest([x, y])], { maxPending: 10 }).live();
+  for (let t = 0; t < 5; t++) s.push("x", t, 1);
+  const f = tree(s.dumps() as string);
+  assert.equal(f.object.state.engine.graph.max_pending, 10);
+  f.object.settings.max_pending = 2;
+  assert.throws(() => S.loads(text(f)), (e: any) => e instanceof S.StateMismatch &&
+    /^LiveSession\.engine: .*max_pending/.test(e.message));
+});
+
 test("an edited setting refuses the state", () => {
   const { f } = sessionFile();
   f.object.settings.nodes[1].params.window_size = 5;

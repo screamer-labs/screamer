@@ -78,24 +78,34 @@ inline std::string json_kind(const json::Value& v) {
     throw std::invalid_argument("Pipeline description: " + what);
 }
 
+// A setting of a stream operator and the kind a save file writes its number
+// in (dag/session_file.h): 'i' an integer, 'f' a float, 'o' a functor
+// reducer, 0 for any other value.
+struct OperatorParam {
+    const char* name;
+    char kind;
+};
+
 struct OperatorSchema {
     const char* name;        // the canonical name
     const char* alias;       // the name of graphs saved before 3.0.0, or ""
     std::size_t min_in, max_in;
-    std::vector<const char*> params;
+    std::vector<OperatorParam> params;
 };
 
 inline const std::vector<OperatorSchema>& operator_schemas() {
     static const std::vector<OperatorSchema> s = {
-        {"CombineLatest", "combine_latest", 1, SIZE_MAX, {"emit", "max_pending"}},
-        {"Dropna", "dropna", 1, SIZE_MAX, {"how"}},
-        {"Select", "select", 1, 1, {"columns"}},
+        {"CombineLatest", "combine_latest", 1, SIZE_MAX, {{"emit", 0}, {"max_pending", 'i'}}},
+        {"Dropna", "dropna", 1, SIZE_MAX, {{"how", 0}}},
+        {"Select", "select", 1, 1, {{"columns", 'i'}}},
         {"Filter", "", 2, 2, {}},
-        {"Delay", "", 1, 1, {"duration"}},
+        {"Delay", "", 1, 1, {{"duration", 'i'}}},
         {"Resample", "resample", 1, 2,
-         {"every", "freq", "count", "threshold", "clock", "agg", "origin", "label", "fill",
-          "max_age", "max_fill"}},
-        {"forecast_pairs", "", 2, 2, {"count", "duration", "index", "dropna"}},
+         {{"every", 'i'}, {"freq", 'i'}, {"count", 'i'}, {"threshold", 'f'}, {"clock", 0},
+          {"agg", 'o'}, {"origin", 'i'}, {"label", 0}, {"fill", 0}, {"max_age", 'i'},
+          {"max_fill", 'i'}}},
+        {"forecast_pairs", "", 2, 2,
+         {{"count", 'i'}, {"duration", 'i'}, {"index", 0}, {"dropna", 0}}},
     };
     return s;
 }
@@ -204,7 +214,7 @@ inline json::Value check_graph(const json::Value& doc) {
                 if (params)
                     for (const auto& kv : params->o) {
                         bool known = false;
-                        for (const char* p : schema->params) known = known || kv.first == p;
+                        for (const detail::OperatorParam& p : schema->params) known = known || kv.first == p.name;
                         if (!known) graph_error(who + ": unknown parameter '" + kv.first + "'");
                     }
                 node.set("op", json::Value::string(schema->name));
