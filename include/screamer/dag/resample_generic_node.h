@@ -11,6 +11,7 @@
 #include "screamer/common/checked_arith.h"
 #include "screamer/common/float_info.h"
 #include "screamer/dag/frame.h"
+#include "screamer/dag/node_state.h"
 #include "screamer/dag/resample_params.h"
 #include <cstddef>
 #include <string>
@@ -83,6 +84,37 @@ public:
 
     std::size_t n_in()  const override { return 1; }
     std::size_t n_out() const override { return out_.size(); }
+
+    static constexpr int kStateVersion = 1;
+    bool saveable() const override { return true; }
+    void write_state(json::Value& out) const override { write_node_state(*this, out); }
+    void read_state(const json::Value& in, const std::string& path) override {
+        read_node_state(*this, in, path);
+    }
+
+    // What reset() touches, with the reducer's own state and its latest
+    // output in the open bar.
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.op("reducer", *reducer_);
+        ar("has", has_);
+        ar("fed", fed_);
+        ar.fixed("output", out_, out_.size());
+        ar("started", started_);
+        ar("bucket", bucket_);
+        ar("label", cur_label_);
+        ar("label_ok", label_ok_);
+        optional_index(ar, "bar_watermark", has_bar_wm_, bar_wm_);
+        ar("count", count_in_bucket_);
+        ar("first_index", first_index_);
+        ar("last_index", last_index_);
+        ar("have_emitted", have_emitted_);
+        ar.fixed("last_emitted", last_emitted_, last_emitted_.size());
+        ar.check(!fed_ || has_, "a bucket fed a value has an event");
+        ar.check(count_in_bucket_ >= 0, "count must not be negative");
+        if (p_.mode == ResampleMode::ByCount)
+            ar.check(count_in_bucket_ < p_.count, "count must be below the bar's count");
+    }
 
     // Event-time watermark: close windows up to `w` then forward a watermark
     // clamped to the smallest index this node might STILL emit, so a merge or

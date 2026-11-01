@@ -5,10 +5,12 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>
 #include "screamer/dag/frame.h"
+#include "screamer/dag/node_state.h"
 #include "screamer/dag/reorder_heap.h"
 #include "screamer/dag/resettable.h"
 
@@ -75,7 +77,95 @@ public:
         last_forwarded_ = kMin;
     }
 
+    static constexpr int kStateVersion = 1;
+    bool saveable() const override { return true; }
+    void write_state(json::Value& out) const override { write_node_state(*this, out); }
+    void read_state(const json::Value& in, const std::string& path) override {
+        read_node_state(*this, in, path);
+    }
+
+    // What reset() touches: each port's front, flush and width, the highest
+    // never-ahead index, the last watermark and the waiting events, released
+    // in order on a load.
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.fixed("fronts", front_, n_);
+        std::vector<bool> flushed(flushed_.begin(), flushed_.end());
+        ar.local("flushed", flushed, n_);
+        std::vector<std::optional<std::size_t>> width(n_);
+        for (std::size_t p = 0; p < n_; ++p)
+            if (width_[p] != kUnset) width[p] = width_[p];
+        ar.local("widths", width, n_);
+        std::optional<Index> gfront;
+        if (has_gfront_) gfront = gfront_;
+        ar.local("merge_front", gfront);
+        ar("last_forwarded", last_forwarded_);
+        Waiting<Index> w;
+        if constexpr (Ar::kSaving) {
+            for (const Pending& p : pending_.in_order()) {
+                const std::size_t pw = width_[p.port];
+                w.index.push_back(p.index);
+                w.port.push_back(p.port);
+                if (pw == 1) w.values.push_back(p.value);
+                else w.values.insert(w.values.end(), pool_[p.port].begin() + p.slot * pw,
+                                     pool_[p.port].begin() + (p.slot + 1) * pw);
+            }
+        }
+        w.fields(ar);
+        if constexpr (Ar::kLoading) {
+            std::size_t total = 0;
+            for (std::size_t k = 0; k < w.port.size(); ++k) {
+                ar.check(w.port[k] < n_, "a waiting event's port is out of range");
+                ar.check(width[w.port[k]].has_value(), "a waiting event's port has no width");
+                ar.check(!(front_[w.port[k]] < w.index[k]),
+                         "a waiting event is above its port's front");
+                ar.check(k == 0 || !(w.index[k] < w.index[k - 1]),
+                         "the waiting events are out of order");
+                if (w.port[k] < n_ && width[w.port[k]]) total += *width[w.port[k]];
+            }
+            ar.check(total == w.values.size(), "the waiting events' values do not fit their ports");
+            std::vector<unsigned char> fl(n_);
+            std::vector<std::size_t> wd(n_);
+            std::size_t nf = 0;
+            for (std::size_t p = 0; p < n_; ++p) {
+                fl[p] = flushed[p] ? 1 : 0;
+                nf += fl[p];
+                wd[p] = width[p] ? *width[p] : kUnset;
+            }
+            ar.set(flushed_, fl);
+            ar.set(flushed_count_, nf);
+            ar.set(width_, wd);
+            ar.set(has_gfront_, gfront.has_value());
+            ar.set(gfront_, gfront.value_or(kMin));
+            ar.apply([this, w] { assign_waiting(w); },
+                     [this, heap = pending_, pool = pool_, free = free_slots_, seq = next_seq_] {
+                         pending_ = heap;
+                         pool_ = pool;
+                         free_slots_ = free;
+                         next_seq_ = seq;
+                     });
+        }
+    }
+
 private:
+    // Stores the waiting events of a saved state in release order.
+    void assign_waiting(const Waiting<Index>& w) {
+        for (std::size_t p = 0; p < n_; ++p) { pool_[p].clear(); free_slots_[p].clear(); }
+        std::vector<Pending> v;
+        v.reserve(w.index.size());
+        std::size_t at = 0;
+        for (std::size_t k = 0; k < w.index.size(); ++k) {
+            const std::size_t port = w.port[k], pw = width_[port];
+            Pending p{w.index[k], static_cast<std::uint32_t>(port), k, {}};
+            if (pw == 1) p.value = w.values[at];
+            else p.slot = store(port, w.values.data() + at, pw);
+            at += pw;
+            v.push_back(p);
+        }
+        pending_.assign(std::move(v));
+        next_seq_ = w.index.size();
+    }
+
     static constexpr Index kMin = std::numeric_limits<Index>::min();
     static constexpr Index kMax = std::numeric_limits<Index>::max();
     static constexpr std::size_t kUnset = static_cast<std::size_t>(-1);

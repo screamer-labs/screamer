@@ -59,6 +59,13 @@ namespace screamer { namespace serial {
 
 namespace detail {
 
+// Whether T has settings of its own (an operator), which ar.op writes in
+// settings mode; a stream node has state only.
+template <class T, class = void>
+struct has_settings : std::false_type {};
+template <class T>
+struct has_settings<T, std::void_t<decltype(std::declval<const T&>().type_name())>> : std::true_type {};
+
 // ---- Values to the tree ------------------------------------------------------
 
 inline json::Value to_value(bool v) { return json::Value::boolean(v); }
@@ -291,6 +298,10 @@ public:
         if (!cond) throw StateMismatch(path_, message);
     }
 
+    // The path of the object being loaded, for an error of the object's own
+    // (a StateVersionError of a nested part).
+    const std::string& path() const { return path_; }
+
     // After the object's state(): a field of the tree that was not read is
     // unknown.
     void finish() const {
@@ -393,16 +404,19 @@ public:
         if (!nested.saveable())
             throw NotSaveable(at(name), "the operator has no save and load support yet");
         json::Value v;
-        if (mode_ == Mode::Settings) {
-            json::Value settings;
-            nested.write_settings(settings);
-            v = json::Value::object();
-            v.o.reserve(2);
-            v.o.emplace_back("type", json::Value::string(nested.type_name()));
-            v.o.emplace_back("settings", std::move(settings));
-        } else {
-            nested.write_state(v);
+        if constexpr (detail::has_settings<Op>::value) {
+            if (mode_ == Mode::Settings) {
+                json::Value settings;
+                nested.write_settings(settings);
+                v = json::Value::object();
+                v.o.reserve(2);
+                v.o.emplace_back("type", json::Value::string(nested.type_name()));
+                v.o.emplace_back("settings", std::move(settings));
+                tree_.o.emplace_back(name, std::move(v));
+                return;
+            }
         }
+        nested.write_state(v);
         tree_.o.emplace_back(name, std::move(v));
     }
 

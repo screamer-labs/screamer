@@ -13,6 +13,7 @@
 #include <vector>
 #include "screamer/dag/frame.h"
 #include "screamer/dag/max_pending.h"
+#include "screamer/dag/node_state.h"
 #include "screamer/dag/resettable.h"
 
 namespace screamer { namespace dag {
@@ -84,7 +85,101 @@ public:
         flushed_[0] = flushed_[1] = false;
     }
 
+    static constexpr int kStateVersion = 1;
+    bool saveable() const override { return true; }
+    void write_state(json::Value& out) const override { write_node_state(*this, out); }
+    void read_state(const json::Value& in, const std::string& path) override {
+        read_node_state(*this, in, path);
+    }
+
+    // What reset() touches: the X width, the waiting X rows oldest first
+    // (their indexes and X values), the y events not used yet, the last y
+    // taken, the frontiers, the last watermark and the flush cycle.
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("x_width", xw_);
+        std::vector<Index> stamps;
+        std::vector<double> rows;
+        std::vector<Index> yi;
+        std::vector<double> yv;
+        if constexpr (Ar::kSaving) {
+            for (std::size_t k = 0; k < size_; ++k) {
+                const std::size_t s = (head_ + k) % cap_;
+                stamps.push_back(stamp_[s]);
+                rows.insert(rows.end(), rows_.get() + s * (xw_ + 1), rows_.get() + s * (xw_ + 1) + xw_);
+            }
+            for (std::size_t k = yhead_; k < yev_.size(); ++k) {
+                yi.push_back(yev_[k].first);
+                yv.push_back(yev_[k].second);
+            }
+        }
+        ar.local("rows_index", stamps);
+        ar.local("rows", rows, stamps.size() * xw_);
+        ar.local("y_index", yi);
+        ar.local("y_values", yv, yi.size());
+        ar("y_base", base_);
+        ar("have_y", have_y_);
+        ar("y_last", y_last_);
+        ar("y_watermark", y_wm_);
+        ar("x_floor", x_floor_);
+        ar("last_watermark", last_wm_);
+        ar("flushed_x", flushed_[0]);
+        ar("flushed_y", flushed_[1]);
+        if constexpr (Ar::kLoading) {
+            ar.check(xw_ != 0 || stamps.empty(), "rows wait before the X width is known");
+            for (std::size_t k = 1; k < stamps.size(); ++k)
+                ar.check(!(stamps[k] < stamps[k - 1]), "the waiting rows are out of order");
+            for (std::size_t k = 1; k < yi.size(); ++k)
+                ar.check(!(yi[k] < yi[k - 1]), "the y events are out of order");
+            ar.apply([this, stamps, rows, yi, yv] { assign(stamps, rows, yi, yv); },
+                     [this, keep = snapshot()] { restore(keep); });
+        }
+    }
+
 private:
+    // The storage of the waiting rows and y events, for a load to restore.
+    struct Storage {
+        std::vector<Index> stamps;
+        std::vector<double> rows;     // rows of xw_ + 1 values
+        std::size_t cap = 0, head = 0, size = 0, rows_len = 0;
+        std::vector<std::pair<Index, double>> yev;
+        std::size_t yhead = 0;
+    };
+    Storage snapshot() const {
+        Storage k;
+        k.stamps.assign(stamp_.get(), stamp_.get() + cap_);
+        k.rows.assign(rows_.get(), rows_.get() + rows_len_);
+        k.cap = cap_; k.head = head_; k.size = size_; k.rows_len = rows_len_;
+        k.yev = yev_; k.yhead = yhead_;
+        return k;
+    }
+    void restore(const Storage& k) {
+        stamp_.reset(k.cap ? new Index[k.cap] : nullptr);
+        std::copy(k.stamps.begin(), k.stamps.end(), stamp_.get());
+        rows_.reset(k.rows_len ? new double[k.rows_len] : nullptr);
+        std::copy(k.rows.begin(), k.rows.end(), rows_.get());
+        cap_ = k.cap; head_ = k.head; size_ = k.size; rows_len_ = k.rows_len;
+        yev_ = k.yev; yhead_ = k.yhead;
+    }
+    // Stores saved rows (X values only; the target slot is written when a
+    // row is emitted) and y events, oldest first.
+    void assign(const std::vector<Index>& stamps, const std::vector<double>& rows,
+                const std::vector<Index>& yi, const std::vector<double>& yv) {
+        const std::size_t rw = xw_ + 1, n = stamps.size();
+        Storage k;
+        k.cap = n ? std::max<std::size_t>(n, 16) : 0;
+        k.rows_len = k.cap * rw;
+        k.stamps.assign(k.cap, Index{});
+        k.rows.assign(k.rows_len, std::numeric_limits<double>::quiet_NaN());
+        for (std::size_t r = 0; r < n; ++r) {
+            k.stamps[r] = stamps[r];
+            std::copy(rows.begin() + r * xw_, rows.begin() + (r + 1) * xw_, k.rows.begin() + r * rw);
+        }
+        k.size = n;
+        for (std::size_t j = 0; j < yi.size(); ++j) k.yev.emplace_back(yi[j], yv[j]);
+        restore(k);
+    }
+
     static constexpr Index kMin = std::numeric_limits<Index>::min();
     static constexpr Index kMax = std::numeric_limits<Index>::max();
 

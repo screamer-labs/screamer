@@ -26,6 +26,18 @@ public:
     }
     void clear() { v_.clear(); }
 
+    // The entries in the order pop() takes them (a copy), and a heap made of
+    // given entries: a saved join stores its waiting events in release order.
+    std::vector<T> in_order() const {
+        std::vector<T> v = v_;
+        std::sort(v.begin(), v.end(), [](const T& a, const T& b) { return Greater{}(b, a); });
+        return v;
+    }
+    void assign(std::vector<T> v) {
+        v_ = std::move(v);
+        std::make_heap(v_.begin(), v_.end(), Greater{});
+    }
+
 private:
     std::vector<T> v_;
 };

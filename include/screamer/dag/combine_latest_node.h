@@ -6,9 +6,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <vector>
 #include "screamer/dag/frame.h"
 #include "screamer/dag/max_pending.h"
+#include "screamer/dag/node_state.h"
 #include "screamer/dag/reorder_heap.h"
 #include "screamer/dag/resettable.h"
 #include "screamer/streams/combine_latest.h"
@@ -75,7 +77,93 @@ public:
         last_forwarded_wm_ = std::numeric_limits<Index>::min();
     }
 
+    static constexpr int kStateVersion = 1;
+    bool saveable() const override { return true; }
+    void write_state(json::Value& out) const override { write_node_state(*this, out); }
+    void read_state(const json::Value& in, const std::string& path) override {
+        read_node_state(*this, in, path);
+    }
+
+    // What reset() touches: the join (widths, latest row, sources seen), the
+    // learned widths, the row due, the port watermarks, the flush cycle and
+    // the waiting events, released in order on a load.
+    template <class Ar>
+    void state(Ar& ar) {
+        cl_.state(ar);
+        ar.fixed("learned", learned_, n_);
+        ar("emitted_any", emitted_any_);
+        std::optional<Index> due;
+        if (has_buffered_) due = buffered_index_;
+        ar.local("buffered_index", due);
+        ar.fixed("watermarks", wm_, n_);
+        ar("last_forwarded", last_forwarded_wm_);
+        std::vector<bool> flushed(flushed_);
+        ar.local("flushed", flushed, n_);
+        Waiting<Index> w;
+        if constexpr (Ar::kSaving) {
+            for (const Pending& p : pending_.in_order()) {
+                const std::size_t pw = cl_.width(p.port);
+                w.index.push_back(p.index);
+                w.port.push_back(p.port);
+                if (pw == 1) w.values.push_back(p.value);
+                else w.values.insert(w.values.end(), pool_[p.port].begin() + p.slot * pw,
+                                     pool_[p.port].begin() + (p.slot + 1) * pw);
+            }
+        }
+        w.fields(ar);
+        if constexpr (Ar::kLoading) {
+            for (std::size_t i = 0; i < n_; ++i)
+                ar.check(learned_[i] || cl_.width(i) == declared_[i],
+                         "a port without an event keeps its declared width");
+            ar.check(!due || emitted_any_, "a row is due only after a row was made");
+            Index low = wm_[0];
+            for (std::size_t j = 1; j < n_; ++j) low = std::min(low, wm_[j]);
+            ar.check(!due || !(*due < low), "the due row is below every port's watermark");
+            std::size_t total = 0;
+            for (std::size_t k = 0; k < w.port.size(); ++k) {
+                ar.check(w.port[k] < n_, "a waiting event's port is out of range");
+                ar.check(w.index[k] > low && !(wm_[w.port[k]] < w.index[k]),
+                         "a waiting event is outside its port's watermarks");
+                ar.check(k == 0 || !(w.index[k] < w.index[k - 1]),
+                         "the waiting events are out of order");
+                total += cl_.width(w.port[k]);
+            }
+            ar.check(total == w.values.size(), "the waiting events' values do not fit their ports");
+            ar.set(has_buffered_, due.has_value());
+            ar.set(buffered_index_, due.value_or(Index{}));
+            std::size_t nf = 0;
+            for (bool f : flushed) nf += f ? 1 : 0;
+            ar.set(flushed_, flushed);
+            ar.set(flushed_count_, nf);
+            ar.apply([this, w] { assign_waiting(w); },
+                     [this, heap = pending_, pool = pool_, free = free_slots_, seq = next_seq_] {
+                         pending_ = heap;
+                         pool_ = pool;
+                         free_slots_ = free;
+                         next_seq_ = seq;
+                     });
+        }
+    }
+
 private:
+    // Stores the waiting events of a saved state in release order.
+    void assign_waiting(const Waiting<Index>& w) {
+        for (std::size_t p = 0; p < n_; ++p) { pool_[p].clear(); free_slots_[p].clear(); }
+        std::vector<Pending> v;
+        v.reserve(w.index.size());
+        std::size_t at = 0;
+        for (std::size_t k = 0; k < w.index.size(); ++k) {
+            const std::size_t port = w.port[k], pw = cl_.width(port);
+            Pending p{w.index[k], static_cast<std::uint32_t>(port), k, {}};
+            if (pw == 1) p.value = w.values[at];
+            else p.slot = store(port, w.values.data() + at, pw);
+            at += pw;
+            v.push_back(p);
+        }
+        pending_.assign(std::move(v));
+        next_seq_ = w.index.size();
+    }
+
     // Unchanged as-of + coalescing logic, now fed in guaranteed global index order
     // by release(). Takes an explicit index and the port's values instead of a Frame.
     //

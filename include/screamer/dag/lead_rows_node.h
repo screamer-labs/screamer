@@ -12,6 +12,7 @@
 #include <vector>
 #include "screamer/dag/frame.h"
 #include "screamer/dag/max_pending.h"
+#include "screamer/dag/node_state.h"
 #include "screamer/dag/resettable.h"
 
 namespace screamer { namespace dag {
@@ -79,6 +80,75 @@ public:
         lo_[0] = lo_[1] = kMin;
         last_wm_ = kMin;
         flushed_[0] = flushed_[1] = false;
+    }
+
+    static constexpr int kStateVersion = 1;
+    bool saveable() const override { return true; }
+    void write_state(json::Value& out) const override { write_node_state(*this, out); }
+    void read_state(const json::Value& in, const std::string& path) override {
+        read_node_state(*this, in, path);
+    }
+
+    // What reset() touches: the X width, the kept rows oldest first (their
+    // indexes and X values; the target slot is scratch), the X rows and y
+    // values waiting for their partner, the port bounds, the last watermark
+    // and the flush cycle.
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("x_width", xw_);
+        std::vector<Index> kept_index, xi, yi;
+        std::vector<double> kept, xv, yv;
+        if constexpr (Ar::kSaving) {
+            const std::size_t w = xw_ + 1;
+            const std::size_t first = filled_ == count_ ? pos_ : 0;
+            for (std::size_t k = 0; k < filled_; ++k) {
+                const std::size_t s = (first + k) % filled_;
+                kept_index.push_back(index_[s]);
+                kept.insert(kept.end(), ring_.begin() + s * w, ring_.begin() + s * w + xw_);
+            }
+            xi.assign(xqi_.begin() + xhead_, xqi_.end());
+            xv.assign(xq_.begin() + xhead_ * xw_, xq_.end());
+            yi.assign(yqi_.begin() + yhead_, yqi_.end());
+            yv.assign(yq_.begin() + yhead_, yq_.end());
+        }
+        ar.local("kept_index", kept_index);
+        ar.local("kept", kept, kept_index.size() * xw_);
+        ar.local("x_index", xi);
+        ar.local("x_values", xv, xi.size() * xw_);
+        ar.local("y_index", yi);
+        ar.local("y_values", yv, yi.size());
+        ar("x_bound", lo_[0]);
+        ar("y_bound", lo_[1]);
+        ar("last_watermark", last_wm_);
+        ar("flushed_x", flushed_[0]);
+        ar("flushed_y", flushed_[1]);
+        if constexpr (Ar::kLoading) {
+            ar.check(kept_index.size() <= count_, "more rows are kept than the lead count");
+            ar.check(xw_ != 0 || (kept_index.empty() && xi.empty()),
+                     "rows wait before the X width is known");
+            ar.check(xi.empty() || yi.empty(), "X and y events wait at the same time");
+            ar.apply([this, kept_index, kept, xi, xv, yi, yv] {
+                         const std::size_t w = xw_ + 1;
+                         empty();
+                         ring_.reserve(kept_index.size() * w);
+                         for (std::size_t k = 0; k < kept_index.size(); ++k) {
+                             ring_.insert(ring_.end(), kept.begin() + k * xw_, kept.begin() + (k + 1) * xw_);
+                             ring_.push_back(std::numeric_limits<double>::quiet_NaN());
+                         }
+                         index_ = kept_index;
+                         filled_ = kept_index.size();
+                         xq_ = xv; xqi_ = xi; xhead_ = 0;
+                         yq_ = yv; yqi_ = yi; yhead_ = 0;
+                     },
+                     [this, ring = ring_, index = index_, pos = pos_, filled = filled_,
+                      draining = draining_, xq = xq_, xqi = xqi_, xhead = xhead_, yq = yq_,
+                      yqi = yqi_, yhead = yhead_] {
+                         ring_ = ring; index_ = index; pos_ = pos; filled_ = filled;
+                         draining_ = draining;
+                         xq_ = xq; xqi_ = xqi; xhead_ = xhead;
+                         yq_ = yq; yqi_ = yqi; yhead_ = yhead;
+                     });
+        }
     }
 
 private:

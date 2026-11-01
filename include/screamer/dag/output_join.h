@@ -23,10 +23,12 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
+#include "screamer/dag/node_state.h"
 #include "screamer/dag/output_buffer.h"
 
 namespace screamer { namespace dag {
@@ -99,6 +101,29 @@ public:
             ptr_[j] = dst;
         }
     }
+    // The row's state (serial/archive.h): each output's width, whether it
+    // has a value, and the values of those that do. The row is persisted
+    // between drains, so every value is in own_.
+    template <class Ar>
+    void state(Ar& ar) {
+        std::vector<std::size_t> widths = widths_;
+        std::vector<bool> seen;
+        std::vector<double> values;
+        if constexpr (Ar::kSaving) logical(seen, values);
+        ar.local("row_widths", widths);
+        ar.local("row_seen", seen, widths.size());
+        std::size_t total = 0;
+        for (std::size_t j = 0; j < widths.size(); ++j)
+            if (seen[j]) total += widths[j];
+        ar.local("row_values", values, total);
+        if constexpr (Ar::kLoading) {
+            std::vector<bool> old_seen;
+            std::vector<double> old_values;
+            logical(old_seen, old_values);
+            ar.apply([this, widths, seen, values] { assign(widths, seen, values); },
+                     [this, w = widths_, old_seen, old_values] { assign(w, old_seen, old_values); });
+        }
+    }
     void append_to(AlignedOutputs& out) const {
         for (std::size_t j = 0; j < widths_.size(); ++j) {
             const double* src = ptr_[j];
@@ -108,6 +133,26 @@ public:
     }
 
 private:
+    void logical(std::vector<bool>& seen, std::vector<double>& values) const {
+        for (std::size_t j = 0; j < widths_.size(); ++j) {
+            seen.push_back(ptr_[j] != nullptr);
+            if (ptr_[j]) values.insert(values.end(), ptr_[j], ptr_[j] + widths_[j]);
+        }
+    }
+    void assign(const std::vector<std::size_t>& widths, const std::vector<bool>& seen,
+                const std::vector<double>& values) {
+        layout(widths);
+        std::size_t at = 0;
+        for (std::size_t j = 0; j < widths.size(); ++j) {
+            if (!seen[j]) continue;
+            std::copy(values.begin() + static_cast<std::ptrdiff_t>(at),
+                      values.begin() + static_cast<std::ptrdiff_t>(at + widths[j]),
+                      own_.begin() + static_cast<std::ptrdiff_t>(offset_[j]));
+            point(j, own_.data() + offset_[j]);
+            at += widths[j];
+        }
+    }
+
     std::vector<std::size_t> widths_, offset_;
     std::vector<double> own_;              // persisted values
     std::vector<const double*> ptr_;       // each output's latest row (null = none yet)
@@ -267,6 +312,22 @@ public:
 
     std::size_t pending() const { return pending_; }
 
+    // The join's state between drains (serial/archive.h): the widths of the
+    // aligned rows, each output's waiting rows and bounds, and the latest
+    // row. The settled rows of a take() never stay in the join.
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.fixed("widths", out_.widths, q_.size());
+        ar.objects("queues", q_);
+        ar("laid_out", laid_out_);
+        if (laid_out_) ar.object("row", row_);
+        if constexpr (Ar::kLoading) {
+            std::size_t n = 0;
+            for (const Queue& q : q_) n += q.idx.size();
+            ar.set(pending_, n);
+        }
+    }
+
 private:
     struct Queue {
         std::vector<std::int64_t> idx;
@@ -277,6 +338,24 @@ private:
         bool emitted = false;      // whether the output has emitted a row
         std::int64_t bound = 0;    // max(highest index emitted, watermark)
         bool bounded = false;      // whether `bound` is set
+        template <class Ar>
+        void state(Ar& ar) {
+            std::vector<std::int64_t> k(idx.begin() + static_cast<std::ptrdiff_t>(head), idx.end());
+            std::vector<double> v(vals.begin() + static_cast<std::ptrdiff_t>(head * width), vals.end());
+            ar("width", width);
+            ar.local("index", k);
+            ar.local("values", v, k.size() * width);
+            optional_index(ar, "last", emitted, wm);
+            optional_index(ar, "bound", bounded, bound);
+            if constexpr (Ar::kLoading) {
+                for (std::size_t r = 1; r < k.size(); ++r)
+                    ar.check(k[r - 1] <= k[r], "the waiting rows are out of order");
+                ar.check(k.empty() || emitted, "rows wait for an output that has emitted none");
+                ar.set(idx, k);
+                ar.set(vals, v);
+                ar.set(head, std::size_t(0));
+            }
+        }
         // Drops the consumed rows once they are at least half the queue, so
         // the storage is reused and bounded by the rows that wait.
         void compact() {

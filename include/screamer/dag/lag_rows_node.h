@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 #include "screamer/dag/frame.h"
+#include "screamer/dag/node_state.h"
 
 namespace screamer { namespace dag {
 
@@ -85,6 +86,43 @@ public:
         pos_ = 0;
         filled_ = 0;
         ring_.clear();               // keeps its capacity for the next run
+    }
+
+    static constexpr int kStateVersion = 1;
+    bool saveable() const override { return true; }
+    void write_state(json::Value& out) const override { write_node_state(*this, out); }
+    void read_state(const json::Value& in, const std::string& path) override {
+        read_node_state(*this, in, path);
+    }
+
+    // What reset() touches: the width and the kept rows, oldest first.
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("width", width_);
+        std::vector<double> rows;
+        if constexpr (Ar::kSaving) {
+            const std::size_t first = filled_ == count_ ? pos_ : 0;
+            for (std::size_t k = 0; k < filled_; ++k) {
+                const std::size_t s = (first + k) % filled_;
+                rows.insert(rows.end(), ring_.begin() + s * width_, ring_.begin() + (s + 1) * width_);
+            }
+        }
+        ar.local("rows", rows);
+        if constexpr (Ar::kLoading) {
+            ar.check(width_ != 0 || rows.empty(), "rows are kept before the width is known");
+            const std::size_t n = width_ ? rows.size() / width_ : 0;
+            ar.check(n * width_ == rows.size(), "the kept rows do not fit the width");
+            ar.check(n <= count_, "more rows are kept than the lag count");
+            ar.apply([this, rows, n] {
+                         ring_ = rows;
+                         filled_ = n;
+                         pos_ = 0;
+                         nan_row_.assign(width_, std::numeric_limits<double>::quiet_NaN());
+                     },
+                     [this, ring = ring_, filled = filled_, pos = pos_, nan_row = nan_row_] {
+                         ring_ = ring; filled_ = filled; pos_ = pos; nan_row_ = nan_row;
+                     });
+        }
     }
 
 private:

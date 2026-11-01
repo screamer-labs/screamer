@@ -4,11 +4,13 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <stdexcept>
 #include <vector>
 #include "screamer/common/checked_arith.h"
 #include "screamer/common/float_info.h"
 #include "screamer/dag/frame.h"
+#include "screamer/dag/node_state.h"
 #include "screamer/dag/resample_params.h"
 #include <algorithm>
 #include <cstddef>
@@ -86,7 +88,23 @@ struct ResampleAccum {
     void emit(ResampleAgg agg, double* out) const {
         emit_one(agg, out);
     }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("count", count);
+        ar("sum", sum);
+        ar("sum_pos", sum_pos);
+        ar("sum_neg", sum_neg);
+        ar("min", mn);
+        ar("max", mx);
+        ar("first", first);
+        ar("last", last);
+        ar("has", has);
+        ar.check(count >= 0, "count must not be negative");
+        ar.check(count == 0 || has, "a bucket with values has an event");
+    }
 };
+
 
 // Stateful windowing push-node. Buckets a stream by index-interval or event
 // count, reduces each bucket with a C++ reducer (plan or single builtin agg),
@@ -228,6 +246,97 @@ public:
         clear_buffer();
         has_vfront_ = has_cfront_ = has_gfront_ = has_fwd_ = has_last_tick_ = false;
         vfront_ = cfront_ = gfront_ = fwd_ = last_tick_ = Index{};
+    }
+
+    static constexpr int kStateVersion = 1;
+    bool saveable() const override { return true; }
+    void write_state(json::Value& out) const override { write_node_state(*this, out); }
+    void read_state(const json::Value& in, const std::string& path) override {
+        read_node_state(*this, in, path);
+    }
+
+    // What reset() touches. A plan learned from the stream is saved as the
+    // value width it was learned from ("plan_width", null when none); a load
+    // builds it again. A cumulative resample adds its driver sum, a clock
+    // resample its pending ticks, the values that wait for the clock and
+    // the frontiers of its ports.
+    template <class Ar>
+    void state(Ar& ar) {
+        std::optional<std::size_t> plan_width;
+        if (learned_) plan_width = num_accums_;
+        ar.local("plan_width", plan_width);
+        if constexpr (Ar::kLoading) {
+            const bool bars = p_.agg == ResampleAgg::OhlcvBars && plan0_.empty();
+            std::vector<ResamplePlanEntry> plan;
+            bool ok = !plan_width || plan0_.empty();
+            if (ok && plan_width) {
+                try {
+                    plan = bars ? make_ohlcv_bars_plan(*plan_width)
+                                : make_per_column_plan(p_.agg, *plan_width);
+                } catch (const std::exception&) {
+                    ok = false;
+                }
+            }
+            ar.check(ok, "plan_width does not fit the resample's agg");
+            ar.apply([this, plan, learn = plan_width.has_value()] {
+                         if (learn) {
+                             learn_plan(plan);
+                             return;
+                         }
+                         p_.plan = plan0_;
+                         learned_ = false;
+                         num_accums_ = p_.plan.empty() ? 1u : resample_plan_input_cols(p_.plan);
+                         set_out_width(resample_output_width(p_));
+                         accums_.resize(deferred_plan() ? 0u : num_accums_);
+                     },
+                     [this, plan = p_.plan, learned = learned_, n = num_accums_, w = out_width_,
+                      out = out_, last = last_emitted_, nan = nan_row_, accums = accums_] {
+                         p_.plan = plan; learned_ = learned; num_accums_ = n; out_width_ = w;
+                         out_ = out; last_emitted_ = last; nan_row_ = nan; accums_ = accums;
+                     });
+        }
+        ar.objects("accums", accums_);
+        ar("started", started_);
+        ar("bucket", bucket_);
+        ar("label", cur_label_);
+        ar("label_ok", label_ok_);
+        optional_index(ar, "bar_watermark", has_bar_wm_, bar_wm_);
+        ar("count", count_in_bucket_);
+        ar("first_index", first_index_);
+        ar("last_index", last_index_);
+        ar("have_emitted", have_emitted_);
+        ar.fixed("last_emitted", last_emitted_, out_width_);
+        ar.check(count_in_bucket_ >= 0, "count must not be negative");
+        if (p_.mode == ResampleMode::ByCount)
+            ar.check(count_in_bucket_ < p_.count, "count must be below the bar's count");
+        if (p_.mode == ResampleMode::ByCumulative) ar("driver_sum", cum_driver_);
+        if (p_.mode != ResampleMode::ByClock) return;
+        optional_index(ar, "last_finite", have_last_finite_, last_finite_index_);
+        ar("clock_flushes", clock_port_flush_count_);
+        std::vector<Index> ticks(ticks_.begin(), ticks_.end());
+        std::vector<Index> bi(buf_idx_.begin() + static_cast<std::ptrdiff_t>(buf_head_), buf_idx_.end());
+        std::vector<double> bv(buf_vals_.begin() + static_cast<std::ptrdiff_t>(buf_head_ * buf_width_),
+                               buf_vals_.end());
+        ar.local("ticks", ticks);
+        ar("buffer_width", buf_width_);
+        ar.local("buffer_index", bi);
+        ar.local("buffer_values", bv, bi.size() * buf_width_);
+        optional_index(ar, "value_front", has_vfront_, vfront_);
+        optional_index(ar, "clock_front", has_cfront_, cfront_);
+        optional_index(ar, "merge_front", has_gfront_, gfront_);
+        optional_index(ar, "forwarded", has_fwd_, fwd_);
+        optional_index(ar, "last_tick", has_last_tick_, last_tick_);
+        if constexpr (Ar::kLoading) {
+            ar.check(clock_port_flush_count_ < 2, "clock_flushes must be 0 or 1");
+            for (std::size_t k = 1; k < ticks.size(); ++k)
+                ar.check(ticks[k - 1] < ticks[k], "the pending ticks must increase");
+            for (std::size_t k = 1; k < bi.size(); ++k)
+                ar.check(!(bi[k] < bi[k - 1]), "the waiting values are out of order");
+            ar.set(ticks_, std::deque<Index>(ticks.begin(), ticks.end()));
+            ar.set(buf_idx_, bi);
+            ar.set(buf_vals_, bv);
+            ar.set(buf_head_, std::size_t(0));
+        }
     }
 
     std::size_t n_in()  const override {

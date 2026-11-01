@@ -31,6 +31,13 @@ public:
 
     void reset() override { op_.reset(); }
 
+    // The node's state is its operator's (the output buffer is scratch).
+    bool saveable() const override { return op_.saveable(); }
+    void write_state(json::Value& out) const override { op_.write_state(out); }
+    void read_state(const json::Value& in, const std::string& path) override {
+        op_.read_state(in, path);
+    }
+
     std::size_t n_in()  const override { return n_in_; }
     std::size_t n_out() const override { return op_.n_out(); }
 

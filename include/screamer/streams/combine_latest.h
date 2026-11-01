@@ -76,6 +76,32 @@ public:
         seen_count_ = 0;
     }
 
+    // The join's state (serial/archive.h): each source's width, the latest
+    // row, and which sources have a value. The number of sources is fixed.
+    template <class Ar>
+    void state(Ar& ar) {
+        std::vector<std::size_t> widths = widths_;
+        std::vector<double> latest = latest_;
+        std::vector<bool> seen(seen_.begin(), seen_.end());
+        ar.local("widths", widths, widths_.size());
+        std::size_t total = 0;
+        for (std::size_t w : widths) total += w;
+        ar.local("latest", latest, total);
+        ar.local("seen", seen, widths_.size());
+        if constexpr (Ar::kLoading) {
+            CombineLatest next = *this;
+            next.widths_ = widths;
+            next.layout();
+            next.latest_ = latest;
+            next.seen_count_ = 0;
+            for (std::size_t i = 0; i < seen.size(); ++i) {
+                next.seen_[i] = seen[i] ? 1 : 0;
+                next.seen_count_ += seen[i] ? 1 : 0;
+            }
+            ar.apply([this, next] { *this = next; }, [this, old = *this] { *this = old; });
+        }
+    }
+
 private:
     void layout() {
         offset_.resize(widths_.size());

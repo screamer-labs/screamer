@@ -5,12 +5,14 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>
 #include "screamer/common/float_info.h"
 #include "screamer/dag/frame.h"
 #include "screamer/dag/max_pending.h"
+#include "screamer/dag/node_state.h"
 #include "screamer/dag/reorder_heap.h"
 #include "screamer/dag/resettable.h"
 #include "screamer/streams/combine_latest.h"
@@ -70,6 +72,63 @@ public:
         pending_.clear();
         next_seq_ = 0;
         last_forwarded_wm_ = std::numeric_limits<Index>::min();
+    }
+
+    static constexpr int kStateVersion = 1;
+    bool saveable() const override { return true; }
+    void write_state(json::Value& out) const override { write_node_state(*this, out); }
+    void read_state(const json::Value& in, const std::string& path) override {
+        read_node_state(*this, in, path);
+    }
+
+    // What reset() touches: the join of data and mask, the row due (index,
+    // data, mask), the port watermarks, the flush cycle and the waiting
+    // events, released in order on a load.
+    template <class Ar>
+    void state(Ar& ar) {
+        cl_.state(ar);
+        std::optional<Index> due;
+        if (has_buffered_) due = buffered_index_;
+        ar.local("buffered_index", due);
+        ar("buffered_data", buffered_data_);
+        ar("buffered_mask", buffered_mask_);
+        ar.fixed("watermarks", wm_, 2);
+        ar("last_forwarded", last_forwarded_wm_);
+        std::vector<bool> flushed(flushed_);
+        ar.local("flushed", flushed, 2);
+        Waiting<Index> w;
+        if constexpr (Ar::kSaving) {
+            for (const Pending& p : pending_.in_order()) {
+                w.index.push_back(p.index);
+                w.port.push_back(p.port);
+                w.values.push_back(p.value);
+            }
+        }
+        w.fields(ar);
+        if constexpr (Ar::kLoading) {
+            ar.check(cl_.width(0) == 1 && cl_.width(1) == 1, "data and mask hold one value each");
+            const Index low = std::min(wm_[0], wm_[1]);
+            ar.check(!due || !(*due < low), "the due row is below both watermarks");
+            for (std::size_t k = 0; k < w.port.size(); ++k) {
+                ar.check(w.port[k] < 2, "a waiting event's port is out of range");
+                ar.check(w.index[k] > low && !(wm_[w.port[k]] < w.index[k]),
+                         "a waiting event is outside its port's watermarks");
+                ar.check(k == 0 || !(w.index[k] < w.index[k - 1]),
+                         "the waiting events are out of order");
+            }
+            ar.check(w.values.size() == w.index.size(), "a waiting event holds one value");
+            ar.set(has_buffered_, due.has_value());
+            ar.set(buffered_index_, due.value_or(Index{}));
+            std::size_t nf = 0;
+            for (bool f : flushed) nf += f ? 1 : 0;
+            ar.set(flushed_, flushed);
+            ar.set(flushed_count_, nf);
+            std::vector<Pending> v;
+            for (std::size_t k = 0; k < w.index.size(); ++k)
+                v.push_back(Pending{w.index[k], static_cast<std::uint32_t>(w.port[k]), k, w.values[k]});
+            ar.apply([this, v] { pending_.assign(v); next_seq_ = v.size(); },
+                     [this, heap = pending_, seq = next_seq_] { pending_ = heap; next_seq_ = seq; });
+        }
     }
 
 private:
