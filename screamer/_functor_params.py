@@ -119,10 +119,14 @@ def documented_value(param):
     A default is the value itself, except for an operator setting (``type:
     op``, such as the op of ``Segment``), whose default is a constructor call
     written as text (``"CumSum()"``): that gives a new instance of the
-    operator. The registry checks and the contract tests build operators with
-    their documented defaults through this function.
+    operator. A parameter whose default is None but that the operator needs
+    one of (``span`` of ``EwMean``, one of four) gives its ``example`` value.
+    The registry checks and the contract tests build operators with their
+    documented defaults through this function.
     """
     value = param.get("default")
+    if value is None and "example" in param:
+        value = param["example"]
     if param.get("type") != "op" or not isinstance(value, str):
         return value
     import ast

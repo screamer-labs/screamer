@@ -375,8 +375,9 @@
       {
         "name": "span",
         "type": "float",
-        "default": 20.0,
-        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default."
+        "default": null,
+        "example": 20.0,
+        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha."
       },
       {
         "name": "halflife",
@@ -437,8 +438,9 @@
       {
         "name": "span",
         "type": "float",
-        "default": 20.0,
-        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default."
+        "default": null,
+        "example": 20.0,
+        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha."
       },
       {
         "name": "halflife",
@@ -500,8 +502,9 @@
       {
         "name": "span",
         "type": "float",
-        "default": 20.0,
-        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default."
+        "default": null,
+        "example": 20.0,
+        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha."
       },
       {
         "name": "halflife",
@@ -559,8 +562,9 @@
       {
         "name": "span",
         "type": "float",
-        "default": 20.0,
-        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default."
+        "default": null,
+        "example": 20.0,
+        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha."
       },
       {
         "name": "halflife",
@@ -621,8 +625,9 @@
       {
         "name": "span",
         "type": "float",
-        "default": 20.0,
-        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default."
+        "default": null,
+        "example": 20.0,
+        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha."
       },
       {
         "name": "halflife",
@@ -687,8 +692,9 @@
       {
         "name": "span",
         "type": "float",
-        "default": 20.0,
-        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default."
+        "default": null,
+        "example": 20.0,
+        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha."
       },
       {
         "name": "halflife",
@@ -752,8 +758,9 @@
       {
         "name": "span",
         "type": "float",
-        "default": 20.0,
-        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default."
+        "default": null,
+        "example": 20.0,
+        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha."
       },
       {
         "name": "halflife",
@@ -815,8 +822,9 @@
       {
         "name": "span",
         "type": "float",
-        "default": 20.0,
-        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default."
+        "default": null,
+        "example": 20.0,
+        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha."
       },
       {
         "name": "halflife",
@@ -897,8 +905,9 @@
       {
         "name": "span",
         "type": "float",
-        "default": 100.0,
-        "description": "Span s in rows, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default."
+        "default": null,
+        "example": 100.0,
+        "description": "Span s in rows, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha."
       },
       {
         "name": "halflife",
@@ -971,8 +980,9 @@
       {
         "name": "span",
         "type": "float",
-        "default": 20.0,
-        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default."
+        "default": null,
+        "example": 20.0,
+        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha."
       },
       {
         "name": "halflife",
@@ -1037,8 +1047,9 @@
       {
         "name": "span",
         "type": "float",
-        "default": 20.0,
-        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default."
+        "default": null,
+        "example": 20.0,
+        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha."
       },
       {
         "name": "halflife",
@@ -1102,8 +1113,9 @@
       {
         "name": "span",
         "type": "float",
-        "default": 20.0,
-        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default."
+        "default": null,
+        "example": 20.0,
+        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha."
       },
       {
         "name": "halflife",
@@ -1163,8 +1175,9 @@
       {
         "name": "span",
         "type": "float",
-        "default": 20.0,
-        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default."
+        "default": null,
+        "example": 20.0,
+        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha."
       },
       {
         "name": "halflife",
@@ -1225,8 +1238,9 @@
       {
         "name": "span",
         "type": "float",
-        "default": 20.0,
-        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default."
+        "default": null,
+        "example": 20.0,
+        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha."
       },
       {
         "name": "halflife",
@@ -1291,8 +1305,9 @@
       {
         "name": "span",
         "type": "float",
-        "default": 20.0,
-        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default."
+        "default": null,
+        "example": 20.0,
+        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha."
       },
       {
         "name": "halflife",
@@ -1354,8 +1369,9 @@
       {
         "name": "span",
         "type": "float",
-        "default": 20.0,
-        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default."
+        "default": null,
+        "example": 20.0,
+        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha."
       },
       {
         "name": "halflife",
@@ -1417,8 +1433,9 @@
       {
         "name": "span",
         "type": "float",
-        "default": 20.0,
-        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default."
+        "default": null,
+        "example": 20.0,
+        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha."
       },
       {
         "name": "halflife",
@@ -1481,8 +1498,9 @@
       {
         "name": "span",
         "type": "float",
-        "default": 20.0,
-        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default."
+        "default": null,
+        "example": 20.0,
+        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha."
       },
       {
         "name": "halflife",
@@ -1543,8 +1561,9 @@
       {
         "name": "span",
         "type": "float",
-        "default": 20.0,
-        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default."
+        "default": null,
+        "example": 20.0,
+        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha."
       },
       {
         "name": "halflife",
@@ -1609,8 +1628,9 @@
       {
         "name": "span",
         "type": "float",
-        "default": 20.0,
-        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default."
+        "default": null,
+        "example": 20.0,
+        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha."
       },
       {
         "name": "halflife",
@@ -1677,8 +1697,9 @@
       {
         "name": "span",
         "type": "float",
-        "default": 20.0,
-        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default."
+        "default": null,
+        "example": 20.0,
+        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha."
       },
       {
         "name": "halflife",
@@ -1743,8 +1764,9 @@
       {
         "name": "span",
         "type": "float",
-        "default": 20.0,
-        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default."
+        "default": null,
+        "example": 20.0,
+        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha."
       },
       {
         "name": "halflife",
@@ -4009,8 +4031,9 @@
       {
         "name": "span",
         "type": "float",
-        "default": 20.0,
-        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default."
+        "default": null,
+        "example": 20.0,
+        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha."
       },
       {
         "name": "halflife",
@@ -8427,8 +8450,9 @@
       {
         "name": "span",
         "type": "float",
-        "default": 20.0,
-        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default."
+        "default": null,
+        "example": 20.0,
+        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha."
       },
       {
         "name": "halflife",
@@ -10234,8 +10258,9 @@
       {
         "name": "span",
         "type": "float",
-        "default": 20.0,
-        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default."
+        "default": null,
+        "example": 20.0,
+        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha."
       },
       {
         "name": "halflife",
@@ -13748,8 +13773,9 @@
       {
         "name": "span",
         "type": "float",
-        "default": 20.0,
-        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default."
+        "default": null,
+        "example": 20.0,
+        "description": "Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha."
       },
       {
         "name": "halflife",
@@ -14648,8 +14674,9 @@
       {
         "name": "period",
         "type": "float",
-        "default": 60.0,
-        "description": "Cutoff as a cycle length in samples, the half-power point; cycles well below this length are removed. Give exactly one of period and cutoff. The default shown is a suggested starting value; the constructor has no default."
+        "default": null,
+        "example": 60.0,
+        "description": "Cutoff as a cycle length in samples, the half-power point; cycles well below this length are removed. Give exactly one of period and cutoff. 60 is a common starting value."
       },
       {
         "name": "cutoff",
@@ -15143,14 +15170,16 @@
       {
         "name": "hp_period",
         "type": "float",
-        "default": 48.0,
-        "description": "Highpass cutoff as a cycle length in samples; longer cycles (the trend) are removed. Give exactly one of hp_period and hp_cutoff. The default shown is a suggested starting value; the constructor has no default."
+        "default": null,
+        "example": 48.0,
+        "description": "Highpass cutoff as a cycle length in samples; longer cycles (the trend) are removed. Give exactly one of hp_period and hp_cutoff. 48 is a common starting value."
       },
       {
         "name": "lp_period",
         "type": "float",
-        "default": 10.0,
-        "description": "Lowpass cutoff as a cycle length in samples; shorter cycles (noise) are removed. Give exactly one of lp_period and lp_cutoff. The default shown is a suggested starting value; the constructor has no default."
+        "default": null,
+        "example": 10.0,
+        "description": "Lowpass cutoff as a cycle length in samples; shorter cycles (noise) are removed. Give exactly one of lp_period and lp_cutoff. 10 is a common starting value."
       },
       {
         "name": "hp_cutoff",
@@ -15280,8 +15309,9 @@
       {
         "name": "period",
         "type": "float",
-        "default": 20.0,
-        "description": "Cutoff as a cycle length in samples; cycles shorter than this are attenuated. Give exactly one of period and cutoff. The default shown is a suggested starting value; the constructor has no default."
+        "default": null,
+        "example": 20.0,
+        "description": "Cutoff as a cycle length in samples; cycles shorter than this are attenuated. Give exactly one of period and cutoff. 20 is a common starting value."
       },
       {
         "name": "cutoff",

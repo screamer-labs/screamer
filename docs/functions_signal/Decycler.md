@@ -17,10 +17,10 @@ outputs: 1
 parameters:
 - name: period
   type: float
-  default: 60.0
+  default: null
+  example: 60.0
   description: Cutoff as a cycle length in samples, the half-power point; cycles well below this length are removed.
-    Give exactly one of period and cutoff. The default shown is a suggested starting value;
-    the constructor has no default.
+    Give exactly one of period and cutoff. 60 is a common starting value.
 - name: cutoff
   type: float
   default: null

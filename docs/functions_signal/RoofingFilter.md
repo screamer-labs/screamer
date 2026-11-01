@@ -16,16 +16,16 @@ outputs: 1
 parameters:
 - name: hp_period
   type: float
-  default: 48.0
+  default: null
+  example: 48.0
   description: Highpass cutoff as a cycle length in samples; longer cycles (the trend) are
-    removed. Give exactly one of hp_period and hp_cutoff. The default shown is a suggested
-    starting value; the constructor has no default.
+    removed. Give exactly one of hp_period and hp_cutoff. 48 is a common starting value.
 - name: lp_period
   type: float
-  default: 10.0
+  default: null
+  example: 10.0
   description: Lowpass cutoff as a cycle length in samples; shorter cycles (noise) are removed.
-    Give exactly one of lp_period and lp_cutoff. The default shown is a suggested starting
-    value; the constructor has no default.
+    Give exactly one of lp_period and lp_cutoff. 10 is a common starting value.
 - name: hp_cutoff
   type: float
   default: null

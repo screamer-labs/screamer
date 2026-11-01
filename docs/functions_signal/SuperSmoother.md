@@ -17,10 +17,10 @@ outputs: 1
 parameters:
 - name: period
   type: float
-  default: 20.0
+  default: null
+  example: 20.0
   description: Cutoff as a cycle length in samples; cycles shorter than this are attenuated.
-    Give exactly one of period and cutoff. The default shown is a suggested starting value;
-    the constructor has no default.
+    Give exactly one of period and cutoff. 20 is a common starting value.
 - name: cutoff
   type: float
   default: null

@@ -21,10 +21,10 @@ parameters:
     one of com, span, halflife and alpha.
 - name: span
   type: float
-  default: 20.0
+  default: null
+  example: 20.0
   description: Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give
-    exactly one of com, span, halflife and alpha. The default shown is an example value; the
-    constructor has no default.
+    exactly one of com, span, halflife and alpha.
 - name: halflife
   type: float
   default: null
