@@ -1,0 +1,26 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "WilliamsR",
+    "settings": {
+      "window_size": 14
+    },
+    "state": {
+      "version": 1,
+      "values": {
+        "max": {
+          "values": [998.7970947426724, 997.957413914671, 997.5239530254191],
+          "indices": [25, 26, 27],
+          "index": 28
+        },
+        "min": {
+          "values": [996.8549185594317, 997.1838558377033, 998.1336135656959, 998.5239530254191],
+          "indices": [17, 18, 20, 27],
+          "index": 28
+        },
+        "n_seen": 14
+      }
+    }
+  }
+}

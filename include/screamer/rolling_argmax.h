@@ -18,8 +18,21 @@
 
 namespace screamer {
 
-class RollingArgmax : public ScreamerBase {
+class RollingArgmax : public serial::Saveable<RollingArgmax, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "RollingArgmax";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", deque_.window_size());
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        deque_.state(ar);
+    }
+
     explicit RollingArgmax(int window_size) : deque_(window_size) {}
 
     void reset() override { deque_.reset(); }

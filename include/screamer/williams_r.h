@@ -42,6 +42,24 @@ namespace screamer {
 class WilliamsR : public FunctorBase<WilliamsR, 3, 1> {
     friend struct detail::TestAccess;   // tests read the event counters (test_access.h)
 public:
+    static constexpr const char* kTypeName = "WilliamsR";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", window_size_);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("max", max_deque_);
+        ar.object("min", min_deque_);
+        ar("n_seen", n_seen_);
+        ar.check(max_deque_.samples_seen() == min_deque_.samples_seen(),
+                 "max and min must have seen the same samples");
+        ar.check(n_seen_ >= 0 && n_seen_ <= window_size_, "n_seen must lie in 0 .. window_size");
+    }
+
     explicit WilliamsR(int window_size = 14)
         : window_size_(window_size),
           max_deque_(window_size),

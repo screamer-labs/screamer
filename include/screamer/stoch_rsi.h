@@ -35,6 +35,30 @@ namespace screamer {
 class StochRSI : public FunctorBase<StochRSI, 1, 2> {
     friend struct detail::TestAccess;   // tests read the event counters (test_access.h)
 public:
+    static constexpr const char* kTypeName = "StochRSI";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("rsi_period", rsi_period_);
+        ar("stoch_period", stoch_period_);
+        ar("smooth_k", smooth_k_);
+        ar("d", d_);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("rsi", rsi_);
+        ar.object("max", max_deque_);
+        ar.object("min", min_deque_);
+        ar.object("smooth_k_mean", smooth_k_mean_);
+        ar.object("d_mean", d_mean_);
+        ar("n_valid_rsi", n_valid_rsi_);
+        ar.check(max_deque_.samples_seen() == min_deque_.samples_seen(),
+                 "max and min must have seen the same samples");
+        ar.check(n_valid_rsi_ >= 0, "n_valid_rsi must not be negative");
+    }
+
     StochRSI(int rsi_period = 14,
              int stoch_period = 14,
              int smooth_k = 1,

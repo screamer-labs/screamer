@@ -20,9 +20,22 @@
 
 namespace screamer {
 
-class RollingArgmin : public ScreamerBase {
+class RollingArgmin : public serial::Saveable<RollingArgmin, ScreamerBase> {
     friend struct detail::TestAccess;   // tests read the event counters (test_access.h)
 public:
+    static constexpr const char* kTypeName = "RollingArgmin";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", deque_.window_size());
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        deque_.state(ar);
+    }
+
     explicit RollingArgmin(int window_size) : deque_(window_size) {}
 
     void reset() override { deque_.reset(); }

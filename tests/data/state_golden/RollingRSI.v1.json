@@ -1,0 +1,36 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "RollingRSI",
+    "settings": {
+      "window_size": 14,
+      "method": "wilder",
+      "start_policy": "strict"
+    },
+    "state": {
+      "version": 1,
+      "values": {
+        "gain_sum": {
+          "buffer": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+          "index": 0,
+          "count": 0,
+          "sum": 0.0
+        },
+        "loss_sum": {
+          "buffer": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+          "index": 0,
+          "count": 0,
+          "sum": 0.0
+        },
+        "prev_x": 997.5239530254191,
+        "n": 0,
+        "wilder_avg_gain": 0.3137494768383335,
+        "wilder_avg_loss": 0.4026630647198905,
+        "wilder_seed_sum_gain": 4.875736035244131,
+        "wilder_seed_sum_loss": 8.302883822040826,
+        "wilder_count": 27
+      }
+    }
+  }
+}

@@ -58,7 +58,7 @@ namespace screamer {
                 std::vector<double> old = buffer.oldest_first();
                 ar.apply([&] { buffer.assign_oldest_first(window); },
                          [this, old = std::move(old)] { buffer.assign_oldest_first(old); });
-                ar.check(tree_matches_window(), "tree must hold the values of the window");
+                ar.check(ost.holds(window), "tree must hold the values of the window");
             }
         }
 
@@ -90,22 +90,6 @@ namespace screamer {
         double quantile;
         FixedSizeBuffer buffer;
         OrderStatisticTree ost;
-
-        // The tree's values are the window's values that are not NaN.
-        bool tree_matches_window() const {
-            std::vector<double> values;
-            for (std::size_t k = 0; k < buffer.size(); ++k)
-                if (!isnan2(buffer[k])) values.push_back(buffer[k]);
-            std::sort(values.begin(), values.end());
-            std::vector<double> keys;
-            std::vector<int> counts;
-            ost.keys(keys, counts);
-            std::size_t at = 0;
-            for (std::size_t k = 0; k < keys.size(); ++k)
-                for (int c = 0; c < counts[k]; ++c, ++at)
-                    if (at >= values.size() || !(values[at] == keys[k])) return false;
-            return at == values.size();
-        }
 
         void add(double x)
         {

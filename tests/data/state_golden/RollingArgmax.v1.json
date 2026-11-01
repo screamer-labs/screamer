@@ -1,0 +1,18 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "RollingArgmax",
+    "settings": {
+      "window_size": 20
+    },
+    "state": {
+      "version": 1,
+      "values": {
+        "values": [999.0932522580864, 998.3559783653088, 998.1363185294921],
+        "indices": [24, 26, 39],
+        "index": 40
+      }
+    }
+  }
+}

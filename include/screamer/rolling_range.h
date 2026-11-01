@@ -22,8 +22,24 @@
 
 namespace screamer {
 
-class RollingRange : public ScreamerBase {
+class RollingRange : public serial::Saveable<RollingRange, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "RollingRange";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", min_deque_.window_size());
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("min", min_deque_);
+        ar.object("max", max_deque_);
+        ar.check(min_deque_.samples_seen() == max_deque_.samples_seen(),
+                 "min and max must have seen the same samples");
+    }
+
     explicit RollingRange(int window_size)
         : min_deque_(window_size), max_deque_(window_size) {}
 

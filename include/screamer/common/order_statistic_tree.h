@@ -87,6 +87,23 @@ namespace screamer {
             }
         }
 
+        // Whether the tree holds exactly the values of `window` that are not
+        // NaN (a load's check of a tree against its window).
+        bool holds(const std::vector<double>& window) const {
+            std::vector<double> values;
+            for (double v : window)
+                if (v == v) values.push_back(v);
+            std::sort(values.begin(), values.end());
+            std::vector<double> k;
+            std::vector<int> c;
+            keys(k, c);
+            std::size_t at = 0;
+            for (std::size_t i = 0; i < k.size(); ++i)
+                for (int n = 0; n < c[i]; ++n, ++at)
+                    if (at >= values.size() || !(values[at] == k[i])) return false;
+            return at == values.size();
+        }
+
     private:
         struct OSTNode {
             double key;

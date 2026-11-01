@@ -39,6 +39,28 @@ namespace screamer {
 class Stoch : public FunctorBase<Stoch, 3, 2> {
     friend struct detail::TestAccess;   // tests read the event counters (test_access.h)
 public:
+    static constexpr const char* kTypeName = "Stoch";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("fastk_period", fastk_period_);
+        ar("smooth_k", smooth_k_);
+        ar("d", d_);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("max", max_deque_);
+        ar.object("min", min_deque_);
+        ar.object("smooth_k_mean", smooth_k_mean_);
+        ar.object("d_mean", d_mean_);
+        ar("n_seen", n_seen_);
+        ar.check(max_deque_.samples_seen() == min_deque_.samples_seen(),
+                 "max and min must have seen the same samples");
+        ar.check(n_seen_ >= 0, "n_seen must not be negative");
+    }
+
     Stoch(int fastk_period = 14, int smooth_k = 3, int d = 3)
         : fastk_period_(fastk_period),
           smooth_k_(smooth_k),

@@ -26,8 +26,32 @@
 
 namespace screamer {
 
-class RollingIqr : public ScreamerBase {
+class RollingIqr : public serial::Saveable<RollingIqr, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "RollingIqr";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", window_size_);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        // The window oldest first (NaN for an empty slot) and the order
+        // statistic tree of its values.
+        std::vector<double> window;
+        if constexpr (Ar::kSaving) window = buffer_.oldest_first();
+        ar.local("window", window, buffer_.size());
+        ar.object("tree", ost_);
+        if constexpr (Ar::kLoading) {
+            std::vector<double> old = buffer_.oldest_first();
+            ar.apply([&] { buffer_.assign_oldest_first(window); },
+                     [this, old = std::move(old)] { buffer_.assign_oldest_first(old); });
+            ar.check(ost_.holds(window), "tree must hold the values of the window");
+        }
+    }
+
     explicit RollingIqr(int window_size)
         : window_size_(window_size),
           buffer_(window_size, std::numeric_limits<double>::quiet_NaN()),

@@ -34,8 +34,26 @@
 
 namespace screamer {
 
-class Hampel : public ScreamerBase {
+class Hampel : public serial::Saveable<Hampel, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "Hampel";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", window_.window_size());
+        ar("n_sigma", n_sigma_);
+        ar("output", std::string(output_ == 1 ? "flag" : output_ == 2 ? "nan" : "cleaned"));
+        ar("start_policy", std::string(detail::start_policy_name(start_policy_)));
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("window", window_);
+        ar.check(start_policy_ != detail::StartPolicy::Zero || window_.full(),
+                 "the window must be full under the zero start policy");
+    }
+
     static int parse_output(const std::string& s) {
         if (s == "cleaned") return 0;
         if (s == "flag")    return 1;

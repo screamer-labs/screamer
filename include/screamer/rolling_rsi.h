@@ -47,9 +47,34 @@
 
 namespace screamer {
 
-class RollingRSI : public ScreamerBase {
+class RollingRSI : public serial::Saveable<RollingRSI, ScreamerBase> {
     friend struct detail::TestAccess;   // tests read the event counters (test_access.h)
 public:
+    static constexpr const char* kTypeName = "RollingRSI";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", window_size_);
+        ar("method", std::string(method_ == Method::Cutler ? "cutler" : "wilder"));
+        ar("start_policy", std::string(detail::start_policy_name(start_policy_)));
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("gain_sum", rolling_gain_sum_);
+        ar.object("loss_sum", rolling_loss_sum_);
+        ar("prev_x", prev_x_);
+        ar("n", n_);
+        ar("wilder_avg_gain", wilder_avg_gain_);
+        ar("wilder_avg_loss", wilder_avg_loss_);
+        ar("wilder_seed_sum_gain", wilder_seed_sum_gain_);
+        ar("wilder_seed_sum_loss", wilder_seed_sum_loss_);
+        ar("wilder_count", wilder_count_);
+        ar.check(n_ >= 0 && n_ <= window_size_, "n must lie in 0 .. window_size");
+        ar.check(wilder_count_ >= 0, "wilder_count must not be negative");
+    }
+
     enum class Method { Wilder, Cutler };
 
     RollingRSI(int window_size,

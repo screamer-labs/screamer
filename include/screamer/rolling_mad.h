@@ -30,8 +30,29 @@
 
 namespace screamer {
 
-class RollingMad : public ScreamerBase {
+class RollingMad : public serial::Saveable<RollingMad, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "RollingMad";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", window_size_);
+        ar("start_policy", std::string(detail::start_policy_name(start_policy_)));
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.fixed("buffer", buffer_, static_cast<std::size_t>(window_size_));
+        ar("index", index_);
+        ar("count", size_);
+        ar("sum", sum_);
+        ar.check(index_ >= 0 && index_ < window_size_, "index must lie in 0 .. window_size - 1");
+        ar.check(size_ >= 0 && size_ <= window_size_, "count must lie in 0 .. window_size");
+        ar.check(size_ == window_size_ || index_ == size_,
+                 "index must equal count until the window is full");
+    }
+
     RollingMad(int window_size, const std::string& start_policy = "strict")
         : window_size_(window_size),
           start_policy_(detail::parse_start_policy(start_policy))

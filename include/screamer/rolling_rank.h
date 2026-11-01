@@ -23,8 +23,27 @@
 
 namespace screamer {
 
-class RollingRank : public ScreamerBase {
+class RollingRank : public serial::Saveable<RollingRank, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "RollingRank";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", window_size_);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.fixed("buffer", buffer_, static_cast<std::size_t>(window_size_));
+        ar("index", index_);
+        ar("count", size_);
+        ar.check(index_ >= 0 && index_ < window_size_, "index must lie in 0 .. window_size - 1");
+        ar.check(size_ >= 0 && size_ <= window_size_, "count must lie in 0 .. window_size");
+        ar.check(size_ == window_size_ || index_ == size_,
+                 "index must equal count until the window is full");
+    }
+
     explicit RollingRank(int window_size) : window_size_(window_size) {
         if (window_size < 1) {
             throw std::invalid_argument("Window size must be positive.");

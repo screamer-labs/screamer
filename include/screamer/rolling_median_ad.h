@@ -25,8 +25,24 @@
 
 namespace screamer {
 
-class RollingMedianAD : public ScreamerBase {
+class RollingMedianAD : public serial::Saveable<RollingMedianAD, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "RollingMedianAD";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", window_.window_size());
+        ar("start_policy", std::string(detail::start_policy_name(start_policy_)));
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("window", window_);
+        ar.check(start_policy_ != detail::StartPolicy::Zero || window_.full(),
+                 "the window must be full under the zero start policy");
+    }
+
     RollingMedianAD(int window_size, const std::string& start_policy = "strict")
         : start_policy_(detail::parse_start_policy(start_policy)),
           window_(window_size)

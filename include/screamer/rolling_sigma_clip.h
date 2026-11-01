@@ -9,12 +9,31 @@
 #include <cmath>
 #include <cstddef>
 #include <limits>
+#include <optional>
 #include <stdexcept>
 #include <string>
 namespace screamer {
 
-    class RollingSigmaClip : public ScreamerBase {
+    class RollingSigmaClip : public serial::Saveable<RollingSigmaClip, ScreamerBase> {
     public:
+        static constexpr const char* kTypeName = "RollingSigmaClip";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) {
+            ar("window_size", window_size_);
+            ar("lower", lower_);
+            ar("upper", upper_);
+            ar("output", std::string(kOutputs[output_]));
+            ar("start_policy", std::string(detail::start_policy_name(start_policy_)));
+        }
+
+        template <class Ar>
+        void state(Ar& ar) {
+            ar.object("window", sums_);
+            ar("mean", mean_);
+            ar("std", std_);
+        }
 
         static int parse_output(const std::string& s) {
             if (s == "clipped") return 0;
@@ -37,7 +56,9 @@ namespace screamer {
             lower_bound_(lower.value_or(std::numeric_limits<double>::lowest())),
             upper_bound_(upper.value_or(std::numeric_limits<double>::max())),
             window_size_(window_size),
-            output_(parse_output(output))
+            output_(parse_output(output)),
+            lower_(lower),
+            upper_(upper)
         {
             if (window_size_ <= 0) {
                 throw std::invalid_argument("Window size must be positive.");
@@ -172,6 +193,8 @@ namespace screamer {
         double sigma_trunc = 0;
         double mean_ = 0;
         double std_ = 0;
+        std::optional<double> lower_, upper_;   // as given
+        static constexpr const char* kOutputs[] = {"clipped", "mean", "std", "nan"};
     }; // end of class
 
 } // end of namespace

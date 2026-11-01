@@ -4,12 +4,58 @@
 #include <screamer/common/buffer.h>
 #include "screamer/common/base.h"
 #include "screamer/common/float_info.h"
+#include <algorithm>
+#include <cstddef>
 #include <limits>
+#include <set>
 #include <stdexcept>
+#include <vector>
 namespace screamer {
 
-    class RollingMedian : public ScreamerBase {
+    class RollingMedian : public serial::Saveable<RollingMedian, ScreamerBase> {
     public:
+        static constexpr const char* kTypeName = "RollingMedian";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) {
+            ar("window_size", window_size);
+        }
+
+        template <class Ar>
+        void state(Ar& ar) {
+            // The window oldest first (NaN for an empty slot) and the two halves in
+            // increasing order.
+            std::vector<double> window, lo, hi;
+            if constexpr (Ar::kSaving) {
+                window = buffer.oldest_first();
+                lo.assign(low.begin(), low.end());
+                hi.assign(high.begin(), high.end());
+            }
+            ar.local("window", window, buffer.size());
+            ar.local("low", lo);
+            ar.local("high", hi);
+            if constexpr (Ar::kLoading) {
+                ar.check(lo.size() == hi.size() || lo.size() == hi.size() + 1,
+                         "low must hold as many values as high, or one more");
+                std::vector<double> both(lo);
+                both.insert(both.end(), hi.begin(), hi.end());
+                for (std::size_t k = 1; k < both.size(); ++k)
+                    ar.check(both[k - 1] <= both[k], "low then high must not decrease");
+                std::vector<double> values;
+                for (double v : window)
+                    if (v == v) values.push_back(v);
+                std::sort(values.begin(), values.end());
+                bool same = values.size() == both.size();
+                for (std::size_t k = 0; same && k < both.size(); ++k) same = values[k] == both[k];
+                ar.check(same, "low and high must hold the values of the window");
+                std::vector<double> old = buffer.oldest_first();
+                ar.apply([&] { buffer.assign_oldest_first(window); },
+                         [this, old = std::move(old)] { buffer.assign_oldest_first(old); });
+                ar.set(low, std::multiset<double>(lo.begin(), lo.end()));
+                ar.set(high, std::multiset<double>(hi.begin(), hi.end()));
+            }
+        }
 
         RollingMedian(int window_size) : 
             window_size(window_size), 
