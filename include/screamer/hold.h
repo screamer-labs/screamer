@@ -33,8 +33,28 @@
 
 namespace screamer {
 
-class Hold : public ScreamerBase {
+class Hold : public serial::Saveable<Hold, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "Hold";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("n", n_);
+        ar("release", release_);
+        ar("cooldown", cooldown_);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("held", held_);
+        ar("remaining", remaining_);
+        ar("cool", cool_);
+        ar.check(remaining_ >= 0 && remaining_ < n_, "remaining must lie in 0 .. n - 1");
+        ar.check(cool_ >= 0 && cool_ <= cooldown_, "cool must lie in 0 .. cooldown");
+        ar.check(remaining_ == 0 || cool_ == 0, "cool must be 0 while a value is held");
+    }
+
     Hold(int n, double release = 0.0, int cooldown = 0)
         : n_(n), release_(release), cooldown_(cooldown)
     {

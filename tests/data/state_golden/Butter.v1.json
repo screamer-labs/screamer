@@ -1,0 +1,21 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "Butter",
+    "settings": {
+      "order": 2,
+      "cutoff_freq": 0.1,
+      "start_policy": "steady"
+    },
+    "state": {
+      "version": 1,
+      "values": {
+        "iir": {
+          "z": [981.8590874673451, -621.8196209432916],
+          "started": true
+        }
+      }
+    }
+  }
+}

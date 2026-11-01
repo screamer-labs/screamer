@@ -23,6 +23,23 @@ namespace screamer {
 class MAMA : public FunctorBase<MAMA, 1, 2> {
     friend struct detail::TestAccess;   // tests read the event counters (test_access.h)
 public:
+    static constexpr const char* kTypeName = "MAMA";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("fast_limit", fast_);
+        ar("slow_limit", slow_);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("engine", engine_);
+        ar("prev_phase", prev_phase_);
+        ar("mama", mama_);
+        ar("fama", fama_);
+    }
+
     explicit MAMA(double fast_limit = 0.5, double slow_limit = 0.05)
         : fast_(fast_limit), slow_(slow_limit) {
         require_finite("fast_limit", fast_limit);

@@ -18,10 +18,24 @@
 
 namespace screamer {
 
-class ButterHighpass : public ScreamerBase {
+class ButterHighpass : public serial::Saveable<ButterHighpass, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "ButterHighpass";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("order", order_);
+        ar("cutoff_freq", cutoff_freq_);
+        ar("start_policy", std::string(iir_.start_policy_name()));
+    }
+
+    template <class Ar>
+    void state(Ar& ar) { ar.object("iir", iir_); }
+
     ButterHighpass(int order, double cutoff_freq,
-                   const std::string& start_policy = "steady") {
+                   const std::string& start_policy = "steady")
+        : order_(order), cutoff_freq_(cutoff_freq) {
         const IIRStart start = parse_iir_start(start_policy, "ButterHighpass");
         if (order < 1) throw std::invalid_argument("Order must be at least 1.");
         if (!(cutoff_freq > 0.0 && cutoff_freq < 1.0)) {
@@ -48,6 +62,8 @@ public:
     }
 
 private:
+    int order_;
+    double cutoff_freq_;
     IIRFilter iir_;
 };
 

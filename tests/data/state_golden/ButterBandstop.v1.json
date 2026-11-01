@@ -1,0 +1,22 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "ButterBandstop",
+    "settings": {
+      "order": 2,
+      "low_cutoff": 0.05,
+      "high_cutoff": 0.2,
+      "start_policy": "steady"
+    },
+    "state": {
+      "version": 1,
+      "values": {
+        "iir": {
+          "z": [278.9802097869408, -162.74318471641786, -274.2343959447478, 206.53850068053103],
+          "started": true
+        }
+      }
+    }
+  }
+}

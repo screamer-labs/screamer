@@ -13,6 +13,17 @@ namespace screamer {
 
 class CycleAmplitude : public FunctorBase<CycleAmplitude, 1, 1> {
 public:
+    static constexpr const char* kTypeName = "CycleAmplitude";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("engine", engine_);
+    }
+
     CycleAmplitude() = default;
     void reset() override { engine_.reset(); }
     ResultTuple call(const InputArray& inputs) override {

@@ -20,11 +20,25 @@
 
 namespace screamer {
 
-class Decycler : public ScreamerBase {
+class Decycler : public serial::Saveable<Decycler, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "Decycler";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("period", period_);
+        ar("cutoff", cutoff_);
+        ar("start_policy", std::string(iir_.start_policy_name()));
+    }
+
+    template <class Ar>
+    void state(Ar& ar) { ar.object("iir", iir_); }
+
     explicit Decycler(std::optional<double> period = std::nullopt,
                       std::optional<double> cutoff = std::nullopt,
-                      const std::string& start_policy = "steady") {
+                      const std::string& start_policy = "steady")
+        : period_(period), cutoff_(cutoff) {
         const IIRStart start = parse_iir_start(start_policy, "Decycler");
         const double p = ehlers_resolve_period(period, cutoff);
         std::vector<double> b, a;
@@ -46,6 +60,7 @@ public:
     }
 
 private:
+    std::optional<double> period_, cutoff_;   // as given
     IIRFilter iir_;
 };
 

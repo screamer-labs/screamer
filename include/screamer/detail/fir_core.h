@@ -51,6 +51,18 @@ public:
     // True once the buffer holds a full window of real samples.
     bool warm() const { return n_seen_ >= taps_.size(); }
 
+    // The ring as it is (slot index_ is the next to write) and the count.
+    template <class Ar>
+    void state(Ar& ar) {
+        const std::size_t L = taps_.size();
+        ar.fixed("buffer", buffer_, L);
+        ar("index", index_);
+        ar("n_seen", n_seen_);
+        ar.check(index_ < L, "index must be less than the number of taps");
+        ar.check(n_seen_ <= L, "n_seen must be at most the number of taps");
+        ar.check(n_seen_ == L || index_ == n_seen_, "index must equal n_seen while filling");
+    }
+
     void push(double x) {
         buffer_[index_] = x;
         ++index_;

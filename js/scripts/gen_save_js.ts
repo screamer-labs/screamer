@@ -13,8 +13,11 @@ export const ORACLE_PATH = new URL("../../wasm/smoke/save_oracle.json", import.m
 export const FIXTURE_PATH = new URL("../../wasm/smoke/save_js.json", import.meta.url);
 
 const num = (v: number | null | string): number => (v === null ? NaN : typeof v === "string" ? Number(v) : v);
-const decode = (x: any): any => (Array.isArray(x) ? x.map(decode)
-  : x === null || (typeof x === "string" && /Infinity/.test(x)) ? num(x) : x);
+// Settings keep null ("not given"); only the infinities are decoded, at any depth.
+const decodeSettings = (x: any): any =>
+  Array.isArray(x) ? x.map(decodeSettings)
+    : x !== null && typeof x === "object" ? Object.fromEntries(Object.entries(x).map(([k, v]) => [k, decodeSettings(v)]))
+    : typeof x === "string" && /^-?Infinity$/.test(x) ? num(x) : x;
 const hex = (b: Uint8Array) => Array.from(b, (v) => v.toString(16).padStart(2, "0")).join("");
 
 /** The fixture's text: one {name, json_text, cbor_hex} per case of the oracle. */
@@ -22,7 +25,7 @@ export async function fixtureText(): Promise<string> {
   await S.ready();
   const oracle = JSON.parse(readFileSync(ORACLE_PATH, "utf8"));
   const out = oracle.cases.map((c: any) => {
-    const op = S.fromSettings({ type: c.name, settings: decode(c.settings) });
+    const op = S.fromSettings({ type: c.name, settings: decodeSettings(c.settings) });
     try {
       for (let t = 0; t < c.prefix[0].length; t++) op(...c.prefix.map((x: any[]) => num(x[t])));
       return { name: c.name, json_text: op.dumps(), cbor_hex: hex(op.dumps("cbor")) };

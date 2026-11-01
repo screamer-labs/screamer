@@ -27,8 +27,17 @@
 
 namespace screamer {
 
-class MovingAverage : public ScreamerBase {
+class MovingAverage : public serial::Saveable<MovingAverage, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "MovingAverage";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) { ar("taps", fir_.taps()); }
+
+    template <class Ar>
+    void state(Ar& ar) { ar.object("fir", fir_); }
+
     explicit MovingAverage(const std::vector<double>& taps)
         : fir_(validated(taps))
     {}

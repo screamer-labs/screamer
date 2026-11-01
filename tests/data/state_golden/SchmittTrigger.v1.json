@@ -1,0 +1,18 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "SchmittTrigger",
+    "settings": {
+      "lower": -1.0,
+      "upper": 1.0,
+      "initial": 0.0
+    },
+    "state": {
+      "version": 1,
+      "values": {
+        "output": 1.0
+      }
+    }
+  }
+}

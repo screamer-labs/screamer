@@ -1,0 +1,27 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "RoofingFilter",
+    "settings": {
+      "hp_period": 48.0,
+      "lp_period": 10.0,
+      "hp_cutoff": null,
+      "lp_cutoff": null,
+      "start_policy": "steady"
+    },
+    "state": {
+      "version": 1,
+      "values": {
+        "hp": {
+          "z": [-915.4870162489225, 915.3204120996478],
+          "started": true
+        },
+        "lp": {
+          "z": [3.9626003052428977, -1.6931429294103044],
+          "started": true
+        }
+      }
+    }
+  }
+}

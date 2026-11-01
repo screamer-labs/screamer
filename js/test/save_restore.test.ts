@@ -38,7 +38,11 @@ const ORACLE = JSON.parse(readFileSync(new URL("../../wasm/smoke/save_oracle.jso
 
 // null is NaN, and "Infinity" / "-Infinity" the infinities.
 const num = (v: Num): number => (v === null ? NaN : typeof v === "string" ? Number(v) : v);
-const decode = (x: any): any => (Array.isArray(x) ? x.map(decode) : x === null || typeof x === "string" && /Infinity/.test(x) ? num(x) : x);
+// Settings keep null ("not given"); only the infinities are decoded, at any depth.
+const decodeSettings = (x: any): any =>
+  Array.isArray(x) ? x.map(decodeSettings)
+    : x !== null && typeof x === "object" ? Object.fromEntries(Object.entries(x).map(([k, v]) => [k, decodeSettings(v)]))
+    : typeof x === "string" && /^-?Infinity$/.test(x) ? num(x) : x;
 const same = (a: number, b: number) => Object.is(a, b) || (Number.isNaN(a) && Number.isNaN(b));
 const flat = (x: any): number[] => (typeof x === "number" ? [x] : Array.from(x.data ?? x, (v: any) => v as number));
 const hex = (b: Uint8Array) => Array.from(b, (v) => v.toString(16).padStart(2, "0")).join("");
@@ -90,7 +94,7 @@ const arrays = (inputs: Num[][]) => inputs.map((x) => Float64Array.from(x, num))
 for (const c of ORACLE.cases) {
   const want = c.expected_rest_output.flat().map(num);
   const fed = () => {
-    const op = S.fromSettings({ type: c.name, settings: decode(c.settings) });
+    const op = S.fromSettings({ type: c.name, settings: decodeSettings(c.settings) });
     feed(op, c.prefix);
     return op;
   };
@@ -138,7 +142,7 @@ for (const c of ORACLE.cases) {
   });
 
   test(`save: ${c.name} fromSettings round-trips and starts fresh`, () => {
-    const op = S.fromSettings({ type: c.name, settings: decode(c.settings) });
+    const op = S.fromSettings({ type: c.name, settings: decodeSettings(c.settings) });
     const again = S.fromSettings({ type: c.name, settings: op.settings() });
     assert.deepEqual(again.settings(), op.settings());
     assert.deepEqual(op.state(), again.state());
@@ -149,7 +153,7 @@ for (const c of ORACLE.cases) {
   });
 
   test(`save: ${c.name} resume equals one event at a time, and Python`, () => {
-    const op = S.fromSettings({ type: c.name, settings: decode(c.settings) });
+    const op = S.fromSettings({ type: c.name, settings: decodeSettings(c.settings) });
     const ref = fed();
     op.resume(...arrays(c.prefix));
     assert.equal(op.dumps(), ref.dumps());
@@ -164,11 +168,11 @@ for (const c of ORACLE.cases) {
 
 test("save: fromSettings builds every operator of the registry", () => {
   for (const r of ORACLE.registry) {
-    const op = S.fromSettings({ type: r.name, settings: decode(r.settings) });
+    const op = S.fromSettings({ type: r.name, settings: decodeSettings(r.settings) });
     assert.equal(op.opName, r.name);
     const factory = (S as any)[r.name];
     if (!Object.values(r.settings).some((v) => v !== null && typeof v === "object" && !Array.isArray(v))) {
-      const camel = Object.fromEntries(Object.entries(decode(r.settings)).map(
+      const camel = Object.fromEntries(Object.entries(decodeSettings(r.settings)).map(
         ([k, v]) => [k.replace(/_([a-z0-9])/g, (_m, ch) => ch.toUpperCase()), v]));
       const ref = factory(camel);
       assert.equal(op.numInputs, ref.numInputs, r.name);
@@ -272,7 +276,7 @@ test("save: an operator without save support raises NotSaveable", () => {
   const saveable = new Set(ORACLE.cases.map((c) => c.name));
   const r = ORACLE.registry.find((x) => !saveable.has(x.name));
   if (!r) return;   // every operator can be saved
-  const op = S.fromSettings({ type: r.name, settings: decode(r.settings) });
+  const op = S.fromSettings({ type: r.name, settings: decodeSettings(r.settings) });
   assert.throws(() => op.dumps(), (e: any) => e instanceof S.NotSaveable && e.message.includes(r.name));
   assert.throws(() => op.settings(), S.NotSaveable);
   op.dispose();
@@ -348,7 +352,7 @@ test("save: one-event calls and streams raise on an object holding per-column st
   const checked = new Set<string>();
   for (const r of ORACLE.registry) {
     if (r.name === "PortfolioReport") continue;
-    const op = S.fromSettings({ type: r.name, settings: decode(r.settings) });
+    const op = S.fromSettings({ type: r.name, settings: decodeSettings(r.settings) });
     try {
       if ((op as any).rowOp) continue;
       const n = op.numInputs;
@@ -372,7 +376,7 @@ test("save: one-event calls and streams raise on an object holding per-column st
   // PortfolioReport (tested below) keeps per-column state.
   for (const c of ORACLE.cases) {
     if (c.name === "PortfolioReport") continue;
-    const op: any = S.fromSettings({ type: c.name, settings: decode(c.settings) });
+    const op: any = S.fromSettings({ type: c.name, settings: decodeSettings(c.settings) });
     const row = !!op.rowOp;
     op.dispose();
     if (!row) assert.ok(checked.has(c.name), `${c.name} kept no per-column state`);

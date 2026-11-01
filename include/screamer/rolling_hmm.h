@@ -97,6 +97,7 @@ public:
             ar.check(n <= W_, "window must hold at most window_size values");
             ar.check(since_ >= 0 && since_ < refit_every_, "since must lie in 0 .. refit_every - 1");
             ar.check(!fitted_ || n == W_, "a fitted model must have a full window");
+            ar.check(!(var[0] <= 0.0) && !(var[1] <= 0.0), "var must be positive");
             for (int k = 0; k < 2; ++k) {
                 th.pi[k] = pi[k];
                 th.mu[k] = mu[k];

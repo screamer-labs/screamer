@@ -47,6 +47,7 @@
 #include <cmath>
 #include <cstddef>
 #include <limits>
+#include <vector>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -163,6 +164,25 @@ public:
     double smooth_price() const { return smooth_[0]; }
     double raw_smooth_period() const { return smooth_period_; }
 
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("price", price_);
+        ar.object("smooth", smooth_);
+        ar.object("detrender", detrender_);
+        ar.object("i1", i1_);
+        ar.object("q1", q1_);
+        ar("prev_i2", prev_i2_);
+        ar("prev_q2", prev_q2_);
+        ar("prev_re", prev_re_);
+        ar("prev_im", prev_im_);
+        ar("prev_period", prev_period_);
+        ar("smooth_period", smooth_period_);
+        ar("adj", adj_);
+        ar("n", n_);
+        ar("last_input_nan", last_input_nan_);
+        ar.check(n_ >= 0, "n must not be negative");
+    }
+
 private:
     static constexpr int kWarmup = 40;  // discriminator settling; tuned via pure-tone test.
     static double nan() { return std::numeric_limits<double>::quiet_NaN(); }
@@ -203,6 +223,20 @@ private:
             b[p + 8] = v;
         }
         double operator[](int k) const { return b[p + k]; }
+
+        // The 8 values newest first; a load places them from slot 0.
+        template <class Ar>
+        void state(Ar& ar) {
+            std::vector<double> v(8);
+            if constexpr (Ar::kSaving)
+                for (int k = 0; k < 8; ++k) v[k] = (*this)[k];
+            ar.local("values", v, 8);
+            if constexpr (Ar::kLoading) {
+                History h;
+                for (int k = 0; k < 8; ++k) h.b[k] = h.b[k + 8] = v[k];
+                ar.set(*this, h);
+            }
+        }
     };
 
     // 7-tap Hilbert weighting over the history window [0..6].

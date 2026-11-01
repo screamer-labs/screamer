@@ -30,8 +30,25 @@
 
 namespace screamer {
 
-class SchmittTrigger : public ScreamerBase {
+class SchmittTrigger : public serial::Saveable<SchmittTrigger, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "SchmittTrigger";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("lower", lower_);
+        ar("upper", upper_);
+        ar("initial", initial_);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("output", output_);
+        ar.check(output_ == 0.0 || output_ == 1.0 || isnan2(output_),
+                 "output must be 0.0, 1.0 or NaN");
+    }
+
     SchmittTrigger(double lower, double upper, double initial = 0.0)
         : lower_(lower), upper_(upper), initial_(initial)
     {

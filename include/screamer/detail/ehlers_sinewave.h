@@ -25,6 +25,7 @@
 
 #include <array>
 #include <cmath>
+#include <vector>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -91,6 +92,21 @@ public:
         buf_[pos_ + kEhlersSpan] = v;
     }
     const double* newest() const { return buf_.data() + pos_; }
+
+    // The kEhlersSpan values newest first; a load places them from slot 0.
+    template <class Ar>
+    void state(Ar& ar) {
+        std::vector<double> v(kEhlersSpan);
+        if constexpr (Ar::kSaving)
+            for (int k = 0; k < kEhlersSpan; ++k) v[k] = buf_[pos_ + k];
+        ar.local("values", v, kEhlersSpan);
+        if constexpr (Ar::kLoading) {
+            std::array<double, 2 * kEhlersSpan> b{};
+            for (int k = 0; k < kEhlersSpan; ++k) b[k] = b[k + kEhlersSpan] = v[k];
+            ar.set(buf_, b);
+            ar.set(pos_, 0);
+        }
+    }
 
 private:
     std::array<double, 2 * kEhlersSpan> buf_{};
@@ -239,6 +255,23 @@ public:
     int side() const { return side_; }
     int prev_side() const { return prev_side_; }
 
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("smooth", smooth_);
+        ar("re", re_);
+        ar("im", im_);
+        ar("period", period_);
+        ar("cos", cos_);
+        ar("sin", sin_);
+        ar("phase", phase_);
+        ar("prev_phase", prev_phase_);
+        ar("rate", rate_);
+        ar("side", side_);
+        ar("prev_side", prev_side_);
+        ar.check(side_ >= -1 && side_ <= 1 && prev_side_ >= -1 && prev_side_ <= 1,
+                 "side and prev_side must be -1, 0 or 1");
+    }
+
 private:
     MirrorRing smooth_;
     double re_ = 0.0, im_ = 0.0;
@@ -296,6 +329,18 @@ public:
     }
 
     double value() const { return value_; }
+
+    // sum_ is scratch: prepare() fills it before finish() reads it.
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("price", price_);
+        ar("count", count_);
+        ar("it1", it1_);
+        ar("it2", it2_);
+        ar("it3", it3_);
+        ar("value", value_);
+        ar.check(count_ >= 0 && count_ <= kEhlersMaxCycle, "count must lie in 0 .. 50");
+    }
 
 private:
     void finish_sum(double sum, int n) {

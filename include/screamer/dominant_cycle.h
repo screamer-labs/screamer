@@ -11,6 +11,17 @@ namespace screamer {
 
 class DominantCycle : public FunctorBase<DominantCycle, 1, 1> {
 public:
+    static constexpr const char* kTypeName = "DominantCycle";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("engine", engine_);
+    }
+
     DominantCycle() = default;
     void reset() override { engine_.reset(); }
     ResultTuple call(const InputArray& inputs) override {

@@ -23,6 +23,21 @@ namespace screamer {
 
 class TrendMode : public FunctorBase<TrendMode, 1, 1> {
 public:
+    static constexpr const char* kTypeName = "TrendMode";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("engine", engine_);
+        ar.object("dc", dc_);
+        ar.object("trendline", trendline_);
+        ar("days_in_trend", days_in_trend_);
+        ar.check(days_in_trend_ >= 0, "days_in_trend must not be negative");
+    }
+
     TrendMode() = default;
     void reset() override {
         engine_.reset();

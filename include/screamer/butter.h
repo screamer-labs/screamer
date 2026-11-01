@@ -14,9 +14,20 @@
 
 namespace screamer {
 
-    class Butter : public ScreamerBase {
+    class Butter : public serial::Saveable<Butter, ScreamerBase> {
     public:
+        static constexpr const char* kTypeName = "Butter";
+        static constexpr int kStateVersion = 1;
 
+        template <class Ar>
+        void settings(Ar& ar) {
+            ar("order", order_);
+            ar("cutoff_freq", cutoff_freq_);
+            ar("start_policy", std::string(irr.start_policy_name()));
+        }
+
+        template <class Ar>
+        void state(Ar& ar) { ar.object("iir", irr); }
 
         Butter(int order, double cutoff_freq, const std::string& start_policy = "steady") :
             order_(order), cutoff_freq_(cutoff_freq)

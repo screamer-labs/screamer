@@ -438,6 +438,18 @@ class IIRFilter {
         // True once the first non-NaN input has set the start state.
         bool started() const { return started_; }
 
+        // The start policy as the start_policy setting spells it.
+        const char* start_policy_name() const { return steady_ ? "steady" : "zero"; }
+
+        // The delay line and the started flag; the coefficients and zi
+        // follow from the settings.
+        template <class Ar>
+        void state(Ar& ar) {
+            ar.fixed("z", z, n - 1);
+            ar("started", started_);
+            ar.check(steady_ || started_, "a filter with start_policy zero is always started");
+        }
+
         void process_array_no_stride(
             double* y,
             const double* x,

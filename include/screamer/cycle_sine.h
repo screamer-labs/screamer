@@ -17,6 +17,18 @@ namespace screamer {
 
 class CycleSine : public FunctorBase<CycleSine, 1, 2> {
 public:
+    static constexpr const char* kTypeName = "CycleSine";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("engine", engine_);
+        ar.object("dc", dc_);
+    }
+
     CycleSine() = default;
     void reset() override {
         engine_.reset();

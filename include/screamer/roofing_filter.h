@@ -18,13 +18,33 @@
 
 namespace screamer {
 
-class RoofingFilter : public ScreamerBase {
+class RoofingFilter : public serial::Saveable<RoofingFilter, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "RoofingFilter";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("hp_period", hp_period_);
+        ar("lp_period", lp_period_);
+        ar("hp_cutoff", hp_cutoff_);
+        ar("lp_cutoff", lp_cutoff_);
+        ar("start_policy", std::string(hp_.start_policy_name()));
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("hp", hp_);
+        ar.object("lp", lp_);
+    }
+
     RoofingFilter(std::optional<double> hp_period = std::nullopt,
                   std::optional<double> lp_period = std::nullopt,
                   std::optional<double> hp_cutoff = std::nullopt,
                   std::optional<double> lp_cutoff = std::nullopt,
-                  const std::string& start_policy = "steady") {
+                  const std::string& start_policy = "steady")
+        : hp_period_(hp_period), lp_period_(lp_period), hp_cutoff_(hp_cutoff),
+          lp_cutoff_(lp_cutoff) {
         const IIRStart start = parse_iir_start(start_policy, "RoofingFilter");
         const double hp = ehlers_resolve_period(hp_period, hp_cutoff);
         const double lp = ehlers_resolve_period(lp_period, lp_cutoff);
@@ -79,6 +99,7 @@ private:
         lp.store(lp_);
     }
 
+    std::optional<double> hp_period_, lp_period_, hp_cutoff_, lp_cutoff_;   // as given
     IIRFilter hp_;
     IIRFilter lp_;
 };

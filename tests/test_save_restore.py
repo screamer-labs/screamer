@@ -309,7 +309,78 @@ def test_rolling_state_checks(make, edit, message):
     assert op.dumps() == before
 
 
-def test_renamed_alias_saves_its_own_type():
+def _fed2(op, pairs):
+    for x, y in pairs:
+        op(x, y)
+    return op
+
+
+_WALK = tuple(100.0 + np.cumsum(np.sin(np.arange(60.0))))
+
+
+@pytest.mark.parametrize("make, edit, message", [
+    (lambda: _fed(screamer.RollingHMM(10), (1.0, 2.0)),
+     lambda v: v.update(var=[1.0, 0.0]), "RollingHMM: var must be positive"),
+    (lambda: _fed(screamer.Butter(2, 0.1, start_policy="zero"), (1.0, 2.0)),
+     lambda v: v["iir"].update(started=False), "Butter.iir: a filter with start_policy zero"),
+    (lambda: _fed(screamer.Butter(2, 0.1), (1.0,)),
+     lambda v: v["iir"].update(z=[0.0]), r"Butter.iir.z: expected 2 values, got 1"),
+    (lambda: _fed(screamer.MovingAverage([0.2, 0.3, 0.5]), (1.0,)),
+     lambda v: v["fir"].update(index=2), "MovingAverage.fir: index must equal n_seen"),
+    (lambda: _fed(screamer.FracDiff(0.4, 5), (1.0, 2.0)),
+     lambda v: v["fir"].update(n_seen=9), "FracDiff.fir: n_seen must be at most"),
+    (lambda: _fed(screamer.KalmanFilter(0.01, 1.0), (1.0,)),
+     lambda v: v.update(diffuse_pending=True), "KalmanFilter: diffuse_pending needs"),
+    (lambda: _fed(screamer.KalmanFilter(0.01, 1.0), (1.0,)),
+     lambda v: v.update(P=-1.0), "KalmanFilter: P must not be negative"),
+    (lambda: _fed(screamer.SchmittTrigger(-1.0, 1.0), (2.0,)),
+     lambda v: v.update(output=0.5), "SchmittTrigger: output must be"),
+    (lambda: _fed(screamer.Hold(3), (1.0,)),
+     lambda v: v.update(remaining=3), "Hold: remaining must lie in"),
+    (lambda: _fed(screamer.Hold(1, cooldown=2), (1.0,)),
+     lambda v: v.update(cool=3), "Hold: cool must lie in"),
+    (lambda: _fed(screamer.CusumFilter(1.0), (0.5,)),
+     lambda v: v.update(pos=2.0), "CusumFilter: pos must lie in"),
+    (lambda: _fed(screamer.DominantCycle(), _WALK),
+     lambda v: v["engine"].update(n=-1), "DominantCycle.engine: n must not be negative"),
+    (lambda: _fed(screamer.DominantCycle(), _WALK),
+     lambda v: v["engine"]["i1"].update(values=[0.0] * 7),
+     r"DominantCycle.engine.i1.values: expected 8 values, got 7"),
+    (lambda: _fed(screamer.CycleSine(), _WALK),
+     lambda v: v["dc"]["smooth"].update(values=[0.0] * 51),
+     r"CycleSine.dc.smooth.values: expected 52 values, got 51"),
+    (lambda: _fed(screamer.TrendMode(), _WALK),
+     lambda v: v["dc"].update(side=2), "TrendMode.dc: side and prev_side"),
+    (lambda: _fed(screamer.TrendMode(), _WALK),
+     lambda v: v.update(days_in_trend=-1), "TrendMode: days_in_trend must not be negative"),
+    (lambda: _fed(screamer.InstantaneousTrendline(), _WALK),
+     lambda v: v["trendline"].update(count=51), "InstantaneousTrendline.trendline: count must lie"),
+    (lambda: _fed2(screamer.EwCov(span=5), ((1.0, 2.0), (2.0, 1.0))),
+     lambda v: v["sums"].update(w=-1.0), "EwCov.sums: w must not be negative"),
+    (lambda: _fed2(screamer.EwBeta(span=5), ((1.0, 2.0), (2.0, 1.0))),
+     lambda v: v.update(sum_w2=-1.0), "EwBeta: sum_w2 must not be negative"),
+])
+def test_ew_signal_state_checks(make, edit, message):
+    """The state checks of the ew and signal operators and their blocks: a
+    hand edit that breaks one raises a SaveError naming the path and leaves
+    the operator unchanged."""
+    op = make()
+    state = op.state()
+    before = op.dumps()
+    edit(state["values"])
+    with pytest.raises(screamer.SaveError, match=message):
+        op.set_state(state)
+    assert op.dumps() == before
+
+
+def test_cycle_rings_continue_after_load():
+    """The Hilbert and sinewave rings save newest first and load from slot 0,
+    so a loaded TrendMode continues as the original does, mid ring."""
+    x = np.asarray(_WALK)
+    a = _fed(screamer.TrendMode(), x[:45])
+    b = screamer.loads(a.dumps())
+    assert b.dumps() == a.dumps()
+    np.testing.assert_array_equal([b(v) for v in x[45:]], [a(v) for v in x[45:]])
     """ExpandingSum is CumSum under another name, and saves under its own."""
     a = _fed(screamer.ExpandingSum(), (1.0, 2.0))
     doc = json.loads(a.dumps())

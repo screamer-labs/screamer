@@ -22,6 +22,18 @@ namespace screamer {
 
 class InstantaneousTrendline : public FunctorBase<InstantaneousTrendline, 1, 1> {
 public:
+    static constexpr const char* kTypeName = "InstantaneousTrendline";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("engine", engine_);
+        ar.object("trendline", trendline_);
+    }
+
     InstantaneousTrendline() = default;
 
     void reset() override {

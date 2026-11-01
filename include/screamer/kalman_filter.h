@@ -41,8 +41,31 @@
 
 namespace screamer {
 
-class KalmanFilter : public ScreamerBase {
+class KalmanFilter : public serial::Saveable<KalmanFilter, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "KalmanFilter";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("process_var", process_var_);
+        ar("observation_var", observation_var_);
+        ar("initial_state", initial_state_);
+        ar("initial_variance", initial_variance_);
+        ar("huber", huber_);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("x", x_);
+        ar("P", P_);
+        ar("diffuse_pending", diffuse_pending_);
+        ar("seen", seen_);
+        ar.check(!(P_ < 0.0), "P must not be negative");
+        ar.check(!diffuse_pending_ || (std::isinf(initial_variance_) && !seen_),
+                 "diffuse_pending needs an infinite initial_variance and no observation yet");
+    }
+
     KalmanFilter(double process_var,
                  double observation_var,
                  double initial_state = 0.0,

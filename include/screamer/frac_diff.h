@@ -38,8 +38,22 @@
 
 namespace screamer {
 
-class FracDiff : public ScreamerBase {
+class FracDiff : public serial::Saveable<FracDiff, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "FracDiff";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("d", d_);
+        ar("window_size", window_size_);
+        ar("threshold", threshold_);
+        ar("start_policy", std::string(detail::start_policy_name(start_policy_)));
+    }
+
+    template <class Ar>
+    void state(Ar& ar) { ar.object("fir", fir_); }
+
     FracDiff(
         double d = 0.4,
         int window_size = 100,
@@ -48,7 +62,8 @@ public:
         // start_policy_ is declared first so an unknown policy raises
         // before the weight recursion runs.
         : start_policy_(detail::parse_start_policy(start_policy)),
-          fir_(frac_weights(d, window_size, threshold))
+          fir_(frac_weights(d, window_size, threshold)),
+          d_(d), window_size_(window_size), threshold_(threshold)
     {}
 
     void reset() override {
@@ -104,6 +119,9 @@ private:
 
     detail::StartPolicy start_policy_;
     detail::FirCore fir_;
+    double d_;           // as given
+    int window_size_;
+    double threshold_;
 };
 
 }  // namespace screamer

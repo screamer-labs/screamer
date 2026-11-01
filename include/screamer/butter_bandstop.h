@@ -19,10 +19,25 @@
 
 namespace screamer {
 
-class ButterBandstop : public ScreamerBase {
+class ButterBandstop : public serial::Saveable<ButterBandstop, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "ButterBandstop";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("order", order_);
+        ar("low_cutoff", low_cutoff_);
+        ar("high_cutoff", high_cutoff_);
+        ar("start_policy", std::string(iir_.start_policy_name()));
+    }
+
+    template <class Ar>
+    void state(Ar& ar) { ar.object("iir", iir_); }
+
     ButterBandstop(int order, double low_cutoff, double high_cutoff,
-                   const std::string& start_policy = "steady") {
+                   const std::string& start_policy = "steady")
+        : order_(order), low_cutoff_(low_cutoff), high_cutoff_(high_cutoff) {
         const IIRStart start = parse_iir_start(start_policy, "ButterBandstop");
         if (order < 1) throw std::invalid_argument("Order must be at least 1.");
         std::vector<double> b, a;
@@ -46,6 +61,9 @@ public:
     }
 
 private:
+    int order_;
+    double low_cutoff_;
+    double high_cutoff_;
     IIRFilter iir_;
 };
 

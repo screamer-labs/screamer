@@ -1,0 +1,20 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "MovingAverage",
+    "settings": {
+      "taps": [0.25, 0.5, 0.25]
+    },
+    "state": {
+      "version": 1,
+      "values": {
+        "fir": {
+          "buffer": [1005.1446743408897, 1006.814869702575, 1004.1628888954943],
+          "index": 2,
+          "n_seen": 3
+        }
+      }
+    }
+  }
+}

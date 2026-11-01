@@ -17,7 +17,8 @@ lists every functor with the settings it is built with in the save tests, so
 JavaScript can check that fromSettings builds each one.
 
 Numbers are written exactly; NaN is null, and an infinity is the string
-"Infinity" or "-Infinity". The files hold the library version they were
+"Infinity" or "-Infinity" (in "settings" null means not given, and only the
+infinities are spelled as strings). The files hold the library version they were
 written with; the tests compare them with it normalized.
 
 Modes:
@@ -76,6 +77,17 @@ def setting(v):
     return v
 
 
+def settings_tree(v):
+    """A settings() tree with its infinities spelled as strings; null stays."""
+    if isinstance(v, dict):
+        return {k: settings_tree(x) for k, x in v.items()}
+    if isinstance(v, list):
+        return [settings_tree(x) for x in v]
+    if isinstance(v, float) and math.isinf(v):
+        return num(v)
+    return v
+
+
 def cases():
     out = []
     for name in FUNCTOR_NAMES:
@@ -87,7 +99,7 @@ def cases():
         feed(a, inputs, 0, k)
         out.append({
             "name": name,
-            "settings": a.settings(),
+            "settings": settings_tree(a.settings()),
             "prefix": [nums(x[:k]) for x in inputs],
             "rest": [nums(x[k:k + REST]) for x in inputs],
             "json_text": a.dumps(),

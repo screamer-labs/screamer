@@ -13,6 +13,17 @@ namespace screamer {
 
 class HilbertPhasor : public FunctorBase<HilbertPhasor, 1, 2> {
 public:
+    static constexpr const char* kTypeName = "HilbertPhasor";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("engine", engine_);
+    }
+
     HilbertPhasor() = default;
     void reset() override { engine_.reset(); }
     ResultTuple call(const InputArray& inputs) override {

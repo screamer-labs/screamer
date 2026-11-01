@@ -1,0 +1,22 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "ButterBandpass",
+    "settings": {
+      "order": 2,
+      "low_cutoff": 0.05,
+      "high_cutoff": 0.2,
+      "start_policy": "steady"
+    },
+    "state": {
+      "version": 1,
+      "values": {
+        "iir": {
+          "z": [-39.23245398602084, -46.543080219591104, 45.20992991612025, 40.46687783037754],
+          "started": true
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "KalmanFilter",
+    "settings": {
+      "process_var": 0.01,
+      "observation_var": 1.0,
+      "initial_state": 0.0,
+      "initial_variance": 1.0,
+      "huber": Infinity
+    },
+    "state": {
+      "version": 1,
+      "values": {
+        "x": 999.1006963838965,
+        "P": 0.09513239726793185,
+        "diffuse_pending": false,
+        "seen": true
+      }
+    }
+  }
+}

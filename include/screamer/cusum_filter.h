@@ -20,8 +20,25 @@
 
 namespace screamer {
 
-class CusumFilter : public ScreamerBase {
+class CusumFilter : public serial::Saveable<CusumFilter, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "CusumFilter";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("threshold", threshold_);
+        ar("drift", drift_);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("pos", pos_);
+        ar("neg", neg_);
+        ar.check(pos_ >= 0.0 && pos_ <= threshold_, "pos must lie in 0 .. threshold");
+        ar.check(neg_ <= 0.0 && neg_ >= -threshold_, "neg must lie in -threshold .. 0");
+    }
+
     explicit CusumFilter(double threshold, double drift = 0.0)
         : threshold_(threshold), drift_(drift)
     {
