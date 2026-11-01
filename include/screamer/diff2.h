@@ -19,8 +19,26 @@
 
 namespace screamer {
 
-class Diff2 : public ScreamerBase {
+class Diff2 : public serial::Saveable<Diff2, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "Diff2";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("start_policy", std::string(detail::start_policy_name(policy_)));
+    }
+
+    // The two delay lines.
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("last1", state_.last1);
+        ar("last2", state_.last2);
+        ar("full1", state_.full1);
+        ar("full2", state_.full2);
+        ar.check(state_.full1 || !state_.full2, "the second delay fills after the first");
+    }
+
     Diff2(const std::string& start_policy = "strict")
         : policy_(detail::parse_start_policy(start_policy))
     {}

@@ -1,8 +1,8 @@
 """Write wasm/smoke/save_oracle.json: Python's save files, which
 js/test/save_restore.test.ts reads and writes in JavaScript.
 
-"cases" has one entry per functor that can be saved (tests/save_cases.py
-lists the operators, their settings and their inputs):
+"cases" has one entry per functor (tests/save_cases.py lists the operators,
+their settings and their inputs):
 
     name                  the operator
     settings              its settings(), the input of fromSettings
@@ -41,7 +41,7 @@ sys.path.insert(0, REPO)
 with contextlib.redirect_stdout(sys.stderr):
     import screamer
     from screamer import screamer_bindings
-    from tests.save_cases import FUNCTOR_NAMES, KNOWN_UNSAVEABLE, REST, case, feed, kwargs_for, splits
+    from tests.save_cases import FUNCTOR_NAMES, REST, case, feed, kwargs_for, splits
 
 OUT = os.path.join(REPO, "wasm", "smoke", "save_oracle.json")
 
@@ -91,8 +91,6 @@ def settings_tree(v):
 def cases():
     out = []
     for name in FUNCTOR_NAMES:
-        if name in KNOWN_UNSAVEABLE:
-            continue
         make, inputs = case(name)
         k = splits(name, kwargs_for(name))[2]
         a = make()

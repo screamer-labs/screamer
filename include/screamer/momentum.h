@@ -12,9 +12,10 @@
 
 namespace screamer {
 
-class Momentum : public Diff {
+class Momentum : public serial::Renamed<Momentum, Diff> {
 public:
-    using Diff::Diff;
+    static constexpr const char* kTypeName = "Momentum";
+    using Renamed::Renamed;
 };
 
 }  // namespace screamer

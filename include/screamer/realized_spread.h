@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <vector>
 #include <algorithm>
+#include <cstddef>
 #include "screamer/common/functor_base.h"
 #include "screamer/common/float_info.h"
 
@@ -23,6 +24,27 @@ namespace screamer {
     // NaN and does not advance the delay.
     class RealizedSpread : public FunctorBase<RealizedSpread, 2, 1> {
     public:
+        static constexpr const char* kTypeName = "RealizedSpread";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) {
+            ar("lag", lag_);
+        }
+
+        // The rings of the last `lag` trades as stored (slot `index` is
+        // written next) and the trades in them.
+        template <class Ar>
+        void state(Ar& ar) {
+            ar.fixed("dir", dir_, static_cast<std::size_t>(lag_));
+            ar.fixed("price", price_, static_cast<std::size_t>(lag_));
+            ar("index", idx_);
+            ar("count", count_);
+            ar.check(idx_ >= 0 && idx_ < lag_, "index must be below lag");
+            ar.check(count_ >= 0 && count_ <= lag_, "count must be in 0..lag");
+            ar.check(count_ == lag_ || idx_ == count_, "index must equal count until the ring is full");
+        }
+
         RealizedSpread(int lag = 1)
             : lag_(lag), dir_(lag > 0 ? lag : 1, 0.0), price_(lag > 0 ? lag : 1, 0.0)
         {

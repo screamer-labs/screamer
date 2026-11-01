@@ -18,6 +18,15 @@ namespace screamer {
     // into a realized (liquidity) part and a price-impact (adverse-selection) part.
     class EffectiveSpread : public FunctorBase<EffectiveSpread, 2, 1> {
     public:
+        static constexpr const char* kTypeName = "EffectiveSpread";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar&) {}
+
+        template <class Ar>
+        void state(Ar&) {}
+
         EffectiveSpread() = default;
 
         ResultTuple call(const InputArray& inputs) override {

@@ -289,14 +289,9 @@ test("save: the error classes", () => {
     (e: any) => e instanceof S.SaveError && e.message.includes("Segment.settings.op.settings.window: unknown parameter"));
 });
 
-test("save: an operator without save support raises NotSaveable", () => {
+test("save: every operator of the registry can be saved", () => {
   const saveable = new Set(ORACLE.cases.map((c) => c.name));
-  const r = ORACLE.registry.find((x) => !saveable.has(x.name));
-  if (!r) return;   // every operator can be saved
-  const op = S.fromSettings({ type: r.name, settings: decodeSettings(r.settings) });
-  assert.throws(() => op.dumps(), (e: any) => e instanceof S.NotSaveable && e.message.includes(r.name));
-  assert.throws(() => op.settings(), S.NotSaveable);
-  op.dispose();
+  assert.deepEqual(ORACLE.registry.filter((r) => !saveable.has(r.name)).map((r) => r.name), []);
 });
 
 test("save: a nested operator saves and loads", () => owning((keep) => {

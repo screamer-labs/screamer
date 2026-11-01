@@ -1,0 +1,18 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "HawkesIntensity",
+    "settings": {
+      "decay": 0.9,
+      "alpha": 1.0,
+      "mu": 0.0
+    },
+    "state": {
+      "version": 1,
+      "values": {
+        "kappa": 8957.582614097997
+      }
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "First",
+    "settings": {},
+    "state": {
+      "version": 1,
+      "values": {
+        "has_value": true,
+        "first_value": 1000.9276107998116
+      }
+    }
+  }
+}

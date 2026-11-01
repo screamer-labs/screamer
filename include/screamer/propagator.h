@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <vector>
 #include <algorithm>
+#include <cstddef>
 #include "screamer/common/base.h"
 
 namespace screamer {
@@ -20,10 +21,33 @@ namespace screamer {
     // (the output is NaN while the NaN is inside the window and recovers once it
     // leaves), exactly as Lag/Diff propagate. The first window_size-1 samples are NaN
     // (warmup, the window is not yet full).
-    class Propagator : public ScreamerBase {
+    class Propagator : public serial::Saveable<Propagator, ScreamerBase> {
     public:
+        static constexpr const char* kTypeName = "Propagator";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) {
+            ar("window_size", window_);
+            ar("g0", g0_);
+            ar("gamma", gamma_);
+        }
+
+        // The ring as stored (slot `index` is written next) and the samples
+        // in it; the kernel follows from the settings.
+        template <class Ar>
+        void state(Ar& ar) {
+            ar.fixed("buffer", buffer_, static_cast<std::size_t>(window_));
+            ar("index", index_);
+            ar("count", size_);
+            ar.check(index_ >= 0 && index_ < window_, "index must be inside the window");
+            ar.check(size_ >= 0 && size_ <= window_, "count must be in 0..window_size");
+            ar.check(size_ == window_ || index_ == size_,
+                     "index must equal count until the window is full");
+        }
+
         Propagator(int window_size = 20, double g0 = 1.0, double gamma = 0.5)
-            : window_(window_size)
+            : window_(window_size), g0_(g0), gamma_(gamma)
         {
             require_finite("g0", g0);
             require_finite("gamma", gamma);
@@ -70,6 +94,8 @@ namespace screamer {
 
     private:
         const int window_;
+        const double g0_;
+        const double gamma_;
         int index_ = 0;
         int size_ = 0;
         std::vector<double> kernel_;

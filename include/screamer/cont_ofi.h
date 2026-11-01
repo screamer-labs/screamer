@@ -25,9 +25,31 @@ namespace screamer {
         // copy, which stays in registers (functor_base.h).
         static constexpr bool kColumnCopy = true;
 
+        static constexpr const char* kTypeName = "ContOFI";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar&) {}
+
+        // The previous quote.
+        template <class Ar>
+        void state(Ar& ar) {
+            ar("has_prev", has_prev_);
+            ar("prev_bid", prev_bid_);
+            ar("prev_ask", prev_ask_);
+            ar("prev_bid_size", prev_bid_size_);
+            ar("prev_ask_size", prev_ask_size_);
+        }
+
         ContOFI() = default;
 
-        void reset() override { has_prev_ = false; }
+        void reset() override {
+            has_prev_ = false;
+            prev_bid_ = 0.0;
+            prev_ask_ = 0.0;
+            prev_bid_size_ = 0.0;
+            prev_ask_size_ = 0.0;
+        }
 
         ResultTuple call(const InputArray& inputs) override {
             const double bid = inputs[0];

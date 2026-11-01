@@ -8,8 +8,21 @@
 #include <string>
 namespace screamer {
 
-    class Diff : public ScreamerBase {
+    class Diff : public serial::Saveable<Diff, ScreamerBase> {
     public:
+        static constexpr const char* kTypeName = "Diff";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) {
+            ar("window_size", static_cast<int>(delay_buffer_.capacity()));
+            ar("start_policy", std::string(detail::start_policy_name(delay_buffer_.start_policy())));
+        }
+
+        template <class Ar>
+        void state(Ar& ar) {
+            ar.object("delay", delay_buffer_);
+        }
 
         Diff(int window_size, const std::string& start_policy = "strict") : 
             delay_buffer_(window_size, start_policy)

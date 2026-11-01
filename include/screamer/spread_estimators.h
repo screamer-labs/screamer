@@ -75,6 +75,28 @@ inline std::size_t spread_window(int window_size) {
 
 class CorwinSchultzSpread : public StepperFunctorBase<CorwinSchultzSpread, 3, 1> {
 public:
+    static constexpr const char* kTypeName = "CorwinSchultzSpread";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", static_cast<int>(mean_.capacity()));
+        ar("adjust_overnight", adjust_overnight_);
+        ar("start_policy", std::string(detail::start_policy_name(mean_.start_policy())));
+    }
+
+    // The window and the previous bar.
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("mean", mean_);
+        ar("have_prev", have_prev_);
+        ar("prev_high", prev_high_);
+        ar("prev_low", prev_low_);
+        ar("prev_close", prev_close_);
+        ar("prev_lr2", prev_lr2_);
+        ar.check(have_prev_ || mean_.count() == 0, "the window needs a previous bar");
+    }
+
     CorwinSchultzSpread(int window_size, bool adjust_overnight = true,
                         const std::string& start_policy = "strict")
         : adjust_overnight_(adjust_overnight),
@@ -178,6 +200,25 @@ private:
 
 class AbdiRanaldoSpread : public StepperFunctorBase<AbdiRanaldoSpread, 3, 1> {
 public:
+    static constexpr const char* kTypeName = "AbdiRanaldoSpread";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", static_cast<int>(mean_.capacity()));
+        ar("start_policy", std::string(detail::start_policy_name(mean_.start_policy())));
+    }
+
+    // The window and the previous bar.
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("mean", mean_);
+        ar("have_prev", have_prev_);
+        ar("prev_c", prev_c_);
+        ar("prev_dev", prev_dev_);
+        ar.check(have_prev_ || mean_.count() == 0, "the window needs a previous bar");
+    }
+
     AbdiRanaldoSpread(int window_size, const std::string& start_policy = "strict")
         : mean_(detail::spread_window(window_size), start_policy)
     {

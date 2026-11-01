@@ -10,8 +10,22 @@
 
 namespace screamer {
 
-class First : public ScreamerBase {
+class First : public serial::Saveable<First, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "First";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("has_value", has_value_);
+        ar("first_value", first_value_);
+        ar.check(has_value_ != std::isnan(first_value_),
+                 "first_value must be set exactly when has_value");
+    }
+
     First() { reset(); }
 
     void reset() override {

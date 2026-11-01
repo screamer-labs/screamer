@@ -21,8 +21,33 @@ namespace screamer {
     // where sigma is the rolling sample standard deviation of the return. Works on
     // aggregate bars, no tick data needed; the output is a fraction in [0, 1].
     // Two detail::RollingSum buffers under the hood (Sy, Syy), O(1) per step.
-    class BulkVolumeClassifier : public ScreamerBase {
+    class BulkVolumeClassifier : public serial::Saveable<BulkVolumeClassifier, ScreamerBase> {
     public:
+        static constexpr const char* kTypeName = "BulkVolumeClassifier";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) {
+            ar("window_size", window_size_);
+            ar("start_policy", std::string(detail::start_policy_name(start_policy_)));
+        }
+
+        // The window sums and the samples counted in them (window_size from
+        // the start under start_policy "zero").
+        template <class Ar>
+        void state(Ar& ar) {
+            ar.object("sum_y", sum_y_buffer);
+            ar.object("sum_yy", sum_yy_buffer);
+            ar("n", n_);
+            ar.check(sum_y_buffer.size() == sum_yy_buffer.size() &&
+                         sum_y_buffer.index() == sum_yy_buffer.index(),
+                     "the window sums must hold the same samples");
+            ar.check(start_policy_ == detail::StartPolicy::Zero
+                         ? n_ == static_cast<size_t>(window_size_)
+                         : n_ == sum_y_buffer.size(),
+                     "n must count the samples in the window");
+        }
+
         BulkVolumeClassifier(int window_size, const std::string& start_policy = "strict")
             : window_size_(window_size),
               start_policy_(detail::parse_start_policy(start_policy)),

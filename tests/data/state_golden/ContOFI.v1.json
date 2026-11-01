@@ -1,0 +1,18 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "ContOFI",
+    "settings": {},
+    "state": {
+      "version": 1,
+      "values": {
+        "has_prev": true,
+        "prev_bid": 1006.814869702575,
+        "prev_ask": 1008.2939345130559,
+        "prev_bid_size": 1005.6018314473394,
+        "prev_ask_size": 1007.2939345130559
+      }
+    }
+  }
+}

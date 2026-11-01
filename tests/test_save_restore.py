@@ -4,8 +4,7 @@ An operator saved after any number of events and loaded back continues bit for
 bit: feeding A, saving, loading and feeding B gives what feeding A then B
 gives. The registry test runs every functor of help.json at three save points
 (at construction, mid warm-up and after two windows), through JSON and CBOR.
-Functors without save support yet are listed in
-``tests/save_cases.py::KNOWN_UNSAVEABLE`` and expected to fail.
+Every functor must be saveable (``test_every_functor_saveable``).
 
 The golden files in ``tests/data/state_golden`` fix each operator's state
 layout per state version, so a layout change without a version bump fails.
@@ -24,19 +23,11 @@ from screamer import screamer_bindings as _b
 from tests._oracle_fresh import _same as _oracle_same, run_generator
 from tests.regime_helpers import assert_bitwise
 from tests import test_batch_stream_bitwise as _sweep
-from tests.save_cases import (FUNCTOR_NAMES, HELP, KNOWN_UNSAVEABLE, REST, case, feed,
+from tests.save_cases import (FUNCTOR_NAMES, HELP, REST, case, feed,
                               kwargs_for, splits)
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 GOLDEN = ROOT / "tests" / "data" / "state_golden"
-
-SAVEABLE = [n for n in FUNCTOR_NAMES if n not in KNOWN_UNSAVEABLE]
-
-
-def _unsaveable_mark(name):
-    if name in KNOWN_UNSAVEABLE:
-        return pytest.mark.xfail(strict=True, reason=f"{name} has no save support yet")
-    return ()
 
 
 def _same(a, b):
@@ -47,8 +38,7 @@ def _same(a, b):
 # ---- Continuation ------------------------------------------------------------
 
 @pytest.mark.parametrize("split", ["0", "3", "2w"])
-@pytest.mark.parametrize(
-    "name", [pytest.param(n, marks=_unsaveable_mark(n)) for n in FUNCTOR_NAMES])
+@pytest.mark.parametrize("name", FUNCTOR_NAMES)
 def test_continuation(name, split):
     make, inputs = case(name)
     k = splits(name, kwargs_for(name))[("0", "3", "2w").index(split)]
@@ -67,7 +57,7 @@ def test_continuation(name, split):
     assert_bitwise(feed(c, inputs, k, end), want)
 
 
-@pytest.mark.parametrize("name", SAVEABLE)
+@pytest.mark.parametrize("name", FUNCTOR_NAMES)
 def test_settings_match_help(name):
     make, _ = case(name)
     op = make()
@@ -78,7 +68,7 @@ def test_settings_match_help(name):
     assert _same(again.settings(), settings)
 
 
-@pytest.mark.parametrize("name", SAVEABLE)
+@pytest.mark.parametrize("name", FUNCTOR_NAMES)
 def test_state_is_reset_state(name):
     make, inputs = case(name)
     op = make()
@@ -88,7 +78,7 @@ def test_state_is_reset_state(name):
     assert _same(op.state(), fresh)
 
 
-@pytest.mark.parametrize("name", SAVEABLE)
+@pytest.mark.parametrize("name", FUNCTOR_NAMES)
 def test_from_settings_is_fresh(name):
     make, inputs = case(name)
     op = make()
@@ -629,6 +619,98 @@ def test_fin_state_checks(make, edit, message):
     assert op.dumps() == before
 
 
+_BARS = tuple((w * 1.01, w * 0.99, w) for w in _WALK)
+_OHLC = tuple((w * 1.002, w * 1.01, w * 0.99, w) for w in _WALK)
+
+
+def _edge_ring_inf(v):
+    v["ring"][1] = float("inf")
+
+
+@pytest.mark.parametrize("make, edit, message", [
+    (lambda: _fed(screamer.Diff2(), _WALK[:1]),
+     lambda v: v.update(full1=False, full2=True), "Diff2: the second delay fills after the first"),
+    (lambda: _fed(screamer.Lag(3), _WALK[:2]),
+     lambda v: v["delay"].update(index=0), "Lag.delay: index must equal count"),
+    (lambda: _fed(screamer.Momentum(3), _WALK[:2]),
+     lambda v: v["delay"].update(count=4), "Momentum.delay: count must be at most"),
+    (lambda: _fed(screamer.First(), _WALK[:2]),
+     lambda v: v.update(has_value=False), "First: first_value must be set exactly when has_value"),
+    (lambda: _fed(screamer.TickRuleSign(), _WALK[:3]),
+     lambda v: v.update(last_sign=0.5), "TickRuleSign: last_sign must be 1, -1 or NaN"),
+    (lambda: _fed(screamer.TickRuleSign(), _WALK[:3]),
+     lambda v: v.update(have_prev=False), "TickRuleSign: a sign needs a previous price"),
+    (lambda: _fed2(screamer.LeeReadySign(), _PAIRS[:3]),
+     lambda v: v.update(last_sign=2.0), "LeeReadySign: last_sign must be 1, -1 or NaN"),
+    (lambda: _fed(screamer.BulkVolumeClassifier(5), _RETS[:3]),
+     lambda v: v.update(n=2), "BulkVolumeClassifier: n must count the samples"),
+    (lambda: _fed(screamer.BulkVolumeClassifier(5, start_policy="zero"), _RETS[:3]),
+     lambda v: v.update(n=3), "BulkVolumeClassifier: n must count the samples"),
+    (lambda: _fed(screamer.BulkVolumeClassifier(5), _RETS[:3]),
+     lambda v: v["sum_yy"].update(count=2, index=2), "BulkVolumeClassifier: the window sums"),
+    (lambda: _fed(screamer.RollSpread(5), _WALK[:6]),
+     lambda v: v.update(have_price=False), "RollSpread: a price change needs a price"),
+    (lambda: _fed(screamer.RollSpread(5), _WALK[:6]),
+     lambda v: v.update(n=1), "RollSpread: n must count the samples"),
+    (lambda: _fed_rows(screamer.CorwinSchultzSpread(5), _BARS[:3]),
+     lambda v: v.update(have_prev=False), "CorwinSchultzSpread: the window needs a previous bar"),
+    (lambda: _fed_rows(screamer.AbdiRanaldoSpread(5), _BARS[:3]),
+     lambda v: v.update(have_prev=False), "AbdiRanaldoSpread: the window needs a previous bar"),
+    (lambda: _fed_rows(screamer.EdgeSpread(5), _OHLC[:3]),
+     lambda v: v.update(pos=0), "EdgeSpread: pos must equal bars"),
+    (lambda: _fed_rows(screamer.EdgeSpread(5), _OHLC[:3]),
+     lambda v: v.update(bars=6), "EdgeSpread: bars must be at most window_size"),
+    (lambda: _fed_rows(screamer.EdgeSpread(5), _OHLC[:3]),
+     lambda v: v.update(counts=[3] * 7), "EdgeSpread: counts must be in 0..bars - 1"),
+    (lambda: _fed_rows(screamer.EdgeSpread(5), _OHLC[:3]),
+     _edge_ring_inf, "EdgeSpread: ring values must be finite or NaN"),
+    (lambda: _fed_rows(screamer.EdgeSpread(5), _OHLC[:3]),
+     lambda v: v.update(ring=v["ring"][:8]), r"EdgeSpread.ring: expected 12 values, got 8"),
+    (lambda: _fed(screamer.Propagator(5), _RETS[:3]),
+     lambda v: v.update(index=1), "Propagator: index must equal count"),
+    (lambda: _fed2(screamer.VPIN(1.0, 5), ((0.6, 0.6),) * 3),
+     lambda v: v.update(filled=6), "VPIN: filled must be in 0..n_buckets"),
+    (lambda: _fed2(screamer.VPIN(1.0, 5), ((0.6, 0.6),) * 3),
+     lambda v: v.update(head=0), "VPIN: head must equal filled"),
+    (lambda: _fed2(screamer.RealizedSpread(3), _PAIRS[:2]),
+     lambda v: v.update(count=4), "RealizedSpread: count must be in 0..lag"),
+])
+def test_misc_micro_state_checks(make, edit, message):
+    """The state checks of the lag, sign, spread and flow operators: a hand
+    edit that breaks one raises a SaveError naming the path and leaves the
+    operator unchanged."""
+    op = make()
+    state = op.state()
+    before = op.dumps()
+    edit(state["values"])
+    with pytest.raises(screamer.SaveError, match=message):
+        op.set_state(state)
+    assert op.dumps() == before
+
+
+def test_edge_spread_continues_after_an_outlier_resum():
+    """An EdgeSpread saved around an outlier bar's early recompute loads and
+    continues bit for bit: the sums carry their rounding."""
+    rng = np.random.default_rng(7)
+    c = 100.0 * np.exp(np.cumsum(rng.normal(0.0, 0.01, 120)))
+    o = c * np.exp(rng.normal(0.0, 0.002, 120))
+    h = np.maximum(o, c) * np.exp(np.abs(rng.normal(0.0, 0.004, 120)))
+    lo = np.minimum(o, c) * np.exp(-np.abs(rng.normal(0.0, 0.004, 120)))
+    h[33] *= 1.5     # an outlier bar; its second pair leaves at bar 43
+    o[50] = np.nan   # a missing open
+    full = screamer.EdgeSpread(10)(o, h, lo, c)
+    for k in (43, 44, 46, 55):
+        a = screamer.EdgeSpread(10)
+        head = a.resume(o[:k], h[:k], lo[:k], c[:k])
+        if k == 44:
+            assert a.state()["values"]["since"] == 0   # the early recompute
+        for data in (a.dumps(), a.dumps(format="cbor")):
+            b = screamer.loads(data)
+            assert b.dumps() == a.dumps()
+            tail = b.resume(o[k:], h[k:], lo[k:], c[k:])
+            assert_bitwise(np.concatenate([head, tail]), full)
+
+
 def test_triple_barrier_ring_continues_after_load():
     """A TripleBarrier saved with open labels in its ring loads and resolves
     them as the original does."""
@@ -699,23 +781,26 @@ def test_errors_are_save_errors():
     assert issubclass(screamer.SaveError, ValueError)
 
 
+@pytest.mark.parametrize("name", FUNCTOR_NAMES)
+def test_every_functor_saveable(name):
+    """Every functor of help.json saves and loads. A new operator declares
+    kTypeName, kStateVersion, settings(Ar&) and state(Ar&); CONTRIBUTING.md
+    ("Save and restore") says how."""
+    op = case(name)[0]()
+    assert op._saveable() and op._save_type() == name, (
+        f"{name} cannot be saved: give it kTypeName, kStateVersion, settings(Ar&) and "
+        f"state(Ar&) (CONTRIBUTING.md, \"Save and restore\"), then run "
+        f"devtools/gen_state_golden.py {name}")
+
+
 def test_not_saveable_message():
-    if not KNOWN_UNSAVEABLE:
-        pytest.skip("every operator can be saved")
-    name = sorted(KNOWN_UNSAVEABLE)[0]
-    make, _ = case(name)
-    with pytest.raises(screamer.NotSaveable, match=name):
-        make().dumps()
-    for inner in sorted(KNOWN_UNSAVEABLE):
-        try:
-            seg = screamer.Segment(case(inner)[0]())
-        except (TypeError, ValueError):
-            continue
-        with pytest.raises(screamer.NotSaveable, match="Segment.op"):
-            seg.dumps()
-        break
-    else:
-        pytest.skip("no unsaveable operator fits Segment")
+    """A subclass that renames an operator would save as its parent, so it
+    refuses, naming itself."""
+    class MyMean(screamer.RollingMean):
+        pass
+
+    with pytest.raises(screamer.NotSaveable, match="MyMean: saves as RollingMean"):
+        MyMean(3).dumps()
 
 
 # ---- Nested operators --------------------------------------------------------
@@ -776,7 +861,7 @@ def test_golden(stem):
 def test_goldens_cover_saveable():
     """Every saveable operator has a golden of its current state version."""
     missing = []
-    for name in SAVEABLE:
+    for name in FUNCTOR_NAMES:
         version = case(name)[0]().state()["version"]
         if not (GOLDEN / f"{name}.v{version}.json").exists():
             missing.append(f"{name}.v{version}")
@@ -808,8 +893,7 @@ def test_make_op_builds_every_functor(name):
     settings = {k: _settings_value(v) for k, v in kwargs_for(name).items()}
     built = _b._serial_make_op(name, json.dumps(settings))
     assert_bitwise(np.asarray(built(*inputs)), np.asarray(make()(*inputs)))
-    if name not in KNOWN_UNSAVEABLE:
-        assert built._dumps(False) == make().dumps()
+    assert built._dumps(False) == make().dumps()
 
 
 @pytest.mark.parametrize("settings, where, error", [
@@ -894,7 +978,7 @@ def test_js_oracle_fresh():
     diff = _oracle_same(comparable(now), comparable(committed))
     assert diff is None, (f"wasm/smoke/save_oracle.json is stale ({diff}): run python "
                           "devtools/wasm/gen_save_oracle.py and commit the result")
-    assert [c["name"] for c in now["cases"]] == SAVEABLE
+    assert [c["name"] for c in now["cases"]] == FUNCTOR_NAMES
 
 
 def test_from_settings_takes_python_values():
@@ -955,7 +1039,7 @@ def test_js_files_load_byte_for_byte():
     and write back the same bytes, in JSON and CBOR, and continue as
     Python's own file does (to 1e-9: D4, see js/test/save_restore.test.ts)."""
     fixture = _js_fixture()
-    assert [c["name"] for c in fixture] == SAVEABLE, (
+    assert [c["name"] for c in fixture] == FUNCTOR_NAMES, (
         "wasm/smoke/save_js.json is stale: run node --import tsx js/scripts/gen_save_js.ts")
     for c in fixture:
         a = _check_js_file(c)

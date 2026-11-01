@@ -10,8 +10,19 @@
 
 namespace screamer {
 
-class Last : public ScreamerBase {
+class Last : public serial::Saveable<Last, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "Last";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("last_value", last_value_);
+    }
+
     Last() { reset(); }
 
     void reset() override {

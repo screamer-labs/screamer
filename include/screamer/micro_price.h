@@ -19,6 +19,15 @@ namespace screamer {
     // calibrated adjustment function is not modelled here.
     class MicroPrice : public FunctorBase<MicroPrice, 4, 1> {
     public:
+        static constexpr const char* kTypeName = "MicroPrice";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar&) {}
+
+        template <class Ar>
+        void state(Ar&) {}
+
         MicroPrice() = default;
 
         ResultTuple call(const InputArray& inputs) override {

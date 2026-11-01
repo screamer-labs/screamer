@@ -13,7 +13,7 @@
 // Kyle's lambda is the slope of return on signed flow, so the two Kyle
 // operators swap their inputs before the beta kernel sees them. Each class
 // lists its inputs in kInputNames, which the Python binding uses to accept
-// them as keywords.
+// them as keywords, and saves under its own name (serial::Renamed).
 
 #include <array>
 #include <cstddef>
@@ -70,38 +70,44 @@ public:
 }  // namespace detail
 
 // Signed order flow, sign * volume. The Mul kernel.
-class SignedVolume : public Mul {
+class SignedVolume : public serial::Renamed<SignedVolume, Mul> {
 public:
+    static constexpr const char* kTypeName = "SignedVolume";
     static constexpr std::array<const char*, 2> kInputNames{ { "sign", "volume" } };
 };
 
 // L1 queue imbalance, (bid_size - ask_size) / (bid_size + ask_size). The OFI
 // kernel applied to resting queue sizes.
-class QueueImbalance : public OFI {
+class QueueImbalance : public serial::Renamed<QueueImbalance, OFI> {
 public:
+    static constexpr const char* kTypeName = "QueueImbalance";
     static constexpr std::array<const char*, 2> kInputNames{ { "bid_size", "ask_size" } };
 };
 
 // Trailing-window sum of signed order flow. The RollingSum kernel.
-class RollingOrderImbalance : public RollingSum {
+class RollingOrderImbalance : public serial::Renamed<RollingOrderImbalance, RollingSum> {
 public:
-    using RollingSum::RollingSum;
+    static constexpr const char* kTypeName = "RollingOrderImbalance";
+    using Renamed::Renamed;
     static constexpr std::array<const char*, 1> kInputNames{ { "signed_flow" } };
 };
 
 // Kyle's lambda over a trailing window: the slope of return on signed flow.
 // The RollingBeta kernel with the inputs swapped.
-class RollingKyleLambda : public detail::SwapTwoInputs<RollingBeta> {
+class RollingKyleLambda
+    : public serial::Renamed<RollingKyleLambda, detail::SwapTwoInputs<RollingBeta>> {
 public:
-    using SwapTwoInputs::SwapTwoInputs;
+    static constexpr const char* kTypeName = "RollingKyleLambda";
+    using Renamed::Renamed;
     static constexpr std::array<const char*, 2> kInputNames{ { "signed_flow", "return_" } };
 };
 
 // Kyle's lambda, exponentially weighted. The EwBeta kernel with the inputs
 // swapped.
-class EwKyleLambda : public detail::SwapTwoInputs<EwBeta> {
+class EwKyleLambda : public serial::Renamed<EwKyleLambda, detail::SwapTwoInputs<EwBeta>> {
 public:
-    using SwapTwoInputs::SwapTwoInputs;
+    static constexpr const char* kTypeName = "EwKyleLambda";
+    using Renamed::Renamed;
     static constexpr std::array<const char*, 2> kInputNames{ { "signed_flow", "return_" } };
 };
 

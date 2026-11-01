@@ -7,6 +7,7 @@
 #include <stdexcept>
 #include <vector>
 #include <algorithm>
+#include <cstddef>
 #include "screamer/common/functor_base.h"
 #include "screamer/common/float_info.h"
 
@@ -26,6 +27,31 @@ namespace screamer {
     // a volume that is not finite (+-inf, or buy + sell past the double range).
     class VPIN : public FunctorBase<VPIN, 2, 1> {
     public:
+        static constexpr const char* kTypeName = "VPIN";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) {
+            ar("bucket_volume", bucket_volume_);
+            ar("n_buckets", n_buckets_);
+        }
+
+        // The open bucket, the ring of closed bucket imbalances as stored
+        // (slot `head` is written next), the buckets in it and their sum.
+        template <class Ar>
+        void state(Ar& ar) {
+            ar("cur_buy", cur_buy_);
+            ar("cur_sell", cur_sell_);
+            ar.fixed("imbalances", imbalances_, static_cast<std::size_t>(n_buckets_));
+            ar("head", head_);
+            ar("filled", filled_);
+            ar("sum", sum_);
+            ar.check(head_ >= 0 && head_ < n_buckets_, "head must be inside the ring");
+            ar.check(filled_ >= 0 && filled_ <= n_buckets_, "filled must be in 0..n_buckets");
+            ar.check(filled_ == n_buckets_ || head_ == filled_,
+                     "head must equal filled until the ring is full");
+        }
+
         VPIN(double bucket_volume = 1.0, int n_buckets = 50)
             : bucket_volume_(bucket_volume), n_buckets_(n_buckets),
               imbalances_(n_buckets_ > 0 ? n_buckets_ : 1, 0.0)

@@ -15,8 +15,22 @@
 
 namespace screamer {
 
-class Detrend : public ScreamerBase {
+class Detrend : public serial::Saveable<Detrend, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "Detrend";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", static_cast<int>(rolling_mean_.capacity()));
+        ar("start_policy", std::string(detail::start_policy_name(rolling_mean_.start_policy())));
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("mean", rolling_mean_);
+    }
+
     Detrend(int window_size, const std::string& start_policy = "strict")
         : rolling_mean_(window_size, start_policy)
     {}

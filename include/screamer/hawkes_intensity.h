@@ -19,8 +19,23 @@ namespace screamer {
     // Causal: lambda_t is emitted before x_t is folded into the state, so it
     // depends on x only up to t-1. A NaN event mark is ignored (emit NaN, leave
     // the state untouched), so it does not poison the recursion.
-    class HawkesIntensity : public ScreamerBase {
+    class HawkesIntensity : public serial::Saveable<HawkesIntensity, ScreamerBase> {
     public:
+        static constexpr const char* kTypeName = "HawkesIntensity";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) {
+            ar("decay", decay_);
+            ar("alpha", alpha_);
+            ar("mu", mu_);
+        }
+
+        template <class Ar>
+        void state(Ar& ar) {
+            ar("kappa", kappa_);
+        }
+
         HawkesIntensity(double decay = 0.9, double alpha = 1.0, double mu = 0.0)
             : decay_(decay), alpha_(alpha), mu_(mu)
         {

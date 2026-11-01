@@ -9,8 +9,21 @@
 #include <string>
 namespace screamer {
 
-    class Lag : public ScreamerBase {
+    class Lag : public serial::Saveable<Lag, ScreamerBase> {
     public:
+        static constexpr const char* kTypeName = "Lag";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) {
+            ar("window_size", static_cast<int>(delay_buffer_.capacity()));
+            ar("start_policy", std::string(detail::start_policy_name(delay_buffer_.start_policy())));
+        }
+
+        template <class Ar>
+        void state(Ar& ar) {
+            ar.object("delay", delay_buffer_);
+        }
 
         Lag(int window_size, const std::string& start_policy = "strict") : 
             delay_buffer_(window_size, start_policy)

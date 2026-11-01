@@ -21,8 +21,43 @@ namespace screamer {
     // NaN. Internally this is a rolling covariance of the price change against
     // its own one-step lag (three detail::RollingSum buffers, O(1) per step). A
     // NaN price is ignored (nan_policy: ignore).
-    class RollSpread : public ScreamerBase {
+    class RollSpread : public serial::Saveable<RollSpread, ScreamerBase> {
     public:
+        static constexpr const char* kTypeName = "RollSpread";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) {
+            ar("window_size", window_size_);
+            ar("start_policy", std::string(detail::start_policy_name(start_policy_)));
+        }
+
+        // The last price and price change, the window sums and the samples
+        // counted in them (window_size from the start under start_policy
+        // "zero").
+        template <class Ar>
+        void state(Ar& ar) {
+            ar("have_price", have_price_);
+            ar("have_dp", have_dp_);
+            ar("prev_price", prev_price_);
+            ar("prev_dp", prev_dp_);
+            ar.object("sum_x", sum_x_buffer);
+            ar.object("sum_y", sum_y_buffer);
+            ar.object("sum_xy", sum_xy_buffer);
+            ar("n", n_);
+            ar.check(have_price_ || !have_dp_, "a price change needs a price");
+            ar.check(sum_x_buffer.size() == sum_y_buffer.size() &&
+                         sum_x_buffer.size() == sum_xy_buffer.size() &&
+                         sum_x_buffer.index() == sum_y_buffer.index() &&
+                         sum_x_buffer.index() == sum_xy_buffer.index(),
+                     "the window sums must hold the same samples");
+            ar.check(start_policy_ == detail::StartPolicy::Zero
+                         ? n_ == static_cast<size_t>(window_size_)
+                         : n_ == sum_x_buffer.size(),
+                     "n must count the samples in the window");
+            ar.check(have_dp_ || sum_x_buffer.size() == 0, "the window needs a price change");
+        }
+
         RollSpread(int window_size, const std::string& start_policy = "strict")
             : window_size_(window_size),
               start_policy_(detail::parse_start_policy(start_policy)),

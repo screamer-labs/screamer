@@ -91,6 +91,10 @@ public:
         return start_policy_;
     }
 
+    size_t index() const {
+        return index_;
+    }
+
     // The ring as stored (slot `index` is written next), the samples in the
     // window and their sum.
     template <class Ar>

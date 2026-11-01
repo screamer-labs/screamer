@@ -24,10 +24,9 @@ import screamer
 from tests.regime_helpers import assert_bitwise
 from tests.param_cases import ROW_OPS
 from tests.test_batch_stream_bitwise import BLOCK_OPS
-from tests.save_cases import FUNCTOR_NAMES, KNOWN_UNSAVEABLE, case, kwargs_for, splits
+from tests.save_cases import FUNCTOR_NAMES, case, kwargs_for, splits
 
-SAVEABLE = [n for n in FUNCTOR_NAMES if n not in KNOWN_UNSAVEABLE
-            and n not in ROW_OPS and n not in BLOCK_OPS]
+SAVEABLE = [n for n in FUNCTOR_NAMES if n not in ROW_OPS and n not in BLOCK_OPS]
 K = 5
 
 
@@ -266,7 +265,7 @@ def test_empty_panel_refused():
 
 # ---- Row operators and PortfolioReport ----------------------------------------
 
-ROW_SAVEABLE = sorted(n for n in (ROW_OPS | BLOCK_OPS) if n not in KNOWN_UNSAVEABLE)
+ROW_SAVEABLE = sorted(ROW_OPS | BLOCK_OPS)
 
 
 def _assets(inputs):

@@ -6,10 +6,6 @@ builds it with, and that file's related random walks (NaN in the second half)
 in the input order that gives the most informative output. The save tests,
 the golden generator (``devtools/gen_state_golden.py``) and the JavaScript
 oracle run on these cases.
-
-``KNOWN_UNSAVEABLE`` lists the functors without save support yet. Their tests
-are ``xfail(strict=True)``, so an operator that gains support fails the suite
-until it leaves the set; the set is empty once every operator is migrated.
 """
 from __future__ import annotations
 
@@ -26,15 +22,6 @@ HELP: dict[str, dict] = json.loads(
     importlib.resources.files("screamer").joinpath("data/help.json").read_text(encoding="utf-8"))
 
 FUNCTOR_NAMES = sorted(n for n, e in HELP.items() if e.get("kind", "functor") == "functor")
-
-KNOWN_UNSAVEABLE: set[str] = {
-    'AbdiRanaldoSpread', 'AmihudIlliquidity', 'BulkVolumeClassifier', 'ContOFI',
-    'CorwinSchultzSpread', 'Detrend', 'Diff', 'Diff2', 'EdgeSpread', 'EffectiveSpread',
-    'EwKyleLambda', 'First', 'HawkesIntensity', 'Lag', 'Last', 'LeeReadySign',
-    'MicroPrice', 'Momentum', 'OFI', 'Propagator', 'QueueImbalance', 'RealizedSpread',
-    'RollSpread', 'RollingKyleLambda', 'RollingOrderImbalance', 'SignedVolume',
-    'TickRuleSign', 'VPIN'
-}
 
 # Arguments that differ from the sweep's: Segment runs an operator that can be
 # saved.

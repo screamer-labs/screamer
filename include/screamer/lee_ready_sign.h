@@ -14,6 +14,23 @@ namespace screamer {
     // input yields NaN (nan_policy: ignore) and leaves the state untouched.
     class LeeReadySign : public FunctorBase<LeeReadySign, 2, 1> {
     public:
+        static constexpr const char* kTypeName = "LeeReadySign";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar&) {}
+
+        // The tick-rule state: the last real price and the last sign.
+        template <class Ar>
+        void state(Ar& ar) {
+            ar("have_prev", have_prev_);
+            ar("prev_price", prev_price_);
+            ar("last_sign", last_sign_);
+            ar.check(last_sign_ == 1.0 || last_sign_ == -1.0 || isnan2(last_sign_),
+                     "last_sign must be 1, -1 or NaN");
+            ar.check(have_prev_ || isnan2(last_sign_), "a sign needs a previous price");
+        }
+
         LeeReadySign() { reset(); }
 
         void reset() override {

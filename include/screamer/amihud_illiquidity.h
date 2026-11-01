@@ -18,6 +18,20 @@ namespace screamer {
     // and yields NaN at that step (nan_policy: ignore).
     class AmihudIlliquidity : public StepperFunctorBase<AmihudIlliquidity, 2, 1> {
     public:
+        static constexpr const char* kTypeName = "AmihudIlliquidity";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) {
+            ar("window_size", static_cast<int>(mean_.capacity()));
+            ar("start_policy", std::string(detail::start_policy_name(mean_.start_policy())));
+        }
+
+        template <class Ar>
+        void state(Ar& ar) {
+            ar.object("mean", mean_);
+        }
+
         AmihudIlliquidity(int window_size, const std::string& start_policy = "strict")
             : mean_(window_size, start_policy)
         {

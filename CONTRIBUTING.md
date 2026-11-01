@@ -176,12 +176,44 @@ Read this list as the spec you are writing against.
 | **Declared `start_policy` is the real one** | Warmup behaves as `strict` / `expanding` / `zero` claim, including on `NaN`-bearing input. | `test_nan_start_policy_compliance.py` |
 | **Shape surface** | Correct results through tensors, strided views, matrices, and every input/output size. | `test_tensor.py`, `test_view.py`, `test_matrix.py`, `test_io_size.py` |
 | **Documented and tagged** | A docs page with frontmatter and at least one topic from `docs/topics.yml`. | `test_doc_coverage.py` |
+| **Saveable** | `save`/`load` and `resume` continue the operator bit for bit. See [Save and restore](#save-and-restore). | `test_save_restore.py::test_every_functor_saveable` |
 | **Reachable by the harness** | Driven by `tests/param_cases.py`, or named in `PARITY_EXEMPT` with a reason. | `test_parity_registration.py` |
 
 A 1-input/1-output operator whose constructor arguments all have defaults is adopted
 by the parity harness automatically. Anything else needs a `test_definitions` entry
 in `tests/param_cases.py`, and `test_parity_registration.py` fails until it has one
 or an explicit exemption.
+
+### Save and restore
+
+Every operator can be saved and loaded. The operator describes itself to the
+archives of `include/screamer/serial/archive.h` with four members:
+
+```cpp
+static constexpr const char* kTypeName = "RollingMean";   // its registry name
+static constexpr int kStateVersion = 1;
+
+// Every constructor argument, in help.json order and under its help.json name.
+template <class Ar> void settings(Ar& ar) {
+    ar("window_size", window_size_);
+    ar("start_policy", std::string(detail::start_policy_name(policy_)));
+}
+
+// Exactly the members that reset() touches.
+template <class Ar> void state(Ar& ar) {
+    ar.fixed("buffer", buffer_, window_size_);
+    ar("count", count_);
+    ar.check(count_ <= window_size_, "count must be at most window_size");
+}
+```
+
+A `FunctorBase` operator adds the members; a `ScreamerBase` operator also derives
+from `serial::Saveable<Op, ScreamerBase>`, and an operator that only renames
+another derives from `serial::Renamed<Op, Base>`. Store a constructor argument as
+given when the operator keeps only a value derived from it. Add `ar.check` for each
+invariant a hand-edited file could break and real input never does. Then run
+`python devtools/gen_state_golden.py <Name>` and commit the golden. A change to the
+layout of `state` needs a new `kStateVersion` and a new golden.
 
 **Writing a new contract test.** If a rule applies to every operator, it belongs in
 `tests/test_contract_compliance.py` (or the `nan` / `start_policy` compliance files)

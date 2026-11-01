@@ -13,8 +13,25 @@ namespace screamer {
     // first sample (no prior price). A NaN price is treated as a missing tick
     // (nan_policy: ignore): the output is NaN and the state is left untouched, so
     // the next real tick is compared against the last real price.
-    class TickRuleSign : public ScreamerBase {
+    class TickRuleSign : public serial::Saveable<TickRuleSign, ScreamerBase> {
     public:
+        static constexpr const char* kTypeName = "TickRuleSign";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar&) {}
+
+        // The tick-rule state: the last real price and the last sign.
+        template <class Ar>
+        void state(Ar& ar) {
+            ar("have_prev", have_prev_);
+            ar("prev_price", prev_price_);
+            ar("last_sign", last_sign_);
+            ar.check(last_sign_ == 1.0 || last_sign_ == -1.0 || isnan2(last_sign_),
+                     "last_sign must be 1, -1 or NaN");
+            ar.check(have_prev_ || isnan2(last_sign_), "a sign needs a previous price");
+        }
+
         TickRuleSign() { reset(); }
 
         void reset() override {

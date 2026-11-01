@@ -41,6 +41,7 @@
 // build up, and at once when a pair far larger than the rest of the window
 // (an outlier bar) leaves it. O(1) amortized per bar.
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -55,6 +56,58 @@ namespace screamer {
 
 class EdgeSpread : public FunctorBase<EdgeSpread, 4, 1> {
 public:
+    static constexpr const char* kTypeName = "EdgeSpread";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", static_cast<int>(cap_));
+        ar("sign", sign_);
+        ar("start_policy", std::string(expanding_ ? "expanding" : "strict"));
+    }
+
+    // The bars in the ring as stored (slot `pos` is written next; the slots
+    // past `bars` are not read before they are written again), the window
+    // sums and counts as they are (they carry the rounding since the last
+    // recompute), and the steps since that recompute.
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("pos", pos_);
+        ar("bars", bars_);
+        ar("since", since_);
+        ar.check(bars_ <= cap_, "bars must be at most window_size");
+        ar.check(pos_ < cap_, "pos must be below window_size");
+        ar.check(bars_ == cap_ || pos_ == bars_, "pos must equal bars until the window is full");
+        ar.check(since_ < cap_, "since must be below window_size");
+        std::vector<double> ring;
+        std::vector<double> sums;
+        std::vector<long> counts;
+        if constexpr (Ar::kSaving) {
+            ring.assign(ring_.begin(), ring_.begin() + 4 * bars_);
+            sums.assign(sum_.begin(), sum_.end());
+            counts.assign(cnt_.begin(), cnt_.end());
+        }
+        ar.local("ring", ring, 4 * bars_);
+        ar.local("sums", sums, kSums);
+        ar.local("counts", counts, kCounts);
+        if constexpr (Ar::kLoading) {
+            for (double v : ring)
+                ar.check(isnan2(v) || std::isfinite(v), "ring values must be finite or NaN");
+            const long pairs = bars_ > 0 ? static_cast<long>(bars_) - 1 : 0;
+            for (long n : counts)
+                ar.check(n >= 0 && n <= pairs, "counts must be in 0..bars - 1");
+            std::vector<double> r = ring_;
+            std::copy(ring.begin(), ring.end(), r.begin());
+            std::array<double, kSums> sm;
+            std::copy(sums.begin(), sums.end(), sm.begin());
+            std::array<long, kCounts> cn;
+            std::copy(counts.begin(), counts.end(), cn.begin());
+            ar.set(ring_, std::move(r));
+            ar.set(sum_, sm);
+            ar.set(cnt_, cn);
+        }
+    }
+
     EdgeSpread(int window_size, bool sign = false, const std::string& start_policy = "strict")
         : sign_(sign),
           expanding_(parse_policy(start_policy)),

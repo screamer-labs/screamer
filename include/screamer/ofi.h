@@ -14,6 +14,15 @@ namespace screamer {
     // elementwise; a NaN on either input yields NaN (nan_policy: ignore).
     class OFI : public FunctorBase<OFI, 2, 1> {
     public:
+        static constexpr const char* kTypeName = "OFI";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar&) {}
+
+        template <class Ar>
+        void state(Ar&) {}
+
         OFI() = default;
 
         ResultTuple call(const InputArray& inputs) override {
