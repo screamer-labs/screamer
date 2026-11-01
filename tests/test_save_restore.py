@@ -320,7 +320,7 @@ _WALK = tuple(100.0 + np.cumsum(np.sin(np.arange(60.0))))
 
 @pytest.mark.parametrize("make, edit, message", [
     (lambda: _fed(screamer.RollingHMM(10), (1.0, 2.0)),
-     lambda v: v.update(var=[1.0, 0.0]), "RollingHMM: var must be positive"),
+     lambda v: v.update(var=[1.0, -1.0]), "RollingHMM: var must not be negative"),
     (lambda: _fed(screamer.Butter(2, 0.1, start_policy="zero"), (1.0, 2.0)),
      lambda v: v["iir"].update(started=False), "Butter.iir: a filter with start_policy zero"),
     (lambda: _fed(screamer.Butter(2, 0.1), (1.0,)),
@@ -381,6 +381,20 @@ def test_cycle_rings_continue_after_load():
     b = screamer.loads(a.dumps())
     assert b.dumps() == a.dumps()
     np.testing.assert_array_equal([b(v) for v in x[45:]], [a(v) for v in x[45:]])
+
+
+def test_rolling_hmm_zero_var_after_inf_continues():
+    """An infinite input leaves the fit floor NaN, so a constant group's var
+    is 0; that state saves, loads and continues bit for bit."""
+    x = np.concatenate([np.ones(30), [np.inf], np.ones(30), np.arange(20.0)])
+    a = _fed(screamer.RollingHMM(20), x[:61])
+    assert 0.0 in a.state()["values"]["var"]
+    b = screamer.loads(a.dumps())
+    assert b.dumps() == a.dumps()
+    np.testing.assert_array_equal([b(v) for v in x[61:]], [a(v) for v in x[61:]])
+
+
+def test_renamed_alias_saves_its_own_type():
     """ExpandingSum is CumSum under another name, and saves under its own."""
     a = _fed(screamer.ExpandingSum(), (1.0, 2.0))
     doc = json.loads(a.dumps())
