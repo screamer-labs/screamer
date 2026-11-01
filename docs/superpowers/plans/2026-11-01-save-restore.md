@@ -55,15 +55,8 @@ These are the plan's calls; every task follows them.
    - JS has `dumps`/`loads`/`settings`/`state`/`setState`/`fromSettings`, plus `save(path)`/`load(path)` that import `node:fs` lazily inside the function (no top-level Node globals, see the WASM browser rule).
    - A live session has `session.save(path)`, and `screamer.load` gives back a live session.
    - `Pipeline.save` saves settings only, and loading it gives a Pipeline.
-8. **Resume.** `obj.resume(data)` (JS `resume`) is a batch call that skips the initial reset.
-   - It runs the generic per-step loop (`run_column` without `process_columns` / `process_array_*` fast paths), so no fast path has to support a non-fresh start.
-   - Default batch calls are unchanged.
-9. **Panels.**
-   - A 2D batch call runs column c on its own instance `panel_[c]` (a clone of the freshly reset object) instead of resetting one instance between columns. Results are unchanged; memory is K copies of the state.
-   - `panel_` is a `std::unique_ptr<serial::Panel>` member of `EvalOp`.
-   - A later 1D or value-by-value call drops the panel.
-   - A 2D `resume` requires `panel_` with the same K, else `ValueError("resume: object holds 3 columns, got 5")`.
-   - `RowOp`s (cross-section, portfolio engines) are already one object for K assets and do not use panels.
+8. **Resume.** Default batch calls keep decision D8 of `common/dispatch.h` (`EagerRun`): they start from a reset object and leave it reset, so value-by-value calls after a batch call start fresh, as today. `obj.resume(data)` (JS `resume`) is the one batch call that starts from the object's current (or loaded) state and leaves the end state in the object, so `f.resume(history)` on a fresh object is the warm-up call, after which `f` can be saved or fed value by value. It runs the generic per-step loop (`run_column` without `process_columns` / `process_array_*` fast paths), so no fast path has to support a non-fresh start.
+9. **Panels.** Only `resume` on a 2D array (T, K) creates per-column state: on the first such call the object creates `panel_` with K clones of its freshly reset self (`virtual std::unique_ptr<EvalOp> clone_fresh() const`), runs column c on `panel_[c]`, and keeps them. Default 2D batch calls are unchanged and never create a panel. `panel_` is a `std::unique_ptr<serial::Panel>` member of `EvalOp`. A default batch call or `reset()` drops the panel (the object is reset anyway). A value-by-value call on an object holding a panel raises `ValueError("the object holds per-column state for 5 columns; call resume with a (T, 5) array, or reset() first")`. A 2D `resume` with another K raises `ValueError("resume: object holds 5 columns, got 3")`; a 1D `resume` on a panel object raises the same way. `RowOp`s (cross-section, portfolio engines) are already one object for K assets and do not use panels.
 10. **Not saveable.**
     - A lazy (iterator) call in progress cannot be saved.
     - A poisoned live session raises on save.
@@ -174,14 +167,14 @@ These are the plan's calls; every task follows them.
 
 - [ ] **Step 1: Write failing tests:**
   - `test_resume_1d[name]`: over all saveable functors, `a(x[:k])` then `a.resume(x[k:])` equals the full batch `f(x)[k:]` bitwise. Run it through save and load between the two calls as well.
-  - `test_resume_2d[name]`: the same with x of shape (T, 5). It also checks that `f(x2d)` results equal main's column-by-column results.
-  - `test_panel_mode_switch`: after a 2D call, the saved state has `"columns"` of length 5; after a following 1D call it has `"values"`; a 2D resume on 3 columns raises `ValueError` with "holds 5 columns, got 3".
+  - `test_resume_2d[name]`: the same with x of shape (T, 5). It also checks that `f(x2d)` results equal main's column-by-column results, and that `a.resume(x2d[:k])`, save, load, `b.resume(x2d[k:])` equals `f(x2d)[k:]`.
+  - `test_panel_mode_switch`: after a 2D `resume` on 5 columns, the saved state has `"columns"` of length 5; a 2D resume on 3 columns raises `ValueError` with "holds 5 columns, got 3"; a value-by-value call raises `ValueError` with "per-column state"; after a default 1D batch call the saved state has `"values"` equal to a fresh object's.
+  - `test_default_2d_creates_no_panel`: after `f(x2d)` the saved state has `"values"` equal to a fresh object's.
   - `test_resume_on_fresh_equals_batch`: `f.resume(x)` on a fresh object equals `f(x)`.
   - `test_default_batch_unchanged`: `f(x)` called twice gives the same result (it still resets).
 - [ ] **Step 2:** Run `pytest tests/test_resume_panel.py -v` and confirm it fails.
 - [ ] **Step 3:** Implement decisions 8 and 9.
-  - `clone_fresh` uses `make_op` from settings when the operator is not copyable (Segment). For copyable operators it copies the object and then calls `reset()` on the copy.
-  - Value-by-value calls and 1D batch calls drop `panel_`.
+  - `clone_fresh` copies the object and calls `reset()` on the copy; a non-copyable operator (Segment) overrides it, building a new instance around `op_->clone_fresh()` (`make_op` does not exist until Task 4).
 - [ ] **Step 4:** Rebuild and run `pytest tests/test_resume_panel.py tests/test_batch_stream_bitwise.py tests/test_contract_compliance.py -q`, expecting a PASS. Then run the 2D benchmarks of `benchmarks/run_benchmarks.py` against main and confirm medians are within noise.
 - [ ] **Step 5:** Commit: `feat(serial): resume batch calls and per-column panel state`.
 
