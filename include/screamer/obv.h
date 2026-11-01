@@ -18,6 +18,18 @@ namespace screamer {
 
 class OBV : public FunctorBase<OBV, 2, 1> {
 public:
+    static constexpr const char* kTypeName = "OBV";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("obv", obv_);
+        ar("prev_close", prev_close_);
+    }
+
     OBV() = default;
 
     void reset() override {

@@ -41,6 +41,24 @@ namespace screamer {
 class RollingYangZhangVar : public FunctorBase<RollingYangZhangVar, 4, 1> {
     friend struct detail::TestAccess;   // tests read the event counters (test_access.h)
 public:
+    static constexpr const char* kTypeName = "RollingYangZhangVar";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", window_size_);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("var_overnight", var_overnight_);
+        ar.object("var_open_close", var_open_close_);
+        ar.object("rs_mean", rs_mean_);
+        ar("prev_close", prev_close_);
+        ar("n_seen", n_seen_);
+        ar.check(n_seen_ >= 0, "n_seen must not be negative");
+    }
+
     explicit RollingYangZhangVar(int window_size)
         : window_size_(window_size),
           k_(0.34 / (1.34 + double(window_size + 1) / double(window_size - 1))),
@@ -113,6 +131,19 @@ private:
 
 class RollingYangZhangVol : public FunctorBase<RollingYangZhangVol, 4, 1> {
 public:
+    static constexpr const char* kTypeName = "RollingYangZhangVol";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        var_.settings(ar);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        var_.state(ar);
+    }
+
     explicit RollingYangZhangVol(int window_size) : var_(window_size) {}
     void reset() override { var_.reset(); }
     ResultTuple call(const InputArray& inputs) override {

@@ -1,0 +1,27 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "ADOSC",
+    "settings": {
+      "fast": 3,
+      "slow": 10
+    },
+    "state": {
+      "version": 1,
+      "values": {
+        "ad": {
+          "ad": 1077.2097714065537
+        },
+        "ema_fast": {
+          "sum_x": 1841.1800380959141,
+          "sum_w": 1.9999999999999982
+        },
+        "ema_slow": {
+          "sum_x": 4543.438963829876,
+          "sum_w": 5.499758535158872
+        }
+      }
+    }
+  }
+}

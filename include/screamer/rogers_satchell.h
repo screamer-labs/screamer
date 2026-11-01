@@ -36,6 +36,21 @@ inline double rogers_satchell_per_bar(double open, double high, double low, doub
 
 class RollingRogersSatchellVar : public FunctorBase<RollingRogersSatchellVar, 4, 1> {
 public:
+    static constexpr const char* kTypeName = "RollingRogersSatchellVar";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", window_size_);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("mean", mean_);
+        ar("n_seen", n_seen_);
+        ar.check(n_seen_ >= 0 && n_seen_ <= window_size_, "n_seen must lie in 0 .. window_size");
+    }
+
     explicit RollingRogersSatchellVar(int window_size)
         : window_size_(window_size),
           mean_(static_cast<size_t>(window_size), "expanding")
@@ -66,6 +81,19 @@ private:
 
 class RollingRogersSatchellVol : public FunctorBase<RollingRogersSatchellVol, 4, 1> {
 public:
+    static constexpr const char* kTypeName = "RollingRogersSatchellVol";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        var_.settings(ar);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        var_.state(ar);
+    }
+
     explicit RollingRogersSatchellVol(int window_size) : var_(window_size) {}
     void reset() override { var_.reset(); }
     ResultTuple call(const InputArray& inputs) override {
@@ -78,6 +106,19 @@ private:
 
 class EwRogersSatchellVar : public FunctorBase<EwRogersSatchellVar, 4, 1> {
 public:
+    static constexpr const char* kTypeName = "EwRogersSatchellVar";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        mean_.settings(ar);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("mean", mean_);
+    }
+
     explicit EwRogersSatchellVar(
         std::optional<double> com = std::nullopt,
         std::optional<double> span = std::nullopt,
@@ -97,6 +138,19 @@ private:
 
 class EwRogersSatchellVol : public FunctorBase<EwRogersSatchellVol, 4, 1> {
 public:
+    static constexpr const char* kTypeName = "EwRogersSatchellVol";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        var_.settings(ar);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        var_.state(ar);
+    }
+
     explicit EwRogersSatchellVol(
         std::optional<double> com = std::nullopt,
         std::optional<double> span = std::nullopt,

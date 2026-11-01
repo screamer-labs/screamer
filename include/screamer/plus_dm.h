@@ -14,6 +14,19 @@ namespace screamer {
 
 class PlusDM : public FunctorBase<PlusDM, 2, 1> {
 public:
+    static constexpr const char* kTypeName = "PlusDM";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", core_.window());
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        core_.state(ar);
+    }
+
     // The column loop runs on a local copy, its state in registers.
     static constexpr bool kColumnCopy = true;
 

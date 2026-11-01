@@ -18,6 +18,22 @@ namespace screamer {
 
 class ADXR : public FunctorBase<ADXR, 3, 1> {
 public:
+    static constexpr const char* kTypeName = "ADXR";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", core_.window());
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        core_.state(ar);
+        ar.fixed("adx_buffer", buf_, buf_.size());
+        ar("pos", pos_);
+        ar.check(pos_ < buf_.size(), "pos must be below window_size");
+    }
+
     // The column loop runs on a local copy, its state in registers.
     static constexpr bool kColumnCopy = true;
 

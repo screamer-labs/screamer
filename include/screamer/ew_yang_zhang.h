@@ -32,6 +32,24 @@ namespace screamer {
 
 class EwYangZhangVar : public FunctorBase<EwYangZhangVar, 4, 1> {
 public:
+    static constexpr const char* kTypeName = "EwYangZhangVar";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        rs_mean_.settings(ar);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("var_overnight", var_overnight_);
+        ar.object("var_open_close", var_open_close_);
+        ar.object("rs_mean", rs_mean_);
+        ar("prev_close", prev_close_);
+        ar("sum_w", sum_w_);
+        ar("sum_w2", sum_w2_);
+    }
+
     explicit EwYangZhangVar(
         std::optional<double> com = std::nullopt,
         std::optional<double> span = std::nullopt,
@@ -119,6 +137,19 @@ private:
 
 class EwYangZhangVol : public FunctorBase<EwYangZhangVol, 4, 1> {
 public:
+    static constexpr const char* kTypeName = "EwYangZhangVol";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        var_.settings(ar);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        var_.state(ar);
+    }
+
     explicit EwYangZhangVol(
         std::optional<double> com = std::nullopt,
         std::optional<double> span = std::nullopt,

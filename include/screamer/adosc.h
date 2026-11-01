@@ -21,11 +21,28 @@ namespace screamer {
 
 class ADOSC : public FunctorBase<ADOSC, 4, 1> {
 public:
+    static constexpr const char* kTypeName = "ADOSC";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("fast", fast_);
+        ar("slow", slow_);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("ad", ad_);
+        ar.object("ema_fast", ema_fast_);
+        ar.object("ema_slow", ema_slow_);
+    }
+
     // The column loop runs on a local copy, its state in registers.
     static constexpr bool kColumnCopy = true;
 
     explicit ADOSC(int fast = 3, int slow = 10)
-        : ema_fast_(std::nullopt, static_cast<double>(fast),
+        : fast_(fast), slow_(slow),
+          ema_fast_(std::nullopt, static_cast<double>(fast),
                     std::nullopt, std::nullopt),
           ema_slow_(std::nullopt, static_cast<double>(slow),
                     std::nullopt, std::nullopt)
@@ -50,6 +67,7 @@ public:
     }
 
 private:
+    int fast_, slow_;   // as given
     AD ad_;
     EwMean ema_fast_;
     EwMean ema_slow_;

@@ -36,6 +36,21 @@ inline double garman_klass_per_bar(double open, double high, double low, double 
 
 class RollingGarmanKlassVar : public FunctorBase<RollingGarmanKlassVar, 4, 1> {
 public:
+    static constexpr const char* kTypeName = "RollingGarmanKlassVar";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", window_size_);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("mean", mean_);
+        ar("n_seen", n_seen_);
+        ar.check(n_seen_ >= 0 && n_seen_ <= window_size_, "n_seen must lie in 0 .. window_size");
+    }
+
     explicit RollingGarmanKlassVar(int window_size)
         : window_size_(window_size),
           mean_(static_cast<size_t>(window_size), "expanding")
@@ -72,6 +87,19 @@ private:
 
 class RollingGarmanKlassVol : public FunctorBase<RollingGarmanKlassVol, 4, 1> {
 public:
+    static constexpr const char* kTypeName = "RollingGarmanKlassVol";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        var_.settings(ar);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        var_.state(ar);
+    }
+
     explicit RollingGarmanKlassVol(int window_size) : var_(window_size) {}
     void reset() override { var_.reset(); }
     ResultTuple call(const InputArray& inputs) override {
@@ -84,6 +112,19 @@ private:
 
 class EwGarmanKlassVar : public FunctorBase<EwGarmanKlassVar, 4, 1> {
 public:
+    static constexpr const char* kTypeName = "EwGarmanKlassVar";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        mean_.settings(ar);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("mean", mean_);
+    }
+
     explicit EwGarmanKlassVar(
         std::optional<double> com = std::nullopt,
         std::optional<double> span = std::nullopt,
@@ -103,6 +144,19 @@ private:
 
 class EwGarmanKlassVol : public FunctorBase<EwGarmanKlassVol, 4, 1> {
 public:
+    static constexpr const char* kTypeName = "EwGarmanKlassVol";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        var_.settings(ar);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        var_.state(ar);
+    }
+
     explicit EwGarmanKlassVol(
         std::optional<double> com = std::nullopt,
         std::optional<double> span = std::nullopt,

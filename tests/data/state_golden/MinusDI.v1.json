@@ -1,0 +1,27 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "MinusDI",
+    "settings": {
+      "window_size": 14
+    },
+    "state": {
+      "version": 1,
+      "values": {
+        "sum_tr": 31.46584607687123,
+        "sum_pdm": 4.875736035244131,
+        "sum_mdm": 6.87779415122634,
+        "prev_tr": 33.41365027494366,
+        "prev_pdm": 4.259596872613718,
+        "prev_mdm": 5.400572112493874,
+        "sum_dx": 203.92033208068978,
+        "prev_adx": 14.565738005763555,
+        "prev_high": 997.5239530254191,
+        "prev_low": 998.5239530254191,
+        "prev_close": 995.8182641513137,
+        "n_seen": 27
+      }
+    }
+  }
+}

@@ -21,6 +21,17 @@ namespace screamer {
 
 class AD : public FunctorBase<AD, 4, 1> {
 public:
+    static constexpr const char* kTypeName = "AD";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar("ad", ad_);
+    }
+
     AD() = default;
 
     void reset() override { ad_ = 0.0; }

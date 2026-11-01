@@ -21,6 +21,22 @@ namespace screamer {
 
 class RollingVWAP : public FunctorBase<RollingVWAP, 4, 1> {
 public:
+    static constexpr const char* kTypeName = "RollingVWAP";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", window_size_);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("sum_pv", sum_pv_);
+        ar.object("sum_v", sum_v_);
+        ar("n_seen", n_seen_);
+        ar.check(n_seen_ >= 0 && n_seen_ <= window_size_, "n_seen must lie in 0 .. window_size");
+    }
+
     explicit RollingVWAP(int window_size)
         : window_size_(window_size),
           sum_pv_(window_size, "expanding"),

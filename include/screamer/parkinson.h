@@ -42,6 +42,21 @@ inline double parkinson_per_bar(double high, double low) {
 
 class RollingParkinsonVar : public FunctorBase<RollingParkinsonVar, 2, 1> {
 public:
+    static constexpr const char* kTypeName = "RollingParkinsonVar";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", window_size_);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("mean", mean_);
+        ar("n_seen", n_seen_);
+        ar.check(n_seen_ >= 0 && n_seen_ <= window_size_, "n_seen must lie in 0 .. window_size");
+    }
+
     explicit RollingParkinsonVar(int window_size)
         : window_size_(window_size),
           mean_(static_cast<size_t>(window_size), "expanding")
@@ -77,6 +92,19 @@ private:
 
 class RollingParkinsonVol : public FunctorBase<RollingParkinsonVol, 2, 1> {
 public:
+    static constexpr const char* kTypeName = "RollingParkinsonVol";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        var_.settings(ar);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        var_.state(ar);
+    }
+
     explicit RollingParkinsonVol(int window_size) : var_(window_size) {}
 
     void reset() override { var_.reset(); }
@@ -93,6 +121,19 @@ private:
 
 class EwParkinsonVar : public FunctorBase<EwParkinsonVar, 2, 1> {
 public:
+    static constexpr const char* kTypeName = "EwParkinsonVar";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        mean_.settings(ar);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("mean", mean_);
+    }
+
     explicit EwParkinsonVar(
         std::optional<double> com = std::nullopt,
         std::optional<double> span = std::nullopt,
@@ -114,6 +155,19 @@ private:
 
 class EwParkinsonVol : public FunctorBase<EwParkinsonVol, 2, 1> {
 public:
+    static constexpr const char* kTypeName = "EwParkinsonVol";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        var_.settings(ar);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        var_.state(ar);
+    }
+
     explicit EwParkinsonVol(
         std::optional<double> com = std::nullopt,
         std::optional<double> span = std::nullopt,
