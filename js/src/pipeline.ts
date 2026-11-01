@@ -2,7 +2,7 @@ import type { Screamer } from "./loader.js";
 import { asNd, type NdArray } from "./ndarray.js";
 import { Node, isNode } from "./node.js";
 import { current } from "./index.js";
-import { normalizeError, NotSaveable, wasmCall } from "./errors.js";
+import { nodeFs, normalizeError, NotSaveable, wasmCall } from "./errors.js";
 import { aKind, feedValue, kindName, throwIndexKind, throwMessage, toF64Checked, whereText } from "./kinds.js";
 import { releaseWith, trackStream, type Owned, type StreamHold } from "./runtime.js";
 import { mergeEvents } from "./merge.js";
@@ -108,12 +108,11 @@ function cborFormat(format: unknown, who: string): boolean {
   return format === "cbor";
 }
 
-// Writes a save file (Node). node:fs is loaded here, on the first save, so a
-// browser never asks for it.
+// Writes a save file (Node.js).
 async function writeFile(path: unknown, who: string, dumps: (format: "json" | "cbor") => string | Uint8Array): Promise<void> {
   if (typeof path !== "string") throw new TypeError(`${who}.save: path must be a string, got ${aKind(path)}`);
   const data = dumps(path.toLowerCase().endsWith(".cbor") ? "cbor" : "json");
-  const fs = await import(["node:fs/promises"][0]);
+  const fs = await nodeFs(`${who}.save`);
   await fs.writeFile(path, data);
 }
 

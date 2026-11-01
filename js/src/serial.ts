@@ -3,7 +3,7 @@
 // wasm/serial_bindings.cpp); the save methods of every operator are in
 // runtime.ts. Python and JavaScript read and write the same files.
 import type { RawOp, Screamer } from "./loader.js";
-import { SaveError, StateMismatch, StateVersionError, wasmCall } from "./errors.js";
+import { nodeFs, SaveError, StateMismatch, StateVersionError, wasmCall } from "./errors.js";
 import { current } from "./index.js";
 import { jsonText } from "./json_text.js";
 import { aKind } from "./kinds.js";
@@ -164,7 +164,6 @@ export function loads<T extends Loaded = ScreamerOp>(data: string | Uint8Array |
  */
 export async function load<T extends Loaded = ScreamerOp>(path: string, options: LoadOptions = {}): Promise<T> {
   if (typeof path !== "string") throw new TypeError(`load: path must be a string, got ${aKind(path)}`);
-  // node:fs is loaded here, on the first load, so a browser never asks for it.
-  const fs = await import(["node:fs/promises"][0]);
+  const fs = await nodeFs("load");
   return loads<T>(new Uint8Array(await fs.readFile(path)), options);
 }

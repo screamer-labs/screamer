@@ -1009,7 +1009,7 @@ export declare function BayesianChangepoint(expectedRun?: number, maxRun?: numbe
 export interface BayesianRegressionOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
   com?: number | null;
-  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. */
   span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
   halflife?: number | null;
@@ -1032,7 +1032,7 @@ export declare function BayesianRegression(options: BayesianRegressionOptions): 
  * Online Bayesian linear regression with a forgetting factor: the current slope and intercept, and a one-step-ahead predictive mean and standard deviation.
  *
  * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
- * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha.
  * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @param priorPrecision Prior precision of the intercept and slope, which have prior mean 0. Larger values pull the coefficients toward zero more strongly. Must be positive.
@@ -1582,7 +1582,7 @@ export declare function CycleSine(options?: CycleSineOptions): ScreamerOp;
 export interface DEMAOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
   com?: number | null;
-  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. */
   span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
   halflife?: number | null;
@@ -1601,7 +1601,7 @@ export declare function DEMA(options: DEMAOptions): ScreamerOp;
  * Mulloy's Double EMA: 2*EMA - EMA(EMA).
  *
  * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
- * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha.
  * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/DEMA.html for the full reference.
@@ -1631,7 +1631,7 @@ export declare function DX(windowSize?: number): ScreamerOp;
 
 /** The settings of Decycler by name, for `Decycler({ ... })`. */
 export interface DecyclerOptions {
-  /** Cutoff as a cycle length in samples, the half-power point; cycles well below this length are removed. Give exactly one of period and cutoff. The default shown is a suggested starting value; the constructor has no default. */
+  /** Cutoff as a cycle length in samples, the half-power point; cycles well below this length are removed. Give exactly one of period and cutoff. 60 is a common starting value. */
   period?: number | null;
   /** Cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / period. Give exactly one of period and cutoff. */
   cutoff?: number | null;
@@ -1649,7 +1649,7 @@ export declare function Decycler(options: DecyclerOptions): ScreamerOp;
 /**
  * Ehlers trend estimate with short cycles removed.
  *
- * @param period Cutoff as a cycle length in samples, the half-power point; cycles well below this length are removed. Give exactly one of period and cutoff. The default shown is a suggested starting value; the constructor has no default.
+ * @param period Cutoff as a cycle length in samples, the half-power point; cycles well below this length are removed. Give exactly one of period and cutoff. 60 is a common starting value.
  * @param cutoff Cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / period. Give exactly one of period and cutoff.
  * @param startPolicy Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at x0. "zero" starts from an all-zero state, as scipy.signal.lfilter does.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/Decycler.html for the full reference.
@@ -1865,7 +1865,7 @@ export declare function Erfc(options?: ErfcOptions): ScreamerOp;
 export interface EwAlphaOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
   com?: number | null;
-  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. */
   span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
   halflife?: number | null;
@@ -1884,7 +1884,7 @@ export declare function EwAlpha(options: EwAlphaOptions): ScreamerOp;
  * EW regression intercept, ewmean(x) - EwBeta(x,y) * ewmean(y).
  *
  * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
- * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha.
  * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwAlpha.html for the full reference.
@@ -1895,7 +1895,7 @@ export declare function EwAlpha(com?: number | null, span?: number | null, halfl
 export interface EwBetaOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
   com?: number | null;
-  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. */
   span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
   halflife?: number | null;
@@ -1914,7 +1914,7 @@ export declare function EwBeta(options: EwBetaOptions): ScreamerOp;
  * EW CAPM beta: cov(target, regressor) / var(regressor).
  *
  * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
- * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha.
  * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwBeta.html for the full reference.
@@ -1925,7 +1925,7 @@ export declare function EwBeta(com?: number | null, span?: number | null, halfli
 export interface EwCorrOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
   com?: number | null;
-  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. */
   span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
   halflife?: number | null;
@@ -1944,7 +1944,7 @@ export declare function EwCorr(options: EwCorrOptions): ScreamerOp;
  * EW Pearson correlation of two parallel streams.
  *
  * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
- * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha.
  * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwCorr.html for the full reference.
@@ -1955,7 +1955,7 @@ export declare function EwCorr(com?: number | null, span?: number | null, halfli
 export interface EwCovOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
   com?: number | null;
-  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. */
   span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
   halflife?: number | null;
@@ -1974,7 +1974,7 @@ export declare function EwCov(options: EwCovOptions): ScreamerOp;
  * EW covariance of two parallel streams.
  *
  * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
- * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha.
  * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwCov.html for the full reference.
@@ -1985,7 +1985,7 @@ export declare function EwCov(com?: number | null, span?: number | null, halflif
 export interface EwGarmanKlassVarOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
   com?: number | null;
-  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. */
   span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
   halflife?: number | null;
@@ -2004,7 +2004,7 @@ export declare function EwGarmanKlassVar(options: EwGarmanKlassVarOptions): Scre
  * Exponentially weighted Garman-Klass range-based variance estimator (OHLC).
  *
  * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
- * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha.
  * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwGarmanKlassVar.html for the full reference.
@@ -2015,7 +2015,7 @@ export declare function EwGarmanKlassVar(com?: number | null, span?: number | nu
 export interface EwGarmanKlassVolOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
   com?: number | null;
-  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. */
   span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
   halflife?: number | null;
@@ -2034,7 +2034,7 @@ export declare function EwGarmanKlassVol(options: EwGarmanKlassVolOptions): Scre
  * Exponentially weighted Garman-Klass range-based volatility estimator (OHLC).
  *
  * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
- * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha.
  * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwGarmanKlassVol.html for the full reference.
@@ -2045,7 +2045,7 @@ export declare function EwGarmanKlassVol(com?: number | null, span?: number | nu
 export interface EwKurtOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
   com?: number | null;
-  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. */
   span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
   halflife?: number | null;
@@ -2064,7 +2064,7 @@ export declare function EwKurt(options: EwKurtOptions): ScreamerOp;
  * EW excess kurtosis.
  *
  * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
- * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha.
  * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwKurt.html for the full reference.
@@ -2075,7 +2075,7 @@ export declare function EwKurt(com?: number | null, span?: number | null, halfli
 export interface EwKyleLambdaOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
   com?: number | null;
-  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. */
   span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
   halflife?: number | null;
@@ -2094,7 +2094,7 @@ export declare function EwKyleLambda(options: EwKyleLambdaOptions): ScreamerOp;
  * Exponentially-weighted price-impact slope of return on signed order flow.
  *
  * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
- * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha.
  * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_micro/EwKyleLambda.html for the full reference.
@@ -2105,7 +2105,7 @@ export declare function EwKyleLambda(com?: number | null, span?: number | null, 
 export interface EwMeanOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
   com?: number | null;
-  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. */
   span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
   halflife?: number | null;
@@ -2124,7 +2124,7 @@ export declare function EwMean(options: EwMeanOptions): ScreamerOp;
  * Exponentially-weighted moving average (pandas adjust=True).
  *
  * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
- * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha.
  * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwMean.html for the full reference.
@@ -2139,7 +2139,7 @@ export interface EwMultiRegressionOptions {
   intercept?: boolean;
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
   com?: number | null;
-  /** Span s in rows, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  /** Span s in rows, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. */
   span?: number | null;
   /** Half-life h in rows, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
   halflife?: number | null;
@@ -2160,7 +2160,7 @@ export declare function EwMultiRegression(options: EwMultiRegressionOptions): Sc
  * @param nRegressors Number of regressors k. The operator takes k + 1 inputs, y first, and returns k + 3 outputs, plus 1 with an intercept.
  * @param intercept Fit an intercept b0. Without one, the line goes through the origin and r2 is the uncentered R-squared.
  * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
- * @param span Span s in rows, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param span Span s in rows, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha.
  * @param halflife Half-life h in rows, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent rows more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwMultiRegression.html for the full reference.
@@ -2171,7 +2171,7 @@ export declare function EwMultiRegression(nRegressors: number, intercept?: boole
 export interface EwParkinsonVarOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
   com?: number | null;
-  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. */
   span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
   halflife?: number | null;
@@ -2190,7 +2190,7 @@ export declare function EwParkinsonVar(options: EwParkinsonVarOptions): Screamer
  * Exponentially weighted Parkinson range-based variance estimator (high, low).
  *
  * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
- * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha.
  * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwParkinsonVar.html for the full reference.
@@ -2201,7 +2201,7 @@ export declare function EwParkinsonVar(com?: number | null, span?: number | null
 export interface EwParkinsonVolOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
   com?: number | null;
-  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. */
   span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
   halflife?: number | null;
@@ -2220,7 +2220,7 @@ export declare function EwParkinsonVol(options: EwParkinsonVolOptions): Screamer
  * Exponentially weighted Parkinson range-based volatility estimator (high, low).
  *
  * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
- * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha.
  * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwParkinsonVol.html for the full reference.
@@ -2231,7 +2231,7 @@ export declare function EwParkinsonVol(com?: number | null, span?: number | null
 export interface EwResidualStdOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
   com?: number | null;
-  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. */
   span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
   halflife?: number | null;
@@ -2250,7 +2250,7 @@ export declare function EwResidualStd(options: EwResidualStdOptions): ScreamerOp
  * EW std of the spread x - EwBeta(x, y) * y.
  *
  * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
- * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha.
  * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwResidualStd.html for the full reference.
@@ -2261,7 +2261,7 @@ export declare function EwResidualStd(com?: number | null, span?: number | null,
 export interface EwRmsOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
   com?: number | null;
-  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. */
   span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
   halflife?: number | null;
@@ -2280,7 +2280,7 @@ export declare function EwRms(options: EwRmsOptions): ScreamerOp;
  * EW root-mean-square.
  *
  * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
- * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha.
  * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwRms.html for the full reference.
@@ -2291,7 +2291,7 @@ export declare function EwRms(com?: number | null, span?: number | null, halflif
 export interface EwRogersSatchellVarOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
   com?: number | null;
-  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. */
   span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
   halflife?: number | null;
@@ -2310,7 +2310,7 @@ export declare function EwRogersSatchellVar(options: EwRogersSatchellVarOptions)
  * Exponentially weighted Rogers-Satchell drift-robust range-based variance estimator (OHLC).
  *
  * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
- * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha.
  * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwRogersSatchellVar.html for the full reference.
@@ -2321,7 +2321,7 @@ export declare function EwRogersSatchellVar(com?: number | null, span?: number |
 export interface EwRogersSatchellVolOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
   com?: number | null;
-  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. */
   span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
   halflife?: number | null;
@@ -2340,7 +2340,7 @@ export declare function EwRogersSatchellVol(options: EwRogersSatchellVolOptions)
  * Exponentially weighted Rogers-Satchell drift-robust range-based volatility estimator (OHLC).
  *
  * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
- * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha.
  * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwRogersSatchellVol.html for the full reference.
@@ -2351,7 +2351,7 @@ export declare function EwRogersSatchellVol(com?: number | null, span?: number |
 export interface EwSkewOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
   com?: number | null;
-  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. */
   span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
   halflife?: number | null;
@@ -2370,7 +2370,7 @@ export declare function EwSkew(options: EwSkewOptions): ScreamerOp;
  * EW skewness.
  *
  * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
- * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha.
  * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwSkew.html for the full reference.
@@ -2381,7 +2381,7 @@ export declare function EwSkew(com?: number | null, span?: number | null, halfli
 export interface EwSpreadOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
   com?: number | null;
-  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. */
   span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
   halflife?: number | null;
@@ -2400,7 +2400,7 @@ export declare function EwSpread(options: EwSpreadOptions): ScreamerOp;
  * EW hedge-adjusted residual x - EwBeta(x, y) * y.
  *
  * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
- * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha.
  * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwSpread.html for the full reference.
@@ -2411,7 +2411,7 @@ export declare function EwSpread(com?: number | null, span?: number | null, half
 export interface EwStdOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
   com?: number | null;
-  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. */
   span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
   halflife?: number | null;
@@ -2430,7 +2430,7 @@ export declare function EwStd(options: EwStdOptions): ScreamerOp;
  * EW standard deviation.
  *
  * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
- * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha.
  * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwStd.html for the full reference.
@@ -2441,7 +2441,7 @@ export declare function EwStd(com?: number | null, span?: number | null, halflif
 export interface EwVarOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
   com?: number | null;
-  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. */
   span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
   halflife?: number | null;
@@ -2460,7 +2460,7 @@ export declare function EwVar(options: EwVarOptions): ScreamerOp;
  * EW variance (pandas adjust=True bias-corrected).
  *
  * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
- * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha.
  * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwVar.html for the full reference.
@@ -2471,7 +2471,7 @@ export declare function EwVar(com?: number | null, span?: number | null, halflif
 export interface EwYangZhangVarOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
   com?: number | null;
-  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. */
   span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
   halflife?: number | null;
@@ -2490,7 +2490,7 @@ export declare function EwYangZhangVar(options: EwYangZhangVarOptions): Screamer
  * Exponentially weighted Yang-Zhang range-based variance estimator (OHLC).
  *
  * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
- * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha.
  * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwYangZhangVar.html for the full reference.
@@ -2501,7 +2501,7 @@ export declare function EwYangZhangVar(com?: number | null, span?: number | null
 export interface EwYangZhangVolOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
   com?: number | null;
-  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. */
   span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
   halflife?: number | null;
@@ -2520,7 +2520,7 @@ export declare function EwYangZhangVol(options: EwYangZhangVolOptions): Screamer
  * Exponentially weighted Yang-Zhang range-based volatility estimator (OHLC).
  *
  * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
- * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha.
  * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwYangZhangVol.html for the full reference.
@@ -2531,7 +2531,7 @@ export declare function EwYangZhangVol(com?: number | null, span?: number | null
 export interface EwZscoreOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
   com?: number | null;
-  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. */
   span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
   halflife?: number | null;
@@ -2550,7 +2550,7 @@ export declare function EwZscore(options: EwZscoreOptions): ScreamerOp;
  * Latest sample standardized by the EW mean and std.
  *
  * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
- * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha.
  * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_ew/EwZscore.html for the full reference.
@@ -5509,9 +5509,9 @@ export declare function RollingZscore(windowSize?: number, startPolicy?: string)
 
 /** The settings of RoofingFilter by name, for `RoofingFilter({ ... })`. */
 export interface RoofingFilterOptions {
-  /** Highpass cutoff as a cycle length in samples; longer cycles (the trend) are removed. Give exactly one of hp_period and hp_cutoff. The default shown is a suggested starting value; the constructor has no default. */
+  /** Highpass cutoff as a cycle length in samples; longer cycles (the trend) are removed. Give exactly one of hp_period and hp_cutoff. 48 is a common starting value. */
   hpPeriod?: number | null;
-  /** Lowpass cutoff as a cycle length in samples; shorter cycles (noise) are removed. Give exactly one of lp_period and lp_cutoff. The default shown is a suggested starting value; the constructor has no default. */
+  /** Lowpass cutoff as a cycle length in samples; shorter cycles (noise) are removed. Give exactly one of lp_period and lp_cutoff. 10 is a common starting value. */
   lpPeriod?: number | null;
   /** Highpass cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / hp_period. Give exactly one of hp_period and hp_cutoff. */
   hpCutoff?: number | null;
@@ -5531,8 +5531,8 @@ export declare function RoofingFilter(options: RoofingFilterOptions): ScreamerOp
 /**
  * Ehlers bandpass, a highpass then a SuperSmoother.
  *
- * @param hpPeriod Highpass cutoff as a cycle length in samples; longer cycles (the trend) are removed. Give exactly one of hp_period and hp_cutoff. The default shown is a suggested starting value; the constructor has no default.
- * @param lpPeriod Lowpass cutoff as a cycle length in samples; shorter cycles (noise) are removed. Give exactly one of lp_period and lp_cutoff. The default shown is a suggested starting value; the constructor has no default.
+ * @param hpPeriod Highpass cutoff as a cycle length in samples; longer cycles (the trend) are removed. Give exactly one of hp_period and hp_cutoff. 48 is a common starting value.
+ * @param lpPeriod Lowpass cutoff as a cycle length in samples; shorter cycles (noise) are removed. Give exactly one of lp_period and lp_cutoff. 10 is a common starting value.
  * @param hpCutoff Highpass cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / hp_period. Give exactly one of hp_period and hp_cutoff.
  * @param lpCutoff Lowpass cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / lp_period. Give exactly one of lp_period and lp_cutoff.
  * @param startPolicy Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at 0. "zero" starts from an all-zero state, as scipy.signal.lfilter does.
@@ -5757,7 +5757,7 @@ export declare function Sub(options?: SubOptions): ScreamerOp;
 
 /** The settings of SuperSmoother by name, for `SuperSmoother({ ... })`. */
 export interface SuperSmootherOptions {
-  /** Cutoff as a cycle length in samples; cycles shorter than this are attenuated. Give exactly one of period and cutoff. The default shown is a suggested starting value; the constructor has no default. */
+  /** Cutoff as a cycle length in samples; cycles shorter than this are attenuated. Give exactly one of period and cutoff. 20 is a common starting value. */
   period?: number | null;
   /** Cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / period. Give exactly one of period and cutoff. */
   cutoff?: number | null;
@@ -5775,7 +5775,7 @@ export declare function SuperSmoother(options: SuperSmootherOptions): ScreamerOp
 /**
  * Ehlers 2-pole low-lag lowpass filter.
  *
- * @param period Cutoff as a cycle length in samples; cycles shorter than this are attenuated. Give exactly one of period and cutoff. The default shown is a suggested starting value; the constructor has no default.
+ * @param period Cutoff as a cycle length in samples; cycles shorter than this are attenuated. Give exactly one of period and cutoff. 20 is a common starting value.
  * @param cutoff Cutoff as a fraction of the Nyquist frequency, in (0, 1), equal to 2 / period. Give exactly one of period and cutoff.
  * @param startPolicy Initial filter state. "steady" sets the state, at the first non-NaN input x0, to the steady state for a constant input x0, so the output starts at x0. "zero" starts from an all-zero state, as scipy.signal.lfilter does.
  * @see https://screamer.readthedocs.io/en/latest/functions_signal/SuperSmoother.html for the full reference.
@@ -5786,7 +5786,7 @@ export declare function SuperSmoother(period?: number | null, cutoff?: number | 
 export interface TEMAOptions {
   /** Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha. */
   com?: number | null;
-  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default. */
+  /** Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. */
   span?: number | null;
   /** Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha. */
   halflife?: number | null;
@@ -5805,7 +5805,7 @@ export declare function TEMA(options: TEMAOptions): ScreamerOp;
  * Mulloy's Triple EMA: 3*EMA - 3*EMA(EMA) + EMA(EMA(EMA)).
  *
  * @param com Center of mass c, giving alpha = 1 / (1 + c). Must be positive. Give exactly one of com, span, halflife and alpha.
- * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha. The default shown is an example value; the constructor has no default.
+ * @param span Span s in samples, giving alpha = 2 / (s + 1). Must be greater than 1. Give exactly one of com, span, halflife and alpha.
  * @param halflife Half-life h in samples, giving alpha = 1 - exp(-ln(2) / h). Must be positive. Give exactly one of com, span, halflife and alpha.
  * @param alpha Smoothing factor, with 0 < alpha < 1; a larger alpha gives recent samples more weight. Give exactly one of com, span, halflife and alpha.
  * @see https://screamer.readthedocs.io/en/latest/functions_rolling/TEMA.html for the full reference.

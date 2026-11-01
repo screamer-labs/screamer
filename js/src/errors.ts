@@ -161,3 +161,16 @@ export function wasmCallbacks<F extends Record<string, (...args: any[]) => void>
     },
   };
 }
+
+/**
+ * @internal node:fs/promises for `save` and `load`, imported on their first
+ * call so a browser never asks for it. Outside Node.js the import fails, and
+ * the call raises a TypeError that names the calls a page can use.
+ */
+export async function nodeFs(who: string): Promise<any> {
+  try {
+    return await import(["node:fs/promises"][0]);
+  } catch {
+    throw new TypeError(`${who} uses the file system, which needs Node.js; in a browser, use dumps() and loads()`);
+  }
+}
