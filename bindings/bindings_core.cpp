@@ -37,7 +37,7 @@ namespace serial = screamer::serial;
 
 // A test object for the archives (tests/test_serial_core.py): every field call
 // of serial/archive.h, a nested block with its own state() and a nested
-// object saved through write_state/read_state as a nested operator is.
+// object saved through write_state/load_into as a nested operator is.
 struct SerialDemoBlock {
     double a = -0.0;
     std::vector<double> buf{1.0, 2.0, 3.0};
@@ -71,13 +71,13 @@ struct SerialDemoOp {
         out.set("version", json::Value::integer(kStateVersion));
         out.set("values", serial::save_state(*this));
     }
-    void read_state(const json::Value& in, const std::string& path) {
+    void load_into(const json::Value& in, const std::string& path, serial::detail::Loader& ar) {
         const json::Value* version = in.kind == json::Value::Kind::Object ? in.get("version") : nullptr;
         const json::Value* values = in.kind == json::Value::Kind::Object ? in.get("values") : nullptr;
         if (!version || version->kind != json::Value::Kind::Int || !values)
             throw serial::StateMismatch(path, "expected {\"version\": N, \"values\": {...}}");
         if (version->i != kStateVersion) throw serial::StateVersionError(path, version->i, kStateVersion);
-        serial::load_state(*this, *values, path);
+        ar.part(*this, *values, path);
     }
 };
 

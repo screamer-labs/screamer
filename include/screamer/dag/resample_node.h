@@ -251,8 +251,8 @@ public:
     static constexpr int kStateVersion = 1;
     bool saveable() const override { return true; }
     void write_state(json::Value& out) const override { write_node_state(*this, out); }
-    void read_state(const json::Value& in, const std::string& path) override {
-        read_node_state(*this, in, path);
+    void load_into(const json::Value& in, const std::string& path, serial::detail::Loader& ar) override {
+        load_node_state(*this, in, path, ar);
     }
 
     // What reset() touches. A plan learned from the stream is saved as the

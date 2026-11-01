@@ -30,6 +30,8 @@
 
 namespace screamer {
 
+namespace serial { namespace detail { class Loader; } }
+
 // The uniform op interface the DAG engine holds for ANY functor, regardless of
 // arity. ScreamerBase (1->1) and FunctorBase<_,N,M> (N->M) both implement it in
 // terms of their existing process_scalar/call. eval() processes exactly one
@@ -106,13 +108,19 @@ struct EvalOp {
     // write_settings writes the constructor arguments as an object, by their
     // documented names. write_state writes {"version": N, "values": {...}},
     // and read_state loads that tree, or raises a SaveError naming `path` and
-    // leaves the operator unchanged.
+    // leaves the operator unchanged. load_into loads a "values" tree as part of
+    // the load `ar` of the object that holds the operator (ar.op in
+    // serial/archive.h): its assignments join that load's undo log, so each
+    // pass walks a nested operator once.
     virtual bool saveable() const { return false; }
     virtual const char* type_name() const { return nullptr; }
     virtual int state_version() const { return 0; }
     virtual void write_settings(json::Value&) const { not_saveable(""); }
     virtual void write_state(json::Value&) const { not_saveable(""); }
     virtual void read_state(const json::Value&, const std::string& path) { not_saveable(path); }
+    virtual void load_into(const json::Value&, const std::string& path, serial::detail::Loader&) {
+        not_saveable(path);
+    }
 
 private:
     [[noreturn]] SCREAMER_NOINLINE SCREAMER_COLD void throw_panel_event_call() const;

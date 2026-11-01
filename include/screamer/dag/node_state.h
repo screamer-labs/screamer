@@ -7,8 +7,9 @@
 //
 //   bool saveable() const override { return true; }
 //   void write_state(json::Value& out) const override { write_node_state(*this, out); }
-//   void read_state(const json::Value& in, const std::string& path) override {
-//       read_node_state(*this, in, path);
+//   void load_into(const json::Value& in, const std::string& path,
+//                  serial::detail::Loader& ar) override {
+//       load_node_state(*this, in, path, ar);
 //   }
 //
 // Its tree is {"version": N, "values": {...}}, the form of an operator's. A
@@ -32,14 +33,14 @@ void write_node_state(const N& node, json::Value& out) {
     out = serial::detail::state_node(N::kStateVersion, serial::save_state(node));
 }
 
-// Loads a node's tree: a Validate pass, then a Read pass, so a tree that
-// does not fit leaves the node unchanged.
+// Loads a node's tree as part of the session's load `ar`, which undoes it
+// when any part of the load fails.
 template <class N>
-void read_node_state(N& node, const json::Value& in, const std::string& path) {
+void load_node_state(N& node, const json::Value& in, const std::string& path, serial::detail::Loader& ar) {
     bool columns = false;
     const json::Value& body = serial::detail::state_body(in, N::kStateVersion, path, columns);
     if (columns) throw serial::StateMismatch(path + ".columns", "unknown field");
-    serial::load_state(node, body, path);
+    ar.part(node, body, path);
 }
 
 // A member of a node that is set or not (`has`), saved as the value or null.

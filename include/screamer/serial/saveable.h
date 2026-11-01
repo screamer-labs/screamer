@@ -81,6 +81,14 @@ inline const json::Value& state_body(const json::Value& in, int version, const s
     return *cols;
 }
 
+// Drops `op`'s panel as a part of the load `ar`, which restores it when the
+// load is undone.
+inline void drop_panel(EvalOp& op, Loader& ar) {
+    if (!op.panel_) return;
+    auto held = std::make_shared<std::unique_ptr<Panel>>();
+    ar.apply([&op, held] { *held = std::move(op.panel_); }, [&op, held] { op.panel_ = std::move(*held); });
+}
+
 }  // namespace detail
 
 template <class Derived, class Base>
@@ -137,8 +145,7 @@ public:
             bool columns = false;
             const json::Value& body = detail::state_body(in, Derived::kStateVersion, path, columns);
             if (!columns) {
-                load_state(derived(), body, path);
-                this->panel_.reset();
+                run_load(path, [&](detail::Loader& ar) { load_into(in, path, ar); });
                 return;
             }
             auto panel = std::make_unique<Panel>();
@@ -147,14 +154,33 @@ public:
                 std::unique_ptr<EvalOp> col = this->clone_fresh();
                 if (!col)
                     throw StateMismatch(path + ".columns", "the operator cannot hold per-column state");
-                load_state(static_cast<Derived&>(*col), body.a[c],
-                           path + ".columns[" + std::to_string(c) + "]");
                 panel->cols.push_back(std::move(col));
             }
+            run_load(path, [&](detail::Loader& ar) {
+                for (std::size_t c = 0; c < body.a.size(); ++c)
+                    ar.part(static_cast<Derived&>(*panel->cols[c]), body.a[c],
+                            path + ".columns[" + std::to_string(c) + "]");
+            });
             this->reset();
             this->panel_ = std::move(panel);
         } else {
             Base::read_state(in, path);
+        }
+    }
+
+    // A nested operator's "values" state, loaded as a part of the load `ar`
+    // of the object that holds it; a panel it holds is dropped with the load.
+    // A "columns" state raises: only an operator called directly keeps
+    // per-column state.
+    void load_into(const json::Value& in, const std::string& path, detail::Loader& ar) override {
+        if constexpr (detail::describes_state<Derived>::value) {
+            bool columns = false;
+            const json::Value& body = detail::state_body(in, Derived::kStateVersion, path, columns);
+            if (columns) throw StateMismatch(path + ".columns", "a nested operator holds no per-column state");
+            ar.part(derived(), body, path);
+            detail::drop_panel(*this, ar);
+        } else {
+            Base::load_into(in, path, ar);
         }
     }
 

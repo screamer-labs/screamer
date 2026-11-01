@@ -856,6 +856,63 @@ def test_nested_op_roundtrip():
         assert_bitwise([b(labels[t], x[t]) for t in range(40, labels.size)], want)
 
 
+def _deep_segment(depth):
+    """Segment(Segment(...RollingMean(3))) with `depth` Segments, fed a few
+    rows (the label of each level, then the value)."""
+    op = screamer.RollingMean(3)
+    for _ in range(depth):
+        op = screamer.Segment(op)
+    for t in range(5):
+        op(*([0.0] * depth), float(t))
+    return op
+
+
+def test_deep_nesting_loads_once_per_level():
+    """A load walks each nested operator once per pass. Each level used to
+    load its operator three times, so 12 levels took 0.8 s and 16 (the most
+    Segment's input limit allows) about a minute."""
+    import time
+    a = _deep_segment(16)
+    text = a.dumps()
+    start = time.perf_counter()
+    b = screamer.loads(text)
+    assert time.perf_counter() - start < 1.0
+    assert b.dumps() == text
+
+
+def test_deep_nesting_failed_load_leaves_state_unchanged():
+    """A check that fails in the innermost operator, after every outer level
+    has read its fields, undoes the whole load."""
+    a = _deep_segment(4)
+    before = a.state()
+    state = json.loads(json.dumps(before))
+    inner = state
+    for _ in range(4):
+        inner["values"]["started"] = False
+        inner["values"]["label"] = 7.0
+        inner = inner["values"]["op"]
+    inner["values"]["count"] = 99
+    with pytest.raises(screamer.StateMismatch, match=re.escape("Segment.op.op.op.op")):
+        a.set_state(state)
+    assert _same(a.state(), before)
+
+
+def test_nested_op_refuses_per_column_state():
+    """A nested operator keeps one state; a "columns" state in its place
+    would never run, so it raises instead of loading into a panel."""
+    labels = np.zeros(3)
+    x = np.array([4.0, 5.0, 6.0])
+    a = screamer.Segment(screamer.RollingMean(2))
+    for t in range(2):
+        a(labels[t], x[t])
+    state = a.state()
+    state["values"]["op"] = {"version": 1, "columns": [state["values"]["op"]["values"]]}
+    with pytest.raises(screamer.StateMismatch,
+                       match=re.escape("Segment.op.columns: a nested operator holds no per-column state")):
+        a.set_state(state)
+    assert a(labels[2], x[2]) == 5.5
+
+
 # ---- Golden files ------------------------------------------------------------
 
 def _golden_cases():

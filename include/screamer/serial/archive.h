@@ -39,9 +39,11 @@
 // "<path>.<field>: expected <what>, got <what>".
 //
 // ar.op recurses into a nested operator through its write_state(json::Value&)
-// and read_state(const json::Value&, const std::string& path); a validation
-// pass loads it and restores it from a snapshot. A Writer also asks it
-// saveable(), and in settings mode type_name() and write_settings().
+// and load_into(const json::Value&, const std::string& path, Loader&), which
+// runs the operator's state() on a part of the same load (Loader::part), so
+// the undo log of the load covers it and each pass walks it once. A Writer
+// also asks it saveable(), and in settings mode type_name() and
+// write_settings().
 
 #include <cstddef>
 #include <cstdint>
@@ -267,14 +269,16 @@ public:
 
     template <class Op>
     void op(const char* name, Op& nested) {
-        const json::Value& tree = take(name);
-        json::Value snapshot;
-        nested.write_state(snapshot);
-        std::string where = at(name);
-        nested.read_state(tree, where);
-        undo_->add([&nested, snapshot = std::move(snapshot), where = std::move(where)] {
-            nested.read_state(snapshot, where);
-        });
+        nested.load_into(take(name), at(name), *this);
+    }
+
+    // Runs `obj`'s state() on `tree` as a part of this load, its assignments
+    // undone with the load: the load of a nested operator (load_into).
+    template <class T>
+    void part(T& obj, const json::Value& tree, const std::string& path) {
+        Loader sub(tree, path, undo_);
+        obj.state(sub);
+        sub.finish();
     }
 
     // Reads a field into a local, which the load does not undo.
@@ -452,32 +456,45 @@ json::Value save_state(const T& obj) {
     return w.take();
 }
 
+namespace detail {
+
+// run_load with the load as a function and its context, compiled once.
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((noinline))
+#endif
+inline void run_load_passes(const std::string& path, void (*load)(Loader&, void*), void* context) {
+    static const json::Value none = json::Value::object();
+    for (Loader::Pass pass : {Loader::Pass::Validate, Loader::Pass::Read}) {
+        Loader ar(none, path, pass);
+        try {
+            load(ar, context);
+        } catch (...) {
+            ar.abandon();
+            throw;
+        }
+        ar.done();
+    }
+}
+
+}  // namespace detail
+
+// Runs `load(ar)` on a Loader in a Validate pass, then in a Read pass; each
+// pass loads its parts with ar.part or ar.op. A part that fails undoes the
+// pass and raises. `path` names the object in messages.
+template <class F>
+void run_load(const std::string& path, F&& load) {
+    using L = std::remove_reference_t<F>;
+    detail::run_load_passes(
+        path, [](detail::Loader& ar, void* f) { (*static_cast<L*>(f))(ar); },
+        const_cast<void*>(static_cast<const void*>(&load)));
+}
+
 // Loads `tree` into `obj` through its state(): a Validate pass, then a Read
 // pass. Raises StateMismatch (or the error of a nested operator) naming the
 // path of the field, and then leaves `obj` unchanged.
 template <class T>
 void load_state(T& obj, const json::Value& tree, const std::string& path) {
-    using detail::Loader;
-    {
-        Loader v(tree, path, Loader::Pass::Validate);
-        try {
-            obj.state(v);
-            v.finish();
-        } catch (...) {
-            v.abandon();
-            throw;
-        }
-        v.done();
-    }
-    Loader r(tree, path, Loader::Pass::Read);
-    try {
-        obj.state(r);
-        r.finish();
-    } catch (...) {
-        r.abandon();
-        throw;
-    }
-    r.done();
+    run_load(path, [&](detail::Loader& ar) { ar.part(obj, tree, path); });
 }
 
 }}  // namespace screamer::serial

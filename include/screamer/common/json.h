@@ -161,6 +161,11 @@ struct Value {
 
 // ---- Parse -------------------------------------------------------------------
 
+// The deepest nesting of arrays and objects the JSON and CBOR readers take.
+// A save file nests below 30 levels; the limit keeps a hostile file's
+// recursion far inside the WebAssembly stack.
+inline constexpr int kMaxDepth = 128;
+
 namespace detail {
 
 class Parser {
@@ -176,7 +181,6 @@ public:
     }
 
 private:
-    static constexpr int kMaxDepth = 512;
     const std::string& t_;
     const char* label_;
     std::size_t p_ = 0;

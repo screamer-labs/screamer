@@ -490,3 +490,42 @@ test("save: wasm/smoke/save_js.json is what scripts/gen_save_js.ts writes today"
   assert.deepEqual(norm(await fixtureText()), norm(readFileSync(FIXTURE_PATH, "utf8")),
     "wasm/smoke/save_js.json is stale: run node --import tsx scripts/gen_save_js.ts");
 });
+
+// ---- Limits, nesting and file handling (tests/test_save_restore.py) ----------
+
+test("save: a file nested too deeply raises, and the module keeps working", () => owning((keep) => {
+  // A value nested n deep inside the file's object: JSON text and CBOR (a
+  // map of one key holding n arrays). 128 levels pass the reader; deeper
+  // ones used to overflow the WebAssembly stack and break every later call.
+  const json = (n: number) => '{"x": ' + "[".repeat(n - 1) + "0" + "]".repeat(n - 1) + "}";
+  const cbor = (n: number) => Uint8Array.from([0xa1, 0x61, 0x78, ...new Array(n - 1).fill(0x81), 0x00]);
+  for (const make of [json, cbor]) {
+    assert.throws(() => S.loads(make(128)), (e: any) => e instanceof S.SaveError && /"screamer" field/.test(e.message));
+    for (const n of [129, 600, 100000])
+      assert.throws(() => S.loads(make(n)), (e: any) => e instanceof S.SaveError && /nested too deeply/.test(e.message));
+  }
+  const a = keep(rollingMean20());
+  assert.equal(keep(S.loads(a.dumps("cbor"))).dumps(), a.dumps());
+}));
+
+test("save: nested operators load once per level", () => owning((keep) => {
+  let op: any = S.RollingMean(3);
+  for (let d = 0; d < 16; d++) op = S.Segment(op);
+  keep(op);
+  for (let t = 0; t < 5; t++) op(...new Array(16).fill(0), t);
+  const text = op.dumps() as string;
+  const start = performance.now();
+  assert.equal(keep(S.loads(text)).dumps(), text);
+  assert.ok(performance.now() - start < 1000);
+}));
+
+test("save: a nested operator refuses per-column state", () => owning((keep) => {
+  const a = keep(S.Segment(S.RollingMean(2)));
+  a(0, 4);
+  a(0, 5);
+  const state: any = a.state();
+  state.values.op = { version: 1, columns: [state.values.op.values] };
+  assert.throws(() => a.setState(state), (e: any) => e instanceof S.StateMismatch &&
+    e.message === "Segment.op.columns: a nested operator holds no per-column state");
+  assert.equal(a(0, 6), 5.5);
+}));

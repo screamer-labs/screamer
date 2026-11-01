@@ -268,3 +268,21 @@ def test_pipeline_to_json_unchanged():
     for name, (pipe, _) in cases.items():
         assert pipe.to_json(indent=None) == want[name]["none"], name
         assert pipe.to_json(indent=2) == want[name]["2"], name
+
+
+# ---- Nesting depth -------------------------------------------------------------
+
+@pytest.mark.parametrize("n", [128, 129, 600])
+def test_parse_depth_limit(n):
+    """Both readers take values nested 128 deep (json.h kMaxDepth) and refuse
+    a deeper file, which would overflow the WebAssembly stack."""
+    text = "[" * n + "0" + "]" * n
+    blob = b"\x81" * n + b"\x00"
+    if n <= 128:
+        assert json.loads(_b._serial_dump_save(text)) == json.loads(text)
+        assert json.loads(_b._serial_cbor_decode(blob)) == json.loads(text)
+        return
+    with pytest.raises(ValueError, match="JSON.*nested too deeply"):
+        _b._serial_dump_save(text)
+    with pytest.raises(ValueError, match="CBOR.*nested too deeply"):
+        _b._serial_cbor_decode(blob)

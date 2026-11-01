@@ -34,8 +34,8 @@ public:
     // The node's state is its operator's (the output buffer is scratch).
     bool saveable() const override { return op_.saveable(); }
     void write_state(json::Value& out) const override { op_.write_state(out); }
-    void read_state(const json::Value& in, const std::string& path) override {
-        op_.read_state(in, path);
+    void load_into(const json::Value& in, const std::string& path, serial::detail::Loader& ar) override {
+        op_.load_into(in, path, ar);
     }
 
     std::size_t n_in()  const override { return n_in_; }

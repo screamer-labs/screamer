@@ -126,7 +126,6 @@ public:
     }
 
 private:
-    static constexpr int kMaxDepth = 512;
     const std::uint8_t* d_;
     std::size_t n_;
     std::size_t p_ = 0;
@@ -186,7 +185,7 @@ private:
     }
 
     json::Value value(int depth) {
-        if (depth > kMaxDepth) fail("values nested too deeply");
+        if (depth > json::kMaxDepth) fail("values nested too deeply");
         const std::size_t start = p_;
         const std::uint8_t ib = byte();
         const unsigned major = ib >> 5;

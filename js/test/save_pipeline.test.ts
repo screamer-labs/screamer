@@ -291,6 +291,14 @@ test("an edited setting refuses the state", () => {
     /LiveSession\.nodes\.1\.values\.op\.buffer/.test(e.message));
 });
 
+test("a node's operator refuses per-column state", () => {
+  const { f } = sessionFile();
+  const op = f.object.state.nodes["1"].values.op;
+  f.object.state.nodes["1"].values.op = { version: 1, columns: [op.values] };
+  assert.throws(() => S.loads(text(f)), (e: any) => e instanceof S.StateMismatch &&
+    e.message === "LiveSession.nodes.1.values.op.columns: a nested operator holds no per-column state");
+});
+
 test("a poisoned session cannot be saved", () => {
   const x = S.Input("x"), y = S.Input("y");
   const s = new S.Pipeline([x, y], [combineLatest([x, y], { maxPending: 2 })]).live();

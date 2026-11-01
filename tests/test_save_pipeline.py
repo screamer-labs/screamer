@@ -9,6 +9,7 @@ description, so an edited graph refuses the state (or starts fresh).
 """
 import json
 import pathlib
+import re
 import warnings
 
 import numpy as np
@@ -392,6 +393,17 @@ def test_bad_session_states_named():
         g = json.loads(json.dumps(f))
         g["object"]["settings"]["nodes"][1]["cls"] = "NoSuchOp"
         screamer.loads(json.dumps(g))
+
+
+def test_session_operator_refuses_per_column_state():
+    """A node's operator keeps one state; a "columns" state in its place
+    raises, naming the node."""
+    pipe, f = _session_file()
+    op = f["object"]["state"]["nodes"]["1"]["values"]["op"]
+    f["object"]["state"]["nodes"]["1"]["values"]["op"] = {"version": 1, "columns": [op["values"]]}
+    with pytest.raises(screamer.StateMismatch, match=re.escape(
+            "LiveSession.nodes.1.values.op.columns: a nested operator holds no per-column state")):
+        screamer.loads(json.dumps(f))
 
 
 def test_poisoned_session_save_raises():
