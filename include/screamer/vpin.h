@@ -50,6 +50,16 @@ namespace screamer {
             ar.check(filled_ >= 0 && filled_ <= n_buckets_, "filled must be in 0..n_buckets");
             ar.check(filled_ == n_buckets_ || head_ == filled_,
                      "head must equal filled until the ring is full");
+            // The open bucket stays below bucket_volume up to the rounding
+            // of the packing (kSlack); a larger one would take an event as
+            // many loop steps as it holds buckets.
+            ar.check(cur_buy_ >= 0.0 && cur_sell_ >= 0.0, "the open bucket must not be negative");
+            ar.check(cur_buy_ + cur_sell_ <= bucket_volume_ * kSlack,
+                     "the open bucket must be at most bucket_volume");
+            for (double v : imbalances_)
+                ar.check(v >= 0.0 && v <= bucket_volume_ * kSlack,
+                         "imbalances must be in 0..bucket_volume");
+            ar.check(std::isfinite(sum_), "sum must be finite");
         }
 
         VPIN(double bucket_volume = 1.0, int n_buckets = 50)
@@ -143,6 +153,8 @@ namespace screamer {
         }
 
     private:
+        static constexpr double kSlack = 1.0 + 1e-12;
+
         void close_bucket() {
             const double imb = std::abs(cur_buy_ - cur_sell_);
             sum_ -= imbalances_[head_];              // evict the oldest

@@ -26,7 +26,7 @@ from tests.param_cases import ROW_OPS
 from tests.test_batch_stream_bitwise import BLOCK_OPS
 from tests.save_cases import FUNCTOR_NAMES, case, kwargs_for, splits
 
-SAVEABLE = [n for n in FUNCTOR_NAMES if n not in ROW_OPS and n not in BLOCK_OPS]
+SERIES_OPS = [n for n in FUNCTOR_NAMES if n not in ROW_OPS and n not in BLOCK_OPS]
 K = 5
 
 
@@ -52,7 +52,7 @@ def _same(a, b):
     return json.dumps(a) == json.dumps(b)
 
 
-@pytest.mark.parametrize("name", SAVEABLE)
+@pytest.mark.parametrize("name", SERIES_OPS)
 def test_resume_1d(name):
     make, inputs = case(name)
     k = _split(name)
@@ -67,7 +67,7 @@ def test_resume_1d(name):
     assert_bitwise(a.resume(*rest), want[k:])
 
 
-@pytest.mark.parametrize("name", SAVEABLE)
+@pytest.mark.parametrize("name", SERIES_OPS)
 def test_resume_2d(name):
     make, inputs = case(name)
     k = _split(name)
@@ -86,7 +86,7 @@ def test_resume_2d(name):
     assert_bitwise(a.resume(*rest), want[k:])
 
 
-@pytest.mark.parametrize("name", SAVEABLE)
+@pytest.mark.parametrize("name", SERIES_OPS)
 def test_resume_2d_strided_long(name):
     """Long columns of a wide panel take the column driver's tiled path."""
     make, inputs = case(name)
@@ -171,7 +171,7 @@ def test_panel_state_refuses_bad_column():
 
 def test_default_2d_creates_no_panel():
     x2d = _panel(np.cumsum(np.random.default_rng(4).standard_normal(40)))
-    for name in SAVEABLE:
+    for name in SERIES_OPS:
         make, inputs = case(name)
         f = make()
         f(*[_panel(x) for x in inputs])
@@ -181,13 +181,13 @@ def test_default_2d_creates_no_panel():
     assert "values" in _state(f)
 
 
-@pytest.mark.parametrize("name", SAVEABLE)
+@pytest.mark.parametrize("name", SERIES_OPS)
 def test_resume_on_fresh_equals_batch(name):
     make, inputs = case(name)
     assert_bitwise(make().resume(*inputs), make()(*inputs))
 
 
-@pytest.mark.parametrize("name", SAVEABLE)
+@pytest.mark.parametrize("name", SERIES_OPS)
 def test_default_batch_unchanged(name):
     make, inputs = case(name)
     f = make()

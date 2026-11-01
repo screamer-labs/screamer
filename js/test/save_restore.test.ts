@@ -18,6 +18,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as S from "../src/index.ts";
+import * as OPS from "../src/generated/ops.ts";
 import type { NdArray } from "../src/ndarray.ts";
 
 await S.ready();
@@ -289,9 +290,28 @@ test("save: the error classes", () => {
     (e: any) => e instanceof S.SaveError && e.message.includes("Segment.settings.op.settings.window: unknown parameter"));
 });
 
-test("save: every operator of the registry can be saved", () => {
-  const saveable = new Set(ORACLE.cases.map((c) => c.name));
-  assert.deepEqual(ORACLE.registry.filter((r) => !saveable.has(r.name)).map((r) => r.name), []);
+test("save: every operator of the JavaScript API can be saved", () => {
+  const registry = new Map(ORACLE.registry.map((r) => [r.name, r.settings]));
+  const names = Object.keys(OPS).filter((k) => /^[A-Z]/.test(k) && typeof (OPS as any)[k] === "function");
+  assert.ok(names.length > 0);
+  const failed: string[] = [];
+  for (const name of names) {
+    const settings = registry.get(name);
+    if (!settings) {
+      failed.push(`${name} (not in the registry)`);
+      continue;
+    }
+    const op = S.fromSettings({ type: name, settings: decodeSettings(settings) });
+    try {
+      op.dumps();
+    } catch (e) {
+      if (!(e instanceof S.NotSaveable)) throw e;
+      failed.push(name);
+    } finally {
+      op.dispose();
+    }
+  }
+  assert.deepEqual(failed, []);
 });
 
 test("save: a nested operator saves and loads", () => owning((keep) => {

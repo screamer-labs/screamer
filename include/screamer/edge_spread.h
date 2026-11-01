@@ -96,6 +96,7 @@ public:
             const long pairs = bars_ > 0 ? static_cast<long>(bars_) - 1 : 0;
             for (long n : counts)
                 ar.check(n >= 0 && n <= pairs, "counts must be in 0..bars - 1");
+            for (double v : sums) ar.check(std::isfinite(v), "sums must be finite");
             std::vector<double> r = ring_;
             std::copy(ring.begin(), ring.end(), r.begin());
             std::array<double, kSums> sm;

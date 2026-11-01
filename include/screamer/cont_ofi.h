@@ -39,6 +39,9 @@ namespace screamer {
             ar("prev_ask", prev_ask_);
             ar("prev_bid_size", prev_bid_size_);
             ar("prev_ask_size", prev_ask_size_);
+            ar.check(!isnan2(prev_bid_) && !isnan2(prev_ask_) && !isnan2(prev_bid_size_) &&
+                         !isnan2(prev_ask_size_),
+                     "the previous quote must not be NaN");
         }
 
         ContOFI() = default;
