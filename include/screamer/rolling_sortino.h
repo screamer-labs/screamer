@@ -26,12 +26,35 @@
 
 namespace screamer {
 
-class RollingSortino : public ScreamerBase {
+class RollingSortino : public serial::Saveable<RollingSortino, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "RollingSortino";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", window_size_);
+        ar("periods_per_year", periods_per_year_);
+        ar("target", target_);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.fixed("buffer", buffer_, static_cast<std::size_t>(window_size_));
+        ar("index", index_);
+        ar("count", size_);
+        ar("sum", sum_);
+        ar.check(index_ >= 0 && index_ < window_size_, "index must lie in 0 .. window_size - 1");
+        ar.check(size_ >= 0 && size_ <= window_size_, "count must lie in 0 .. window_size");
+        ar.check(size_ == window_size_ || index_ == size_,
+                 "index must equal count until the window is full");
+    }
+
     RollingSortino(int window_size,
                    double periods_per_year = 1.0,
                    double target = 0.0)
         : window_size_(window_size),
+          periods_per_year_(periods_per_year),
           scale_(std::sqrt(periods_per_year)),
           target_(target)
     {
@@ -90,6 +113,7 @@ public:
 
 private:
     const int window_size_;
+    const double periods_per_year_;
     const double scale_;
     const double target_;
     std::vector<double> buffer_;

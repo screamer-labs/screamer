@@ -76,6 +76,17 @@ public:
         index = 0;
     }
 
+    // The values oldest first; a load places them from slot 0.
+    template <class Ar>
+    void state(Ar& ar) {
+        std::vector<double> values;
+        if constexpr (Ar::kSaving) values = oldest_first();
+        ar.local("values", values, N);
+        if constexpr (Ar::kLoading)
+            ar.apply([this, values] { assign_oldest_first(values); },
+                     [this, old = oldest_first()] { assign_oldest_first(old); });
+    }
+
 private:
     const size_t N;     // The lag value (number of steps to delay), marked as const
     size_t index; // Tracks the current position in the buffer

@@ -21,8 +21,17 @@
 
 namespace screamer {
 
-class Drawdown : public ScreamerBase {
+class Drawdown : public serial::Saveable<Drawdown, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "Drawdown";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar& ar) { ar.object("cum_max", cum_max_); }
+
     Drawdown() { reset(); }
 
     void reset() override {

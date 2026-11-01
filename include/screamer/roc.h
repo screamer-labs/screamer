@@ -16,8 +16,17 @@
 
 namespace screamer {
 
-class ROC : public ScreamerBase {
+class ROC : public serial::Saveable<ROC, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "ROC";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) { ar("window_size", static_cast<int>(window_size_)); }
+
+    template <class Ar>
+    void state(Ar& ar) { ar.object("buffer", buffer_); }
+
     explicit ROC(int window_size)
         : window_size_(window_size),
           buffer_(window_size, std::numeric_limits<double>::quiet_NaN())

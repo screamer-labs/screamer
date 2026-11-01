@@ -13,9 +13,10 @@
 
 namespace screamer {
 
-class ROCP : public Return {
+class ROCP : public serial::Renamed<ROCP, Return> {
 public:
-    using Return::Return;
+    static constexpr const char* kTypeName = "ROCP";
+    using Renamed::Renamed;
 };
 
 }  // namespace screamer

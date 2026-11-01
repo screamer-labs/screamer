@@ -28,8 +28,24 @@
 
 namespace screamer {
 
-class RollingCalmar : public ScreamerBase {
+class RollingCalmar : public serial::Saveable<RollingCalmar, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "RollingCalmar";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", window_size_);
+        ar("periods_per_year", periods_per_year_);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("mean", mean_);
+        ar.object("max_drawdown", rmd_);
+        ar("price", price_);
+    }
+
     RollingCalmar(int window_size, double periods_per_year = 1.0)
         : window_size_(window_size),
           periods_per_year_(periods_per_year),

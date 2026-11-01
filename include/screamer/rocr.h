@@ -14,8 +14,17 @@
 
 namespace screamer {
 
-class ROCR : public ScreamerBase {
+class ROCR : public serial::Saveable<ROCR, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "ROCR";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) { ar("window_size", static_cast<int>(window_size_)); }
+
+    template <class Ar>
+    void state(Ar& ar) { ar.object("buffer", buffer_); }
+
     explicit ROCR(int window_size)
         : window_size_(window_size),
           buffer_(window_size, std::numeric_limits<double>::quiet_NaN())

@@ -26,8 +26,18 @@ namespace screamer {
 
 class RollingSharpe : public detail::WindowMomentsOp<RollingSharpe, 2> {
 public:
+    static constexpr const char* kTypeName = "RollingSharpe";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", window_size_);
+        ar("periods_per_year", periods_per_year_);
+    }
+
     RollingSharpe(int window_size, double periods_per_year = 1.0)
         : WindowMomentsOp(window_size, detail::StartPolicy::Strict, detail::StartPolicy::Strict),
+          periods_per_year_(periods_per_year),
           scale_(std::sqrt(periods_per_year))
     {
         require_finite("periods_per_year", periods_per_year);
@@ -57,6 +67,7 @@ public:
     }
 
 private:
+    const double periods_per_year_;
     const double scale_;
 };
 

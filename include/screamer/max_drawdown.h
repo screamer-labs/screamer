@@ -17,8 +17,20 @@
 
 namespace screamer {
 
-class MaxDrawdown : public ScreamerBase {
+class MaxDrawdown : public serial::Saveable<MaxDrawdown, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "MaxDrawdown";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("drawdown", drawdown_);
+        ar.object("cum_min", cum_min_);
+    }
+
     MaxDrawdown() = default;
 
     void reset() override {

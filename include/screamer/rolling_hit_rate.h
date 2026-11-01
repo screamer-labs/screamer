@@ -21,8 +21,21 @@
 
 namespace screamer {
 
-class RollingHitRate : public ScreamerBase {
+class RollingHitRate : public serial::Saveable<RollingHitRate, ScreamerBase> {
 public:
+    static constexpr const char* kTypeName = "RollingHitRate";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) { ar("window_size", window_size_); }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("hits", hits_);
+        ar("n_seen", n_seen_);
+        ar.check(n_seen_ >= 0 && n_seen_ <= window_size_, "n_seen must lie in 0 .. window_size");
+    }
+
     explicit RollingHitRate(int window_size)
         : window_size_(window_size),
           hits_(window_size, "expanding")

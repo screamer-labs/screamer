@@ -23,8 +23,28 @@ namespace screamer {
     // one-sided risk measure. 1 -> 1; composes a single detail::RollingSum of the
     // squared shortfall. nan_policy: ignore (a NaN input yields NaN and leaves the
     // window untouched).
-    class RollingDownsideDeviation : public ScreamerBase {
+    class RollingDownsideDeviation : public serial::Saveable<RollingDownsideDeviation, ScreamerBase> {
     public:
+        static constexpr const char* kTypeName = "RollingDownsideDeviation";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) {
+            ar("window_size", window_size_);
+            ar("mar", mar_);
+            ar("start_policy", std::string(detail::start_policy_name(start_policy_)));
+        }
+
+        template <class Ar>
+        void state(Ar& ar) {
+            ar.object("sum_d2", sum_d2_);
+            ar("n", n_);
+            ar.check(n_ <= static_cast<std::size_t>(window_size_), "n must be at most window_size");
+            ar.check(start_policy_ != detail::StartPolicy::Zero ||
+                         n_ == static_cast<std::size_t>(window_size_),
+                     "n must equal window_size under start_policy zero");
+        }
+
         RollingDownsideDeviation(int window_size, double mar = 0.0,
                                  const std::string& start_policy = "strict")
             : window_size_(window_size),

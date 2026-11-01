@@ -1,0 +1,18 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "LogReturn",
+    "settings": {
+      "window_size": 1
+    },
+    "state": {
+      "version": 1,
+      "values": {
+        "buffer": {
+          "values": [1000.3297424183478]
+        }
+      }
+    }
+  }
+}

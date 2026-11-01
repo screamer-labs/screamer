@@ -10,8 +10,17 @@
 #include <stdexcept>
 namespace screamer {
 
-    class LogReturn : public ScreamerBase {
+    class LogReturn : public serial::Saveable<LogReturn, ScreamerBase> {
     public:
+        static constexpr const char* kTypeName = "LogReturn";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) { ar("window_size", static_cast<int>(window_size_)); }
+
+        template <class Ar>
+        void state(Ar& ar) { ar.object("buffer", buffer_); }
+
 
         LogReturn(int window_size) : 
             window_size_(window_size), 

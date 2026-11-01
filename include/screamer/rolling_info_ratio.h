@@ -23,8 +23,24 @@ namespace screamer {
 
 class RollingInfoRatio : public FunctorBase<RollingInfoRatio, 2, 1> {
 public:
+    static constexpr const char* kTypeName = "RollingInfoRatio";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("window_size", window_size_);
+        ar("periods_per_year", periods_per_year_);
+    }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("mean", mean_);
+        ar.object("std", std_);
+    }
+
     RollingInfoRatio(int window_size, double periods_per_year = 1.0)
         : window_size_(window_size),
+          periods_per_year_(periods_per_year),
           scale_(std::sqrt(periods_per_year)),
           mean_(window_size),
           std_(window_size)
@@ -60,6 +76,7 @@ public:
 
 private:
     const int window_size_;
+    const double periods_per_year_;
     const double scale_;
     RollingMean mean_;
     RollingStd std_;

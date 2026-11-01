@@ -23,8 +23,27 @@ namespace screamer {
     // window in an order-statistic tree, so each step is O(log W) to update plus
     // O(k) to read the tail. The output is NaN until the window is full; a NaN
     // input leaves the window untouched (nan_policy: ignore).
-    class RollingCVaR : public ScreamerBase {
+    class RollingCVaR : public serial::Saveable<RollingCVaR, ScreamerBase> {
     public:
+        static constexpr const char* kTypeName = "RollingCVaR";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) {
+            ar("window_size", window_size_);
+            ar("alpha", alpha_);
+        }
+
+        // The window oldest first (NaN for an empty slot) and the order
+        // statistic tree of its values (its keys keep the sign of a zero).
+        template <class Ar>
+        void state(Ar& ar) {
+            ar.object("buffer", buffer_);
+            ar.object("tree", ost_);
+            if constexpr (Ar::kLoading)
+                ar.check(ost_.holds(buffer_.oldest_first()), "tree must hold the values of the window");
+        }
+
         RollingCVaR(int window_size, double alpha = 0.05)
             : window_size_(window_size),
               alpha_(alpha),

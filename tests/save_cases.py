@@ -30,18 +30,14 @@ FUNCTOR_NAMES = sorted(n for n, e in HELP.items() if e.get("kind", "functor") ==
 KNOWN_UNSAVEABLE: set[str] = {
     'AbdiRanaldoSpread', 'AmihudIlliquidity', 'BandSignal', 'BayesianChangepoint',
     'BayesianRegression', 'BulkVolumeClassifier', 'ContOFI', 'CorwinSchultzSpread',
-    'Detrend', 'Diff', 'Diff2', 'Drawdown', 'EdgeSpread', 'EffectiveSpread',
-    'EwKyleLambda', 'EwMultiRegression', 'ExpandingMultiRegression', 'First',
-    'HawkesIntensity', 'KalmanRegression', 'Lag', 'Last', 'LeeReadySign', 'LogReturn',
-    'MaxDrawdown', 'MicroPrice', 'Momentum', 'OFI', 'Propagator', 'QueueImbalance',
-    'ROC', 'ROCP', 'ROCR', 'RealizedSpread', 'Return', 'RollSpread', 'RollingADF',
-    'RollingAlpha', 'RollingBeta', 'RollingCVaR', 'RollingCalmar', 'RollingCorr',
-    'RollingCov', 'RollingDownsideDeviation', 'RollingHitRate', 'RollingInfoRatio',
-    'RollingKyleLambda', 'RollingLinearRegression', 'RollingMaxDrawdown',
-    'RollingMultiRegression', 'RollingOmega', 'RollingOrderImbalance',
-    'RollingResidualStd', 'RollingSharpe', 'RollingSortino', 'RollingSpread',
-    'RollingTLSBeta', 'RollingUpsideDeviation', 'SignedVolume', 'TickRuleSign',
-    'TripleBarrier', 'TripleBarrierOHLC', 'VPIN'
+    'Detrend', 'Diff', 'Diff2', 'EdgeSpread', 'EffectiveSpread', 'EwKyleLambda',
+    'EwMultiRegression', 'ExpandingMultiRegression', 'First', 'HawkesIntensity',
+    'KalmanRegression', 'Lag', 'Last', 'LeeReadySign', 'MicroPrice', 'Momentum', 'OFI',
+    'Propagator', 'QueueImbalance', 'RealizedSpread', 'RollSpread', 'RollingADF',
+    'RollingAlpha', 'RollingBeta', 'RollingCorr', 'RollingCov', 'RollingKyleLambda',
+    'RollingLinearRegression', 'RollingMultiRegression', 'RollingOrderImbalance',
+    'RollingResidualStd', 'RollingSpread', 'RollingTLSBeta', 'SignedVolume',
+    'TickRuleSign', 'TripleBarrier', 'TripleBarrierOHLC', 'VPIN'
 }
 
 # Arguments that differ from the sweep's: Segment runs an operator that can be

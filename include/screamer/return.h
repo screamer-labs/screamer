@@ -9,8 +9,17 @@
 #include <stdexcept>
 namespace screamer {
 
-    class Return : public ScreamerBase {
+    class Return : public serial::Saveable<Return, ScreamerBase> {
     public:
+        static constexpr const char* kTypeName = "Return";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) { ar("window_size", static_cast<int>(window_size_)); }
+
+        template <class Ar>
+        void state(Ar& ar) { ar.object("buffer", buffer_); }
+
 
         Return(int window_size) : 
             window_size_(window_size), 

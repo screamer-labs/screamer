@@ -1,0 +1,24 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "RollingDownsideDeviation",
+    "settings": {
+      "window_size": 20,
+      "mar": 0.0,
+      "start_policy": "strict"
+    },
+    "state": {
+      "version": 1,
+      "values": {
+        "sum_d2": {
+          "buffer": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+          "index": 0,
+          "count": 20,
+          "sum": 0.0
+        },
+        "n": 20
+      }
+    }
+  }
+}
