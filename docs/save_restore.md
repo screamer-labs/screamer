@@ -160,7 +160,7 @@ it is about, such as `RollingMean.buffer` or
 
 | Error | Raised when |
 |:------|:------------|
-| `SaveError` | The file is not a save file, is malformed JSON or CBOR, or names an unknown type, an unknown setting or a setting the constructor refuses. |
+| `SaveError` | The file is not a save file (including an unknown top-level field), is malformed JSON or CBOR, or names an unknown type, an unknown setting or a setting the constructor refuses. |
 | `StateMismatch` | The state does not fit the settings: a missing or unknown field, a wrong type or length, a broken invariant, or an edited graph. |
 | `StateVersionError` | The file's state version is not the one this library reads. The message names the function and both versions. |
 | `NotSaveable` | The object cannot be saved: a lazy call in progress (use a live session), a live session that rejected an event, or a `Pipeline` node whose function is not a screamer class, such as a Python subclass. |

@@ -47,7 +47,8 @@ inline const json::Value& unwrap(const json::Value& file) {
                         kSaveSchema + "\"");
     for (const auto& kv : file.o)
         if (kv.first != "screamer" && kv.first != "library_version" && kv.first != "object")
-            throw SaveError(kv.first + ": unknown field");
+            throw SaveError("not a screamer save file: unknown top-level field \"" + kv.first +
+                            "\" (a save file has \"screamer\", \"library_version\" and \"object\")");
     const json::Value* node = file.get("object");
     if (!node) throw SaveError("not a screamer save file: no \"object\" field");
     return *node;

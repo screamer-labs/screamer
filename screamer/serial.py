@@ -232,14 +232,21 @@ def save(self, path):
 def _write_file(path, data):
     """Write a save file, ``str`` as UTF-8 or ``bytes``, to ``path``: to a new
     file beside it, then renamed over it, so a failed write leaves the
-    previous file as it was."""
-    path = os.fsdecode(os.fspath(path))
+    previous file as it was. A symbolic link is followed, so the file it
+    points to is replaced, and a replaced file keeps its permissions."""
+    path = os.path.realpath(os.fsdecode(os.fspath(path)))
+    try:
+        mode = os.stat(path).st_mode & 0o7777
+    except FileNotFoundError:
+        mode = None
     tmp = f"{path}.{os.urandom(6).hex()}.tmp"
     try:
         with open(tmp, "xb") as fh:
             fh.write(data if isinstance(data, bytes) else data.encode("utf-8"))
             fh.flush()
             os.fsync(fh.fileno())
+        if mode is not None:
+            os.chmod(tmp, mode)
         os.replace(tmp, path)
     except BaseException:
         try:

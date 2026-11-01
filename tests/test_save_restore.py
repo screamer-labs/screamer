@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import pathlib
 import re
+import sys
 
 import numpy as np
 import pytest
@@ -991,6 +992,28 @@ def test_failed_save_keeps_the_previous_file(tmp_path, monkeypatch, name):
     screamer.RollingMean(7).save(path)
     assert screamer.load(path).settings()["window_size"] == 7
     assert sorted(p.name for p in tmp_path.iterdir()) == [name]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="symbolic links and modes need POSIX")
+def test_save_follows_links_and_keeps_permissions(tmp_path):
+    """A save through a symbolic link replaces the file the link points to
+    and keeps the link; a replaced file keeps its permissions."""
+    import os
+    import stat
+    target = tmp_path / "real.json"
+    _rolling_mean_20().save(target)
+    os.chmod(target, 0o600)
+    (tmp_path / "link.json").symlink_to("real.json")
+    screamer.RollingMean(7).save(tmp_path / "link.json")
+    assert (tmp_path / "link.json").is_symlink()
+    assert stat.S_IMODE(os.stat(target).st_mode) == 0o600
+    assert screamer.load(target).settings()["window_size"] == 7
+    (tmp_path / "dangling.json").symlink_to("new.json")
+    _rolling_mean_20().save(tmp_path / "dangling.json")
+    assert (tmp_path / "dangling.json").is_symlink()
+    assert screamer.load(tmp_path / "new.json").dumps() == _rolling_mean_20().dumps()
+    assert sorted(p.name for p in tmp_path.iterdir()) == [
+        "dangling.json", "link.json", "new.json", "real.json"]
 
 
 def test_fresh_warning_points_at_the_caller(tmp_path):

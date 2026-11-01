@@ -176,16 +176,45 @@ export async function nodeFs(who: string): Promise<any> {
 }
 
 /**
+ * @internal The file a save to `path` replaces: `path` itself, or the file a
+ * symbolic link at `path` points to, also when that file does not exist yet.
+ */
+async function saveTarget(fs: any, path: string): Promise<string> {
+  for (let hops = 0; hops < 40; ++hops) {
+    let link: string;
+    try {
+      link = await fs.readlink(path);
+    } catch {
+      return path;
+    }
+    const slash = Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\"));
+    const absolute = link.startsWith("/") || /^[A-Za-z]:[\\/]/.test(link) || link.startsWith("\\\\");
+    path = absolute || slash < 0 ? link : path.slice(0, slash + 1) + link;
+  }
+  throw new RangeError(`${path}: too many levels of symbolic links`);
+}
+
+/**
  * @internal Writes a save file (Node.js): to a new file beside `path`, then
- * renamed over it, so a failed write leaves the previous file as it was.
+ * renamed over it, so a failed write leaves the previous file as it was. A
+ * symbolic link is followed, so the file it points to is replaced, and a
+ * replaced file keeps its permissions.
  */
 export async function writeSaveFile(path: string, data: string | Uint8Array, who: string): Promise<void> {
   const fs = await nodeFs(`${who}.save`);
+  path = await saveTarget(fs, path);
+  let mode: number | undefined;
+  try {
+    mode = (await fs.stat(path)).mode & 0o7777;
+  } catch {
+    mode = undefined;
+  }
   const tmp = `${path}.${Math.random().toString(16).slice(2, 14)}.tmp`;
   let fh: any;
   try {
     fh = await fs.open(tmp, "wx");
     await fh.writeFile(data);
+    if (mode !== undefined) await fh.chmod(mode);
     await fh.sync();
     await fh.close();
     fh = undefined;

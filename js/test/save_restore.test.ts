@@ -14,7 +14,7 @@
 // test_edited_setting_refuses_or_fresh and test_bad_files_named_errors.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as S from "../src/index.ts";
@@ -564,7 +564,30 @@ test("save: a byte order mark, other files and unknown envelope fields", () => o
     assert.throws(() => S.loads(bad), (e: any) => e instanceof S.SaveError && /neither a JSON object nor CBOR/.test(e.message));
   const d = JSON.parse(text);
   d.note = 1;
-  assert.throws(() => S.loads(JSON.stringify(d)), (e: any) => e instanceof S.SaveError && e.message === "note: unknown field");
+  assert.throws(() => S.loads(JSON.stringify(d)), (e: any) => e instanceof S.SaveError && e.message.startsWith('not a screamer save file: unknown top-level field "note"'));
+}));
+
+test("save: a save follows a symbolic link and keeps the file's permissions", () => owning(async (keep) => {
+  if (process.platform === "win32") return;
+  const dir = mkdtempSync(join(tmpdir(), "screamer-save-"));
+  try {
+    const a = keep(rollingMean20());
+    const target = join(dir, "real.json");
+    await a.save(target);
+    chmodSync(target, 0o600);
+    symlinkSync("real.json", join(dir, "link.json"));
+    await keep(OPS.RollingMean(7)).save(join(dir, "link.json"));
+    assert.ok(lstatSync(join(dir, "link.json")).isSymbolicLink());
+    assert.equal(statSync(target).mode & 0o777, 0o600);
+    assert.equal(keep(await S.load(target)).settings().window_size, 7);
+    symlinkSync("new.json", join(dir, "dangling.json"));
+    await a.save(join(dir, "dangling.json"));
+    assert.ok(lstatSync(join(dir, "dangling.json")).isSymbolicLink());
+    assert.equal(keep(await S.load(join(dir, "new.json"))).dumps(), a.dumps());
+    assert.deepEqual(readdirSync(dir).sort(), ["dangling.json", "link.json", "new.json", "real.json"]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 }));
 
 test("save: a resume keeps the panel's asset shape", () => owning((keep) => {
