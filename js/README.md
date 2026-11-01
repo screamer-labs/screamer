@@ -40,6 +40,9 @@ import from a CDN URL instead (browser use needs 2.2.1 or newer):
 </script>
 ```
 
+`save(path)` and `load(path)` use the file system and work in Node.js only; in a
+browser they raise a `TypeError` that says so. Use `dumps()` and `loads()` there.
+
 ## Calling an op: four input regimes
 
 An op factory like `RollingMean(3)` returns a callable. That callable dispatches on its

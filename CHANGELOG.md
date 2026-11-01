@@ -61,11 +61,12 @@ Unreleased
   `ValueError` (min_position above max_position).
 * **Defaults the constructors do not have:** the function pages and `help()`
   showed a default for settings that are one of several exclusive choices and
-  have none: `span=20.0` for `EwMean`, `DEMA`, `TEMA`, `EwStd`, the Ew
-  volatility estimators, `EwKyleLambda`, `BayesianRegression`,
-  `EwMultiRegression` and the other Ew functions, and the `period` of
-  `SuperSmoother` and `Decycler` and the periods of `RoofingFilter`. A call
-  without them raises, so the pages now show `None`.
+  have none: an example `span` (20 for `EwMean`, `DEMA`, `TEMA`, `EwStd`, the
+  Ew volatility estimators, `EwKyleLambda`, `BayesianRegression` and the other
+  Ew functions, 100 for `EwMultiRegression`), and example periods for the
+  filters (`period` 20 for `SuperSmoother` and 60 for `Decycler`, `hp_period`
+  48 and `lp_period` 10 for `RoofingFilter`). A call without them raises, so
+  the pages now show `None`.
 
 3.10.1 - 2026-11-01
 -------------------

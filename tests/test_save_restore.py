@@ -197,6 +197,18 @@ def test_bad_files_named_errors(bad, where):
         screamer.loads(text)
 
 
+def test_constructor_runtime_error_is_a_save_error(monkeypatch):
+    """A setting the constructor refuses with a RuntimeError (Butter of an
+    order too high to design raises one) refuses the file with SaveError."""
+    class Refusing(screamer.RollingMean):
+        def __init__(self, *args, **kwargs):
+            raise RuntimeError("Denominator coefficients are complex.")
+    text = _rolling_mean_20().dumps()
+    monkeypatch.setattr(screamer, "RollingMean", Refusing)
+    with pytest.raises(screamer.SaveError, match=re.escape("RollingMean.settings: Denominator")):
+        screamer.loads(text)
+
+
 def test_json_file_that_is_not_utf8_refused():
     data = _rolling_mean_20().dumps().encode("utf-8").replace(b'"RollingMean"', b'"Rolling\xf3Mean"')
     with pytest.raises(screamer.SaveError, match="save JSON: invalid UTF-8 at byte"):

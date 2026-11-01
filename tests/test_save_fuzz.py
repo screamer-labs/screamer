@@ -12,9 +12,11 @@ A load of the edited file must do one of two things:
   object built from them with ``from_settings`` and ``set_state`` writes the
   same file and continues with the same outputs.
 
-A failed ``set_state`` must leave the operator unchanged. The tests use
-Hypothesis when it is installed and a seeded loop otherwise. A crash or a
-hang (the watchdog stops the run after a minute) fails the run.
+A failed ``set_state`` must leave the operator unchanged. A crash or a hang
+(the watchdog stops the run after a minute) fails the run. The edits come
+from a seeded loop, which is the path CI runs; Hypothesis is not a
+dependency, and the Hypothesis branch at the end runs only where it is
+installed.
 """
 from __future__ import annotations
 
@@ -227,7 +229,8 @@ def _edited_file(case, rng):
 # ---- Checks ------------------------------------------------------------------
 
 def _same(a, b):
-    """Outputs equal bit for bit (NaN equal to NaN), or the same error."""
+    """Outputs equal bit for bit, with every NaN counted equal (so -0.0 and
+    0.0 differ), or the same error."""
     if isinstance(a, tuple) and a and isinstance(a[0], type):
         return a == b
     if isinstance(a, tuple):
@@ -238,9 +241,10 @@ def _same(a, b):
     if a.shape != b.shape:
         return False
     if a.dtype.kind == "f":
-        return bool(np.array_equal(a.view(np.uint64) if a.dtype == np.float64 else a,
-                                   b.view(np.uint64) if b.dtype == np.float64 else b)
-                    or np.array_equal(a, b, equal_nan=True))
+        a, b = a.astype(np.float64), b.astype(np.float64)
+        a[np.isnan(a)] = np.nan
+        b[np.isnan(b)] = np.nan
+        return bool(np.array_equal(a.view(np.uint64), b.view(np.uint64)))
     return bool(np.array_equal(a, b))
 
 
