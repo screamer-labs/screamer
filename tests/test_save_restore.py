@@ -197,6 +197,12 @@ def test_bad_files_named_errors(bad, where):
         screamer.loads(text)
 
 
+def test_json_file_that_is_not_utf8_refused():
+    data = _rolling_mean_20().dumps().encode("utf-8").replace(b'"RollingMean"', b'"Rolling\xf3Mean"')
+    with pytest.raises(screamer.SaveError, match="save JSON: invalid UTF-8 at byte"):
+        screamer.loads(data)
+
+
 @pytest.mark.parametrize("bad, where", STATE_EDITS, ids=_ids(STATE_EDITS))
 def test_failed_set_state_leaves_object_unchanged(bad, where):
     a = _rolling_mean_20()

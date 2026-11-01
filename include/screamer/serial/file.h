@@ -70,6 +70,11 @@ inline json::Value parse_file(const std::uint8_t* data, std::size_t size) {
     std::size_t k = 0;
     while (k < size && (data[k] == ' ' || data[k] == '\t' || data[k] == '\n' || data[k] == '\r')) ++k;
     if (k < size && data[k] == '{') {
+        // The JSON parser passes the bytes of a string through as they are,
+        // so a file that is not UTF-8 is refused here, as CBOR text is.
+        const std::size_t bad = cbor::first_invalid_utf8(data, size);
+        if (bad != size)
+            throw SaveError("save JSON: invalid UTF-8 at byte " + std::to_string(bad));
         try {
             return json::parse(std::string(reinterpret_cast<const char*>(data), size), "save JSON");
         } catch (const std::invalid_argument& e) {

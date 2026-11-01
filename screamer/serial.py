@@ -175,7 +175,7 @@ def _build(type_name, settings, path):
         kwargs[name] = value
     try:
         return cls(**kwargs)
-    except (TypeError, ValueError) as e:
+    except (TypeError, ValueError, RuntimeError) as e:
         raise SaveError(f"{label}.settings: {e}") from None
 
 

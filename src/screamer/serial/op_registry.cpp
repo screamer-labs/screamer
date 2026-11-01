@@ -2981,6 +2981,8 @@ std::unique_ptr<EvalOp> make_op(const std::string& type, const json::Value& sett
         throw;
     } catch (const std::invalid_argument& err) {
         throw SaveError(label + ".settings: " + err.what());
+    } catch (const std::runtime_error& err) {   // a setting the design refuses
+        throw SaveError(label + ".settings: " + err.what());
     }
 }
 
