@@ -7,6 +7,7 @@
 #include <cmath>
 #include <limits>
 #include "screamer/common/float_info.h"
+#include "screamer/detail/ew_args.h"
 #include "screamer/detail/running_moments_op.h"
 
 /*
@@ -43,11 +44,18 @@ namespace screamer {
 
     class EwVar : public detail::RunningMomentsOp<EwVar, 2, true> {
     public:
+        static constexpr const char* kTypeName = "EwVar";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) { args_.settings(ar); }
+
         explicit EwVar(
             std::optional<double> com = std::nullopt,
             std::optional<double> span = std::nullopt,
             std::optional<double> halflife = std::nullopt,
             std::optional<double> alpha = std::nullopt)
+            : args_{com, span, halflife, alpha}
         {
             // Count the number of provided arguments
             int provided_args = (com.has_value() ? 1 : 0) +
@@ -101,6 +109,7 @@ namespace screamer {
         }
 
     private:
+        detail::EwArgs args_;   // as given
         double alpha_;
         
     };

@@ -7,8 +7,16 @@
 #include <cstddef>
 namespace screamer {
 
-    class Ffill : public ScreamerBase {
+    class Ffill : public serial::Saveable<Ffill, ScreamerBase> {
     public:
+        static constexpr const char* kTypeName = "Ffill";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar&) {}
+
+        template <class Ar>
+        void state(Ar& ar) { ar("last_valid", lastValidValue); }
 
         Ffill() : lastValidValue(std::numeric_limits<double>::quiet_NaN()) {}
 

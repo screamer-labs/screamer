@@ -22,6 +22,19 @@ namespace screamer {
 
 class EwAlpha : public FunctorBase<EwAlpha, 2, 1> {
 public:
+    static constexpr const char* kTypeName = "EwAlpha";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) { beta_.settings(ar); }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("beta", beta_);
+        ar.object("mean_x", mean_x_);
+        ar.object("mean_y", mean_y_);
+    }
+
     // The column loop runs on a local copy, its state in registers.
     static constexpr bool kColumnCopy = true;
 

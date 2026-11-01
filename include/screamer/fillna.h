@@ -9,8 +9,16 @@
 #include <cstddef>
 namespace screamer {
 
-    class FillNa : public ScreamerBase {
+    class FillNa : public serial::Saveable<FillNa, ScreamerBase> {
     public:
+        static constexpr const char* kTypeName = "FillNa";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) { ar("fill", fill_); }
+
+        template <class Ar>
+        void state(Ar&) {}
 
         FillNa(double fill) : fill_(fill) {}
 

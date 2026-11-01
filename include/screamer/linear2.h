@@ -18,6 +18,19 @@ namespace screamer {
 
 class Linear2 : public FunctorBase<Linear2, 2, 1> {
 public:
+    static constexpr const char* kTypeName = "Linear2";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) {
+        ar("a", a_);
+        ar("b", b_);
+        ar("c", c_);
+    }
+
+    template <class Ar>
+    void state(Ar&) {}
+
     Linear2(double a, double b, double c = 0.0) : a_(a), b_(b), c_(c) {
         require_finite("a", a, kTakesPosInf | kTakesNegInf);
         require_finite("b", b, kTakesPosInf | kTakesNegInf);

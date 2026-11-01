@@ -8,8 +8,20 @@
 #include <cstddef>
 namespace screamer {
 
-    class Clip : public ScreamerBase {
+    class Clip : public serial::Saveable<Clip, ScreamerBase> {
     public:
+        static constexpr const char* kTypeName = "Clip";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) {
+            ar("lower", lower_);
+            ar("upper", upper_);
+        }
+
+        template <class Ar>
+        void state(Ar&) {}
+
         Clip(std::optional<double> lower = std::nullopt, std::optional<double> upper = std::nullopt)
             : lower_(lower), upper_(upper) {
             // NaN is no bound, as None is, and so is -inf below or inf above.

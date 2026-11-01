@@ -10,21 +10,57 @@ namespace screamer {
 // Sub()(combine_latest(a, b))).
 class Add : public FunctorBase<Add, 2, 1> {
 public:
+    static constexpr const char* kTypeName = "Add";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar&) {}
+
     ResultTuple call(const InputArray& in) override { return in[0] + in[1]; }
 };
 
 class Sub : public FunctorBase<Sub, 2, 1> {
 public:
+    static constexpr const char* kTypeName = "Sub";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar&) {}
+
     ResultTuple call(const InputArray& in) override { return in[0] - in[1]; }
 };
 
 class Mul : public FunctorBase<Mul, 2, 1> {
 public:
+    static constexpr const char* kTypeName = "Mul";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar&) {}
+
     ResultTuple call(const InputArray& in) override { return in[0] * in[1]; }
 };
 
 class Div : public FunctorBase<Div, 2, 1> {
 public:
+    static constexpr const char* kTypeName = "Div";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar&) {}
+
     ResultTuple call(const InputArray& in) override { return in[0] / in[1]; }
 };
 

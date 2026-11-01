@@ -8,17 +8,31 @@
 #include <limits>
 #include "screamer/common/base.h"
 #include "screamer/common/float_info.h"
+#include "screamer/detail/ew_args.h"
 
 
 namespace screamer {
 
-    class EwRms : public ScreamerBase {
+    class EwRms : public serial::Saveable<EwRms, ScreamerBase> {
     public:
+        static constexpr const char* kTypeName = "EwRms";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) { args_.settings(ar); }
+
+        template <class Ar>
+        void state(Ar& ar) {
+            ar("sum_xx", sum_xx_);
+            ar("sum_w", sum_w_);
+        }
+
         explicit EwRms(
             std::optional<double> com = std::nullopt,
             std::optional<double> span = std::nullopt,
             std::optional<double> halflife = std::nullopt,
             std::optional<double> alpha = std::nullopt)
+            : args_{com, span, halflife, alpha}
         {
             // Count the number of provided arguments
             int provided_args = (com.has_value() ? 1 : 0) +
@@ -74,6 +88,7 @@ namespace screamer {
         // policy. See note in ew_mean.h.
 
     private:
+        detail::EwArgs args_;   // as given
         double alpha_;
         
         double one_minus_alpha_;

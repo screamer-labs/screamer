@@ -7,8 +7,17 @@
 #include <cstddef>
 namespace screamer {
 
-    class Power : public ScreamerBase {
+    class Power : public serial::Saveable<Power, ScreamerBase> {
     public:
+        static constexpr const char* kTypeName = "Power";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) { ar("p", p_); }
+
+        template <class Ar>
+        void state(Ar&) {}
+
         Power(double p) : p_(p) { require_finite("p", p, kTakesPosInf | kTakesNegInf); }
 
         double process_scalar(double newValue) override {

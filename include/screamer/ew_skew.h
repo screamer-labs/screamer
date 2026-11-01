@@ -6,17 +6,25 @@
 #include <cmath>
 #include <limits>
 #include "screamer/common/float_info.h"
+#include "screamer/detail/ew_args.h"
 #include "screamer/detail/running_moments_op.h"
 
 namespace screamer {
 
     class EwSkew : public detail::RunningMomentsOp<EwSkew, 3, true, false, true> {
     public:
+        static constexpr const char* kTypeName = "EwSkew";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) { args_.settings(ar); }
+
         explicit EwSkew(
             std::optional<double> com = std::nullopt,
             std::optional<double> span = std::nullopt,
             std::optional<double> halflife = std::nullopt,
             std::optional<double> alpha = std::nullopt)
+            : args_{com, span, halflife, alpha}
         {
             // Same setup for alpha as in EwStd
             int provided_args = (com.has_value() ? 1 : 0) +
@@ -94,6 +102,7 @@ namespace screamer {
         }
 
     private:
+        detail::EwArgs args_;   // as given
         double alpha_;
         double peak_decay_ = 1.0;
         

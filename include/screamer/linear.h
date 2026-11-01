@@ -6,8 +6,20 @@
 #include <cstddef>
 namespace screamer {
 
-    class Linear : public ScreamerBase {
+    class Linear : public serial::Saveable<Linear, ScreamerBase> {
     public:
+        static constexpr const char* kTypeName = "Linear";
+        static constexpr int kStateVersion = 1;
+
+        template <class Ar>
+        void settings(Ar& ar) {
+            ar("scale", scale_);
+            ar("shift", shift_);
+        }
+
+        template <class Ar>
+        void state(Ar&) {}
+
         Linear(double scale, double shift) : scale_(scale), shift_(shift) {
             require_finite("scale", scale, kTakesPosInf | kTakesNegInf);
             require_finite("shift", shift, kTakesPosInf | kTakesNegInf);

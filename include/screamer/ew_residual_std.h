@@ -20,6 +20,18 @@ namespace screamer {
 
 class EwResidualStd : public FunctorBase<EwResidualStd, 2, 1> {
 public:
+    static constexpr const char* kTypeName = "EwResidualStd";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) { spread_.settings(ar); }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("spread", spread_);
+        ar.object("std", std_);
+    }
+
     // The column loop runs on a local copy, its state in registers.
     static constexpr bool kColumnCopy = true;
 

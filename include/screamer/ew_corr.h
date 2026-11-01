@@ -14,6 +14,7 @@
 #include <cmath>
 #include <limits>
 #include <optional>
+#include "screamer/detail/ew_args.h"
 #include <stdexcept>
 #include "screamer/common/functor_base.h"
 #include "screamer/common/float_info.h"
@@ -23,6 +24,19 @@ namespace screamer {
 
 class EwCorr : public FunctorBase<EwCorr, 2, 1> {
 public:
+    static constexpr const char* kTypeName = "EwCorr";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) { args_.settings(ar); }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("sums", sums_);
+        ar("sum_w2", sum_w2_);
+        ar.check(sum_w2_ >= 0.0, "sum_w2 must not be negative");
+    }
+
     // The column loop runs on a local copy, its state in registers.
     static constexpr bool kColumnCopy = true;
 
@@ -31,6 +45,7 @@ public:
         std::optional<double> span = std::nullopt,
         std::optional<double> halflife = std::nullopt,
         std::optional<double> alpha = std::nullopt)
+        : args_{com, span, halflife, alpha}
     {
         const int provided = (com.has_value() ? 1 : 0)
                            + (span.has_value() ? 1 : 0)
@@ -124,6 +139,7 @@ private:
         return cov_xy / denom;
     }
 
+    detail::EwArgs args_;   // as given
     double alpha_{};
     double one_minus_alpha_{};
     double one_minus_alpha2_{};

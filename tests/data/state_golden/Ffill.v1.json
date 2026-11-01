@@ -1,0 +1,14 @@
+{
+  "screamer": "save/1",
+  "library_version": "3.10.1",
+  "object": {
+    "type": "Ffill",
+    "settings": {},
+    "state": {
+      "version": 1,
+      "values": {
+        "last_valid": 1006.814869702575
+      }
+    }
+  }
+}

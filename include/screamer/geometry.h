@@ -21,6 +21,15 @@ namespace screamer {
 
 class Hypot : public FunctorBase<Hypot, 2, 1> {
 public:
+    static constexpr const char* kTypeName = "Hypot";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar&) {}
+
     ResultTuple call(const InputArray& inputs) override {
         return std::hypot(inputs[0], inputs[1]);
     }
@@ -28,6 +37,15 @@ public:
 
 class Atan2 : public FunctorBase<Atan2, 2, 1> {
 public:
+    static constexpr const char* kTypeName = "Atan2";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar&) {}
+
     ResultTuple call(const InputArray& inputs) override {
         // numpy.arctan2(y, x): first arg is y, second is x.
         return std::atan2(inputs[0], inputs[1]);
@@ -36,6 +54,15 @@ public:
 
 class Cart2Polar : public FunctorBase<Cart2Polar, 2, 2> {
 public:
+    static constexpr const char* kTypeName = "Cart2Polar";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar&) {}
+
     ResultTuple call(const InputArray& inputs) override {
         const double x = inputs[0];
         const double y = inputs[1];
@@ -45,6 +72,15 @@ public:
 
 class Polar2Cart : public FunctorBase<Polar2Cart, 2, 2> {
 public:
+    static constexpr const char* kTypeName = "Polar2Cart";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar&) {}
+
     ResultTuple call(const InputArray& inputs) override {
         const double r = inputs[0];
         const double theta = inputs[1];

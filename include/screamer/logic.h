@@ -14,6 +14,15 @@ namespace screamer {
 
 class GreaterThan : public FunctorBase<GreaterThan, 2, 1> {
 public:
+    static constexpr const char* kTypeName = "GreaterThan";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar&) {}
+
     ResultTuple call(const InputArray& in) override {
         if (std::isnan(in[0]) || std::isnan(in[1])) return std::numeric_limits<double>::quiet_NaN();
         return in[0] > in[1] ? 1.0 : 0.0;
@@ -22,6 +31,15 @@ public:
 
 class LessThan : public FunctorBase<LessThan, 2, 1> {
 public:
+    static constexpr const char* kTypeName = "LessThan";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar&) {}
+
     ResultTuple call(const InputArray& in) override {
         if (std::isnan(in[0]) || std::isnan(in[1])) return std::numeric_limits<double>::quiet_NaN();
         return in[0] < in[1] ? 1.0 : 0.0;
@@ -30,6 +48,15 @@ public:
 
 class GreaterEqual : public FunctorBase<GreaterEqual, 2, 1> {
 public:
+    static constexpr const char* kTypeName = "GreaterEqual";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar&) {}
+
     ResultTuple call(const InputArray& in) override {
         if (std::isnan(in[0]) || std::isnan(in[1])) return std::numeric_limits<double>::quiet_NaN();
         return in[0] >= in[1] ? 1.0 : 0.0;
@@ -38,6 +65,15 @@ public:
 
 class LessEqual : public FunctorBase<LessEqual, 2, 1> {
 public:
+    static constexpr const char* kTypeName = "LessEqual";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar&) {}
+
     ResultTuple call(const InputArray& in) override {
         if (std::isnan(in[0]) || std::isnan(in[1])) return std::numeric_limits<double>::quiet_NaN();
         return in[0] <= in[1] ? 1.0 : 0.0;
@@ -46,6 +82,15 @@ public:
 
 class Equal : public FunctorBase<Equal, 2, 1> {
 public:
+    static constexpr const char* kTypeName = "Equal";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar&) {}
+
     ResultTuple call(const InputArray& in) override {
         if (std::isnan(in[0]) || std::isnan(in[1])) return std::numeric_limits<double>::quiet_NaN();
         return in[0] == in[1] ? 1.0 : 0.0;
@@ -54,6 +99,15 @@ public:
 
 class NotEqual : public FunctorBase<NotEqual, 2, 1> {
 public:
+    static constexpr const char* kTypeName = "NotEqual";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar&) {}
+
     ResultTuple call(const InputArray& in) override {
         if (std::isnan(in[0]) || std::isnan(in[1])) return std::numeric_limits<double>::quiet_NaN();
         return in[0] != in[1] ? 1.0 : 0.0;
@@ -67,6 +121,15 @@ public:
 
 class And : public FunctorBase<And, 2, 1> {
 public:
+    static constexpr const char* kTypeName = "And";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar&) {}
+
     ResultTuple call(const InputArray& in) override {
         if (std::isnan(in[0]) || std::isnan(in[1])) return std::numeric_limits<double>::quiet_NaN();
         return (in[0] != 0.0 && in[1] != 0.0) ? 1.0 : 0.0;
@@ -75,6 +138,15 @@ public:
 
 class Or : public FunctorBase<Or, 2, 1> {
 public:
+    static constexpr const char* kTypeName = "Or";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar&) {}
+
     ResultTuple call(const InputArray& in) override {
         if (std::isnan(in[0]) || std::isnan(in[1])) return std::numeric_limits<double>::quiet_NaN();
         return (in[0] != 0.0 || in[1] != 0.0) ? 1.0 : 0.0;
@@ -89,6 +161,15 @@ public:
 
 class Where : public FunctorBase<Where, 3, 1> {
 public:
+    static constexpr const char* kTypeName = "Where";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar&) {}
+
     ResultTuple call(const InputArray& in) override {
         if (std::isnan(in[0])) return std::numeric_limits<double>::quiet_NaN();
         return in[0] != 0.0 ? in[1] : in[2];
@@ -102,6 +183,15 @@ public:
 // Not: nonzero -> 0.0, zero -> 1.0.  NaN propagates.
 class Not : public FunctorBase<Not, 1, 1> {
 public:
+    static constexpr const char* kTypeName = "Not";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar&) {}
+
     ResultTuple call(const InputArray& in) override {
         if (std::isnan(in[0])) return std::numeric_limits<double>::quiet_NaN();
         return in[0] != 0.0 ? 0.0 : 1.0;
@@ -112,6 +202,15 @@ public:
 // NaN -> 1.0, finite or inf -> 0.0.
 class IsNan : public FunctorBase<IsNan, 1, 1> {
 public:
+    static constexpr const char* kTypeName = "IsNan";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar&) {}
+
     ResultTuple call(const InputArray& in) override {
         return std::isnan(in[0]) ? 1.0 : 0.0;
     }
@@ -121,6 +220,15 @@ public:
 // finite -> 1.0, NaN or inf -> 0.0.
 class IsFinite : public FunctorBase<IsFinite, 1, 1> {
 public:
+    static constexpr const char* kTypeName = "IsFinite";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar&) {}
+
+    template <class Ar>
+    void state(Ar&) {}
+
     ResultTuple call(const InputArray& in) override {
         return std::isfinite(in[0]) ? 1.0 : 0.0;
     }

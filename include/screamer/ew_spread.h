@@ -21,6 +21,17 @@ namespace screamer {
 
 class EwSpread : public FunctorBase<EwSpread, 2, 1> {
 public:
+    static constexpr const char* kTypeName = "EwSpread";
+    static constexpr int kStateVersion = 1;
+
+    template <class Ar>
+    void settings(Ar& ar) { beta_.settings(ar); }
+
+    template <class Ar>
+    void state(Ar& ar) {
+        ar.object("beta", beta_);
+    }
+
     // The column loop runs on a local copy, its state in registers.
     static constexpr bool kColumnCopy = true;
 
