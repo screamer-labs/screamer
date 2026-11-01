@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented in this file.
 
+3.11.1 - 2026-11-01
+-------------------
+
+### Fixed
+
+* The save-file golden tests compare a build's numbers to the committed
+  goldens to a tolerance instead of byte for byte. Linux builds compute
+  some values a few ulps apart from the macOS build that wrote the goldens,
+  which failed the Linux wheel tests and stopped the 3.11.0 upload to PyPI.
+  3.11.0 is on npm only; 3.11.1 has the same library code and is on both.
+
 3.11.0 - 2026-11-01
 -------------------
 

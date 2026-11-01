@@ -1040,6 +1040,11 @@ def _with_library_version(text):
                   f'"library_version": "{screamer.__version__}"', text, count=1)
 
 
+# Operators whose outputs round apart by more between builds (JavaScript, Linux, macOS) (the TOL
+# table of js/test/save_restore.test.ts says why).
+_JS_TOL = {"BayesianRegression": 1e-8}
+
+
 @pytest.mark.parametrize("stem", _golden_cases())
 def test_golden(stem):
     name, version = re.fullmatch(r"(\w+)\.v(\d+)", stem).groups()
@@ -1052,15 +1057,22 @@ def test_golden(stem):
         with pytest.raises(screamer.StateVersionError):
             screamer.loads(text)
         return
+    # The goldens were written on one build; another build (D4: GCC does not
+    # fuse multiply-adds, clang does) may compute a value a few ulps apart,
+    # so this build's state matches the golden in layout exactly and in its
+    # numbers to a tolerance. Loading and writing back is exact everywhere.
+    tol = _JS_TOL.get(name, 1e-9)
     a = screamer.from_settings(json.loads(text)["object"])
     feed(a, prefix, 0, len(prefix[0]))
-    assert a.dumps() == text, (
-        f"{name}: the state layout differs from the golden of state version {version}; "
-        "bump kStateVersion and add a golden with devtools/gen_state_golden.py")
+    diff = _oracle_same(_file_tree(a.dumps()), _file_tree(text), tol=tol)
+    assert diff is None, (
+        f"{name}: the state layout differs from the golden of state version {version} "
+        f"({diff}); bump kStateVersion and add a golden with devtools/gen_state_golden.py")
     b = screamer.loads(text)
     assert b.dumps() == text
     want = np.asarray(scenario["rest_output"], dtype=np.float64)
-    assert_bitwise(feed(b, rest, 0, len(rest[0])).reshape(want.shape), want)
+    np.testing.assert_allclose(feed(b, rest, 0, len(rest[0])).reshape(want.shape), want,
+                               rtol=tol, atol=tol, equal_nan=True)
 
 
 def test_goldens_cover_saveable():
@@ -1180,7 +1192,13 @@ def test_js_oracle_fresh():
             c["cbor_hex"] = _file_tree(_b._serial_cbor_decode(bytes.fromhex(c["cbor_hex"])))
         return doc
 
-    diff = _oracle_same(comparable(now), comparable(committed))
+    now, committed = comparable(now), comparable(committed)
+    diff = _oracle_same({k: v for k, v in now.items() if k != "cases"},
+                        {k: v for k, v in committed.items() if k != "cases"})
+    if diff is None and len(now["cases"]) != len(committed["cases"]):
+        diff = f"{len(now['cases'])} cases != {len(committed['cases'])}"
+    for i, (x, y) in enumerate(zip(now["cases"], committed["cases"])):
+        diff = diff or _oracle_same(x, y, f"$.cases[{i}]", tol=_JS_TOL.get(x.get("name"), 1e-9))
     assert diff is None, (f"wasm/smoke/save_oracle.json is stale ({diff}): run python "
                           "devtools/wasm/gen_save_oracle.py and commit the result")
     assert [c["name"] for c in now["cases"]] == FUNCTOR_NAMES
@@ -1232,11 +1250,6 @@ def _check_js_file(c):
     assert a.dumps() == want_text and b.dumps() == want_text
     assert a.dumps(format="cbor") == want_blob and b.dumps(format="cbor") == want_blob
     return a
-
-
-# Operators whose JavaScript and Python outputs round apart by more (the TOL
-# table of js/test/save_restore.test.ts says why).
-_JS_TOL = {"BayesianRegression": 1e-8}
 
 
 def test_js_files_load_byte_for_byte():
