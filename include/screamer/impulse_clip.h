@@ -58,8 +58,11 @@ public:
         ar.object("jumps", diff_window_);
         ar("prev", prev_);
         ar("have_prev", have_prev_);
-        ar.check(start_policy_ != detail::StartPolicy::Zero || diff_window_.full(),
-                 "the window must be full under the zero start policy");
+        ar.check(start_policy_ != detail::StartPolicy::Zero ||
+                     (value_window_.full() && diff_window_.full() && have_prev_),
+                 "the windows must be full and have_prev true under the zero start policy");
+        ar.check(have_prev_ || value_window_.count() == 0,
+                 "have_prev must be true once values holds a sample");
     }
 
     static int parse_output(const std::string& s) {

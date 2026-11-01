@@ -71,7 +71,8 @@ public:
     void state(Ar& ar) {
         // The window oldest first (count values; a load places it from slot 0),
         // the refit clock, the filtered state probabilities and the fitted
-        // parameters. The other buffers are scratch space of a fit.
+        // parameters (log(var) is rebuilt on load). The other buffers are
+        // scratch space of a fit.
         std::vector<double> window;
         if constexpr (Ar::kSaving) {
             const std::size_t start = count_ == W_ ? head_ : 0;
@@ -83,7 +84,7 @@ public:
         ar("prev", prev_);
         Params th = th_;
         std::vector<double> p(p_, p_ + 2), pi(th.pi, th.pi + 2), mu(th.mu, th.mu + 2),
-            phi(th.phi, th.phi + 2), var(th.var, th.var + 2), logv(th.logv, th.logv + 2),
+            phi(th.phi, th.phi + 2), var(th.var, th.var + 2),
             a{th.A[0][0], th.A[0][1], th.A[1][0], th.A[1][1]};
         ar.local("p", p, 2);
         ar.local("pi", pi, 2);
@@ -91,7 +92,6 @@ public:
         ar.local("mu", mu, 2);
         ar.local("phi", phi, 2);
         ar.local("var", var, 2);
-        ar.local("logv", logv, 2);
         if constexpr (Ar::kLoading) {
             const std::size_t n = window.size();
             ar.check(n <= W_, "window must hold at most window_size values");
@@ -102,12 +102,12 @@ public:
                 th.mu[k] = mu[k];
                 th.phi[k] = phi[k];
                 th.var[k] = var[k];
-                th.logv[k] = logv[k];
             }
             th.A[0][0] = a[0];
             th.A[0][1] = a[1];
             th.A[1][0] = a[2];
             th.A[1][1] = a[3];
+            th.set_logv();
             std::vector<double> buf(W_, 0.0);
             std::copy(window.begin(), window.end(), buf.begin());
             ar.set(buf_, std::move(buf));

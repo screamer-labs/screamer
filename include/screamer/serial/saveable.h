@@ -102,7 +102,7 @@ public:
 
     void write_settings(json::Value& out) const override {
         if constexpr (detail::describes_state<Derived>::value) {
-            Writer w(Derived::kTypeName, Writer::Mode::Settings);
+            Writer w(this->type_name(), Writer::Mode::Settings);
             const_cast<Derived&>(derived()).settings(w);
             out = w.take();
         } else {
@@ -173,7 +173,7 @@ public:
 
 private:
     static json::Value values_of(const Derived& op) {
-        Writer w(Derived::kTypeName);
+        Writer w(op.type_name());
         const_cast<Derived&>(op).state(w);
         return w.take();
     }

@@ -280,6 +280,12 @@ def _fed(op, values):
      lambda v: v["window"].__setitem__(1, 7.0), "RollingIqr: tree must hold the values"),
     (lambda: _fed(screamer.Hampel(4), (1.0, 2.0)),
      lambda v: v["window"].update(last=4), "Hampel.window: last must lie in"),
+    (lambda: _fed(screamer.ImpulseClip(4, start_policy="zero"), (1.0, 2.0)),
+     lambda v: v.update(have_prev=False), "ImpulseClip: the windows must be full and have_prev"),
+    (lambda: _fed(screamer.ImpulseClip(4, start_policy="zero"), (1.0, 2.0)),
+     lambda v: v["values"].update(count=1, index=1), "ImpulseClip: the windows must be full"),
+    (lambda: _fed(screamer.ImpulseClip(4), (1.0, 2.0)),
+     lambda v: v.update(have_prev=False), "ImpulseClip: have_prev must be true once values"),
     (lambda: _fed(screamer.RollingPermutationEntropy(10, 3), np.arange(6.0)),
      lambda v: v["counts"].__setitem__(0, 9), "counts must count the codes"),
     (lambda: _fed(screamer.RollingBipowerVar(4), (1.0, -2.0, 3.0)),
@@ -314,6 +320,10 @@ def test_renamed_alias_saves_its_own_type():
     p = screamer.ExpandingMax()
     p.resume(np.array([[1.0, 5.0], [3.0, 2.0]]))
     assert type(screamer.loads(p.dumps())).__name__ == "ExpandingMax"
+    state = a.state()
+    state["values"]["sum"] = "x"
+    with pytest.raises(screamer.SaveError, match="ExpandingSum.sum"):
+        a.set_state(state)
 
 
 def test_rolling_quantile_fresh_value_by_value_equals_batch():
@@ -371,6 +381,8 @@ def test_not_saveable_message():
         with pytest.raises(screamer.NotSaveable, match="Segment.op"):
             seg.dumps()
         break
+    else:
+        pytest.skip("no unsaveable operator fits Segment")
 
 
 # ---- Nested operators --------------------------------------------------------
