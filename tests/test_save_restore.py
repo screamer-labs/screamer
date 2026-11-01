@@ -514,6 +514,29 @@ def _js_fixture():
     return json.loads((ROOT / "wasm" / "smoke" / "save_js.json").read_text(encoding="utf-8"))
 
 
+_VERSION_KEY = b"\x6flibrary_version"   # CBOR: a text string of 15 bytes
+
+
+def _cbor_with_library_version(blob, version):
+    """``blob`` (a CBOR save file) with its library_version set to ``version``."""
+    at = blob.index(_VERSION_KEY) + len(_VERSION_KEY)
+    n = blob[at] - 0x60                      # a text string shorter than 24 bytes
+    assert 0 <= n < 24 and len(version) < 24
+    return blob[:at] + bytes([0x60 + len(version)]) + version.encode() + blob[at + 1 + n:]
+
+
+def _check_js_file(c):
+    """One file JavaScript wrote: Python loads it and writes the same bytes,
+    in JSON and CBOR, but for the library version, which is this library's."""
+    text, blob = c["json_text"], bytes.fromhex(c["cbor_hex"])
+    want_text = _with_library_version(text)
+    want_blob = _cbor_with_library_version(blob, screamer.__version__)
+    a, b = screamer.loads(text), screamer.loads(blob)
+    assert a.dumps() == want_text and b.dumps() == want_text
+    assert a.dumps(format="cbor") == want_blob and b.dumps(format="cbor") == want_blob
+    return a
+
+
 def test_js_files_load_byte_for_byte():
     """The files JavaScript wrote (js/scripts/gen_save_js.ts) load in Python
     and write back the same bytes, in JSON and CBOR, and continue as
@@ -522,16 +545,24 @@ def test_js_files_load_byte_for_byte():
     assert [c["name"] for c in fixture] == SAVEABLE, (
         "wasm/smoke/save_js.json is stale: run node --import tsx js/scripts/gen_save_js.ts")
     for c in fixture:
-        text, blob = c["json_text"], bytes.fromhex(c["cbor_hex"])
-        a, b = screamer.loads(text), screamer.loads(blob)
-        assert a.dumps() == text and b.dumps() == text
-        assert a.dumps(format="cbor") == blob and b.dumps(format="cbor") == blob
+        a = _check_js_file(c)
         make, inputs = case(c["name"])
         k = splits(c["name"], kwargs_for(c["name"]))[2]
         ref = make()
         feed(ref, inputs, 0, k)
         np.testing.assert_allclose(feed(a, inputs, k, k + REST), feed(ref, inputs, k, k + REST),
                                    rtol=1e-9, atol=1e-9, equal_nan=True)
+
+
+def test_js_files_of_another_library_version():
+    """A fixture written by another library version still compares byte for
+    byte (the version is the one field that differs)."""
+    for c in _js_fixture():
+        old = {"json_text": re.sub(r'"library_version": "[^"]*"', '"library_version": "0.0.1"',
+                                   c["json_text"], count=1),
+               "cbor_hex": _cbor_with_library_version(bytes.fromhex(c["cbor_hex"]), "0.0.1").hex()}
+        assert '"0.0.1"' in old["json_text"] and b"0.0.1" in bytes.fromhex(old["cbor_hex"])
+        _check_js_file(old)
 
 
 # ---- Calls with one event on an object holding per-column state ---------------

@@ -133,9 +133,9 @@ def _build(type_name, settings, path):
 
 
 def _renamed(type_name, settings, label):
-    """``settings`` with the renamed parameters of the C++ table
-    (include/screamer/serial/settings_compat.h) under their new names, in
-    place; a file that gives both names is refused."""
+    """A copy of ``settings`` with the renamed parameters of the C++ table
+    (include/screamer/serial/settings_compat.h) under their new names, each
+    at its old position; a file that gives both names is refused."""
     for old, new in _b._serial_renames(type_name):
         if old not in settings:
             continue

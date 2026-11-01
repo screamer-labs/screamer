@@ -119,8 +119,9 @@ for (const c of ORACLE.cases) {
     for (const data of [c.json_text, bytes(c.cbor_hex)]) {
       const op = S.loads(data);
       assert.equal(op.opName, c.name);
-      assert.equal(op.dumps(), c.json_text);
-      assert.equal(hex(op.dumps("cbor")), c.cbor_hex);
+      // Byte for byte but for the library version, which is this build's.
+      assert.equal(noVersion(op.dumps()), noVersion(c.json_text));
+      assert.equal(noVersionHex(hex(op.dumps("cbor"))), noVersionHex(c.cbor_hex));
       assertClose(feed(op, c.rest), want, `${c.name} rest`);
       op.dispose();
     }
@@ -344,7 +345,7 @@ const panelOf = (n: number, T: number, shift: number) =>
 async function* agen(v: number) { yield v; }
 
 test("save: one-event calls and streams raise on an object holding per-column state", () => {
-  let checked = 0;
+  const checked = new Set<string>();
   for (const r of ORACLE.registry) {
     if (r.name === "PortfolioReport") continue;
     const op = S.fromSettings({ type: r.name, settings: decode(r.settings) });
@@ -352,7 +353,7 @@ test("save: one-event calls and streams raise on an object holding per-column st
       if ((op as any).rowOp) continue;
       const n = op.numInputs;
       try { op.resume(...panelOf(n, 30, 0)); } catch { continue; }   // keeps no per-column state
-      checked++;
+      checked.add(r.name);
       const ev = Array.from({ length: n }, (_, i) => 100 + i);
       const panelError = /per-column state for 2 columns/;
       assert.throws(() => op(...ev), panelError, `${r.name}: one event`);
@@ -367,7 +368,15 @@ test("save: one-event calls and streams raise on an object holding per-column st
       op.dispose();
     }
   }
-  assert.ok(checked >= ORACLE.cases.length, `only ${checked} operators keep per-column state`);
+  // Every saveable operator but a row op (one object for K assets) and
+  // PortfolioReport (tested below) keeps per-column state.
+  for (const c of ORACLE.cases) {
+    if (c.name === "PortfolioReport") continue;
+    const op: any = S.fromSettings({ type: c.name, settings: decode(c.settings) });
+    const row = !!op.rowOp;
+    op.dispose();
+    if (!row) assert.ok(checked.has(c.name), `${c.name} kept no per-column state`);
+  }
 });
 
 test("save: PortfolioReport raises on one event while it holds per-column state", () => owning((keep) => {
